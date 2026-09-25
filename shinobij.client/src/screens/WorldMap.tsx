@@ -76,7 +76,9 @@ import {
 } from "../lib/wanderer-fight";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { creatorEventPracticeOpponent } from "../lib/creator-event-practice";
-import { mintAiRaidToken } from "../lib/ai-raid-api";
+import { aiRaidLaunchFailureMessage, mintAiRaidToken } from "../lib/ai-raid-api";
+import { raidStartActionScope } from "../lib/action-deadline-store";
+import { useActionDeadline } from "../lib/use-action-deadline";
 import type { WorldAiFightContext, WorldAiFightKind, WorldAiFightRequest } from "../../../shared/world-ai-fight";
 import { wandererAvatar, wandererRobberPortrait, questBossPortrait, WANDERER_BOSS_PORTRAIT, WANDERER_NEMESIS_PORTRAIT } from "../lib/wanderer-art";
 import { makeBuiltinAi } from "../lib/combat-ai";
@@ -170,7 +172,8 @@ import { canonicalNarrativeEvent } from "../lib/canonical-narrative";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
-import { builtinHuntMissions } from "../data/missions";
+import { builtinFetchMissions, builtinHuntMissions, fieldMissionRaidNeeded, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
+import { takeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
 import { isRecentlyStruckDown } from "../lib/sleeper-kill";
@@ -432,6 +435,7 @@ function WorldMapContent({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
+    const [focusedFieldMissionId, setFocusedFieldMissionId] = useState<string | null>(null);
     const [fieldScene, setFieldScene] = useState<{ questId: string; pointId: string; review?: boolean } | null>(null);
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
@@ -453,6 +457,7 @@ function WorldMapContent({
     const [travelToast, setTravelToast] = useState<HuntToast | null>(null);
     const [huntEncounter, setHuntEncounter] = useState<HuntEncounterState | null>(null);
     const aiRaidLaunchInFlight = useRef(false);
+    const raidStartCooldownMs = useActionDeadline(raidStartActionScope(character.name));
     const pendingBountyHunterRef = useRef<{ hunterId: string; sector: number } | null>(null);
     const bountyHunterStartInFlightRef = useRef(false);
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
@@ -479,6 +484,26 @@ function WorldMapContent({
         .map((mission) => mission.id)
         .sort()
         .join("|");
+
+    useEffect(() => {
+        const intent = takeFieldMissionNavigationIntent(character.name);
+        if (!intent || !acceptedMissionIds.includes(intent.missionId)) return;
+        const mission = builtinFetchMissions.find((entry) => entry.id === intent.missionId);
+        if (!mission || mission.targetSector !== intent.targetSector
+            || nextFieldMissionObjective(mission, missionProgress[mission.id] ?? 0,
+                missionProgress[missionRaidProgressKey(mission.id)] ?? 0) !== intent.objective) return;
+        setSelectedSector(mission.targetSector);
+        setFocusedFieldMissionId(mission.id);
+    }, [character.name, acceptedMissionIds, missionProgress]);
+
+    const missionOutpost = selectedSector == null ? null : (focusedFieldMissionId
+        ? builtinFetchMissions.find((mission) => mission.id === focusedFieldMissionId
+            && acceptedMissionIds.includes(mission.id) && mission.targetSector === selectedSector
+            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))
+        : builtinFetchMissions.find((mission) => mission.targetSector === selectedSector
+            && acceptedMissionIds.includes(mission.id)
+            && missionRaidRequirement(mission) > 0
+            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))) ?? null;
 
     function adoptHuntProgressMirror(
         missionId: string,
@@ -1328,23 +1353,20 @@ function WorldMapContent({
      * Raid a published AI village guard / sector target through the same sealed
      * Solo-PvE host. Runtime World encounters use launchWorldMapFight above.
      */
-    async function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void) {
+    async function launchAiGuardRaid(aiId: string, level: number, sector: number, setup?: () => void, missionId?: string) {
         if (!capabilityAdmissionAllowed(mutationAvailability())) return;
-        if (aiRaidLaunchInFlight.current) return;
+        if (aiRaidLaunchInFlight.current || raidStartCooldownMs > 0) return;
         aiRaidLaunchInFlight.current = true;
         setup?.();
         try {
-            const raidProof = await mintAiRaidToken({ playerName: character.name, opponentId: aiId, sector });
-            if (!raidProof) {
-                alert("The village guard could not be verified. Try the raid again in a moment.");
+            const raidProof = await mintAiRaidToken({ playerName: character.name, opponentId: aiId, sector, ...(missionId ? { missionId } : {}) });
+            if (raidProof.ok === false) {
+                alert(aiRaidLaunchFailureMessage(raidProof));
                 return;
             }
             if (raidProof.sector !== sector) {
-                const sealedBiome = biomeForSector(raidProof.sector);
-                setSelectedSector(raidProof.sector);
-                setCurrentSector(raidProof.sector);
-                setCurrentBiome(sealedBiome);
-                setCurrentWeather(weatherForSector(raidProof.sector, sealedBiome));
+                alert(`The raid was sealed for Sector ${raidProof.sector}. Travel there and try again.`);
+                return;
             }
             if (!requestAiFight({
                 opponentId: raidProof.opponentId,
@@ -2831,6 +2853,26 @@ function WorldMapContent({
             }
         })();
     }
+
+    /** Run a location-sensitive action after the server has accepted travel and arrival is visible locally. */
+    function runWhenSectorConfirmed(sector: number, action: () => void) {
+        if (sameSector(currentSector, sector) && !isTraveling && travelingUntil <= Date.now()) {
+            action();
+            return;
+        }
+        beginSectorTravel(sector, (arrivalTile) => {
+            const biome = biomeForSector(sector);
+            setCurrentBiome(biome);
+            setCurrentWeather(weatherForSector(sector, biome));
+            setCurrentSector(sector);
+            setSelectedSector(sector);
+            setSectorPlayerPos(Number.isInteger(arrivalTile) ? arrivalTile! : SECTOR_CENTRE_TILE);
+            // Let the confirmed arrival state commit before the action reads the
+            // current sector or publishes a co-location-sensitive request.
+            window.setTimeout(action, 0);
+        });
+    }
+
     function triggerTravelPoint(sector: number) {
         if (sector === FESTIVAL_SECTOR) {
             setSelectedSector(null);
@@ -4386,6 +4428,11 @@ function WorldMapContent({
                         onExplore={handleExploreSelectedSector}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
+                        missionOutpost={missionOutpost ? { missionId: missionOutpost.id, missionName: missionOutpost.name } : null}
+                        missionRaidCooldownMs={raidStartCooldownMs}
+                        onStartMissionRaid={missionOutpost ? () => runWhenSectorConfirmed(selectedSector!, () => {
+                            void launchAiGuardRaid("", 0, missionOutpost.targetSector, undefined, missionOutpost.id);
+                        }) : undefined}
                     />
                         }
                         overlayLayer={
@@ -4650,6 +4697,7 @@ function WorldMapContent({
                                         <button
                                             key={`sector-raid-${raid.id}`}
                                             className="sector-encounter-marker sector-raid-marker"
+                                            disabled={raidStartCooldownMs > 0}
                                             style={{
                                                 gridColumn: `${col + 1} / span 1`,
                                                 gridRow: `${row + 1} / span 1`,
@@ -4666,7 +4714,7 @@ function WorldMapContent({
                                                 display: "grid",
                                                 gap: 1,
                                                 textAlign: "center",
-                                                cursor: "pointer",
+                                                cursor: raidStartCooldownMs > 0 ? "not-allowed" : "pointer",
                                                 boxShadow: "0 3px 0 rgba(2,6,23,.8), 0 0 16px rgba(220,38,38,.45)",
                                             }}
                                             onClick={() => {
@@ -4674,16 +4722,16 @@ function WorldMapContent({
                                                     alert(`Requires level ${raid.levelReq}.`);
                                                     return;
                                                 }
-                                                launchAiGuardRaid(raid.aiProfileId || "", raid.levelReq, raid.targetSector!, () => {
+                                                runWhenSectorConfirmed(raid.targetSector!, () => launchAiGuardRaid(raid.aiProfileId || "", raid.levelReq, raid.targetSector!, () => {
                                                     setCurrentSector(raid.targetSector!);
                                                     setCurrentBiome(raid.biome);
                                                     setCurrentWeather(weatherForBiome(raid.biome));
-                                                });
+                                                }));
                                             }}
                                             title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
                                         >
                                             <strong style={{ color: "var(--red-300)", fontSize: 16 }}>{raid.icon}</strong>
-                                            <span>{raid.name}</span>
+                                            <span>{raidStartCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(raidStartCooldownMs / 1000))}s` : raid.name}</span>
                                         </button>
                                     );
                                 })}
@@ -4743,8 +4791,8 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag">⚠️ Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button onClick={() => { void exploreSector(virtualSector); }}>Explore Territory</button>
-                        <button onClick={() => restInSector(virtualSector)}>Recover</button>
+                        <button onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>Explore Territory</button>
+                        <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         {/* Village Guard / Raid */}
                         <div className="territory-guard-section">
@@ -4758,8 +4806,9 @@ function WorldMapContent({
                                     ))}
                                     <button
                                         className="territory-raid-btn"
-                                        onClick={async () => {
+                                        onClick={() => {
                                             if (!requireServerSettlement("pvpSession")) return;
+                                            runWhenSectorConfirmed(virtualSector, () => { void (async () => {
                                             const guard = territoryGuards[0];
                                             const createScope = capturePvpCreateScope(character.name);
                                             setCurrentSector(virtualSector);
@@ -4845,6 +4894,7 @@ function WorldMapContent({
 
                                             // No guard character — AI fallback
                                             launchAiGuardRaid(pickGuardAi(guard.level, guard.defenseBonusPercent ?? 0), guard.level, virtualSector);
+                                            })(); });
                                         }}
                                     >
                                         🛡️ Challenge Guard
@@ -4856,13 +4906,13 @@ function WorldMapContent({
                             ) : (
                                 <>
                                     <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
-                                    <button onClick={() => {
+                                    <button onClick={() => runWhenSectorConfirmed(virtualSector, () => {
                                         launchAiGuardRaid(pickGuardAi(character.level), character.level, virtualSector, () => {
                                             setCurrentSector(virtualSector);
                                             setCurrentBiome(biome);
                                             setCurrentWeather(weather);
                                         });
-                                    }}>
+                                    })}>
                                         Raid {loc.name.split(" ")[0]}
                                     </button>
                                 </>

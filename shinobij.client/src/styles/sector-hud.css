@@ -55,6 +55,7 @@
 .sector-hud-context:empty { display: none; }
 .map-instance .sector-hud-context > button { background: #221821; border-color: #79535e; padding: 6px 8px; }
 .map-instance .sector-hud-context > .sector-hud-contest { color: #f3c7b4; border-color: #a87868; }
+.map-instance .sector-hud-context > .sector-hud-mission-outpost { min-height: 44px; color: #ffe7cc; border-color: #b88357; background: #50302b; font-weight: 700; }
 .sector-hud-warning { font-size: 12px; color: #ffd1a4; }
 .sector-hud-summary { color: #c7b8bf; font-size: 11px; padding-inline: 2px; }
 .map-instance .sector-peers-overlay.is-crowded .sector-peer-label { display: none !important; }
