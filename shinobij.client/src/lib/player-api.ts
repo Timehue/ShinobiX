@@ -11,6 +11,7 @@ import type { SectorTerritory, TerritoryBuffStat } from "./world-state";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 import { abortableDelay } from "./pvp-session-runtime";
 import { pendingClanExchangeIntent, readPendingClanExchangeIntent } from "./clan-exchange-intent";
+import { economyIntentSettled, pendingEconomyIntent, readPendingEconomyIntent } from "./economy-request-intent";
 
 export type PlayerChallengeNoticeOptions = {
     /** Stops retries and rejects an in-flight success when its owning UI session has retired. */
@@ -47,20 +48,39 @@ export async function postPlayerChallengeNotice(
     return false;
 }
 
+function donationIntentParts(playerName: string, group: string, donation: TreasuryDonationBody) {
+    const what = "currency" in donation ? ["currency", donation.currency, donation.amount] : ["item", donation.itemId, donation.count ?? 1];
+    return [playerName.trim().toLowerCase(), group.trim().toLowerCase(), ...what];
+}
+
+/**
+ * True while an earlier identical donation is unconfirmed (see
+ * economy-request-intent). The screens skip their local balance and ownership
+ * refusals then: after a reload the save may already show the debit whose
+ * treasury credit this retry is about to finish.
+ */
+export function hasPendingTreasuryDonation(kind: "village" | "clan", playerName: string, group: string, donation: TreasuryDonationBody): boolean {
+    return readPendingEconomyIntent(kind === "village" ? "village-donate" : "clan-donate", donationIntentParts(playerName, group, donation)) !== null;
+}
+
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.
 // `stores` is present when the Village Stores routed an item donation
 // (ration-pack → provisions, hunt-*/relics → material points); a 429 daily-cap
 // rejection surfaces as the server's `error` text through the same alert.
+// The donation carries a retained requestId, so pressing again after a lost
+// answer finishes or replays it rather than donating twice.
 export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } } | null> {
+    const intent = pendingEconomyIntent("village-donate", donationIntentParts(playerName, village, donation));
     try {
         const res = await fetch("/api/village/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, village, ...donation }),
+            body: JSON.stringify({ playerName, village, ...donation, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {
@@ -79,13 +99,15 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 // meaningful: the packs stayed loose treasury items, so the confirmation must
 // not claim a rations credit that never happened.
 export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number; _saveVersion?: number; stores?: { provisions?: number } } | null> {
+    const intent = pendingEconomyIntent("clan-donate", donationIntentParts(playerName, clan, donation));
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, clan, ...donation }),
+            body: JSON.stringify({ playerName, clan, ...donation, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number; _saveVersion?: number; stores?: { provisions?: number } };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {
