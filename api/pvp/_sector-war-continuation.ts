@@ -25,6 +25,8 @@ import {
 import { newSectorWarBattleToken } from '../_sector-war.js';
 import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContributionOnce } from '../_era.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
+import { logWarEvent } from '../_war-event-log.js';
 import {
     pvpSessionMayGrantProgress,
     type PvpSession,
@@ -114,6 +116,10 @@ export async function ensurePvpSectorWarRegistration(
         || (session.progressionAuthorityVersion !== 1 && session.baseRewards !== true)) {
         return { registered: false, noContest: true };
     }
+    // The war kill switch closes this door too. World PvP is not a war
+    // endpoint, so DISABLE_VILLAGE_WAR used to leave it binding new battles to
+    // Combat contests (and scoring them) while every war route answered 404.
+    if (!villageWarMapEnabled()) return { registered: false, noContest: true };
     const sector = Math.floor(Number(session.rewardSector));
     if (!Number.isSafeInteger(sector) || sector <= 0) return { registered: false, noContest: true };
     const contest = await activeContestOnSector(sector, session.createdAt);
@@ -293,6 +299,19 @@ export async function settlePvpSectorWarContinuation(
     }
 
     if (!token) return commitNoop('not-applicable');
+    // With the war switched off nothing new scores, not even a battle bound
+    // before the switch: DISABLE_VILLAGE_WAR is the operators' way to stop a
+    // war mid-event. The outcome is final (a replay returns this receipt).
+    // Scores that had already landed were recovered above, so none is lost.
+    if (!villageWarMapEnabled()) {
+        logWarEvent('pvp-resolution', {
+            contestId: token.sectorWarId,
+            battleId,
+            outcome: 'superseded',
+            reason: 'war-disabled',
+        }, 'warn');
+        return commitNoop('superseded', token.sectorWarId);
+    }
     if (token.battleId !== battleId
         || token.createdAt !== clock.createdAt
         || p1Name !== token.p1Name
@@ -357,7 +376,15 @@ export async function settlePvpSectorWarContinuation(
         },
     });
 
-    if (result.status !== 'applied') return commitNoop('superseded', token.sectorWarId);
+    if (result.status !== 'applied') {
+        logWarEvent('pvp-resolution', {
+            contestId: token.sectorWarId,
+            battleId,
+            outcome: 'superseded',
+            reason: result.status === 'skipped' ? result.reason : result.status,
+        });
+        return commitNoop('superseded', token.sectorWarId);
+    }
 
     await helpAppliedSectorWarEffects(battleId, winnerName, attackerWon);
     return commitSectorWarResolutionReceipt({
