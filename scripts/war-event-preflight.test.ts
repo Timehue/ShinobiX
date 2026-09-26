@@ -147,11 +147,80 @@ describe('war event preflight', { concurrency: false }, () => {
         assert.deepEqual(await everything(), before, 'and neither answer wrote anything');
     });
 
-    it('writes nothing to storage', async () => {
+    describe('with an event plan', () => {
+        const PLAN_SECTOR = 27; // a Frostfang home sector; 26 is its gate
+        const plan = (overrides: Partial<import('./war-event-preflight.js').WarEventPlan['accounts']> = {}, sectors = [PLAN_SECTOR]) => ({
+            attackerVillage: ATTACKER,
+            defenderVillage: DEFENDER,
+            sectors,
+            accounts: { attackerKage: 'kageatk', defenderKage: 'kagedef', attackerFighters: ['atkone', 'atktwo'], defenderFighters: ['defone', 'deftwo'], ...overrides },
+        });
+
+        async function seedEvent(warResources = 600) {
+            for (const [name, village] of [['kageatk', ATTACKER], ['atkone', ATTACKER], ['atktwo', ATTACKER], ['kagedef', DEFENDER], ['defone', DEFENDER], ['deftwo', DEFENDER]] as const) {
+                await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, village, level: 50 } });
+            }
+            await kv.set('village:kage:moonshadow-village', { seatedKage: 'kageatk' });
+            await kv.set('village:kage:frostfang-village', { seatedKage: 'kagedef' });
+            await kv.set('shared:village-war:moonshadowvillage', { warResources });
+            await kv.set(`world:territory:${PLAN_SECTOR}`, { sector: PLAN_SECTOR, ownerVillage: DEFENDER, hp: 20_000, updatedAt: Date.now() });
+        }
+
+        it('passes a staffed plan whose accounts, sectors and War Resources are ready, naming no account', async () => {
+            await seedEvent();
+            const report = await preflight.runWarEventPreflight({ plan: plan() });
+            assert.equal(report.ready, true, JSON.stringify(report.findings));
+            assert.deepEqual(codes(report, 'warn'), []);
+            assert.ok(report.plan?.roles.every((role) => role.ok), JSON.stringify(report.plan?.roles));
+            assert.equal(report.plan?.roles.length, 6);
+            assert.equal(report.plan?.sectors[0]?.ownerVillage, DEFENDER);
+            assert.equal(report.plan?.declarationCost, 250);
+            const text = JSON.stringify(report) + preflight.formatPreflightReport(report);
+            for (const name of ['kageatk', 'kagedef', 'atkone', 'atktwo', 'defone', 'deftwo']) {
+                assert.ok(!text.includes(name), `the report names ${name}`);
+            }
+        });
+
+        it('blocks on an unseated Kage, a missing account, a fighter in the wrong village and an unconquerable sector', async () => {
+            await seedEvent();
+            await kv.set('world:territory:28', { sector: 28, ownerVillage: 'Stormveil Village', hp: 20_000, updatedAt: Date.now() });
+            const report = await preflight.runWarEventPreflight({
+                plan: plan({ attackerKage: 'atkone', attackerFighters: ['atktwo', 'defone', 'ghostplayer'] }, [26, 28]),
+            });
+            assert.equal(report.ready, false);
+            const blockers = codes(report, 'blocker');
+            for (const code of ['plan-kage-not-seated', 'plan-account-missing', 'plan-account-village', 'plan-sector-invalid', 'plan-sector-owner']) {
+                assert.ok(blockers.includes(code), `${code} missing from ${JSON.stringify(blockers)}`);
+            }
+            assert.ok(!JSON.stringify(report).includes('ghostplayer'), 'a missing account is named by its role only');
+        });
+
+        it('warns on thin War Resources, a battle in flight and too few fighters', async () => {
+            await seedEvent(100);
+            await kv.set('pvp:pending-session:atkone', { battleId: 'pvp-in-flight', role: 'p1', phase: 'active' });
+            const report = await preflight.runWarEventPreflight({ plan: plan({ defenderFighters: ['defone'] }) });
+            assert.equal(report.ready, true, 'warnings do not block');
+            assert.deepEqual(codes(report, 'warn').sort(), ['plan-account-in-battle', 'plan-too-few-fighters', 'plan-war-resources']);
+        });
+
+        it('refuses a malformed plan file', () => {
+            assert.throws(() => preflight.parseWarEventPlan({ attackerVillage: ATTACKER }), /Invalid war event plan/);
+            assert.throws(() => preflight.parseWarEventPlan({ ...plan(), sectors: [] }), /sectors/);
+            assert.throws(() => preflight.parseWarEventPlan({ ...plan(), accounts: { attackerKage: 'kageatk', attackerFighters: 'atkone', defenderFighters: [] } }), /attackerFighters/);
+            assert.deepEqual(preflight.parseWarEventPlan(plan()), plan());
+        });
+    });
+
+    it('writes nothing to storage, with or without a plan', async () => {
         await healthyWar();
         await kv.set('shared:sector-war:30:stormveilvillage-vs-frostfangvillage', { attackerVillage: 'Stormveil Village', defenderVillage: DEFENDER, appliedBattles: 'bad' });
+        await kv.set('save:kageatk', { _saveVersion: 1, character: { name: 'kageatk', village: ATTACKER } });
+        await kv.set('village:kage:moonshadow-village', { seatedKage: 'kageatk' });
         const before = await everything();
         await preflight.runWarEventPreflight({});
+        await preflight.runWarEventPreflight({
+            plan: { attackerVillage: ATTACKER, defenderVillage: DEFENDER, sectors: [27], accounts: { attackerKage: 'kageatk', attackerFighters: ['kageatk'], defenderFighters: [] } },
+        });
         assert.deepEqual(await everything(), before);
     });
 });

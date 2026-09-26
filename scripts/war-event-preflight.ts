@@ -2,9 +2,13 @@
  * Read-only preflight for a staffed Village/Sector War event
  * (docs/CONTROLLED_WAR_EVENT_RUNBOOK.md).
  *
- *   node --import tsx scripts/war-event-preflight.ts --base-url=https://shinobijourney.com --expect-war=on
+ *   node --import tsx scripts/war-event-preflight.ts --base-url=https://shinobijourney.com --expect-war=on --plan=war-event-plan.json
  *   node --import tsx scripts/war-event-preflight.ts --json --out=war-preflight-before.json
  *   node --import tsx scripts/war-event-preflight.ts --memory      # hermetic self-check
+ *
+ * `--plan` names the event: the two villages, the sectors to contest and the
+ * participating accounts (see WarEventPlan). The preflight then checks those
+ * accounts and sectors too, and reports accounts by ROLE, never by name.
  *
  * It WRITES NOTHING to storage. It never calls a route that settles or scores
  * on read (the sector-war `status` action, GET /world-state and
@@ -19,8 +23,60 @@
  *
  * Exit 0 = no blocker, 1 = at least one blocker, 2 = the preflight itself failed.
  */
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
+
+/** The staffed event, as the operator plans it. Account values are player
+ *  names or slugs; the report refers to them only by role. */
+export type WarEventPlan = {
+    attackerVillage: string;
+    defenderVillage: string;
+    sectors: number[];
+    accounts: {
+        attackerKage: string;
+        defenderKage?: string;
+        attackerFighters: string[];
+        defenderFighters: string[];
+    };
+};
+
+export type PreflightPlanReport = {
+    attackerWarResources: number;
+    declarationCost: number;
+    sectors: Array<{ sector: number; ownerVillage: string; winCondition: string | null; terrain: string | null; liveContest: string | null }>;
+    roles: Array<{ role: string; ok: boolean }>;
+};
+
+/** Validate a plan file's contents. Throws with the first problem found. */
+export function parseWarEventPlan(raw: unknown): WarEventPlan {
+    const fail = (why: string): never => { throw new Error(`Invalid war event plan: ${why}`); };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) fail('expected a JSON object');
+    const plan = raw as Record<string, unknown>;
+    const text = (value: unknown, name: string) => {
+        if (typeof value !== 'string' || !value.trim()) fail(`${name} must be a non-empty string`);
+        return (value as string).trim();
+    };
+    const names = (value: unknown, name: string) => {
+        if (!Array.isArray(value) || value.some((entry) => typeof entry !== 'string' || !entry.trim())) fail(`${name} must be a list of names`);
+        return (value as string[]).map((entry) => entry.trim());
+    };
+    const accounts = plan.accounts as Record<string, unknown> | undefined;
+    if (!accounts || typeof accounts !== 'object') fail('accounts is required');
+    if (!Array.isArray(plan.sectors) || !plan.sectors.length || plan.sectors.some((s) => !Number.isSafeInteger(s) || (s as number) <= 0)) {
+        fail('sectors must be a non-empty list of sector numbers');
+    }
+    return {
+        attackerVillage: text(plan.attackerVillage, 'attackerVillage'),
+        defenderVillage: text(plan.defenderVillage, 'defenderVillage'),
+        sectors: plan.sectors as number[],
+        accounts: {
+            attackerKage: text(accounts!.attackerKage, 'accounts.attackerKage'),
+            ...(accounts!.defenderKage !== undefined ? { defenderKage: text(accounts!.defenderKage, 'accounts.defenderKage') } : {}),
+            attackerFighters: names(accounts!.attackerFighters, 'accounts.attackerFighters'),
+            defenderFighters: names(accounts!.defenderFighters, 'accounts.defenderFighters'),
+        },
+    };
+}
 
 export type PreflightLevel = 'blocker' | 'warn' | 'info';
 export type PreflightFinding = { level: PreflightLevel; code: string; detail: string };
@@ -49,6 +105,7 @@ export type PreflightReport = {
     contests: PreflightContest[];
     tokens: { total: number; wedged: string[] };
     counts: { resolutionReceipts: number; battleReceipts: number; sectorAuditEntries: number };
+    plan: PreflightPlanReport | null;
     findings: PreflightFinding[];
     ready: boolean;
 };
@@ -59,6 +116,7 @@ export type PreflightOptions = {
     baseUrl?: string | null;
     expectWar?: 'on' | 'off' | null;
     fetchImpl?: typeof fetch;
+    plan?: WarEventPlan | null;
 };
 
 const CONTEST_PREFIX = 'shared:sector-war:';
@@ -176,6 +234,12 @@ export async function runWarEventPreflight(options: PreflightOptions = {}): Prom
         }
     }
 
+    // ── the planned event: villages, sectors and accounts ────────────────────
+    let planReport: PreflightPlanReport | null = null;
+    if (options.plan) {
+        planReport = await checkWarEventPlan(options.plan, contests, add);
+    }
+
     // ── baselines for the event record ───────────────────────────────────────
     const counts = {
         resolutionReceipts: (await kv.keys('shared:sector-war-resolution:*')).length,
@@ -229,9 +293,108 @@ export async function runWarEventPreflight(options: PreflightOptions = {}): Prom
         contests,
         tokens: { total: tokenKeys.length, wedged },
         counts,
+        plan: planReport,
         findings,
         ready: !findings.some((finding) => finding.level === 'blocker'),
     };
+}
+
+/**
+ * Check the planned event against live state, read-only. Every finding names a
+ * role ("attacker fighter 2"), never the account behind it.
+ */
+async function checkWarEventPlan(
+    plan: WarEventPlan,
+    contests: PreflightContest[],
+    add: (level: PreflightLevel, code: string, detail: string) => void,
+): Promise<PreflightPlanReport> {
+    const [{ kv }, sectorsModule, warState, { seatedKageOf }, { pvpPendingSessionKey }, { SECTOR_WAR_WR }, { safeName }, war, { villageHasActiveWar }] = await Promise.all([
+        import('../api/_storage.js'),
+        import('../api/_war-map-sectors.js'),
+        import('../api/_war-state.js'),
+        import('../api/_sector-war-garrison-defender.js'),
+        import('../api/pvp/_pending-session.js'),
+        import('../api/_war-economy.js'),
+        import('../api/_utils.js'),
+        import('../api/_sector-war.js'),
+        import('../api/world-state.js'),
+    ]);
+    const { attackerVillage, defenderVillage } = plan;
+
+    // Villages.
+    for (const [side, village] of [['attacking', attackerVillage], ['defending', defenderVillage]] as const) {
+        if (!sectorsModule.isWarVillage(village)) add('blocker', 'plan-village-invalid', `The ${side} village "${village}" is not a war village.`);
+        else if (await villageHasActiveWar(village)) add('blocker', 'plan-village-at-war', `The ${side} village ${village} is in an all-out village war; it cannot also fight a sector war.`);
+    }
+    if (attackerVillage === defenderVillage) add('blocker', 'plan-village-invalid', 'The attacking and defending villages are the same.');
+
+    // Sectors.
+    const defenderRecord = warState.normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(warState.villageWarKey(defenderVillage))) ?? undefined);
+    const sectorRows: PreflightPlanReport['sectors'] = [];
+    for (const sector of plan.sectors) {
+        const territory = await kv.get<{ ownerVillage?: string }>(`world:territory:${sector}`);
+        const ownerVillage = String(territory?.ownerVillage ?? '').trim();
+        const live = contests.find((c) => c.sector === sector && (c.status === 'active' || c.status === 'funding'));
+        const setup = defenderRecord.sectors[String(sector)];
+        sectorRows.push({
+            sector,
+            ownerVillage,
+            winCondition: setup?.winCondition ?? null,
+            terrain: setup?.terrain ?? null,
+            liveContest: live?.id ?? null,
+        });
+        if (!sectorsModule.isWarSector(sector)) add('blocker', 'plan-sector-invalid', `Sector ${sector} is not a war sector.`);
+        else if (sectorsModule.isProtectedWarSector(sector)) add('blocker', 'plan-sector-invalid', `Sector ${sector} is a village gate and cannot be conquered.`);
+        if (ownerVillage !== defenderVillage) add('blocker', 'plan-sector-owner', `Sector ${sector} is owned by "${ownerVillage || 'nobody'}", not ${defenderVillage}.`);
+        if (live) add('warn', 'plan-sector-contested', `Sector ${sector} already has a live contest (${live.id}); a new declaration there will be refused.`);
+        if (!setup) add('warn', 'plan-sector-unconfigured', `${defenderVillage} has no win condition or terrain set for sector ${sector}; it defaults to Combat.`);
+    }
+    const liveSieges = contests.filter((c) => c.attackerVillage === attackerVillage && c.status === 'active').length;
+    if (liveSieges + plan.sectors.length > war.MAX_ACTIVE_ATTACK_SIEGES) {
+        add('blocker', 'plan-siege-limit', `${attackerVillage} already attacks ${liveSieges} sector(s); ${plan.sectors.length} more would pass the limit of ${war.MAX_ACTIVE_ATTACK_SIEGES}.`);
+    }
+
+    // War Resources. Intel and the comeback discount can lower the real cost,
+    // so a shortfall against the base price is a warning, not a blocker.
+    const attackerRecord = warState.normalizeVillageWarRecord(attackerVillage, (await kv.get<Record<string, unknown>>(warState.villageWarKey(attackerVillage))) ?? undefined);
+    const declarationCost = SECTOR_WAR_WR * plan.sectors.length;
+    if (attackerRecord.warResources < declarationCost) {
+        add('warn', 'plan-war-resources', `${attackerVillage} holds ${attackerRecord.warResources} War Resources; declaring ${plan.sectors.length} sector(s) costs up to ${declarationCost}.`);
+    }
+
+    // Accounts, by role.
+    const roles: PreflightPlanReport['roles'] = [];
+    const checkAccount = async (role: string, name: string, village: string, requireSeat: 'blocker' | 'warn' | null) => {
+        const slug = safeName(name);
+        const save = slug ? await kv.get<{ character?: { village?: string } }>(`save:${slug}`) : null;
+        let ok = true;
+        if (!save?.character) {
+            add('blocker', 'plan-account-missing', `The ${role} account does not exist.`);
+            ok = false;
+        } else {
+            if (String(save.character.village ?? '').trim() !== village) {
+                add('blocker', 'plan-account-village', `The ${role} account is not in ${village}.`);
+                ok = false;
+            }
+            if (requireSeat && (await seatedKageOf(village)) !== slug) {
+                add(requireSeat, 'plan-kage-not-seated', `The ${role} account is not the seated Kage of ${village}.`);
+                ok = ok && requireSeat !== 'blocker';
+            }
+            if (await kv.get(pvpPendingSessionKey(slug))) {
+                add('warn', 'plan-account-in-battle', `The ${role} account has a PvP battle in flight; it must finish or lapse before the event.`);
+            }
+        }
+        roles.push({ role, ok });
+    };
+    await checkAccount('attacker Kage', plan.accounts.attackerKage, attackerVillage, 'blocker');
+    if (plan.accounts.defenderKage) await checkAccount('defender Kage', plan.accounts.defenderKage, defenderVillage, 'warn');
+    for (const [index, name] of plan.accounts.attackerFighters.entries()) await checkAccount(`attacker fighter ${index + 1}`, name, attackerVillage, null);
+    for (const [index, name] of plan.accounts.defenderFighters.entries()) await checkAccount(`defender fighter ${index + 1}`, name, defenderVillage, null);
+    for (const [side, list] of [['attacking', plan.accounts.attackerFighters], ['defending', plan.accounts.defenderFighters]] as const) {
+        if (list.length < 2) add('warn', 'plan-too-few-fighters', `The ${side} side has ${list.length} fighter(s); the runbook calls for at least two.`);
+    }
+
+    return { attackerWarResources: attackerRecord.warResources, declarationCost, sectors: sectorRows, roles };
 }
 
 export function formatPreflightReport(report: PreflightReport): string {
@@ -245,6 +408,13 @@ export function formatPreflightReport(report: PreflightReport): string {
         lines.push(`  ${c.status.padEnd(9)} ${c.id} [${c.instance}] ${c.winCondition} ${c.attackerPoints}:${c.defenderPoints} ends ${new Date(c.endsAt).toISOString()} receipts=${c.receipts}${c.pendingReceipts ? ` pending=${c.pendingReceipts}` : ''}`);
     }
     lines.push(`Battle tokens: ${report.tokens.total} (${report.tokens.wedged.length} wedged)`);
+    if (report.plan) {
+        lines.push(`Plan: War Resources ${report.plan.attackerWarResources} (declarations cost up to ${report.plan.declarationCost})`);
+        for (const s of report.plan.sectors) {
+            lines.push(`  sector ${s.sector}: owner ${s.ownerVillage || 'nobody'}, ${s.winCondition ?? 'combat (default)'}, terrain ${s.terrain ?? 'none'}${s.liveContest ? `, live contest ${s.liveContest}` : ''}`);
+        }
+        lines.push(`  accounts: ${report.plan.roles.map((r) => `${r.role} ${r.ok ? 'ok' : 'NOT OK'}`).join('; ')}`);
+    }
     lines.push(`Receipts: ${report.counts.resolutionReceipts} resolutions, ${report.counts.battleReceipts} battle copies; audit:sector entries: ${report.counts.sectorAuditEntries}`);
     for (const f of report.findings) lines.push(`  [${f.level.toUpperCase()}] ${f.code}: ${f.detail}`);
     lines.push(report.ready ? 'RESULT: no blocker found.' : 'RESULT: BLOCKED — resolve every blocker above before the event.');
@@ -259,12 +429,16 @@ async function main(): Promise<void> {
         process.env.NODE_ENV = 'test';
         process.env.SHINOBIX_QA_MEMORY_KV = '1';
     } else {
-        const { loadProjectEnv } = await import('./_load-env.mjs');
+        // A plain-JS helper shared with the .mjs ops scripts, typed here by hand.
+        const envHelper = './_load-env.mjs';
+        const { loadProjectEnv } = await import(envHelper) as { loadProjectEnv: () => Promise<boolean> };
         await loadProjectEnv();
     }
     const expectWar = value('expect-war');
     if (expectWar !== null && expectWar !== 'on' && expectWar !== 'off') throw new Error('--expect-war must be on or off');
-    const report = await runWarEventPreflight({ baseUrl: value('base-url'), expectWar });
+    const planPath = value('plan');
+    const plan = planPath ? parseWarEventPlan(JSON.parse(readFileSync(planPath, 'utf8'))) : null;
+    const report = await runWarEventPreflight({ baseUrl: value('base-url'), expectWar, plan });
     const out = value('out');
     if (out) writeFileSync(out, `${JSON.stringify(report, null, 2)}\n`);
     console.log(args.includes('--json') ? JSON.stringify(report, null, 2) : formatPreflightReport(report));
