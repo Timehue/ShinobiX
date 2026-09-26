@@ -41,6 +41,20 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const [checkoutError, setCheckoutError] = useState<string | null>(null);
     const busyRef = useRef(false);
     const autoCheckoutStartedRef = useRef(false);
+    const wasAdmittedRef = useRef(Boolean(character.hospitalized));
+
+    // A heartbeat can confirm a discharge whose HTTP reply was lost. Once the
+    // authoritative character clears the admission, return the player to the
+    // village just as a direct discharge response would.
+    useEffect(() => {
+        if (character.hospitalized) {
+            wasAdmittedRef.current = true;
+            return;
+        }
+        if (!wasAdmittedRef.current) return;
+        wasAdmittedRef.current = false;
+        setScreen("village", character);
+    }, [character, setScreen]);
 
     // Arriving at the hospital means a KO (or a normal visit). Either way, drop
     // any pending "return to the sector you were exploring" latch (set before an

@@ -44,12 +44,14 @@ export function DailyBriefingModal({
     activeTraining,
     activeJutsuTraining,
     navigate,
+    storyActive,
 }: {
     character: Character;
     activeTraining?: { endsAt: number } | null;
     activeJutsuTraining?: { endsAt: number } | null;
     beginDailyLogin: DailyLoginCommitFactory;
     navigate: (s: Screen) => void;
+    storyActive: boolean;
 }) {
     const now = useSharedNow(); // ticks once a second so the training countdowns stay live
     const legacyAvailable = useLegacyAvailability();
@@ -62,7 +64,7 @@ export function DailyBriefingModal({
     // companion's first instruction. It shows right after the tutorial ends
     // (same day), so no login reward is lost.
     const tutorialDone = normalizeOnboardingStep(character.onboardingStep) === "done";
-    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone;
+    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone && !storyActive;
 
     // The login reward is collected by an explicit Claim button (not auto-granted).
     // `claim` holds the server result once collected this session; the save's

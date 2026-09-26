@@ -5378,6 +5378,7 @@ export default function App() {
                         setScreen={stableNavigate}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
+                        storyActive={Boolean(activeTriggeredEvent)}
                     />
                     </Suspense>
                 )}

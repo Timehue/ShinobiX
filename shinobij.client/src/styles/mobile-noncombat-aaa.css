@@ -576,7 +576,7 @@
   }
 
   body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner {
-    bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+    bottom: calc(var(--mobile-aaa-nav-height) + var(--storage-notice-height, 0px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
     display: flex !important;
     inline-size: calc(100% - 16px) !important;
     max-inline-size: 520px !important;
@@ -614,7 +614,7 @@
 
   /* The guided tip stays useful without becoming a second bottom sheet. */
   body:not(.in-battle) .onboarding-coach-banner.coach-guide {
-    bottom: calc(var(--mobile-aaa-nav-height) + env(safe-area-inset-bottom, 0px) + 8px) !important;
+    bottom: calc(var(--mobile-aaa-nav-height) + var(--storage-notice-height, 0px) + env(safe-area-inset-bottom, 0px) + 8px) !important;
     inline-size: calc(100% - 16px) !important;
     max-inline-size: 620px !important;
   }
