@@ -78,6 +78,11 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'tebex/webhook.ts', mechanism: 'in-save-receipt', markers: ['redeemedTebexPurchases'] },
     { file: 'village/claim-daily-agenda.ts', mechanism: 'in-save-receipt', markers: ['claimedVillageAgendaDate', 'agendaClaimReceipts'] },
     { file: 'village/claim-map-control.ts', mechanism: 'nx-marker', markers: [/nx:\s*true/] },
+    // Clan Honor Seal pool (issue #179 sibling): the donation keeps its own
+    // journal and receipts; a founder's gift is a cross-key settlement.
+    { file: 'clan/seal-pool/donate.ts', mechanism: 'economy-tx', markers: ['beginDurableSettlement', 'inspectPlayerReceipt', 'receiptAbsenceProvable'] },
+    { file: 'clan/seal-pool/distribute.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
+    { file: '_cross-key-settlement.ts', mechanism: 'state-machine', markers: ['inspectPlayerReceipt', 'receiptAbsenceProvable'] },
 ];
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
