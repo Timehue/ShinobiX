@@ -18,7 +18,21 @@ export type PlayerSaveMutationContext = {
 };
 
 export type PlayerSaveMutation<T> =
-    | { ok: true; character: PlayerCharacter; value: T; recordPatch?: PlayerSaveRecord; write?: boolean }
+    | {
+        ok: true;
+        character: PlayerCharacter;
+        value: T;
+        recordPatch?: PlayerSaveRecord;
+        write?: boolean;
+        /**
+         * Overrides the call's `options.hollowGateCurrencySource` for this one
+         * write. A compensation can only classify its refund once it has read
+         * the CURRENT character under the lock (hollowGateRefundCurrencySource
+         * compares the charge's checkpoint with the current one), so the choice
+         * has to travel with the decision rather than with the call.
+         */
+        hollowGateCurrencySource?: HollowGateCurrencySource;
+    }
     | { ok: false; status: number; error: string };
 
 export type PlayerSaveMutationResult<T> =
@@ -213,9 +227,10 @@ export async function mutatePlayerSave<T>(
         // `undefined` lets bumpSaveVersion fence the cursor to the exact write
         // instant (`_saveAt`), so the two stamps agree on a fence.
         const regenAt = vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
+        const hollowGateCurrencySource = decision.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
         const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
             regenAt,
-            ...(options.hollowGateCurrencySource ? { hollowGateCurrencySource: options.hollowGateCurrencySource } : {}),
+            ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
         });
         return {
             ok: true as const,
