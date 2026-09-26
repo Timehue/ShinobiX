@@ -1,3 +1,5 @@
+import { economyIntentSettled, pendingEconomyIntent } from "./economy-request-intent";
+
 export const sharedClanWarCache: Record<string, CwWar> = {};
 
 export type CwChallengeMode = "pvp1v1" | "pvp2v2" | "pet1v1" | "pet2v2" | "tilecards";
@@ -76,15 +78,20 @@ export async function cwListWars(): Promise<CwWar[]> {
     try { return await _cwListInFlight; }
     finally { _cwListInFlight = null; }
 }
-export async function cwDeclareWar(toClan: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
+// The Honor Seal cost carries a retained requestId (lib/economy-request-intent):
+// declaring again after a lost answer finishes or replays the first
+// declaration instead of charging a second time.
+export async function cwDeclareWar(toClan: string, declarerName: string): Promise<{ ok: boolean; error?: string; war?: CwWar }> {
+    const intent = pendingEconomyIntent("clan-war-declare", [declarerName.trim().toLowerCase(), toClan.trim().toLowerCase()]);
     try {
-        const r = await fetch("/api/clan/war/declare", {
+        const res = await fetch("/api/clan/war/declare", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ toClan }),
+            body: JSON.stringify({ toClan, requestId: intent.requestId }),
         });
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) return { ok: false, error: data.error ?? `HTTP ${r.status}` };
+        const data = await res.json().catch(() => ({}));
+        if (economyIntentSettled(res.status, data)) intent.complete();
+        if (!res.ok) return { ok: false, error: data.error ?? `HTTP ${res.status}` };
         return { ok: true, war: data.war };
     } catch (e) { return { ok: false, error: String((e as Error).message) }; }
 }
