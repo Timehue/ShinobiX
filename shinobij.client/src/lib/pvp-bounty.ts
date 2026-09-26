@@ -5,6 +5,8 @@
  * the caller reflects the returned delta locally so the autosave converges.
  */
 
+import { economyIntentSettled, pendingEconomyIntent, readPendingEconomyIntent } from "./economy-request-intent";
+
 export type BountyEntry = { target: string; amount: number; contributors: string[]; updatedAt: number };
 export type BountyReceipt = { amount: number; target: string };
 
@@ -31,16 +33,29 @@ export async function fetchBountyReceipt(playerName: string, battleId: string, s
     return data?.amount && data.target ? { amount: data.amount, target: data.target } : null;
 }
 
+function bountyIntentParts(playerName: string, target: string, amount: number) {
+    return [playerName.trim().toLowerCase(), target.trim().toLowerCase(), amount];
+}
+
+/** True while an earlier identical placement is unconfirmed (see economy-request-intent). */
+export function hasPendingBountyPlacement(playerName: string, target: string, amount: number): boolean {
+    return readPendingEconomyIntent("bounty-place", bountyIntentParts(playerName, target, amount)) !== null;
+}
+
 // Escrow `amount` ryo onto `target`'s head. Returns the updated board on success
 // (and the caller debits `amount` from its own ryo to converge), or an error.
 export async function placeBounty(playerName: string, target: string, amount: number): Promise<{ ok: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } }> {
+    // One id per placement, kept until the server answers for good: a retry
+    // after a lost answer escrows nothing a second time (api/pvp/bounty.ts).
+    const intent = pendingEconomyIntent("bounty-place", bountyIntentParts(playerName, target, amount));
     try {
         const res = await fetch("/api/pvp/bounty", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "place", playerName, target, amount }),
+            body: JSON.stringify({ action: "place", playerName, target, amount, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; bounties?: BountyEntry[]; balances?: { ryo: number } };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok) return { ok: false, error: data.error || "Could not place the bounty." };
         return { ok: true, bounties: data.bounties, balances: data.balances };
     } catch {

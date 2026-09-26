@@ -17,6 +17,7 @@ export type TrailSignView = {
 };
 
 import type { SectorScar } from "../../../shared/sector-scars";
+import { economyIntentSettled, pendingEconomyIntent, readPendingEconomyIntent } from "./economy-request-intent";
 
 export type ShrineOfferingView = { name: string; amount: number };
 
@@ -101,14 +102,23 @@ export type ShrineOfferResult =
     | { ok: true; ryo: number; shrine: ShrineView }
     | { ok: false; message: string };
 
+/** True while an earlier offering of this exact amount is unconfirmed (see economy-request-intent). */
+export function hasPendingShrineOffering(playerName: string, shrineId: string, amount: number): boolean {
+    return readPendingEconomyIntent("shrine-offer", [playerName.trim().toLowerCase(), shrineId, amount]) !== null;
+}
+
 export async function offerAtShrine(playerName: string, shrineId: string, amount: number): Promise<ShrineOfferResult> {
+    // Pressing again after a lost answer resends the SAME id, so the server
+    // returns the first result instead of taking a second offering.
+    const intent = pendingEconomyIntent("shrine-offer", [playerName.trim().toLowerCase(), shrineId, amount]);
     try {
         const res = await fetch("/api/sector/shrine-offer", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, shrineId, amount }),
+            body: JSON.stringify({ playerName, shrineId, amount, requestId: intent.requestId }),
         });
-        const data = await res.json() as { ok?: boolean; error?: string; ryo?: number; shrine?: ShrineView };
+        const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; ryo?: number; shrine?: ShrineView };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (data.ok && data.shrine && typeof data.ryo === "number") return { ok: true, ryo: data.ryo, shrine: data.shrine };
         return { ok: false, message: data.error ?? "The offering was not accepted." };
     } catch {

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
-import { fetchBountyBoard, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
+import { fetchBountyBoard, hasPendingBountyPlacement, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
 
 /**
@@ -37,7 +37,9 @@ export function BountyBoardPanel({
         if (!target) return alert("Choose a player to put a bounty on.");
         if (target.toLowerCase() === character.name.toLowerCase()) return alert("You can't bounty yourself.");
         if (bountyAmount < 1000) return alert("Minimum bounty is 1,000 ryo.");
-        if ((character.ryo ?? 0) < bountyAmount) return alert("You don't have enough ryo.");
+        // An unconfirmed earlier placement may already be charged; its retry
+        // finishes it without charging again, so do not refuse it here.
+        if ((character.ryo ?? 0) < bountyAmount && !hasPendingBountyPlacement(character.name, target, bountyAmount)) return alert("You don't have enough ryo.");
         const res = await placeBounty(character.name, target, bountyAmount);
         if (!res.ok) return alert(res.error || "Could not place the bounty.");
         // Adopt the server-committed balance (escrow is server-authoritative) —
