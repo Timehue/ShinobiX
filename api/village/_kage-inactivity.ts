@@ -22,6 +22,10 @@ import { WAR_VILLAGES } from '../_war-map-sectors.js';
 import { pushOfflineNotice } from '../player/_offline-notices.js';
 import { closeCurrentReign, KAGE_DECLARE_RYO_COST, type KageChallenge, type KageStateLike } from './_kage-challenge.js';
 import { kageKey } from './_kage-settle.js';
+import { recordAudit } from '../_audit.js';
+import { settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, SERVER_SETTLEMENT_RECEIPT_LIMIT } from '../_settlement-receipts.js';
+import { receiptAbsenceProvable } from '../_save-debit-saga.js';
 
 export const KAGE_INACTIVITY_DAYS = 10;
 export const KAGE_INACTIVITY_MS = KAGE_INACTIVITY_DAYS * 24 * 60 * 60_000;
@@ -166,11 +170,12 @@ function num(v: unknown): number {
  * itself also drains before it parks, so an earlier failure settles the moment
  * the player is reachable again.
  *
- * The drain CLAIMS the parked entries before crediting and RE-PARKS them if the
- * credit does not commit. That ordering is deliberate: a refund can never be
- * paid twice (which would mint ryo), and every failure the audit named —
- * contention, a missing save, a KV error — is fully recoverable because the
- * entry goes straight back on the queue.
+ * The drain pays under the save lock with an in-save receipt per entry, and
+ * only then removes the paid entries from the queue. It used to claim the
+ * queue by deleting it first and re-park on failure, which lost the debt when
+ * the process died in between, and paid it twice when a credit write landed
+ * but reported an error (the re-parked entry was paid again). Now every
+ * failure leaves the entry queued, and a receipt stops any second payment.
  */
 export type PendingStakeRefund = {
     /** `kage-stake:<village>:<challengeId>` — dedupes a re-parked/re-run refund. */
@@ -234,84 +239,109 @@ export async function readPendingKageStakeRefunds(slug: string): Promise<Pending
     return parsePendingStakeRefunds(await kv.get(kageStakeRefundKey(slug)));
 }
 
+/** The in-save receipt that proves one parked refund was paid. */
+function stakeRefundReceipt(entry: PendingStakeRefund): { requestId: string; fingerprint: string } {
+    return {
+        requestId: settlementTransactionId('kage-stake-refund', entry.id),
+        fingerprint: settlementFingerprint({ operation: 'kage-stake-refund', id: entry.id, amount: entry.amount }),
+    };
+}
+
 /**
- * Credit every parked refund into the player's save and clear the queue.
- * Returns the ryo actually paid (0 when there was nothing owed, or when the
- * credit could not commit — in which case the entries are put back untouched).
+ * Credit every parked refund into the player's save, then clear the paid
+ * entries from the queue. Returns the ryo this call paid: 0 when nothing was
+ * owed, when the credit could not commit (the entries stay queued for the next
+ * drain), or when an earlier drain had already paid them.
+ *
+ * The queue stays the record of the debt until the payment has committed, and
+ * each payment writes an in-save receipt in the same write. A drain that dies
+ * after reading the queue leaves it intact; a credit that lands and then
+ * throws is found by its receipt on the next drain and removed without paying
+ * twice; two drains racing (a heartbeat and the daily pass) serialize on the
+ * save lock, and the second finds the first one's receipts.
  */
 export async function drainKageStakeRefunds(slug: string, now: number = Date.now()): Promise<number> {
     const safe = safeName(slug);
     if (!safe) return 0;
     const key = kageStakeRefundKey(safe);
+    const owed = parsePendingStakeRefunds(await kv.get(key));
+    if (owed.length === 0) return 0;
 
-    // Claim: take the queue in one locked read+clear so two concurrent drains
-    // (a heartbeat racing the daily pass) can never both pay the same entries.
-    const claimed = await withKvLock<PendingStakeRefund[]>(key, async () => {
-        const current = parsePendingStakeRefunds(await kv.get(key));
-        if (current.length === 0) return [];
-        await kv.del(key);
-        return current;
-    }, { failClosed: true });
-    if (claimed.length === 0) return 0;
-
-    const total = claimed.reduce((sum, e) => sum + e.amount, 0);
     const saveKey = `save:${safe}`;
+    let outcome: { paid: PendingStakeRefund[]; settled: PendingStakeRefund[] } | null;
     try {
-        const credited = await withKvLock<boolean>(saveKey, async () => {
+        outcome = await withKvLock(saveKey, async () => {
             const rec = await kv.get<Record<string, unknown>>(saveKey);
             const c = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!rec || !c) return false;
+            // No save to credit yet (a fresh device, a mid-migration read):
+            // the debt stays owed and the next beat tries again.
+            if (!rec || !c) return null;
+            const paid: PendingStakeRefund[] = [];
+            const settled: PendingStakeRefund[] = [];
             let nextChar = c;
-            for (const entry of claimed) {
+            for (const entry of owed) {
+                const { requestId, fingerprint } = stakeRefundReceipt(entry);
+                const receipt = inspectSettlementReceipt(nextChar, requestId, fingerprint);
+                if (receipt.status === 'replay') {
+                    settled.push(entry);
+                    continue;
+                }
+                if (receipt.status !== 'fresh') {
+                    console.error(`[kage-inactivity] stake refund ${entry.id} for ${safe} left queued: the save's settlement receipts are ${receipt.status}.`);
+                    continue;
+                }
+                if (!receiptAbsenceProvable(receipt.receipts, SERVER_SETTLEMENT_RECEIPT_LIMIT, 'settledAt', entry.at)) {
+                    console.error(`[kage-inactivity] stake refund ${entry.id} for ${safe} left queued: whether it was paid can no longer be proven.`);
+                    continue;
+                }
                 const currentBasis = hollowGateCreditBasis(nextChar);
                 const chargedBasis = entry.chargedHollowGateCreditBasis;
                 const sameBasis = chargedBasis && currentBasis
                     && chargedBasis.runToken === currentBasis.runToken
                     && chargedBasis.checkpointVersion === currentBasis.checkpointVersion;
-                nextChar = recordHollowGateExternalCredits(
+                nextChar = appendSettlementReceipt(recordHollowGateExternalCredits(
                     nextChar,
                     { ...nextChar, ryo: num(nextChar.ryo) + entry.amount },
                     sameBasis ? 'run' : 'external',
-                );
+                ), receipt.receipts, { requestId, fingerprint, value: { amount: entry.amount, village: entry.village }, settledAt: now });
+                paid.push(entry);
+                settled.push(entry);
             }
-            // Each refund's provenance was folded above; the final stamp has
-            // zero wallet delta and preserves it in the single paying write.
-            const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: nextChar });
-            await kv.set(saveKey, mergePreservingImages(nextRec, rec));
-            return true;
+            if (paid.length > 0) {
+                // Each refund's provenance was folded above; the final stamp has
+                // zero wallet delta and preserves it in the single paying write.
+                const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: nextChar });
+                await kv.set(saveKey, mergePreservingImages(nextRec, rec));
+            }
+            return { paid, settled };
         }, { failClosed: true });
-        if (!credited) {
-            // No save to credit yet (a fresh device, a mid-migration read) —
-            // the debt stays owed and the next beat tries again.
-            await parkAll(key, claimed);
-            return 0;
-        }
     } catch (err) {
-        await parkAll(key, claimed);
         console.warn(`[kage-inactivity] stake refund for ${safe} deferred:`, (err as Error).message);
         return 0;
     }
+    if (!outcome) return 0;
 
-    for (const e of claimed) {
+    // Only now leave the queue, and only the entries this drain settled:
+    // anything parked meanwhile stays. If this fails, the next drain finds the
+    // receipts and removes them without paying again.
+    if (outcome.settled.length > 0) {
+        const done = new Set(outcome.settled.map((e) => e.id));
+        try {
+            await withKvLock(key, async () => {
+                const current = parsePendingStakeRefunds(await kv.get(key));
+                await writePendingStakeRefunds(key, current.filter((e) => !done.has(e.id)));
+            }, { failClosed: true });
+        } catch (err) {
+            console.warn(`[kage-inactivity] paid stake refunds for ${safe} stay queued until the next drain:`, (err as Error).message);
+        }
+    }
+
+    for (const e of outcome.paid) {
         try {
             await pushOfflineNotice(safe, { kind: 'kage-challenge-refunded', by: 'inactivity', village: e.village, sector: 0, at: now, amount: e.amount });
         } catch { /* the ryo already landed; the note is best-effort */ }
     }
-    return total;
-}
-
-/** Put claimed entries back on the queue (merging anything parked meanwhile). */
-async function parkAll(key: string, entries: readonly PendingStakeRefund[]): Promise<void> {
-    try {
-        await withKvLock(key, async () => {
-            const current = parsePendingStakeRefunds(await kv.get(key));
-            const ids = new Set(current.map((e) => e.id));
-            const merged = [...entries.filter((e) => !ids.has(e.id)), ...current];
-            await writePendingStakeRefunds(key, merged.slice(-KAGE_STAKE_REFUND_CAP));
-        }, { failClosed: true });
-    } catch (err) {
-        console.error('[kage-inactivity] could not re-park stake refunds:', (err as Error).message);
-    }
+    return outcome.paid.reduce((sum, e) => sum + e.amount, 0);
 }
 
 async function refundClearedChallenge(village: string, challenge: KageChallenge, now: number): Promise<void> {
@@ -326,10 +356,33 @@ async function refundClearedChallenge(village: string, challenge: KageChallenge,
         at: now,
         ...(challenge.chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis: challenge.chargedHollowGateCreditBasis } : {}),
     };
-    try {
-        await parkKageStakeRefund(slug, entry);
-    } catch (err) {
-        console.error(`[kage-inactivity] ${village}: could not park the stake refund for ${slug}.`, (err as Error).message);
+    // The dethrone already dropped the challenge, so the queue is the only
+    // record of this debt. Parking is idempotent per id: retry it, and if the
+    // queue stays unwritable, leave a durable audit entry an operator can pay
+    // from rather than a console line.
+    let parked = false;
+    let lastError = '';
+    for (let attempt = 0; attempt < 3 && !parked; attempt += 1) {
+        try {
+            await parkKageStakeRefund(slug, entry);
+            parked = true;
+        } catch (err) {
+            lastError = (err as Error).message;
+            if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+        }
+    }
+    if (!parked) {
+        console.error(`[kage-inactivity] ${village}: could not park the stake refund for ${slug}.`, lastError);
+        await recordAudit({
+            receiptId: `unparked-${entry.id}`,
+            actor: 'system',
+            domain: 'reward',
+            action: 'kage-stake-refund.unparked',
+            entityType: 'player',
+            entityId: slug,
+            after: { ...entry, owedTo: slug },
+            reason: `Owed ${entry.amount} ryo for a Kage challenge cleared by inactivity; the refund queue could not be written (${lastError}). Pay it by hand.`,
+        });
         return;
     }
     try {
