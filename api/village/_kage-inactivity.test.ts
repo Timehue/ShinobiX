@@ -265,3 +265,86 @@ test('parking the same challenge twice owes the stake once', async () => {
     assert.equal((await mod.readPendingKageStakeRefunds('dupe-one')).length, 1);
     await kv.del(mod.kageStakeRefundKey('dupe-one'));
 });
+
+async function owedOnce(slug: string, challengeId: string) {
+    await kv.del(mod.kageStakeRefundKey(slug));
+    await kv.del(notices.offlineNoticesKey(slug));
+    await kv.set(`save:${slug}`, { character: { name: slug, ryo: 1_000 }, _saveVersion: 1 });
+    await mod.parkKageStakeRefund(slug, { id: `kage-stake:${VILLAGE}:${challengeId}`, village: VILLAGE, amount: 250_000, at: NOW - 1 });
+}
+
+async function ryoOf(slug: string): Promise<number> {
+    return Number(((await kv.get<Record<string, unknown>>(`save:${slug}`))?.character as Record<string, unknown>).ryo);
+}
+
+test('a refund credit that lands but reports an error is paid once, not re-parked and paid again', async () => {
+    await owedOnce('landed-one', 'c-landed');
+    const originalSet = kv.set.bind(kv);
+    let armed = true;
+    kv.set = (async (key: string, value: unknown, options?: unknown) => {
+        const out = await originalSet(key, value, options as never);
+        if (armed && key === 'save:landed-one') {
+            armed = false;
+            throw new Error('injected: the write committed but the reply was lost');
+        }
+        return out;
+    }) as typeof kv.set;
+    try {
+        assert.equal(await mod.drainKageStakeRefunds('landed-one', NOW), 0, 'the drain could not tell whether it paid');
+    } finally {
+        kv.set = originalSet;
+    }
+    assert.equal(await ryoOf('landed-one'), 251_000, 'the credit landed');
+
+    assert.equal(await mod.drainKageStakeRefunds('landed-one', NOW), 0, 'the next drain finds the receipt and pays nothing');
+    assert.equal(await ryoOf('landed-one'), 251_000, 'before the fix this was 501,000: 250,000 ryo created');
+    assert.deepEqual(await mod.readPendingKageStakeRefunds('landed-one'), [], 'the settled entry leaves the queue');
+});
+
+test('a drain that fails before paying leaves the debt queued even when the queue cannot be rewritten', async () => {
+    // The old drain deleted the queue first and re-parked on failure; when the
+    // re-park failed too, 250,000 ryo was destroyed with only a console line.
+    await owedOnce('stranded-one', 'c-stranded');
+    await kv.set('lock:save:stranded-one', 'another-writer', { nx: true, ex: 5 });
+    const originalSet = kv.set.bind(kv);
+    kv.set = (async (key: string, value: unknown, options?: unknown) => {
+        if (key === mod.kageStakeRefundKey('stranded-one')) throw new Error('injected: queue write failed');
+        return originalSet(key, value, options as never);
+    }) as typeof kv.set;
+    try {
+        assert.equal(await mod.drainKageStakeRefunds('stranded-one', NOW), 0);
+    } finally {
+        kv.set = originalSet;
+        await kv.del('lock:save:stranded-one');
+    }
+    assert.equal((await mod.readPendingKageStakeRefunds('stranded-one')).length, 1, 'the stake is still owed');
+    assert.equal(await mod.drainKageStakeRefunds('stranded-one', NOW), 250_000);
+    assert.equal(await ryoOf('stranded-one'), 251_000);
+});
+
+test('two drains racing pay a parked refund once', async () => {
+    await owedOnce('racing-one', 'c-race');
+    const paid = await Promise.all([mod.drainKageStakeRefunds('racing-one', NOW), mod.drainKageStakeRefunds('racing-one', NOW)]);
+    assert.equal(paid[0] + paid[1], 250_000);
+    assert.equal(await ryoOf('racing-one'), 251_000);
+    assert.equal((await notices.takeOfflineNotices('racing-one')).length, 1, 'one notice for one payment');
+});
+
+test('a stake refund that cannot be parked leaves an audit entry to pay it from', async () => {
+    await kv.set(settle.kageKey(VILLAGE), {
+        ...seated(),
+        challenge: { challengeId: 'c-unparked', challenger: 'Lost-One', status: 'pending', createdAt: NOW - DAY, obligationRemainingMs: 1_800_000 },
+    });
+    await kv.set('save:sleepy-kage', { _saveAt: NOW - 12 * DAY });
+    await kv.set(`lock:${mod.kageStakeRefundKey('lost-one')}`, 'held', { nx: true, ex: 10 });
+    try {
+        const r = await mod.runKageInactivityPass(NOW);
+        assert.deepEqual(r.dethroned, [VILLAGE]);
+    } finally {
+        await kv.del(`lock:${mod.kageStakeRefundKey('lost-one')}`);
+    }
+    const audit = (await kv.get<Array<Record<string, unknown>>>('audit:reward')) ?? [];
+    const entry = audit.find((item) => item.action === 'kage-stake-refund.unparked' && item.entityId === 'lost-one');
+    assert.ok(entry, 'the owed stake is recorded durably, not just logged');
+    assert.equal((entry?.after as Record<string, unknown>).amount, 250_000);
+});
