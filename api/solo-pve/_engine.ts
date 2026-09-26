@@ -62,6 +62,14 @@ import {
 } from '../../shared/hollow-gate-combat-director.js';
 import type { HollowGateHoundKind } from '../../shared/hollow-gate-contract.js';
 import {
+    enemyActionKey,
+    enemyTurnPolicy,
+    enemyTurnValue,
+    standardPvePlannerApplies,
+    type EnemyTurnPolicy,
+    type EnemyTurnSnapshot,
+} from './_ai-turn-policy.js';
+import {
     SOLO_PVE_EVENT_HISTORY,
     type SoloPveAction,
     type SoloPveActionResult,
@@ -1759,7 +1767,227 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
     return true;
 }
 
+// ── Standard-PvE enemy turn (docs/pve-ai.md, ./_ai-turn-policy.ts) ────────
+//
+// Only a session whose enemy was sealed with STANDARD_PVE_AI_POLICY reaches
+// this code; every other Solo host keeps the original runner below. Nothing
+// here resolves combat: every candidate is checked with the resolver's own
+// acceptance rules, simulated through directAction on a copy, and executed
+// through directAction for real.
+
+/** The resolver's own acceptance, without mutating the session. */
+function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boolean {
+    if (session.status !== 'active' || session.activeSide !== 'enemy') return false;
+    const enemy = session.enemy;
+    switch (action.type) {
+        case 'jutsu': {
+            const jutsu = jutsuList(enemy).find((entry) => entry.id === action.jutsuId);
+            return !!jutsu && jutsuActionPlan(session, 'enemy', jutsu, action.tile === undefined ? undefined : Math.floor(action.tile)).accepted;
+        }
+        case 'move': {
+            const tile = Math.floor(action.tile);
+            return canAct(session, 'enemy', MOVE_AP)
+                && tile >= 0 && tile < GRID_W * GRID_H
+                && hexNeighbors(enemy.pos).includes(tile)
+                && tile !== session.player.pos
+                && !tileBlocked(session, tile);
+        }
+        case 'basicAttack':
+            return canAct(session, 'enemy', BASIC_ATTACK_AP)
+                && hexDistance(enemy.pos, session.player.pos) <= 1
+                && enemy.stamina >= BASIC_ATTACK_STAMINA;
+        case 'basicHeal':
+            return canAct(session, 'enemy', BASIC_HEAL_AP)
+                && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
+                && enemy.chakra >= BASIC_HEAL_CHAKRA;
+        case 'clear':
+            return canAct(session, 'enemy', CLEAR_AP) && (session.cooldowns.enemy.clear ?? 0) <= 0;
+        case 'cleanse':
+            return canAct(session, 'enemy', CLEANSE_AP) && (session.cooldowns.enemy.cleanse ?? 0) <= 0;
+        case 'wait':
+            return true;
+        default:
+            return false;
+    }
+}
+
+function jutsuCandidateAction(candidate: AiJutsuCandidate): SoloPveAction {
+    return { type: 'jutsu', jutsuId: candidate.jutsu.id, ...(candidate.tile === undefined ? {} : { tile: candidate.tile }) };
+}
+
+/** The existing scorer's ranking, restricted to casts the resolver accepts. */
+function legalJutsuCandidates(session: SoloPveSession): AiJutsuCandidate[] {
+    return aiJutsuCandidates(session).filter((candidate) => enemyActionLegal(session, jutsuCandidateAction(candidate)));
+}
+
+/**
+ * Every legal enemy action a planner considers, in a deterministic order.
+ * Counterplay stays competence-gated exactly as in aiTacticalAction: an enemy
+ * below the clear / cleanse thresholds never plans one. Movement is the
+ * step toward the player, the only repositioning the AI already made.
+ */
+function plannerEnemyActions(session: SoloPveSession): SoloPveAction[] {
+    const competence = pveAiCompetence(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true);
+    const actions: SoloPveAction[] = legalJutsuCandidates(session).map(jutsuCandidateAction);
+    const push = (action: SoloPveAction | null) => { if (action && enemyActionLegal(session, action)) actions.push(action); };
+    push({ type: 'basicAttack' });
+    if (session.enemy.hp < session.enemy.maxHp) push({ type: 'basicHeal' });
+    if (Number.isFinite(competence.clearBuffThreshold)
+        && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) >= competence.clearBuffThreshold) push({ type: 'clear' });
+    if (Number.isFinite(competence.cleanseSelfThreshold)
+        && activeStatuses(session.enemy, session.round).filter((status) => status.kind === 'negative').length >= competence.cleanseSelfThreshold) push({ type: 'cleanse' });
+    push(enemyMoveTowardPlayerAction(session));
+    return actions;
+}
+
+function enemyTurnSnapshot(session: SoloPveSession): EnemyTurnSnapshot {
+    const count = (value: PvpFighter, kind: 'positive' | 'negative') => value.statuses.filter((status) => status.kind === kind).length;
+    const damagingReach = jutsuList(session.enemy)
+        .filter((jutsu) => Number(jutsu.effectPower ?? 0) > 0)
+        .reduce((reach, jutsu) => Math.max(reach, Number(jutsu.range) || 0), 1);
+    return {
+        playerHp: session.player.hp,
+        playerShield: session.player.shield,
+        playerMaxHp: session.player.maxHp,
+        enemyHp: session.enemy.hp,
+        enemyShield: session.enemy.shield,
+        enemyMaxHp: session.enemy.maxHp,
+        playerPositive: count(session.player, 'positive'),
+        playerNegative: count(session.player, 'negative'),
+        enemyPositive: count(session.enemy, 'positive'),
+        enemyNegative: count(session.enemy, 'negative'),
+        distance: hexDistance(session.enemy.pos, session.player.pos),
+        enemyReach: Math.max(1, damagingReach),
+    };
+}
+
+/**
+ * Apply an enemy action to a copy. The copy drops the event history and log,
+ * which no resolver reads, so a simulation costs a fraction of a full clone.
+ */
+function simulateEnemyAction(session: SoloPveSession, action: SoloPveAction): SoloPveSession | null {
+    const copy = structuredClone({ ...session, events: [], log: [] }) as SoloPveSession;
+    return directAction(copy, 'enemy', action, {}).applied ? copy : null;
+}
+
+type PlannedStep = { action: SoloPveAction; key: string; after: SoloPveSession; value: number };
+
+/**
+ * The first step of the best one- or two-action combination from here. Bounded
+ * (a one-step ranking keeps `firstActionBeam` first actions; each is scored by
+ * its own result or by its best legal follow-up, whichever is higher) and
+ * deterministic (ties fall to the action key).
+ */
+function plannedEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy, jutsuOnly: boolean): SoloPveAction | null {
+    const start = enemyTurnSnapshot(session);
+    const rank = (from: SoloPveSession, actions: SoloPveAction[]): PlannedStep[] => actions
+        .map((action) => {
+            const after = simulateEnemyAction(from, action);
+            return after ? { action, key: enemyActionKey(action), after, value: enemyTurnValue(start, enemyTurnSnapshot(after)) } : null;
+        })
+        .filter((step): step is PlannedStep => step !== null)
+        .sort((a, b) => b.value - a.value || a.key.localeCompare(b.key));
+    const firsts = rank(session, plannerEnemyActions(session).filter((action) => !jutsuOnly || action.type === 'jutsu'))
+        .slice(0, policy.firstActionBeam);
+    let best: { key: string; value: number; action: SoloPveAction } | null = null;
+    for (const first of firsts) {
+        let value = first.value;
+        if (policy.lookahead === 2 && first.after.status === 'active' && first.after.activeSide === 'enemy') {
+            const followUp = rank(first.after, plannerEnemyActions(first.after))[0];
+            if (followUp && followUp.value > value) value = followUp.value;
+        }
+        if (!best || value > best.value || (value === best.value && first.key.localeCompare(best.key) < 0)) {
+            best = { key: first.key, value, action: first.action };
+        }
+    }
+    return best?.action ?? null;
+}
+
+/** The best jutsu for this bracket: the scorer's pick, or a planned combination's first cast. */
+function bestJutsuForPolicy(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
+    if (policy.lookahead === 2) return plannedEnemyAction(session, policy, true);
+    const candidate = legalJutsuCandidates(session)[0];
+    return candidate ? jutsuCandidateAction(candidate) : null;
+}
+
+/**
+ * One decision, in the original priority order: competence-gated counterplay,
+ * then authored rules, then the generic policy. An authored rule with a
+ * SPECIFIC intent (a scripted opener, a basic attack, a heal) is honoured when
+ * the resolver would accept it; a rule asking for "the best jutsu" and the
+ * generic fallback are decided by the bracket policy.
+ */
+function chooseStandardPveEnemyAction(session: SoloPveSession, policy: EnemyTurnPolicy): SoloPveAction | null {
+    const tactic = aiTacticalAction(session);
+    if (tactic && enemyActionLegal(session, tactic)) return tactic;
+    const program = validateServerAiRules(session.enemy.character.aiRules, jutsuList(session.enemy).map((jutsu) => jutsu.id));
+    if (program.ok) {
+        for (const rule of program.rules) {
+            if (!authoredAiRuleMatches(session, rule)) continue;
+            if (rule.action === 'use_highest_power_jutsu' || rule.action === 'use_best_legal_jutsu') {
+                const pick = bestJutsuForPolicy(session, policy);
+                if (pick) return pick;
+                continue;
+            }
+            const action = authoredAiRuleAction(session, rule, () => legalJutsuCandidates(session));
+            if (action && enemyActionLegal(session, action)) return action;
+        }
+    }
+    if (policy.lookahead === 2) return plannedEnemyAction(session, policy, false);
+    const jutsu = bestJutsuForPolicy(session, policy);
+    if (jutsu) return jutsu;
+    for (const fallback of [{ type: 'basicAttack' } as SoloPveAction, enemyMoveTowardPlayerAction(session)]) {
+        if (fallback && enemyActionLegal(session, fallback)) return fallback;
+    }
+    return null;
+}
+
+/**
+ * The standard-PvE enemy turn. Hard limits: MAX_ACTIONS actions (the engine's
+ * own cap), the AP the engine grants, and an iteration guard. It never repeats
+ * a rejected action: if the resolver refuses one (it should not, every choice
+ * was checked), the turn ends instead of burning the guard on the same pick.
+ */
+function runStandardPveEnemyTurn(
+    session: SoloPveSession,
+    policy: EnemyTurnPolicy = enemyTurnPolicy(Math.max(1, Number(session.enemy.character.level) || 1), session.enemy.character.masterAi === true),
+): void {
+    const turnOver = () => session.actionsThisTurn >= MAX_ACTIONS || (policy.legacyTurnEnd && session.ap.enemy < 30);
+    let guard = 0;
+    while (session.status === 'active' && session.activeSide === 'enemy' && guard++ < MAX_ACTIONS + 2) {
+        if (enemyTargetsCompanion(session) && enemyActsOnCompanion(session)) {
+            if (session.status === 'active' && session.activeSide === 'enemy' && turnOver()) endSoloPveTurn(session);
+            continue;
+        }
+        const action = chooseStandardPveEnemyAction(session, policy);
+        if (!action || !directAction(session, 'enemy', action, {}).applied) {
+            if (session.status === 'active' && session.activeSide === 'enemy') endSoloPveTurn(session);
+            break;
+        }
+        if (session.status === 'active' && session.activeSide === 'enemy' && turnOver()) endSoloPveTurn(session);
+    }
+    if (session.status === 'active' && session.activeSide === 'enemy') endSoloPveTurn(session);
+}
+
+/**
+ * Test seam: one standard-PvE enemy turn under an explicit bracket policy, so a
+ * test can compare brackets on an IDENTICAL session (same stats, kit and board)
+ * and prove a higher bracket chooses better without any numeric difference.
+ */
+export function runStandardPveEnemyTurnForTest(session: SoloPveSession, policy: EnemyTurnPolicy): void {
+    runStandardPveEnemyTurn(session, policy);
+}
+
 export function runSoloPveAiUntilPlayer(session: SoloPveSession): void {
+    if (standardPvePlannerApplies({
+        policy: session.enemy.character.aiTurnPolicy,
+        kind: session.encounter.kind,
+        missionTactics: session.enemy.character.missionTactics === true,
+        weeklyBoss: !!session.weeklyBossGuard,
+    })) {
+        runStandardPveEnemyTurn(session);
+        return;
+    }
     let guard = 0;
     while (session.status === 'active' && session.activeSide === 'enemy' && guard++ < MAX_ACTIONS + 2) {
         if (enemyTargetsCompanion(session) && enemyActsOnCompanion(session)) {
