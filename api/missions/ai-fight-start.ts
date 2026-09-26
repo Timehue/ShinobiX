@@ -12,6 +12,7 @@ import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
@@ -245,6 +246,9 @@ async function sealAiFightEncounter(
             // answer — the report, the lapse reconciler and an abandon.
             spar: !worldSpec && genericAuthority?.battleKind === 'practice',
             admin: await loadAdminCombatContent(),
+            // Standard PvE (generic and world AI fights): the bracket-scaled
+            // turn planner (api/solo-pve/_ai-turn-policy.ts).
+            aiTurnPolicy: STANDARD_PVE_AI_POLICY,
         });
         await writeSoloPveSession(session);
         return { sessionId, session };
