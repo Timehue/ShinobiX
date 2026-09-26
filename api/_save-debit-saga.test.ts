@@ -204,6 +204,56 @@ describe('save->shared settlement saga', () => {
         assert.equal(await credited(), 200);
     });
 
+    /** The shared write throws (after landing, or not), then its readback throws once. */
+    function unreadableCredit(t: import('node:test').TestContext, landed: boolean) {
+        const originalSet = kv.set.bind(kv);
+        const originalGet = kv.get.bind(kv);
+        let failWrite = true;
+        let failReadback = false;
+        t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+            if (failWrite && args[0] === SHARED_KEY) {
+                failWrite = false;
+                if (landed) await originalSet(...args);
+                failReadback = true;
+                throw new Error('injected shared write timeout');
+            }
+            return originalSet(...args);
+        });
+        t.mock.method(kv, 'get', (async (key: string) => {
+            if (failReadback && key === SHARED_KEY) { failReadback = false; throw new Error('injected readback failure'); }
+            return originalGet(key);
+        }) as typeof kv.get);
+    }
+
+    test('a credit that landed but could not be read back is not refunded, so nothing is minted', async (t) => {
+        unreadableCredit(t, true);
+        const refused = await refusal(run('saga-unknown-landed-01', 200));
+        assert.equal(refused.status, 503);
+        assert.equal(refused.details.pending, true);
+        assert.equal(refused.details.refunded, undefined, 'an unknown credit is never refunded');
+        assert.equal(await ryo(), 800, 'the debit stands');
+        assert.equal(await credited(), 200, 'the credit had landed');
+        t.mock.restoreAll();
+        const retry = await run('saga-unknown-landed-01', 200);
+        assert.equal(retry.replayed, true, 'the retry finds the credit already applied');
+        assert.equal(await ryo(), 800, 'charged once');
+        assert.equal(await credited(), 200, 'credited once');
+    });
+
+    test('a credit that did not land and could not be read back keeps the debit; the retry credits once', async (t) => {
+        unreadableCredit(t, false);
+        const refused = await refusal(run('saga-unknown-missed-01', 200));
+        assert.equal(refused.status, 503);
+        assert.equal(refused.details.pending, true);
+        assert.equal(await ryo(), 800, 'the debit stands until the retry settles it');
+        assert.equal(await credited(), 0);
+        t.mock.restoreAll();
+        const retry = await run('saga-unknown-missed-01', 200);
+        assert.equal(retry.resumed, true, 'the retry applies the credit it can now prove absent');
+        assert.equal(await ryo(), 800, 'charged once');
+        assert.equal(await credited(), 200, 'credited once');
+    });
+
     test('when the refund also fails, the retry rolls the credit forward exactly once', async (t) => {
         const originalSet = kv.set.bind(kv);
         const originalCompareSet = kv.compareSet.bind(kv);
