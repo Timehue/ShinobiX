@@ -72,7 +72,7 @@ function num(v: unknown): number {
  */
 export function structureUpgradeErrorMessage(
     code: string,
-    opts: { structure?: string; cost?: number; need?: number; have?: number } = {},
+    opts: { structure?: string; cost?: number; need?: number; have?: number; level?: number } = {},
 ): string {
     const amount = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0)).toLocaleString('en-US');
     const structureName = STRUCTURE_DEFS[opts.structure as keyof typeof STRUCTURE_DEFS]?.name ?? 'That structure';
@@ -85,6 +85,8 @@ export function structureUpgradeErrorMessage(
             return `The stores are short — ${amount(opts.need)} materials needed, and ${amount(opts.have)} are stocked.`;
         case 'max-level':
             return `${structureName} is already at its maximum level.`;
+        case 'level-changed':
+            return `${structureName} is already at level ${amount(opts.level)}, so nothing was spent. Check the level before raising it again.`;
         case 'unknown-structure':
         case 'not-per-war':
             return `${structureName} cannot be raised here.`;
@@ -110,6 +112,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName || !village) return res.status(400).json({ error: 'Missing playerName or village.' });
         if (!isWarVillage(village)) return res.status(400).json({ error: 'Not a war village.' });
         if (!(STRUCTURE_KEYS as readonly string[]).includes(structure)) return res.status(400).json({ error: 'Unknown structure.' });
+        // The level the Kage means to buy. Without it, pressing again after a
+        // lost answer bought (and charged for) the NEXT level. A client that
+        // sends none keeps the old behaviour.
+        const rawToLevel = Number(body.toLevel);
+        const toLevel = Number.isSafeInteger(rawToLevel) && rawToLevel > 0 ? rawToLevel : null;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -139,6 +146,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
                 const up = applyPerWarStructureUpgrade(record, structure);
                 if (!up.ok) return { ok: false as const, error: up.error, cost: up.cost };
+                if (toLevel !== null && up.newLevel !== toLevel) {
+                    return { ok: false as const, error: 'level-changed' as const, cost: up.cost, currentLevel: (up.newLevel ?? 1) - 1 };
+                }
                 await kv.set(warKey, up.record);
                 return { ok: true as const, structure, newLevel: up.newLevel, cost: up.cost, currency: 'wr' as const, remainingWr: up.record!.warResources };
             }, { failClosed: true })
@@ -150,6 +160,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
                     const up = applyStructureUpgrade(record, seals, structure);
                     if (!up.ok) return { ok: false as const, error: up.error, cost: up.cost };
+                    if (toLevel !== null && up.newLevel !== toLevel) {
+                        return { ok: false as const, error: 'level-changed' as const, cost: up.cost, currentLevel: (up.newLevel ?? 1) - 1 };
+                    }
                     // Village Stores materials gate (L6..L10).
                     const storesOn = villageStoresEnabled();
                     const need = storesOn ? structureMaterialsCost(up.newLevel!) : 0;
@@ -180,24 +193,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await markEconomyTx(txId, 'debit-applied');
                     txState = 'debit-applied';
                     await kv.set(warKey, nextRecord);
-                    await completeEconomyTx(txId);
+                    // The level is granted: nothing below may report otherwise.
+                    // A failed journal completion used to fall into the catch,
+                    // which marked the purchase "structure level NOT granted"
+                    // and answered 500, so the Kage paid again for the next level.
                     txState = 'complete';
+                    await completeEconomyTx(txId).catch((error) => {
+                        console.warn('[village/war-structure] journal completion deferred', txId, error instanceof Error ? error.message : String(error));
+                    });
                     return { ok: true as const, structure, newLevel: up.newLevel, cost: up.cost, currency: 'seals' as const, remainingSeals: up.nextSeals, materialsSpent: need, remainingMaterialPoints: have - need };
                 }, { failClosed: true });
             }, { failClosed: true });
 
         if (!result.ok) {
-            const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr' || result.error === 'materials-required') ? 402 : result.error === 'max-level' ? 409 : 400;
+            const status = (result.error === 'insufficient-seals' || result.error === 'insufficient-wr' || result.error === 'materials-required') ? 402
+                : (result.error === 'max-level' || result.error === 'level-changed') ? 409 : 400;
             const need = 'need' in result ? result.need : undefined;
             const have = 'have' in result ? result.have : undefined;
+            const level = 'currentLevel' in result ? result.currentLevel : undefined;
             return res.status(status).json({
                 error: result.error,
                 // Humanised twin of `error` — the clients render this, so a refusal
                 // never surfaces a machine code to the Kage. `error` is unchanged so
                 // machine callers and the endpoint contract tests keep working.
-                message: structureUpgradeErrorMessage(String(result.error ?? ''), { structure, cost: result.cost, need, have }),
+                message: structureUpgradeErrorMessage(String(result.error ?? ''), { structure, cost: result.cost, need, have, level }),
                 cost: result.cost,
                 ...('need' in result ? { need: result.need, have: result.have } : {}),
+                ...(level !== undefined ? { currentLevel: level } : {}),
             });
         }
         // World Herald for a major (L8+) permanent structure. Receipt = village/structure/level.
