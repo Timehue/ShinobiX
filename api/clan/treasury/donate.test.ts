@@ -126,6 +126,26 @@ test('concurrent duplicates donate once', async () => {
     assert.equal((await clan()).treasury.ryo, 7_000);
 });
 
+test('a failed debit write moves nothing, and the retry donates once', async (t) => {
+    const original = kv.compareSet.bind(kv);
+    let fail = true;
+    t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+        if (fail && args[0] === `save:${DONOR}`) { fail = false; throw new Error('injected save write failure'); }
+        return original(...args);
+    });
+    const failed = await call({ currency: 'ryo', amount: 35_000, requestId: 'clan-donate-debit-fail1' });
+    assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
+    assert.equal((await donor()).ryo, 100_000, 'nothing was debited');
+    assert.equal((await clan()).treasury.ryo, 0, 'nothing was credited');
+    assert.equal((await clan()).xp, 0, 'no clan XP');
+    const retry = await call({ currency: 'ryo', amount: 35_000, requestId: 'clan-donate-debit-fail1' });
+    assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    assert.equal(retry.body?.replayed, undefined, 'the retry is the first time it settles');
+    assert.equal((await donor()).ryo, 65_000);
+    assert.equal((await clan()).treasury.ryo, 35_000);
+    assert.deepEqual({ xp: (await clan()).xp, level: (await clan()).level }, expectedAfter1000Xp, 'clan XP once');
+});
+
 test('a failed clan-row write keeps the debit, lists the donation as stuck, and the retry finishes it once', async (t) => {
     const original = kv.set.bind(kv);
     let broken = true;

@@ -116,6 +116,24 @@ test('concurrent duplicates of one offering settle once', async () => {
     assert.equal((await ledger()).total, 2_000);
 });
 
+test('a failed debit write moves nothing, and the retry settles once', async (t) => {
+    const original = kv.compareSet.bind(kv);
+    let fail = true;
+    t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+        if (fail && args[0] === `save:${PLAYER}`) { fail = false; throw new Error('injected save write failure'); }
+        return original(...args);
+    });
+    const failed = await call({ amount: 2_500, requestId: 'shrine-debit-fails-0001' });
+    assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
+    assert.equal(await ryo(), 10_000, 'nothing was debited');
+    assert.equal((await ledger()).total, undefined, 'nothing was credited');
+    const retry = await call({ amount: 2_500, requestId: 'shrine-debit-fails-0001' });
+    assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    assert.equal(retry.body?.replayed, undefined, 'the retry is the first time it settles');
+    assert.equal(await ryo(), 7_500);
+    assert.equal((await ledger()).total, 2_500);
+});
+
 test('a failed ledger write does not keep the debit, and the retry settles once', async (t) => {
     const original = kv.set.bind(kv);
     let fail = true;
