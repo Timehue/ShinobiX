@@ -3,8 +3,11 @@ import { kv } from '../../_storage.js';
 import { cors, setSafeRecordValue } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
-import { bumpSaveVersion } from '../../save/_save-version.js';
+import { LockContendedError, withKvLock } from '../../_lock.js';
+import { parseSettlementRequestId } from '../../_settlement-receipts.js';
+import { runSaveDebitSaga, saveDebitTransactionId, SaveDebitRefusal } from '../../_save-debit-saga.js';
+import { economyTxKey, type EconomyTxRecord } from '../../_economy-tx.js';
+import { CLAN_WAR_DECLARE_SAGA, type ClanWarDeclarePlan } from '../../_save-debit-kinds.js';
 import {
     CLAN_WAR_HP_MAX,
     clanInActiveWar,
@@ -73,6 +76,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const requestedToClan = String(body?.toClan ?? '').trim();
         if (!requestedToClan) return res.status(400).json({ error: 'Missing toClan.' });
 
+        // A retry of a declaration that already charged is finished or
+        // replayed from its journal. The checks below would refuse it: its own
+        // war may already stand, and the declarer may have changed role since.
+        const requestId = parseSettlementRequestId(body?.requestId);
+        if (!identity.admin && requestId) {
+            const journal = await kv.get<EconomyTxRecord>(economyTxKey(saveDebitTransactionId(CLAN_WAR_DECLARE_SAGA.kind, identity.name, requestId)));
+            const fromClan = journal?.meta?.fromClan;
+            const toClan = journal?.meta?.toClan;
+            if (journal && journal.state !== 'refunded' && typeof fromClan === 'string' && typeof toClan === 'string') {
+                if (toClan.toLowerCase() !== requestedToClan.toLowerCase()) {
+                    return res.status(409).json({ error: 'That request id was already used for a different action.' });
+                }
+                const outcome = await runSaveDebitSaga<Record<string, unknown>, ClanWarDeclarePlan, Record<string, never>>({
+                    definition: CLAN_WAR_DECLARE_SAGA,
+                    playerName: identity.name,
+                    requestId,
+                    identity: { war: clanWarPairId(fromClan, toClan) },
+                    sharedKey: clanWarKey(fromClan, toClan),
+                    resource: 'honorSeals',
+                    amount: CLAN_WAR_DECLARATION_COST,
+                    meta: { fromClan, toClan },
+                    // Only reached when the debit receipt is gone, and the
+                    // journal says this request already charged.
+                    decide: () => ({ ok: false, status: 409, error: 'This declaration needs an administrator to finish it.', details: { reconcile: true } }),
+                });
+                return res.status(200).json({ war: outcome.shared, character: outcome.character, _saveVersion: outcome._saveVersion });
+            }
+        }
+
         // Pull actor's clan context. Admin may declare on behalf of any
         // clan via the `fromClan` body field (testing); regular players
         // must use their own clan.
@@ -126,57 +158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const sortedClans: [string, string] = [fromClan, toClan].sort((a, b) => a.localeCompare(b)) as [string, string];
         const id = clanWarPairId(fromClan, toClan);
         const key = clanWarKey(fromClan, toClan);
-
-        const result = await withKvLock(key, async () => {
-            // Re-check under the lock to avoid two simultaneous declares
-            // for the same pair both succeeding.
-            const existing = await kv.get<ClanWar>(key);
-            if (existing && !existing.endedAt) {
-                return { status: 409 as const, body: { error: 'War already exists for this clan pair.', war: existing } };
-            }
-
-            // Honor-seal cost (non-admin). Charged off the declaring player's
-            // save INSIDE the war-create critical section, AFTER the existing-war
-            // re-check and BEFORE writing the war record. This guarantees no seal
-            // is charged unless the war is successfully created (mirrors the
-            // village-war declaration in api/world-state.ts and the Kage
-            // challenge in api/village/kage-challenge.ts). The nested
-            // read-modify-write is held under lock:save:<name> with
-            // { failClosed: true } so a concurrent auto-save can't undo the
-            // debit and contention can't run the RMW unlocked (free war).
-            if (!identity.admin) {
-                const saveKey = `save:${identity.name}`;
-                const debitError = await withKvLock(saveKey, async () => {
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    const char = record?.character as Record<string, unknown> | undefined;
-                    if (!char) return { status: 404 as const, body: { error: 'Declaring character not found.' } };
-                    const balance = Number(char.honorSeals ?? 0);
-                    if (balance < CLAN_WAR_DECLARATION_COST) {
-                        return {
-                            status: 400 as const,
-                            body: {
-                                error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
-                                cost: CLAN_WAR_DECLARATION_COST,
-                                balance,
-                            },
-                        };
-                    }
-                    const updated = {
-                        ...record,
-                        character: {
-                            ...char,
-                            honorSeals: balance - CLAN_WAR_DECLARATION_COST,
-                        },
-                    };
-                    // Bump _saveVersion so a stale declarer tab can't refund the
-                    // debit (a free war) via its next autosave (audit #2 class).
-                    await kv.set(saveKey, bumpSaveVersion(updated));
-                    return null;
-                }, { failClosed: true });
-                if (debitError) return debitError;
-            }
-
-            const now = Date.now();
+        const buildWar = (now: number): ClanWar => {
             const villages: Record<string, string> = {};
             const hp: Record<string, number> = {};
             const hpMax: Record<string, number> = {};
@@ -186,7 +168,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             setSafeRecordValue(hp, toClan, toStartHp);
             setSafeRecordValue(hpMax, fromClan, fromStartHp);
             setSafeRecordValue(hpMax, toClan, toStartHp);
-            const war: ClanWar = {
+            return {
                 id,
                 clans: sortedClans,
                 villages,
@@ -199,11 +181,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 completedChallenges: [],
                 warCrateId: `clan-war-crate-${id}`,
             };
-            await kv.set(key, war);
-            return { status: 200 as const, body: { war } };
-        }, { failClosed: true });
-        return res.status(result.status).json(result.body);
+        };
+
+        if (identity.admin) {
+            // An admin declaration (testing) charges nothing, so there is
+            // nothing to settle: re-check under the pair lock and write.
+            const result = await withKvLock(key, async () => {
+                const existing = await kv.get<ClanWar>(key);
+                if (existing && !existing.endedAt) {
+                    return { status: 409 as const, body: { error: 'War already exists for this clan pair.', war: existing } };
+                }
+                const war = buildWar(Date.now());
+                await kv.set(key, war);
+                return { status: 200 as const, body: { war } };
+            }, { failClosed: true });
+            return res.status(result.status).json(result.body);
+        }
+
+        // The Honor Seal cost and the war record settle as one retry-safe
+        // saga (api/_save-debit-saga.ts), under the same pair lock as before
+        // and then the declarer's save. The war used to be written after a
+        // plain debit: when that write failed the seals were gone with no war
+        // and no record, and pressing Declare again charged a second 100. Now
+        // a war write that provably failed refunds the seals (503, refunded),
+        // and one whose outcome is unknown is finished by the retry with the
+        // same request id, never charged twice.
+        const outcome = await runSaveDebitSaga<Record<string, unknown>, ClanWarDeclarePlan, Record<string, never>>({
+            definition: CLAN_WAR_DECLARE_SAGA,
+            playerName: identity.name,
+            requestId,
+            identity: { war: id },
+            sharedKey: key,
+            resource: 'honorSeals',
+            amount: CLAN_WAR_DECLARATION_COST,
+            meta: { fromClan, toClan },
+            decide: ({ character, shared }) => {
+                // Re-check under the lock so two simultaneous declares for the
+                // same pair cannot both succeed.
+                if (shared?.startedAt && !shared.endedAt) {
+                    return { ok: false, status: 409, error: 'War already exists for this clan pair.', details: { war: shared } };
+                }
+                const balance = Number(character.honorSeals ?? 0);
+                if (balance < CLAN_WAR_DECLARATION_COST) {
+                    return {
+                        ok: false,
+                        status: 400,
+                        error: `Declaring war costs ${CLAN_WAR_DECLARATION_COST} Honor Seals. You hold ${balance}.`,
+                        details: { cost: CLAN_WAR_DECLARATION_COST, balance },
+                    };
+                }
+                return {
+                    ok: true,
+                    character: { ...character, honorSeals: balance - CLAN_WAR_DECLARATION_COST },
+                    plan: { war: buildWar(Date.now()) as unknown as Record<string, unknown>, cost: CLAN_WAR_DECLARATION_COST },
+                    result: {},
+                };
+            },
+            messages: {
+                refunded: 'The war could not be declared, so your Honor Seals were refunded. Please retry.',
+                pending: 'Your Honor Seals were spent but the war was not declared yet. Press Declare again to finish it; you will not be charged twice.',
+            },
+        });
+        // The character travels with its version, so the global client echo
+        // leaves it to the caller; this screen refetches on its next save.
+        return res.status(200).json({ war: outcome.shared, character: outcome.character, _saveVersion: outcome._saveVersion });
     } catch (err) {
+        if (err instanceof SaveDebitRefusal) return res.status(err.status).json({ ...err.details, error: err.message });
+        if (err instanceof LockContendedError) return res.status(503).json({ error: 'The war table is busy. Nothing was spent; try again.', retryable: true });
         console.error('[clan/war/declare]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

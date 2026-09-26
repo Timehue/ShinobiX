@@ -1,14 +1,13 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
-import { withKvLock } from '../_lock.js';
-import { invalidateProcCache } from '../_proc-cache.js';
+import { LockContendedError, withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
-import { cors, mergePreservingImages, safeName } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits.js';
+import { cors, safeName } from '../_utils.js';
+import { parseSettlementRequestId } from '../_settlement-receipts.js';
+import { runSaveDebitSaga, SaveDebitRefusal } from '../_save-debit-saga.js';
+import { HOLLOW_GATE_UNLOCK_SAGA, type HollowGateUnlockPlan } from '../_save-debit-kinds.js';
 
 const COST = 10_000;
 const WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -35,52 +34,48 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const stateKey = `game:village-state:${slug(existingChar.village)}`;
         const kageKey = `village:kage:${String(existingChar.village ?? '').toLowerCase().replace(/\s+/g, '-')}`;
 
-        const out = await withKvLock(kageKey, () => withKvLock(stateKey, async () => withKvLock(saveKey, async () => {
-            const save = await kv.get<Record<string, unknown>>(saveKey);
-            const character = save?.character as Record<string, unknown> | undefined;
-            const state = await kv.get<Record<string, unknown>>(stateKey) ?? {};
-            if (!save || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
-            const kage = await kv.get<{ seatedKage?: string }>(kageKey);
-            if (slug(character.village) !== slug(existingChar.village)) return { ok: false as const, status: 409, error: 'Your village changed. Refresh Town Hall.' };
-            if (!identity.admin && safeName(String(kage?.seatedKage ?? '')) !== playerName) {
-                return { ok: false as const, status: 403, error: 'Only the seated Kage can open the Hollow Gate.' };
-            }
-            const seals = Math.max(0, Math.floor(Number(character.honorSeals) || 0));
-            if (seals < COST) return { ok: false as const, status: 409, error: 'Insufficient Honor Seals.' };
-
-            const until = Math.max(Date.now(), Math.max(0, Number(state.hollowGateUnlockedUntil) || 0)) + WINDOW_MS;
-            const txId = makeEconomyTxId('hollow-gate-unlock');
-            await reserveEconomyTx({
-                id: txId, kind: 'hollow-gate-unlock', debitKey: saveKey, creditKey: stateKey,
-                resource: 'honorSeals', amount: COST, meta: { playerName, until },
-            });
-            const nextSave = bumpSaveVersion<Record<string, unknown>>({ ...save, character: { ...character, honorSeals: seals - COST } });
-            await kv.set(saveKey, mergePreservingImages(nextSave, save));
-            await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
-            try {
-                await kv.set(stateKey, { ...state, hollowGateUnlockedUntil: until });
-                invalidateProcCache('game-state:frame');
-            } catch (creditError) {
-                try {
-                    const refund = bumpSaveVersion<Record<string, unknown>>({ ...nextSave, character: { ...(nextSave.character as Record<string, unknown>), honorSeals: seals } }, {
-                        previousCharacter: nextSave.character as Record<string, unknown>,
-                        hollowGateCurrencySource: hollowGateRefundCurrencySource(character, nextSave.character as Record<string, unknown>),
-                    });
-                    await kv.set(saveKey, mergePreservingImages(refund, nextSave));
-                    await completeEconomyTx(txId, { note: 'Village-state write failed; Honor Seals refunded.' }).catch(() => undefined);
-                    return { ok: false as const, status: 503, error: 'The gate could not be opened, so your Honor Seals were refunded. Please retry.' };
-                } catch (refundError) {
-                    await failEconomyTx(txId, refundError, { note: 'Village-state write and automatic Honor Seal refund both failed.', meta: { playerName, until, creditError: String(creditError) } }).catch(() => undefined);
-                    return { ok: false as const, status: 503, error: 'The gate could not be opened and the refund needs administrator reconciliation. Please do not retry.' };
+        // One retry-safe settlement (api/_save-debit-saga.ts): the Honor Seal
+        // debit and its receipt are one save write, the window and its receipt
+        // one village-row write. A request id from the client makes a retry
+        // after a lost answer return the first result instead of buying a
+        // second 30 days; an unknown outcome is finished by that retry, never
+        // refunded. Lock order is unchanged: Kage row, village row, save.
+        const outcome = await withKvLock(kageKey, () => runSaveDebitSaga<Record<string, unknown>, HollowGateUnlockPlan, { cost: number }>({
+            definition: HOLLOW_GATE_UNLOCK_SAGA,
+            playerName,
+            requestId: parseSettlementRequestId(body.requestId),
+            identity: { village: slug(existingChar.village) },
+            sharedKey: stateKey,
+            resource: 'honorSeals',
+            amount: COST,
+            meta: { village: String(existingChar.village ?? '') },
+            decide: async ({ character }) => {
+                if (slug(character.village) !== slug(existingChar.village)) return { ok: false, status: 409, error: 'Your village changed. Refresh Town Hall.' };
+                const kage = await kv.get<{ seatedKage?: string }>(kageKey);
+                if (!identity.admin && safeName(String(kage?.seatedKage ?? '')) !== playerName) {
+                    return { ok: false, status: 403, error: 'Only the seated Kage can open the Hollow Gate.' };
                 }
-            }
-            await completeEconomyTx(txId).catch(() => undefined);
-            return { ok: true as const, character: nextSave.character as Record<string, unknown>, _saveVersion: Number(nextSave._saveVersion ?? 0), until };
-        }, { failClosed: true }), { failClosed: true }), { failClosed: true });
+                const seals = Math.max(0, Math.floor(Number(character.honorSeals) || 0));
+                if (seals < COST) return { ok: false, status: 409, error: 'Insufficient Honor Seals.' };
+                return { ok: true, character: { ...character, honorSeals: seals - COST }, plan: { windowMs: WINDOW_MS, cost: COST }, result: { cost: COST } };
+            },
+            messages: {
+                refunded: 'The gate could not be opened, so your Honor Seals were refunded. Please retry.',
+                pending: 'Your Honor Seals were spent but the gate did not open yet. Press again to finish it; you will not be charged twice.',
+            },
+        }), { failClosed: true });
 
-        if (!out.ok) return res.status(out.status).json({ error: out.error });
-        return res.status(200).json({ ok: true, character: out.character, _saveVersion: out._saveVersion, hollowGateUnlockedUntil: out.until, cost: COST });
+        return res.status(200).json({
+            ok: true,
+            character: outcome.character,
+            _saveVersion: outcome._saveVersion,
+            hollowGateUnlockedUntil: Number(outcome.shared.hollowGateUnlockedUntil) || 0,
+            cost: COST,
+            ...(outcome.replayed ? { replayed: true } : {}),
+        });
     } catch (error) {
+        if (error instanceof SaveDebitRefusal) return res.status(error.status).json({ ...error.details, error: error.message });
+        if (error instanceof LockContendedError) return res.status(503).json({ error: 'Town Hall is busy. Nothing was spent; press again.', retryable: true });
         console.error('[village/hollow-gate-unlock]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });
     }

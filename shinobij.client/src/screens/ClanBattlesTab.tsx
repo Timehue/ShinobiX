@@ -108,7 +108,7 @@ export function ClanBattlesTab({ character, playerRoster, setScreen, launchClanW
         if (!declareTarget) return;
         const result = await runClanMutation(async () => {
             if (!(await gameConfirm(`Declare clan war on ${declareTarget}? Both clans will see this in the Shinobi Council Hall.`))) return null;
-            return cwDeclareWar(declareTarget);
+            return cwDeclareWar(declareTarget, character.name);
         });
         if (!result) return;
         if (!result.ok) { setError(result.error ?? "Failed."); return; }

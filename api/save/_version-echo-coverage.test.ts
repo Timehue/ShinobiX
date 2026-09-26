@@ -147,6 +147,11 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     'sector/shrine-offer.ts',
     'clan/treasury/donate.ts',
     'village/treasury/donate.ts',
+    // Stake-style Honor Seal / ryo debits that joined the same saga in the
+    // retry-safety audit's sibling pass.
+    'village/hollow-gate-unlock.ts',
+    'clan/war/declare.ts',
+    'village/kage-challenge.ts',
 ]);
 
 /**
