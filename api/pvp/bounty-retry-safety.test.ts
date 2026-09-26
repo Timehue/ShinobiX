@@ -4,6 +4,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'pvp-bounty-retry-test-secret-32-bytes!!';
+process.env.ADMIN_PASSWORD = 'pvp-bounty-retry-test-admin-password';
 
 /*
  * Issues #179 and #180 on the real bounty handler and storage adapter.
@@ -28,6 +29,7 @@ const BOARD_KEY = 'pvp:bounties';
 
 let kv: typeof import('../_storage.js').kv;
 let handler: Handler;
+let reconcile: Handler;
 let issuePlayerToken: (name: string) => string | null;
 let resetRateLimits: () => void;
 let settleSleeper: typeof import('./_bounty-settle.js').settleBountyForSessionlessKill;
@@ -40,6 +42,7 @@ before(async () => {
     ({ settleBountyForSessionlessKill: settleSleeper } = await import('./_bounty-settle.js'));
     ({ BOUNTY_CLAIM_SWEEP_AFTER_MS: sweepAfterMs } = await import('./_bounty-claim.js'));
     handler = (await import('./bounty.js')).default as unknown as Handler;
+    reconcile = (await import('../admin/economy-reconcile.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -57,9 +60,10 @@ after(async () => {
     if (keys.length) await kv.del(...keys);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.SESSION_SECRET;
+    delete process.env.ADMIN_PASSWORD;
 });
 
-async function call(playerName: string, body: Record<string, unknown>): Promise<Out> {
+function responder() {
     const out: Out = { statusCode: 200 };
     const res = {
         setHeader: () => res,
@@ -67,13 +71,45 @@ async function call(playerName: string, body: Record<string, unknown>): Promise<
         json: (payload: Record<string, unknown>) => { out.body = payload; return res; },
         end: () => res,
     };
+    return { out, res: res as never };
+}
+
+/** `playerName` in the body, authenticated as `tokenOwner` (a forgery when they differ). */
+async function callAs(tokenOwner: string, playerName: string, body: Record<string, unknown>): Promise<Out> {
+    const { out, res } = responder();
     await handler({
         method: 'POST',
         body: { ...body, playerName },
-        headers: { 'x-player-name': playerName, 'x-player-token': issuePlayerToken(playerName) ?? '' },
+        headers: { 'x-player-name': tokenOwner, 'x-player-token': issuePlayerToken(tokenOwner) ?? '' },
         socket: { remoteAddress: '127.0.0.1' },
-    } as never, res as never);
+    } as never, res);
     return out;
+}
+
+async function call(playerName: string, body: Record<string, unknown>): Promise<Out> {
+    return callAs(playerName, playerName, body);
+}
+
+async function adminReconcile(body: Record<string, unknown>): Promise<Out> {
+    const { out, res } = responder();
+    await reconcile({
+        method: 'POST',
+        body,
+        headers: { 'x-admin-password': process.env.ADMIN_PASSWORD! },
+        socket: { remoteAddress: '127.0.0.2' },
+    } as never, res);
+    return out;
+}
+
+/** Runs `fn` with the clock past the pending-claim sweep threshold. */
+async function afterSweepDelay<T>(fn: () => Promise<T>): Promise<T> {
+    const realNow = Date.now;
+    Date.now = () => realNow() + sweepAfterMs + 1_000;
+    try {
+        return await fn();
+    } finally {
+        Date.now = realNow;
+    }
 }
 
 async function seedWin(battleId: string, winnerDisplay: string): Promise<void> {
@@ -143,6 +179,42 @@ describe('bounty placement is retry-safe (#179)', () => {
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.equal(await ryo(PLACER), 45_000, 'no second charge');
         assert.equal(await pool(), 5_000, 'the escrow landed once');
+    });
+
+    test('a failed debit write moves nothing, and the retry escrows once', async (t) => {
+        const original = kv.compareSet.bind(kv);
+        let fail = true;
+        t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+            if (fail && args[0] === `save:${PLACER}`) { fail = false; throw new Error('injected save write failure'); }
+            return original(...args);
+        });
+        const failed = await postBounty(4_000, 'bounty-place-debit-fail1');
+        assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
+        assert.equal(await ryo(PLACER), 50_000, 'nothing was charged');
+        assert.equal(await pool(), 0, 'nothing was escrowed');
+        const retry = await postBounty(4_000, 'bounty-place-debit-fail1');
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.replayed, undefined, 'the retry is the first time it settles');
+        assert.equal(await ryo(PLACER), 46_000);
+        assert.equal(await pool(), 4_000);
+    });
+
+    test('short balances, forged identities, reused ids and invalid targets move nothing', async () => {
+        await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Retry Placer', ryo: 3_000 } });
+        const poor = await postBounty(5_000, 'bounty-place-too-poor-01');
+        assert.equal(poor.statusCode, 400, JSON.stringify(poor.body));
+        const forged = await callAs(RIVAL, PLACER, { action: 'place', target: 'Retry Target', amount: 1_000, requestId: 'bounty-place-forged-0001' });
+        assert.ok(forged.statusCode === 401 || forged.statusCode === 403, JSON.stringify(forged));
+        const self = await call(PLACER, { action: 'place', target: 'Retry Placer', amount: 1_000, requestId: 'bounty-place-self-00001' });
+        assert.equal(self.statusCode, 400, JSON.stringify(self.body));
+        const ghost = await call(PLACER, { action: 'place', target: 'Nobody At All', amount: 1_000, requestId: 'bounty-place-ghost-0001' });
+        assert.equal(ghost.statusCode, 400, JSON.stringify(ghost.body));
+        assert.equal((await postBounty(1_000, 'bounty-place-reused-001')).statusCode, 200);
+        const reused = await postBounty(2_000, 'bounty-place-reused-001');
+        assert.equal(reused.statusCode, 409, 'one id, one placement');
+        assert.equal(await ryo(PLACER), 2_000, 'only the one real placement was charged');
+        assert.equal(await pool(), 1_000);
+        assert.equal(await ryo(RIVAL), 100, 'the forger was never charged');
     });
 });
 
@@ -255,6 +327,75 @@ describe('bounty payout is two-phase (#180)', () => {
         assert.equal(await ryo(HUNTER), 2_100, 'and nobody is paid twice');
     });
 
+    test('concurrent claims of one win pay it once', async () => {
+        assert.equal((await postBounty(2_000)).statusCode, 200);
+        await seedWin('bounty-180-concurrent-a001', 'Retry Hunter');
+        const outs = await Promise.all(Array.from({ length: 4 }, () => call(HUNTER, { action: 'claim', battleId: 'bounty-180-concurrent-a001' })));
+        for (const out of outs) assert.ok(out.statusCode === 200 || out.statusCode === 503, JSON.stringify(out));
+        assert.equal(await ryo(HUNTER), 2_100, 'paid exactly once');
+        assert.equal(await pool(), 0);
+        const settled = await call(HUNTER, { action: 'claim', battleId: 'bounty-180-concurrent-a001' });
+        assert.equal(settled.body?.alreadyClaimed, true);
+        assert.equal(settled.body?.amount, 2_000);
+    });
+
+    test('two winners racing for one bounty: exactly one collects it', async () => {
+        assert.equal((await postBounty(2_000)).statusCode, 200);
+        await seedWin('bounty-180-race-hunter01', 'Retry Hunter');
+        await seedWin('bounty-180-race-rival001', 'Retry Rival');
+        const outs = await Promise.all([
+            call(HUNTER, { action: 'claim', battleId: 'bounty-180-race-hunter01' }),
+            call(RIVAL, { action: 'claim', battleId: 'bounty-180-race-rival001' }),
+        ]);
+        for (const out of outs) assert.ok(out.statusCode === 200 || out.statusCode === 503, JSON.stringify(out));
+        const gained = (await ryo(HUNTER)) - 100 + (await ryo(RIVAL)) - 100;
+        assert.equal(gained, 2_000, 'the pool paid out once, to one of them');
+        assert.equal(await pool(), 0);
+    });
+
+    test('a player who did not win the battle cannot claim its bounty', async () => {
+        assert.equal((await postBounty(2_000)).statusCode, 200);
+        await seedWin('bounty-180-not-winner-01', 'Retry Hunter');
+        const stolen = await call(RIVAL, { action: 'claim', battleId: 'bounty-180-not-winner-01' });
+        assert.equal(stolen.statusCode, 403, JSON.stringify(stolen.body));
+        assert.equal(await ryo(RIVAL), 100);
+        assert.equal(await ryo(HUNTER), 100);
+        assert.equal(await pool(), 2_000, 'the pool is still posted for its real winner');
+        assert.equal((await call(HUNTER, { action: 'claim', battleId: 'bounty-180-not-winner-01' })).body?.amount, 2_000);
+    });
+
+    test('admin reconciliation finishes a reserved payout the winner never retried, once', async (t) => {
+        assert.equal((await postBounty(2_000)).statusCode, 200);
+        await seedWin('bounty-180-admin-sweep-1', 'Retry Hunter');
+        const original = kv.compareSet.bind(kv);
+        let broken = true;
+        t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+            if (broken && args[0] === `save:${HUNTER}`) throw new Error('process stopped');
+            return original(...args);
+        });
+        assert.notEqual((await call(HUNTER, { action: 'claim', battleId: 'bounty-180-admin-sweep-1' })).statusCode, 200);
+        broken = false;
+        t.mock.restoreAll();
+        const pending = (await board()).pendingClaims ?? [];
+        assert.equal(pending.length, 1);
+
+        // Too soon: an in-flight claim is never raced.
+        const early = await adminReconcile({ bountyClaims: true });
+        assert.equal(early.statusCode, 200, JSON.stringify(early.body));
+        assert.deepEqual(early.body?.finished, []);
+        assert.equal(await ryo(HUNTER), 100);
+
+        const swept = await afterSweepDelay(() => adminReconcile({ bountyClaims: true }));
+        assert.equal(swept.statusCode, 200, JSON.stringify(swept.body));
+        assert.deepEqual(swept.body?.finished, [pending[0]!.id]);
+        assert.deepEqual(swept.body?.remaining, []);
+        assert.equal(await ryo(HUNTER), 2_100, 'paid once');
+        const again = await afterSweepDelay(() => adminReconcile({ bountyClaims: true }));
+        assert.deepEqual(again.body?.finished, [], 'nothing left to finish');
+        assert.equal(await ryo(HUNTER), 2_100, 'and never paid twice');
+        assert.equal((await call(HUNTER, { action: 'claim', battleId: 'bounty-180-admin-sweep-1' })).body?.alreadyClaimed, true);
+    });
+
     test('a winner whose save is gone puts the pool back', async () => {
         assert.equal((await postBounty(2_000)).statusCode, 200);
         await seedWin('bounty-180-missing-save-01', 'Retry Hunter');
@@ -268,6 +409,19 @@ describe('bounty payout is two-phase (#180)', () => {
 
 describe('sleeping-camp KO payout is two-phase (#180)', () => {
     const settle = () => settleSleeper({ attackerSlug: HUNTER, victimSlug: TARGET, victimName: 'Retry Target', rewardEligible: true });
+
+    test('a KO pays the bounty once, and two KOs racing for it pay it once', async () => {
+        assert.equal((await postBounty(2_000)).statusCode, 200);
+        const [a, b] = await Promise.all([
+            settle(),
+            settleSleeper({ attackerSlug: RIVAL, victimSlug: TARGET, victimName: 'Retry Target', rewardEligible: true }),
+        ]);
+        assert.equal(a.amount + b.amount, 2_000, 'one KO collected the pool');
+        assert.equal((await ryo(HUNTER)) - 100 + (await ryo(RIVAL)) - 100, 2_000, 'and it was paid once');
+        assert.equal(await pool(), 0);
+        assert.equal((await board()).pendingClaims, undefined, 'nothing left owed');
+        assert.equal((await settle()).amount, 0, 'a later KO finds no bounty');
+    });
 
     test('a failed credit stays reserved and the next sweep pays it once', async (t) => {
         assert.equal((await postBounty(2_000)).statusCode, 200);

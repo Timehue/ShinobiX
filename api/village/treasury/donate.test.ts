@@ -26,6 +26,7 @@ let meritForDonation: typeof import('../_village-merit.js').meritForDonation;
 let donate: Handler;
 
 const PLAYER = 'meritdonor';
+const OUTSIDER = 'meritoutsider';
 const VILLAGE = 'Leaf';
 const VILLAGE_KEY = 'game:village-state:leaf';
 
@@ -37,7 +38,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
-    for (const pattern of [`save:${PLAYER}*`, `${VILLAGE_KEY}*`, 'ratelimit:*', 'lock:*', 'economy-tx:*', 'audit:village-treasury-donate:*']) {
+    for (const pattern of [`save:${PLAYER}*`, `save:${OUTSIDER}*`, `${VILLAGE_KEY}*`, 'ratelimit:*', 'lock:*', 'economy-tx:*', 'audit:village-treasury-donate:*']) {
         const keys = await kv.keys(pattern);
         if (keys.length) await kv.del(...keys);
     }
@@ -60,12 +61,12 @@ function response() {
     return { res: res as never, out };
 }
 
-async function post(body: Record<string, unknown>): Promise<Out> {
+async function post(body: Record<string, unknown>, tokenOwner = PLAYER): Promise<Out> {
     const output = response();
     await donate({
         method: 'POST',
         body: { playerName: PLAYER, village: VILLAGE, ...body },
-        headers: { 'content-type': 'application/json', 'x-player-token': issuePlayerToken(PLAYER) ?? '' },
+        headers: { 'content-type': 'application/json', 'x-player-token': issuePlayerToken(tokenOwner) ?? '' },
         socket: { remoteAddress: '127.4.0.9' },
     } as never, output.res);
     return output.out;
@@ -172,6 +173,55 @@ describe('village treasury donation retries (issue #179)', () => {
         assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 95_000, 'no second debit');
         assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 5_000, 'credited once');
         assert.equal(await meritOf(), 5, 'merit earned once');
+    });
+
+    it('concurrent duplicates donate once', async () => {
+        await seedDonor({ ryo: 100_000 });
+        const outs = await Promise.all(Array.from({ length: 5 }, () => post({ currency: 'ryo', amount: 7_500, requestId: 'village-donate-dupes-001' })));
+        for (const out of outs) assert.ok(out.statusCode === 200 || out.statusCode === 503, JSON.stringify(out));
+        assert.equal(outs.filter((o) => o.statusCode === 200 && !o.body?.replayed).length, 1, 'one request moved value');
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 92_500);
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 7_500);
+        assert.equal(await meritOf(), 7, 'merit earned once');
+    });
+
+    it('a failed debit write moves nothing, and the retry donates once', async (t) => {
+        await seedDonor({ ryo: 100_000 });
+        const original = kv.compareSet.bind(kv);
+        let fail = true;
+        t.mock.method(kv, 'compareSet', async (...args: Parameters<typeof kv.compareSet>) => {
+            if (fail && args[0] === `save:${PLAYER}`) { fail = false; throw new Error('injected save write failure'); }
+            return original(...args);
+        });
+        const failed = await post({ currency: 'ryo', amount: 4_000, requestId: 'village-donate-dfail-001' });
+        assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 100_000, 'nothing was debited');
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 0, 'nothing was credited');
+        assert.equal(await meritOf(), 0);
+        const retry = await post({ currency: 'ryo', amount: 4_000, requestId: 'village-donate-dfail-001' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.replayed, undefined, 'the retry is the first time it settles');
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 96_000);
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 4_000);
+        assert.equal(await meritOf(), 4, 'merit earned once');
+    });
+
+    it('outsiders, forged identities, reused ids and short balances move nothing', async () => {
+        await seedDonor({ ryo: 10_000 });
+        await kv.set(`save:${OUTSIDER}`, { _saveVersion: 1, character: { name: OUTSIDER, village: 'Mist', level: 30, ryo: 50_000 } });
+        const outsider = await post({ playerName: OUTSIDER, currency: 'ryo', amount: 1_000, requestId: 'village-donate-outside1' }, OUTSIDER);
+        assert.equal(outsider.statusCode, 403, JSON.stringify(outsider.body));
+        const forged = await post({ currency: 'ryo', amount: 1_000, requestId: 'village-donate-forged01' }, OUTSIDER);
+        assert.ok(forged.statusCode === 401 || forged.statusCode === 403, JSON.stringify(forged));
+        const poor = await post({ currency: 'ryo', amount: 20_000, requestId: 'village-donate-poor0001' });
+        assert.equal(poor.statusCode, 400, JSON.stringify(poor.body));
+        assert.equal((await post({ currency: 'ryo', amount: 1_000, requestId: 'village-donate-reuse001' })).statusCode, 200);
+        const reused = await post({ currency: 'ryo', amount: 2_000, requestId: 'village-donate-reuse001' });
+        assert.equal(reused.statusCode, 409, 'one id, one donation');
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 9_000);
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${OUTSIDER}`))?.character.ryo, 50_000);
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 1_000);
+        assert.equal(await meritOf(), 1);
     });
 });
 
