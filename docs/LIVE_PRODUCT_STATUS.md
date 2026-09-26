@@ -51,7 +51,7 @@ Repository defaults describe what the checked-in server does; they do not prove 
 
 | Capability | Repository behavior | Deployment requirement |
 | --- | --- | --- |
-| Village War and Sector War | Enabled at server startup unless its emergency disable switch is active. | No opt-in flag is required. |
+| Village War and Sector War | Enabled at server startup unless its emergency disable switch is active. | No opt-in flag is required. `DISABLE_VILLAGE_WAR=1` stops the sector war, its map, mercenaries, the daily war pass and the village tax. It does not stop war missions, war crates or the all-out village war (which then costs Honor Seals instead of War Resources). |
 | Clan Boss and Operations | Enabled at server startup unless its system or party emergency disable switch is active. | No opt-in flag is required. |
 | New pet-breeding starts | Available unless its emergency start switch is active; existing eggs and timers continue. | No opt-in flag is required. |
 | Weekly Boss guard cycle | Available unless its emergency mechanic switch is active. | The core Weekly Boss remains a shipped system. |

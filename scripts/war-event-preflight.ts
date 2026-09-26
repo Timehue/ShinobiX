@@ -101,7 +101,13 @@ export type PreflightReport = {
     at: string;
     eventId: string | null;
     flags: { disableVillageWar: boolean; freezeEconomyRewards: boolean; note: string };
-    http: { baseUrl: string; health: number | null; warRoute: 'enabled' | 'disabled' | 'unknown' } | null;
+    http: {
+        baseUrl: string;
+        health: number | null;
+        warRoute: 'enabled' | 'disabled' | 'unknown';
+        /** What GET /api/player/capabilities tells every client. */
+        capabilities: { villageWar: string; gameplayMutations: string } | null;
+    } | null;
     contests: PreflightContest[];
     tokens: { total: number; wedged: string[] };
     counts: { resolutionReceipts: number; battleReceipts: number; sectorAuditEntries: number };
@@ -190,7 +196,7 @@ export async function runWarEventPreflight(options: PreflightOptions = {}): Prom
             pendingReceipts: ledger.pending.length,
         });
         if (funding) add('warn', 'declaration-in-flight', `${session.id}: a declaration is still funding; the next declare or poll finishes or aborts it.`);
-        if (status === 'due') add('warn', 'war-due-unsettled', `${session.id}: its 72 hours are over; it settles on the next war-map poll or the 03:00 UTC daily pass.`);
+        if (status === 'due') add('warn', 'war-due-unsettled', `${session.id}: its 72 hours are over; it settles on the next sector-war declaration, a status call (runbook: "Settle now"), or the 03:00 UTC daily pass. The war map's own poll does not settle.`);
         if (ledger.pending.length > 0) add('warn', 'receipt-copies-pending', `${session.id}: ${ledger.pending.length} battle receipt copies are deferred; the next write to the contest finishes them.`);
     }
 
@@ -252,7 +258,7 @@ export async function runWarEventPreflight(options: PreflightOptions = {}): Prom
     if (options.baseUrl) {
         const base = options.baseUrl.replace(/\/+$/, '');
         const fetchImpl = options.fetchImpl ?? fetch;
-        http = { baseUrl: base, health: null, warRoute: 'unknown' };
+        http = { baseUrl: base, health: null, warRoute: 'unknown', capabilities: null };
         try {
             http.health = (await fetchImpl(`${base}/health`)).status;
             if (http.health !== 200) add('blocker', 'health', `${base}/health answered ${http.health}.`);
@@ -280,6 +286,28 @@ export async function runWarEventPreflight(options: PreflightOptions = {}): Prom
             if (http.warRoute !== expected) {
                 add('blocker', 'kill-switch-mismatch', `Expected the war to be ${options.expectWar}, but the live route is ${http.warRoute}. Check DISABLE_VILLAGE_WAR on Railway and redeploy.`);
             }
+        }
+        // What every client is told. The route probe cannot see a maintenance
+        // window or an economy freeze, and either one blocks every
+        // declaration, battle and claim of the event.
+        try {
+            const response = await fetchImpl(`${base}/api/player/capabilities`);
+            const body = await response.json().catch(() => null) as { ok?: boolean; capabilities?: Record<string, { state?: string; reason?: string }> } | null;
+            const villageWar = body?.capabilities?.villageWar;
+            const mutations = body?.capabilities?.gameplayMutations;
+            if (response.status !== 200 || !body?.ok || !villageWar?.state || !mutations?.state) {
+                add('warn', 'capabilities-unreadable', `GET /api/player/capabilities answered ${response.status} without the villageWar and gameplayMutations states.`);
+            } else {
+                http.capabilities = { villageWar: villageWar.state, gameplayMutations: mutations.state };
+                if (mutations.state !== 'available') {
+                    add('blocker', 'gameplay-mutations-paused', `Clients are told gameplay actions are ${mutations.state} (${mutations.reason}): MAINTENANCE_MODE or FREEZE_ECONOMY_REWARDS is set, so nothing in the event can be written.`);
+                }
+                if (options.expectWar === 'on' && villageWar.state !== 'available') {
+                    add('blocker', 'capability-war-hidden', `Clients are told the village war is ${villageWar.state}, so the war map is hidden from players.`);
+                }
+            }
+        } catch (error) {
+            add('warn', 'capabilities-unreadable', `GET /api/player/capabilities failed: ${errorText(error)}.`);
         }
     } else if (options.expectWar) {
         add('warn', 'kill-switch-unprobed', '--expect-war needs --base-url to check the live route.');
@@ -402,7 +430,11 @@ export function formatPreflightReport(report: PreflightReport): string {
         `War event preflight at ${report.at}${report.eventId ? ` (event ${report.eventId})` : ''}`,
         `Local flags: DISABLE_VILLAGE_WAR=${report.flags.disableVillageWar ? '1' : 'unset'}, FREEZE_ECONOMY_REWARDS=${report.flags.freezeEconomyRewards ? '1' : 'unset'} (${report.flags.note})`,
     ];
-    if (report.http) lines.push(`Live: ${report.http.baseUrl} health=${report.http.health ?? 'unreachable'} war route=${report.http.warRoute}`);
+    if (report.http) {
+        const caps = report.http.capabilities;
+        lines.push(`Live: ${report.http.baseUrl} health=${report.http.health ?? 'unreachable'} war route=${report.http.warRoute}`
+            + (caps ? ` clients: villageWar=${caps.villageWar} gameplayMutations=${caps.gameplayMutations}` : ''));
+    }
     lines.push(`Contests: ${report.contests.length}`);
     for (const c of report.contests) {
         lines.push(`  ${c.status.padEnd(9)} ${c.id} [${c.instance}] ${c.winCondition} ${c.attackerPoints}:${c.defenderPoints} ends ${new Date(c.endsAt).toISOString()} receipts=${c.receipts}${c.pendingReceipts ? ` pending=${c.pendingReceipts}` : ''}`);
