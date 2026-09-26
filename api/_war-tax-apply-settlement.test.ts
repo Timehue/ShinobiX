@@ -4,6 +4,7 @@ import { after, before, beforeEach, describe, test } from 'node:test';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'war-tax-settlement-test-admin';
+process.env.SESSION_SECRET = 'war-tax-settlement-test-secret-32-bytes!';
 delete process.env.DISABLE_VILLAGE_WAR;
 delete process.env.DISABLE_VILLAGE_TAX;
 
@@ -57,6 +58,7 @@ after(async () => {
     if (keys.length) await kv.del(...keys);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.ADMIN_PASSWORD;
+    delete process.env.SESSION_SECRET;
 });
 
 async function balances(): Promise<{ ryo: number; treasury: number; lastTaxDate?: string }> {
@@ -178,6 +180,62 @@ describe('village tax: the treasury share settles exactly once', { concurrency: 
         } as never, res as never);
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         assert.ok((await balances()).treasury > 1_000, 'the admin roll-forward credited the share');
+    });
+
+    test('a treasury credit that committed but reported an error is not credited twice', async () => {
+        // The write lands, and the readback that would prove it fails too, so
+        // the saga keeps the debit and leaves the credit to the next call.
+        const originalSet = kv.set.bind(kv);
+        const originalGet = kv.get.bind(kv);
+        let armed = true;
+        let blind = false;
+        kv.set = (async (key: string, value: unknown, options?: unknown) => {
+            if (!armed || key !== stateKey) return originalSet(key, value, options as never);
+            armed = false;
+            await originalSet(key, value, options as never);
+            blind = true;
+            throw new Error('injected: village row write committed but timed out');
+        }) as typeof kv.set;
+        kv.get = (async (key: string) => {
+            if (blind && key === stateKey) {
+                blind = false;
+                throw new Error('injected: readback failed');
+            }
+            return originalGet(key);
+        }) as typeof kv.get;
+        try {
+            await tax.assessVillageTax(PLAYER, NOW);
+        } finally {
+            kv.set = originalSet;
+            kv.get = originalGet;
+        }
+        const landed = await balances();
+        assert.equal(landed.lastTaxDate, TODAY);
+        assert.ok(landed.treasury > 1_000, 'the share landed');
+
+        await tax.assessVillageTax(PLAYER, NOW + 60_000);
+        assert.deepEqual(await balances(), landed, 'the next assessment finds its receipt and credits nothing more');
+    });
+
+    test('the tax endpoint taxes only the signed-in player', async () => {
+        const { issuePlayerToken } = await import('./_auth.js');
+        const endpoint = (await import('./village/tax.js')).default as unknown as Handler;
+        await kv.set('save:taxforger', { _saveVersion: 1, character: { name: 'taxforger', village, level: 50, ryo: 0 } });
+        const out: { statusCode: number } = { statusCode: 200 };
+        const res = {
+            setHeader: () => res,
+            status: (code: number) => { out.statusCode = code; return res; },
+            json: () => res,
+            end: () => res,
+        };
+        await endpoint({
+            method: 'POST',
+            body: { playerName: PLAYER },
+            headers: { 'x-player-name': 'taxforger', 'x-player-token': issuePlayerToken('taxforger') ?? '' },
+            socket: { remoteAddress: '127.0.0.6' },
+        } as never, res as never);
+        assert.equal(out.statusCode, 403);
+        assert.deepEqual(await balances(), { ryo: 1_000_000, treasury: 1_000, lastTaxDate: undefined });
     });
 
     test('a day with no treasury share only stamps the save, with no settlement journal', async () => {

@@ -339,6 +339,20 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
         assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 409);
         assert.equal((await kv.get<{ warResources: number }>(FROST_WAR))?.warResources, wrLeft);
     });
+    it('concurrent presses for one level buy it once, and a non-Kage buys nothing', async () => {
+        await seed(2, 0);
+        const press = () => call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 3 });
+        const answers = await Promise.all(Array.from({ length: 4 }, press));
+        assert.equal(answers.filter((a) => a.statusCode === 200).length, 1, JSON.stringify(answers.map((a) => a.statusCode)));
+        assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 3);
+        const seals = (await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals;
+
+        await seedPlayer('frostcitizen', DEFENDER);
+        const refused = await call(warStructure, { playerName: 'frostcitizen', village: DEFENDER, structure: 'supplyDepot', toLevel: 4 });
+        assert.equal(refused.statusCode, 403);
+        assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 3);
+        assert.equal((await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals, seals);
+    });
     it('levels ≤ 5 need no materials; the kill switch waives the gate', async () => {
         await seed(2, 0);
         const low = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot' });
