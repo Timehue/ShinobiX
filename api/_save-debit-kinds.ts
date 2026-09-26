@@ -84,9 +84,31 @@ export const VILLAGE_DONATION_SAGA: SaveDebitDefinition<Record<string, unknown>,
     }),
 };
 
+export type VillageTaxPlan = { toTreasury: number };
+
+/**
+ * api/_war-tax-apply.ts: the treasury share of the daily occupation tax. No
+ * refund: the debit also stamps the day as taxed and burns a share by design,
+ * so an interrupted tax is finished (by the next assessment or an admin),
+ * never unwound.
+ */
+export const VILLAGE_TAX_SAGA: SaveDebitDefinition<Record<string, unknown>, VillageTaxPlan> = {
+    kind: 'village-tax',
+    load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
+    save: async (key, next) => {
+        await kv.set(key, next);
+        invalidateProcCache('game-state:frame');
+    },
+    applyCredit: (state, plan) => {
+        const treasury = (state.treasury ?? {}) as Record<string, unknown>;
+        return { ...state, treasury: { ...treasury, ryo: (Number(treasury.ryo) || 0) + plan.toTreasury } };
+    },
+};
+
 export const SAVE_DEBIT_SAGAS: Readonly<Record<string, SaveDebitDefinition<Record<string, unknown>, unknown>>> = {
     [SHRINE_OFFER_SAGA.kind]: SHRINE_OFFER_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [BOUNTY_PLACE_SAGA.kind]: BOUNTY_PLACE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [CLAN_DONATION_SAGA.kind]: CLAN_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [VILLAGE_DONATION_SAGA.kind]: VILLAGE_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
+    [VILLAGE_TAX_SAGA.kind]: VILLAGE_TAX_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
 };

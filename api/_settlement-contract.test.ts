@@ -83,6 +83,10 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'clan/seal-pool/donate.ts', mechanism: 'economy-tx', markers: ['beginDurableSettlement', 'inspectPlayerReceipt', 'receiptAbsenceProvable'] },
     { file: 'clan/seal-pool/distribute.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
     { file: '_cross-key-settlement.ts', mechanism: 'state-machine', markers: ['inspectPlayerReceipt', 'receiptAbsenceProvable'] },
+    // The village tax's treasury share (save debit -> village row credit) and
+    // the parked Kage stake refunds, found by the same audit.
+    { file: '_war-tax-apply.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_TAX_SAGA'] },
+    { file: 'village/_kage-inactivity.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
 ];
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
