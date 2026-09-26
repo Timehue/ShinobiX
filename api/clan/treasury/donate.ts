@@ -4,11 +4,11 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
-import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
-import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
-import { addClanXpServer } from '../_mission-catalog.js';
+import { LockContendedError } from '../../_lock.js';
+import { applyTreasuryDonation, treasuryCreditPlan, type TreasuryDonation } from '../../_treasury-donate.js';
+import { parseSettlementRequestId } from '../../_settlement-receipts.js';
+import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
+import { CLAN_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
 
@@ -30,11 +30,20 @@ import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-d
  * clanEventContrib stay client-side and are written on top of the treasury
  * value this returns (a zero-delta write the validator leaves alone).
  *
- * Body (currency):  { playerName, clan, currency, amount }
- * Body (item):      { playerName, clan, itemId, count? }   // count defaults to 1
+ * Body (currency):  { playerName, clan, currency, amount, requestId? }
+ * Body (item):      { playerName, clan, itemId, count?, requestId? }   // count defaults to 1
  *
  * Caller MUST be the donor (or admin) and a member of `clan`. Rate-limited at
  * 30/min per actor. Locks held: clan save row (outer) + donor save row (inner).
+ *
+ * Retry-safe (issue #179, api/_save-debit-saga.ts). `requestId` (optional,
+ * 16–80 chars) is the donation's identity: the donor debit and its receipt
+ * land in one save write, the treasury credit and its receipt in one clan-row
+ * write, so the same id never debits twice. A retry after a lost response
+ * returns the original result. A donation whose credit did not land (a failed
+ * clan-row write, or a process stop between the writes) answers 503 and is
+ * FINISHED by the retry, or by /api/admin/economy-reconcile — never unwound,
+ * because its debit also moved items and the monthly contribution.
  */
 
 // Player-donatable clan currencies. warSupply is war-earned, not donated.
@@ -82,8 +91,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    let txId: string | null = null;
-    let txState: 'reserved' | 'debit-applied' | 'complete' | null = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -96,6 +103,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!donation) {
             return res.status(400).json({ error: 'Provide exactly one of (currency + amount) or (itemId).' });
         }
+        const requestId = parseSettlementRequestId(body.requestId);
+        if (body.requestId !== undefined && body.requestId !== null && !requestId) {
+            return res.status(400).json({ error: 'Invalid requestId.' });
+        }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -107,27 +118,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetSlug = clanSlugBare(clan);
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = `save:clan-${targetSlug}`;
-        const donorSaveKey = `save:${playerName}`;
-        txId = makeEconomyTxId('clan-treasury-donate');
+        const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
 
         // ── Atomic donate ──────────────────────────────────────────────
-        // Lock the clan save row (the shared, contended resource) first,
-        // then the donor save row. The donor debit is COMMITTED before the
-        // treasury credit, so a credit failure can never leave the treasury
-        // credited without a matching debit (the only outcome of a mid-way
-        // failure is the donor losing the funds, which is recoverable and
-        // not a free-mint exploit). No other code path takes these two
-        // locks in the opposite order, so the nesting can't deadlock.
-        const result = await withKvLock(clanSaveKey, async () => {
-            const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
-            if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
-
-            const debit = await mutatePlayerSave(playerName, async ({ character: donorChar }) => {
+        // The clan save row (the shared, contended resource) is locked first,
+        // then the donor save row; no other code path takes these two locks in
+        // the opposite order, so the nesting can't deadlock. The donor debit is
+        // COMMITTED before the treasury credit, so a credit failure can never
+        // leave the treasury credited without a matching debit.
+        const settled = await runSaveDebitSaga({
+            definition: CLAN_DONATION_SAGA,
+            playerName,
+            requestId,
+            identity: { clan: targetSlug, donation },
+            sharedKey: clanSaveKey,
+            resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+            amount,
+            meta: { clan },
+            decide: ({ character: donorChar, shared: clanRec }) => {
+                if (!clanRec) return { ok: false, status: 404, error: 'Clan not found.' };
                 // Membership: donor's character.clan must resolve to this clan.
                 if (!identity.admin) {
                     const donorClanSlug = clanSlugBare(String(donorChar.clan ?? ''));
                     if (!donorClanSlug || donorClanSlug !== targetSlug) {
-                        return { ok: false as const, status: 403, error: 'You are not a member of this clan.' };
+                        return { ok: false, status: 403, error: 'You are not a member of this clan.' };
                     }
                 }
 
@@ -154,51 +168,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const priorContribution = donorChar.clanContribMonth === month ? Math.max(0, Number(donorChar.clanEventContrib) || 0) : 0;
                 const nextDonorChar = { ...outcome.nextDonorChar, clanEventContrib: priorContribution + contribution, clanContribMonth: month };
 
-                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
-                await reserveEconomyTx({
-                    id: txId!,
-                    kind: 'clan-treasury-donate',
-                    debitKey: donorSaveKey,
-                    creditKey: clanSaveKey,
-                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
-                    amount,
-                    meta: { clan, playerName },
-                });
-                txState = 'reserved';
-                return { ok: true as const, character: nextDonorChar, value: { nextTreasury: outcome.nextTreasury, routed } };
-            });
-            if (!debit.ok) return debit;
+                const clanXp = donation.kind === 'currency'
+                    ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
+                    : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
+                return {
+                    ok: true,
+                    character: nextDonorChar,
+                    plan: { treasury: treasuryCreditPlan(donation, routed), clanXp },
+                    result: {},
+                };
+            },
+            messages: {
+                pending: 'Your donation was taken but not yet added to the clan treasury. Donate again to finish it; you will not be charged twice.',
+            },
+        });
+        const clanRow = settled.shared;
+        const treasury = (clanRow.treasury ?? {}) as Record<string, unknown>;
 
-            await markEconomyTx(txId!, 'debit-applied');
-            txState = 'debit-applied';
-            // Credit the clan treasury (donor debit is already committed).
-            const clanXp = donation.kind === 'currency'
-                ? donation.currency === 'ryo' ? Math.floor(donation.amount / 35) : Math.floor(donation.amount) * 200
-                : donation.itemId === TERRITORY_CONTROL_SCROLL_ID ? Math.floor(donation.count) * 20 : 50;
-            const leveled = addClanXpServer(Number(clanRec.xp) || 0, Number(clanRec.level) || 1, clanXp);
-            await kv.set(clanSaveKey, { ...clanRec, treasury: debit.value.nextTreasury, ...leveled });
-            await completeEconomyTx(txId!);
-            txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, xp: leveled.xp, level: leveled.level, _saveVersion: debit._saveVersion, routed: debit.value.routed };
-        }, { failClosed: true });
+        if (!settled.replayed) {
+            // Best-effort audit log (30-day TTL).
+            await kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${Date.now()}`, {
+                ts: Date.now(),
+                actor: identity.admin ? 'admin' : identity.name,
+                clan,
+                ...(donation.kind === 'currency'
+                    ? { currency: donation.currency, amount: Math.floor(donation.amount) }
+                    : { itemId: donation.itemId, count: Math.floor(donation.count) }),
+            }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        }
 
-        if (!result.ok) return res.status(result.status).json({ error: result.error });
-
-        // Best-effort audit log (30-day TTL).
-        await kv.set(`${AUDIT_LOG_PREFIX}${targetSlug}:${Date.now()}`, {
-            ts: Date.now(),
-            actor: identity.admin ? 'admin' : identity.name,
-            clan,
-            ...(donation.kind === 'currency'
-                ? { currency: donation.currency, amount: Math.floor(donation.amount) }
-                : { itemId: donation.itemId, count: Math.floor(donation.count) }),
-        }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
-
-        const stores = result.routed ? { stores: { provisions: result.routed.stores.provisions } } : {};
-        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, xp: result.xp, level: result.level, _saveVersion: result._saveVersion, ...stores });
+        const stores = settled.plan.treasury.kind === 'store' ? { stores: { provisions: Math.max(0, Math.floor(Number(treasury.provisions) || 0)) } } : {};
+        return res.status(200).json({
+            ok: true,
+            treasury,
+            character: settled.character,
+            xp: Number(clanRow.xp) || 0,
+            level: Number(clanRow.level) || 1,
+            _saveVersion: settled._saveVersion,
+            ...stores,
+            ...(settled.replayed ? { replayed: true } : {}),
+        });
     } catch (err) {
-        if (txId && txState && txState !== 'complete') {
-            await failEconomyTx(txId, err).catch(() => undefined);
+        if (err instanceof SaveDebitRefusal) {
+            return res.status(err.status).json({ ...err.details, error: err.message });
+        }
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'The clan treasury is busy right now — please retry.', retryable: true });
         }
         console.error('[clan/treasury/donate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

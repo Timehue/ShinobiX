@@ -74,8 +74,11 @@ describe('authoritative balance response migration', () => {
         // Bounty placement now lives in the Battle Arena "Bounty Board" tab
         // (BountyBoardPanel); the Hall of Legends duplicate was retired.
         const panel = read('shinobij.client/src/components/BountyBoardPanel.tsx');
-        assert.match(api, /balances:\s*\{\s*ryo:\s*debit\.balance\s*\}/);
-        assert.match(api, /balances:\s*\{\s*ryo:\s*credit\.balance\s*\}/);
+        // Placement answers with the character its committed debit wrote (the
+        // retry-safe saga, api/_save-debit-saga.ts); the payout with the ryo its
+        // committed credit wrote (api/pvp/_bounty-claim.ts).
+        assert.match(api, /balances:\s*\{\s*ryo:\s*num\(settled\.character\.ryo\)\s*\}/);
+        assert.match(api, /balances:\s*\{\s*ryo:\s*paid\.ryo\s*\}/);
         // App no longer assigns bounty ryo itself. The settled owner save is
         // adopted wholesale through commitVersionedCharacter and the bounty
         // branch only notifies, which is strictly stronger than the previous
