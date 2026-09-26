@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { invalidateProcCache } from '../../_proc-cache.js';
 import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
-import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { crossKeyTransferReply, settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
 import { planTreasuryGift } from '../../_treasury-gift-tax.js';
 import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
 import { settlementFingerprint } from '../../_durable-settlement.js';
@@ -355,7 +355,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 source: 'village.gift.burn',
             });
         }
-        return res.status(200).json({ ok: true, ...transfer.result });
+        return res.status(200).json(await crossKeyTransferReply(transfer.result, !isAdmin && identity.name === recipientName, recipientSaveKey));
     } catch (err) {
         if (err instanceof SettlementValidationError) {
             return res.status(err.status).json({ ...err.details, error: err.message });
