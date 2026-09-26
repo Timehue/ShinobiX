@@ -40,12 +40,14 @@ import {
     SECTOR_WAR_BATTLE_RECEIPT_CAP,
     SECTOR_WAR_BATTLE_RECEIPT_PREFIX,
     SECTOR_WAR_TOKEN_TTL_MS,
+    sectorWarInstanceTag,
     type SectorBattleOutcome,
     type SectorWarSession,
     type SectorWarBattleToken,
     type SectorWarBattleReceipt,
     type SectorWarExternalBattleReceipt,
 } from './_sector-war.js';
+import { logWarEvent, warEventError } from './_war-event-log.js';
 
 const SECTOR_WAR_PREFIX = 'shared:sector-war:';
 // Mirror of api/world-state.ts TERRITORY_KEY_PREFIX (module-local there). The
@@ -162,6 +164,54 @@ export async function deleteSectorWar(id: string): Promise<void> {
     await kv.del(sectorWarKey(id));
 }
 
+/**
+ * How a contest scan treats a row it cannot read.
+ *
+ * A row the normalizer rejects (a malformed battle ledger, say) used to throw
+ * out of every scan. Since world PvP looks up its sector's contest before the
+ * first move of every world battle, one bad row stopped world PvP everywhere,
+ * and settlement, the war map and the daily pass with it. Scans now skip such a
+ * row and log it (`contest-row-unreadable`). The skipped contest can neither
+ * score nor settle: every write to it re-reads the row and still fails closed.
+ *
+ * `strict` is for callers that GUARD an ownership change (declaring a war,
+ * capturing a sector, an admin territory write, a village-war declaration). For
+ * them an unreadable row might be the very contest that should block the write,
+ * so it throws, as before, until the row is repaired.
+ */
+export type SectorWarScanOptions = { strict?: boolean };
+
+function readContestRows(
+    keys: readonly string[],
+    raws: readonly unknown[],
+    options: SectorWarScanOptions,
+): SectorWarSession[] {
+    const out: SectorWarSession[] = [];
+    raws.forEach((raw, index) => {
+        if (!raw) return;
+        let session: SectorWarSession | null;
+        try {
+            session = normalizeSectorWarSession(raw as Partial<SectorWarSession>);
+        } catch (error) {
+            if (options.strict) throw error;
+            logWarEvent('contest-row-unreadable', { key: keys[index], error: warEventError(error) }, 'error');
+            return;
+        }
+        if (session) out.push(session);
+    });
+    return out;
+}
+
+async function scanContestRows(
+    store: Pick<KvLike, 'keys' | 'mget'>,
+    options: SectorWarScanOptions,
+): Promise<SectorWarSession[]> {
+    const keys = await store.keys(`${SECTOR_WAR_PREFIX}*`);
+    if (!keys.length) return [];
+    const raws = await store.mget<unknown[]>(...keys);
+    return readContestRows(keys, raws, options);
+}
+
 /** Every war still LIVE on the board — not settled, not conceded, and inside its
  *  72h window (small scan; mirrors the territory scan in claim-map-control.ts).
  *
@@ -170,30 +220,33 @@ export async function deleteSectorWar(id: string): Promise<void> {
  *  rule, count toward the attack-siege cap, or keep its village "at war" in the
  *  daily pass. This is a pure read — settlement (api/_sector-war-settle.ts)
  *  stamps the verdicts. */
-export async function listActiveSectorWars(now: number = Date.now()): Promise<SectorWarSession[]> {
-    const keys = await kv.keys(`${SECTOR_WAR_PREFIX}*`);
-    if (!keys.length) return [];
-    const raws = await kv.mget<Partial<SectorWarSession>[]>(...keys);
-    const out: SectorWarSession[] = [];
-    for (const raw of raws) {
-        const s = raw ? normalizeSectorWarSession(raw) : null;
-        if (s && isSectorWarActive(s, now)) out.push(s);
-    }
-    return out;
+export async function listActiveSectorWars(
+    now: number = Date.now(),
+    options: SectorWarScanOptions = {},
+): Promise<SectorWarSession[]> {
+    return (await scanContestRows(kv, options)).filter((s) => isSectorWarActive(s, now));
 }
 
 /** The active contest on a given sector, if any (a sector hosts at most one). */
-export async function activeContestOnSector(sector: number, now: number = Date.now()): Promise<SectorWarSession | null> {
-    const all = await listActiveSectorWars(now);
+export async function activeContestOnSector(
+    sector: number,
+    now: number = Date.now(),
+    options: SectorWarScanOptions = {},
+): Promise<SectorWarSession | null> {
+    const all = await listActiveSectorWars(now, options);
     return all.find((s) => s.sector === sector) ?? null;
 }
 
 /** Every contest a village is currently attacking or defending. Used to enforce
  *  the village-war ↔ sector-war mutual exclusion in BOTH directions. */
-export async function activeSectorWarsForVillage(village: string, now: number = Date.now()): Promise<SectorWarSession[]> {
+export async function activeSectorWarsForVillage(
+    village: string,
+    now: number = Date.now(),
+    options: SectorWarScanOptions = {},
+): Promise<SectorWarSession[]> {
     const name = String(village ?? '').trim();
     if (!name) return [];
-    const all = await listActiveSectorWars(now);
+    const all = await listActiveSectorWars(now, options);
     return all.filter((s) => s.attackerVillage === name || s.defenderVillage === name);
 }
 
@@ -202,16 +255,10 @@ export async function activeSectorWarsForVillage(village: string, now: number = 
  * territory owner embedded in the contest id changed while a process was down. */
 export async function listFundingSectorWars(
     store: Pick<KvLike, 'keys' | 'mget'> = kv,
+    options: SectorWarScanOptions = {},
 ): Promise<SectorWarSession[]> {
-    const keys = await store.keys(`${SECTOR_WAR_PREFIX}*`);
-    if (!keys.length) return [];
-    const raws = await store.mget<Partial<SectorWarSession>[]>(...keys);
-    const out: SectorWarSession[] = [];
-    for (const raw of raws) {
-        const session = raw ? normalizeSectorWarSession(raw) : null;
-        if (session?.declarationFunding?.status === 'funding') out.push(session);
-    }
-    return out;
+    return (await scanContestRows(store, options))
+        .filter((session) => session.declarationFunding?.status === 'funding');
 }
 
 // ── Battle receipts: the in-row mirror + external overflow ledger ─────────────
@@ -492,11 +539,26 @@ export async function commitSectorWarBattle(args: {
                 ?? await loadSectorWarExternalReceipt(contest, battleId, store);
             if (prior) {
                 args.verifyPrior?.(prior, contest);
+                logWarEvent('battle-replayed', {
+                    contestId: contest.id,
+                    instance: sectorWarInstanceTag(contest),
+                    battleId,
+                    attackerWon: prior.attackerWon,
+                    points: prior.points,
+                });
                 return { status: 'applied', replayed: true, receipt: prior, session: contest };
             }
 
             const decision = await args.decide(contest);
-            if (decision.kind === 'skip') return { status: 'skipped', reason: decision.reason, contest };
+            if (decision.kind === 'skip') {
+                logWarEvent('battle-skipped', {
+                    contestId: contest.id,
+                    instance: sectorWarInstanceTag(contest),
+                    battleId,
+                    reason: decision.reason,
+                });
+                return { status: 'skipped', reason: decision.reason, contest };
+            }
             if (decision.outcome.session.id !== contest.id) throw new Error('sector-war-battle-decision-invalid');
 
             // Finish any earlier writer's step 4 first, so this CAS can also
@@ -533,6 +595,16 @@ export async function commitSectorWarBattle(args: {
             } catch (error) {
                 console.warn('[sector-war] battle receipt copy deferred:', (error as Error)?.message ?? error);
             }
+            logWarEvent('battle-scored', {
+                contestId: session.id,
+                instance: sectorWarInstanceTag(session),
+                battleId,
+                attackerWon: recorded.receipt.attackerWon,
+                points: recorded.receipt.points,
+                garrison: recorded.receipt.garrison === true,
+                attackerPoints: session.attackerPoints,
+                defenderPoints: session.defenderPoints,
+            });
             return { status: 'applied', replayed: false, receipt: recorded.receipt, session };
         }
         throw new Error('sector-war-contest-version-conflict');
@@ -604,22 +676,17 @@ export async function locateSectorWarAppliedBattle(
 export async function listUnsettledDueSectorWars(
     now: number = Date.now(),
     store: Pick<KvLike, 'keys' | 'mget'> = kv,
+    options: SectorWarScanOptions = {},
 ): Promise<SectorWarSession[]> {
-    const keys = await store.keys(`${SECTOR_WAR_PREFIX}*`);
-    if (!keys.length) return [];
-    const raws = await store.mget<Partial<SectorWarSession>[]>(...keys);
-    const out: SectorWarSession[] = [];
-    for (const raw of raws) {
-        const s = raw ? normalizeSectorWarSession(raw) : null;
+    return (await scanContestRows(store, options)).filter((s) => {
         // Hidden row-first declarations are not contests yet. Settling a
         // `funding` row would stamp it defended before its exact source saga can
         // decide whether to abort or activate, and a later takeover could then
         // debit an already-terminal row. Legacy rows have no marker; new rows
         // become eligible only after receipt-backed activation.
-        const fundedForPlay = !s?.declarationFunding || s.declarationFunding.status === 'active';
-        if (s && fundedForPlay && !s.flipped && !s.expiredAt && now >= s.endsAt) out.push(s);
-    }
-    return out;
+        const fundedForPlay = !s.declarationFunding || s.declarationFunding.status === 'active';
+        return fundedForPlay && !s.flipped && !s.expiredAt && now >= s.endsAt;
+    });
 }
 
 
@@ -634,7 +701,15 @@ export async function mintSectorWarToken(token: SectorWarBattleToken): Promise<v
         return;
     }
     try {
-        if (await kv.compareSet(key, null, token, { ex: Math.ceil(SECTOR_WAR_TOKEN_TTL_MS / 1000) })) return;
+        if (await kv.compareSet(key, null, token, { ex: Math.ceil(SECTOR_WAR_TOKEN_TTL_MS / 1000) })) {
+            logWarEvent('battle-registered', {
+                contestId: token.sectorWarId,
+                battleId: token.battleId,
+                sector: token.sector,
+                winCondition: token.winCondition,
+            });
+            return;
+        }
     } catch (error) {
         const recovered = await kv.get<unknown>(key).catch(() => null);
         if (isDeepStrictEqual(recovered, token)) return;
