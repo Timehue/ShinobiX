@@ -70,6 +70,87 @@ loss is more than trivially recoverable by replaying gameplay.
   so a crash between payout and session-mark can no longer double-pay on
   retry — the codebase's only duplicate-direction window is closed.
 
+## Retry-safe player debits into shared records (issues #179, #180, #19; 2026-09-25)
+
+Four endpoints take currency (or items) out of a player's save and put it into
+a shared record: the shrine offering, bounty placement, and the clan and village
+treasury donations. None of them accepted a request id, so a retry after a lost
+response charged the player twice, and the shrine kept the charge when its
+ledger write failed. They now all run one saga, `api/_save-debit-saga.ts`
+(`runSaveDebitSaga`), with the credit side of each kind defined once in
+`api/_save-debit-kinds.ts`.
+
+**Authority.** The server decides the debit and the credit plan together,
+under the shared-record lock and then the player-save lock (the order every one
+of these endpoints already used). The client sends only the action and a
+`requestId` (16–80 chars, the `parseSettlementRequestId` bound). Amounts are
+never taken from anything but the validated request and the stored save.
+
+**The contract.**
+
+| Step | Written in ONE write | Proves |
+| --- | --- | --- |
+| Debit | the save change + a `serverSettlementReceipts` entry keyed by the settlement id | this id already debited |
+| Credit | the shared-record change + a `settlementReceipts` entry keyed by the same id | this id already credited |
+| Journal | `economy-tx:<id>` (reserved → debit-applied → complete / needs-reconcile / refunded) | progress, and the result a replay returns |
+
+The settlement id is `settlementTransactionId(kind, "<player>:<requestId>")`, so
+two players can never collide on one client id, and a request sent without an
+id gets a one-shot id (it still settles exactly once; it just cannot be
+recognized if it is sent again).
+
+**Recovery.**
+
+- *Identical retry after success*: the completed journal or the in-save receipt
+  answers with the stored result; nothing moves (`replayed: true`).
+- *Same id, different payload*: 409, nothing moves.
+- *Concurrent duplicates*: serialized by the fail-closed locks; one settles, the
+  rest replay or get a retryable 503.
+- *Failure before the debit commits*: nothing moved; the retry settles fresh.
+- *Credit write fails, currency-only kinds (shrine, bounty placement)*: the
+  debit and its receipt are reversed in one save write in the same request
+  (503 `refunded`). The refund is classified against the charge's Hollow Gate
+  checkpoint, as the refunds it replaces were.
+- *Credit write fails for a donation, or the process stops between the two
+  writes*: the debit stands (a donation also moved items, merit and daily
+  counters, so it is finished rather than unwound). The answer is 503
+  `pending`; the retry with the same id rolls the credit FORWARD exactly once,
+  and `POST /api/admin/economy-reconcile { txId }` does the same for a donor who
+  never retries. The journal is listed under `economyTx.stuck` in
+  `GET /api/admin/economy` until then.
+- *A write that reported failure but landed*: detected by reading the row back;
+  it is kept, not refunded.
+- *Evicted receipts*: both receipt lists are capped. A roll-forward credits
+  only when a missing receipt is provably missing (`receiptAbsenceProvable`);
+  otherwise the journal is marked `needs-reconcile`, the player gets a 409
+  `reconcile`, and nothing is credited twice.
+
+The client keeps one id per logical action in `sessionStorage`
+(`shinobij.client/src/lib/economy-request-intent.ts`) until the server gives a
+final answer, and the screens do not refuse a retry of a pending action on a
+local balance check (after a reload the save may already show the charge).
+
+**Bounty payouts are two-phase (#180).** The duel claim and the sleeping-camp
+KO used to credit the winner and then remove the head, so a failed board write
+left the pool claimable by another battle. Now (`api/pvp/_bounty-claim.ts`):
+one board write moves the head from `bounties` to `pendingClaims`; the winner
+is credited with an in-save receipt; the duel's per-battle record
+(`pvp:bounty-claimed:<battleId>`) is written; the pending entry is removed.
+Every claim first finishes older pending entries, and
+`POST /api/admin/economy-reconcile { bountyClaims: true }` finishes all of
+them. A winner whose save is gone gets the pool put back on the board.
+
+**Server-owned journals on shared rows.** A receipt on a shared row is only
+proof if nothing but the server can write it. The clan save validator already
+pinned its journals; the village-state validator did not, and two minting
+paths followed from it, both proven with real handlers
+(`api/village/treasury/transfer-receipt-forgery.test.ts`):
+a Kage could plant a `settlementReceipts` entry through a village-state save
+and then gift ryo the treasury did not hold (the transfer saga skipped the
+balance check, the budget and the debit), and a villager could reset
+`agendaClaimReceipts` and collect the daily agenda's treasury tithe again.
+Both fields are now pinned for every blob writer, admin included.
+
 ## Current settlement notes and remaining trade-offs
 
 - `claim-mission.ts` consumes the combat token before the payout write:

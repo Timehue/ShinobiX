@@ -509,3 +509,9 @@ store-art/
 # output and keystores are ignored by mobile/.gitignore and
 # mobile/android/.gitignore.
 !mobile/android/app/src/debug/
+
+# Staffed war event files (docs/CONTROLLED_WAR_EVENT_RUNBOOK.md). The plan names
+# real accounts, and the preflight snapshots are the event record, kept with
+# the event report rather than in the repository.
+war-event-plan*.json
+war-preflight-*.json

@@ -38,6 +38,15 @@ import { taxRateMultiplier } from './_war-structures.js';
 import { isWarVillage } from './_war-map-sectors.js';
 import { kageKey } from './village/_kage-settle.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
+import {
+    runSaveDebitSaga,
+    saveDebitTransactionId,
+    SaveDebitRefusal,
+    type SaveDebitDecision,
+    type SaveDebitSagaOutcome,
+} from './_save-debit-saga.js';
+import { VILLAGE_TAX_SAGA, type VillageTaxPlan } from './_save-debit-kinds.js';
+import { economyTxKey, type EconomyTxRecord } from './_economy-tx.js';
 
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
 
@@ -101,6 +110,62 @@ export interface VillageTaxResult {
 const NOT_APPLIED = (ryo = 0, bankRyo = 0, kageSeated = false): VillageTaxResult =>
     ({ applied: false, taxed: 0, toBurn: 0, toTreasury: 0, rateSectors: 0, kageSeated, ryo, bankRyo });
 
+/** One tax per player per village per UTC day: the saga's request id. */
+export function villageTaxRequestId(village: string, today: string): string {
+    return `village-tax-${villageWarSlug(village)}-${today}`;
+}
+
+/**
+ * The debit of a day with a treasury share, and the credit, as one retry-safe
+ * settlement (api/_save-debit-saga.ts): the debit and its receipt are one save
+ * write, the credit and its receipt one write of the village row under its
+ * lock, and a journal outlives both. Returns null when the saga refused, which
+ * a tax treats as "nothing applied".
+ */
+async function settleTaxWithTreasuryShare(input: {
+    name: string;
+    village: string;
+    today: string;
+    amount: number;
+    decide: (character: Record<string, unknown>) => SaveDebitDecision<VillageTaxPlan, PlayerTaxOutcome>;
+}): Promise<SaveDebitSagaOutcome<Record<string, unknown>, VillageTaxPlan, PlayerTaxOutcome> | null> {
+    try {
+        return await runSaveDebitSaga<Record<string, unknown>, VillageTaxPlan, PlayerTaxOutcome>({
+            definition: VILLAGE_TAX_SAGA,
+            playerName: input.name,
+            requestId: villageTaxRequestId(input.village, input.today),
+            identity: { village: villageWarSlug(input.village), day: input.today },
+            sharedKey: `${VILLAGE_STATE_PREFIX}${villageWarSlug(input.village)}`,
+            resource: 'ryo',
+            amount: input.amount,
+            meta: { village: input.village, day: input.today },
+            decide: ({ character }) => input.decide(character),
+        });
+    } catch (err) {
+        if (err instanceof SaveDebitRefusal && err.status === 409 && !err.details.reconcile) return null;
+        throw err;
+    }
+}
+
+/**
+ * A tax whose debit landed but whose treasury credit did not finish (the
+ * process stopped, or the village row was unwritable) is finished by the
+ * player's next assessment the same day: the saga finds the debit's receipt
+ * and rolls the credit forward exactly once. One read when nothing is pending.
+ */
+async function finishPendingTaxCredit(name: string, village: string, today: string): Promise<void> {
+    if (!isWarVillage(village)) return;
+    const txId = saveDebitTransactionId(VILLAGE_TAX_SAGA.kind, name, villageTaxRequestId(village, today));
+    const journal = await kv.get<EconomyTxRecord>(economyTxKey(txId));
+    if (!journal || journal.state === 'complete' || journal.state === 'refunded') return;
+    await settleTaxWithTreasuryShare({
+        name, village, today, amount: journal.amount,
+        // Only a missing debit receipt reaches this, and the day is already
+        // stamped: nothing new is charged.
+        decide: () => ({ ok: false, status: 409, error: 'Already taxed today.' }),
+    });
+}
+
 /**
  * Assess and collect the day's tax for one player.
  *
@@ -121,10 +186,11 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
         const peekChar = peek?.character;
         if (!peekChar) return NOT_APPLIED();
         const today = utcDateString(now);
+        const village = String(peekChar.village ?? '').trim();
         if (String(peekChar.lastTaxDate ?? '') === today) {
+            await finishPendingTaxCredit(name, village, today);
             return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
         }
-        const village = String(peekChar.village ?? '').trim();
         if (!isWarVillage(village)) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
 
         // Village-scoped inputs, read once before taking the save lock.
@@ -138,62 +204,82 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
         // day, so a leaderless stretch accrues no arrears the village gets billed
         // for the moment someone finally takes the seat.
         const rateMultiplier = kageSeated ? taxRateMultiplier(record) : 0;
+        const assess = (char: Record<string, unknown>) => applyPlayerTax(
+            {
+                ryo: Number(char.ryo) || 0,
+                bankRyo: Number(char.bankRyo) || 0,
+                level: Number(char.level) || 0,
+                lastTaxDate: String(char.lastTaxDate ?? ''),
+            },
+            { sectorsControlled, today, rateMultiplier },
+        );
 
-        // Currency path → failClosed, and the date stamp is re-read inside the lock
-        // so two concurrent calls can't both debit.
+        let outcome: PlayerTaxOutcome | null;
         let savedVersion: number | undefined;
-        const outcome = await withKvLock(saveKey, async (): Promise<PlayerTaxOutcome | null> => {
-            const rec = await kv.get<Record<string, unknown>>(saveKey);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!rec || !char) return null;
-            if (String(char.lastTaxDate ?? '') === today) return null; // raced — already taxed
-
-            const applied = applyPlayerTax(
-                {
-                    ryo: Number(char.ryo) || 0,
-                    bankRyo: Number(char.bankRyo) || 0,
-                    level: Number(char.level) || 0,
-                    lastTaxDate: String(char.lastTaxDate ?? ''),
-                },
-                { sectorsControlled, today, rateMultiplier },
-            );
-            if (applied.noWrite) return applied;
-
-            const next: Record<string, unknown> = bumpSaveVersion({
-                ...rec,
-                character: {
-                    ...char,
-                    ryo: applied.nextRyo,
-                    bankRyo: applied.nextBankRyo,
-                    lastTaxDate: applied.nextLastTaxDate,
+        const peekAssessment = assess(peekChar);
+        if (peekAssessment.toTreasury > 0) {
+            // A treasury share moves ryo into the village row, so the debit and
+            // the credit settle together, exactly once, under the village-row
+            // lock (village row first, then the save, like village donations).
+            // The credit used to be a best-effort write after the debit: a
+            // failure lost the share, and on lock contention it ran UNLOCKED
+            // and could overwrite another writer's change to the village row.
+            const settled = await settleTaxWithTreasuryShare({
+                name, village, today, amount: peekAssessment.toTreasury,
+                decide: (character) => {
+                    if (String(character.village ?? '').trim() !== village) return { ok: false, status: 409, error: 'The player changed village.' };
+                    if (String(character.lastTaxDate ?? '') === today) return { ok: false, status: 409, error: 'Already taxed today.' };
+                    const applied = assess(character);
+                    if (applied.noWrite) return { ok: false, status: 409, error: 'Nothing is due.' };
+                    return {
+                        ok: true,
+                        character: { ...character, ryo: applied.nextRyo, bankRyo: applied.nextBankRyo, lastTaxDate: applied.nextLastTaxDate },
+                        plan: { toTreasury: applied.toTreasury },
+                        result: applied,
+                    };
                 },
             });
-            await kv.set(saveKey, next);
-            savedVersion = Number(next._saveVersion) || undefined;
-            return applied;
-        }, { failClosed: true });
+            // Refused, or an identical assessment already settled it: nothing
+            // was charged by this call.
+            if (!settled || settled.replayed || settled.resumed) {
+                const current = settled?.character ?? peekChar;
+                return NOT_APPLIED(Number(current.ryo) || 0, Number(current.bankRyo) || 0, kageSeated);
+            }
+            outcome = settled.result;
+            savedVersion = settled._saveVersion || undefined;
+        } else {
+            // No treasury share: the stamp (and any burn) is a save write alone.
+            // Currency path → failClosed, and the date stamp is re-read inside
+            // the lock so two concurrent calls can't both debit.
+            outcome = await withKvLock(saveKey, async (): Promise<PlayerTaxOutcome | null> => {
+                const rec = await kv.get<Record<string, unknown>>(saveKey);
+                const char = (rec?.character ?? null) as Record<string, unknown> | null;
+                if (!rec || !char) return null;
+                if (String(char.lastTaxDate ?? '') === today) return null; // raced — already taxed
+
+                const applied = assess(char);
+                if (applied.noWrite) return applied;
+                // The balance rose between the unlocked read and now, so this
+                // day does have a treasury share after all. It needs the
+                // settlement above; leave the day unstamped for the next call.
+                if (applied.toTreasury > 0) return null;
+
+                const next: Record<string, unknown> = bumpSaveVersion({
+                    ...rec,
+                    character: {
+                        ...char,
+                        ryo: applied.nextRyo,
+                        bankRyo: applied.nextBankRyo,
+                        lastTaxDate: applied.nextLastTaxDate,
+                    },
+                });
+                await kv.set(saveKey, next);
+                savedVersion = Number(next._saveVersion) || undefined;
+                return applied;
+            }, { failClosed: true });
+        }
 
         if (!outcome) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0, kageSeated);
-
-        // Credit the village treasury with its half. Separate lock, taken AFTER the
-        // save lock is released (order save → village-state, and nothing takes them
-        // the other way round). Best-effort: the player's debit already committed,
-        // and losing the credit must not double-charge them on a retry.
-        if (outcome.toTreasury > 0) {
-            const stateKey = `${VILLAGE_STATE_PREFIX}${villageWarSlug(village)}`;
-            try {
-                await withKvLock(stateKey, async () => {
-                    const state = (await kv.get<Record<string, unknown>>(stateKey)) ?? {};
-                    const treasury = (state.treasury ?? {}) as Record<string, unknown>;
-                    await kv.set(stateKey, {
-                        ...state,
-                        treasury: { ...treasury, ryo: (Number(treasury.ryo) || 0) + outcome.toTreasury },
-                    });
-                });
-            } catch (err) {
-                console.error('[village-tax] treasury credit failed for', village, (err as Error).message);
-            }
-        }
 
         if (outcome.taxed) {
             const eventId = `tax:${villageWarSlug(village)}:${name}:${today}`;

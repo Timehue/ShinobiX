@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import type { KvLike } from './_storage.js';
 
-export type EconomyTxState = 'reserved' | 'debit-applied' | 'credit-applied' | 'complete' | 'needs-reconcile';
+// `refunded` is terminal: the debit was compensated and nothing moved net
+// (api/_save-debit-saga.ts). It is not "stuck", so the admin snapshot omits it.
+export type EconomyTxState = 'reserved' | 'debit-applied' | 'credit-applied' | 'complete' | 'needs-reconcile' | 'refunded';
 
 export type EconomyTxRecord = {
     id: string;
@@ -132,5 +134,5 @@ export async function readEconomyTxSnapshot(limit = 100, opts: { kv?: EconomyTxK
         : [];
     const cappedIds = ids.slice(0, Math.max(1, Math.min(500, Math.floor(Number(limit) || 100))));
     const recent = (await Promise.all(cappedIds.map((id) => store.get<EconomyTxRecord>(economyTxKey(id))))).filter(Boolean) as EconomyTxRecord[];
-    return { recent, stuck: recent.filter((tx) => tx.state !== 'complete') };
+    return { recent, stuck: recent.filter((tx) => tx.state !== 'complete' && tx.state !== 'refunded') };
 }

@@ -89,6 +89,9 @@ const ECHOES_VERSION = new Set([
     'pvp/bounty.ts',
     'pvp/claim-rewards.ts',
     'save/_mutate-player-save.ts',
+    'sector/shrine-offer.ts',
+    'clan/treasury/donate.ts',
+    'village/treasury/donate.ts',
     // Sector Contracts. The claim pays ryo, which is client-owned, so the
     // response echoes the committed `_saveVersion` and the client adopts the
     // server's `totalRyo` — without both, the next autosave would undo the
@@ -136,6 +139,22 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     // longer names a BUMP_MARKER either. It still bumps through that saga and
     // still echoes the hiring player's `_saveVersion`.
     'village/hire-mercenary.ts',
+    // Retry-safe save->shared settlements (issue #179, _save-debit-saga.ts):
+    // the debit commits through mutatePlayerSave inside the saga, and each route
+    // echoes that committed `_saveVersion` (the current one on a replay). The
+    // bounty claim credits through pvp/_bounty-claim.ts the same way (#180).
+    'pvp/bounty.ts',
+    'sector/shrine-offer.ts',
+    'clan/treasury/donate.ts',
+    'village/treasury/donate.ts',
+    // Stake-style Honor Seal / ryo debits that joined the same saga in the
+    // retry-safety audit's sibling pass.
+    'village/hollow-gate-unlock.ts',
+    'clan/war/declare.ts',
+    'village/kage-challenge.ts',
+    // The daily reward and its day stamp now commit together through
+    // writeVersionedPlayerSave; the route still echoes that version.
+    'village/claim-map-control.ts',
 ]);
 
 /**
@@ -160,11 +179,9 @@ const EXEMPT = new Set([
     // NODE_ENV=test + SHINOBIX_QA_MEMORY_KV=1. No player client consumes this
     // response, and one response cannot safely echo two players' versions.
     '_qa-sector-war.ts',
-    // Head-bounty settlement for a kill with no PvP session behind it. A helper,
-    // not a route: it bumps the hunter's save and RETURNS that version to its
-    // caller (player/sleeper-kill.ts), which echoes it. Exposing a version from
-    // here would duplicate that responsibility, not discharge it.
-    'pvp/_bounty-settle.ts',
+    // (pvp/_bounty-settle.ts used to be listed here. It now credits through
+    // pvp/_bounty-claim.ts and mutatePlayerSave, names no BUMP_MARKER, and still
+    // RETURNS the hunter's version to player/sleeper-kill.ts, which echoes it.)
     // Post-battle vitals + hospital admission for a finished world PvP duel. A
     // helper, not a route, and it writes BOTH fighters' saves in one call, so
     // there is no single participant whose `_saveVersion` it could echo. It is

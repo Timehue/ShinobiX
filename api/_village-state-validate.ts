@@ -93,6 +93,27 @@ export async function validateVillageStateWrite(
     const prev: VillageStateBlob = existing ?? {};
     const next: VillageStateBlob = { ...prev, ...incoming };
 
+    // Server-owned settlement journals. Each is read as PROOF that a server
+    // write already happened, so a blob write — any villager's, the Kage's, or
+    // an admin's — may never forge, clear or replace one, exactly as
+    // api/_clan-save-validate.ts pins its journals for clan rows:
+    //  - settlementReceipts: the treasury transfer saga
+    //    (api/_cross-key-settlement.ts) reads a receipt as proof the treasury
+    //    was ALREADY debited and skips the balance check, the recipient checks
+    //    and the debit; donations (api/_save-debit-saga.ts) read one as proof a
+    //    credit already landed. Unpinned, a Kage could plant one with this save
+    //    and then gift ryo the treasury did not hold.
+    //  - agendaClaimReceipts: the only gate on the daily agenda's treasury
+    //    tithe (api/village/claim-daily-agenda.ts). Unpinned, a villager could
+    //    reset it and collect the tithe again on every claim.
+    for (const journal of ['settlementReceipts', 'agendaClaimReceipts'] as const) {
+        if (incoming[journal] !== undefined && JSON.stringify(incoming[journal]) !== JSON.stringify(prev[journal] ?? null)) {
+            suppressed.push(`${journal} (server-owned settlement journal)`);
+        }
+        if (prev[journal] !== undefined) next[journal] = prev[journal];
+        else delete next[journal];
+    }
+
     // Appointments must validate real village players through /village/elder-focus.
     // Pin even Kage/admin blob writes so stale council caches cannot restore cleared seats.
     if (incoming.elderAppointees !== undefined && JSON.stringify(incoming.elderAppointees) !== JSON.stringify(prev.elderAppointees ?? null)) {

@@ -11,6 +11,7 @@ import type { SectorTerritory, TerritoryBuffStat } from "./world-state";
 import { AMBIGUOUS_ACTION_MESSAGE } from "./ambiguous-action";
 import { abortableDelay } from "./pvp-session-runtime";
 import { pendingClanExchangeIntent, readPendingClanExchangeIntent } from "./clan-exchange-intent";
+import { economyIntentSettled, pendingEconomyIntent, readPendingEconomyIntent } from "./economy-request-intent";
 
 export type PlayerChallengeNoticeOptions = {
     /** Stops retries and rejects an in-flight success when its owning UI session has retired. */
@@ -47,20 +48,83 @@ export async function postPlayerChallengeNotice(
     return false;
 }
 
+function donationIntentParts(playerName: string, group: string, donation: TreasuryDonationBody) {
+    const what = "currency" in donation ? ["currency", donation.currency, donation.amount] : ["item", donation.itemId, donation.count ?? 1];
+    return [playerName.trim().toLowerCase(), group.trim().toLowerCase(), ...what];
+}
+
+/**
+ * True while an earlier identical donation is unconfirmed (see
+ * economy-request-intent). The screens skip their local balance and ownership
+ * refusals then: after a reload the save may already show the debit whose
+ * treasury credit this retry is about to finish.
+ */
+export function hasPendingTreasuryDonation(kind: "village" | "clan", playerName: string, group: string, donation: TreasuryDonationBody): boolean {
+    return readPendingEconomyIntent(kind === "village" ? "village-donate" : "clan-donate", donationIntentParts(playerName, group, donation)) !== null;
+}
+
+function stakeIntentParts(playerName: string, village: string) {
+    return [playerName.trim().toLowerCase(), village.trim().toLowerCase()];
+}
+
+/** True while an earlier Hollow Gate unlock is unconfirmed; Town Hall skips its local seal check then. */
+export function hasPendingHollowGateUnlock(playerName: string, village: string): boolean {
+    return readPendingEconomyIntent("hollow-gate-unlock", stakeIntentParts(playerName, village)) !== null;
+}
+
+export type HollowGateUnlockReply = { character?: Character; hollowGateUnlockedUntil?: number; error?: string; _saveVersion?: number };
+
+// The Kage opens or extends the Hollow Gate (api/village/hollow-gate-unlock.ts).
+// The retained requestId makes pressing again after a lost answer return the
+// first result instead of buying a second 30 days, and finishes an unlock
+// whose outcome was unknown. Throws on a transport failure; the id stays.
+export async function postHollowGateUnlock(playerName: string, village: string): Promise<{ ok: boolean; data: HollowGateUnlockReply | null }> {
+    const intent = pendingEconomyIntent("hollow-gate-unlock", stakeIntentParts(playerName, village));
+    const res = await fetch("/api/village/hollow-gate-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerName, requestId: intent.requestId }),
+    });
+    const data = await res.json().catch(() => null) as HollowGateUnlockReply | null;
+    if (economyIntentSettled(res.status, data)) intent.complete();
+    return { ok: res.ok, data };
+}
+
+export type KageChallengeDeclareReply = { ok?: boolean; error?: string; challenge?: unknown; character?: Character; _saveVersion?: number };
+
+// Declare a Kage challenge (api/village/kage-challenge.ts action "declare").
+// The 250,000-ryo stake carries a retained requestId, so a retry after a
+// lost answer finishes or replays the first declaration, never stakes twice.
+export async function postKageChallengeDeclare(playerName: string, village: string): Promise<{ ok: boolean; data: KageChallengeDeclareReply }> {
+    const intent = pendingEconomyIntent("kage-challenge-declare", stakeIntentParts(playerName, village));
+    const res = await fetch("/api/village/kage-challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "declare", village, playerName, requestId: intent.requestId }),
+    });
+    const data = await res.json().catch(() => ({})) as KageChallengeDeclareReply;
+    if (economyIntentSettled(res.status, data)) intent.complete();
+    return { ok: res.ok && !!data.ok, data };
+}
+
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.
 // `stores` is present when the Village Stores routed an item donation
 // (ration-pack → provisions, hunt-*/relics → material points); a 429 daily-cap
 // rejection surfaces as the server's `error` text through the same alert.
+// The donation carries a retained requestId, so pressing again after a lost
+// answer finishes or replays it rather than donating twice.
 export async function postVillageTreasuryDonation(playerName: string, village: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } } | null> {
+    const intent = pendingEconomyIntent("village-donate", donationIntentParts(playerName, village, donation));
     try {
         const res = await fetch("/api/village/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, village, ...donation }),
+            body: JSON.stringify({ playerName, village, ...donation, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; _saveVersion?: number; stores?: { provisions?: number; materialPoints?: number } };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {
@@ -79,13 +143,15 @@ export async function postVillageTreasuryDonation(playerName: string, village: s
 // meaningful: the packs stayed loose treasury items, so the confirmation must
 // not claim a rations credit that never happened.
 export async function postClanTreasuryDonation(playerName: string, clan: string, donation: TreasuryDonationBody): Promise<{ treasury: Record<string, unknown>; character: Character; xp: number; level: number; _saveVersion?: number; stores?: { provisions?: number } } | null> {
+    const intent = pendingEconomyIntent("clan-donate", donationIntentParts(playerName, clan, donation));
     try {
         const res = await fetch("/api/clan/treasury/donate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, clan, ...donation }),
+            body: JSON.stringify({ playerName, clan, ...donation, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; treasury?: Record<string, unknown>; character?: Character; xp?: number; level?: number; _saveVersion?: number; stores?: { provisions?: number } };
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok || !data.treasury || !data.character) { alert(data.error || AMBIGUOUS_ACTION_MESSAGE); return null; }
         return { treasury: data.treasury, character: data.character, xp: data.xp ?? 0, level: data.level ?? 1, _saveVersion: data._saveVersion, ...(data.stores ? { stores: data.stores } : {}) };
     } catch {

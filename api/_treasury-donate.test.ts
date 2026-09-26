@@ -1,6 +1,57 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyTreasuryDonation, cleanTreasuryItems, type DonationRules } from './_treasury-donate.js';
+import {
+    applyTreasuryCredit,
+    applyTreasuryDonation,
+    cleanTreasuryItems,
+    treasuryCreditPlan,
+    type DonationRules,
+    type TreasuryDonation,
+} from './_treasury-donate.js';
+import { routeStoresDonation } from './_treasury-stores-donate.js';
+
+describe('treasury credit plan (retry-safe donations, api/_save-debit-saga.ts)', () => {
+    // The saga records the plan at debit time and applies it at credit time.
+    // Applied to the treasury the debit read, it must be byte-for-byte the
+    // nextTreasury the donation rules computed, or the refactor changed what
+    // a donation credits.
+    const RULES_ALL: DonationRules = {
+        allowedCurrencies: ['ryo', 'honorSeals'],
+        currencyCaps: { ryo: 200_000, honorSeals: 100_000 },
+        itemCountCap: 1_000,
+    };
+    const treasury = { ryo: 12, honorSeals: 3, provisions: 7, items: [{ itemId: 'item-smoke-bomb', count: 1 }, { itemId: 'x', count: 0 }] };
+    const donor = { ryo: 50_000, honorSeals: 50, inventory: ['item-smoke-bomb'], itemStacks: [{ itemId: 'ration-pack', count: 9 }, { itemId: 'hunt-torn-hide', count: 9 }] };
+    const cases: Array<[string, TreasuryDonation, boolean]> = [
+        ['currency', { kind: 'currency', currency: 'ryo', amount: 1_234 }, false],
+        ['other currency', { kind: 'currency', currency: 'honorSeals', amount: 5 }, false],
+        ['loose item', { kind: 'item', itemId: 'item-smoke-bomb', count: 1 }, false],
+        ['routed rations', { kind: 'item', itemId: 'ration-pack', count: 4 }, true],
+        ['routed material', { kind: 'item', itemId: 'hunt-torn-hide', count: 3 }, true],
+    ];
+    for (const [label, donation, routes] of cases) {
+        it(`reproduces the donation rules' nextTreasury for a ${label} donation`, () => {
+            const outcome = applyTreasuryDonation(treasury, donor, donation, RULES_ALL);
+            assert.ok(outcome.ok);
+            let expected = outcome.nextTreasury;
+            let routed = null;
+            if (routes) {
+                const r = routeStoresDonation(treasury, outcome, donation, { 'hunt-torn-hide': 3 }, { materialPoints: true, now: Date.UTC(2026, 8, 25) });
+                assert.ok(r.ok && r.routed, 'the case really routes');
+                expected = r.nextTreasury;
+                routed = r.routed;
+            }
+            assert.deepEqual(applyTreasuryCredit(treasury, treasuryCreditPlan(donation, routed)), expected);
+        });
+    }
+
+    it('adds the same amounts to a LATER treasury without re-checking the donor', () => {
+        const later = { ryo: 999, items: [{ itemId: 'item-smoke-bomb', count: 4 }] };
+        assert.equal(applyTreasuryCredit(later, { kind: 'currency', currency: 'ryo', amount: 1 }).ryo, 1_000);
+        assert.deepEqual(applyTreasuryCredit(later, { kind: 'item', itemId: 'item-smoke-bomb', count: 2 }).items, [{ itemId: 'item-smoke-bomb', count: 6 }]);
+        assert.equal(applyTreasuryCredit(later, { kind: 'store', store: 'provisions', amount: 3 }).provisions, 3);
+    });
+});
 
 // Pure decision core shared by api/clan/treasury/donate.ts and
 // api/village/treasury/donate.ts. No IO — exercises the economic rules

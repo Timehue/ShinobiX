@@ -355,7 +355,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     key={s.key}
                                                     disabled={!!busy}
                                                     onClick={() => act(`up-${s.key}`, async () => {
-                                                        const r = (await upgradeWarStructure(character.name, myVillage, s.key)) as { newLevel?: number; materialsSpent?: number; remainingMaterialPoints?: number };
+                                                        const r = (await upgradeWarStructure(character.name, myVillage, s.key, level + 1)) as { newLevel?: number; materialsSpent?: number; remainingMaterialPoints?: number };
                                                         gameToast(structureUpgradeNotice({
                                                             name: s.name,
                                                             reportedLevel: r.newLevel,

@@ -62,6 +62,35 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'card-clash/ai-move.ts', mechanism: 'in-save-receipt', markers: ['redeemedCardClashAiSessions'] },
     { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'trade:nonce:'] },
     { file: 'cron/_ranked-season.ts', mechanism: 'in-save-receipt', markers: ['SEASON_SETTLEMENT_RECEIPTS_FIELD', 'settleRankedSeasonCharacter'] },
+    // Retry-safe save->shared settlements (issue #179, api/_save-debit-saga.ts):
+    // an in-save receipt on the debit, a shared-record receipt on the credit,
+    // and an economy-tx journal the admin economy view lists until it finishes.
+    { file: '_save-debit-saga.ts', mechanism: 'economy-tx', markers: ['inspectSettlementReceipt', 'inspectSharedCredit', 'receiptAbsenceProvable', 'markEconomyTx'] },
+    { file: 'sector/shrine-offer.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'SHRINE_OFFER_SAGA', 'parseSettlementRequestId'] },
+    { file: 'clan/treasury/donate.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_DONATION_SAGA', 'parseSettlementRequestId'] },
+    { file: 'village/treasury/donate.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_DONATION_SAGA', 'parseSettlementRequestId'] },
+    // Bounty placement is the saga above; the payout (issue #180) reserves the
+    // head on the board before an in-save-receipted credit.
+    { file: 'pvp/bounty.ts', mechanism: 'state-machine', markers: ['runSaveDebitSaga', 'BOUNTY_PLACE_SAGA', 'reserveBountyClaim', 'payPendingBountyClaim', 'writeDuelBountyRecord'] },
+    { file: 'pvp/_bounty-settle.ts', mechanism: 'state-machine', markers: ['reserveBountyClaim', 'payPendingBountyClaim'] },
+    { file: 'pvp/_bounty-claim.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
+    // Payout endpoints issue #19 found missing from this inventory.
+    { file: 'tebex/webhook.ts', mechanism: 'in-save-receipt', markers: ['redeemedTebexPurchases'] },
+    { file: 'village/claim-daily-agenda.ts', mechanism: 'in-save-receipt', markers: ['claimedVillageAgendaDate', 'agendaClaimReceipts'] },
+    { file: 'village/claim-map-control.ts', mechanism: 'in-save-receipt', markers: ['claimedMapControlDate', 'writeVersionedPlayerSave'] },
+    // Clan Honor Seal pool (issue #179 sibling): the donation keeps its own
+    // journal and receipts; a founder's gift is a cross-key settlement.
+    { file: 'clan/seal-pool/donate.ts', mechanism: 'economy-tx', markers: ['beginDurableSettlement', 'inspectPlayerReceipt', 'receiptAbsenceProvable'] },
+    { file: 'clan/seal-pool/distribute.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
+    { file: '_cross-key-settlement.ts', mechanism: 'state-machine', markers: ['inspectPlayerReceipt', 'receiptAbsenceProvable'] },
+    // The village tax's treasury share (save debit -> village row credit) and
+    // the parked Kage stake refunds, found by the same audit.
+    { file: '_war-tax-apply.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_TAX_SAGA'] },
+    { file: 'village/_kage-inactivity.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
+    // Stakes that open something on a shared row, moved onto the saga.
+    { file: 'village/hollow-gate-unlock.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'HOLLOW_GATE_UNLOCK_SAGA', 'parseSettlementRequestId'] },
+    { file: 'clan/war/declare.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_WAR_DECLARE_SAGA', 'parseSettlementRequestId'] },
+    { file: 'village/kage-challenge.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'KAGE_CHALLENGE_DECLARE_SAGA', 'parseSettlementRequestId'] },
 ];
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
@@ -125,5 +154,15 @@ describe('reward-settlement contract inventory', () => {
         }
         const shared = read('_cross-key-settlement.ts');
         assert.match(shared, /failClosed:\s*true/, 'shared cross-key settlement helper must lock failClosed');
+        assert.match(read('_save-debit-saga.ts'), /failClosed:\s*true/, 'the save->shared settlement saga must lock failClosed');
+    });
+
+    it('server-owned journals on shared rows cannot be written by a client save', () => {
+        // Each is read as proof that a server write already happened, so a blob
+        // that could forge or clear one could skip a debit or repeat a credit
+        // (api/village/treasury/transfer-receipt-forgery.test.ts drives both).
+        const village = read('_village-state-validate.ts');
+        assert.match(village, /for \(const journal of \['settlementReceipts', 'agendaClaimReceipts'\] as const\)/);
+        assert.match(read('_clan-save-validate.ts'), /'settlementReceipts'/);
     });
 });

@@ -71,8 +71,11 @@ describe('clan treasury transfer settlement', () => {
         // taxed /api/player/trade.
         assert.equal(first.body?.burned, 3, 'the gift must report the burned amount');
         assert.equal(first.body?.amount, 22, 'the gift must report the CREDITED amount, not the raw one');
-        assert.equal(first.body?._saveVersion, recipient?._saveVersion, 'fresh transfer must echo the exact recipient commit version');
-        assert.equal(replay.body?._saveVersion, recipient?._saveVersion, 'durable replay must preserve the original commit version');
+        // A caller's client adopts any top-level _saveVersion as its own save's
+        // version, so the recipient's never goes back to anyone but the recipient.
+        assert.equal('_saveVersion' in (first.body ?? {}), false, 'a fresh transfer must not echo the recipient version');
+        assert.equal('_saveVersion' in (replay.body ?? {}), false, 'nor may the durable replay of its stored result');
+        assert.ok(Number(recipient?._saveVersion) > 1, 'the recipient save was committed with a new version');
     });
 
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {

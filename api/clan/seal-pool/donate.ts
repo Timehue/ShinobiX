@@ -19,7 +19,9 @@ import {
 import {
     appendSettlementReceipt as appendPlayerReceipt,
     inspectSettlementReceipt as inspectPlayerReceipt,
+    SERVER_SETTLEMENT_RECEIPT_LIMIT,
 } from '../../_settlement-receipts.js';
+import { receiptAbsenceProvable } from '../../_save-debit-saga.js';
 import { loadPool, savePool } from './_storage.js';
 
 // bumpSaveVersion is performed by writeVersionedPlayerSave below and echoed
@@ -71,11 +73,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const saveKey = `save:${playerName}`;
         const requestId = requestIdFrom(body.requestId);
 
-        // The donor row is locked before reading the clan name. The pool row
-        // is then locked inside it, so concurrent donors serialize on the
-        // shared pool while autosaves serialize on the donor save. A storage
-        // fault or lock contention aborts before either row is changed.
-        const outcome = await withKvLock(saveKey, async () => {
+        // The pool row is locked first and the donor save inside it: the order
+        // of every path that holds a shared row and a player save, including
+        // distribute.ts, which credits a member's save under this pool lock.
+        // The clan is read unlocked to find the pool, then read again under
+        // both locks, where every check below is made. A storage fault or lock
+        // contention aborts before either row is changed.
+        const peek = (await kv.get<Record<string, unknown>>(saveKey))?.character as Record<string, unknown> | undefined;
+        const peekClan = typeof peek?.clan === 'string' ? peek.clan : '';
+        const poolLockKey = `clan-seal-pool:${peekClan.toLowerCase()}`;
+        const outcome = await withKvLock(poolLockKey, () => withKvLock(saveKey, async () => {
             const donorRecord = await kv.get<Record<string, unknown>>(saveKey);
             const donor = donorRecord?.character as Record<string, unknown> | undefined;
             if (!donorRecord || !donor) return { status: 404 as const, body: { error: 'Character not found.' } };
@@ -84,147 +91,165 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const clanName = typeof donor.clan === 'string' ? donor.clan : '';
             if (!clanName) return { status: 400 as const, body: { error: 'You must be in a clan to donate.' } };
+            if (clanName.toLowerCase() !== peekClan.toLowerCase()) {
+                return { status: 409 as const, body: { error: 'Your clan changed during the donation. No Seals were moved.', requestId } };
+            }
 
-            const poolKey = `clan-seal-pool:${clanName.toLowerCase()}`;
-            return withKvLock(poolKey, async () => {
-                const transactionId = settlementTransactionId('clan-seal-donate', requestId);
-                const fingerprint = settlementFingerprint({
-                    operation: 'clan-seal-donate',
-                    playerName,
-                    clanName: clanName.toLowerCase(),
-                    amount,
-                });
-                const started = await beginDurableSettlement({
-                    transactionId,
-                    idempotencyKey: requestId,
-                    operationType: 'clan-seal-donate',
-                    fingerprint,
-                    actorIds: [playerName, clanName.toLowerCase()],
-                    resource: 'honorSeals',
-                    amount,
-                    meta: { playerName, clanName },
-                }, { kv });
-                if (started.status === 'conflict') {
-                    return { status: 409 as const, body: { error: 'That donation request ID is already bound to a different donation.', requestId } };
-                }
-                if (started.record.state === 'completed' && started.record.result) {
-                    return { status: 200 as const, body: { ok: true, ...started.record.result, requestId } };
-                }
+            const transactionId = settlementTransactionId('clan-seal-donate', requestId);
+            const fingerprint = settlementFingerprint({
+                operation: 'clan-seal-donate',
+                playerName,
+                clanName: clanName.toLowerCase(),
+                amount,
+            });
+            const started = await beginDurableSettlement({
+                transactionId,
+                idempotencyKey: requestId,
+                operationType: 'clan-seal-donate',
+                fingerprint,
+                actorIds: [playerName, clanName.toLowerCase()],
+                resource: 'honorSeals',
+                amount,
+                meta: { playerName, clanName },
+            }, { kv });
+            if (started.status === 'conflict') {
+                return { status: 409 as const, body: { error: 'That donation request ID is already bound to a different donation.', requestId } };
+            }
+            if (started.record.state === 'completed' && started.record.result) {
+                return { status: 200 as const, body: { ok: true, ...started.record.result, requestId } };
+            }
+            // An earlier attempt reserved this donation, so a write it made may
+            // have landed. Its receipt says so unless newer receipts have pushed
+            // it out of the capped list since; then writing again could apply it
+            // twice, and the donation is left for an operator (as in
+            // runSaveDebitSaga). A pending attempt never reached a write.
+            const resumed = started.record.state !== 'pending' && started.record.state !== 'cancelled';
+            const unprovable = async (side: string) => {
+                const error = `The earlier ${side} of this donation can no longer be proven either way, so nothing was moved. An administrator must reconcile it.`;
+                await updateDurableSettlement(transactionId, { state: 'reconciliation-required', failureReason: error }, { kv }).catch(() => undefined);
+                return { status: 409 as const, body: { error, reconcile: true, requestId } };
+            };
 
-                const donorReceipt = inspectPlayerReceipt(donor, transactionId, fingerprint);
-                if (donorReceipt.status === 'conflict' || donorReceipt.status === 'invalid') {
-                    return { status: 409 as const, body: { error: 'The donor save has a conflicting or invalid settlement receipt.', requestId } };
-                }
+            const donorReceipt = inspectPlayerReceipt(donor, transactionId, fingerprint);
+            if (donorReceipt.status === 'conflict' || donorReceipt.status === 'invalid') {
+                return { status: 409 as const, body: { error: 'The donor save has a conflicting or invalid settlement receipt.', requestId } };
+            }
 
-                let nextDonor = donor;
-                let donorResult: Record<string, unknown>;
-                if (donorReceipt.status === 'fresh') {
-                    const balance = Number(donor.honorSeals ?? 0);
-                    const today = utcDateKey();
-                    const stampedDate = typeof donor.dailyDonationDate === 'string' ? donor.dailyDonationDate : '';
-                    const donatedToday = stampedDate === today ? Number(donor.dailyDonatedSeals ?? 0) : 0;
-                    const dailyCap = Math.floor((balance + donatedToday) * DONATE_FRACTION_CAP);
-                    const remaining = Math.max(0, dailyCap - donatedToday);
-                    if (amount > remaining) {
-                        await cancelDurableSettlement(transactionId, {
-                            status: 400,
-                            error: 'Daily donation cap exceeded.',
-                            dailyCap,
-                            donatedToday,
-                            remaining,
-                            balance,
-                        }, { kv }).catch(() => undefined);
-                        return {
-                            status: 400 as const,
-                            body: {
-                                error: `Daily donation cap is 50% of your "start of day" Seal balance. You can donate ${remaining} more today.`,
-                                dailyCap, donatedToday, remaining, balance, requestId,
-                            },
-                        };
-                    }
-                    if (balance < amount) {
-                        await cancelDurableSettlement(transactionId, {
-                            status: 400,
-                            error: 'Not enough Honor Seals.',
-                            balance,
-                        }, { kv }).catch(() => undefined);
-                        return { status: 400 as const, body: { error: 'Not enough Honor Seals.', balance, requestId } };
-                    }
-                    donorResult = {
-                        donated: amount,
-                        honorSealsRemaining: balance - amount,
-                        dailyDonatedToday: donatedToday + amount,
+            let donorResult: Record<string, unknown>;
+            if (donorReceipt.status === 'fresh') {
+                if (resumed && !receiptAbsenceProvable(donorReceipt.receipts, SERVER_SETTLEMENT_RECEIPT_LIMIT, 'settledAt', started.record.createdAt)) {
+                    return unprovable('debit');
+                }
+                const balance = Number(donor.honorSeals ?? 0);
+                const today = utcDateKey();
+                const stampedDate = typeof donor.dailyDonationDate === 'string' ? donor.dailyDonationDate : '';
+                const donatedToday = stampedDate === today ? Number(donor.dailyDonatedSeals ?? 0) : 0;
+                const dailyCap = Math.floor((balance + donatedToday) * DONATE_FRACTION_CAP);
+                const remaining = Math.max(0, dailyCap - donatedToday);
+                if (amount > remaining) {
+                    await cancelDurableSettlement(transactionId, {
+                        status: 400,
+                        error: 'Daily donation cap exceeded.',
                         dailyCap,
+                        donatedToday,
+                        remaining,
+                        balance,
+                    }, { kv }).catch(() => undefined);
+                    return {
+                        status: 400 as const,
+                        body: {
+                            error: `Daily donation cap is 50% of your "start of day" Seal balance. You can donate ${remaining} more today.`,
+                            dailyCap, donatedToday, remaining, balance, requestId,
+                        },
                     };
-                    nextDonor = appendPlayerReceipt({
-                        ...donor,
-                        honorSeals: balance - amount,
-                        dailyDonatedSeals: donatedToday + amount,
-                        dailyDonationDate: today,
-                    }, donorReceipt.receipts, {
-                        requestId: transactionId,
-                        fingerprint,
-                        value: donorResult,
-                        settledAt: Date.now(),
-                    });
-                    const written = await writeVersionedPlayerSave(saveKey, donorRecord, nextDonor);
-                    if (Number.isFinite(Number(written.record._saveVersion))) {
-                        donorResult = { ...donorResult, _saveVersion: Number(written.record._saveVersion) };
-                    }
-                    await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
-                } else {
-                    donorResult = {
-                        ...donorReceipt.receipt.value,
-                        ...(Number.isFinite(Number(donorRecord._saveVersion)) ? { _saveVersion: Number(donorRecord._saveVersion) } : {}),
-                    };
-                    nextDonor = { ...donor, serverSettlementReceipts: donorReceipt.receipts };
                 }
+                if (balance < amount) {
+                    await cancelDurableSettlement(transactionId, {
+                        status: 400,
+                        error: 'Not enough Honor Seals.',
+                        balance,
+                    }, { kv }).catch(() => undefined);
+                    return { status: 400 as const, body: { error: 'Not enough Honor Seals.', balance, requestId } };
+                }
+                donorResult = {
+                    donated: amount,
+                    honorSealsRemaining: balance - amount,
+                    dailyDonatedToday: donatedToday + amount,
+                    dailyCap,
+                };
+                const nextDonor = appendPlayerReceipt({
+                    ...donor,
+                    honorSeals: balance - amount,
+                    dailyDonatedSeals: donatedToday + amount,
+                    dailyDonationDate: today,
+                }, donorReceipt.receipts, {
+                    requestId: transactionId,
+                    fingerprint,
+                    value: donorResult,
+                    settledAt: Date.now(),
+                });
+                await updateDurableSettlement(transactionId, { state: 'reserved' }, { kv });
+                const written = await writeVersionedPlayerSave(saveKey, donorRecord, nextDonor);
+                if (Number.isFinite(Number(written.record._saveVersion))) {
+                    donorResult = { ...donorResult, _saveVersion: Number(written.record._saveVersion) };
+                }
+                await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
+            } else {
+                donorResult = {
+                    ...donorReceipt.receipt.value,
+                    ...(Number.isFinite(Number(donorRecord._saveVersion)) ? { _saveVersion: Number(donorRecord._saveVersion) } : {}),
+                };
+            }
 
-                try {
-                    const pool = await loadPool(clanName);
-                    const poolReceipt = inspectDurableReceipt(pool as unknown as Record<string, unknown>, transactionId, fingerprint);
-                    if (poolReceipt === 'conflict' || poolReceipt === 'invalid') {
-                        const error = 'The clan pool has a conflicting or invalid settlement receipt.';
-                        await updateDurableSettlement(transactionId, {
-                            state: 'reconciliation-required',
-                            failureReason: error,
-                        }, { kv }).catch(() => undefined);
-                        return { status: 409 as const, body: { error, requestId } };
-                    }
-                    let poolBalance = Number(pool.balance ?? 0);
-                    if (poolReceipt === 'fresh') {
-                        poolBalance += amount;
-                        pool.balance = poolBalance;
-                        pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
-                        pool.settlementReceipts = [{
-                            transactionId,
-                            fingerprint,
-                            resource: 'honorSeals',
-                            amount,
-                            appliedAt: Date.now(),
-                            value: { poolBalance },
-                        }, ...(pool.settlementReceipts ?? []).filter((entry) => entry.transactionId !== transactionId)].slice(0, 100);
-                        await savePool(pool);
-                        await updateDurableSettlement(transactionId, { state: 'credit-applied' }, { kv });
-                    }
-
-                    const result = { ...donorResult, poolBalance, requestId };
-                    await completeDurableSettlement(transactionId, result, { kv });
-                    return { status: 200 as const, body: { ok: true, ...result } };
-                } catch (error) {
+            try {
+                const pool = await loadPool(clanName);
+                const poolReceipt = inspectDurableReceipt(pool as unknown as Record<string, unknown>, transactionId, fingerprint);
+                if (poolReceipt === 'conflict' || poolReceipt === 'invalid') {
+                    const error = 'The clan pool has a conflicting or invalid settlement receipt.';
                     await updateDurableSettlement(transactionId, {
                         state: 'reconciliation-required',
-                        failureReason: error instanceof Error ? error.message : String(error),
+                        failureReason: error,
                     }, { kv }).catch(() => undefined);
-                    throw error;
+                    return { status: 409 as const, body: { error, requestId } };
                 }
-            }, { failClosed: true });
-        }, { failClosed: true });
+                let poolBalance = Number(pool.balance ?? 0);
+                // A journal at credit-applied proves the pool was credited even
+                // if its receipt has since been pushed out of the list.
+                if (poolReceipt === 'fresh' && started.record.state !== 'credit-applied') {
+                    if (resumed && !receiptAbsenceProvable(pool.settlementReceipts ?? [], 100, 'appliedAt', started.record.createdAt)) {
+                        return unprovable('credit');
+                    }
+                    poolBalance += amount;
+                    pool.balance = poolBalance;
+                    pool.log.unshift({ kind: 'donate', by: playerName, amount, at: Date.now() });
+                    pool.settlementReceipts = [{
+                        transactionId,
+                        fingerprint,
+                        resource: 'honorSeals',
+                        amount,
+                        appliedAt: Date.now(),
+                        value: { poolBalance },
+                    }, ...(pool.settlementReceipts ?? []).filter((entry) => entry.transactionId !== transactionId)].slice(0, 100);
+                    await savePool(pool);
+                    await updateDurableSettlement(transactionId, { state: 'credit-applied' }, { kv });
+                }
+
+                const result = { ...donorResult, poolBalance, requestId };
+                await completeDurableSettlement(transactionId, result, { kv });
+                return { status: 200 as const, body: { ok: true, ...result } };
+            } catch (error) {
+                await updateDurableSettlement(transactionId, {
+                    state: 'reconciliation-required',
+                    failureReason: error instanceof Error ? error.message : String(error),
+                }, { kv }).catch(() => undefined);
+                throw error;
+            }
+        }, { failClosed: true }), { failClosed: true });
 
         return res.status(outcome.status).json(outcome.body);
     } catch (err) {
         if (err instanceof LockContendedError) {
-            return res.status(409).json({ error: 'Donation is busy; no Seals were moved. Retry with the same requestId.' });
+            return res.status(503).json({ error: 'Donation is busy; no Seals were moved. Retry with the same requestId.', retryable: true });
         }
         console.error('[clan/seal-pool/donate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });

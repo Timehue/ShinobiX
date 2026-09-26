@@ -356,15 +356,21 @@ describe('Kage challenge cost — server/client parity', () => {
         assert.match(stateLib, /Number\(character\.createdAt \?\? 0\)/);
         assert.doesNotMatch(stateLib, /Number\(character\.createdAt \?\? now\)/);
         const handler = read('api/village/kage-challenge.ts');
-        assert.match(handler, /challengerAccountCreatedAt: num\(char\.createdAt\)/);
+        assert.match(handler, /challengerAccountCreatedAt: num\(character\.createdAt\)/);
     });
 
     it('the handler debits and refunds ryo', () => {
+        // The stake settles through the save-debit saga: the handler decides
+        // the debit, and the saga kind owns the refund of a challenge that
+        // provably failed to open.
         const handler = read('api/village/kage-challenge.ts');
-        assert.match(handler, /ryo: num\(c\.ryo\) - KAGE_DECLARE_RYO_COST/);
-        assert.match(handler, /ryo: num\(c\.ryo\) \+ KAGE_DECLARE_RYO_COST/);
+        assert.match(handler, /ryo: num\(character\.ryo\) - KAGE_DECLARE_RYO_COST/);
+        assert.match(handler, /plan: \{ challenge, cost: KAGE_DECLARE_RYO_COST \}/);
         assert.match(handler, /resource: 'ryo'/);
         assert.doesNotMatch(handler, /honorSeals/);
+        const kinds = read('api/_save-debit-kinds.ts');
+        const saga = kinds.slice(kinds.indexOf('export const KAGE_CHALLENGE_DECLARE_SAGA'));
+        assert.match(saga, /refund: \(character, plan\) => \(\{ \.\.\.character, ryo: ryoOf\(character\) \+ plan\.cost \}\)/);
     });
 });
 

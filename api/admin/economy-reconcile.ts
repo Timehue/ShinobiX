@@ -6,18 +6,40 @@ import { withKvLock } from '../_lock.js';
 import { cors, mergePreservingImages } from '../_utils.js';
 import { completeEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { resumeSaveDebitSaga, SaveDebitRefusal } from '../_save-debit-saga.js';
+import { settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
+import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
+import { SAVE_DEBIT_SAGAS } from '../_save-debit-kinds.js';
+import { BOUNTY_KEY, normalizeBoard, type BountyBoard } from '../pvp/_bounty.js';
+import { sweepPendingBountyClaims } from '../pvp/_bounty-claim.js';
 
 function num(v: unknown): number {
     const n = Number(v);
     return Number.isFinite(n) ? n : 0;
 }
 
+/** Journal kinds whose `needs-reconcile` state means "refund the stake", and the currency staked. */
+const LEGACY_STAKE_REFUNDS: Readonly<Record<string, string>> = {
+    'hollow-gate-unlock': 'honorSeals',
+    'kage-challenge-declare': 'ryo',
+};
+
 /*
  * /api/admin/economy-reconcile - POST
  *
  * Admin-only one-shot reconciliation for known economy transactions that failed
- * after the debit side landed. Currently supports clan territory War Supply
- * collection records (`state: needs-reconcile`).
+ * after the debit side landed. Supports:
+ *   - { txId } for a retry-safe save->shared settlement (api/_save-debit-saga.ts:
+ *     shrine offerings, bounty placements, clan and village treasury
+ *     donations). It runs the same idempotent credit step the player's own
+ *     retry would, so it can never credit twice; an unprovable one is reported,
+ *     not guessed. Find ids under `economyTx.stuck` in GET /api/admin/economy.
+ *   - { txId } for clan territory War Supply collection records and the two
+ *     stake refunds (`state: needs-reconcile`): the Hollow Gate unlock's Honor
+ *     Seals and the Kage declaration's ryo. A refund writes a receipt, so
+ *     reconciling the same journal twice pays once.
+ *   - { bountyClaims: true } to finish every bounty payout left pending on the
+ *     board (api/pvp/_bounty-claim.ts), each exactly once.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -28,8 +50,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+        if (body.bountyClaims === true) {
+            const result = await withKvLock(BOUNTY_KEY, async () => {
+                const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
+                const before = (board.pendingClaims ?? []).map((p) => p.id);
+                const swept = await sweepPendingBountyClaims(board, Date.now());
+                if (swept !== board) await kv.set(BOUNTY_KEY, swept);
+                const remaining = (swept.pendingClaims ?? []).map((p) => p.id);
+                return { finished: before.filter((id) => !remaining.includes(id)), remaining };
+            }, { failClosed: true });
+            console.log('[admin/economy-reconcile] bounty claims swept', JSON.stringify(result));
+            return res.status(200).json({ ok: true, ...result });
+        }
         const txId = typeof body.txId === 'string' ? body.txId.trim().slice(0, 180) : '';
         if (!txId) return res.status(400).json({ error: 'Missing txId.' });
+
+        const sagaTx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
+        if (sagaTx && SAVE_DEBIT_SAGAS[sagaTx.kind] && typeof sagaTx.meta?.fingerprint === 'string') {
+            const outcome = await resumeSaveDebitSaga(txId, SAVE_DEBIT_SAGAS);
+            console.log('[admin/economy-reconcile] save-debit settlement', txId, outcome.status);
+            if (outcome.status === 'unprovable') return res.status(409).json({ error: outcome.reason, ...outcome });
+            return res.status(200).json({ ok: true, ...outcome });
+        }
 
         const result = await withKvLock(economyTxKey(txId), async () => {
             const tx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
@@ -39,25 +81,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const amount = Math.max(0, Math.floor(Number(tx.amount) || 0));
             if (amount <= 0) return { status: 400, body: { error: 'Transaction has no amount to reconcile.' } };
 
-            const isHonorSealRefund = tx.resource === 'honorSeals'
-                && (tx.kind === 'hollow-gate-unlock' || tx.kind === 'kage-challenge-declare');
-            if (isHonorSealRefund) {
+            // A stake whose handler could not open what it paid for, and whose
+            // own automatic refund failed too. The Kage declaration stakes ryo
+            // (a check for Honor Seals alone could never match it), the Hollow
+            // Gate unlock Honor Seals.
+            const refundResource = LEGACY_STAKE_REFUNDS[tx.kind];
+            if (refundResource && tx.resource === refundResource) {
                 const saveKey = String(tx.debitKey ?? '');
                 if (!saveKey.startsWith('save:')) return { status: 400, body: { error: 'Transaction has no valid player save key.' } };
+                // A receipt in the same write makes a repeated reconcile (a
+                // lost answer, a second click) pay nothing the second time.
+                const requestId = settlementTransactionId('economy-reconcile-refund', tx.id);
+                const fingerprint = settlementFingerprint({ txId: tx.id, resource: refundResource, amount });
                 let character: Record<string, unknown> | null = null;
+                let alreadyRefunded = false;
                 await withKvLock(saveKey, async () => {
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     const current = (record?.character ?? null) as Record<string, unknown> | null;
                     if (!record || !current) throw new Error('Player save not found.');
-                    character = { ...current, honorSeals: Math.max(0, num(current.honorSeals)) + amount };
+                    const receipt = inspectSettlementReceipt(current, requestId, fingerprint);
+                    if (receipt.status === 'replay') {
+                        alreadyRefunded = true;
+                        character = current;
+                        return;
+                    }
+                    if (receipt.status !== 'fresh') throw new Error(`The player's settlement receipts are ${receipt.status}; refund by hand.`);
+                    character = appendSettlementReceipt(
+                        { ...current, [refundResource]: Math.max(0, num(current[refundResource])) + amount },
+                        receipt.receipts,
+                        { requestId, fingerprint, value: { txId: tx.id, resource: refundResource, amount }, settledAt: Date.now() },
+                    );
                     const updated = bumpSaveVersion({ ...record, character }, { previousCharacter: current });
                     await kv.set(saveKey, mergePreservingImages(updated, record));
                 }, { failClosed: true });
                 const completed = await completeEconomyTx(tx.id, {
-                    note: 'Admin reconciled failed cross-record Honor Seal refund.',
+                    note: `Admin reconciled a failed ${refundResource} stake refund.`,
                     meta: { ...(tx.meta ?? {}), reconciledAt: Date.now(), reconciledBy: 'admin' },
                 });
-                return { status: 200, body: { ok: true, tx: completed, credited: amount, character } };
+                return { status: 200, body: { ok: true, tx: completed, credited: alreadyRefunded ? 0 : amount, alreadyRefunded, resource: refundResource, character } };
             }
             if (tx.kind !== 'clan-territory-collect-supply' || tx.resource !== 'warSupply') {
                 return { status: 400, body: { error: 'This transaction type cannot be reconciled automatically.' } };
@@ -83,6 +144,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(result.status).json(result.body);
     } catch (err) {
+        if (err instanceof SaveDebitRefusal) return res.status(err.status).json({ ...err.details, error: err.message });
         console.error('[admin/economy-reconcile]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

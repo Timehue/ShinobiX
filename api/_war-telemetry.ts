@@ -28,6 +28,7 @@ export type WarEcoKind =
     | 'wr.spend.declare'     // WR spent declaring a (sector/village) war (sink)
     | 'wr.spend.maintenance' // WR upkeep charged on the daily pass (sink)
     | 'wr.spend.merc'        // WR spent hiring mercenaries (sink; wired when WR-mercs land)
+    | 'wr.spend.structure'   // WR spent upgrading a per-war structure (sink)
     | 'seals.earn'           // treasury Honor Seals accrued from held sectors (faucet)
     | 'seals.spend.structure'// treasury seals spent upgrading a war structure (sink)
     | 'tax.collect'          // ryo taxed off a player (the per-player debit)
@@ -37,8 +38,11 @@ export type WarEcoKind =
     | 'dormancy.exit'        // village recovered from dormancy
     | 'sector.capture';      // a sector flipped owner (count, amount = 1)
 
+// A kind missing here is dropped by recordWarEcoEvent. war-structure.ts has
+// recorded 'wr.spend.structure' since 2026-06-30 without it being listed, so
+// every per-war (War Resources) structure upgrade was missing from the sinks.
 export const WAR_ECO_KINDS: readonly WarEcoKind[] = [
-    'wr.earn', 'wr.spend.declare', 'wr.spend.maintenance', 'wr.spend.merc',
+    'wr.earn', 'wr.spend.declare', 'wr.spend.maintenance', 'wr.spend.merc', 'wr.spend.structure',
     'seals.earn', 'seals.spend.structure',
     'tax.collect', 'tax.burn', 'tax.treasury',
     'dormancy.enter', 'dormancy.exit', 'sector.capture',
@@ -46,7 +50,7 @@ export const WAR_ECO_KINDS: readonly WarEcoKind[] = [
 
 // The WR sink kinds — summed into "WR out" for the faucet-vs-sink view.
 export const WR_SINK_KINDS: readonly WarEcoKind[] = [
-    'wr.spend.declare', 'wr.spend.maintenance', 'wr.spend.merc',
+    'wr.spend.declare', 'wr.spend.maintenance', 'wr.spend.merc', 'wr.spend.structure',
 ];
 // The treasury-seal sink kinds — summed into "seals out".
 export const SEAL_SINK_KINDS: readonly WarEcoKind[] = [
