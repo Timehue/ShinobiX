@@ -86,6 +86,19 @@ export class SaveDebitNeedsReconcile extends Error {
     }
 }
 
+/**
+ * The credit write failed AND the record could not be read back to tell
+ * whether it landed anyway. Giving the debit back now could leave the player
+ * with both the credit and the refund, so the debit stays and the same-id
+ * retry settles it from the receipts.
+ */
+class SaveDebitCreditUnknown extends Error {
+    constructor(readonly writeError: unknown) {
+        super(writeError instanceof Error ? writeError.message : String(writeError));
+        this.name = 'SaveDebitCreditUnknown';
+    }
+}
+
 export type SaveDebitDefinition<Shared extends Record<string, unknown>, Plan> = {
     /** Journal kind and receipt namespace. Stable: stored in journals. */
     kind: string;
@@ -239,7 +252,8 @@ function logJournal(txId: string) {
 /**
  * Write the credit. A write that throws may still have committed (a timeout
  * after the row landed); the readback tells the two apart, the way
- * writeVersionedPlayerSaveWithStore does for saves.
+ * writeVersionedPlayerSaveWithStore does for saves. When the readback fails
+ * too, nothing tells them apart, and the failure says so (SaveDebitCreditUnknown).
  */
 async function writeSharedCredit<Shared extends Record<string, unknown>>(
     definition: SaveDebitDefinition<Shared, unknown>,
@@ -252,7 +266,12 @@ async function writeSharedCredit<Shared extends Record<string, unknown>>(
         await definition.save(sharedKey, next);
         return next;
     } catch (error) {
-        const readback = await definition.load(sharedKey).catch(() => null);
+        let readback: Shared | null;
+        try {
+            readback = await definition.load(sharedKey);
+        } catch {
+            throw new SaveDebitCreditUnknown(error);
+        }
         if (readback && inspectSharedCredit(readback, transactionId, fingerprint) === 'applied') return readback;
         throw error;
     }
@@ -457,7 +476,9 @@ export async function runSaveDebitSaga<Shared extends Record<string, unknown>, P
             });
         } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
-            if (!debit.replayed && definition.refund) {
+            // Refund only a credit that provably did not land. An unknown one
+            // keeps the debit; the retry reads the receipts and finishes it.
+            if (!debit.replayed && definition.refund && !(error instanceof SaveDebitCreditUnknown)) {
                 let refunded: Awaited<ReturnType<typeof refundDebit>> | null = null;
                 try {
                     refunded = await refundDebit(playerName, transactionId, fingerprint, debit.plan, definition.refund, debit.charged);
