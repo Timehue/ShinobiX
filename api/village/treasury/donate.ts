@@ -4,12 +4,12 @@ import { kv } from '../../_storage.js';
 import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../../_lock.js';
-import { invalidateProcCache } from '../../_proc-cache.js';
-import { applyTreasuryDonation, type TreasuryDonation } from '../../_treasury-donate.js';
-import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { LockContendedError } from '../../_lock.js';
+import { applyTreasuryDonation, treasuryCreditPlan, type TreasuryDonation } from '../../_treasury-donate.js';
+import { parseSettlementRequestId } from '../../_settlement-receipts.js';
+import { runSaveDebitSaga, SaveDebitRefusal } from '../../_save-debit-saga.js';
+import { VILLAGE_DONATION_SAGA } from '../../_save-debit-kinds.js';
 import { meritForDonation, meritNum } from '../_village-merit.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../../_economy-tx.js';
 import { CRAFT_POINTS } from '../../craft/_forge.js';
 import { villageStoresEnabled } from '../../_release-flags.js';
 import { routeStoresDonation, type StoresRouted } from '../../_treasury-stores-donate.js';
@@ -34,11 +34,17 @@ import {
  * the donation notice) stay client-side and are written on top of the
  * treasury value this returns.
  *
- * Body (currency):  { playerName, village, currency, amount }
- * Body (item):      { playerName, village, itemId, count? }   // count defaults to 1
+ * Body (currency):  { playerName, village, currency, amount, requestId? }
+ * Body (item):      { playerName, village, itemId, count?, requestId? }   // count defaults to 1
  *
  * Caller MUST be the donor (or admin) and a member of `village`. Rate-limited
  * at 30/min per actor. Locks: village-state row (outer) + donor save row (inner).
+ *
+ * Retry-safe (issue #179, api/_save-debit-saga.ts): the same contract as
+ * api/clan/treasury/donate.ts. The same `requestId` never debits twice, a
+ * retry after a lost response returns the original result, and a donation
+ * whose credit did not land is FINISHED by its retry or by
+ * /api/admin/economy-reconcile, never unwound.
  *
  * Village Stores routing (api/_village-stores.ts): `ration-pack` credits
  * treasury.provisions 1:1; any CRAFT_POINTS material/relic credits
@@ -93,8 +99,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    let txId: string | null = null;
-    let txState: 'reserved' | 'debit-applied' | 'complete' | null = null;
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
@@ -107,6 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!donation) {
             return res.status(400).json({ error: 'Provide exactly one of (currency + amount) or (itemId).' });
         }
+        const requestId = parseSettlementRequestId(body.requestId);
+        if (body.requestId !== undefined && body.requestId !== null && !requestId) {
+            return res.status(400).json({ error: 'Invalid requestId.' });
+        }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -118,26 +126,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const slug = villageSlug(village);
         if (!slug) return res.status(400).json({ error: 'Invalid village name.' });
         const villageStateKey = `${VILLAGE_STATE_PREFIX}${slug}`;
-        const donorSaveKey = `save:${playerName}`;
-        txId = makeEconomyTxId('village-treasury-donate');
         const legacyDeltas = {
             villageDonations: donation.kind === 'currency'
                 ? Math.max(0, Math.floor(donation.amount))
                 : Math.max(0, Math.floor(donation.count)) * 500,
         };
+        const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
 
         // ── Atomic donate ──────────────────────────────────────────────
         // Village-state row locked first (shared resource), donor save row
         // inner. Donor debit committed before the treasury credit — same
         // debit-first ordering as the clan endpoint, so a credit failure
         // can't mint free treasury.
-        const result = await withKvLock(villageStateKey, async () => {
-            const stateRec = (await kv.get<Record<string, unknown>>(villageStateKey)) ?? {};
-
-            const debit = await mutatePlayerSave(playerName, async ({ character: donorChar }) => {
+        const settled = await runSaveDebitSaga({
+            definition: VILLAGE_DONATION_SAGA,
+            playerName,
+            requestId,
+            identity: { village: slug, donation },
+            sharedKey: villageStateKey,
+            resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
+            amount,
+            meta: { village },
+            decide: async ({ character: donorChar, shared, txId }) => {
+                const stateRec = shared ?? {};
                 // Membership: donor must belong to this village.
                 if (!identity.admin && String(donorChar.village ?? '').trim() !== village) {
-                    return { ok: false as const, status: 403, error: 'You are not a member of this village.' };
+                    return { ok: false, status: 403, error: 'You are not a member of this village.' };
                 }
 
                 let outcome = applyTreasuryDonation(
@@ -156,21 +170,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (r.routed) { outcome = { ok: true, nextDonorChar: r.nextDonorChar, nextTreasury: r.nextTreasury }; routed = r.routed; }
                 }
 
-                const amount = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count);
-                await reserveEconomyTx({
-                    id: txId!,
-                    kind: 'village-treasury-donate',
-                    debitKey: donorSaveKey,
-                    creditKey: villageStateKey,
-                    resource: donation.kind === 'currency' ? donation.currency : `item:${donation.itemId}`,
-                    amount,
-                    meta: { village, playerName },
-                });
-                txState = 'reserved';
                 // Queue before the debit mutation is allowed to return. If the
                 // outbox cannot persist, the donation has not committed yet;
                 // if the process dies later, delivery waits for tx=complete.
-                await queueEconomyLegacyIntent(playerName, txId!, legacyDeltas);
+                // Keyed by the settlement id, so a retry queues nothing new.
+                await queueEconomyLegacyIntent(playerName, txId, legacyDeltas);
                 // Personal Village Merit toward a Kage challenge, scaled by the
                 // ryo-value donated (items = 500 each, mirroring the villageDonations
                 // legacy bump below). Costs real currency, so no free farming.
@@ -186,46 +190,50 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // merit basis.
                 const ryoValue = donation.kind === 'currency' ? Math.floor(donation.amount) : Math.floor(donation.count) * 500;
                 const creditedDonorChar = { ...outcome.nextDonorChar, villageMerit: meritNum((outcome.nextDonorChar as Record<string, unknown>).villageMerit) + meritForDonation(ryoValue) };
-                return { ok: true as const, character: creditedDonorChar, value: { nextTreasury: outcome.nextTreasury, routed } };
-            });
-            if (!debit.ok) return debit;
+                // Credit ONLY the treasury; every other village-state field is
+                // preserved (VILLAGE_DONATION_SAGA.applyCredit).
+                return { ok: true, character: creditedDonorChar, plan: { treasury: treasuryCreditPlan(donation, routed) }, result: {} };
+            },
+            messages: {
+                pending: 'Your donation was taken but not yet added to the village treasury. Donate again to finish it; you will not be charged twice.',
+            },
+        });
+        const treasury = (settled.shared.treasury ?? {}) as Record<string, unknown>;
 
-            await markEconomyTx(txId!, 'debit-applied');
-            txState = 'debit-applied';
-            // Credit ONLY the treasury; preserve every other village-state field.
-            await kv.set(villageStateKey, { ...stateRec, treasury: debit.value.nextTreasury });
-            // Every villager's next /api/game-state poll reads the new treasury
-            // rather than a frame built before this donation.
-            invalidateProcCache('game-state:frame');
-            await completeEconomyTx(txId!);
-            txState = 'complete';
-            return { ok: true as const, treasury: debit.value.nextTreasury, character: debit.character, _saveVersion: debit._saveVersion, routed: debit.value.routed };
-        }, { failClosed: true });
-
-        if (!result.ok) return res.status(result.status).json({ error: result.error });
-
-        await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${Date.now()}`, {
-            ts: Date.now(),
-            actor: identity.admin ? 'admin' : identity.name,
-            village,
-            ...(donation.kind === 'currency'
-                ? { currency: donation.currency, amount: Math.floor(donation.amount) }
-                : { itemId: donation.itemId, count: Math.floor(donation.count) }),
-        }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        if (!settled.replayed) {
+            await kv.set(`${AUDIT_LOG_PREFIX}${slug}:${Date.now()}`, {
+                ts: Date.now(),
+                actor: identity.admin ? 'admin' : identity.name,
+                village,
+                ...(donation.kind === 'currency'
+                    ? { currency: donation.currency, amount: Math.floor(donation.amount) }
+                    : { itemId: donation.itemId, count: Math.floor(donation.count) }),
+            }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+        }
 
         // Legacy tracking (ENABLE_LEGACY): villageDonations counts ryo-value
         // donated (currency amount; items count a flat 500 each).
         // The donation is already committed at this point. Legacy delivery is
         // backed by the durable economy outbox, so an infrastructure failure
         // here must not make the client retry (and donate a second time).
-        await deliverEconomyLegacyIntent(playerName, txId).catch((error) => {
+        // Delivery is receipt-keyed, so a replay that reaches it is harmless.
+        await deliverEconomyLegacyIntent(playerName, settled.txId).catch((error) => {
             console.error('[treasury/donate] deferred Legacy delivery failed:', error);
         });
-        const stores = result.routed ? { stores: result.routed.stores } : {};
-        return res.status(200).json({ ok: true, treasury: result.treasury, character: result.character, _saveVersion: result._saveVersion, ...stores });
+        const stores = settled.plan.treasury.kind === 'store'
+            ? { stores: { provisions: Math.max(0, Math.floor(Number(treasury.provisions) || 0)), materialPoints: Math.max(0, Math.floor(Number(treasury.materialPoints) || 0)) } }
+            : {};
+        return res.status(200).json({
+            ok: true,
+            treasury,
+            character: settled.character,
+            _saveVersion: settled._saveVersion,
+            ...stores,
+            ...(settled.replayed ? { replayed: true } : {}),
+        });
     } catch (err) {
-        if (txId && txState && txState !== 'complete') {
-            await failEconomyTx(txId, err).catch(() => undefined);
+        if (err instanceof SaveDebitRefusal) {
+            return res.status(err.status).json({ ...err.details, error: err.message });
         }
         // `withKvLock(..., { failClosed: true })` aborts rather than racing a
         // currency write when the village-state (or donor save) row is busy.

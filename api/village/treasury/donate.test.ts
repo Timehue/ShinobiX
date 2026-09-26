@@ -120,6 +120,61 @@ describe('village treasury donation merit', () => {
     });
 });
 
+describe('village treasury donation retries (issue #179)', () => {
+    beforeEach(async () => {
+        (await import('../../_ratelimit.js')).__resetRateLimitsForTest();
+    });
+
+    it('a retried currency donation debits, credits and earns merit exactly once', async () => {
+        await seedDonor({ ryo: 100_000 });
+        const first = await post({ currency: 'ryo', amount: 7_500, requestId: 'village-donate-retry-001' });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        const retry = await post({ currency: 'ryo', amount: 7_500, requestId: 'village-donate-retry-001' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.replayed, true);
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 92_500);
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 7_500);
+        assert.equal(await meritOf(), 7, 'merit earned once');
+    });
+
+    it('a retried routed ration donation stocks provisions and spends the daily cap once', async () => {
+        const { DONATE_RATIONS_FIELD } = await import('../../_village-stores.js');
+        await seedDonor({ itemStacks: [{ itemId: 'ration-pack', count: 6 }] });
+        const body = { itemId: 'ration-pack', count: 4, requestId: 'village-donate-rations-1' };
+        const first = await post(body);
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.deepEqual(first.body?.stores, { provisions: 4, materialPoints: 0 });
+        const retry = await post(body);
+        assert.equal(retry.body?.replayed, true);
+        assert.deepEqual(retry.body?.stores, { provisions: 4, materialPoints: 0 });
+        const donor = (await kv.get<{ character: Record<string, unknown> }>(`save:${PLAYER}`))!.character;
+        assert.deepEqual(donor.itemStacks, [{ itemId: 'ration-pack', count: 2 }], 'the packs left the bag once');
+        assert.equal(donor[DONATE_RATIONS_FIELD], 4, 'the daily ration cap was spent once');
+        assert.equal((await kv.get<{ treasury: { provisions: number } }>(VILLAGE_KEY))?.treasury.provisions, 4);
+    });
+
+    it('a failed village-row write keeps the debit and the retry finishes the credit once', async (t) => {
+        await seedDonor({ ryo: 100_000 });
+        const original = kv.set.bind(kv);
+        let broken = true;
+        t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+            if (broken && args[0] === VILLAGE_KEY) throw new Error('injected village-row write failure');
+            return original(...args);
+        });
+        const failed = await post({ currency: 'ryo', amount: 5_000, requestId: 'village-donate-stuck-001' });
+        assert.equal(failed.statusCode, 503, JSON.stringify(failed.body));
+        assert.equal(failed.body?.pending, true);
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 95_000);
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 0);
+        broken = false;
+        const retry = await post({ currency: 'ryo', amount: 5_000, requestId: 'village-donate-stuck-001' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${PLAYER}`))?.character.ryo, 95_000, 'no second debit');
+        assert.equal((await kv.get<{ treasury: { ryo: number } }>(VILLAGE_KEY))?.treasury.ryo, 5_000, 'credited once');
+        assert.equal(await meritOf(), 5, 'merit earned once');
+    });
+});
+
 describe('village treasury donation under lock contention', () => {
     it('answers a contended treasury with a retryable 503, not "Internal server error"', async () => {
         await seedDonor({ ryo: 100_000 });

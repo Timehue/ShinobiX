@@ -49,6 +49,12 @@ export type ShrineState = {
     topWeek: ShrineOffering[];
     lastWeek: { week: string; topWeek: ShrineOffering[] } | null;
     updatedAt: number;
+    /**
+     * Offering receipts (api/_save-debit-saga.ts): proof, written with the
+     * offering itself, that a request id was already credited here. Server-only;
+     * the traces view never returns it.
+     */
+    settlementReceipts?: unknown[];
 };
 
 /** UTC calendar-day key, e.g. "2026-07-16". */
@@ -155,6 +161,7 @@ export function parseShrineState(value: unknown): ShrineState {
             ? { week: lastWeekRaw.week, topWeek: offerings(lastWeekRaw.topWeek) }
             : null,
         updatedAt: Math.max(0, Math.floor(Number(raw.updatedAt)) || 0),
+        ...(Array.isArray(raw.settlementReceipts) ? { settlementReceipts: raw.settlementReceipts } : {}),
     };
 }
 
@@ -179,5 +186,6 @@ export function applyOffering(state: ShrineState, name: string, amount: number, 
         topWeek: board.slice(0, TOP_OFFERERS_KEPT),
         lastWeek,
         updatedAt: now,
+        ...(state.settlementReceipts ? { settlementReceipts: state.settlementReceipts } : {}),
     };
 }
