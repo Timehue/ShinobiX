@@ -116,6 +116,16 @@ test('concurrent and replayed war telemetry cannot lose or duplicate events', as
     assert.deepEqual(duplicateEventIds(list), []);
 });
 
+test('every kind a caller records is kept: a per-war structure upgrade counts as a WR sink', async () => {
+    // api/village/war-structure.ts records 'wr.spend.structure' for the per-war
+    // (War Resources) structures. An unlisted kind is silently dropped.
+    const kv = memKv();
+    await recordWarEcoEvent({ eventId: 'ramparts-2', village: 'Stormveil Village', kind: 'wr.spend.structure', amount: 300 }, { kv });
+    const agg = (await kv.get(warEcoAggKey('Stormveil Village'))) as WarEcoAgg;
+    assert.equal(agg['wr.spend.structure'], 300);
+    assert.equal(summarizeVillageAgg(agg).wrOut, 300);
+});
+
 test('recordWarEcoEvent is a best-effort no-op on bad input (never throws)', async () => {
     const kv = memKv();
     await recordWarEcoEvent({ eventId: 'x', village: 'Stormveil Village', kind: 'not-a-kind', amount: 50 }, { kv });
