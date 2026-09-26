@@ -152,6 +152,9 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     'village/hollow-gate-unlock.ts',
     'clan/war/declare.ts',
     'village/kage-challenge.ts',
+    // The daily reward and its day stamp now commit together through
+    // writeVersionedPlayerSave; the route still echoes that version.
+    'village/claim-map-control.ts',
 ]);
 
 /**
