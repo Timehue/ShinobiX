@@ -52,7 +52,7 @@ import {
     normalizeAnbuAppointees,
     normalizeVillageDailyAgenda,
 } from "../lib/village-state";
-import { postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
+import { hasPendingTreasuryDonation, postPlayerChallengeNotice, postVillageTreasuryDonation } from "../lib/player-api";
 import { MERCENARY_TIERS, hiredTiersForWar } from "../lib/mercenaries";
 import { mercPortrait } from "../lib/merc-ai";
 import { activeVillageWarsFor, endedVillageWarRecordsFor, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
@@ -601,7 +601,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     async function donateVillageRyo() {
         if (donateBusyRef.current) return;
         const amount = Math.max(1, Math.floor(donation));
-        if (character.ryo < amount) return alert("Not enough ryo.");
+        // An unconfirmed identical donation may already be charged; its retry
+        // finishes it without charging again (lib/economy-request-intent).
+        if (character.ryo < amount && !hasPendingTreasuryDonation("village", character.name, character.village, { currency: "ryo", amount })) return alert("Not enough ryo.");
         donateBusyRef.current = true;
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
@@ -615,7 +617,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     async function donateVillageSpecial(currency: Exclude<VillageTreasuryCurrencyKey, "ryo">) {
         if (donateBusyRef.current) return;
         const current = character[currency] ?? 0;
-        if (current < 1) return alert(`Not enough ${currency}.`);
+        if (current < 1 && !hasPendingTreasuryDonation("village", character.name, character.village, { currency, amount: 1 })) return alert(`Not enough ${currency}.`);
         donateBusyRef.current = true;
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
@@ -629,10 +631,13 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     async function donateVillageItem() {
         if (donateBusyRef.current) return;
         if (!villageDonateItemId) return alert("Choose an item to donate.");
-        if (!ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
+        // An unconfirmed identical donation may already have taken the item and
+        // the daily cap; its retry finishes it without taking them again.
+        const retrying = hasPendingTreasuryDonation("village", character.name, character.village, { itemId: villageDonateItemId });
+        if (!retrying && !ownsItem(character, villageDonateItemId)) return alert("You do not have that item.");
         // Mirror of the server's per-donor daily stores caps. Without it the
         // only feedback on a 1,500-point / 40-ration day was a bare 429.
-        if (villageDonateGate.ok !== true) return alert(`${villageDonateGate.reason}. The cap resets at midnight UTC.`);
+        if (!retrying && villageDonateGate.ok !== true) return alert(`${villageDonateGate.reason}. The cap resets at midnight UTC.`);
         donateBusyRef.current = true;
         try {
             // The credit is measured from the figures the rows show, so the toast

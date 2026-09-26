@@ -232,7 +232,10 @@ test('the Town Hall Treasury tab shows the cap line and gates the donate button'
     assert.match(townHall, /const villageDonateGate = storesDonationGate\(character, villageDonateItemId\)/);
     assert.match(townHall, /\{villageDonateCapLine\}/, 'the running total must be rendered');
     assert.match(townHall, /disabled=\{!villageDonateItemId \|\| !villageDonateGate\.ok\}/, 'and the button disabled before the 429');
-    assert.match(townHall, /if \(villageDonateGate\.ok !== true\) return alert/, 'and the handler must refuse locally too');
+    // ...except when re-sending an unconfirmed identical donation, which the
+    // server finishes without charging the cap again (lib/economy-request-intent).
+    assert.match(townHall, /if \(!retrying && villageDonateGate\.ok !== true\) return alert/, 'and the handler must refuse locally too');
+    assert.match(townHall, /const retrying = hasPendingTreasuryDonation\("village", character\.name, character\.village, \{ itemId: villageDonateItemId \}\);/);
 });
 
 // ── Canonical terminology ─────────────────────────────────────────────
