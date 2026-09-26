@@ -63,6 +63,50 @@ export function hasPendingTreasuryDonation(kind: "village" | "clan", playerName:
     return readPendingEconomyIntent(kind === "village" ? "village-donate" : "clan-donate", donationIntentParts(playerName, group, donation)) !== null;
 }
 
+function stakeIntentParts(playerName: string, village: string) {
+    return [playerName.trim().toLowerCase(), village.trim().toLowerCase()];
+}
+
+/** True while an earlier Hollow Gate unlock is unconfirmed; Town Hall skips its local seal check then. */
+export function hasPendingHollowGateUnlock(playerName: string, village: string): boolean {
+    return readPendingEconomyIntent("hollow-gate-unlock", stakeIntentParts(playerName, village)) !== null;
+}
+
+export type HollowGateUnlockReply = { character?: Character; hollowGateUnlockedUntil?: number; error?: string; _saveVersion?: number };
+
+// The Kage opens or extends the Hollow Gate (api/village/hollow-gate-unlock.ts).
+// The retained requestId makes pressing again after a lost answer return the
+// first result instead of buying a second 30 days, and finishes an unlock
+// whose outcome was unknown. Throws on a transport failure; the id stays.
+export async function postHollowGateUnlock(playerName: string, village: string): Promise<{ ok: boolean; data: HollowGateUnlockReply | null }> {
+    const intent = pendingEconomyIntent("hollow-gate-unlock", stakeIntentParts(playerName, village));
+    const res = await fetch("/api/village/hollow-gate-unlock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ playerName, requestId: intent.requestId }),
+    });
+    const data = await res.json().catch(() => null) as HollowGateUnlockReply | null;
+    if (economyIntentSettled(res.status, data)) intent.complete();
+    return { ok: res.ok, data };
+}
+
+export type KageChallengeDeclareReply = { ok?: boolean; error?: string; challenge?: unknown; character?: Character; _saveVersion?: number };
+
+// Declare a Kage challenge (api/village/kage-challenge.ts action "declare").
+// The 250,000-ryo stake carries a retained requestId, so a retry after a
+// lost answer finishes or replays the first declaration, never stakes twice.
+export async function postKageChallengeDeclare(playerName: string, village: string): Promise<{ ok: boolean; data: KageChallengeDeclareReply }> {
+    const intent = pendingEconomyIntent("kage-challenge-declare", stakeIntentParts(playerName, village));
+    const res = await fetch("/api/village/kage-challenge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "declare", village, playerName, requestId: intent.requestId }),
+    });
+    const data = await res.json().catch(() => ({})) as KageChallengeDeclareReply;
+    if (economyIntentSettled(res.status, data)) intent.complete();
+    return { ok: res.ok && !!data.ok, data };
+}
+
 // Atomic village-treasury donation — village twin of the clan helper above
 // (api/village/treasury/donate.ts). Returns the server-credited treasury
 // (contributionPoints / notice stay client-side), or null on failure.

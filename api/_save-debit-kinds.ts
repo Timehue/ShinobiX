@@ -105,10 +105,81 @@ export const VILLAGE_TAX_SAGA: SaveDebitDefinition<Record<string, unknown>, Vill
     },
 };
 
+function sealsOf(character: Record<string, unknown>): number {
+    return Math.max(0, Math.floor(Number(character.honorSeals) || 0));
+}
+
+export type HollowGateUnlockPlan = { windowMs: number; cost: number };
+
+/**
+ * /api/village/hollow-gate-unlock: the seated Kage spends Honor Seals to open
+ * (or extend) the Hollow Gate window on the village row. The window is
+ * computed when the credit lands, so a late roll-forward extends from then
+ * and can never shorten a newer extension. (Its pre-saga journals use the
+ * kind 'hollow-gate-unlock'; admin reconciliation still refunds those.)
+ */
+export const HOLLOW_GATE_UNLOCK_SAGA: SaveDebitDefinition<Record<string, unknown>, HollowGateUnlockPlan> = {
+    kind: 'village-hollow-gate-unlock',
+    load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
+    save: async (key, next) => {
+        await kv.set(key, next);
+        invalidateProcCache('game-state:frame');
+    },
+    applyCredit: (state, plan, now) => ({
+        ...state,
+        hollowGateUnlockedUntil: Math.max(now, Math.max(0, Number(state.hollowGateUnlockedUntil) || 0)) + plan.windowMs,
+    }),
+    refund: (character, plan) => ({ ...character, honorSeals: sealsOf(character) + plan.cost }),
+};
+
+export type ClanWarDeclarePlan = { war: Record<string, unknown>; cost: number };
+
+/**
+ * /api/clan/war/declare: the declaring officer's Honor Seals open a war
+ * record for the clan pair. The credit never replaces a war that stands:
+ * only a retry can reach it after the pair lock was released, and by then
+ * another officer may have declared.
+ */
+export const CLAN_WAR_DECLARE_SAGA: SaveDebitDefinition<Record<string, unknown>, ClanWarDeclarePlan> = {
+    kind: 'clan-war-declare',
+    load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
+    save: async (key, next) => { await kv.set(key, next); },
+    applyCredit: (current, plan, now) => {
+        if (current.startedAt && !current.endedAt) {
+            throw new SaveDebitNeedsReconcile('A war already stands between these clans, so this declaration cannot open another.');
+        }
+        return { ...plan.war, startedAt: now, updatedAt: now, settlementReceipts: current.settlementReceipts };
+    },
+    refund: (character, plan) => ({ ...character, honorSeals: sealsOf(character) + plan.cost }),
+};
+
+export type KageChallengeDeclarePlan = { challenge: Record<string, unknown>; cost: number };
+
+/**
+ * /api/village/kage-challenge action 'declare': the challenger's ryo stake
+ * opens a challenge on the village's Kage record. (Its pre-saga journals use
+ * the kind 'kage-challenge-declare'; admin reconciliation still refunds those.)
+ */
+export const KAGE_CHALLENGE_DECLARE_SAGA: SaveDebitDefinition<Record<string, unknown>, KageChallengeDeclarePlan> = {
+    kind: 'kage-challenge-stake',
+    load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
+    save: async (key, next) => { await kv.set(key, next); },
+    applyCredit: (state, plan) => {
+        if (!state.seatedKage || state.challenge) {
+            throw new SaveDebitNeedsReconcile('The seat changed or another challenge is open, so this stake cannot open its challenge.');
+        }
+        return { ...state, challenge: plan.challenge };
+    },
+    refund: (character, plan) => ({ ...character, ryo: ryoOf(character) + plan.cost }),
+};
+
 export const SAVE_DEBIT_SAGAS: Readonly<Record<string, SaveDebitDefinition<Record<string, unknown>, unknown>>> = {
     [SHRINE_OFFER_SAGA.kind]: SHRINE_OFFER_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [BOUNTY_PLACE_SAGA.kind]: BOUNTY_PLACE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [CLAN_DONATION_SAGA.kind]: CLAN_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [VILLAGE_DONATION_SAGA.kind]: VILLAGE_DONATION_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
     [VILLAGE_TAX_SAGA.kind]: VILLAGE_TAX_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
+    [HOLLOW_GATE_UNLOCK_SAGA.kind]: HOLLOW_GATE_UNLOCK_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
+    [CLAN_WAR_DECLARE_SAGA.kind]: CLAN_WAR_DECLARE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
+    [KAGE_CHALLENGE_DECLARE_SAGA.kind]: KAGE_CHALLENGE_DECLARE_SAGA as unknown as SaveDebitDefinition<Record<string, unknown>, unknown>,
 };

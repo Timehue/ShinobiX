@@ -62,6 +62,9 @@ test('every retry-safe economy call sends its retained id and settles it only on
         ['shinobij.client/src/lib/player-api.ts', 'export async function postClanTreasuryDonation', '"clan-donate"'],
         ['shinobij.client/src/lib/clan-seal-pool-api.ts', 'export async function postSealDonation', '"seal-donate"'],
         ['shinobij.client/src/lib/clan-seal-pool-api.ts', 'export async function postSealDistribution', '"seal-distribute"'],
+        ['shinobij.client/src/lib/player-api.ts', 'export async function postHollowGateUnlock', '"hollow-gate-unlock"'],
+        ['shinobij.client/src/lib/player-api.ts', 'export async function postKageChallengeDeclare', '"kage-challenge-declare"'],
+        ['shinobij.client/src/lib/clan-war-api.ts', 'export async function cwDeclareWar', '"clan-war-declare"'],
     ] as const;
     for (const [file, start, scope] of wrappers) {
         const source = readFileSync(file, 'utf8');
@@ -79,6 +82,8 @@ test('every retry-safe economy call sends its retained id and settles it only on
         ['shinobij.client/src/screens/ClanHall.tsx', /character\.ryo < amount && !hasPendingTreasuryDonation\("clan"/],
         ['shinobij.client/src/screens/ClanSealPool.tsx', /donateAmount > remainingToday && !donationPending/],
         ['shinobij.client/src/screens/ClanSealPool.tsx', /< distributeAmount && !distributionPending/],
+        ['shinobij.client/src/screens/TownHall.tsx', /< cost && !hollowGateUnlockPending/],
+        ['shinobij.client/src/screens/TownHall.tsx', /< HOLLOW_GATE_UNLOCK_COST && !hollowGateUnlockPending/],
     ] as const;
     for (const [file, pattern] of guards) {
         assert.match(readFileSync(file, 'utf8'), pattern, `${file} must not refuse the retry of a pending charge locally`);

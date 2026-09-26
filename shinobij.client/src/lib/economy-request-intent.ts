@@ -1,8 +1,9 @@
 /*
  * One retry identity per logical economy action (issue #179).
  *
- * The shrine offering, bounty placement, clan / village treasury donation and
- * clan Honor Seal pool endpoints settle each `requestId` exactly once
+ * The shrine offering, bounty placement, clan / village treasury donation,
+ * clan Honor Seal pool, Hollow Gate unlock, Kage challenge and clan war
+ * declaration endpoints settle each `requestId` exactly once
  * (api/_save-debit-saga.ts, api/_cross-key-settlement.ts):
  * sending the same id again returns the first result instead of charging
  * again, and finishes a charge whose second half never landed. That only helps
@@ -18,7 +19,9 @@
 
 const pending = new Map<string, string>();
 
-export type EconomyIntentScope = 'shrine-offer' | 'bounty-place' | 'clan-donate' | 'village-donate' | 'seal-donate' | 'seal-distribute';
+export type EconomyIntentScope =
+    | 'shrine-offer' | 'bounty-place' | 'clan-donate' | 'village-donate' | 'seal-donate' | 'seal-distribute'
+    | 'hollow-gate-unlock' | 'kage-challenge-declare' | 'clan-war-declare';
 
 export type EconomyIntent = { requestId: string; complete: () => void };
 

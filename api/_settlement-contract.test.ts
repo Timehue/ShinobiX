@@ -87,6 +87,10 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     // the parked Kage stake refunds, found by the same audit.
     { file: '_war-tax-apply.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'VILLAGE_TAX_SAGA'] },
     { file: 'village/_kage-inactivity.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
+    // Stakes that open something on a shared row, moved onto the saga.
+    { file: 'village/hollow-gate-unlock.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'HOLLOW_GATE_UNLOCK_SAGA', 'parseSettlementRequestId'] },
+    { file: 'clan/war/declare.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'CLAN_WAR_DECLARE_SAGA', 'parseSettlementRequestId'] },
+    { file: 'village/kage-challenge.ts', mechanism: 'economy-tx', markers: ['runSaveDebitSaga', 'KAGE_CHALLENGE_DECLARE_SAGA', 'parseSettlementRequestId'] },
 ];
 
 const read = (rel: string) => readFileSync(join(process.cwd(), 'api', rel), 'utf8');
