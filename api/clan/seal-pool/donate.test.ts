@@ -111,4 +111,68 @@ describe('clan seal-pool donation settlement', { concurrency: false }, () => {
         assert.equal((await pool())?.balance, 10);
         assert.equal((await pool())?.log?.length, 1);
     });
+
+    /** Newer donations push this one's pool receipt out of the 100-entry list. */
+    async function evictPoolReceipts(requestId: string) {
+        const journal = await getDurableSettlement(settlementTransactionId('clan-seal-donate', requestId), { kv });
+        const current = await kv.get<Record<string, unknown>>(POOL_KEY);
+        await kv.set(POOL_KEY, {
+            ...current,
+            settlementReceipts: Array.from({ length: 100 }, (_, i) => ({
+                transactionId: `clan-seal-donate-newer-${i}`, fingerprint: 'other', resource: 'honorSeals', amount: 1,
+                appliedAt: Number(journal?.createdAt) + 1 + i,
+            })),
+        });
+    }
+
+    it('a retry never credits the pool twice when the earlier credit receipt was pushed out', { concurrency: false }, async () => {
+        const originalSet = kv.set.bind(kv);
+        let armed = true;
+        kv.set = async (key, value, options) => {
+            if (armed && key.startsWith('economy-settlement:clan-seal-donate-') && (value as { state?: string } | null)?.state === 'completed') {
+                armed = false;
+                throw new Error('injected: completion lost');
+            }
+            return originalSet(key, value, options);
+        };
+        try {
+            assert.equal((await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-evict-01' })).statusCode, 500);
+        } finally {
+            kv.set = originalSet;
+        }
+        assert.equal((await pool())?.balance, 10, 'the pool credit landed before the completion was lost');
+        await evictPoolReceipts('seal-donate-evict-01');
+
+        const retry = await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-evict-01' });
+        assert.equal(retry.statusCode, 409);
+        assert.equal(retry.body?.reconcile, true);
+        assert.equal((await pool())?.balance, 10, 'not credited a second time');
+        assert.equal((await donor())?.character?.honorSeals, 90);
+    });
+
+    it('a journal at credit-applied finishes without crediting again, even with its receipt gone', { concurrency: false }, async () => {
+        assert.equal((await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-credited-1' })).statusCode, 200);
+        const key = `economy-settlement:${settlementTransactionId('clan-seal-donate', 'seal-donate-credited-1')}`;
+        await kv.set(key, { ...(await kv.get<Record<string, unknown>>(key)), state: 'credit-applied', result: undefined });
+        await evictPoolReceipts('seal-donate-credited-1');
+
+        const retry = await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-credited-1' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal((await pool())?.balance, 10);
+        assert.equal((await donor())?.character?.honorSeals, 90);
+    });
+
+    it('a busy pool is a retryable answer and moves nothing', { concurrency: false }, async () => {
+        await kv.set(`lock:${POOL_KEY}`, 'held-by-another-request', { nx: true, ex: 5 });
+        try {
+            const busy = await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-busy-001' });
+            assert.equal(busy.statusCode, 503, 'a 409 would release the client-retained id (economyIntentSettled)');
+            assert.equal(busy.body?.retryable, true);
+        } finally {
+            await kv.del(`lock:${POOL_KEY}`);
+        }
+        assert.equal((await donor())?.character?.honorSeals, 100);
+        assert.equal((await pool())?.balance, 0);
+        assert.equal((await post({ playerName: PLAYER, amount: 10, requestId: 'seal-donate-busy-001' })).statusCode, 200);
+    });
 });
