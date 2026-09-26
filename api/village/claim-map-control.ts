@@ -1,12 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { MERIT_MAP_CONTROL, meritNum } from './_village-merit.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 
@@ -110,10 +110,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const marker = `map-control-personal:${playerName.toLowerCase()}:${date}`;
 
         // ── Credit the player's OWN map-control reward under lock:save:<name> (the
-        // autosave's lock) with the NX day-marker placed atomically inside the
-        // lock: exactly-once, and a contention abort (failClosed → 503) leaves
-        // nothing placed for a clean retry (the claim-rewards pattern). isVanguard
-        // is read from the locked save so honorSeals are credited correctly.
+        // autosave's lock). The day is stamped as claimed in the SAME save write
+        // as the reward (`claimedMapControlDate`, a server-owned stamp no client
+        // save can change), so the claim and the payout land together or not at
+        // all. The day marker used to be placed first: a save write that then
+        // failed left the day claimed and the reward unpaid, with nothing to
+        // retry from. The versioned write reads back a write that committed but
+        // reported an error, and the retry finds the stamp either way.
+        // isVanguard is read from the locked save so honorSeals are credited
+        // correctly.
         let result: { alreadyClaimed: boolean; granted: ReturnType<typeof computeMapControlReward>; balances: { ryo: number; honorSeals: number; boneCharms: number; fateShards: number }; saveVersion: number };
         try {
             const out = await withKvLock(`save:${playerName}`, async () => {
@@ -122,8 +127,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!rec || !char) return { error: 'no-save' as const };
                 const isVanguard = char.profession === 'vanguard';
                 const granted = computeMapControlReward(sectors, isVanguard);
-                const placed = await kv.set(marker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC });
-                if (placed !== 'OK') {
+                // The marker still counts: a claim made by the previous build
+                // on the day this one deploys left only the marker behind.
+                if (String(char.claimedMapControlDate ?? '') === date || await kv.get(marker)) {
                     return {
                         alreadyClaimed: true,
                         granted: { ryo: 0, honorSeals: 0, boneCharms: 0, fateShards: 0 },
@@ -138,16 +144,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
                     fateShards: num(char.fateShards) + granted.fateShards,
                     // Personal Village Merit toward a Kage challenge (server-owned;
-                    // once/day via the NX marker above). See _village-merit.ts.
+                    // once/day via the stamp below). See _village-merit.ts.
                     villageMerit: meritNum(char.villageMerit) + MERIT_MAP_CONTROL,
+                    claimedMapControlDate: date,
                 };
-                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
-                await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
+                const written = await writeVersionedPlayerSave(`save:${playerName}`, rec, nextChar);
+                // Best-effort, for a previous build still answering during a
+                // deploy, which only knows the marker.
+                await kv.set(marker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC }).catch(() => undefined);
                 return {
                     alreadyClaimed: false,
                     granted,
                     balances: { ryo: num(nextChar.ryo), honorSeals: num(nextChar.honorSeals), boneCharms: num(nextChar.boneCharms), fateShards: num(nextChar.fateShards) },
-                    saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0),
+                    saveVersion: written._saveVersion,
                 };
             }, { failClosed: true });
             if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
