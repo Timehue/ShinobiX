@@ -1340,9 +1340,11 @@ async function doGarrisonFeed(req: VercelRequest, res: VercelResponse, identity:
 
 // ── status (read-only) ─────────────────────────────────────────────────────────
 async function doStatus(_req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, body: Record<string, unknown>) {
-    // The war map polls this every 15s, which makes it the near-instant
-    // settlement path: a war whose 72 hours just closed flips (or holds) within
-    // one poll of someone looking at it. The daily pass is only the backstop.
+    // Settles every due war first. No client screen calls this action: the
+    // war map polls GET /api/village/war-map, which does not settle. A war
+    // whose 72 hours closed flips (or holds) on the next sector-war
+    // declaration, an explicit `status` call (the staffed-event runbook uses
+    // one), or the 03:00 UTC daily pass.
     await settleDueSectorWars();
     // The viewer's village drives the projection's compatibility `garrisonFed*`
     // mirror (their OWN per-village feed entry only).

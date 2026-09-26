@@ -93,30 +93,81 @@ describe('war event preflight', { concurrency: false }, () => {
     it('probes the live kill switch without authentication, and blocks when it is in the wrong position', async () => {
         await healthyWar();
         const calls: Array<{ url: string; method: string; body: string | null }> = [];
-        const live = (warStatus: number) => (async (url: string | URL | Request, init?: RequestInit) => {
+        const live = (warStatus: number, clients: { villageWar?: string; gameplayMutations?: string } = {}) => (async (url: string | URL | Request, init?: RequestInit) => {
             calls.push({ url: String(url), method: init?.method ?? 'GET', body: typeof init?.body === 'string' ? init.body : null });
             if (String(url).endsWith('/health')) return new Response('{"ok":true}', { status: 200 });
+            if (String(url).endsWith('/api/player/capabilities')) {
+                const state = (value = 'available') => ({ state: value, reason: value === 'available' ? 'available' : 'operations-paused' });
+                return new Response(JSON.stringify({ ok: true, capabilities: {
+                    villageWar: state(clients.villageWar ?? (warStatus === 400 ? 'available' : 'temporarily-unavailable')),
+                    gameplayMutations: state(clients.gameplayMutations),
+                } }), { status: 200 });
+            }
             const error = warStatus === 400 ? 'Missing playerName.' : 'Not found.';
             return new Response(JSON.stringify({ error }), { status: warStatus });
         }) as typeof fetch;
 
         const on = await preflight.runWarEventPreflight({ baseUrl: 'https://game.test/', expectWar: 'on', fetchImpl: live(400) });
         assert.equal(on.ready, true, JSON.stringify(on.findings));
-        assert.deepEqual(on.http, { baseUrl: 'https://game.test', health: 200, warRoute: 'enabled' });
+        assert.deepEqual(on.http, {
+            baseUrl: 'https://game.test', health: 200, warRoute: 'enabled',
+            capabilities: { villageWar: 'available', gameplayMutations: 'available' },
+        });
         assert.deepEqual(calls.map((call) => [call.method, call.url, call.body]), [
             ['GET', 'https://game.test/health', null],
             ['POST', 'https://game.test/api/village/sector-war', '{}'],
+            ['GET', 'https://game.test/api/player/capabilities', null],
         ]);
 
         const off = await preflight.runWarEventPreflight({ baseUrl: 'https://game.test', expectWar: 'on', fetchImpl: live(404) });
         assert.equal(off.http?.warRoute, 'disabled');
-        assert.deepEqual(codes(off, 'blocker'), ['kill-switch-mismatch']);
+        assert.deepEqual(codes(off, 'blocker'), ['kill-switch-mismatch', 'capability-war-hidden']);
 
         // A 400 that is not the route's own refusal proves nothing either way.
         const proxy = (async (url: string | URL | Request) => new Response('bad request', { status: String(url).endsWith('/health') ? 200 : 400 })) as typeof fetch;
         const unknown = await preflight.runWarEventPreflight({ baseUrl: 'https://game.test', expectWar: 'on', fetchImpl: proxy });
         assert.equal(unknown.http?.warRoute, 'unknown');
-        assert.deepEqual(codes(unknown, 'warn'), ['war-route-unknown']);
+        assert.deepEqual(codes(unknown, 'warn'), ['war-route-unknown', 'capabilities-unreadable']);
+    });
+
+    it('reads the capabilities in the shape the real endpoint answers', async () => {
+        type Handler = (req: never, res: never) => unknown;
+        const capabilities = (await import('../api/player/capabilities.js')).default as unknown as Handler;
+        let body: unknown = null;
+        const res = {
+            setHeader: () => res,
+            status: () => res,
+            json: (payload: unknown) => { body = payload; return res; },
+            end: () => res,
+        };
+        await capabilities({ method: 'GET', headers: {}, socket: { remoteAddress: '127.0.0.5' } } as never, res as never);
+        const real = (async (url: string | URL | Request) => {
+            if (String(url).endsWith('/health')) return new Response('{"ok":true}', { status: 200 });
+            if (String(url).endsWith('/api/player/capabilities')) return new Response(JSON.stringify(body), { status: 200 });
+            return new Response(JSON.stringify({ error: 'Missing playerName.' }), { status: 400 });
+        }) as typeof fetch;
+        const report = await preflight.runWarEventPreflight({ baseUrl: 'https://game.test', expectWar: 'on', fetchImpl: real });
+        assert.deepEqual(report.http?.capabilities, { villageWar: 'available', gameplayMutations: 'available' });
+    });
+
+    it('blocks when clients are told gameplay actions are paused', async () => {
+        // MAINTENANCE_MODE or FREEZE_ECONOMY_REWARDS: the war route still
+        // answers, but every declaration, battle and claim is refused.
+        await healthyWar();
+        const paused = (async (url: string | URL | Request) => {
+            if (String(url).endsWith('/health')) return new Response('{"ok":true}', { status: 200 });
+            if (String(url).endsWith('/api/player/capabilities')) {
+                return new Response(JSON.stringify({ ok: true, capabilities: {
+                    villageWar: { state: 'available', reason: 'available' },
+                    gameplayMutations: { state: 'actions-paused', reason: 'operations-paused' },
+                } }), { status: 200 });
+            }
+            return new Response(JSON.stringify({ error: 'Missing playerName.' }), { status: 400 });
+        }) as typeof fetch;
+        const report = await preflight.runWarEventPreflight({ baseUrl: 'https://game.test', expectWar: 'on', fetchImpl: paused });
+        assert.equal(report.ready, false);
+        assert.deepEqual(codes(report, 'blocker'), ['gameplay-mutations-paused']);
+        assert.match(preflight.formatPreflightReport(report), /gameplayMutations=actions-paused/);
     });
 
     it('the probe it sends is one the real war route refuses before touching anything', async () => {
