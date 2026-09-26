@@ -278,6 +278,26 @@ describe('clan seal-pool distribution settles exactly once', { concurrency: fals
         assert.deepEqual(await balances(), { pool: 90, member: 15 });
     });
 
+    test('concurrent duplicate donations donate once', async () => {
+        const donate10 = () => callAs(donate, DONOR, { playerName: DONOR, amount: 10, requestId: 'seal-donate-burst-0001' });
+        const answers = await Promise.all(Array.from({ length: 5 }, donate10));
+        assert.ok(answers.some((answer) => answer.statusCode === 200), JSON.stringify(answers));
+        assert.equal((await kv.get<{ character: { honorSeals: number } }>(`save:${DONOR}`))?.character.honorSeals, 90);
+        assert.equal((await kv.get<Pool>(POOL_KEY))?.balance, 110);
+    });
+
+    test('a donation over the daily cap, a forged identity and a non-Vanguard move nothing', async () => {
+        // The cap is half of the start-of-day balance: 50 of 100.
+        const overCap = await callAs(donate, DONOR, { playerName: DONOR, amount: 51, requestId: 'seal-donate-overcap-01' });
+        assert.equal(overCap.statusCode, 400);
+        const forged = await callAs(donate, OFFICER, { playerName: DONOR, amount: 10, requestId: 'seal-donate-forged-001' });
+        assert.equal(forged.statusCode, 403, 'a token for one player cannot donate another player\'s Seals');
+        const notVanguard = await callAs(donate, MEMBER, { playerName: MEMBER, amount: 1, requestId: 'seal-donate-member-001' });
+        assert.equal(notVanguard.statusCode, 403);
+        assert.equal((await kv.get<{ character: { honorSeals: number } }>(`save:${DONOR}`))?.character.honorSeals, 100);
+        assert.deepEqual(await balances(), { pool: 100, member: 5 });
+    });
+
     test('a donation and a gift both lock the pool row before the player save', async () => {
         const originalSet = kv.set.bind(kv);
         const acquired: string[] = [];
