@@ -4,13 +4,14 @@ import { randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { hollowGateCreditBasis, hollowGateRefundCurrencySource } from '../hollow-gate/_external-credits.js';
-import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx } from '../_economy-tx.js';
+import { hollowGateCreditBasis } from '../hollow-gate/_external-credits.js';
+import { parseSettlementRequestId } from '../_settlement-receipts.js';
+import { runSaveDebitSaga, SaveDebitRefusal } from '../_save-debit-saga.js';
+import { KAGE_CHALLENGE_DECLARE_SAGA, type KageChallengeDeclarePlan } from '../_save-debit-kinds.js';
 import {
     canDeclareChallenge, newChallenge, acceptKageChallenge, KAGE_DECLARE_RYO_COST, type KageStateLike,
 } from './_kage-challenge.js';
@@ -106,82 +107,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!char) return res.status(404).json({ error: 'Your save was not found.' });
             const challengerName = String(char.name ?? playerName);
 
-            const out = await withKvLock<{ status: number; body: unknown }>(key, async () => {
-                const state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
-
-                const elig = canDeclareChallenge({
-                    now, state, challengerName,
-                    challengerLevel: num(char.level),
-                    challengerRyo: num(char.ryo),
-                    challengerAccountCreatedAt: num(char.createdAt),
-                    challengerMerit: num(char.villageMerit),
-                    isMember: identity.admin || String(char.village ?? '').trim() === village,
-                });
-                if (!elig.ok) return { status: 403, body: { error: elig.reason } };
-
-                const txId = makeEconomyTxId('kage-challenge-declare');
-                await reserveEconomyTx({
-                    id: txId,
-                    kind: 'kage-challenge-declare',
-                    debitKey: `save:${playerName}`,
-                    creditKey: key,
+            // The ryo stake and the challenge settle as one retry-safe saga
+            // (api/_save-debit-saga.ts) under the same Kage-row → save lock
+            // order. The stake used to be a plain debit followed by a plain
+            // challenge write: a debit that committed but reported an error
+            // lost 250,000 ryo with no reconcilable record, and a challenge
+            // write that committed but reported an error was refunded anyway,
+            // leaving a free challenge. A retry with the same request id now
+            // finishes an unknown outcome; only a provably failed challenge
+            // write is refunded (503, refunded).
+            try {
+                const outcome = await runSaveDebitSaga<Record<string, unknown>, KageChallengeDeclarePlan, { challenge: Record<string, unknown> }>({
+                    definition: KAGE_CHALLENGE_DECLARE_SAGA,
+                    playerName,
+                    requestId: parseSettlementRequestId(body.requestId),
+                    identity: { village: village.toLowerCase() },
+                    sharedKey: key,
                     resource: 'ryo',
                     amount: KAGE_DECLARE_RYO_COST,
-                    meta: { playerName, village, challengerName },
+                    meta: { village, challengerName },
+                    decide: ({ character, shared }) => {
+                        const state = (shared ?? { kageSystemUnlocked: false }) as KageStateLike;
+                        const elig = canDeclareChallenge({
+                            now, state, challengerName,
+                            challengerLevel: num(character.level),
+                            challengerRyo: num(character.ryo),
+                            challengerAccountCreatedAt: num(character.createdAt),
+                            challengerMerit: num(character.villageMerit),
+                            isMember: identity.admin || String(character.village ?? '').trim() === village,
+                        });
+                        if (!elig.ok) return { ok: false, status: 403, error: elig.reason };
+                        if (num(character.ryo) < KAGE_DECLARE_RYO_COST) {
+                            return { ok: false, status: 400, error: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` };
+                        }
+                        const staked = { ...character, ryo: num(character.ryo) - KAGE_DECLARE_RYO_COST };
+                        const chargedHollowGateCreditBasis = hollowGateCreditBasis(staked);
+                        const challenge = {
+                            ...newChallenge(challengerName, now, randomUUID()),
+                            ...(chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis } : {}),
+                        } as unknown as Record<string, unknown>;
+                        return { ok: true, character: staked, plan: { challenge, cost: KAGE_DECLARE_RYO_COST }, result: { challenge } };
+                    },
+                    messages: {
+                        refunded: 'The challenge could not be opened, so your ryo was refunded. Please retry.',
+                        pending: 'Your stake was taken but the challenge did not open yet. Declare again to finish it; you will not be charged twice.',
+                    },
                 });
-
-                // Stake the ryo (debit the challenger's save) BEFORE opening
-                // the challenge — committed first, like the treasury-donate pattern.
-                const debit = await withKvLock<{ ok: boolean; character?: Record<string, unknown>; _saveVersion?: number }>(`save:${playerName}`, async () => {
-                    const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                    const c = (rec?.character ?? null) as Record<string, unknown> | null;
-                    if (!rec || !c) return { ok: false };
-                    if (num(c.ryo) < KAGE_DECLARE_RYO_COST) return { ok: false };
-                    const nextChar = { ...c, ryo: num(c.ryo) - KAGE_DECLARE_RYO_COST };
-                    const nextRec = bumpSaveVersion({ ...rec, character: nextChar });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
-                    return { ok: true, character: nextChar, _saveVersion: Number((nextRec as Record<string, unknown>)._saveVersion ?? 0) };
-                }, { failClosed: true });
-                if (!debit.ok) {
-                    await completeEconomyTx(txId, { note: 'Declaration rejected before debit.' }).catch(() => undefined);
-                    return { status: 400, body: { error: `Challenging costs ${KAGE_DECLARE_RYO_COST.toLocaleString()} ryo.` } };
-                }
-                await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
-
-                const chargedHollowGateCreditBasis = hollowGateCreditBasis(debit.character ?? {});
-                const next = { ...state, challenge: {
-                    ...newChallenge(challengerName, now, randomUUID()),
-                    ...(chargedHollowGateCreditBasis ? { chargedHollowGateCreditBasis } : {}),
-                } };
-                try {
-                    await kv.set(key, next);
-                } catch (challengeError) {
-                    try {
-                        const refunded = await withKvLock(`save:${playerName}`, async () => {
-                            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                            const c = (rec?.character ?? null) as Record<string, unknown> | null;
-                            if (!rec || !c) throw new Error('Player save missing during Kage stake refund.');
-                            const nextChar = { ...c, ryo: num(c.ryo) + KAGE_DECLARE_RYO_COST };
-                            const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, {
-                                previousCharacter: c,
-                                hollowGateCurrencySource: hollowGateRefundCurrencySource(debit.character ?? {}, c),
-                            });
-                            await kv.set(`save:${playerName}`, mergePreservingImages(nextRec, rec));
-                            return nextChar;
-                        }, { failClosed: true });
-                        await completeEconomyTx(txId, { note: 'Challenge-state write failed; stake refunded.' }).catch(() => undefined);
-                        return { status: 503, body: { error: 'The challenge could not be opened, so your ryo was refunded. Please retry.', character: refunded } };
-                    } catch (refundError) {
-                        await failEconomyTx(txId, refundError, { note: 'Challenge-state write and automatic stake refund both failed.', meta: { playerName, village, challengerName, challengeError: String(challengeError) } }).catch(() => undefined);
-                        return { status: 503, body: { error: 'The challenge could not be opened and the stake refund needs administrator reconciliation. Please do not retry.' } };
-                    }
-                }
-                await completeEconomyTx(txId).catch(() => undefined);
-                return { status: 200, body: { ok: true, challenge: next.challenge, character: debit.character, _saveVersion: debit._saveVersion } };
-            }, { failClosed: true });
-
-            if (out.status === 200) await audit(village, { action: 'declare', challenger: challengerName });
-            return res.status(out.status).json(out.body);
+                if (!outcome.replayed) await audit(village, { action: 'declare', challenger: challengerName });
+                const current = (outcome.shared as KageStateLike).challenge;
+                const challenge = current && current.challengeId === outcome.result.challenge.challengeId ? current : outcome.result.challenge;
+                return res.status(200).json({ ok: true, challenge, character: outcome.character, _saveVersion: outcome._saveVersion });
+            } catch (error) {
+                if (error instanceof SaveDebitRefusal) return res.status(error.status).json({ ...error.details, error: error.message });
+                throw error;
+            }
         }
 
         // Compatibility refresh for either participant; the scheduler also advances it.

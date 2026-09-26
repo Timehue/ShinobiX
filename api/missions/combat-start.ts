@@ -22,6 +22,7 @@ import {
 import { missionEnemyTemplate, missionEnvironment } from '../_authoritative-pve.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
@@ -101,6 +102,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 now,
                 admin,
                 difficultyMode: 'MISSION',
+                // Standard PvE: the bracket-scaled turn planner. The four
+                // authored C/B/A/S kits keep their own scripted runner.
+                aiTurnPolicy: STANDARD_PVE_AI_POLICY,
                 // A field mission is open-world work: continuous vitals.
                 continuousVitals: openWorldContinuousVitalsEnabled(),
                 encounter: { kind: 'mission', id: mission.key, sourceId: mission.aiProfileId, bindingId: runId },

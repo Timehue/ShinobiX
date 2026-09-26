@@ -82,7 +82,7 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
         assert.equal(posts[0].importance, 'high');
         assert.equal(posts[0].title, `Sector ${SECTOR} Falls`);
         assert.equal(posts[0].message, `${ATTACKER} has taken Sector ${SECTOR} from ${DEFENDER} after a 72-hour war (5–2).`);
-        assert.equal(posts[0].receiptId, `sector-war-resolved:${CONTEST_ID}`);
+        assert.equal(posts[0].receiptId, `sector-war-resolved:${CONTEST_ID}:g1.s${now - 73 * 60 * 60_000}`);
         const chat = (await kv.get<Array<Record<string, unknown>>>('chat:village:frostfang-village')) ?? [];
         assert.equal(chat.filter((m) => m.receiptId === posts[0].receiptId).length, 1);
     });
@@ -265,6 +265,20 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
         } finally {
             delete process.env.ENABLE_LEGACY;
         }
+    });
+
+    it('heralds a rematch over the same sector as its own war', async () => {
+        // The contest id is the same for every war between two villages over
+        // one sector. Keyed on it alone, the second war's verdict was never
+        // posted: its receipt already existed.
+        const now = Date.now();
+        await kv.set(CONTEST_KEY, dueWar(now - 5 * 24 * 60 * 60_000, { attacker: 1, defender: 4 }));
+        assert.equal((await settle.settleDueSectorWars(now)).length, 1);
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 5, defender: 2 }), declarationGeneration: 2 });
+        assert.equal((await settle.settleDueSectorWars(now)).length, 1);
+        const posts = await heraldFeed();
+        assert.equal(posts.length, 2, JSON.stringify(posts.map((p) => p.receiptId)));
+        assert.deepEqual(posts.map((p) => p.title).sort(), [`Sector ${SECTOR} Falls`, `Sector ${SECTOR} Holds`]);
     });
 
     it('copy helper names the right village for each verdict', () => {

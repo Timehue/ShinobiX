@@ -29,7 +29,31 @@ export type Bounty = {
     contributors: string[];  // lower-name slugs who chipped in (deduped)
     updatedAt: number;
 };
-export type BountyBoard = { bounties: Bounty[] };
+
+/**
+ * A payout in flight (api/pvp/_bounty-claim.ts). The head leaves `bounties`
+ * and lands here in ONE board write, before the winner is credited, so no
+ * second claim can collect the same pool while the credit is outstanding.
+ */
+export type PendingBountyClaim = {
+    /** `duel:<battleId>` or `sleeper-ko:<victim>:<nonce>`. */
+    id: string;
+    /** safeName of the player being paid. */
+    winner: string;
+    /** The removed head, exactly, so a claim that cannot pay can put it back. */
+    head: Bounty;
+    /** When the head was reserved: the earliest the credit can have landed. */
+    at: number;
+    /** A duel claim also owns the per-battle receipt `pvp:bounty-claimed:<battleId>`. */
+    battleId?: string;
+};
+
+export type BountyBoard = {
+    bounties: Bounty[];
+    pendingClaims?: PendingBountyClaim[];
+    /** Placement receipts (api/_save-debit-saga.ts). Server-only. */
+    settlementReceipts?: unknown[];
+};
 
 function lower(s: string): string {
     return String(s ?? '').trim().toLowerCase();
@@ -39,22 +63,49 @@ export function emptyBoard(): BountyBoard {
     return { bounties: [] };
 }
 
+function normalizeBounty(b: Bounty): Bounty {
+    return {
+        target: b.target,
+        amount: Math.max(0, Math.floor(Number(b.amount) || 0)),
+        contributors: Array.isArray(b.contributors) ? Array.from(new Set(b.contributors.map(lower).filter(Boolean))) : [],
+        updatedAt: Math.floor(Number(b.updatedAt) || 0),
+    };
+}
+
+function isBounty(b: unknown): b is Bounty {
+    return !!b && typeof b === 'object' && typeof (b as Bounty).target === 'string';
+}
+
 /** Normalize/repair a stored board (defensive — KV could hold a malformed blob). */
 export function normalizeBoard(raw: unknown): BountyBoard {
-    const list = (raw && typeof raw === 'object' && Array.isArray((raw as BountyBoard).bounties))
-        ? (raw as BountyBoard).bounties
-        : [];
+    const stored = (raw && typeof raw === 'object' ? raw : {}) as Partial<BountyBoard>;
+    const list = Array.isArray(stored.bounties) ? stored.bounties : [];
     const bounties = list
-        .filter((b): b is Bounty => !!b && typeof b === 'object' && typeof b.target === 'string')
-        .map((b) => ({
-            target: b.target,
-            amount: Math.max(0, Math.floor(Number(b.amount) || 0)),
-            contributors: Array.isArray(b.contributors) ? Array.from(new Set(b.contributors.map(lower).filter(Boolean))) : [],
-            updatedAt: Math.floor(Number(b.updatedAt) || 0),
-        }))
+        .filter(isBounty)
+        .map(normalizeBounty)
         .filter((b) => b.amount > 0)
         .slice(0, BOUNTY_BOARD_MAX);
-    return { bounties };
+    // Every board writer goes through here, so the in-flight claims and the
+    // placement receipts must survive it; dropping either would lose escrowed
+    // ryo or re-open a credit to a second application.
+    const pendingClaims = (Array.isArray(stored.pendingClaims) ? stored.pendingClaims : [])
+        .filter((p): p is PendingBountyClaim => !!p && typeof p === 'object'
+            && typeof p.id === 'string' && !!p.id
+            && typeof p.winner === 'string' && !!p.winner
+            && isBounty(p.head))
+        .map((p) => ({
+            id: p.id,
+            winner: p.winner,
+            head: normalizeBounty(p.head),
+            at: Math.floor(Number(p.at) || 0),
+            ...(typeof p.battleId === 'string' && p.battleId ? { battleId: p.battleId } : {}),
+        }))
+        .filter((p) => p.head.amount > 0);
+    return {
+        bounties,
+        ...(pendingClaims.length > 0 ? { pendingClaims } : {}),
+        ...(Array.isArray(stored.settlementReceipts) ? { settlementReceipts: stored.settlementReceipts } : {}),
+    };
 }
 
 export function findBounty(board: BountyBoard, targetName: string): Bounty | undefined {
@@ -94,16 +145,35 @@ export function placeBounty(input: PlaceInput, now: number): PlaceResult {
         return { ok: false, reason: 'The bounty board is full right now.' };
     }
 
-    const placerSlug = lower(placerName);
-    let bounties: Bounty[];
+    const credited = creditBountyPlacement(board, { target: targetName, amount, placer: placerName }, now);
+    if (!credited) return { ok: false, reason: 'The bounty board is full right now.' };
+    return { ok: true, board: credited, amount };
+}
+
+export type BountyPlacementPlan = { target: string; amount: number; placer: string };
+
+/**
+ * Escrow an already-paid stake onto a head. Pure, and deliberately free of the
+ * placement RULES: placeBounty checks those before the placer is charged, and
+ * this also runs when a retry finishes a placement whose charge already landed
+ * (api/_save-debit-saga.ts), where refusing would strand paid ryo. The one
+ * thing it cannot do is add a head past BOUNTY_BOARD_MAX, because
+ * normalizeBoard would drop it on the next read; it returns null instead.
+ */
+export function creditBountyPlacement(board: BountyBoard, plan: BountyPlacementPlan, now: number): BountyBoard | null {
+    const amount = Math.max(0, Math.floor(Number(plan.amount) || 0));
+    const placerSlug = lower(plan.placer);
+    const existing = findBounty(board, plan.target);
     if (existing) {
-        bounties = board.bounties.map((b) => b === existing
-            ? { ...b, amount: b.amount + amount, contributors: Array.from(new Set([...b.contributors, placerSlug])), updatedAt: now }
-            : b);
-    } else {
-        bounties = [...board.bounties, { target: targetName, amount, contributors: [placerSlug], updatedAt: now }];
+        return {
+            ...board,
+            bounties: board.bounties.map((b) => b === existing
+                ? { ...b, amount: b.amount + amount, contributors: Array.from(new Set([...b.contributors, placerSlug])), updatedAt: now }
+                : b),
+        };
     }
-    return { ok: true, board: { bounties }, amount };
+    if (board.bounties.length >= BOUNTY_BOARD_MAX) return null;
+    return { ...board, bounties: [...board.bounties, { target: plan.target, amount, contributors: [placerSlug], updatedAt: now }] };
 }
 
 export type ClaimResult = { ok: false; reason: string } | { ok: true; board: BountyBoard; amount: number };
@@ -118,7 +188,75 @@ export function claimBounty(board: BountyBoard, targetName: string): ClaimResult
     const existing = findBounty(board, targetName);
     if (!existing || existing.amount <= 0) return { ok: false, reason: 'There is no bounty on that player.' };
     const bounties = board.bounties.filter((b) => b !== existing);
-    return { ok: true, board: { bounties }, amount: existing.amount };
+    return { ok: true, board: { ...board, bounties }, amount: existing.amount };
+}
+
+/**
+ * Phase 1 of a payout (issue #180): take the head off the board and record
+ * the claim as pending, in ONE board write. From that write on, no other claim
+ * can collect this pool, whether or not the credit that follows succeeds.
+ */
+export function reserveBountyClaim(
+    board: BountyBoard,
+    targetName: string,
+    claim: { id: string; winner: string; at: number; battleId?: string },
+): { ok: true; board: BountyBoard; pending: PendingBountyClaim } | { ok: false } {
+    const head = findBounty(board, targetName);
+    if (!head || head.amount <= 0) return { ok: false };
+    const pending: PendingBountyClaim = {
+        id: claim.id,
+        winner: claim.winner,
+        head: { ...head, contributors: [...head.contributors] },
+        at: claim.at,
+        ...(claim.battleId ? { battleId: claim.battleId } : {}),
+    };
+    return {
+        ok: true,
+        pending,
+        board: {
+            ...board,
+            bounties: board.bounties.filter((b) => b !== head),
+            pendingClaims: [...(board.pendingClaims ?? []).filter((p) => p.id !== claim.id), pending],
+        },
+    };
+}
+
+export function findPendingBountyClaim(board: BountyBoard, id: string): PendingBountyClaim | undefined {
+    return (board.pendingClaims ?? []).find((p) => p.id === id);
+}
+
+/** Phase 3: the winner is paid, so the claim leaves the board. */
+export function finishBountyClaim(board: BountyBoard, id: string): BountyBoard {
+    const pendingClaims = (board.pendingClaims ?? []).filter((p) => p.id !== id);
+    const { pendingClaims: _dropped, ...rest } = board;
+    return pendingClaims.length > 0 ? { ...rest, pendingClaims } : rest;
+}
+
+/**
+ * A reserved claim that can never pay (its winner's save is gone) puts the
+ * pool back. A head posted on the same target since then is merged, keeping
+ * the NEWER stamp so a delayed claim cannot use the restore to reach money
+ * staked after its battle.
+ */
+export function restoreBountyClaim(board: BountyBoard, id: string): BountyBoard {
+    const pending = findPendingBountyClaim(board, id);
+    if (!pending) return board;
+    const withoutClaim = finishBountyClaim(board, id);
+    const current = findBounty(withoutClaim, pending.head.target);
+    if (current) {
+        return {
+            ...withoutClaim,
+            bounties: withoutClaim.bounties.map((b) => b === current
+                ? {
+                    ...b,
+                    amount: b.amount + pending.head.amount,
+                    contributors: Array.from(new Set([...b.contributors, ...pending.head.contributors])),
+                    updatedAt: Math.max(b.updatedAt, pending.head.updatedAt),
+                }
+                : b),
+        };
+    }
+    return { ...withoutClaim, bounties: [...withoutClaim.bounties, { ...pending.head }] };
 }
 
 // NOTE: there is deliberately no AI-hunter claim helper. A server-spawned bounty

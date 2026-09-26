@@ -86,6 +86,19 @@ import {
 import { pvpWarGroundRewardEligible } from './pvp/_war-ground-reward.js';
 import { raidProgressionReceiptId } from './missions/_raid-progression.js';
 import type { RaidTerritoryDamageResult } from './missions/_raid-territory.js';
+import { recordAudit } from './_audit.js';
+
+/** The fields an admin territory correction is judged by, for the audit log.
+ *  Never the whole record: it can carry a background image. */
+function territoryAuditSummary(territory: SectorTerritory | null): Record<string, unknown> | null {
+    if (!territory) return null;
+    return {
+        ownerVillage: territory.ownerVillage ?? null,
+        ownerClan: territory.ownerClan ?? null,
+        hp: territory.hp ?? null,
+        guards: Array.isArray(territory.guards) ? territory.guards.length : 0,
+    };
+}
 
 const TERRITORY_CONTROL_MAX = 75000;
 const TERRITORY_HP_MAX = 20000;
@@ -789,7 +802,9 @@ export async function captureSectorForVillage(
     const key = `${TERRITORY_KEY_PREFIX}${s}`;
     return await withKvLock(key, async () => {
         const prev = await kv.get<SectorTerritory>(key);
-        const pendingDeclaration = (await listFundingSectorWars())
+        // Strict: an unreadable contest row could be this sector's pending
+        // declaration, so it blocks the capture until it is repaired.
+        const pendingDeclaration = (await listFundingSectorWars(kv, { strict: true }))
             .some(candidate => candidate.sector === s);
         if (pendingDeclaration) {
             // A hidden row-first declaration has sealed this exact defender but
@@ -1941,9 +1956,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // its HP commit and terminal-key help-forward.
                 let committedTerritory = incomingTerritory;
                 let territoryConflict = false;
+                let territoryBefore: SectorTerritory | null = null;
                 await withKvLock(`${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`, async () => {
                     const key = `${TERRITORY_KEY_PREFIX}${incomingTerritory.sector}`;
                     const fresh = await kv.get<SectorTerritory>(key);
+                    territoryBefore = fresh;
                     if (!identity.admin && !isDeepStrictEqual(fresh, prev)) {
                         territoryConflict = true;
                         return;
@@ -1957,8 +1974,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // closing the post-activation HP=0 capture race too.
                         const authorityNow = Date.now();
                         const [activeContest, pendingDeclarations] = await Promise.all([
-                            activeContestOnSector(incomingTerritory.sector, authorityNow),
-                            listFundingSectorWars(),
+                            activeContestOnSector(incomingTerritory.sector, authorityNow, { strict: true }),
+                            listFundingSectorWars(kv, { strict: true }),
                         ]);
                         if (activeContest
                             || pendingDeclarations.some(candidate => candidate.sector === incomingTerritory.sector)) {
@@ -2007,6 +2024,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }, { failClosed: true });
                 if (territoryConflict) {
                     return res.status(409).json({ error: 'Territory changed while this update was being verified. Retry.' });
+                }
+                if (identity.admin) {
+                    // An admin territory write is the supported correction for
+                    // a settled sector, so it leaves a trail
+                    // (GET /api/admin/audit-log?domain=sector). Best-effort.
+                    await recordAudit({
+                        domain: 'sector',
+                        action: 'territory.admin-write',
+                        actor: 'admin',
+                        entityType: 'territory',
+                        entityId: String(committedTerritory.sector),
+                        before: territoryAuditSummary(territoryBefore),
+                        after: territoryAuditSummary(committedTerritory),
+                    });
                 }
                 return res.status(200).json({ territory: committedTerritory });
             }
@@ -2339,7 +2370,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 // direction while these authoritative scans run.
                                 if (villageWarMapEnabled()) {
                                     for (const v of war.villages) {
-                                        const sieges = await activeSectorWarsForVillage(v);
+                                        const sieges = await activeSectorWarsForVillage(v, Date.now(), { strict: true });
                                         if (sieges.length) {
                                             await releaseVillageWarReservations(kv, reservationPlan, 'claim-conflict', mutationNow);
                                             return { status: 409 as const, body: { error: `${v} has ${sieges.length} active sector war${sieges.length === 1 ? '' : 's'}. Sector wars and a village war cannot run at the same time — finish or call them off first.` } };

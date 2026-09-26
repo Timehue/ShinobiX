@@ -3,7 +3,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
+import { withKvLock, LockContendedError } from '../_lock.js';
 import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
@@ -241,6 +241,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // engine, same replay, garrison weight and cap — and a real defender
         // turning up re-locks it, because only live battles move lastLiveBattleAt.
         if (action === 'garrison-duel') {
+            // Fail closed: each garrison duel's battle id carries its own start
+            // time, so two runs of this block at once (a double-tap that outwaits
+            // the lock) would both pass the idle check and both score.
             const result = await withKvLock(garrisonSessionKey(sectorWarId), async () => {
                 const contest = await loadSectorWar(sectorWarId);
                 if (!contest || contest.flipped) return { status: 409 as const, body: { error: 'No active sector war for that id.' } };
@@ -290,7 +293,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 session.appliedToContest = true;
                 await kv.set(garrisonSessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
                 return { status: 200 as const, body: { session, garrisonDefendedByKage: defender.byKage } };
-            });
+            }, { failClosed: true });
             return res.status(result.status).json(result.body);
         }
 
@@ -355,10 +358,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session.appliedToContest = true;
             await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
             return { status: 200 as const, body: { session } };
-        });
+        }, { failClosed: true });
 
         return res.status(result.status).json(result.body);
     } catch (err) {
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'That pet duel is busy right now — try again in a moment.' });
+        }
         console.error('[village/sector-pet]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

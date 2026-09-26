@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
+import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
@@ -67,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             profile: academySparEnemyTemplate(admin),
             admin,
             difficultyMode: 'STORY',
+            aiTurnPolicy: STANDARD_PVE_AI_POLICY,
             encounter: {
                 kind: 'academy-spar',
                 id: ACADEMY_SPAR_OPPONENT_ID,
