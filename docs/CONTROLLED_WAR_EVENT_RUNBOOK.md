@@ -73,16 +73,34 @@ advance.
    on Railway. Every `[war-event]` log line then carries it.
 3. Pick two contested sectors: one Combat sector, and one Card **or** Pet
    sector. The defending Kage sets their win condition and terrain now.
-4. Run the preflight against production. It is read-only, but reading
+4. Write the event plan to a local file, `war-event-plan.json`. It stays on the
+   operator's machine and is never committed:
+
+   ```json
+   {
+     "attackerVillage": "Moonshadow Village",
+     "defenderVillage": "Frostfang Village",
+     "sectors": [27],
+     "accounts": {
+       "attackerKage": "<attacking Kage>",
+       "defenderKage": "<defending Kage>",
+       "attackerFighters": ["<fighter>", "<fighter>"],
+       "defenderFighters": ["<fighter>", "<fighter>"]
+     }
+   }
+   ```
+
+5. Run the preflight against production. It is read-only, but reading
    production storage needs the production `.env` on the operator's machine:
 
    ```powershell
-   node --import tsx scripts/war-event-preflight.ts --base-url=https://shinobijourney.com --expect-war=on --out=war-preflight-before.json
+   node --import tsx scripts/war-event-preflight.ts --base-url=https://shinobijourney.com --expect-war=on --plan=war-event-plan.json --out=war-preflight-before.json
    ```
 
    Exit 0 means no blocker. Keep `war-preflight-before.json` as the "before"
    snapshot. It lists contests, points, receipt counts, tokens and the audit
-   count, and it never names a player. Each blocker means:
+   count. It also checks each planned sector and account, and it reports
+   accounts by role ("attacker fighter 2"), never by name. Each blocker means:
 
    | Blocker | Meaning | Do |
    | --- | --- | --- |
@@ -91,11 +109,18 @@ advance.
    | `territory-owner-mismatch` | A contested sector is owned by someone other than the defender. | Stop. Find out why before any war runs there. |
    | `two-contests-on-sector`, `village-war-overlap` | An invariant is broken. | Stop. |
    | `kill-switch-mismatch`, `health`, `war-route-unreachable` | The live switch is in the wrong position, or the site is down. | Fix `DISABLE_VILLAGE_WAR` and redeploy, then run the preflight again. |
+   | `plan-kage-not-seated`, `plan-account-missing`, `plan-account-village` | A planned account cannot play its role: the attacking Kage is not seated, the account does not exist, or it is in the other village. | Fix the plan or the accounts before the day. |
+   | `plan-sector-invalid`, `plan-sector-owner`, `plan-siege-limit`, `plan-village-invalid`, `plan-village-at-war` | A planned declaration would be refused. | Pick another sector, or finish the other war first. |
 
-5. Record the rest of the "before" state that the preflight does not: each
-   village's War Resources and treasury (`GET /api/admin/economy`, which also
+   Warnings do not block, but read them: `plan-war-resources` (the attacking
+   village may not afford the declaration), `plan-account-in-battle` (a fighter
+   still has a battle in flight), `plan-too-few-fighters`,
+   `plan-sector-contested` and `plan-sector-unconfigured`.
+
+6. Record the rest of the "before" state that the preflight does not: each
+   village's treasury and War Resources (`GET /api/admin/economy`, which also
    shows war economy telemetry) and each sector owner (the war map).
-6. Confirm the operator can sign in to the admin panel and read
+7. Confirm the operator can sign in to the admin panel and read
    `GET /api/admin/audit-log?domain=sector`.
 
 ## The staffed window (T+0 to about T+2 hours)
@@ -111,7 +136,7 @@ and a screenshot where the case says so.
 | 3 | Defeat | A defender wins a battle there. | A `battle-scored` line with `attackerWon: false`. The defender's points rise. |
 | 4 | Draw | Two fighters end in a draw, if one can be arranged. | No `battle-scored` line, and no points for either side. |
 | 5 | Reconnect | Mid-battle, one fighter closes the browser, reopens the game and finishes. Then both fighters open the result again. | One `battle-scored` line. Every later look is a replay (`battle-replayed` or no line). No points are added. |
-| 6 | Browserless end | Mid-battle, **both** fighters close their browsers and stay away. The turn clock and the 10-minute lapse sweep end the battle. | A `battle-scored` line with no player online. |
+| 6 | Walk-away | Mid-battle, one fighter closes the browser and stays away; the other keeps the battle open. The server passes the absent fighter's turns, and the fighter who stayed claims the forfeit win when it is offered. | One `battle-scored` line, written by the server's terminal step; the absent fighter's side settles without their browser. (If **both** walk away, the 10-minute lapse sweep records a draw: nothing scores, and both are free to fight again.) |
 | 7 | Card or Pet | The same villages fight on the second sector's win condition. If the event runs long enough without a defender, the attacker also fights the garrison. | `battle-scored` lines for that contest, with `garrison: true` for the garrison. |
 | 8 | Double-tap | A fighter double-taps a Card or Pet action, or a garrison duel. | One score. The second answer is a replay, or "busy — try again" (503). |
 | 9 | Cancel drill (optional) | Declare a third, throwaway contest and have the operator abandon it (below). | A `contest-abandoned` line with `actor: admin`. One `sector-war.abandon` audit entry. |
