@@ -6,6 +6,10 @@ import { withKvLock } from '../_lock.js';
 import { cors, mergePreservingImages } from '../_utils.js';
 import { completeEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { resumeSaveDebitSaga, SaveDebitRefusal } from '../_save-debit-saga.js';
+import { SAVE_DEBIT_SAGAS } from '../_save-debit-kinds.js';
+import { BOUNTY_KEY, normalizeBoard, type BountyBoard } from '../pvp/_bounty.js';
+import { sweepPendingBountyClaims } from '../pvp/_bounty-claim.js';
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -16,8 +20,16 @@ function num(v: unknown): number {
  * /api/admin/economy-reconcile - POST
  *
  * Admin-only one-shot reconciliation for known economy transactions that failed
- * after the debit side landed. Currently supports clan territory War Supply
- * collection records (`state: needs-reconcile`).
+ * after the debit side landed. Supports:
+ *   - { txId } for a retry-safe save->shared settlement (api/_save-debit-saga.ts:
+ *     shrine offerings, bounty placements, clan and village treasury
+ *     donations). It runs the same idempotent credit step the player's own
+ *     retry would, so it can never credit twice; an unprovable one is reported,
+ *     not guessed. Find ids under `economyTx.stuck` in GET /api/admin/economy.
+ *   - { txId } for clan territory War Supply collection records and the two
+ *     Honor Seal refunds (`state: needs-reconcile`).
+ *   - { bountyClaims: true } to finish every bounty payout left pending on the
+ *     board (api/pvp/_bounty-claim.ts), each exactly once.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -28,8 +40,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+        if (body.bountyClaims === true) {
+            const result = await withKvLock(BOUNTY_KEY, async () => {
+                const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
+                const before = (board.pendingClaims ?? []).map((p) => p.id);
+                const swept = await sweepPendingBountyClaims(board, Date.now());
+                if (swept !== board) await kv.set(BOUNTY_KEY, swept);
+                const remaining = (swept.pendingClaims ?? []).map((p) => p.id);
+                return { finished: before.filter((id) => !remaining.includes(id)), remaining };
+            }, { failClosed: true });
+            console.log('[admin/economy-reconcile] bounty claims swept', JSON.stringify(result));
+            return res.status(200).json({ ok: true, ...result });
+        }
         const txId = typeof body.txId === 'string' ? body.txId.trim().slice(0, 180) : '';
         if (!txId) return res.status(400).json({ error: 'Missing txId.' });
+
+        const sagaTx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
+        if (sagaTx && SAVE_DEBIT_SAGAS[sagaTx.kind] && typeof sagaTx.meta?.fingerprint === 'string') {
+            const outcome = await resumeSaveDebitSaga(txId, SAVE_DEBIT_SAGAS);
+            console.log('[admin/economy-reconcile] save-debit settlement', txId, outcome.status);
+            if (outcome.status === 'unprovable') return res.status(409).json({ error: outcome.reason, ...outcome });
+            return res.status(200).json({ ok: true, ...outcome });
+        }
 
         const result = await withKvLock(economyTxKey(txId), async () => {
             const tx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
@@ -83,6 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(result.status).json(result.body);
     } catch (err) {
+        if (err instanceof SaveDebitRefusal) return res.status(err.status).json({ ...err.details, error: err.message });
         console.error('[admin/economy-reconcile]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

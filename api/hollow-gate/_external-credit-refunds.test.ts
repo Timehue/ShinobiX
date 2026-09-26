@@ -117,7 +117,10 @@ for (const scenario of ['bounty', 'kage', 'unlock'] as const) {
             : scenario === 'kage' ? { action: 'declare', village } : {};
         for (let attempt = 1; attempt <= 2; attempt++) {
             const response = await call(handler, f.name, request);
-            assert.equal(response.status, scenario === 'bounty' ? 500 : 503, String(response.body?.error));
+            // All three answer a retryable 503 after refunding. Bounty placement
+            // used to answer 500; it now runs through the retry-safe saga
+            // (api/_save-debit-saga.ts), whose refund reply matches the others.
+            assert.equal(response.status, 503, String(response.body?.error));
             assert.equal(faults, attempt, 'authentication and eligibility reached the selected publication');
             const after = (await kv.get<Save>(f.saveKey))!;
             assert.equal(after.character.ryo, f.save.character.ryo);
@@ -159,7 +162,8 @@ test('a real Sanctify between bounty debit and failed publication protects the r
         return originalSet(...args);
     });
     const response = await call(bounty, f.name, { action: 'place', target: 'hgrefundtarget', amount: 1000 });
-    assert.equal(response.status, 500);
+    assert.equal(response.status, 503);
+    assert.equal(response.body?.refunded, true);
     assert.equal(faults, 1);
     assert.ok(checkpoint, 'the actual checkpoint committed between debit and refund');
     const refunded = (await kv.get<Save>(f.saveKey))!;
