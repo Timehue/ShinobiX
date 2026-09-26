@@ -168,3 +168,47 @@ export function applyTreasuryDonation(
     nextTreasury.items = cleanTreasuryItems([...(Array.isArray(prevTreasury.items) ? prevTreasury.items : []), { itemId, count }]);
     return { ok: true, nextDonorChar, nextTreasury };
 }
+
+/**
+ * What a committed donation adds to a treasury, recorded when the donor is
+ * debited (api/_save-debit-saga.ts). Applying the plan to the treasury the
+ * debit read reproduces the `nextTreasury` computed above exactly; applying it
+ * to a LATER treasury (a retry that finishes an interrupted donation) adds the
+ * same amounts without re-running any donor-side check.
+ */
+export type TreasuryCreditPlan =
+    | { kind: 'currency'; currency: string; amount: number }
+    | { kind: 'item'; itemId: string; count: number }
+    | { kind: 'store'; store: 'provisions' | 'materialPoints'; amount: number };
+
+export function treasuryCreditPlan(
+    donation: TreasuryDonation,
+    routed: { store: 'provisions' | 'materialPoints'; amount: number } | null,
+): TreasuryCreditPlan {
+    if (routed) return { kind: 'store', store: routed.store, amount: Math.max(0, Math.floor(routed.amount)) };
+    if (donation.kind === 'currency') return { kind: 'currency', currency: donation.currency, amount: Math.floor(donation.amount) };
+    return { kind: 'item', itemId: donation.itemId, count: Math.floor(donation.count) };
+}
+
+function nonNegative(value: unknown): number {
+    const n = Math.floor(Number(value) || 0);
+    return n > 0 ? n : 0;
+}
+
+export function applyTreasuryCredit(
+    treasury: Record<string, unknown> | null | undefined,
+    plan: TreasuryCreditPlan,
+): Record<string, unknown> {
+    const prev = (treasury ?? {}) as Record<string, unknown>;
+    const prevItems = Array.isArray(prev.items) ? prev.items : [];
+    if (plan.kind === 'currency') return { ...prev, [plan.currency]: num(prev[plan.currency]) + plan.amount };
+    if (plan.kind === 'item') return { ...prev, items: cleanTreasuryItems([...prevItems, { itemId: plan.itemId, count: plan.count }]) };
+    // Village Stores routing (api/_treasury-stores-donate.ts) writes BOTH store
+    // counters and a normalized item list; keep that exact shape.
+    return {
+        ...prev,
+        items: cleanTreasuryItems(prevItems),
+        provisions: nonNegative(prev.provisions) + (plan.store === 'provisions' ? plan.amount : 0),
+        materialPoints: nonNegative(prev.materialPoints) + (plan.store === 'materialPoints' ? plan.amount : 0),
+    };
+}

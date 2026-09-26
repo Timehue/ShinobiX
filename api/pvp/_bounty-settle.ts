@@ -11,12 +11,15 @@
  * base ryo, and books a PvP kill credit. The bounty should follow it.
  *
  * ── Why this is not farmable ────────────────────────────────────────────────
- * A pool pays out ONCE: `claimBounty` removes the head from the board, under the
- * board lock, before the ryo is credited. So the board mutation IS the
- * idempotency — the live path's per-battle receipt exists only because one
- * battleId can be re-POSTed by a retrying client, which has no analogue here.
- * The KO itself is already one-shot (it clears the camp and relocates the victim
- * to sector 0), and the caller only settles a bounty after a KO that committed.
+ * A pool pays out ONCE, through the same two-phase payout as the duel claim
+ * (api/pvp/_bounty-claim.ts, issue #180): one board write moves the head out of
+ * `bounties` into `pendingClaims` BEFORE the ryo is credited, and the credit
+ * carries an in-save receipt. The old order credited first and wrote the board
+ * second, so a failed board write left the pool posted for a second claim.
+ * The KO itself is already one-shot (it clears the camp and relocates the
+ * victim to sector 0), and the caller only settles a bounty after a KO that
+ * committed, so each call gets a fresh claim id. A payout this call cannot
+ * finish stays pending and the next bounty claim's sweep finishes it.
  *
  * ── Lock order matters ──────────────────────────────────────────────────────
  * bounty.ts takes BOUNTY_KEY and THEN `save:<winner>`. This must too, or the two
@@ -24,11 +27,19 @@
  * releasing the KO's own save locks rather than inside them — taking the board
  * lock while holding `save:<attacker>` would invert the order.
  */
+import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
-import { mergePreservingImages } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { BOUNTY_KEY, BOUNTY_AUDIT_PREFIX, claimBounty, normalizeBoard, type BountyBoard } from './_bounty.js';
+import {
+    BOUNTY_KEY,
+    BOUNTY_AUDIT_PREFIX,
+    finishBountyClaim,
+    normalizeBoard,
+    reserveBountyClaim,
+    restoreBountyClaim,
+    type BountyBoard,
+} from './_bounty.js';
+import { payPendingBountyClaim, sweepPendingBountyClaims } from './_bounty-claim.js';
 
 export type BountySettlement = {
     /** Ryo paid; 0 when the target had no bounty, or nothing could be credited. */
@@ -39,18 +50,16 @@ export type BountySettlement = {
 
 const NOTHING: BountySettlement = { amount: 0, saveVersion: null };
 
-function num(value: unknown): number {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
-}
-
 /**
  * Credit the bounty standing on `victimSlug` to `attackerSlug`, if any.
  *
- * Returns `{ amount: 0 }` — leaving the pool untouched for a legitimate hunter —
- * when the victim has no bounty, or the attacker's save cannot be written. Never
- * throws: a bounty that fails to settle must not undo an already-committed KO,
- * so the caller treats this as best-effort and reports what it returns.
+ * Returns `{ amount: 0 }` when the victim has no bounty or the KO was ruled
+ * ineligible (the pool stays for a legitimate hunter), when the attacker's save
+ * is gone (the pool is put back), and when the payout could not finish in this
+ * call (the pool stays reserved for the attacker and a later sweep pays it).
+ * Never throws: a bounty that fails to settle must not undo an
+ * already-committed KO, so the caller treats this as best-effort and reports
+ * what it returns.
  */
 export async function settleBountyForSessionlessKill(args: {
     attackerSlug: string;
@@ -66,38 +75,44 @@ export async function settleBountyForSessionlessKill(args: {
 
     try {
         return await withKvLock<BountySettlement>(BOUNTY_KEY, async () => {
-            const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
-            const result = claimBounty(board, args.victimName);
-            if (!result.ok) return NOTHING; // no bounty on this head — ordinary no-op
-
-            const saveVersion = await withKvLock<number | null>(`save:${args.attackerSlug}`, async () => {
-                const record = await kv.get<Record<string, unknown>>(`save:${args.attackerSlug}`);
-                const character = (record?.character ?? null) as Record<string, unknown> | null;
-                if (!record || !character) return null;
-                const updated = bumpSaveVersion({
-                    ...record,
-                    character: { ...character, ryo: num(character.ryo) + result.amount },
-                }, { previousCharacter: character });
-                await kv.set(`save:${args.attackerSlug}`, mergePreservingImages(updated, record));
-                const next = Number(updated._saveVersion);
-                return Number.isFinite(next) ? next : null;
-            }, { failClosed: true });
-
-            // Credit first, board second. If the save could not be written we
-            // must NOT persist the claimed board, or the pool would vanish
-            // without anyone being paid.
-            if (saveVersion === null) return NOTHING;
-            await kv.set(BOUNTY_KEY, result.board);
+            const now = Date.now();
+            const claimId = `sleeper-ko:${args.victimSlug}:${randomUUID()}`;
+            const loaded = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
+            // Finish any payout an earlier crash left half done.
+            const board = await sweepPendingBountyClaims(loaded, now, claimId);
+            const reserved = reserveBountyClaim(board, args.victimName, { id: claimId, winner: args.attackerSlug, at: now });
+            if (!reserved.ok) {
+                // No bounty on this head — an ordinary no-op.
+                if (board !== loaded) await kv.set(BOUNTY_KEY, board);
+                return NOTHING;
+            }
+            // Phase 1: the head leaves the board before the attacker is paid.
+            await kv.set(BOUNTY_KEY, reserved.board);
+            // Phase 2: the credit, exactly once (in-save receipt).
+            const paid = await payPendingBountyClaim(reserved.pending);
+            if (paid.status === 'missing-save') {
+                await kv.set(BOUNTY_KEY, restoreBountyClaim(reserved.board, claimId));
+                return NOTHING;
+            }
+            if (paid.status !== 'paid') {
+                console.error('[pvp/bounty-settle] payout needs reconciliation', claimId, paid.reason);
+                return NOTHING;
+            }
+            // Phase 3: clean up. A failure here leaves a pending entry the next
+            // sweep closes without paying again.
+            await kv.set(BOUNTY_KEY, finishBountyClaim(reserved.board, claimId)).catch(() => undefined);
+            const amount = reserved.pending.head.amount;
             await kv.set(
                 `${BOUNTY_AUDIT_PREFIX}claim:${Date.now()}`,
-                { winner: args.attackerSlug, target: args.victimSlug, amount: result.amount, via: 'sleeper-ko' },
+                { winner: args.attackerSlug, target: args.victimSlug, amount, via: 'sleeper-ko' },
                 { ex: 30 * 24 * 60 * 60 } as never,
             ).catch(() => undefined);
-            return { amount: result.amount, saveVersion };
+            return { amount, saveVersion: paid.saveVersion };
         }, { failClosed: true });
     } catch {
-        // Lock contention or a KV blip. The KO already committed and the board is
-        // untouched, so the bounty simply remains claimable.
+        // Lock contention or a KV blip. The KO already committed. Either the
+        // board is untouched and the bounty remains claimable, or the head was
+        // reserved for this attacker and the next claim's sweep pays it.
         return NOTHING;
     }
 }

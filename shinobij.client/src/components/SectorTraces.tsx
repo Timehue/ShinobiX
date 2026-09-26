@@ -18,6 +18,7 @@ import { createPortal } from "react-dom";
 import { SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
 import { parseScars, pruneScars, scarAgeLabel, scarLine } from "../../../shared/sector-scars";
 import {
+    hasPendingShrineOffering,
     leaveTrailSign,
     offerAtShrine,
     sparkTrailSign,
@@ -222,7 +223,9 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
     async function offer(amount: number) {
         if (!shrine || busy) return;
         if (!sectorIsCurrent) { setNote("Travel to this sector to make an offering."); return; }
-        if (amount > playerRyo) { setNote("Not enough ryo on hand."); return; }
+        // An unconfirmed earlier offering may already be charged; its retry
+        // finishes it without charging again, so do not refuse it here.
+        if (amount > playerRyo && !hasPendingShrineOffering(playerName, shrine.id, amount)) { setNote("Not enough ryo on hand."); return; }
         setBusy(true); setNote(null);
         const result = await offerAtShrine(playerName, shrine.id, amount);
         setBusy(false);

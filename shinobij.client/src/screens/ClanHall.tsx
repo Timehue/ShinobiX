@@ -44,7 +44,7 @@ import { ClanUpgradeIcon } from "../components/ClanUpgradeIcon";
 import { fetchMentorView, assignStudent, claimMentor, releaseStudent, MENTOR_MILESTONE_LABEL, type MentorView } from "../lib/clan-mentor";
 import { canManageClan, clanContribTotal, clanHallTier, clanRoleOf, clanXpMemberScale, clanXpNeeded, clanXpScaleTiers, cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
 import { clanLore } from "../data/clan-lore";
-import { postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, postClanLeave, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
+import { hasPendingTreasuryDonation, postClanTreasuryDonation, postClanUpgradePurchase, postClanKick, postClanLeave, fetchClaimedClanMissions, postClanMissionClaim, postClanTerritoryAssignment } from "../lib/player-api";
 import { clampNumber } from "../lib/utils";
 import { clanSlug, fetchClanData, fetchClanDataDetailed, postGuardQueue, writeClanData, writeClanUpdate } from "../lib/clan-api";
 import { cleanTreasuryItems, getAllItems, inventoryItemStacks, itemDisplayName, removeTreasuryItem } from "../lib/items";
@@ -557,7 +557,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     }
     async function donateRyo() {
         if (donateBusyRef.current) return;
-        if (!clanData) return; const amount = Math.max(1, Math.floor(donation)); if (character.ryo < amount) return alert("Not enough ryo.");
+        if (!clanData) return; const amount = Math.max(1, Math.floor(donation));
+        // An unconfirmed identical donation may already be charged; its retry
+        // finishes it without charging again (lib/economy-request-intent).
+        if (character.ryo < amount && !hasPendingTreasuryDonation("clan", character.name, clanData.name, { currency: "ryo", amount })) return alert("Not enough ryo.");
         donateBusyRef.current = true;
         setDonateBusy(true);
         try {
@@ -572,7 +575,8 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
     }
     async function donateSpecial(currency: Exclude<ClanTreasuryCurrencyKey, "ryo">, amount: number) {
         if (donateBusyRef.current) return;
-        if (!clanData) return; const current = character[currency] ?? 0; if (current < amount) return alert(`Not enough ${currency}.`);
+        if (!clanData) return; const current = character[currency] ?? 0;
+        if (current < amount && !hasPendingTreasuryDonation("clan", character.name, clanData.name, { currency, amount })) return alert(`Not enough ${currency}.`);
         donateBusyRef.current = true;
         setDonateBusy(true);
         try {
@@ -589,10 +593,13 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         if (donateBusyRef.current) return;
         if (!clanData) return;
         if (!clanDonateItemId) return alert("Choose an item to donate.");
-        if (!ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
+        // An unconfirmed identical donation may already have taken the item and
+        // the allowance; its retry finishes it without taking them again.
+        const retrying = hasPendingTreasuryDonation("clan", character.name, clanData.name, { itemId: clanDonateItemId });
+        if (!retrying && !ownsItem(character, clanDonateItemId)) return alert("You do not have that item.");
         // Mirror of the server's per-donor daily ration allowance. Without it
         // the only feedback on a 40-ration day is a bare 429.
-        if (clanDonateGate.ok !== true) return alert(`${clanDonateGate.reason}. The allowance resets at midnight UTC.`);
+        if (!retrying && clanDonateGate.ok !== true) return alert(`${clanDonateGate.reason}. The allowance resets at midnight UTC.`);
         donateBusyRef.current = true;
         setDonateBusy(true);
         try {

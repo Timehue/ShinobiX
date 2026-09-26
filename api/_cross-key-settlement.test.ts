@@ -129,3 +129,103 @@ describe('cross-key durable settlement orchestration', { concurrency: false }, (
         assert.deepEqual(acquired, ['lock:test-cross-key:source', 'lock:test-cross-key:recipient']);
     });
 });
+
+describe('cross-key settlement resumes without applying a side twice', { concurrency: false }, () => {
+    /** The first attempt debits the source, then its credit write fails before landing. */
+    async function debitThenFailCredit(f: ReturnType<typeof fixture>) {
+        const saveRecipient = f.options.saveRecipient;
+        f.options.saveRecipient = async () => { throw new Error('injected: recipient write failed'); };
+        await assert.rejects(() => settleCrossKeyTransfer(f.options), /recipient write failed/);
+        f.options.saveRecipient = saveRecipient;
+        assert.equal(f.getSource().balance, 5, 'the debit landed');
+        assert.equal(f.getRecipient().balance, 0, 'the credit did not');
+    }
+
+    async function journal() {
+        const key = (await kv.keys('economy-settlement:*')).find((entry) => entry !== 'economy-settlement:index'
+            && entry !== 'economy-settlement:reconciliation-status');
+        return key ? kv.get<{ state?: string; createdAt?: number }>(key) : null;
+    }
+
+    it('refuses to debit again when the earlier debit receipt was pushed out of the capped list', async () => {
+        const f = fixture();
+        f.options.debitSource = (current, receipt) => ({
+            ...current,
+            balance: Number(current.balance) - 5,
+            settlementReceipts: [receipt, ...(Array.isArray(current.settlementReceipts) ? current.settlementReceipts : [])].slice(0, 100),
+        });
+        await debitThenFailCredit(f);
+        // A hundred newer transfers from the same source evict the receipt.
+        const createdAt = Number((await journal())?.createdAt);
+        const source = await f.options.loadSource();
+        source.settlementReceipts = Array.from({ length: 100 }, (_, i) => ({
+            transactionId: `newer-${i}`, fingerprint: 'other', resource: 'ryo', amount: 1, appliedAt: createdAt + 1 + i,
+        }));
+        source.balance = 50;
+
+        await assert.rejects(() => settleCrossKeyTransfer(f.options), (error: unknown) => {
+            assert.ok(error instanceof SettlementValidationError);
+            assert.equal(error.status, 409);
+            assert.equal(error.details?.reconcile, true);
+            return true;
+        });
+        assert.equal(f.getSource().balance, 50, 'the source was not debited a second time');
+        assert.equal(f.getRecipient().balance, 0);
+        assert.equal((await journal())?.state, 'reconciliation-required', 'left for an operator, not cancelled');
+    });
+
+    it('refuses to credit again when the earlier credit receipt was pushed out of the capped list', async () => {
+        const f = fixture();
+        const first = await settleCrossKeyTransfer(f.options);
+        assert.equal(first.replayed, false);
+        // The completion was lost after both writes landed, and the journal
+        // never recorded credit-applied: fifty newer receipts then evict the
+        // member's receipt.
+        const key = (await kv.keys('economy-settlement:test-cross-key-*'))[0];
+        const record = await kv.get<Record<string, unknown>>(key);
+        await kv.set(key, { ...record, state: 'debit-applied', result: undefined });
+        const createdAt = Number(record?.createdAt);
+        const recipient = await f.options.loadRecipient();
+        recipient.character.serverSettlementReceipts = Array.from({ length: 50 }, (_, i) => ({
+            requestId: `newer-receipt-${String(i).padStart(4, '0')}`, fingerprint: 'other', value: { amount: 1 }, settledAt: createdAt + 1 + i,
+        }));
+
+        await assert.rejects(() => settleCrossKeyTransfer(f.options), (error: unknown) => {
+            assert.ok(error instanceof SettlementValidationError);
+            assert.equal(error.details?.reconcile, true);
+            return true;
+        });
+        assert.equal(f.getSource().balance, 5);
+        assert.equal(f.getRecipient().balance, 5, 'the recipient was not credited a second time');
+    });
+
+    it('finishes from the journal when only the completion was lost after the credit', async () => {
+        const f = fixture();
+        await settleCrossKeyTransfer(f.options);
+        const key = (await kv.keys('economy-settlement:test-cross-key-*'))[0];
+        const record = await kv.get<Record<string, unknown>>(key);
+        await kv.set(key, { ...record, state: 'credit-applied' });
+        // Both receipts have been pushed out since.
+        const source = await f.options.loadSource();
+        source.settlementReceipts = [];
+        const recipient = await f.options.loadRecipient();
+        recipient.character.serverSettlementReceipts = [];
+
+        const resumed = await settleCrossKeyTransfer(f.options);
+        assert.deepEqual(resumed.result, record?.result);
+        assert.equal(resumed.transaction.state, 'completed');
+        assert.equal(f.getSource().balance, 5, 'nothing moved again');
+        assert.equal(f.getRecipient().balance, 5);
+    });
+
+    it('never cancels a transfer whose debit landed when the recipient has since vanished', async () => {
+        const f = fixture();
+        await debitThenFailCredit(f);
+        f.options.loadRecipient = async () => null as never;
+        await assert.rejects(() => settleCrossKeyTransfer(f.options), /Recipient save not found/);
+        // A cancelled journal is final and the stale sweep skips it, so the
+        // five already debited would be stranded with nobody told.
+        assert.equal((await journal())?.state, 'reconciliation-required');
+        assert.equal(f.getSource().balance, 5);
+    });
+});
