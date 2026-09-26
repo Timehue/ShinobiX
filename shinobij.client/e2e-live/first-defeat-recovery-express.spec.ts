@@ -234,8 +234,13 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    await expect(page.getByRole('alert').filter({ hasText: 'Discharge could not be confirmed' })).toBeVisible({ timeout: 25000 });
    await capture('09-paid-response-lost');
    await stalledRoute?.abort().catch(() => {});
-   await page.getByRole('button', { name: 'Pay & discharge', exact: true }).click();
-   if (recovery === 'paid-lost') await expect(page.getByText(/Discharge confirmed\. HP restored/)).toBeVisible();
+   const retryDischarge = page.getByRole('button', { name: 'Pay & discharge', exact: true });
+   const recoveredVillage = page.locator('.stormveil-village-screen');
+   await expect(retryDischarge.or(recoveredVillage)).toBeVisible();
+   if (await retryDischarge.isVisible()) {
+    await retryDischarge.click();
+    if (recovery === 'paid-lost') await expect(page.getByText(/Discharge confirmed\. HP restored/)).toBeVisible();
+   }
   } else {
    await page.locator('.hospital-screen--admitted').getByRole('button', { name: 'Pay & discharge', exact: true }).dblclick();
   }

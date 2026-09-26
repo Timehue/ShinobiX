@@ -14,7 +14,7 @@ const { CHRONICLE_RULES_VERSION } = serverRequire('../../dist/shared/chronicle-d
 
 const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { state: 'available', reason: 'available' }])) as PublicCapabilities;
 
-async function briefing(page: Page, focus: MasteryFocus, changes: Record<string, unknown> = {}, extra: Partial<ActivitySpineInput> = {}, startScreen = 'village') {
+async function briefing(page: Page, focus: MasteryFocus, changes: Record<string, unknown> = {}, extra: Partial<ActivitySpineInput> = {}, startScreen = 'village', dismissOpeningScene = false) {
     const save = uiAuditSave();
     const now = Date.now();
     save.character = { ...save.character, statPoints: 0, unspentStats: 0, masteryFocus: focus, lastLoginRewardDate: new Date(now).toISOString().slice(0, 10), ...changes };
@@ -30,6 +30,11 @@ async function briefing(page: Page, focus: MasteryFocus, changes: Record<string,
         return route.fulfill({ contentType: 'application/json', body: JSON.stringify({ ok: true, spine }) });
     });
     await page.goto(`/#/${startScreen}`, { waitUntil: 'domcontentloaded' });
+    if (dismissOpeningScene) {
+        const skip = page.locator('.cvn-skip');
+        await expect(skip).toBeVisible();
+        await skip.click();
+    }
     await expect(page.getByRole('dialog', { name: 'Daily Briefing' })).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('.activity-horizon-now article')).toHaveCount(1);
     await expect(page.locator('.activity-horizon-now button')).toBeEnabled();
@@ -37,21 +42,9 @@ async function briefing(page: Page, focus: MasteryFocus, changes: Record<string,
 }
 
 test('available chapter goes through the existing Story Hall entry', async ({ page }) => {
-    await briefing(page, 'village-chronicle', { level: 55, storyProgress: 4 });
+    await briefing(page, 'village-chronicle', { level: 55, storyProgress: 4 }, {}, 'village', true);
     await expect(page.locator('.activity-horizon-now')).toContainText('next Village Chronicle chapter');
-    // The unread chapter and briefing load independently. Operate the visible
-    // top dialog first; their arrival order differs across browser engines.
-    const skip = page.locator('.cvn-skip');
-    await expect(skip).toBeVisible();
-    let dismissedScene = false;
-    try {
-        await page.locator('.activity-horizon-now button').click({ trial: true, timeout: 1_000 });
-    } catch {
-        await skip.click();
-        dismissedScene = true;
-    }
     await page.locator('.activity-horizon-now button').click();
-    if (!dismissedScene) await skip.click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'storyHall');
     await expect(page.getByRole('heading', { name: 'Story Hall', exact: true })).toBeVisible();
 });
