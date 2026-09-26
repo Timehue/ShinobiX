@@ -77,7 +77,7 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     // Payout endpoints issue #19 found missing from this inventory.
     { file: 'tebex/webhook.ts', mechanism: 'in-save-receipt', markers: ['redeemedTebexPurchases'] },
     { file: 'village/claim-daily-agenda.ts', mechanism: 'in-save-receipt', markers: ['claimedVillageAgendaDate', 'agendaClaimReceipts'] },
-    { file: 'village/claim-map-control.ts', mechanism: 'nx-marker', markers: [/nx:\s*true/] },
+    { file: 'village/claim-map-control.ts', mechanism: 'in-save-receipt', markers: ['claimedMapControlDate', 'writeVersionedPlayerSave'] },
     // Clan Honor Seal pool (issue #179 sibling): the donation keeps its own
     // journal and receipts; a founder's gift is a cross-key settlement.
     { file: 'clan/seal-pool/donate.ts', mechanism: 'economy-tx', markers: ['beginDurableSettlement', 'inspectPlayerReceipt', 'receiptAbsenceProvable'] },
