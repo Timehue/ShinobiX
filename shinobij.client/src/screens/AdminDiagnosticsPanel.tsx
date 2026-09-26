@@ -12,6 +12,7 @@ import {
     type PublicCapabilitiesResponse,
 } from "../../../shared/public-capabilities";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { canReconcileEconomyTx } from "../lib/economy-reconcile-kinds";
 
 // ─── Admin Diagnostics Panel ──────────────────────────────────────────────────
 // Read-only operations/observability surface backing the reliability work:
@@ -386,9 +387,11 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
             const data = await r.json();
             if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
             const credited = Number(data.credited ?? 0);
+            // A resumed settlement answers with its outcome (completed,
+            // credit-already-applied, no-debit); a stake refund with its amount.
             setReconcileStatus(data.alreadyComplete
                 ? `Already complete: ${txId}`
-                : `Reconciled ${txId}${credited ? ` (+${credited.toLocaleString()} ${String(data.tx?.resource ?? "")})` : ""}`);
+                : `Reconciled ${txId}${credited ? ` (+${credited.toLocaleString()} ${String(data.tx?.resource ?? data.resource ?? "")})` : ""}${typeof data.status === "string" ? ` — ${data.status}` : ""}`);
             await loadEconomy();
         } catch (e) {
             setReconcileStatus(`X ${(e as Error).message}`);
@@ -761,7 +764,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                                 {econ.economyTx.stuck.length > 0 && (
                                     <div style={{ maxHeight: 260, overflow: "auto", marginTop: 6 }}>
                                         {econ.economyTx.stuck.map((tx) => {
-                                            const canReconcile = tx.state === "needs-reconcile" && tx.kind === "clan-territory-collect-supply" && tx.resource === "warSupply";
+                                            const canReconcile = canReconcileEconomyTx(tx);
                                             return (
                                                 <div key={tx.id} style={{ borderBottom: "1px solid #2a2a36", padding: "6px 0", ...mono }}>
                                                     <div>
