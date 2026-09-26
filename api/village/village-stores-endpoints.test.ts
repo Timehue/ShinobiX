@@ -293,6 +293,52 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
             'nothing was charged either — the purchase simply did not happen',
         );
     });
+    it('a granted level whose journal completion fails still answers success, so the Kage does not pay again', async () => {
+        // The journal write after the grant used to throw into the catch, which
+        // marked the purchase "structure level NOT granted" and answered 500
+        // although the level had been raised. Pressing again bought the next one.
+        await seed(5, 400);
+        const realSet = kv.set.bind(kv);
+        (kv as { set: KvLike['set'] }).set = (async (key, value, options) => {
+            if (key.startsWith('economy-tx:village-war-structure:') && (value as { state?: string } | null)?.state === 'complete') {
+                throw new Error('journal write failed');
+            }
+            return realSet(key, value, options);
+        }) as KvLike['set'];
+        let out: ResponseOut;
+        try {
+            out = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot' });
+        } finally {
+            (kv as { set: KvLike['set'] }).set = realSet;
+        }
+        assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 6, 'the level was granted');
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.newLevel, 6);
+        const { readEconomyTxSnapshot } = await import('../_economy-tx.js');
+        const row = (await readEconomyTxSnapshot(50)).recent.find((tx) => tx.kind === 'village-war-structure');
+        assert.notEqual(row?.state, 'needs-reconcile', 'no "NOT granted" reconcile row for a level that was granted');
+    });
+    it('pressing again for the level already bought is refused and spends nothing', async () => {
+        // Without the intended level, a retry after a lost answer bought (and
+        // charged for) the NEXT level.
+        await seed(2, 0);
+        const first = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 3 });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        const seals = (await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals;
+        const retry = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot', toLevel: 3 });
+        assert.equal(retry.statusCode, 409);
+        assert.equal(retry.body?.error, 'level-changed');
+        assert.equal(retry.body?.currentLevel, 3);
+        assert.match(String(retry.body?.message), /already at level 3, so nothing was spent/);
+        assert.equal((await kv.get<{ structures: Record<string, number> }>(FROST_WAR))?.structures.supplyDepot, 3);
+        assert.equal((await kv.get<{ treasury: Record<string, number> }>(FROST_STATE))?.treasury.honorSeals, seals);
+        // Per-war structures (War Resources) take the same guard.
+        await kv.set(FROST_WAR, { ...(await kv.get<Record<string, unknown>>(FROST_WAR)), warResources: 10_000 });
+        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 200);
+        const wrLeft = (await kv.get<{ warResources: number }>(FROST_WAR))?.warResources;
+        assert.equal((await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'ramparts', toLevel: 1 })).statusCode, 409);
+        assert.equal((await kv.get<{ warResources: number }>(FROST_WAR))?.warResources, wrLeft);
+    });
     it('levels ≤ 5 need no materials; the kill switch waives the gate', async () => {
         await seed(2, 0);
         const low = await call(warStructure, { playerName: 'frostkage', village: DEFENDER, structure: 'supplyDepot' });
