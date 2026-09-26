@@ -70,7 +70,8 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     setScreen,
     activeTraining,
     activeJutsuTraining,
-}: ProfileCardProps & { beginDailyLogin: DailyLoginCommitFactory }) {
+    storyActive,
+}: ProfileCardProps & { beginDailyLogin: DailyLoginCommitFactory; storyActive: boolean }) {
     return (
         <aside className="left-profile-card">
             {/* Daily Briefing — once-per-day login notice board. Self-gating
@@ -84,13 +85,14 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}
                 navigate={setScreen}
+                storyActive={storyActive}
             />
             {/* Global progression overlays — both portal to <body>, so they show
                 full-screen on desktop AND mobile even though this host card is
                 CSS-hidden on mobile. Hosted here (not App.tsx) to stay within the
                 App.tsx line budget, same pattern as DailyBriefingModal above. */}
             <RankUpCelebration character={character} />
-            <PatchNotesModal character={character} />
+            <PatchNotesModal character={character} storyActive={storyActive} />
             <ProfileCardBody
                 character={character}
                 updateCharacter={updateCharacter}

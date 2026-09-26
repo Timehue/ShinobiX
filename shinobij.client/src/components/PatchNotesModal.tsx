@@ -26,7 +26,7 @@ import "./PatchNotesModal.css";
 const SEEN_KEY = "patchNotes.lastSeenVersion.v1";
 const MIN_LEVEL = 5; // don't interrupt brand-new onboarding; matches DailyBriefingModal
 
-export function PatchNotesModal({ character }: { character: Character }) {
+export function PatchNotesModal({ character, storyActive }: { character: Character; storyActive: boolean }) {
     // Decide the one-time auto-popup at mount (lazy init, not an effect): show
     // the latest unseen note once per device to any established player.
     const [autoOpenPending, setAutoOpenPending] = useState<boolean>(() => {
@@ -38,7 +38,7 @@ export function PatchNotesModal({ character }: { character: Character }) {
     const [open, setOpen] = useState(false);
 
     useEffect(() => {
-        if (!autoOpenPending) return;
+        if (!autoOpenPending || storyActive) return;
         function openWhenClear() {
             if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
             setAutoOpenPending(false);
@@ -53,7 +53,7 @@ export function PatchNotesModal({ character }: { character: Character }) {
             window.cancelAnimationFrame(frame);
             window.removeEventListener("shinobix:daily-briefing-closed", onDailyBriefingClosed);
         };
-    }, [autoOpenPending]);
+    }, [autoOpenPending, storyActive]);
 
     // Manual re-open from any "What's New" button.
     useEffect(() => {
@@ -73,7 +73,7 @@ export function PatchNotesModal({ character }: { character: Character }) {
     const note = LATEST_PATCH_NOTE;
 
     return (
-        <Modal open={open} onClose={close} title={`📜 ${note.title}`} size="lg">
+        <Modal open={open && !storyActive} onClose={close} title={`📜 ${note.title}`} size="lg">
             <div className="patch-notes">
                 <p className="patch-notes-date">{note.date}</p>
                 {note.intro && <p className="patch-notes-intro">{note.intro}</p>}
