@@ -42,8 +42,33 @@ happens.
    (flutter_inappwebview 6.2.0-beta.3) offers the camera in the picker. It saves
    the photo through a file provider that neither the plugin nor this app
    declares, so the photo's address is empty and the page gets no file. There is
-   no error message. Gallery and file picks are not affected. The fix for build
-   7 is to declare the plugin's `InAppWebViewFileProvider` in the manifest.
+   no error message. Gallery and file picks are not affected. The merged
+   manifest of the 2.0.1 (6) release build confirms it: its only provider is
+   `androidx-startup`. The fix for build 7, still to be proven on a phone, is
+   to declare the provider in `android/app/src/main/AndroidManifest.xml`
+   (inside `<application>`):
+
+   ```xml
+   <provider
+       android:name="com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFileProvider"
+       android:authorities="${applicationId}.flutter_inappwebview_android.fileprovider"
+       android:exported="false"
+       android:grantUriPermissions="true">
+       <meta-data
+           android:name="android.support.FILE_PROVIDER_PATHS"
+           android:resource="@xml/provider_paths" />
+   </provider>
+   ```
+
+   and add `android/app/src/main/res/xml/provider_paths.xml`, where the plugin
+   writes the photo (`getExternalFilesDir(null)`):
+
+   ```xml
+   <paths><external-files-path name="captures" path="." /></paths>
+   ```
+
+   Add an assertion for the provider to `test/webview_settings_test.dart` in
+   the same change.
 2. **The website's shop through a legal page (row 5).** Legal pages open in a
    Chrome tab, and their "← Back to Home" link loads the full website in that
    tab. The app's User-Agent token is absent there. Whether the website still
