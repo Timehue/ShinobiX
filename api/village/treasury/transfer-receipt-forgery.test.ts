@@ -157,3 +157,22 @@ test('receipts the server wrote survive a later village-state save', async () =>
         assert.deepEqual((await kv.get<Record<string, unknown>>(VILLAGE_KEY))?.settlementReceipts, receipts);
     }
 });
+
+test("a Kage's gift answers with a save version only when the Kage is the recipient", async () => {
+    // The client adopts any top-level _saveVersion as the caller's own. A
+    // villager whose save is far ahead of the Kage's would otherwise wedge
+    // every autosave the Kage makes afterwards.
+    await kv.set(VILLAGE_KEY, { village: VILLAGE, treasury: { ryo: 1_000 } });
+    await kv.set(`save:${ALT}`, { _saveVersion: 900, character: { name: ALT, village: VILLAGE, level: 60, ryo: 0 } });
+    const toVillager = await call(transfer, KAGE, { village: VILLAGE, recipientName: ALT, currency: 'ryo', amount: 100, requestId: 'village-echo-villager-0001' });
+    assert.equal(toVillager.statusCode, 200, JSON.stringify(toVillager.body));
+    assert.equal('_saveVersion' in (toVillager.body ?? {}), false);
+    assert.equal(toVillager.body?.character, undefined);
+
+    const toSelf = await call(transfer, KAGE, { village: VILLAGE, recipientName: KAGE, currency: 'ryo', amount: 100, requestId: 'village-echo-self-00001' });
+    assert.equal(toSelf.statusCode, 200, JSON.stringify(toSelf.body));
+    const own = await kv.get<{ _saveVersion: number; character: Record<string, unknown> }>(`save:${KAGE}`);
+    assert.ok(Number(own?.character.ryo) > 0, 'the Kage was credited');
+    assert.deepEqual(toSelf.body?.character, own?.character, 'TownHall commits this character with the version below');
+    assert.equal(toSelf.body?._saveVersion, own?._saveVersion);
+});

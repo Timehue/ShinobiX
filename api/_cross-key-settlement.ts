@@ -35,6 +35,27 @@ export type CrossKeySettlementResult = {
     replayed: boolean;
 };
 
+/**
+ * The HTTP reply to a settled transfer. The result carries the RECIPIENT's
+ * save version, and the client adopts any top-level _saveVersion as the
+ * caller's own (shinobij.client/src/authFetch.ts observeSaveVersion): an
+ * officer who gifted a member with a newer save took that version, and every
+ * later autosave was refused until a reload. Only a transfer to the caller
+ * carries a version, together with the character it belongs to, which is what
+ * the treasury screens' self-gift branch commits.
+ */
+export async function crossKeyTransferReply(
+    result: Record<string, unknown>,
+    toCaller: boolean,
+    recipientKey: string,
+): Promise<Record<string, unknown>> {
+    const body: Record<string, unknown> = { ok: true, ...result };
+    delete body._saveVersion;
+    if (!toCaller) return body;
+    const saved = await kv.get<Record<string, unknown>>(recipientKey);
+    return saved?.character ? { ...body, character: saved.character, _saveVersion: saved._saveVersion } : body;
+}
+
 export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
     operationType: string;
     idempotencyKey: string;
