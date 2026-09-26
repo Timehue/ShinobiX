@@ -1,7 +1,8 @@
 import { withKvLock } from './_lock.js';
 import { kv } from './_storage.js';
 import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlement, inspectSettlementReceipt as inspectSourceReceipt, settlementTransactionId, updateDurableSettlement, type DurableSettlementRecord } from './_durable-settlement.js';
-import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, type ServerSettlementReceipt } from './_settlement-receipts.js';
+import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, SERVER_SETTLEMENT_RECEIPT_LIMIT, type ServerSettlementReceipt } from './_settlement-receipts.js';
+import { receiptAbsenceProvable } from './_save-debit-saga.js';
 
 export class SettlementValidationError extends Error {
     /**
@@ -55,6 +56,8 @@ export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
     creditRecipient: (character: Record<string, unknown>) => { character: Record<string, unknown>; result: Record<string, unknown> };
     saveRecipient: (record: Record<string, unknown>, character: Record<string, unknown>) => Promise<Record<string, unknown>>;
     sourceReceiptField?: string;
+    /** The cap debitSource applies to the source's receipt list. Every caller keeps 100. */
+    sourceReceiptLimit?: number;
 };
 
 /**
@@ -104,6 +107,20 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
         }, { kv });
         if (tx.status === 'conflict') throw new SettlementValidationError(409, 'That settlement ID is already bound to a different operation.');
         if (tx.record.state === 'completed' && tx.record.result) return { result: tx.record.result, transaction: tx.record, replayed: true };
+        // Both sides were written and only the completion was lost. The
+        // journal holds the result, so finish from it: the receipts that
+        // prove the two writes may have been pushed out of their capped lists
+        // by now, and nothing needs writing again.
+        if (tx.record.state === 'credit-applied' && tx.record.result) {
+            const completed = await completeDurableSettlement(transactionId, tx.record.result, { kv });
+            return { result: tx.record.result, transaction: completed, replayed: false };
+        }
+        // An earlier attempt reserved this transfer, so one of its writes may
+        // have landed. Its receipt tells, unless newer receipts have pushed it
+        // off the end of its capped list since; runSaveDebitSaga guards the
+        // same way. A cancelled attempt wrote nothing, and a pending one never
+        // reached the write.
+        const resumed = tx.record.state !== 'pending' && tx.record.state !== 'cancelled';
 
         let mutationObserved = false;
         try {
@@ -114,6 +131,10 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
             if (sourceState === 'conflict' || sourceState === 'invalid') {
                 throw new SettlementValidationError(409, 'The source record has a conflicting settlement receipt.');
             }
+            // From here a refusal must never cancel a transfer whose debit
+            // already landed: a cancelled journal is final and invisible to the
+            // stale sweep, and the debited value would be stranded unseen.
+            mutationObserved = sourceState === 'replay';
 
             const recipient = await options.loadRecipient();
             if (!recipient) throw new SettlementValidationError(404, 'Recipient save not found.');
@@ -122,6 +143,20 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
                 throw new SettlementValidationError(409, 'The recipient save has a conflicting settlement receipt.');
             }
             mutationObserved = sourceState === 'replay' || receiptState.status === 'replay';
+
+            if (resumed) {
+                const sourceList = Array.isArray(source[sourceField]) ? source[sourceField] as unknown[] : [];
+                const debitUnknown = sourceState === 'fresh'
+                    && !receiptAbsenceProvable(sourceList, options.sourceReceiptLimit ?? 100, 'appliedAt', tx.record.createdAt);
+                const creditUnknown = sourceState === 'replay' && receiptState.status === 'fresh'
+                    && !receiptAbsenceProvable(receiptState.receipts, SERVER_SETTLEMENT_RECEIPT_LIMIT, 'settledAt', tx.record.createdAt);
+                if (debitUnknown || creditUnknown) {
+                    // Writing now could apply a side a second time. Leave the
+                    // journal for an operator instead of cancelling it.
+                    mutationObserved = true;
+                    throw new SettlementValidationError(409, 'This transfer can no longer be proven either way, so nothing was moved. An administrator must reconcile it.', { reconcile: true });
+                }
+            }
 
             if (sourceState === 'fresh') {
                 if (receiptState.status === 'replay') {
