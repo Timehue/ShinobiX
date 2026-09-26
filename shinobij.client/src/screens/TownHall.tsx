@@ -460,7 +460,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     async function upgradeWarStruct(key: string) {
         setWarStructBusy(key);
         try {
-            await upgradeWarStructure(character.name, character.village, key);
+            await upgradeWarStructure(character.name, character.village, key, warStructures ? (warStructures[key] ?? 0) + 1 : undefined);
             const wm = await fetchWarMap();
             const mine = wm.villages.find((v) => v.village === character.village);
             setWarStructures(mine ? mine.structures : null);

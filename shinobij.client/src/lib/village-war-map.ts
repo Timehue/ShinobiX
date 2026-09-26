@@ -341,8 +341,11 @@ export function setSectorWinCondition(playerName: string, village: string, secto
 export function setSectorTerrain(playerName: string, village: string, sector: number, terrain: string) {
     return postJson("/api/village/war-terrain", { playerName, village, sector, terrain });
 }
-export function upgradeWarStructure(playerName: string, village: string, structure: string) {
-    return postJson("/api/village/war-structure", { playerName, village, structure });
+/** `toLevel` is the level being bought: pressing again after a lost answer is
+ *  then refused ("already at level N, nothing was spent") instead of buying
+ *  the next level. */
+export function upgradeWarStructure(playerName: string, village: string, structure: string, toLevel?: number) {
+    return postJson("/api/village/war-structure", { playerName, village, structure, ...(toLevel ? { toLevel } : {}) });
 }
 
 // ── Mercenaries (Phase 5) ──
