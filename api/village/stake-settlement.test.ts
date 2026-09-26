@@ -238,6 +238,15 @@ describe('clan war declaration settles exactly once', { concurrency: false }, ()
         assert.equal(await field(OFFICER_SAVE, 'honorSeals'), 400);
     });
 
+    test('a member without clan leadership cannot declare, and pays nothing', async () => {
+        await twoClans();
+        await kv.set('save:warmember', { _saveVersion: 1, character: { name: 'warmember', clan: 'Ashwind', village: 'Frostfang Village', honorSeals: 500 } });
+        const refused = await declare('clan-war-member-000001', 'warmember');
+        assert.equal(refused.status, 403);
+        assert.equal(await field('save:warmember', 'honorSeals'), 500);
+        assert.equal(await activeWar(), null);
+    });
+
     test('short balances and an existing war move nothing', async () => {
         await twoClans(99);
         assert.equal((await declare('clan-war-short-00000001')).status, 400);
