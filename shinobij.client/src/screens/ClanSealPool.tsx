@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
+import { hasPendingSealDistribution, hasPendingSealDonation, postSealDistribution, postSealDonation } from "../lib/clan-seal-pool-api";
 import type { Character } from "../App";
 
 type LogEntry = {
@@ -34,11 +35,6 @@ export function ClanSealPool({
     const [escortBusy, setEscortBusy] = useState(false);
     const escortBusyRef = useRef(false);
 
-    const nextDonationRequestId = () => {
-        const uuid = globalThis.crypto?.randomUUID?.();
-        return uuid ? `seal-donate-${uuid}` : `seal-donate-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    };
-
     const isVanguard = character.profession === "vanguard";
     const isPetTamer = character.profession === "petTamer";
     const isLeader = !!character.clanFounder;
@@ -49,6 +45,11 @@ export function ClanSealPool({
     const dailyCap = Math.floor(((character.honorSeals ?? 0) + donatedToday) * 0.5);
     const remainingToday = Math.max(0, dailyCap - donatedToday);
     const iAmEscorting = escorters.some(n => n.toLowerCase() === character.name.toLowerCase());
+    // An unconfirmed identical request may already have moved Seals; pressing
+    // again finishes it without moving them twice (lib/clan-seal-pool-api), so
+    // the local balance checks must not block that retry.
+    const donationPending = hasPendingSealDonation(character.name, character.clan ?? "", donateAmount);
+    const distributionPending = hasPendingSealDistribution(character.name, character.clan ?? "", recipient, distributeAmount);
 
     async function fetchPool() {
         if (!character.clan) return;
@@ -98,13 +99,8 @@ export function ClanSealPool({
         busyRef.current = true;
         setBusy(true); setMsg(null);
         try {
-            const res = await fetch('/api/clan/seal-pool/donate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerName: character.name, amount: donateAmount, requestId: nextDonationRequestId() }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
+            const { ok, data } = await postSealDonation(character.name, character.clan ?? "", donateAmount);
+            if (!ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
             } else {
                 updateCharacter({
@@ -125,17 +121,8 @@ export function ClanSealPool({
         busyRef.current = true;
         setBusy(true); setMsg(null);
         try {
-            const res = await fetch('/api/clan/seal-pool/distribute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    leaderName: character.name,
-                    recipientName: recipient.trim(),
-                    amount: distributeAmount,
-                }),
-            });
-            const data = await res.json().catch(() => ({}));
-            if (!res.ok) {
+            const { ok, data } = await postSealDistribution(character.name, character.clan ?? "", recipient.trim(), distributeAmount);
+            if (!ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
             } else {
                 setMsg(`✅ Gave ${data.distributed} Seals to ${data.recipient}`);
@@ -174,7 +161,7 @@ export function ClanSealPool({
                     />
                     <button
                         onClick={() => void donate()}
-                        disabled={busy || donateAmount > remainingToday || donateAmount < 1}
+                        disabled={busy || (donateAmount > remainingToday && !donationPending) || donateAmount < 1}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
                         {busy ? "…" : `Donate ${donateAmount} Seals`}
@@ -210,7 +197,7 @@ export function ClanSealPool({
                     />
                     <button
                         onClick={() => void distribute()}
-                        disabled={busy || !recipient.trim() || distributeAmount < 1 || (pool?.balance ?? 0) < distributeAmount}
+                        disabled={busy || !recipient.trim() || distributeAmount < 1 || ((pool?.balance ?? 0) < distributeAmount && !distributionPending)}
                         style={{ background: "linear-gradient(#854d0e,#422006)", borderColor: "var(--gold)" }}
                     >
                         {busy ? "…" : "Give"}

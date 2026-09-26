@@ -1,17 +1,30 @@
+import { randomUUID } from 'node:crypto';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../../_utils.js';
+import { safeName, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { withKvLock } from '../../_lock.js';
-import { bumpSaveVersion } from '../../save/_save-version.js';
-import { loadPool, savePool } from './_storage.js';
+import { LockContendedError } from '../../_lock.js';
+import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
+import { getDurableSettlement, settlementFingerprint, settlementTransactionId } from '../../_durable-settlement.js';
+import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
+import { loadPool, savePool, type ClanSealPool } from './_storage.js';
 
 // Clan leader (clanFounder = true) distributes Honor Seals from the clan
 // pool to a clan member. Recipient must be in the same clan.
 const MIN_DISTRIBUTE = 1;
 const MAX_DISTRIBUTE_PER_CALL = 500;
+const OPERATION = 'clan-seal-distribute';
+
+// Same bound as donate.ts. A client that sends no id gets a one-shot key: two
+// deliberate gifts of the same amount to the same member are two gifts.
+function requestIdFrom(raw: unknown): string {
+    const value = typeof raw === 'string' ? raw.trim() : '';
+    return /^[A-Za-z0-9_-]{8,96}$/.test(value)
+        ? value
+        : `legacy-${randomUUID().replace(/-/g, '')}`;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -43,111 +56,104 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // first. 10/min is generous for legit founder activity.
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'clan-seal-distribute', 10, 60_000, identity.name))) return;
 
-        // Verify leader status.
-        const leaderRecord = await kv.get<Record<string, unknown>>(`save:${leaderName}`);
-        const leaderChar = leaderRecord?.character as Record<string, unknown> | undefined;
-        if (!leaderChar) return res.status(404).json({ error: 'Leader character not found.' });
-        const clanName = typeof leaderChar.clan === 'string' ? leaderChar.clan : '';
-        if (!clanName) return res.status(400).json({ error: 'You must be in a clan to distribute.' });
-        if (!identity.admin && !leaderChar.clanFounder) {
-            return res.status(403).json({ error: 'Only the clan founder can distribute Honor Seals.' });
-        }
+        const requestId = requestIdFrom(body.requestId);
+        const transactionId = settlementTransactionId(OPERATION, requestId);
 
-        // Verify recipient is in the same clan.
-        const recipientRecord = await kv.get<Record<string, unknown>>(`save:${recipientName}`);
-        const recipientChar = recipientRecord?.character as Record<string, unknown> | undefined;
-        if (!recipientChar) return res.status(404).json({ error: 'Recipient not found.' });
-        if (recipientChar.clan !== clanName) {
-            return res.status(400).json({ error: 'Recipient is not in your clan.' });
-        }
-
-        // Pool debit + recipient credit under a per-clan-pool lock so two
-        // simultaneous distributes can't both read pre-debit balance and
-        // double-spend. Lock keyed on the pool key so it doesn't collide
-        // with unrelated locks.
-        const poolKey = `clan-seal-pool:${clanName.toLowerCase()}`;
-        const result = await withKvLock(poolKey, async () => {
-            const pool = await loadPool(clanName);
-            if (pool.balance < amount) {
-                return { ok: false as const, available: pool.balance };
+        // A retry of a gift that may already have moved Seals resumes it. It
+        // must not be refused by a check that only a fresh gift needs: the
+        // founder may have stepped down or left since, and refusing would
+        // strand Seals that already left the pool. The journal remembers which
+        // clan paid. A pending or cancelled attempt never wrote anything, so it
+        // is checked again from the start.
+        const journal = await getDurableSettlement(transactionId, { kv });
+        const resuming = journal !== null && journal.state !== 'pending' && journal.state !== 'cancelled';
+        let clanName: string;
+        if (resuming) {
+            const meta = journal.meta ?? {};
+            if (meta.leaderName !== leaderName || meta.recipientName !== recipientName || journal.amount !== amount || typeof meta.clanName !== 'string') {
+                return res.status(409).json({ error: 'That distribution request ID is already bound to a different distribution.', requestId });
             }
-            pool.balance -= amount;
-            pool.log.unshift({
-                kind: 'distribute',
-                by: leaderName,
-                to: recipientName,
-                amount,
-                at: Date.now(),
-            });
-            await savePool(pool);
-            return { ok: true as const, poolBalance: pool.balance };
-        }, { failClosed: true });
-        if (!result.ok) {
-            return res.status(400).json({
-                error: 'Not enough Seals in the clan pool.',
-                requested: amount,
-                available: result.available,
-            });
+            clanName = meta.clanName;
+        } else {
+            const leaderRecord = await kv.get<Record<string, unknown>>(`save:${leaderName}`);
+            const leaderChar = leaderRecord?.character as Record<string, unknown> | undefined;
+            if (!leaderChar) return res.status(404).json({ error: 'Leader character not found.' });
+            clanName = typeof leaderChar.clan === 'string' ? leaderChar.clan : '';
+            if (!clanName) return res.status(400).json({ error: 'You must be in a clan to distribute.' });
+            if (!identity.admin && !leaderChar.clanFounder) {
+                return res.status(403).json({ error: 'Only the clan founder can distribute Honor Seals.' });
+            }
         }
 
-        // Credit recipient. Hold `lock:save:<recipient>` (failClosed) for the
-        // read-modify-write so neither a concurrent player auto-save nor lock
-        // contention can drop the credit — on contention the lock THROWS rather
-        // than running an unlocked RMW, and we refund below.
-        const recipientSaveKey = `save:${recipientName}`;
-        let credited = false;
-        try {
-            await withKvLock(recipientSaveKey, async () => {
-                // Re-read inside the lock to grab any updates that landed
-                // between the membership check above and this point.
-                const freshRecord = await kv.get<Record<string, unknown>>(recipientSaveKey);
-                const freshChar = freshRecord?.character as Record<string, unknown> | undefined;
-                if (!freshChar) return;   // recipient vanished → credited stays false → refund
-                const updatedRecipient = {
-                    ...freshRecord,
-                    character: {
-                        ...freshChar,
-                        honorSeals: Number(freshChar.honorSeals ?? 0) + amount,
-                    },
+        // One settlement moves both sides exactly once per request id (see
+        // api/_cross-key-settlement.ts). The pool row is locked first, then the
+        // recipient's save, like every path that holds a shared row and a
+        // player save. The pool receipt proves the debit and the in-save
+        // receipt proves the credit, so a retry after any failure finishes what
+        // is missing and never refunds a credit that may have landed.
+        const poolKey = `clan-seal-pool:${clanName.toLowerCase()}`;
+        const recipientKey = `save:${recipientName}`;
+        let poolBalanceAfterDebit: number | null = null;
+        const transfer = await settleCrossKeyTransfer<ClanSealPool>({
+            operationType: OPERATION,
+            idempotencyKey: requestId,
+            fingerprint: settlementFingerprint({ operation: OPERATION, leaderName, recipientName, clanName: clanName.toLowerCase(), amount }),
+            actorIds: [leaderName, recipientName, clanName.toLowerCase()],
+            resource: 'honorSeals',
+            amount,
+            meta: { leaderName, recipientName, clanName },
+            sourceKey: poolKey,
+            recipientKey,
+            loadSource: () => loadPool(clanName),
+            validateSource: (pool) => {
+                const available = Number(pool.balance ?? 0);
+                if (available < amount) {
+                    throw new SettlementValidationError(400, 'Not enough Seals in the clan pool.', { requested: amount, available });
+                }
+            },
+            debitSource: (pool, receipt) => {
+                poolBalanceAfterDebit = Number(pool.balance ?? 0) - amount;
+                return {
+                    ...pool,
+                    balance: poolBalanceAfterDebit,
+                    log: [{ kind: 'distribute', by: leaderName, to: recipientName, amount, at: receipt.appliedAt }, ...pool.log],
+                    settlementReceipts: [{ ...receipt, value: { poolBalance: poolBalanceAfterDebit } }, ...(pool.settlementReceipts ?? [])].slice(0, 100),
                 };
-                await kv.set(recipientSaveKey, mergePreservingImages(bumpSaveVersion(updatedRecipient, { previousCharacter: freshChar }), freshRecord));
-                credited = true;          // only reachable after the atomic set resolved
-            }, { failClosed: true });
-        } catch (creditErr) {
-            console.error('[clan/seal-pool/distribute] credit failed, refunding pool', creditErr);
-        }
-
-        // Refund-on-failure: the pool was already debited, so if the recipient
-        // was never credited (vanished record or a storage/lock fault) the Seals
-        // must go back to the pool instead of evaporating. `credited` can only be
-        // true after the single atomic kv.set resolved, so this branch can never
-        // double-pay (mint) a recipient that actually received the Seals.
-        if (!credited) {
-            await withKvLock(poolKey, async () => {
-                const pool = await loadPool(clanName);
-                pool.balance += amount;
-                pool.log.unshift({
-                    kind: 'distribute-refund',
-                    by: leaderName,
-                    to: recipientName,
-                    amount,
-                    at: Date.now(),
-                });
-                await savePool(pool);
-            }, { failClosed: true });
-            return res.status(409).json({
-                error: 'Could not credit the recipient — the Seals were returned to the clan pool. Please try again.',
-                requested: amount,
-            });
-        }
-
-        return res.status(200).json({
-            ok: true,
-            distributed: amount,
-            recipient: recipientName,
-            poolBalance: result.poolBalance,
+            },
+            saveSource: (pool) => savePool(pool),
+            loadRecipient: async () => {
+                const record = await kv.get<Record<string, unknown>>(recipientKey);
+                const character = record?.character as Record<string, unknown> | undefined;
+                return record && character ? { record, character } : null;
+            },
+            validateRecipient: ({ character }) => {
+                if (character.clan !== clanName) throw new SettlementValidationError(400, 'Recipient is not in your clan.');
+            },
+            creditRecipient: (character) => ({
+                character: { ...character, honorSeals: Number(character.honorSeals ?? 0) + amount },
+                result: {
+                    distributed: amount,
+                    recipient: recipientName,
+                    ...(poolBalanceAfterDebit !== null ? { poolBalance: poolBalanceAfterDebit } : {}),
+                },
+            }),
+            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
+
+        // The settlement result carries the RECIPIENT's save version. The
+        // client adopts any top-level _saveVersion as the caller's own, so it
+        // never goes back to the leader.
+        const result: Record<string, unknown> = { ...transfer.result };
+        delete result._saveVersion;
+        const poolBalance = typeof result.poolBalance === 'number' ? result.poolBalance : (await loadPool(clanName)).balance;
+        return res.status(200).json({ ok: true, ...result, poolBalance, requestId });
     } catch (err) {
+        if (err instanceof SettlementValidationError) {
+            return res.status(err.status).json({ ...err.details, error: err.message });
+        }
+        if (err instanceof LockContendedError) {
+            return res.status(503).json({ error: 'The Seal pool is busy; retry with the same requestId.', retryable: true });
+        }
         console.error('[clan/seal-pool/distribute]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }
