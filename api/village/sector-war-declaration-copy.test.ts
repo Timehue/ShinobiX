@@ -29,7 +29,10 @@ function inlineErrorBodies(text: string): string[] {
 describe('sector-war declaration faults', () => {
     it('routes every declaration fault through the logging helper, not a raw 503 body', () => {
         assert.match(source, /function declarationFault\(res: VercelResponse, code: string, message: string, detail: Record<string, unknown>\)/);
-        assert.match(source, /console\.warn\('\[village\/sector-war\] declaration-fault', safeLogValue\(\{ code, \.\.\.detail \}\)\)/);
+        // Serialized before safeLogValue, which stringifies: the object form
+        // logged "[object Object]" and hid every one of these diagnostics.
+        assert.match(source, /console\.warn\('\[village\/sector-war\] declaration-fault', safeLogValue\(JSON\.stringify\(\{ code, \.\.\.detail \}\), 600\)\)/);
+        assert.doesNotMatch(source, /safeLogValue\(\{ code, \.\.\.detail \}\)/);
         const codes = [...source.matchAll(/declarationFault\(res, '([a-z-]+)'/g)].map(m => m[1]);
         assert.deepEqual(codes.slice().sort(), [
             'existing-state-invalid',

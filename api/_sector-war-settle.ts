@@ -24,8 +24,9 @@
  * sits above both. Underscore-prefixed → a helper, not a route.
  */
 
-import { withKvLock } from './_lock.js';
+import { withKvLock, LockContendedError } from './_lock.js';
 import { kv } from './_storage.js';
+import { logWarEvent, warEventError } from './_war-event-log.js';
 import {
     settleSectorWar,
     sectorWarKey,
@@ -95,16 +96,20 @@ export interface SectorWarSettlement {
 
 /** Settle every war whose 72 hours are up. Returns what was settled. Never
  *  throws — a settlement hiccup must not break the caller's own path; an
- *  unsettled war is simply retried by the next poll or the daily pass. */
+ *  unsettled war is simply retried by the next poll or the daily pass. Every
+ *  settlement and every deferral is logged as a `[war-event]` line, so a war
+ *  that keeps failing to settle is visible rather than silent. */
 export async function settleDueSectorWars(now: number = Date.now()): Promise<SectorWarSettlement[]> {
     let due;
     try {
         due = await listUnsettledDueSectorWars(now);
-    } catch {
+    } catch (error) {
+        logWarEvent('settlement-deferred', { reason: 'scan-failed', error: warEventError(error) }, 'error');
         return [];
     }
     const settled: SectorWarSettlement[] = [];
     for (const war of due) {
+        let verdictDurable = false;
         try {
             // Every battle receipt must outlive this row: a defended war's
             // record expires a day after settlement, but PvP replays can still
@@ -154,6 +159,20 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                 return verdict;
             }, { failClosed: true });
             if (!outcome) continue;
+            verdictDurable = true;
+            // Logged as soon as the verdict is durable, before the best-effort
+            // tail below, so a failed tail never reads as an unsettled war.
+            logWarEvent('settled', {
+                contestId: war.id,
+                instance: sectorWarInstanceTag(outcome.session),
+                sector: war.sector,
+                attackerVillage: war.attackerVillage,
+                defenderVillage: war.defenderVillage,
+                outcome: outcome.attackerWon ? 'captured' : 'defended',
+                attackerWon: outcome.attackerWon,
+                attackerPoints: outcome.session.attackerPoints,
+                defenderPoints: outcome.session.defenderPoints,
+            });
             // Village Stores — Intel: a resolved war (either outcome) burns BOTH
             // sides' intel on the sector. Idempotent delete, best-effort, after the
             // war lock (api/_village-intel.ts).
@@ -194,8 +213,18 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                 attackerPoints: outcome.session.attackerPoints,
                 defenderPoints: outcome.session.defenderPoints,
             });
-        } catch {
-            // Contended or storage blip — the war stays due and settles on a later pass.
+        } catch (error) {
+            // Contended or storage blip — the war stays due and settles on a
+            // later pass. Contention is ordinary (another poller holds the
+            // lock); anything else is worth an operator's attention. A failure
+            // after the verdict landed only lost the intel/herald tail.
+            const contended = error instanceof LockContendedError;
+            logWarEvent('settlement-deferred', {
+                contestId: war.id,
+                sector: war.sector,
+                reason: verdictDurable ? 'after-verdict' : contended ? 'contended' : 'error',
+                error: warEventError(error),
+            }, contended ? 'warn' : 'error');
         }
     }
     return settled;
