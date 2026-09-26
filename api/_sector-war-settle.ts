@@ -51,24 +51,28 @@ import { zeroSectorIntel } from './_village-intel.js';
 
 /** World Herald copy for a settled war. Exported for the test. */
 export function sectorWarResolutionAnnouncement(
-    war: Pick<SectorWarSession, 'id' | 'sector' | 'attackerVillage' | 'defenderVillage'>,
+    war: Pick<SectorWarSession, 'id' | 'sector' | 'attackerVillage' | 'defenderVillage'> & Partial<Pick<SectorWarSession, 'declarationGeneration' | 'startedAt'>>,
     outcome: { attackerWon: boolean; attackerPoints: number; defenderPoints: number },
 ): { type: string; title: string; message: string; village: string; receiptId: string } {
     const score = `${outcome.attackerPoints}–${outcome.defenderPoints}`;
+    // The contest id is the same for every war between two villages over one
+    // sector, so the receipt names this instance too: a rematch is its own war
+    // and gets its own herald post.
+    const receiptId = `sector-war-resolved:${war.id}:${sectorWarInstanceTag({ declarationGeneration: war.declarationGeneration, startedAt: war.startedAt ?? 0 })}`;
     return outcome.attackerWon
         ? {
             type: 'sector_war_resolved',
             title: `Sector ${war.sector} Falls`,
             message: `${war.attackerVillage} has taken Sector ${war.sector} from ${war.defenderVillage} after a 72-hour war (${score}).`,
             village: war.attackerVillage,
-            receiptId: `sector-war-resolved:${war.id}`,
+            receiptId,
         }
         : {
             type: 'sector_war_resolved',
             title: `Sector ${war.sector} Holds`,
             message: `${war.defenderVillage} held Sector ${war.sector} against ${war.attackerVillage}'s 72-hour siege (${score}).`,
             village: war.defenderVillage,
-            receiptId: `sector-war-resolved:${war.id}`,
+            receiptId,
         };
 }
 
@@ -96,7 +100,9 @@ export interface SectorWarSettlement {
 
 /** Settle every war whose 72 hours are up. Returns what was settled. Never
  *  throws — a settlement hiccup must not break the caller's own path; an
- *  unsettled war is simply retried by the next poll or the daily pass. Every
+ *  unsettled war is simply retried by the next caller: any sector-war
+ *  declaration, a `status` call, or the 03:00 UTC daily pass. (The war map's
+ *  own poll, GET /api/village/war-map, does not settle.) Every
  *  settlement and every deferral is logged as a `[war-event]` line, so a war
  *  that keeps failing to settle is visible rather than silent. */
 export async function settleDueSectorWars(now: number = Date.now()): Promise<SectorWarSettlement[]> {
@@ -178,8 +184,8 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
             // war lock (api/_village-intel.ts).
             await zeroSectorIntel(war.sector, [war.attackerVillage, war.defenderVillage], now);
             // World Herald, AFTER the verdict is durable and outside the war lock.
-            // The receipt is the war id, so a cron re-run or a second poller that
-            // loses the settle race can never post it twice.
+            // The receipt is the war instance, so a cron re-run or a second
+            // caller that loses the settle race can never post it twice.
             try {
                 const copy = sectorWarResolutionAnnouncement(war, {
                     attackerWon: outcome.attackerWon,
