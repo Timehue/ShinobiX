@@ -61,8 +61,11 @@ describe('village treasury transfer settlement', () => {
                 // Gift tax (api/_treasury-gift-tax.ts, 2026-08-17): the pool loses the
         // full 25, the recipient receives 22 and 3 is BURNED. 10 + 22 = 32.
         assert.equal(recipient?.character?.ryo, 32);
-        assert.equal(first.body?._saveVersion, recipient?._saveVersion, 'fresh transfer must echo the exact recipient commit version');
-        assert.equal(replay.body?._saveVersion, recipient?._saveVersion, 'durable replay must preserve the original commit version');
+        // A caller's client adopts any top-level _saveVersion as its own save's
+        // version, so the recipient's never goes back to anyone but the recipient.
+        assert.equal('_saveVersion' in (first.body ?? {}), false, 'a fresh transfer must not echo the recipient version');
+        assert.equal('_saveVersion' in (replay.body ?? {}), false, 'nor may the durable replay of its stored result');
+        assert.ok(Number(recipient?._saveVersion) > 1, 'the recipient save was committed with a new version');
     });
 
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {

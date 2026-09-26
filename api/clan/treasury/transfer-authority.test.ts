@@ -128,7 +128,9 @@ async function fixture() {
         assert.equal(after.recipient?.character.ryo, 32);
         assert.equal(result.body?.burned, 3);
         assert.equal(result.body?.amount, 22);
-        assert.equal(result.body?._saveVersion, after.recipient?._saveVersion);
+        // The officer's client adopts any top-level _saveVersion as its own
+        // save's version; the member's would wedge every later autosave.
+        assert.equal('_saveVersion' in (result.body ?? {}), false, "the recipient's save version must not reach the officer");
     };
     return { actor, actorSlug, actorRow, clan, clanKey, post, records, writeClan, expectDenied, expectGift };
 }
@@ -220,6 +222,18 @@ describe('clan treasury appointed leadership authority', { concurrency: false },
         f.actorRow.battleContrib = 0;
         await f.writeClan();
         await f.expectDenied({ isFounder: true, founderName: f.actor, role: 'Founder' });
+    });
+
+    it('a gift to yourself returns your character with its save version, which the Clan Hall commits', async () => {
+        const f = await fixture();
+        f.clan.roleOverrides[f.actor] = 'Officer';
+        await f.writeClan();
+        const result = await f.post({ recipientName: f.actor });
+        assert.equal(result.statusCode, 200, String(result.body?.error));
+        const own = await kv.get<PlayerSave>(`save:${f.actorSlug}`);
+        assert.equal(own?.character.ryo, 32);
+        assert.deepEqual(result.body?.character, own?.character);
+        assert.equal(result.body?._saveVersion, own?._saveVersion);
     });
 
     it('does not accept a founder name header with another member token', async () => {
