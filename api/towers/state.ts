@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { isPublicTowerRun, isSpireRun, readSession, isTowerRunLapsed, writeSession } from './_tower-store.js';
+import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliation, writeSession } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { autoPassAfkHumans, isAfkHumanTurnDue } from './_tower-mp.js';
 import { bumpTowerActionVersion, initializeTowerActionVersion } from './_action-idempotency.js';
@@ -68,8 +68,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let session = await readSession(runId);
         if (!session) return recoverMissingRun();
         // F08: a lapsed run is terminalized as a forfeit before it is shown.
-        if (isTowerRunLapsed(session)) {
-            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, callerSlug ?? undefined);
+        if (needsTowerLapseReconciliation(session)) {
+            const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, callerSlug ?? undefined);
+            if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending' });
             session = await readSession(runId) ?? session;
         }
         const isMember = identity.admin || session.actors.some(a => a.side === 'squad'

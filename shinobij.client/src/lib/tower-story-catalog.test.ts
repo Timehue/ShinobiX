@@ -48,8 +48,8 @@ test("Story recommendation follows API floors beyond the former ten-floor ceilin
 
 test("Chapter field reports require the newly settled milestone", () => {
     assert.equal(towerStoryFieldReport(10, []), null);
-    assert.match(towerStoryFieldReport(10, ["tower-floor-10"]) ?? "", /Genin.*vanguard.*upper route/i);
-    assert.match(towerStoryFieldReport(15, ["tower-floor-15"]) ?? "", /Tower Scout.*array is dark.*extraction/i);
+    assert.match(towerStoryFieldReport(10, ["tower-floor-10"]) ?? "", /platforms are secure.*vanguard.*upper route/i);
+    assert.match(towerStoryFieldReport(15, ["tower-floor-15"]) ?? "", /assault squads have fallen.*array is dark.*extraction/i);
     assert.equal(towerStoryFieldReport(15, ["tower-floor-10"]), null);
 });
 

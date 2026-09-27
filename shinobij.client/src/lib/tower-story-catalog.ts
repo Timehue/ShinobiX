@@ -95,10 +95,10 @@ export function groupTowerStoryChapters(floors: readonly TowerFloorMeta[]): Towe
 /** A field report appears only with the milestone newly returned by settlement. */
 export function towerStoryFieldReport(floor: number, newlyRecordedMilestones: readonly string[]): string | null {
     if (floor === 10 && newlyRecordedMilestones.includes("tower-floor-10")) {
-        return "Dispatcher Aya's field report: the stranded Genin and the vanguard are descending under escort. The Sovereign's command seal opened an upper route, but a Stormglass regiment still holds it.";
+        return "Dispatcher Aya's field report: the lower platforms are secure and the enemy vanguard has been defeated. The Sovereign's command seal opened an upper route, but a Stormglass regiment still holds it.";
     }
     if (floor === 15 && newlyRecordedMilestones.includes("tower-floor-15")) {
-        return "Dispatcher Aya's field report: the Tower Scout crossed with the route plate. The crown array is dark, and the upper route is open for extraction.";
+        return "Dispatcher Aya's field report: the bridge assault squads have fallen. The crown array is dark, and the upper route is open for extraction.";
     }
     return null;
 }

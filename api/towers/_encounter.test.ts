@@ -279,6 +279,8 @@ describe('Battle Towers feature placement (non-overlapping, off the spawn band)'
                 const session = buildTowerEncounter({ floor, squad: [strongMember('h')], runId: 'r', seed, partySize: 4, now: 1 });
                 const feats = session.map.features ?? [];
                 const W = session.map.width;
+                assert.deepEqual(feats.map(feature => feature.kind).sort(), ['hazard', 'pylon', 'ward'],
+                    `floor ${floor.id} seed ${seed}: exactly one of each environmental feature`);
 
                 // (a) no two feature tiles collide
                 const seen = new Set<number>();
@@ -326,7 +328,7 @@ describe('Battle Towers feature placement (non-overlapping, off the spawn band)'
                 };
 
                 for (const feature of session.map.features ?? []) {
-                    assert.equal(feature.tiles.length, 7, `${label} seed ${seed}: ${feature.kind} has a complete flower`);
+                    assert.equal(feature.tiles.length, floor.id < 9_000 ? 19 : 7, `${label} seed ${seed}: ${feature.kind} has its complete footprint`);
                     for (const tile of feature.tiles) claim(tile, `feature ${feature.kind}`);
                 }
                 for (const tile of session.map.blockedTiles) claim(tile, 'terrain pillar');

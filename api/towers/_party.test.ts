@@ -728,3 +728,16 @@ describe('Battle Towers authoritative ready rooms', () => {
         assert.equal(await deps.kv.get(towerPartyPlayerKey('host')), newerId);
     });
 });
+
+
+it('ready-room replays preserve the host route and refuse a different route binding', async () => {
+    const deps=setup();
+    const input={hostSlug:'host',binding:{mode:'story' as const,floor:5,routeChoice:'elite-shortcut' as const}};
+    const first=await createTowerParty(input,deps);assert.equal(first.ok,true);
+    if(!first.ok)return;
+    assert.equal(towerPartyView(first.party).binding.routeChoice,'elite-shortcut');
+    const replay=await createTowerParty(input,deps);assert.equal(replay.ok,true);
+    if(replay.ok)assert.equal(replay.replayed,true);
+    const changed=await createTowerParty({...input,binding:{...input.binding,routeChoice:'rest-shrine'}},deps);
+    assert.equal(changed.ok,false);
+});

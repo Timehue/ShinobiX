@@ -4,7 +4,7 @@ import type { AiFightSession } from '../missions/_ai-fight-outcome.js';
 import { releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { closeTowerPartyRun } from './_party.js';
 import { withTowerSessionMutation, type TowerSessionLock } from './_session-mutation.js';
-import { isTowerRunLapsed, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
+import { isTowerRunLapsed, needsTowerLapseReconciliation, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
 
 /*
@@ -26,7 +26,9 @@ import type { TowerSession } from './_tower-session.js';
  * inside the run; that admission is evidence, not invention.
  *
  * Idempotent under the session lock and fenced on the exact row read; a run
- * that is live, already terminal, or gone is left exactly as found.
+ * that is live, normally completed, or gone is left exactly as found. Recorded
+ * forfeits retry their consequences: saving the terminal row alone does not
+ * prove that the separate player-save, party, and lease writes succeeded.
  */
 
 export type LapsedTowerDeps = {
@@ -73,29 +75,30 @@ export async function terminalizeLapsedTowerRun(
         await write(next);
         return { session: next, transitioned: true };
     }, deps.lock);
-    if (!outcome.session || !outcome.transitioned) return { ok: true, session: outcome.session, transitioned: false, settled: false };
+    if (!outcome.session || !needsTowerLapseReconciliation(outcome.session, now())) {
+        return { ok: true, session: outcome.session, transitioned: false, settled: false };
+    }
 
     // Consequences run OUTSIDE the session lock: each is idempotent and owns
     // its own locking (leases and parties by member/party key, the physical
     // settlement by save key and in-save receipt).
     const session = outcome.session;
-    const members = towerBattleLeaseMembers(session);
-    await (deps.releaseLeases ?? releaseTowerBattleLeases)(runId, members).catch((err) => {
-        console.warn('[towers/lapse] lease release deferred', runId, (err as Error)?.message);
-    });
-    const partyId = (session as TowerSession & { towerPartyId?: string }).towerPartyId;
-    if (partyId) {
-        await (deps.closeParty ?? closeTowerPartyRun)(partyId, runId).catch((err) => {
-            console.warn('[towers/lapse] party close deferred', runId, (err as Error)?.message);
-        });
-    }
     let settled = false;
     const settle = deps.settle ?? settlePveFightOutcome;
-    for (const actor of session.actors) {
-        if (actor.side !== 'squad' || actor.ai !== false || !actor.ownerSlug) continue;
-        const result = await settle(session, safeName(actor.ownerSlug));
-        if (result.ok && result.applied) settled = true;
-        else if (!result.ok) console.warn('[towers/lapse] physical settlement deferred', runId, actor.ownerSlug, result.error);
+    try {
+        for (const member of towerBattleLeaseMembers(session)) {
+            const result = await settle(session, safeName(member));
+            if (!result.ok) return { ok: false, status: 503, error: result.error ?? 'Tower outcome recovery is pending.' };
+            if (result.applied) settled = true;
+        }
+        const partyId = (session as TowerSession & { towerPartyId?: string }).towerPartyId;
+        if (partyId) await (deps.closeParty ?? closeTowerPartyRun)(partyId, runId);
+        // Lease release also retires the sweep's battle projection. Keep that
+        // retry trigger until player outcomes and party cleanup have succeeded.
+        await (deps.releaseLeases ?? releaseTowerBattleLeases)(runId, towerBattleLeaseMembers(session));
+    } catch (err) {
+        console.warn('[towers/lapse] cleanup deferred', runId, (err as Error)?.message);
+        return { ok: false, status: 503, error: 'Tower outcome recovery is pending.' };
     }
-    return { ok: true, session, transitioned: true, settled };
+    return { ok: true, session, transitioned: outcome.transitioned, settled };
 }

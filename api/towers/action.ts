@@ -8,7 +8,7 @@ import { activeActor } from './_tower-session.js';
 import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
-import { isPublicTowerRun, isSpireRun, readSession, isTowerRunLapsed, writeSession } from './_tower-store.js';
+import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliation, writeSession } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 import { recordClanBossContribution, snapshotContributionState } from '../clan-boss/_contribution.js';
@@ -40,7 +40,7 @@ function towerActionCommandFingerprint(
 ): string {
     const type = String(body.type ?? '');
     const intent: Record<string, unknown> = { runId, actor, type };
-    if (type === 'move' || type === 'dash') intent.tile = Number(body.tile);
+    if (type === 'move' || type === 'dash' || type === 'disrupt') intent.tile = Number(body.tile);
     else if (type === 'attack' || type === 'clear') intent.targetId = String(body.targetId ?? '');
     else if (type === 'jutsu') {
         intent.jutsuId = String(body.jutsuId ?? '');
@@ -91,8 +91,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // mutation lock (the reconciler takes it), so the read below sees the
         // terminal row and answers `session-done` like any finished run.
         const peek = await readSession(runId);
-        if (peek && isTowerRunLapsed(peek)) {
-            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+        if (peek && needsTowerLapseReconciliation(peek)) {
+            const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+            if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending' });
         }
         const outcome = await withTowerSessionMutation(runId, async (): Promise<{ status: number; body: unknown }> => {
             const session = await readSession(runId);
@@ -216,7 +217,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const token = command.moveToken ? { token: command.moveToken } : {};
             // Build the action server-side with actorId = the verified active actor (no client spoof).
             const action: TowerAction =
-                type === 'move' ? { actorId: actor.id, type: 'move', tile: Number(body.tile), ...token }
+                type === 'disrupt' ? { actorId: actor.id, type: 'disrupt', tile: Number(body.tile), ...token }
+                : type === 'move' ? { actorId: actor.id, type: 'move', tile: Number(body.tile), ...token }
                 : type === 'dash' ? { actorId: actor.id, type: 'dash', tile: Number(body.tile), ...token }
                 : type === 'attack' ? { actorId: actor.id, type: 'attack', targetId: String(body.targetId ?? ''), ...token }
                 : type === 'jutsu' ? { actorId: actor.id, type: 'jutsu', jutsuId: String(body.jutsuId ?? ''), targetId: body.targetId !== undefined ? String(body.targetId) : undefined, tile: body.tile !== undefined ? Number(body.tile) : undefined, ...token }

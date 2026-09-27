@@ -1,3 +1,4 @@
+import type { TowerRecords } from "../../../shared/tower-progression";
 /*
  * Character — the player avatar. Aggregates everything else: stats,
  * equipment, jutsu mastery, pets, currencies, progression flags, daily/
@@ -894,6 +895,7 @@ export type Character = {
     // All additive/optional: legacy saves treat missing values as "never played".
     // Live combat state lives in a dedicated KV session (tower:<runId>), NOT here;
     // only durable, leak-safe progress persists on the save (no banked currency).
+    battleTowerRecords?: TowerRecords;
     battleTowerBestFloor?: number;              // lifetime deepest floor cleared (monotonic; leaderboard)
     battleTowerRating?: number;                 // all-time Floor Clear Score aggregate (server-authoritative)
     battleTowerClearedFloors?: number[];        // floor ids first-cleared (permanent; one-time-reward gate)
