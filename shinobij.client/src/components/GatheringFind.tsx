@@ -45,7 +45,7 @@ export function GatheringFind({ find, character, sharedImages, onCharacter, onCl
             pageIndex={page} lineIndex={line} setPageIndex={setPage} setLineIndex={setLine}
             onCancel={() => setStage('choice')} onComplete={() => setStage('choice')} onBattle={() => undefined}
             onChoice={() => setStage('choice')} sharedImages={sharedImages} />;
-    return <Modal open onClose={onClose} bare size="lg" ariaLabel="The Find" className="gather-modal">
+    return <Modal open onClose={onClose} bare size="lg" ariaLabel="The Find" className="gather-modal" backdropClassName="gather-backdrop">
         <section className="gather-panel" aria-busy={busy}>
             <div className="gather-art" style={{ backgroundImage: `url("${gatherSceneImage(find.biome)}")` }} role="img" aria-label={scene.scene}>
                 <div className="gather-heading"><span>FIELD DISCOVERY · SECTOR {find.sector}</span><h2>The Find</h2><p>{scene.title}</p></div>
