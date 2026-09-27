@@ -69,14 +69,15 @@ describe("Tower narrow combat composition", () => {
         assert.match(css, /\.tower-fight-grid > aside \{\s*display: none !important/);
         assert.match(css, /@media \(max-width: 979px\) and \(max-height: 500px\) \{[\s\S]*?\.tower-fight-header \{[\s\S]*?flex: 0 0 44px/);
         assert.match(css, /\.tower-fight-header > button \{[\s\S]*?height: 44px;[\s\S]*?min-height: 44px/);
-        assert.doesNotMatch(source, /tower-action-guidance|Choose an action\./,
-            "the removed action guidance strip must not occupy the compact action dock");
+        assert.match(source, /id="tower-action-guidance" className="tower-sr-only"/,
+            "action guidance must remain available to screen readers without a visible strip");
+        assert.match(tacticalCss, /\.tower-sr-only \{[\s\S]*?position: absolute;[\s\S]*?width: 1px;[\s\S]*?height: 1px;[\s\S]*?overflow: hidden;/);
     });
 
     it("gives the battlefield the compact 960 by 600 browser-zoom tier", () => {
         assert.match(css, /@media \(max-width: 979px\) \{/);
         assert.match(css, /@media \(max-width: 979px\) and \(max-height: 500px\) \{[\s\S]*?\.tower-fight-grid > aside \{\s*display: none/);
-        assert.doesNotMatch(source, /tower-action-guidance/);
+        assert.match(source, /id="tower-action-guidance" className="tower-sr-only"/);
         assert.match(
             tacticalCss,
             /@media \(max-width: 979px\) and \(max-height: 640px\) \{[\s\S]*?grid-template-rows: minmax\(0, 1fr\) !important;[\s\S]*?\.tower-fight-grid > aside \{[\s\S]*?display: none !important/,

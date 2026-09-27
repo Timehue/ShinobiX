@@ -2198,6 +2198,13 @@ export function BattleTowerFight({
 
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
                     <div className="tower-action-dock">
+                        <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
+                            {actionFeedback.phase === "submitting" ? "Submitting " + actionFeedback.label + ". Waiting for the Tower result."
+                                : actionFeedback.phase === "error" ? actionFeedback.label + " was rejected. " + (reject ?? "Try another action.")
+                                : armedActionName ? armedActionName + " armed. " + (actionForecast?.detail ?? "Select a highlighted target.")
+                                : !myTurn && session.status === "active" ? (turnLabel || "Waiting for the active fighter") + ". " + (activeActor?.name ?? "Another fighter") + " is acting."
+                                : "Choose an action."}
+                        </div>
                         {/* Command bar */}
                         <CombatCommandBar style={myTurn ? undefined : { opacity: 0.65 }}>
                             <button className={mode === "attack" ? "selected-action" : ""}

@@ -1242,7 +1242,9 @@
     text-shadow: none;
 }
 .screen-battleTowerFight .tower-completion-actions .tower-plan-next { background: linear-gradient(#463c29, #29261f); border-color: #ac9056; color: #f0dfb8; }
-.screen-battleTowerFight .tower-completion-actions button:hover:not(:disabled) { border-color: var(--result-gold); color: #f5e9cf; }
+@media (hover: hover) {
+    .screen-battleTowerFight .tower-completion-actions button:hover:not(:disabled) { border-color: var(--result-gold); color: #f5e9cf; }
+}
 .screen-battleTowerFight .tower-completion-card button:focus-visible { outline: 2px solid #dcc48e; outline-offset: 3px; }
 @media (max-width: 480px) {
     .tower-completion-header { min-height: 155px; padding: 22px 18px 18px; }
