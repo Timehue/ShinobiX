@@ -57,7 +57,11 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-const maxClientArtifactBytes = 512 * 1024 * 1024;
+// 2026-09-27: The Find adds five painted VN scenes and ten item icons (~1.2 MB).
+// With current main, the measured artifact is 537,479,788 B (512.6 MiB), after
+// excluding the unused elemental PNG master. Reserve 514 MiB for these runtime
+// assets; JavaScript/CSS startup and product budgets remain independently gated.
+const maxClientArtifactBytes = 514 * 1024 * 1024;
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
