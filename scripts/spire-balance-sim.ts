@@ -96,6 +96,19 @@ function priorityTarget(session: TowerSession, actor: TowerActor): TowerActor | 
 }
 function smartSquadAction(session: TowerSession, actor: TowerActor): TowerAction {
     const w = session.map.width, h = session.map.height;
+    // A competent squad responds to the same visible hazards/counters as players.
+    // Standing in a sealed signature while spamming damage no longer models play.
+    const danger = new Set([...(session.map.hazardTiles ?? []), ...(session.map.nextRoundHazardTiles ?? []), ...(session.bossStrike?.tiles ?? [])]);
+    if (danger.has(actor.pos)) {
+        const escape = pickAiAction(session, actor, () => 0.5);
+        if (escape.type === 'move') return escape;
+    }
+    const pylon = session.towerTactics && session.map.features?.find(feature => feature.kind === 'pylon'
+        && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0]!)
+        && hexDistance(actor.pos, feature.tiles[0]!, w) <= 1);
+    if (pylon && session.activeAp >= 40 && session.actionsThisTurn < MAX_ACTIONS) {
+        return { actorId: actor.id, type: 'disrupt', tile: pylon.tiles[0]! };
+    }
     if (actor.hp < KNOBS.healAtPct * actor.maxHp && (actor.cooldowns['basicHeal'] ?? 0) <= 0
         && actor.chakra >= HEAL_CHAKRA && session.activeAp >= HEAL_AP && session.actionsThisTurn < MAX_ACTIONS) {
         return { actorId: actor.id, type: 'heal' };

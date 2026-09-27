@@ -4,6 +4,7 @@ import { withKvLock as realWithKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import {
     MAX_TOWER_STARTS_PER_DAY,
+    needsTowerLapseReconciliation,
     sessionKey,
     startCountKey,
     utcDateKey,
@@ -36,8 +37,8 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const INVITE_CAP = 16;
 
 export type TowerPartyBinding =
-    | { mode: 'story'; floor: number }
-    | { mode: 'spire'; ascensionTier: number };
+    | { mode: 'story'; floor: number; routeChoice?: 'rest-shrine' | 'focused-assault' | 'elite-shortcut' }
+    | { mode: 'spire'; ascensionTier: number; routeChoice?: 'rest-shrine' | 'focused-assault' | 'elite-shortcut' };
 
 export type TowerPartyMember = {
     slug: string;
@@ -138,6 +139,7 @@ function defaultInviteCode(): string {
 
 function bindingEqual(a: TowerPartyBinding, b: TowerPartyBinding): boolean {
     return a.mode === b.mode
+        && (a.routeChoice ?? 'rest-shrine') === (b.routeChoice ?? 'rest-shrine')
         && (a.mode === 'story'
             ? a.floor === (b as Extract<TowerPartyBinding, { mode: 'story' }>).floor
             : a.ascensionTier === (b as Extract<TowerPartyBinding, { mode: 'spire' }>).ascensionTier);
@@ -311,7 +313,10 @@ export async function repairStaleTowerPartyLifecycle(
             // Only an authoritative null is evidence that the run is missing.
             const session = await kv.get<TowerSession>(sessionKey(party.launch.runId));
             if (session) {
-                if (session.status === 'done' && session.rewardSettlementState === 'settled') {
+                // A forfeit has no reward owed, but its physical outcomes may
+                // still be retrying. The lapse reconciler closes that party
+                // after those receipts are durable; discovery must preserve it.
+                if (session.status === 'done' && session.rewardSettlementState === 'settled' && !needsTowerLapseReconciliation(session)) {
                     shouldClose = true;
                     launchState = 'completed';
                     errorCode = undefined;

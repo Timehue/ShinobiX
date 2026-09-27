@@ -30,11 +30,12 @@ describe("Tower narrow combat composition", () => {
         );
     });
 
-    it("keeps secondary telemetry out of the central battlefield and fits every desktop command", () => {
-        assert.match(
-            tacticalCss,
-            /#combat\.tower-tactical-combat \.tower-turn-queue,[\s\S]*?#combat\.tower-tactical-combat \.tower-threat-summary,[\s\S]*?#combat\.tower-tactical-combat \.tower-mechanic-strip \{[\s\S]*?display: none !important;/,
-        );
+    it("keeps real turn order while omitting removed briefing and threat chrome", () => {
+        assert.doesNotMatch(tacticalCss, /#combat\.tower-tactical-combat \.tower-turn-queue[\s\S]{0,180}?display: none !important;/);
+        assert.match(source, /remainingTurnActors\.length > 0 && \([\s\S]{0,120}?className="tower-turn-queue"/);
+        assert.doesNotMatch(source, /tower-threat-summary|buildTowerThreatSummary/);
+        assert.doesNotMatch(source, /tower-mechanics-details|Mission briefing &amp; battle rules/);
+        assert.doesNotMatch(tacticalCss, /tower-mechanics-details/);
         assert.match(tacticalCss, /\.tower-board-help \{\s*display: none;/);
         assert.match(
             tacticalCss,
@@ -68,18 +69,15 @@ describe("Tower narrow combat composition", () => {
         assert.match(css, /\.tower-fight-grid > aside \{\s*display: none !important/);
         assert.match(css, /@media \(max-width: 979px\) and \(max-height: 500px\) \{[\s\S]*?\.tower-fight-header \{[\s\S]*?flex: 0 0 44px/);
         assert.match(css, /\.tower-fight-header > button \{[\s\S]*?height: 44px;[\s\S]*?min-height: 44px/);
-        assert.doesNotMatch(source, /className="tower-action-topline"/,
-            "compact action geometry must not reserve the removed visible guidance row");
+        assert.match(source, /id="tower-action-guidance" className="tower-sr-only"/,
+            "action guidance must remain available to screen readers without a visible strip");
+        assert.match(tacticalCss, /\.tower-sr-only \{[\s\S]*?position: absolute;[\s\S]*?width: 1px;[\s\S]*?height: 1px;[\s\S]*?overflow: hidden;/);
     });
 
     it("gives the battlefield the compact 960 by 600 browser-zoom tier", () => {
         assert.match(css, /@media \(max-width: 979px\) \{/);
         assert.match(css, /@media \(max-width: 979px\) and \(max-height: 500px\) \{[\s\S]*?\.tower-fight-grid > aside \{\s*display: none/);
-        assert.match(
-            source,
-            /id="tower-action-guidance" className="tower-sr-only"/,
-            "guidance announcements must remain available without consuming a visual row",
-        );
+        assert.match(source, /id="tower-action-guidance" className="tower-sr-only"/);
         assert.match(
             tacticalCss,
             /@media \(max-width: 979px\) and \(max-height: 640px\) \{[\s\S]*?grid-template-rows: minmax\(0, 1fr\) !important;[\s\S]*?\.tower-fight-grid > aside \{[\s\S]*?display: none !important/,
@@ -87,11 +85,21 @@ describe("Tower narrow combat composition", () => {
         );
     });
 
+    it("keeps short-landscape board tiles reachable and the first technique tappable", () => {
+        assert.match(
+            tacticalCss,
+            /@media \(max-width: 979px\) and \(max-height: 500px\) \{[\s\S]*?\.tower-board-stage > \.tower-board-area \{[\s\S]*?flex-basis: 90px !important;[\s\S]*?height: 90px !important;[\s\S]*?min-height: 90px !important;/,
+            "short landscape keeps the board at its usable floor with the guidance band removed",
+        );
+        assert.match(source, /session\.partySize > 1 \? " tower-party-pve-fight"/);
+        assert.doesNotMatch(source, /tower-mechanics-details/);
+    });
+
     it("keeps a full tap target visible in short three-rail desktop layouts", () => {
         assert.match(
             tacticalCss,
             /\.tower-action-dock \{[\s\S]*?flex: 0 0 164px;[\s\S]*?min-height: 164px;[\s\S]*?max-height: 164px;/,
-            "the fixed desktop deck must reserve the complete command and loadout bands",
+            "the desktop action dock must reclaim the removed guidance row",
         );
         assert.match(
             tacticalCss,
@@ -108,7 +116,7 @@ describe("Tower narrow combat composition", () => {
     it("keeps a first technique tappable on the smallest portrait", () => {
         assert.match(
             tacticalCss,
-            /@media \(max-width: 360px\) and \(max-height: 600px\) \{[\s\S]*?\.tower-fight-grid > aside \{[\s\S]*?display: none !important;[\s\S]*?\.tower-turn-queue \{[\s\S]*?display: none;[\s\S]*?\.tower-threat-summary:not\(\.has-threats\) \{[\s\S]*?display: none;/,
+            /@media \(max-width: 360px\) and \(max-height: 600px\) \{[\s\S]*?\.tower-fight-grid > aside \{[\s\S]*?display: none !important;[\s\S]*?\.tower-turn-queue \{[\s\S]*?display: none;/,
         );
         assert.match(
             tacticalCss,
@@ -129,7 +137,7 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /const targetable = enemiesInRange\.has\(a\.id\)[\s\S]*?!isSelfCastJutsu\(selJutsu\)[\s\S]*?!isMoveJutsu\(selJutsu\)[\s\S]*?selJutsu\.target !== "EMPTY_GROUND"/,
             "movement and empty-ground jutsu must not expose occupied actors as selectable targets");
         assert.match(source, /<button key=\{a\.id\} type="button" className="tower-board-actor" onClick=\{\(\) => onTileClick\(a\.pos\)\}/);
-        assert.match(source, /const inspectable = a\.side === "enemy" && mode === "idle";/,
+        assert.match(source, /const inspectable = mode === "idle" \|\| !myTurn;/,
             "inspection must yield to movement and ground-target aiming");
         assert.match(source, /const actorActionable = targetable \|\| selfTargetable \|\| inspectable;/);
         assert.match(source, /tabIndex=\{!busy && actorActionable \? 0 : -1\}/);
@@ -139,16 +147,15 @@ describe("Tower narrow combat composition", () => {
         assert.match(source, /<BattlefieldActor[\s\S]*?label=\{a\.name\}/);
     });
 
-    it("keeps the five solo-Tower additions subordinate to the tactical field", () => {
+    it("keeps targeting feedback while omitting replay and score chrome", () => {
         assert.match(source, /className="tower-action-forecast"/);
-        assert.match(source, /className="tower-last-action"/);
+        assert.doesNotMatch(source, /className="tower-last-action"/);
         assert.match(source, /className=\{`tower-impact-floater/);
-        assert.match(source, /className="tower-score-dossier"/);
-        assert.match(source, /towerEnemyIntent\(a, session\)/);
+        assert.doesNotMatch(source, /className="tower-score-dossier"/);
+        assert.match(source, /towerEnemyIntent\(inspectedActor, session\)/);
         assert.match(tacticalCss, /\.tower-action-forecast \{[\s\S]*?position: absolute;[\s\S]*?pointer-events: none;/,
             "target previews must overlay the map temporarily instead of shrinking it");
-        assert.match(tacticalCss, /\.tower-last-action \{[\s\S]*?position: absolute;/,
-            "replay must remain a compact map control");
+        assert.doesNotMatch(tacticalCss, /tower-last-action/);
         assert.doesNotMatch(source, /party intent marker/i,
             "this pass explicitly excludes party intent markers");
     });
@@ -171,8 +178,8 @@ describe("Tower narrow combat composition", () => {
     });
 
     it("announces authoritative phase and log updates without changing layout", () => {
-        assert.match(source, /<ShinobiCombatShell[\s\S]*?mode="tactical"[\s\S]*?className=\{`screen-battleTowerFight pvp-battle-layout tower-tactical-combat\$\{variant === "team-pvp" \? " tower-team-pvp-fight" : ""\}`\}/,
-            "Tower must use the shared battle-skin boundary while retaining its browser-authority variant hook");
+        assert.match(source, /<ShinobiCombatShell[\s\S]*?mode="tactical"[\s\S]*?className=\{`screen-battleTowerFight pvp-battle-layout tower-tactical-combat\$\{variant === "team-pvp" \? " tower-team-pvp-fight" : session\.partySize > 1 \? " tower-party-pve-fight" : ""\}`\}/,
+            "Tower must preserve the shared shell and distinct authoritative PvP/party MPvE variants");
         assert.match(source, /triggeredCount > triggeredCountRef\.current/);
         assert.match(source, /setPhaseBanner\(buildTowerPhaseBanner\(/);
         assert.match(source, /className="spire-phase-banner tower-phase-banner"[\s\S]*?role="status"[\s\S]*?aria-live="polite"[\s\S]*?aria-atomic="true"/);
@@ -201,4 +208,15 @@ describe("Tower narrow combat composition", () => {
             "reduced motion must keep the mounted phase cue visible instead of fast-forwarding it to transparent",
         );
     });
+});
+
+it("reserves the compact cancel target across two fixed live-state rows", () => {
+    assert.match(tacticalCss, /grid-template-rows: auto auto 20px 24px;/);
+    assert.match(tacticalCss, /\.tower-header-cancel \{ position: static; grid-column: 3; grid-row: 3 \/ 5;[^}]*height: 44px;/);
+});
+
+it("keeps desktop cancellation in the existing header rows", () => {
+    assert.match(tacticalCss, /grid-template-columns: minmax\(0, 1fr\) auto 44px auto;/);
+    assert.match(tacticalCss, /grid-template-columns: minmax\(150px, 1fr\) auto auto auto 44px auto;/);
+    assert.doesNotMatch(tacticalCss, /\.tower-fight-statusbar \.tower-header-cancel \{[^}]*grid-row: [34];/);
 });

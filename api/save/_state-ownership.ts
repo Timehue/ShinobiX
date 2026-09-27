@@ -336,6 +336,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('monthlyPvpKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('dailyAiKills', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
     f('totalPetWins', 'character', 'server-owned', 'counters', ['lifetime-counter-char', 'combat-strip-char']),
+    f('battleTowerRecords', 'character', 'server-owned', 'towers', ['server-mirror-char', 'combat-strip-char'], 'towers/settle only'),
     f('battleTowerBestFloor', 'character', 'server-owned', 'towers', ['lifetime-counter-char', 'combat-strip-char'], 'towers/settle only'),
     f('battleTowerRating', 'character', 'server-owned', 'towers', ['lifetime-counter-char', 'combat-strip-char']),
     f('battleTowerClearedFloors', 'character', 'server-owned', 'towers', ['combat-strip-char'], 'towers/settle only'),

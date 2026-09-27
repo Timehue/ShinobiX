@@ -1409,3 +1409,23 @@
     .tower-story-chapter-progress { grid-auto-flow: column; justify-content: start; justify-items: start; gap: 5px; }
     .tower-story-floor-state { padding-inline: 5px; }
 }
+
+.tower-records { margin: 14px 0; padding: 16px; border: 1px solid #84704466; border-radius: 10px; background: linear-gradient(120deg,#0c1725,#111824); color: #d5ddea; }
+.tower-records-heading { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:12px; }
+.tower-records-heading small { color:#ad9964; font-size:.65rem; letter-spacing:.12em; }
+.tower-records-heading h2 { margin:4px 0 0; font-size:1rem; color:#ecdcad; }
+.tower-records-heading > span { white-space:nowrap; color:#b5c5d7; font-size:.75rem; }
+.tower-honors { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.tower-honor { padding:10px; border:1px solid #344355; border-radius:6px; background:#0a1320; }
+.tower-honor strong { display:block; color:#bcc8d5; font-size:.8rem; }
+.tower-honor p { margin:5px 0; color:#91a1b6; font-size:.72rem; line-height:1.5; }
+.tower-honor small { color:#7f92a9; font-size:.64rem; }
+.tower-honor[data-earned="true"] { border-color:#a78b49; background:#191e23; }
+.tower-honor[data-earned="true"] strong,.tower-honor[data-earned="true"] small { color:#ebcd83; }
+.tower-best-list { margin-top:12px; }
+.tower-best-list summary { min-height:44px; display:flex; align-items:center; cursor:pointer; color:#b9d2e9; font-size:.8rem; }
+.tower-best-list > p { font-size:.72rem; color:#93a6bc; }
+.tower-best-table { overflow-x:auto; }
+.tower-best-table table { width:100%; border-collapse:collapse; font-size:.74rem; text-align:left; }
+.tower-best-table th,.tower-best-table td { padding:8px; border-bottom:1px solid #344355; white-space:nowrap; }
+@media(max-width:640px) { .tower-honors { grid-template-columns:repeat(2,minmax(0,1fr)); } .tower-records { padding:12px; } }

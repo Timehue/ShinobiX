@@ -95,6 +95,13 @@ export function achievementTitlesForIds(ids: Iterable<string>): string[] {
 }
 
 export const ACHIEVEMENT_RULES: Rule[] = [
+    { id: 'tower-clean-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-clean-clear']) },
+    { id: 'tower-par-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-par-clear']) },
+    { id: 'tower-disrupt-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-disrupt-clear']) },
+    { id: 'tower-bait-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-bait-clear']) },
+    { id: 'tower-dodge-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-dodge-clear']) },
+    { id: 'tower-elite-clear', check: c => Boolean((c.battleTowerRecords as { honors?: Record<string, number> } | undefined)?.honors?.['tower-elite-clear']) },
+
     ...numeric.map(([id, field, threshold]) => ({ id, hidden: HIDDEN_IDS.has(id), check: (character: Character) => value(character, field) >= threshold })),
     { id: 'ryo-5m', check: (c) => n(c, 'ryo') + n(c, 'bankRyo') >= 5_000_000 },
     { id: 'bloodline-equipped', check: (c) => Boolean(c.equippedBloodlineId) },
