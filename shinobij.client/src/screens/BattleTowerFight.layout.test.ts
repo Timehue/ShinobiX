@@ -208,3 +208,8 @@ describe("Tower narrow combat composition", () => {
         );
     });
 });
+
+it("reserves the compact cancel target across two fixed live-state rows", () => {
+    assert.match(tacticalCss, /grid-template-rows: auto auto 20px 24px;/);
+    assert.match(tacticalCss, /\.tower-header-cancel \{ position: static; grid-column: 3; grid-row: 3 \/ 5;[^}]*height: 44px;/);
+});
