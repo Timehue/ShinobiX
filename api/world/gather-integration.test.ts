@@ -13,12 +13,15 @@ type Handler=(req:never,res:never)=>Promise<unknown>;
 let kv:typeof import('../_storage.js').kv;
 let token:typeof import('../_auth.js').issuePlayerToken;
 let online:typeof import('../_realtime/online-store.js').onlineStore;
-let claim:Handler;let explore:Handler;
+let claim:Handler;let explore:Handler;let forge:Handler;let cafeteria:Handler;let donate:Handler;
 before(async()=>{
     ({kv}=await import('../_storage.js'));({issuePlayerToken:token}=await import('../_auth.js'));
     ({onlineStore:online}=await import('../_realtime/online-store.js'));
     claim=(await import('./claim-gather.js')).default as unknown as Handler;
     explore=(await import('./explore.js')).default as unknown as Handler;
+    forge=(await import('../craft/forge.js')).default as unknown as Handler;
+    cafeteria=(await import('../player/cafeteria.js')).default as unknown as Handler;
+    donate=(await import('../village/treasury/donate.js')).default as unknown as Handler;
 });
 async function post(handler:Handler,player:string,body:Json,authenticated=true){
     const out:{status:number;body:Json}={status:200,body:{}};
@@ -81,7 +84,7 @@ test('queue cap is actionable and collecting a find clears it without spending a
     assert.equal(((collected.body.character as Json).pendingGatherFinds as unknown[]).length,MAX_PENDING_FINDS-1);
 });
 test('one atomic explore seals the find, consumes one pool slot, and replays without more credit',async()=>{
-    const player='gatherintegrationatomic';await seed(player);
+    const player='gatherintegrationatomic';await seed(player,{itemStacks:[{itemId:'hunt-beast-meat',count:3}]});
     const {sectorPoolKey,cleanSectorPoolRow}=await import('./_sector-pool.js');
     const poolKey=sectorPoolKey(33,Date.now());const beforePool=cleanSectorPoolRow(await kv.get(poolKey)).explores;
     const original=crypto.randomInt;
@@ -99,4 +102,76 @@ test('one atomic explore seals the find, consumes one pool slot, and replays wit
     const replay=await post(explore,player,{requestId:'atomic-explore-find',sector:33,resolveOutcome:true});
     assert.equal(replay.status,200);assert.deepEqual(replay.body.outcome,first!.body.outcome);
     assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores,beforePool+1);
+
+    // Spend the actual exploration reward through the authenticated forge route.
+    // A later claim retry must return the current balance, not restore spent ore.
+    const harvest={findId:'atomic-explore-find',sector:33,common:'gather-iron-sand',takeTrace:false};
+    const claimed=await post(claim,player,harvest);assert.equal(claimed.status,200,JSON.stringify(claimed.body));
+    assert.equal(countOwned(claimed.body.character as Json,'gather-iron-sand'),3);
+    const craftBody={requestId:'gather-journey-shuriken',kind:'supply',recipeId:'thrown-shuriken',quantity:1};
+    const crafted=await post(forge,player,craftBody);assert.equal(crafted.status,200,JSON.stringify(crafted.body));
+    const forged=crafted.body.character as Json;
+    assert.equal(countOwned(forged,'thrown-shuriken'),3);
+    assert.equal(countOwned(forged,'gather-iron-sand'),1);
+    assert.equal(countOwned(forged,'hunt-beast-meat'),0);
+    assert.equal(forged.ryo,99,'shuriken crafting adds no ryo fee');
+    const craftRetry=await post(forge,player,craftBody);assert.equal(craftRetry.status,200);
+    assert.equal(countOwned(craftRetry.body.character as Json,'thrown-shuriken'),3);
+    const claimRetry=await post(claim,player,harvest);assert.equal(claimRetry.status,200);
+    assert.equal(claimRetry.body.replayed,true);
+    assert.equal(countOwned(claimRetry.body.character as Json,'gather-iron-sand'),1);
+    assert.equal((claimRetry.body.character as Json).serverExploresToday,1);
+    assert.deepEqual((await kv.get<{character:Json}>('save:'+player))!.character,claimRetry.body.character);
+});
+
+
+test('claimed herbs cook into rations, combine into a bundle, and donate through the saved village ledger',async()=>{
+    const player='gatherintegrationprovisions';
+    const villageKey='game:village-state:leaf';
+    await kv.set(villageKey,{village:'Leaf',treasury:{ryo:0,items:[]}});
+    const commons=['gather-field-herb','gather-field-herb','gather-binding-fiber','gather-iron-sand'];
+    const finds=commons.map((_,i)=>sealGatherFind('provision-journey-find-'+i,33,()=>0.9)!);
+    await seed(player,{village:'Leaf',itemStacks:[{itemId:'hunt-beast-meat',count:1}],pendingGatherFinds:finds});
+    let lastVersion=1;
+    for(let i=0;i<finds.length;i++){
+        const out=await post(claim,player,{findId:finds[i].id,sector:33,common:commons[i],takeTrace:false});
+        assert.equal(out.status,200,JSON.stringify(out.body));
+        assert.ok(Number(out.body._saveVersion)>lastVersion);lastVersion=Number(out.body._saveVersion);
+    }
+    const cooked=await post(cafeteria,player,{recipeId:'field-rations'});
+    assert.equal(cooked.status,200,JSON.stringify(cooked.body));
+    assert.equal(countOwned(cooked.body.character as Json,'ration-pack'),5);
+    assert.equal(countOwned(cooked.body.character as Json,'gather-field-herb'),5);
+    assert.equal((cooked.body.character as Json).ryo,69);
+    assert.equal(cooked.body.dailyCooked,5);assert.equal(cooked.body.dailyCap,40);
+    assert.ok(Number(cooked.body._saveVersion)>lastVersion);lastVersion=Number(cooked.body._saveVersion);
+
+    const craftBody={requestId:'gather-journey-bundle',kind:'supply',recipeId:'village-supply-bundle',quantity:1};
+    const crafted=await post(forge,player,craftBody);assert.equal(crafted.status,200,JSON.stringify(crafted.body));
+    const packed=crafted.body.character as Json;
+    assert.equal(countOwned(packed,'village-supply-bundle'),1);
+    assert.equal(countOwned(packed,'ration-pack'),0);assert.equal(countOwned(packed,'gather-field-herb'),2);
+    assert.equal(countOwned(packed,'gather-binding-fiber'),0);assert.equal(countOwned(packed,'gather-iron-sand'),0);
+    assert.equal(packed.ryo,39);
+    assert.ok(Number(crafted.body._saveVersion)>lastVersion);lastVersion=Number(crafted.body._saveVersion);
+    const beforeRefusal=await kv.get('save:'+player);
+    const refused=await post(forge,player,{...craftBody,requestId:'gather-journey-missing-input'});
+    assert.equal(refused.status,409);assert.deepEqual(await kv.get('save:'+player),beforeRefusal);
+
+    const donation={village:'Leaf',itemId:'village-supply-bundle',count:1,requestId:'gather-journey-donation'};
+    const donated=await post(donate,player,donation);assert.equal(donated.status,200,JSON.stringify(donated.body));
+    const final=donated.body.character as Json;
+    assert.equal(countOwned(final,'village-supply-bundle'),0);
+    assert.equal(final.rationsDonatedToday,10);assert.equal(final.ryo,39);
+    assert.deepEqual(donated.body.stores,{provisions:10,materialPoints:0});
+    assert.ok(Number(donated.body._saveVersion)>lastVersion);
+    const {meritForDonation}=await import('../village/_village-merit.js');
+    assert.equal(final.villageMerit,meritForDonation(500));
+    const retry=await post(donate,player,donation);assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);
+    const treasury=(await kv.get<{treasury:Json}>(villageKey))!.treasury;
+    assert.equal(treasury.provisions,10);assert.deepEqual(treasury.items,[]);
+    const reloaded=(await kv.get<{character:Json}>('save:'+player))!.character;
+    assert.deepEqual(reloaded.pendingGatherFinds,[]);assert.equal(reloaded.gatherIntroSeen,true);
+    assert.equal(countOwned(reloaded,'village-supply-bundle'),0);assert.equal(countOwned(reloaded,'gather-field-herb'),2);
+    assert.equal(reloaded.rationsDonatedToday,10);assert.equal(reloaded.villageMerit,meritForDonation(500));
 });

@@ -60,3 +60,77 @@ test('first find uses the VN renderer and skipping leaves an explicit unclaimed 
     await page.keyboard.press('Escape');
     await expect(page.getByRole('button',{name:'Resume find',exact:true})).toBeVisible();
 });
+
+test('Explore Tile reaches The Find after discovery probes and a lost claim reply retries safely',async({page})=>{
+    const save=uiAuditSave();
+    let character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[]} as Record<string,unknown>;
+    save.character=character;
+    const runtime=await installUiAuditRuntime(page,save);
+    const stages:string[]=[];
+    const claimBodies:unknown[]=[];
+    let requestId='';
+    let find:Record<string,unknown>;
+    const versioned=()=>{
+        const version=runtime.currentVersion()+1;
+        runtime.commitServerCharacter(character,version);
+        return {character,_saveVersion:version};
+    };
+    await page.route('**/api/dungeon/run',async route=>{
+        const body=route.request().postDataJSON();requestId=body.requestId;
+        expect(body).toMatchObject({action:'probe-free',playerName:'AuditNinja',sector:40});
+        stages.push('dungeon');
+        await route.fulfill({json:{ok:true,found:false,token:'',requestId,sector:40,resolved:false,...versioned()}});
+    });
+    await page.route('**/api/pet/encounter-start',async route=>{
+        expect(route.request().postDataJSON()).toMatchObject({requestId,sector:40});
+        stages.push('pet');
+        await route.fulfill({json:{ok:true,requestId,sector:40,pet:null,replayed:false}});
+    });
+    await page.route('**/api/world/explore',async route=>{
+        expect(route.request().postDataJSON()).toEqual({playerName:'AuditNinja',sector:40,credit:'tile',requestId,resolveOutcome:true});
+        stages.push('explore');
+        find={id:requestId,sector:40,biome:'central',rareTrace:false,at:Date.now()};
+        character={...character,pendingGatherFinds:[find],serverExploreDate:new Date().toISOString().slice(0,10),serverExploresToday:1};
+        await route.fulfill({json:{ok:true,outcome:{kind:'gather',find},reward:{sector:40,xp:0,ryo:0},fieldProgress:[],...versioned()}});
+    });
+    await page.route('**/api/world/claim-gather',async route=>{
+        const request=route.request();
+        expect(request.headers()['x-player-name']).toBe('AuditNinja');
+        expect(request.headers()['x-player-token']).toBe('ui-audit-token');
+        const body=request.postDataJSON();claimBodies.push(body);
+        expect(body).toEqual({playerName:'AuditNinja',findId:requestId,sector:40,common:'gather-binding-fiber',takeTrace:false});
+        if(claimBodies.length===1){
+            character={...character,pendingGatherFinds:[],itemStacks:[{itemId:'gather-binding-fiber',count:3}]};
+            versioned();
+            await route.abort('failed'); // Server committed, but the client never got its acknowledgement.
+            return;
+        }
+        await route.fulfill({json:{ok:true,replayed:true,character,_saveVersion:runtime.currentVersion(),rewards:[{itemId:'gather-binding-fiber',count:3}]}});
+    });
+    await expectUiAuditBoot(page,runtime,'worldMap');
+    await page.getByRole('button',{name:/Return to Sector 40/}).click();
+    await expect(page.locator('.sector-stage-panel')).toBeVisible();
+    await page.keyboard.press('e');
+    const dialog=page.getByRole('dialog',{name:'The Find',exact:true});
+    await expect(dialog).toBeVisible();
+    expect(stages).toEqual(['dungeon','pet','explore']);
+    await dialog.getByRole('radio',{name:/Binding Fiber/}).check();
+    await expect(dialog.locator('.gather-reward')).toContainText('3 × Binding Fiber');
+    // Check the shipped scene and icons decode in each browser, rather than accepting a fallback.
+    await expect.poll(()=>dialog.locator('img').evaluateAll(images=>images.every(img=>img.complete&&img.naturalWidth===256))).toBe(true);
+    expect(await dialog.locator('.gather-art').evaluate(async node=>{
+        const src=getComputedStyle(node).backgroundImage.slice(5,-2);
+        const image=new Image();image.src=src;await image.decode();return [image.naturalWidth,image.naturalHeight];
+    })).toEqual([1600,900]);
+    await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).click();
+    await expect(dialog.getByRole('alert')).toBeVisible();
+    await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).click();
+    await expect(dialog).toContainText('Gathering complete');
+    expect(claimBodies).toHaveLength(2);expect(claimBodies[0]).toEqual(claimBodies[1]);
+    await dialog.getByRole('button',{name:'Return to the map',exact:true}).click();
+    await page.reload();
+    await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+    await expect(page.getByRole('button',{name:'Resume find',exact:true})).toHaveCount(0);
+    expect(character.ryo).toBe(9_999_999);
+    expect(character.itemStacks).toEqual([{itemId:'gather-binding-fiber',count:3}]);
+});
