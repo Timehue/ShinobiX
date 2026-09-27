@@ -21,9 +21,9 @@ describe('Battle Towers floor catalog', () => {
         assert.deepEqual(
             FLOOR_CATALOG.map(f => f.objective),
             [
-                'defeat-all', 'defeat-all', 'defeat-all', 'protect-npc', 'defeat-boss',
-                'defeat-all', 'defeat-all-then-boss', 'kill-escort', 'kill-adds-first', 'defeat-boss',
-                'defeat-all', 'break-objective', 'protect-npc', 'defeat-all', 'kill-adds-first',
+                'defeat-all', 'defeat-all', 'defeat-all', 'defeat-all', 'defeat-boss',
+                'defeat-all', 'defeat-all-then-boss', 'defeat-all', 'kill-adds-first', 'defeat-boss',
+                'defeat-all', 'defeat-boss', 'defeat-all', 'defeat-all', 'kill-adds-first',
             ],
         );
         assert.equal(getFloor(5)?.firstClearReward.milestone, 'tower-floor-5');
@@ -93,7 +93,7 @@ describe('Battle Towers floor catalog', () => {
             assert.ok((floor.briefing?.warnings.length ?? 0) >= 1, `floor ${floor.id} exposes at least one warning`);
         }
 
-        assert.match(getFloor(4)?.briefing?.warnings.join(' ') ?? '', /8 completed rounds/);
+        assert.match(getFloor(4)?.briefing?.warnings.join(' ') ?? '', /score par, not a survival timer/);
         assert.match(getFloor(5)?.briefing?.tactics.join(' ') ?? '', /60% and 30%/);
         assert.match(getFloor(7)?.briefing?.warnings.join(' ') ?? '', /650 health every round/);
         assert.match(getFloor(9)?.briefing?.warnings.join(' ') ?? '', /66% and 33%/);
