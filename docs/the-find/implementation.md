@@ -57,11 +57,11 @@ Verified on 2026-09-27 with independent dependencies installed from this worktre
 | Gate | Result |
 | --- | --- |
 | Catalog generation | Regenerated from starter-items; server catalog and stackable mirror validated by tests |
-| Root unit/API suite | 12,460 passed, zero failed or skipped for the feature implementation. The subsequent presentation revision changes no backend or economy logic |
+| Root unit/API suite | 12,461 passed, zero failed or skipped in the subsequent functional audit, including the new continuous economy journey |
 | Client lint | Zero errors; 14 existing warnings |
 | Production build | Root build passed; final client rebuild, distribution validation and size checks also passed |
 | Full browser regression, final UI | 1,339 passed, 693 existing project/fixture skips, 14 timeouts. All 14 timed-out cases passed a separate single-worker rerun without code changes |
-| Gathering browser checks | 14/14 passed across all seven browser/viewport projects; the final selection-indicator adjustment also passed explicit desktop/mobile checks and all gathering cases in the full run |
+| Gathering browser checks | 21/21 passed across all seven browser/viewport projects in the functional audit, including discovery order, authenticated claims, lost-response retry, refresh recovery and shipped-art decoding |
 | Strict combat layout, final UI | 20 passed, 10 existing project skips, zero failures; capture phase after and strict mode enabled |
 
 The full run's 14 failures were navigation/content waits, browser-context teardown and overall test timeouts on Central Hub, First Contract, First Pact, Guides, companion screens, activity guidance, clan recovery and login. The isolated rerun passed all 14 in 1.9 minutes. Original traces remain under `shinobij.client/test-results/restyle-smoke/`; rerun evidence is under `restyle-recheck/`. The full and strict suites both ran against the same fixed final build.
@@ -71,3 +71,17 @@ Size budgets were not raised: final initial JS/CSS is 388,662 B gzip against a 3
 Review screenshots: [first VN scene](evidence/vn-desktop.png), [desktop choice](evidence/choice-desktop.png), [phone choice](evidence/choice-mobile.png). The 360px and 390px views were inspected. Desktop shows the full regional-material option without clipping; smaller phones scroll the choices independently of the collection controls. Secondary text and button color pairs measure at least 6.3:1 contrast on their solid backing surfaces. Keyboard focus, native radio/checkbox semantics and reduced-motion support are retained.
 
 Detailed local logs are under the ignored `tmp/the-find/`: `npm-test-locked.log`, `restyle-lint.log`, `restyle-build.log`, `restyle-final-build.log`, `restyle-gathering.log`, `restyle-final-visual.log`, `restyle-smoke.log`, `restyle-recheck.log`, and `restyle-combat.log`.
+
+
+## Functional integration audit, 2026-09-27
+
+No additional game-code defects were found. This audit adds regression coverage without changing gameplay or the certified production build:
+
+- The authenticated exploration handler seals a real find; claiming its Iron Sand supplies the authenticated shuriken forge. Exact points and ingredients are spent, three shuriken are granted, and no ryo is charged. Replaying either the craft or the original claim cannot restore spent materials or repeat the output.
+- Four sealed common finds are claimed through the settlement endpoint. Their herbs cook into five ration packs through the cafeteria endpoint, then combine with fiber and iron into a Village Supply Bundle through the forge endpoint. Donating that actual bundle stocks ten provisions, spends the bundle, advances the shared donor counter by ten and awards the unchanged per-item merit. Insufficient ingredients leave the save untouched; a donation replay cannot debit or stock twice. The final persisted save retains the correct remaining ingredients and cleared finds.
+- A built-client browser journey starts from Explore Tile and verifies the dungeon → pet → exploration request order with one stable request ID. A gathering result opens the choice UI. Claims carry player authentication; a simulated server commit with a lost response can be retried without duplicate rewards, and the completed find stays cleared after refresh. The scene and item WebPs decode at their intended dimensions in every tested browser.
+- Existing checks cover biome sealing, exact outcome thresholds, queue limits, concurrency, recipe quantities and level gates, save authority, disabled stores, donation caps and credit-recovery failures. The focused run passed 85 tests; the complete root run passed all 12,461 tests. The three browser journeys passed all 21 cases across seven browser/viewport projects.
+
+The browser suite uses deterministic API fixtures to verify client behavior; the economy journeys call real authenticated handlers against isolated in-memory storage. No live player accounts or production service were modified. Earlier full smoke and strict combat-layout evidence above applies to the same unchanged game code and build.
+
+Audit logs: `tmp/the-find/functional-focused.log`, `functional-journeys.log`, `functional-full-unit.log`, `functional-browser-probe.log`, `functional-browser.log` and `functional-lint.log`. Browser traces/screenshots are under `shinobij.client/test-results/functional-find/`.
