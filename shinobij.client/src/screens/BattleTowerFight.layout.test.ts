@@ -213,3 +213,9 @@ it("reserves the compact cancel target across two fixed live-state rows", () => 
     assert.match(tacticalCss, /grid-template-rows: auto auto 20px 24px;/);
     assert.match(tacticalCss, /\.tower-header-cancel \{ position: static; grid-column: 3; grid-row: 3 \/ 5;[^}]*height: 44px;/);
 });
+
+it("keeps desktop cancellation in the existing header rows", () => {
+    assert.match(tacticalCss, /grid-template-columns: minmax\(0, 1fr\) auto 44px auto;/);
+    assert.match(tacticalCss, /grid-template-columns: minmax\(150px, 1fr\) auto auto auto 44px auto;/);
+    assert.doesNotMatch(tacticalCss, /\.tower-fight-statusbar \.tower-header-cancel \{[^}]*grid-row: [34];/);
+});
