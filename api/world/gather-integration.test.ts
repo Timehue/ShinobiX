@@ -1,0 +1,102 @@
+import assert from 'node:assert/strict';
+import { before, test } from 'node:test';
+import crypto from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
+import { sealGatherFind } from './_gather.js';
+import { countOwned } from '../craft/_forge.js';
+import { MAX_PENDING_FINDS } from '../../shared/gathering.js';
+process.env.NODE_ENV='test';
+process.env.SHINOBIX_QA_MEMORY_KV='1';
+process.env.SESSION_SECRET='gather-integration-test-secret';
+type Json=Record<string,unknown>;
+type Handler=(req:never,res:never)=>Promise<unknown>;
+let kv:typeof import('../_storage.js').kv;
+let token:typeof import('../_auth.js').issuePlayerToken;
+let online:typeof import('../_realtime/online-store.js').onlineStore;
+let claim:Handler;let explore:Handler;
+before(async()=>{
+    ({kv}=await import('../_storage.js'));({issuePlayerToken:token}=await import('../_auth.js'));
+    ({onlineStore:online}=await import('../_realtime/online-store.js'));
+    claim=(await import('./claim-gather.js')).default as unknown as Handler;
+    explore=(await import('./explore.js')).default as unknown as Handler;
+});
+async function post(handler:Handler,player:string,body:Json,authenticated=true){
+    const out:{status:number;body:Json}={status:200,body:{}};
+    const res={setHeader(){return res;},status(n:number){out.status=n;return res;},json(b:Json){out.body=b;return res;},end(){return res;}};
+    await handler({method:'POST',body:{playerName:player,...body},headers:authenticated?{'x-player-token':token(player),'content-type':'application/json'}:{},socket:{remoteAddress:'127.4.5.6'}} as never,res as never);
+    return out;
+}
+async function seed(player:string,patch:Json={}){
+    const character={name:player,level:65,hp:100,maxHp:100,chakra:100,maxChakra:100,stamina:100,maxStamina:100,
+        ryo:99,inventory:[],itemStacks:[],...patch};
+    await kv.set('save:'+player,{_saveVersion:1,_saveAt:Date.now(),currentSector:33,character});
+    online.upsert({name:player,sector:33,character:{level:65},tile:5});
+}
+const find=()=>sealGatherFind('integration-find-001',33,()=>0,Date.now()-90*86400000)!;
+const choice={findId:'integration-find-001',sector:33,common:'gather-iron-sand',takeTrace:true};
+test('authenticated claims ignore client amounts, survive expired discovery receipts and lost replies',async()=>{
+    const player='gatherintegrationone';await seed(player,{pendingGatherFinds:[find()]});
+    assert.equal((await post(claim,player,choice,false)).status,401);
+    const first=await post(claim,player,{...choice,amount:999,rareItemId:'gather-rime-crystal'});
+    assert.equal(first.status,200);const c=first.body.character as Json;
+    assert.equal(countOwned(c,'gather-iron-sand'),2);assert.equal(countOwned(c,'gather-ember-ore'),1);
+    assert.equal(countOwned(c,'gather-rime-crystal'),0);assert.equal(c.ryo,99);
+    const retry=await post(claim,player,choice);assert.equal(retry.status,200);assert.equal(retry.body.replayed,true);
+    assert.equal(countOwned(retry.body.character as Json,'gather-iron-sand'),2);
+    assert.equal(retry.body._saveVersion,first.body._saveVersion);
+});
+test('concurrent devices commit only once and a changed committed choice cannot pay again',async()=>{
+    const player='gatherintegrationconcurrent';await seed(player,{pendingGatherFinds:[find()]});
+    const results=await Promise.all([post(claim,player,choice),post(claim,player,choice)]);
+    assert.ok(results.some(r=>r.status===200));
+    const retry=await post(claim,player,choice);assert.equal(retry.status,200);
+    const saved=await kv.get<{character:Json}>('save:'+player);
+    assert.equal(countOwned(saved!.character,'gather-iron-sand'),2);
+    assert.equal(countOwned(saved!.character,'gather-ember-ore'),1);
+    assert.equal((await post(claim,player,{...choice,common:'gather-field-herb'})).status,409);
+});
+test('forged sector and unavailable trace refuse without consuming the pending find',async()=>{
+    const player='gatherintegrationforgery';await seed(player,{pendingGatherFinds:[{...find(),rareTrace:false}]});
+    assert.equal((await post(claim,player,{...choice,sector:12})).status,409);
+    assert.equal((await post(claim,player,choice)).status,409);
+    assert.equal((await post(claim,player,{...choice,common:'gather-ember-ore'})).status,400);
+    const result=await post(claim,player,{...choice,takeTrace:false});assert.equal(result.status,200);
+    assert.equal(countOwned(result.body.character as Json,'gather-iron-sand'),3);
+});
+test('pending find outlives explore receipt ring and TTL and never rerolls on explore replay',async()=>{
+    const player='gatherintegrationrotation';await seed(player,{pendingGatherFinds:[find()],redeemedSectorExplorations:[]});
+    const replay=await post(explore,player,{requestId:find().id,sector:33,resolveOutcome:true});
+    assert.equal(replay.status,200);assert.equal(replay.body.replayed,true);
+    assert.equal((replay.body.outcome as Json).kind,'gather');
+    assert.equal(((replay.body.outcome as Json).find as Json).rareTrace,true);
+    assert.equal((replay.body.character as Json).serverExploresToday,undefined);
+    assert.equal((await post(explore,player,{requestId:find().id,sector:12,resolveOutcome:true})).status,409);
+});
+test('queue cap is actionable and collecting a find clears it without spending another tile',async()=>{
+    const player='gatherintegrationcapacity';
+    await seed(player,{pendingGatherFinds:Array.from({length:MAX_PENDING_FINDS},(_,i)=>({...find(),id:i===0?choice.findId:'capacity-find-'+i}))});
+    const refused=await post(explore,player,{requestId:'capacity-new-explore',sector:33,resolveOutcome:true});
+    assert.equal(refused.status,409);assert.equal(refused.body.error,'pending-find-limit');
+    const collected=await post(claim,player,choice);assert.equal(collected.status,200);
+    assert.equal(((collected.body.character as Json).pendingGatherFinds as unknown[]).length,MAX_PENDING_FINDS-1);
+});
+test('one atomic explore seals the find, consumes one pool slot, and replays without more credit',async()=>{
+    const player='gatherintegrationatomic';await seed(player);
+    const {sectorPoolKey,cleanSectorPoolRow}=await import('./_sector-pool.js');
+    const poolKey=sectorPoolKey(33,Date.now());const beforePool=cleanSectorPoolRow(await kv.get(poolKey)).explores;
+    const original=crypto.randomInt;
+    const values=[990000000,990000000,10000000];
+    crypto.randomInt=((...args:unknown[])=>args.length===1&&args[0]===1000000000?values.shift()??10000000:Reflect.apply(original,crypto,args)) as typeof original;
+    syncBuiltinESMExports();
+    let first:Awaited<ReturnType<typeof post>>;
+    try{first=await post(explore,player,{requestId:'atomic-explore-find',sector:33,resolveOutcome:true});}
+    finally{crypto.randomInt=original;syncBuiltinESMExports();}
+    assert.equal(first!.status,200);
+    assert.equal((first!.body.outcome as Json).kind,'gather');
+    const c=first!.body.character as Json;assert.equal(c.ryo,99);assert.equal(c.serverExploresToday,1);
+    assert.equal((c.pendingGatherFinds as unknown[]).length,1);
+    assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores,beforePool+1);
+    const replay=await post(explore,player,{requestId:'atomic-explore-find',sector:33,resolveOutcome:true});
+    assert.equal(replay.status,200);assert.deepEqual(replay.body.outcome,first!.body.outcome);
+    assert.equal(cleanSectorPoolRow(await kv.get(poolKey)).explores,beforePool+1);
+});

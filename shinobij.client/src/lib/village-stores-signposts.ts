@@ -45,7 +45,7 @@ export type StoresItemSignpost = {
  *  the same "first owned material" order applyCookRecipe uses). */
 export function cookRecipeForMaterial(itemId: string): CookRecipe | null {
     const id = String(itemId ?? "");
-    return COOK_RECIPES.find((r) => r.materials.includes(id)) ?? null;
+    return COOK_RECIPES.find((r) => r.materials.includes(id) || id === "gather-field-herb") ?? null;
 }
 
 /**

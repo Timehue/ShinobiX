@@ -1,3 +1,4 @@
+import { provisionValue } from '../../../shared/gathering-materials';
 /*
  * Village Stores — client mirror of api/_village-stores.ts + api/_village-intel.ts.
  *
@@ -195,9 +196,11 @@ export const CRAFT_POINT_VALUES: Readonly<Record<string, number>> = {
 /** Which store an item donation lands in — mirrors storesDonationRouting's
  *  id rule (ration-pack → provisions; anything in CRAFT_POINT_VALUES →
  *  materials; everything else stays a loose treasury item). */
+export { provisionValue } from '../../../shared/gathering-materials';
+
 export function storesDonationBucket(itemId: string): "provisions" | "materialPoints" | null {
     const id = String(itemId ?? "");
-    if (id === RATION_ITEM_ID) return "provisions";
+    if (provisionValue(id)) return "provisions";
     return (CRAFT_POINT_VALUES[id] ?? 0) > 0 ? "materialPoints" : null;
 }
 
@@ -241,7 +244,7 @@ export function storesDonationGate(
     const n = Math.max(1, Math.floor(Number(count) || 1));
     const used = storesDonatedToday(character, now);
     if (bucket === "provisions") {
-        return used.rations + n > DAILY_RATION_DONATION_CAP
+        return used.rations + n * provisionValue(itemId) > DAILY_RATION_DONATION_CAP
             ? { ok: false, reason: `Daily limit: ${used.rations}/${DAILY_RATION_DONATION_CAP} rations donated today` }
             : { ok: true };
     }

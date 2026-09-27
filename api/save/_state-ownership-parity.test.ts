@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
@@ -190,6 +191,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'accountName',
         'sunscarRally', 'sunscarCaravan',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves

@@ -1,3 +1,5 @@
+import { GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS, isVillageSupplyGood } from '../../shared/gathering.js';
+import { villageStoresEnabled } from '../_release-flags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
 import { HUNTER_RANK_REQUIREMENTS } from '../hunter/_rank-up.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
@@ -16,6 +18,7 @@ export const CRAFT_POINTS: Record<string, number> = {
 };
 
 const SUPPLY_RECIPES: Record<string, { points: number; count?: number; currency?: 'auraDust' | 'boneCharms'; amount?: number; levelReq?: number }> = {
+    'village-supply-bundle': { points: 0 }, 'village-supply-crate': { points: 0 },
     'pet-treat': { points: 50 }, 'elemental-pet-treat': { points: 100 },
     'beast-seal-master': { points: 450, levelReq: 30 },
     'currency:aura-dust': { points: 50, currency: 'auraDust', amount: 50 },
@@ -104,6 +107,12 @@ function itemPoints(item: CatalogItem, armor: boolean): number {
     return armor ? 800 : 700;
 }
 
+export function consumeGatherIngredients(character: Record<string, unknown>, recipeId: string, quantity = 1): Record<string, unknown> | null {
+    const ingredients = Object.entries(GATHER_RECIPE_INGREDIENTS[recipeId] ?? {});
+    if (ingredients.some(([id, amount]) => countOwned(character, id) < amount * quantity)) return null;
+    return ingredients.reduce((next, [id, amount]) => removeOwned(next, id, amount * quantity), character);
+}
+
 export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
 export function applyForge(character: Record<string, unknown>, kind: CraftKind, recipeId: string, quantityRaw: unknown) {
     const quantity = Math.max(1, Math.min(20, count(quantityRaw) || 1));
@@ -113,7 +122,15 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
     }
     if (kind === 'supply') {
         const recipe = SUPPLY_RECIPES[recipeId]; if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
-        const paid = consumeCraftPoints(character, recipe.points * quantity); if (!paid) return null;
+        if (isVillageSupplyGood(recipeId) && !villageStoresEnabled()) return null;
+        const ryo = (VILLAGE_SUPPLY_GOODS[recipeId]?.ryo ?? 0) * quantity;
+        if (count(character.ryo) < ryo) return null;
+        const output = ITEM_CATALOG[recipeId];
+        const cap = output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2
+            : output?.slot === 'item' && (output.weaponEffect != null || output.apCost != null || output.restoreChakra != null || output.restoreStamina != null) ? 50 : null;
+        if (cap != null && countOwned(character, recipeId) + (recipe.count ?? 1) * quantity > cap) return null;
+        const exact = consumeGatherIngredients(character, recipeId, quantity); if (!exact) return null;
+        const paid = consumeCraftPoints({ ...exact, ryo: count(character.ryo) - ryo }, recipe.points * quantity); if (!paid) return null;
         if (recipe.currency) return { ...paid, [recipe.currency]: count(paid[recipe.currency]) + (recipe.amount ?? 0) * quantity };
         return addOwned(paid, recipeId, (recipe.count ?? 1) * quantity, true);
     }
@@ -126,7 +143,8 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
     // path like buying, so it must agree with the shop and the equip gate.
     // Reading the raw field would let a player craft a tier they cannot wear.
     if (!valid || count(character.level) < effectiveItemLevelReq(item)) return null;
-    const ryo = ryoFor(item); if (count(character.ryo) < ryo) return null;
-    const paid = consumeCraftPoints(character, itemPoints(item, armor)); if (!paid) return null;
-    return addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, 1, false);
+    const ryo = ryoFor(item) * quantity; if (count(character.ryo) < ryo) return null;
+    const exact = consumeGatherIngredients(character, recipeId, quantity); if (!exact) return null;
+    const paid = consumeCraftPoints(exact, itemPoints(item, armor) * quantity); if (!paid) return null;
+    return addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, quantity, false);
 }

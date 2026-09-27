@@ -1,3 +1,5 @@
+import { isVillageSupplyGood } from '../../shared/gathering.js';
+import { villageStoresEnabled } from '../_release-flags.js';
 import { inventoryGrowthBlock } from '../_inventory-capacity.js';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -22,6 +24,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const receipts = Array.isArray(character.redeemedCrafts) ? character.redeemedCrafts as string[] : [];
             if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true } };
+            if (isVillageSupplyGood(recipeId) && !villageStoresEnabled())
+                return { ok: false as const, status: 409, error: 'Village Stores are unavailable. Keep your ingredients and try again when the stores reopen.' };
             const next = applyForge(character, kind, recipeId, body.quantity);
             if (!next) return { ok: false as const, status: 409, error: 'invalid-or-unaffordable-recipe' };
             // Judge the RESULT, not the starting bag. A weapon craft is hugely

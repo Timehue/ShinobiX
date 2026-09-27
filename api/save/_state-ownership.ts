@@ -224,6 +224,9 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // client write is discarded — otherwise the objective could be forged outright.
     f('relicSurvey', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'biomes surveyed since accept; world/explore appends, wanderer-quest accept resets'),
     f('relicSurveyCount', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'length mirror of relicSurvey so the numeric quest completion check needs no survey-specific branch'),
+    f('pendingGatherFinds', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),
+    f('redeemedGatherFinds', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),
+    f('gatherIntroSeen', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),
     f('redeemedSectorExplorations', 'character', 'server-payout-stamp', 'exploration', ['server-mirror-char']),
     f('serverFreeDungeonProbeDate', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),
     f('serverFreeDungeonProbesToday', 'character', 'server-owned', 'exploration', ['server-mirror-char'], 'dungeon/probe-free only'),

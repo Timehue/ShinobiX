@@ -8,8 +8,8 @@ const field = COOK_RECIPES.find((r) => r.id === 'field-rations')!;
 const campaign = COOK_RECIPES.find((r) => r.id === 'campaign-rations')!;
 
 test('recipes mirror the server: field 1 beast meat + 30 ryo → 5; campaign pelt-or-scale + 80 ryo → 20', () => {
-    assert.deepEqual(field, { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], rations: 5 });
-    assert.deepEqual(campaign, { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-frost-pelt', 'hunt-ash-scale'], rations: 20 });
+    assert.deepEqual(field, { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], rations: 5, herbs: 1 });
+    assert.deepEqual(campaign, { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-frost-pelt', 'hunt-ash-scale'], rations: 20, herbs: 2 });
     assert.equal(DAILY_RATION_COOK_CAP, 40);
 });
 
@@ -26,7 +26,7 @@ test('rationsCookedToday reads the UTC-day counter and resets on a new day', () 
 });
 
 test('cookRecipeGate: cap → ryo → material, in the server order', () => {
-    const base = { ryo: 1_000, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'hunt-ash-scale', count: 2 }] };
+    const base = { ryo: 1_000, itemStacks: [{ itemId: 'gather-field-herb', count: 2 }, { itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'hunt-ash-scale', count: 2 }] };
     assert.deepEqual(cookRecipeGate(base, field, NOW), { ok: true, material: 'hunt-beast-meat' });
     // campaign picks the first OWNED material (frost pelt absent → ash scale)
     assert.deepEqual(cookRecipeGate(base, campaign, NOW), { ok: true, material: 'hunt-ash-scale' });
@@ -39,7 +39,7 @@ test('cookRecipeGate: cap → ryo → material, in the server order', () => {
 });
 
 test('cook materials are named, never raw ids', () => {
-    assert.deepEqual(COOK_MATERIAL_IDS, ['hunt-beast-meat', 'hunt-frost-pelt', 'hunt-ash-scale']);
+    assert.deepEqual(COOK_MATERIAL_IDS, ['hunt-beast-meat', 'gather-field-herb', 'hunt-frost-pelt', 'hunt-ash-scale']);
     assert.equal(cookMaterialName('hunt-frost-pelt'), 'Frost Pelt');
     assert.equal(cookMaterialChoiceName(campaign), 'Frost Pelt or Ash Scale');
     assert.equal(cookMaterialChoiceName(field), 'Beast Meat');
@@ -49,12 +49,12 @@ test('cook materials are named, never raw ids', () => {
 });
 
 test('cookRecipeLine reads as voice and takes every number from the recipe', () => {
-    assert.equal(cookRecipeLine(field), 'Beast Meat and 30 ryo — five days of field rations.');
-    assert.equal(cookRecipeLine(campaign), 'Frost Pelt or Ash Scale and 80 ryo — twenty days of siege rations.');
+    assert.equal(cookRecipeLine(field), 'Beast Meat, 1 Field Herb and 30 ryo — five days of field rations.');
+    assert.equal(cookRecipeLine(campaign), 'Frost Pelt or Ash Scale, 2 Field Herbs and 80 ryo — twenty days of siege rations.');
     // an unlisted yield still renders, as a numeral rather than a blank
     assert.equal(
         cookRecipeLine({ ...field, ryo: 45, rations: 7 }),
-        'Beast Meat and 45 ryo — 7 days of field rations.',
+        'Beast Meat, 1 Field Herb and 45 ryo — 7 days of field rations.',
     );
 });
 
