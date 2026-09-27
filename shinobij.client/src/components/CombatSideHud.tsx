@@ -259,7 +259,7 @@ export function CombatSideHud({
 }
 
 /** Deferred server-authored effects remain visible without being counted as live. */
-export function PendingEffectsStrip({ statuses }: { statuses: readonly CombatHudStatus[] }) {
+export function PendingEffectsStrip({ statuses }: { statuses: readonly (CombatDisplayStatus & { rounds: number })[] }) {
     const grouped = groupStatuses(statuses);
     if (grouped.length === 0) return null;
     return (

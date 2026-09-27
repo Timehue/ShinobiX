@@ -1,7 +1,7 @@
 // DEV-ONLY harness to eyeball the Battle Tower fight board without a server.
 // Served at /towerfx.html by vite dev. Mocks an active session showcasing EVERY
-// board system at once: squad + enemy formation with the boss in back, pylon /
-// ward / hazard flowers, TERRAIN PILLARS (biome obstacle art), BOARD OBJECTS
+// board system at once: squad + enemy formation with the boss in back, one large
+// pylon / ward / hazard zone, TERRAIN PILLARS (biome obstacle art), BOARD OBJECTS
 // (healing font + squad-held & enemy-held shrines), a primed VOLLEY telegraph
 // (violet tiles + banner), GEYSER VENTS (idle + primed pulse), and the boss-kit
 // encounter chips (hunt/strike/aegis/geyser).
@@ -27,6 +27,7 @@ import "./styles/layout/adaptive-stages.css";
 import "./styles/layout/adaptive-tools.css";
 import "./styles/lite-fx-compositing.css";
 import { BattleTowerFight } from "./screens/BattleTowerFight";
+import { rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment';
 import type {
     TowerSession,
     TowerActor,
@@ -66,7 +67,7 @@ const session: TowerSession = {
         // Scattered terrain pillars (non-adjacent, like the server's scatterTerrain).
         blockedTiles: [at(4, 1), at(9, 3), at(10, 4), at(11, 5), at(11, 7), at(15, 9)],
         hazardTiles: [], objectiveTiles: [],
-        // Spread, non-overlapping flowers (what the server's procedural placement produces).
+        // Candidate pool; the shared server roll below selects one of each kind.
         features: [
             { kind: "pylon", tiles: zone(at(6, 2)), element: "Fire", weakenElement: "Water", percent: 25, label: "Flame Pylon" },
             { kind: "pylon", tiles: zone(at(12, 2)), element: "Earth", weakenElement: "Lightning", percent: 25, label: "Stone Pylon" },
@@ -162,6 +163,17 @@ const session: TowerSession = {
     ],
 };
 
+// Match production's environment budget and footprint, while keeping this
+// scripted preview's actors at their authored demonstration positions.
+session.map.features = placeTowerEnvironment(
+    rollTowerEnvironment(session.map.features ?? [], session.seed), W, H, session.seed,
+    session.actors.map(actor => actor.pos),
+);
+const environmentTiles = new Set(session.map.features.flatMap(feature => feature.tiles));
+session.map.blockedTiles = session.map.blockedTiles.filter(tile => !environmentTiles.has(tile));
+for (const object of session.map.boardObjects ?? []) object.tiles = object.tiles?.filter(tile => !environmentTiles.has(tile));
+for (const hazard of session.map.dynamicHazards ?? []) hazard.tiles = hazard.tiles?.filter(tile => !environmentTiles.has(tile));
+
 // ── Session harness ("?live") ────────────────────────────────────────────────
 // A deterministic stand-in for api/towers: it owns the session, applies a
 // coarse effect per command, and bumps `actionVersion` so the screen's own
@@ -170,6 +182,10 @@ const session: TowerSession = {
 // advance through real state transitions, not to reproduce server damage.
 const live = new URLSearchParams(window.location.search).has("live");
 const variant = new URLSearchParams(window.location.search).has("team") ? "team-pvp" : undefined;
+const reviewBiome = new URLSearchParams(window.location.search).get("biome");
+if (reviewBiome && ["forest", "central", "snow", "volcano", "shadow"].includes(reviewBiome)) {
+    session.map.biome = reviewBiome as typeof session.map.biome;
+}
 
 // The static board is an ART showcase: it parks the squad in its own read-safe
 // formation. Live mode starts the player adjacent to the front grunt so Attack,
@@ -182,6 +198,13 @@ const liveSession: TowerSession = {
     actors: session.actors.map((actor) => (actor.id === "sq-0" ? { ...actor, pos: LIVE_PLAYER_TILE } : actor)),
 };
 
+// Optional mechanics fixture; all consequences here are preview-only.
+if (new URLSearchParams(location.search).has('tactics')) {
+    const pylon = liveSession.map.features?.find(feature => feature.kind === 'pylon');
+    liveSession.towerTactics = {version:1,signature:'marked-strike',disruptedPylons:[],chargeBaits:0,avoidedStrikes:0,squadKnockouts:[],telegraph:{kind:'marked-strike',origin:liveSession.actors.find(a=>a.side==='enemy')!.pos,targetId:'sq-0'}};
+    if(pylon) liveSession.actors.find(a=>a.id==='sq-0')!.pos=pylon.tiles[0];
+    liveSession.bossStrike={tiles:[liveSession.actors.find(a=>a.id==='sq-0')!.pos],round:liveSession.round,pct:14,kind:'marked-strike',label:'Spire Warden: Death Mark'};
+}
 let current: TowerSession = live ? liveSession : session;
 let version = 0;
 
@@ -233,6 +256,7 @@ function describe(action: TowerActionInput): string {
  *  commands chip the nearest enemy; movement relocates the player. */
 function applyAction(from: TowerSession, action: TowerActionInput): TowerSession {
     const actors = from.actors.map((actor) => ({ ...actor }));
+    if(action.type === 'disrupt' && from.towerTactics) return {...from,actors,activeAp:from.activeAp-40,actionsThisTurn:from.actionsThisTurn+1,bossStrike:undefined,towerTactics:{...from.towerTactics,telegraph:undefined,disruptedPylons:[action.tile]},map:{...from.map,features:from.map.features?.map(feature=>feature.kind==='pylon'&&feature.tiles[0]===action.tile?{...feature,percent:0,label:'Disrupted pylon'}:feature)},log:[...from.log,'Rill disrupts the pylon.']};
     if (action.type === "move" || action.type === "dash") {
         const me = actors.find((a) => a.id === "sq-0");
         if (me) me.pos = action.tile;
@@ -295,5 +319,5 @@ createRoot(document.getElementById("root")!).render(
             actionFn={harnessActionFn}
             stateFn={harnessStateFn}
         />
-        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} />,
+        : <BattleTowerFight variant={variant} character={{ name: "Rill" } as never} runId="preview" initialSession={session} onExit={() => {}} stateFn={harnessStateFn} />,
 );

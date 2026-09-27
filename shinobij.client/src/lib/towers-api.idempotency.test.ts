@@ -101,3 +101,20 @@ test("action conflicts adopt the authoritative session instead of trapping a sta
         globalThis.fetch = originalFetch;
     }
 });
+
+test("Tower deadline settles even when a transport ignores AbortSignal", async () => {
+    await assert.rejects(
+        withTowerRequestDeadline(() => new Promise<never>(() => {}), undefined, 5),
+        (error: unknown) => error instanceof TowerTransportError,
+    );
+});
+
+test("caller cancellation releases a pending Tower request even if the transport ignores it", async () => {
+    const controller = new AbortController();
+    const request = withTowerRequestDeadline(() => new Promise<never>(() => {}), controller.signal);
+    controller.abort();
+    await assert.rejects(request, { name: "AbortError" });
+    let called = false;
+    await assert.rejects(withTowerRequestDeadline(async () => { called = true; }, controller.signal), { name: "AbortError" });
+    assert.equal(called, false, "an already cancelled request must not start a mutation");
+});

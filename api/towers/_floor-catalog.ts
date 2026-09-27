@@ -14,7 +14,7 @@
  */
 
 /** Increment only when shipped Story-Tower rules/rewards change. Active runs seal this value. */
-export const TOWER_CATALOG_VERSION = 'story-tower-v3' as const;
+export const TOWER_CATALOG_VERSION = 'story-tower-v5' as const;
 
 export const TOWER_OBJECTIVES = [
     'defeat-all',           // clear every enemy
@@ -219,7 +219,7 @@ export type TowerFloor = {
     enemies: TowerEnemyPod[];
     boss?: TowerBoss;
     npc?: TowerNpc;
-    /** positional battlefield features (pylons / wards / hazards) — optional tactical layer */
+    /** Environment candidate pool; Story/Spire roll one pylon, ward, and hazard per run. */
     features?: TowerFeature[];
     /** number of impassable terrain pillars to scatter into map.blockedTiles (cover; absent/0 =
      *  a clear board, byte-identical to the pre-terrain engine). The encounter builder places them
@@ -280,8 +280,8 @@ function ph(w: number, h: number): number[] {
 // tutorials, 18×12 standard encounters, and 20×14 milestone bosses. Varied objectives +
 // 4 boss floors, each boss with a DISTINCT mechanic
 // (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
-// encounter builder scatters them procedurally each run and assigns 3-of-5 pylon
-// elements. Milestones at floor 5 + floor 10.
+// encounter builder rolls one of each feature kind and scatters larger zones;
+// the single pylon rolls one of five elements. Milestones at floor 5 + floor 10.
 //
 // MECHANIC PACING (deliberate — don't stack everything on every floor): each system
 // debuts ONCE, gets a floor to breathe, and only the finale converges them all.
@@ -300,7 +300,7 @@ const CHAPTER_ONE_PRESENTATION = {
     chapter: 1,
     chapterTitle: 'The Spire Ascent',
     chapterSubtitle: 'Ten occupied floors separate the forest gate from the summit command post.',
-    chapterSummary: 'Dispatcher Aya asks you to reopen the supply route and bring the shinobi trapped above the forest gate down alive. Take the lower platforms and remove the self-appointed Sovereign from the summit.',
+    chapterSummary: 'Dispatcher Aya orders a strike against the rogue shinobi occupying the Spire. Defeat their squads, break the commanders holding the upper platforms, and remove the self-appointed Sovereign from the summit.',
 } as const;
 export const FLOOR_CATALOG: readonly TowerFloor[] = [
     {
@@ -365,29 +365,27 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         },
     },
     {
-        id: 4, name: 'Hold the Line', biome: 'central', objective: 'protect-npc',
+        id: 4, name: 'Courtyard Counterattack', biome: 'central', objective: 'defeat-all',
         roundBudget: 8, map: towerArenaMap('compact'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
-        // Timed defense, deliberately distinct from F8's kill-all escort: pressure arrives in
-        // escalating lanes through round 6 and the squad wins by keeping the Genin alive for 8.
+        // A short reinforcement battle: victory follows the final enemy, not a timer.
         enemies: [
             { aiId: 'grunt-bandit', count: 3 }, { aiId: 'grunt-brute', count: 1 },
             { aiId: 'grunt-archer', count: 2, spawnRound: 2 },
-            { aiId: 'grunt-bandit', count: 2, spawnRound: 4 },
-            { aiId: 'grunt-brute', count: 1, spawnRound: 6 },
+            { aiId: 'grunt-bandit', count: 2, spawnRound: 3 },
+            { aiId: 'grunt-brute', count: 1, spawnRound: 3 },
         ],
-        npc: { aiId: 'npc-genin' },
         features: [pylon(16, 10), pylon(16, 10), ward(16, 10, 25)],
         firstClearReward: { ryo: 1000, xp: 380, fateShards: 5 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'hold-the-line',
         briefing: {
-            situation: 'A stranded Genin is transmitting the route upward. Hold the central court until the message clears the Tower.',
+            situation: 'A rogue shinobi squad is regrouping in the central court. Break its counterattack and clear the route to the Warden.',
             tactics: [
-                'Form an interception screen and keep every hostile lane away from the Genin.',
+                'Cut down the opening fighters before their Archer support arrives.',
                 'Use the Warded Stone to absorb the Archers\' ranged pressure when their wave appears.',
-                'Rotate damaged defenders because the exposed court increases squad damage taken by 10%.',
+                'Rotate wounded fighters because the exposed court increases squad damage taken by 10%.',
             ],
-            warnings: ['Hold through 8 completed rounds; clearing an early wave does not end the defense.', 'Waves arrive on rounds 2, 4, and 6 after the opening Bandits and Brute.'],
+            warnings: ['Defeat every enemy, including reinforcements. Eight rounds is the score par, not a survival timer.', 'Archers arrive on round 2; the remaining Bandits and Brute arrive on round 3.'],
         },
     },
     {
@@ -457,29 +455,28 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
             tactics: [
                 'Defeat the Acolytes to lower the boss barrier before attempting a burn.',
                 'Contest both recovery fonts; hostile actors can exploit them if the squad yields the ground.',
-                'Scatter from the violet volley marker and Clear Grave Mirror before resuming damage.',
+                'Move out of Death Mark or disrupt a pylon to interrupt it. Clear Grave Mirror before resuming damage.',
             ],
-            warnings: ['The Revenant regenerates up to 650 health every round and hunts support-oriented shinobi.', 'Its radius-one volley begins on round 3 and repeats every 3 rounds.'],
+            warnings: ['The Revenant regenerates up to 650 health every round and hunts support-oriented shinobi.', 'Death Mark locks a radius-one zone on round 2 and repeats every 3 rounds. A miss exposes the boss.'],
         },
     },
     {
-        id: 8, name: 'Escort the Vanguard', biome: 'central', objective: 'kill-escort',
+        id: 8, name: 'Vanguard Ambush', biome: 'central', objective: 'defeat-all',
         roundBudget: 12, map: towerArenaMap('standard'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 10 },
-        // Clear EVERY enemy while the ally survives.
+        // Defeat the ambush force; no escort actor or separate survival condition.
         enemies: [{ aiId: 'grunt-bandit', count: 4 }, { aiId: 'grunt-brute', count: 2 }, { aiId: 'grunt-archer', count: 3, spawnRound: 2 }],
-        npc: { aiId: 'npc-genin' },
         features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 25), hazard(18, 12)],
         firstClearReward: { ryo: 1800, xp: 700, fateShards: 8 },
         ...CHAPTER_ONE_PRESENTATION,
         artKey: 'escort-vanguard',
         briefing: {
-            situation: 'The Vanguard must cross the central ruin while the squad clears every hostile lane around them.',
+            situation: 'Enemy ambushers control the central ruin. Eliminate the Brute-led front line and the Archers covering its retreat.',
             tactics: [
-                'Keep the squad between the Genin and every enemy instead of racing ahead.',
-                'Eliminate the round-2 Archers before their crossfire settles on the escort.',
-                'Prevent Brute knockbacks from driving the Genin or defenders into the static hazard.',
+                'Use the ward to withstand the Brute-led front line while your squad closes on the Archers.',
+                'Eliminate the round-2 Archers before their crossfire divides the squad.',
+                'Keep safe ground behind your fighters so Brute knockbacks cannot drive them into the hazard.',
             ],
-            warnings: ['Four Bandits and two Brutes begin the escort; three Archers enter on round 2.', 'Every enemy must fall and the Genin must survive; 12 rounds is the par pace, not a time limit.'],
+            warnings: ['Four Bandits and two Brutes begin the ambush; three Archers enter on round 2.', 'Every enemy must fall; 12 rounds is the par pace, not a time limit.'],
         },
     },
     {
@@ -533,7 +530,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
                 'Move toward the safe core before the outer ring becomes lethal after round 11.',
                 'Clear Reflect and cleanse Wound or Poison before committing to the final enrage burn.',
             ],
-            warnings: ['At 75%, 50%, and 25% health the Sovereign gains 35% damage and raises two new pillars.', 'Its nova repeats every 2 rounds; the 3% closing ring first damages outer tiles on round 12.'],
+            warnings: ['At 75%, 50%, and 25% health the Sovereign gains 35% damage and raises two new pillars.', 'Ruin Charge begins on round 2 and repeats every 3 rounds. Bait it into pillars; the 3% closing ring first damages outer tiles on round 12.'],
         },
     },
     // ─── Chapter 2: The Stormglass Rebellion ───────────────────────────────────────
@@ -557,7 +554,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya has identified the regiment behind the occupation. Defeat its commanders, crush the bridge counterattack, and overthrow the Regent at the crown.",
         artKey: 'stormglass-breach',
         briefing: {
             situation: "The Sovereign's command seal opens an upper gate. The Regent's advance guard forms three defensive lines inside it.",
@@ -570,7 +567,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         },
     },
     {
-        id: 12, name: 'The Thunder Archive', biome: 'snow', objective: 'break-objective',
+        id: 12, name: 'The Thunder Archive', biome: 'snow', objective: 'defeat-boss',
         roundBudget: 17, map: towerArenaMap('standard'), fieldRule: { kind: 'hazard', tag: 'Drain', percent: 3 },
         terrainPillars: 10,
         boardObjects: [{ kind: 'font', resource: 'chakra', percent: 20, cap: 45, label: 'Mnemonic Well' }],
@@ -585,24 +582,24 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya has identified the regiment behind the occupation. Defeat its commanders, crush the bridge counterattack, and overthrow the Regent at the crown.",
         artKey: 'thunder-archive',
         briefing: {
-            situation: 'The Thunder Archivist locked the bridge route plate behind three barrier seals and stationed mirrored sentinels around it.',
+            situation: 'The Thunder Archivist commands the shinobi guarding the upper route. Defeat the commander through all three defensive phases to secure the archive.',
             tactics: [
-                'Remove the Bastions to collapse the Archivist\'s Bulwark before burning each seal gate.',
+                'Remove the Bastions to collapse the Archivist\'s Bulwark before attacking the commander.',
                 'Claim the Mnemonic Well to offset the Archive\'s chakra drain.',
                 'Scatter from the violet volley marker before it detonates.',
             ],
             warnings: [
-                'The objective clears at the third phase seal; killing the Archivist is not required.',
+                'Defeat the Archivist to win. Crossing its 75%, 50%, and 25% health gates does not end the fight.',
                 'A Weaver enters on round 3 and sustains the Bulwark until removed.',
-                'Every broken seal raises an Aegis and changes the arena with a new pillar.',
+                'Every health gate raises an Aegis and changes the arena with a new pillar.',
             ],
         },
     },
     {
-        id: 13, name: 'Bridge of a Thousand Bolts', biome: 'central', objective: 'protect-npc',
+        id: 13, name: 'Bridge of a Thousand Bolts', biome: 'central', objective: 'defeat-all',
         roundBudget: 10, map: towerArenaMap('standard'), fieldRule: { kind: 'debuff', tag: 'Increase Damage Taken', percent: 8 },
         terrainPillars: 7,
         boardObjects: [{ kind: 'font', resource: 'hp', percent: 8, cap: 140, label: 'Wayfarer Spring' }],
@@ -610,26 +607,25 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         enemies: [
             { aiId: 'stormglass-lancer', count: 2 }, { aiId: 'stormglass-marksman', count: 1 },
             { aiId: 'stormglass-lancer', count: 2, spawnRound: 2 },
-            { aiId: 'stormglass-marksman', count: 2, spawnRound: 4 },
-            { aiId: 'stormglass-bastion', count: 1, spawnRound: 6 },
-            { aiId: 'stormglass-weaver', count: 2, spawnRound: 8 },
+            { aiId: 'stormglass-marksman', count: 2, spawnRound: 3 },
+            { aiId: 'stormglass-bastion', count: 1, spawnRound: 4 },
+            { aiId: 'stormglass-weaver', count: 2, spawnRound: 4 },
         ],
-        npc: { aiId: 'npc-tower-scout' },
         features: [pylon(18, 12), pylon(18, 12), ward(18, 12, 28), hazard(18, 12, 10)],
         firstClearReward: { ryo: 4200, xp: 1700, fateShards: 10 },
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya has identified the regiment behind the occupation. Defeat its commanders, crush the bridge counterattack, and overthrow the Regent at the crown.",
         artKey: 'thousand-bolt-bridge',
         briefing: {
-            situation: 'A wounded Tower Scout carries the route to the crown. Hold the lightning bridge until the message is transmitted.',
+            situation: 'The Stormglass regiment has barricaded the lightning bridge. Defeat its assault squads to open the final approach to the crown.',
             tactics: [
-                'Anchor the Scout near the ward and intercept Lancers before they reach the squad line.',
+                'Fight from the ward when the Lancers close, then push into the Marksmen behind them.',
                 'Break away to eliminate Marksmen and Weavers when their waves appear.',
-                'Rotate injured defenders through the Wayfarer Spring instead of abandoning the Scout.',
+                'Rotate injured fighters through the Wayfarer Spring while the squad controls the bridge.',
             ],
-            warnings: ['The Scout must survive through round 10; clearing every enemy early is optional.', 'Attack waves arrive on rounds 2, 4, 6, and 8 while bridge vents erupt every even round.'],
+            warnings: ['Defeat every enemy to win; ten rounds is the score par, not a survival timer.', 'Attack waves arrive on rounds 2, 3, and 4 while bridge vents erupt every even round.'],
         },
     },
     {
@@ -649,7 +645,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya has identified the regiment behind the occupation. Defeat its commanders, crush the bridge counterattack, and overthrow the Regent at the crown.",
         artKey: 'broken-reflections',
         briefing: {
             situation: 'The Regiment uses mirrored screens to create overlapping firing lanes while the outer galleries close toward the central shrine.',
@@ -680,7 +676,7 @@ export const FLOOR_CATALOG: readonly TowerFloor[] = [
         chapter: 2,
         chapterTitle: 'The Stormglass Rebellion',
         chapterSubtitle: 'Captured orders reveal a Stormveil splinter regiment holding five floors above the summit.',
-        chapterSummary: "Dispatcher Aya needs the upper route cleared before another extraction can climb. Open the Regent's citadel, carry its route record across the lightning bridge, and shut down the storm array at the crown.",
+        chapterSummary: "Dispatcher Aya has identified the regiment behind the occupation. Defeat its commanders, crush the bridge counterattack, and overthrow the Regent at the crown.",
         artKey: 'stormglass-crown',
         briefing: {
             situation: 'The Stormglass Regent uses mirrored pylons to drive a storm array over the upper spire. Clear the retainers, then shut the array down.',

@@ -34,7 +34,7 @@ test("forfeit bypasses turn-target gating and cannot present a clickable silent 
     const promptAt = fight.indexOf("Forfeit your fighter from this 2v2 match?");
     assert.ok(promptAt >= 0);
     const control = fight.slice(Math.max(0, promptAt - 500), promptAt + 500);
-    assert.match(control, /disabled=\{busy\}/);
+    assert.match(control, /disabled=\{isTeamPvp && busy\}/);
     assert.match(control, /void send\(\{ type: "forfeit" \}\)/);
     assert.doesNotMatch(control, /!myTurn|if \(myTurn\)|if \(!myTurn\)/);
 });
@@ -45,9 +45,9 @@ test("viewer-relative rivals remain identified as live humans with a turn countd
     assert.match(fight, /activeIsLiveHuman && session\.turnStartedAt \? <TowerTurnCountdown/);
 });
 
-test("recovery and ready-toggle copy describe the actions the UI actually permits", () => {
-    assert.match(fight, /Showing the last confirmed battlefield\. Actions remain available and the server will verify the current revision\./);
+test("ready-toggle copy describes the action and recovery adds no persistent warning", () => {
     assert.match(panel, /me\?\.ready \? "Mark not ready" : "Ready up"/);
+    assert.doesNotMatch(fight, /Showing the last confirmed battlefield; the server will verify every action\./);
     assert.doesNotMatch(fight, /Commands resume after the connection recovers/);
 });
 

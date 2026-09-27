@@ -1,3 +1,4 @@
+import { parseTowerRouteChoice } from './_route-choice.js';
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
@@ -39,19 +40,21 @@ function parseBody(req: VercelRequest): Record<string, unknown> {
 }
 
 function bindingFrom(input: Record<string, unknown>): TowerPartyBinding | null {
+    const routeChoice = parseTowerRouteChoice(input.routeChoice);
     const mode = String(input.mode ?? 'story') === 'spire' ? 'spire' : 'story';
     if (mode === 'spire') {
         const ascensionTier = Math.floor(Number(input.ascensionTier));
-        return isValidSpireTier(ascensionTier) ? { mode, ascensionTier } : null;
+        return isValidSpireTier(ascensionTier) ? { mode, ascensionTier, routeChoice } : null;
     }
     const floor = Math.floor(Number(input.floor));
-    return isPublicFloor(floor) && getFloor(floor) ? { mode, floor } : null;
+    return isPublicFloor(floor) && getFloor(floor) ? { mode, floor, routeChoice } : null;
 }
 
 function mutationFingerprint(body: Record<string, unknown>): string {
     const action = String(body.action ?? '');
     const value = {
         action,
+        binding: action === 'create' ? bindingFrom(body) : undefined,
         partyId: String(body.partyId ?? ''),
         inviteCode: String(body.inviteCode ?? '').trim().toUpperCase(),
         target: safeName(String(body.target ?? '')),

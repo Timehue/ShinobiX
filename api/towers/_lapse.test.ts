@@ -137,6 +137,51 @@ describe('tower lapse — gameplay expiry is a terminal event', () => {
         assert.deepEqual(calls, { release: 0, settle: 0 });
     });
 
+    for (const failure of ['settlement-rejected', 'settlement-threw', 'party-close', 'lease-release']) {
+        it(`retries ${failure} after the terminal row was already saved`, async () => {
+            let stored = { ...activeRun(), towerPartyId: 'party-9' } as TowerSession;
+            let failing = true;
+            let writes = 0;
+            let applied = false;
+            const calls: string[] = [];
+            const deps = {
+                read: async () => stored,
+                write: async (session: TowerSession) => { stored = session; writes++; },
+                lock: async <T,>(_key: string, fn: () => Promise<T>) => fn(),
+                now: () => NOW,
+                settle: async () => {
+                    calls.push('settle');
+                    if (failing && failure === 'settlement-rejected') return { ok: false, error: 'save busy' };
+                    if (failing && failure === 'settlement-threw') throw new Error('save unavailable');
+                    const first = !applied;
+                    applied = true;
+                    return { ok: true, applied: first };
+                },
+                closeParty: async () => {
+                    calls.push('close');
+                    if (failing && failure === 'party-close') throw new Error('party unavailable');
+                },
+                releaseLeases: async () => {
+                    calls.push('release');
+                    if (failing && failure === 'lease-release') throw new Error('lease unavailable');
+                },
+            };
+            const first = await terminalizeLapsedTowerRun(stored.runId, deps);
+            assert.equal(first.ok, false, 'failure must remain retryable');
+            assert.equal(stored.status, 'done', 'the forfeit is durable even if cleanup fails');
+            if (failure !== 'lease-release') assert.ok(!calls.includes('release'), 'keep the recovery projection until consequences finish');
+            failing = false;
+            calls.length = 0;
+            const retry = await terminalizeLapsedTowerRun(stored.runId, deps);
+            assert.equal(retry.ok, true);
+            assert.equal(retry.ok && retry.transitioned, false, 'retry does not forfeit twice');
+            assert.deepEqual(calls, ['settle', 'close', 'release']);
+            assert.equal(writes, 1);
+            assert.equal(stored.log.filter(line => line === TOWER_LAPSE_LOG_LINE).length, 1);
+            assert.equal(applied, true);
+        });
+    }
+
     it('lapsedTowerSession is pure and keeps every actor as evidence', () => {
         const session = activeRun();
         const next = lapsedTowerSession(session);

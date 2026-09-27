@@ -1,3 +1,5 @@
+import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
+import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
  * Battle Towers — N-actor combat ENGINE (Phase 1, P1.A2).
  *
@@ -104,6 +106,8 @@ export type TowerAction =
     | { actorId: string; type: 'jutsu'; jutsuId: string; targetId?: string; tile?: number; token?: string }
     | { actorId: string; type: 'weapon'; targetId: string; itemId?: string; token?: string }
     | { actorId: string; type: 'item'; itemId?: string; token?: string }
+    | { actorId: string; type: 'disrupt'; tile: number; token?: string }
+    | { actorId: string; type: 'support'; targetId: string; token?: string }
     | { actorId: string; type: 'heal'; token?: string }
     | { actorId: string; type: 'cleanse'; token?: string }
     | { actorId: string; type: 'clear'; targetId: string; token?: string }
@@ -251,7 +255,7 @@ export function nextStepToward(session: TowerSession, from: number, to: number, 
 // settle recompute reproduces it byte-for-byte. Frontier is bounded by w*h (each tile visited
 // once). Returns `from` when nothing gets closer (pickAiAction then falls through to `wait`,
 // exactly as the greedy step did on a dead end).
-function bfsNextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string): number {
+function bfsNextStepToward(session: TowerSession, from: number, to: number, ignoreId?: string, avoidTiles?: ReadonlySet<number>): number {
     const w = session.map.width, h = session.map.height;
     const parent = new Int32Array(w * h).fill(-2); // -2 = unvisited, -1 = root (`from`)
     parent[from] = -1;
@@ -263,12 +267,12 @@ function bfsNextStepToward(session: TowerSession, from: number, to: number, igno
         const d = hexDistance(cur, to, w);
         if (d < bestD || (d === bestD && cur < best)) { bestD = d; best = cur; }
         for (const nb of towerNeighbors(cur, w, h).sort((a, b) => a - b)) {
-            if (parent[nb] !== -2 || isTileBlocked(session, nb, ignoreId)) continue;
+            if (parent[nb] !== -2 || avoidTiles?.has(nb) || isTileBlocked(session, nb, ignoreId)) continue;
             parent[nb] = cur;
             queue.push(nb);
         }
     }
-    if (best === from) return from;
+    if (best === from || (avoidTiles && bestD >= hexDistance(from, to, w))) return from;
     let node = best; // walk parent pointers back to the first hop out of `from`
     while (parent[node] !== from) {
         if (parent[node]! < 0) return from; // safety (best is always in from's tree, so unreachable in practice)
@@ -335,6 +339,9 @@ function wardDefendMult(session: TowerSession, target: TowerActor): number {
         if (f.kind === 'ward' && f.tiles.includes(target.pos)) mult *= 1 - f.percent / 100;
     }
     return Math.max(0, mult);
+}
+function formationDefendMult(session: TowerSession, target: TowerActor): number {
+    return session.towerTactics && target.side === 'enemy' && session.actors.some(a => a.id !== target.id && a.side === 'enemy' && a.hp > 0 && a.character.combatRole === 'vanguard' && hexDistance(a.pos, target.pos, session.map.width) <= 1) ? .8 : 1;
 }
 // ─── Board objects (fonts / shrines) — pure occupancy each round ─────────────────
 // Hard ceiling on the combined shrine buff so multi-shrine stacking can never approach the
@@ -526,6 +533,12 @@ function computeHazardTelegraph(session: TowerSession): number[] {
     for (const t of dynamicHazardTiles(session, session.round)) out.add(t);
     if (session.bossStrike && session.bossStrike.round === session.round) for (const t of session.bossStrike.tiles) out.add(t);
     return [...out].sort((a, b) => a - b);
+}
+
+function refreshHazardTelegraph(session: TowerSession): void {
+    const tiles = computeHazardTelegraph(session);
+    if (tiles.length) session.map.nextRoundHazardTiles = tiles;
+    else delete session.map.nextRoundHazardTiles;
 }
 
 // ─── Boss mechanics (deterministic; tower-only) ──────────────────────────────
@@ -784,6 +797,7 @@ function bossStrikeCenter(session: TowerSession, boss: TowerActor, kind: string)
  *  tiles NOW (round start), so the telegraph the squad sees is exactly what detonates at round end
  *  even if the boss moves. No-op when the boss is dead / has no strike / is off-cadence. */
 function primeBossStrike(session: TowerSession): void {
+    if (primeTowerSignature(session)) return;
     const id = session.phaseState.bossId;
     const boss = id ? getActor(session, id) : undefined;
     if (!boss || boss.hp <= 0) return;
@@ -880,6 +894,7 @@ function pushAwayFrom(session: TowerSession, actor: TowerActor, centerTile: numb
  *  only (boss/adds/escort exempt), flat %-maxHp outside wMult; the strike is cleared so it fires once. */
 function applyBossStrikeAndRing(session: TowerSession): void {
     const plates: TowerVfxEvent[] = [];
+    resolveTowerSignature(session);
     const strike = session.bossStrike;
     if (strike && strike.round === session.round) {
         const zone = new Set(strike.tiles);
@@ -1344,7 +1359,8 @@ function runAoeJutsu(
                 state.fighters[actor.id]!,
                 state.fighters[target.actorId]!,
                 split.perHit,
-                wMult,
+                // Protection belongs to each victim, not the selected AOE center.
+                wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim),
                 cap,
             );
             return {
@@ -1544,7 +1560,7 @@ function resolveHit(
     const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
     const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
-        pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target)
+        pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target) * formationDefendMult(session, target)
         * attackerEnrageMult(session, actor) * bulwarkMult(session, target)
         * shrineAttackMult(session, actor)
         * Math.max(0, Number(actor.character.towerDmgScale ?? 1))
@@ -1867,6 +1883,7 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    recordTowerKnockouts(session);
     expireCompanions(session);
     deployPendingEnemyWaves(session);
     refreshObjectiveProgress(session);
@@ -1880,9 +1897,7 @@ export function startRound(session: TowerSession): void {
     // Surface the tiles that will burn at THIS round's end (spire hazards + closing ring + boss
     // strike) so the squad can pre-position during their turns. Deterministic hazards only
     // (proximity is reactive). Floors with none leave the field undefined → unchanged wire.
-    const tele = computeHazardTelegraph(session);
-    if (tele.length) session.map.nextRoundHazardTiles = tele;
-    else delete session.map.nextRoundHazardTiles;
+    refreshHazardTelegraph(session);
 }
 
 // ─── Win-check + objectives ──────────────────────────────────────────────────
@@ -2020,6 +2035,8 @@ function squadFightersAlive(session: TowerSession): boolean {
 }
 
 export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void {
+    if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
+    recordTowerKnockouts(session);
     if (session.status !== 'active') return;
     // HP gates are authoritative combat state, regardless of whether the crossing came
     // from a direct cast, a companion, a DoT, or neutral arena damage. This defensive
@@ -2057,6 +2074,10 @@ function tickBossPhases(session: TowerSession): void {
         const t = session.phaseState.pendingPhases.shift()!;
         session.phaseState.triggeredPhases.push(t);
         session.log.push(`${boss.name} enters a new phase (${t}% HP).`);
+        if (session.towerTactics?.version === 2 && session.towerTactics.signature) {
+            const pattern = towerSignaturePattern(session.towerTactics.signature, session.phaseState.triggeredPhases.length);
+            session.log.push(`${boss.name} now uses ${pattern.name}. ${pattern.counter} New patterns begin with the next warning.`);
+        }
         applyBossPhaseMechanic(session, boss); // enrage / summon fire at each gate
         const newPillars = dropPhasePillars(session, boss); // a 'phasePillars' boss reshapes the arena at each gate
         const aegisGranted = applyBossAegis(session, boss); // an 'aegis' boss raises a fresh (capped) shield at each gate
@@ -2178,6 +2199,8 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
     if (!result.applied) return result;
+    if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
+    recordTowerKnockouts(session);
     const actor = session.actors.find(a => a.id === action.actorId);
     if (actor) {
         const ko = session.actors.some(a => a.hp <= 0 && (hpBefore.get(a.id) ?? 0) > 0);
@@ -2195,6 +2218,38 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
     if (actor.hp <= 0) return { applied: false, reason: 'down' };
 
     if (action.type === 'wait') return { applied: true };
+
+    if (action.type === 'disrupt') {
+        const tactics = session.towerTactics;
+        if (!tactics || actor.side !== 'squad') return { applied: false, reason: 'not-available' };
+        const pylon = session.map.features?.find(f => f.kind === 'pylon' && f.tiles[0] === action.tile);
+        if (!pylon || tactics.disruptedPylons.includes(action.tile)) return { applied: false, reason: 'invalid-target' };
+        if (hexDistance(actor.pos, action.tile, session.map.width) > 1) return { applied: false, reason: 'out-of-range' };
+        if (!canAct(session, TOWER_DISRUPT_AP, actor)) return { applied: false, reason: 'cannot-act' };
+        spendActionAp(session, actor, TOWER_DISRUPT_AP); session.actionsThisTurn++;
+        tactics.disruptedPylons.push(action.tile);
+        pylon.percent = 0; pylon.label = 'Disrupted pylon';
+        const boss = session.actors.find(a => a.id === session.phaseState.bossId && a.hp > 0);
+        if (boss) addTowerStatus(boss, { name: 'Increase Damage Taken', percent: 20, rounds: 2, activeRound: session.round, kind: 'negative', source: 'Pylon disruption' });
+        session.bossStrike = undefined; delete tactics.telegraph;
+        refreshHazardTelegraph(session);
+        session.log.push(`${actor.name} disrupts the pylon: its power fades, the boss is exposed and its current telegraph is interrupted.`);
+        publishTowerVfx(session, [{ key: 'lightning60', anchor: 'area', tiles: pylon.tiles }]);
+        return { applied: true };
+    }
+    if (action.type === 'support') {
+        const ally = getActor(session, action.targetId);
+        if (!session.towerTactics || !actor.ai || actor.side !== 'enemy' || actor.character.combatRole !== 'controller' || !ally || ally.side !== actor.side || ally.hp <= 0 || ally.id === actor.id) return { applied: false, reason: 'invalid-target' };
+        if (hexDistance(actor.pos, ally.pos, session.map.width) > 4 || (actor.cooldowns['support'] ?? 0) > 0 || !canAct(session, 60, actor)) return { applied: false, reason: 'cannot-act' };
+        const restored = Math.min(ally.maxHp - ally.hp, 300, Math.max(1, Math.floor(ally.maxHp * .08)));
+        if (restored <= 0) return { applied: false, reason: 'invalid-target' };
+        ally.hp += restored; actor.cooldowns['support'] = 3;
+        spendActionAp(session, actor, 60); session.actionsThisTurn++;
+        session.log.push(`${actor.name} restores ${restored} HP to ${ally.name}.`);
+        publishTowerVfx(session, [{ key: 'heal', target: ally.id, anchor: 'target' }]);
+        return { applied: true };
+    }
+
 
     // Summon the sealed companion (pet) beside the caller. Free (no AP / no action
     // charge), once per fight — matching the Arena's summon button. The pet is
@@ -2995,20 +3050,20 @@ function aiBeneficialGoal(session: TowerSession, actor: TowerActor): number | un
  *  danger applies, so danger-free floors are byte-identical. */
 function aiSafeStepToward(session: TowerSession, actor: TowerActor, dest: number, danger: Set<number>): number {
     const from = actor.pos;
-    const base = nextStepToward(session, from, dest, actor.id);
-    if (danger.size === 0) return base; // fast path — unchanged policy
-    if (base !== from && !danger.has(base)) return base; // the natural step is already safe
+    if (danger.size === 0) return nextStepToward(session, from, dest, actor.id);
+    // Route around the entire danger zone, including sideways/backward first
+    // steps. A greedy safe step can stall at a wide zone or bounce back into a
+    // dead end on the next action. Use the same safe graph for every step.
+    const safeStep = bfsNextStepToward(session, from, dest, actor.id, danger);
+    if (safeStep !== from) return safeStep;
     const w = session.map.width, h = session.map.height;
-    const here = hexDistance(from, dest, w);
     const free = towerNeighbors(from, w, h).filter(n => !isTileBlocked(session, n, actor.id)).sort((a, b) => a - b);
-    const safeProgress = free.find(n => !danger.has(n) && hexDistance(n, dest, w) < here);
-    if (safeProgress !== undefined) return safeProgress;      // safe step that still gets closer
     if (danger.has(from)) {                                    // in danger + no safe progress → flee anywhere safe
         const anySafe = free.find(n => !danger.has(n));
         if (anySafe !== undefined) return anySafe;
     }
     if (!danger.has(from)) return from;                        // safe now → hold rather than step into danger
-    return base;                                               // last resort: progress through danger
+    return nextStepToward(session, from, dest, actor.id);       // last resort: progress through danger
 }
 
 /**
@@ -3040,7 +3095,31 @@ function pickNoviceRecruitAction(session: TowerSession, actor: TowerActor): Towe
     return { actorId: actor.id, type: 'wait' };
 }
 
+/** Find an exit that fits the remaining turn budget, including multi-step marks. */
+function towerEscapeStep(session: TowerSession, actor: TowerActor): number | undefined {
+    if (!session.towerTactics || actor.side !== 'squad' || !actor.ai || !canAct(session, MOVE_AP, actor)) return;
+    const danger = aiDangerTiles(session, actor);
+    if (!danger.has(actor.pos)) return;
+    const budget = Math.min(MAX_ACTIONS - session.actionsThisTurn, Math.floor(session.activeAp / towerAdjustedApCost(session, actor, MOVE_AP)));
+    const visited = new Set([actor.pos]);
+    const queue = [{ tile: actor.pos, first: actor.pos, depth: 0 }];
+    for (let i = 0; i < queue.length; i++) {
+        const current = queue[i]!;
+        if (current.depth >= budget) continue;
+        for (const tile of towerNeighbors(current.tile, session.map.width, session.map.height).sort((a,b) => a-b)) {
+            if (visited.has(tile) || isTileBlocked(session, tile, actor.id)) continue;
+            visited.add(tile);
+            const first = current.depth === 0 ? tile : current.first;
+            if (!danger.has(tile)) return first;
+            queue.push({ tile, first, depth: current.depth + 1 });
+        }
+    }
+}
+
 export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () => number): TowerAction {
+    if (session.towerTactics?.telegraph?.kind === 'charge' && actor.id === session.phaseState.bossId) return { actorId: actor.id, type: 'wait' };
+    const escape = towerEscapeStep(session, actor);
+    if (escape !== undefined) return { actorId: actor.id, type: 'move', tile: escape };
     void rng;
     if (actor.character.towerGenericAiProfile === 'story-recruit-v1') {
         return pickNoviceRecruitAction(session, actor);
@@ -3050,9 +3129,22 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
     const focusMode = actor.side === 'enemy'
         ? String((actor.character as { aiTargetMode?: unknown }).aiTargetMode ?? '')
         : '';
-    const target = (focusMode ? pickFocusTarget(session, actor, focusMode as TowerTargetMode) : undefined)
+    const isolated = session.towerTactics && actor.side === 'enemy' && actor.character.combatRole === 'skirmisher'
+        ? session.actors.filter(a => a.side === 'squad' && a.hp > 0).sort((a,b) => {
+            const alliesNear = (target: TowerActor) => session.actors.filter(other => other.id !== target.id && other.side === 'squad' && other.hp > 0 && hexDistance(other.pos,target.pos,session.map.width) <= 2).length;
+            return alliesNear(a)-alliesNear(b) || hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id);
+        })[0] : undefined;
+    const guardTarget = session.towerTactics && actor.side === 'squad'
+        ? session.actors.filter(a => a.side === 'enemy' && a.hp > 0 && a.id !== session.phaseState.bossId)
+            .sort((a,b) => hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id))[0] : undefined;
+    const target = guardTarget ?? isolated ?? (focusMode ? pickFocusTarget(session, actor, focusMode as TowerTargetMode) : undefined)
         ?? nearestOpponent(session, actor);
     if (!target) return { actorId: actor.id, type: 'wait' };
+    if (session.towerTactics && actor.side === 'enemy' && actor.character.combatRole === 'controller' && (actor.cooldowns['support'] ?? 0) <= 0 && canAct(session, 60, actor)) {
+        const wounded = session.actors.filter(a => a.side === 'enemy' && a.id !== actor.id && a.hp > 0 && a.hp < a.maxHp * .65 && hexDistance(actor.pos, a.pos, session.map.width) <= 4)
+            .sort((a,b) => a.hp/a.maxHp - b.hp/b.maxHp || a.id.localeCompare(b.id))[0];
+        if (wounded) return { actorId: actor.id, type: 'support', targetId: wounded.id };
+    }
     const dist = hexDistance(actor.pos, target.pos, session.map.width);
     // Band competence (standard PvE only): strip the player's stacked buffs, or
     // shed our own debuffs, before committing the turn to damage. Mirrors the
@@ -3099,6 +3191,11 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         } else {
             const boon = aiBeneficialGoal(session, actor);
             if (boon !== undefined) dest = boon;
+            else if (session.towerTactics && actor.side === 'enemy' && actor.character.combatRole === 'vanguard') {
+                const protect = session.actors.filter(a => a.id !== actor.id && a.side === 'enemy' && a.hp > 0 && ['artillery','controller','boss'].includes(String(a.character.combatRole)))
+                    .sort((a,b) => hexDistance(actor.pos,a.pos,session.map.width)-hexDistance(actor.pos,b.pos,session.map.width) || a.id.localeCompare(b.id))[0];
+                if (protect) dest = hexDistance(actor.pos,protect.pos,session.map.width) <= 1 ? actor.pos : protect.pos;
+            }
         }
         const step = aiSafeStepToward(session, actor, dest, danger);
         if (step !== actor.pos) return { actorId: actor.id, type: 'move', tile: step };
