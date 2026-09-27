@@ -30,6 +30,7 @@ const forbiddenClientPrefixes = [
     'pet-models/roster-references/',
 ];
 const forbiddenClientPaths = [
+    'assets/warfront/elemental-impact-atlas-source.png',
     'pet-models/roster-manifest.json',
     'pet-models/roster-reference-report.json',
     'pet-models/warfront-lod/manifest.json',
