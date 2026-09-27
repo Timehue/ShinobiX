@@ -6,6 +6,8 @@ Implemented against `origin/main` at `47964f89ff3ae466affb74d42feeffb3e889682d`,
 
 Five original painted environments and ten original transparent inventory icons follow the main-story cinematic paintings and the current hunt-material/relic icon references. The final assets replace the earlier photographic studies. Their prompts, references and source filenames are recorded in [art-prompts.json](art-prompts.json).
 
+The gathering interface uses neutral charcoal surfaces, ivory text and restrained brass selection accents. Green menu backgrounds are intentionally excluded. It uses the game's shipped Inter and Marcellus typefaces, compact material cards and a separate reward/action area. Desktop displays the complete regional-material option; smaller phones scroll the choices while keeping collection controls visible.
+
 The Find uses TriggeredVisualNovel with biome-specific prose, a full first introduction, a skippable repeat scene and a separate explicit material choice. The preview shows the exact yield before collection. Closing keeps the find in the map's Saved Finds list; claiming commits only once. The choice screen supports keyboard focus, Escape, mobile scrolling and reduced motion.
 
 ## Authority and economy
@@ -50,22 +52,22 @@ Field Signs/huntSector, existing pet/chest/dungeon presentation priority, the le
 
 ## Verification
 
-Verified on 2026-09-27 with independent dependencies installed from this worktree's root and client lockfiles. No built `dist/` files are part of the change.
+Verified on 2026-09-27 with independent dependencies installed from this worktree's root and client lockfiles. The final revision replaces the green interface with the neutral charcoal presentation shown in the screenshots. No built `dist/` files are part of the change.
 
 | Gate | Result |
 | --- | --- |
 | Catalog generation | Regenerated from starter-items; server catalog and stackable mirror validated by tests |
-| Root unit/API suite | 12,460 passed, zero failed or skipped (`npm test --ignore-scripts` after explicit locked `npm ci`) |
-| Client lint | Zero errors; 14 existing warnings. Final gathering modules also pass focused lint |
-| Root production build | Passed; final client rebuild, distribution validation and size checks also passed |
-| Full browser regression | Initial run: 1,348 passed, 693 existing project/fixture skips, 5 failed. All five failures passed the isolated final-build rerun |
-| Final gathering browser checks | 14/14 passed across all seven browser/viewport projects |
-| Strict combat layout | 20 passed, 10 existing project skips, zero failures; capture phase after and strict mode enabled |
+| Root unit/API suite | 12,460 passed, zero failed or skipped for the feature implementation. The subsequent presentation revision changes no backend or economy logic |
+| Client lint | Zero errors; 14 existing warnings |
+| Production build | Root build passed; final client rebuild, distribution validation and size checks also passed |
+| Full browser regression, final UI | 1,339 passed, 693 existing project/fixture skips, 14 timeouts. All 14 timed-out cases passed a separate single-worker rerun without code changes |
+| Gathering browser checks | 14/14 passed across all seven browser/viewport projects; the final selection-indicator adjustment also passed explicit desktop/mobile checks and all gathering cases in the full run |
+| Strict combat layout, final UI | 20 passed, 10 existing project skips, zero failures; capture phase after and strict mode enabled |
 
-The five initial browser failures were Firefox sign-in navigation timeout, WebKit browser-context startup timeout, Chromium compact image-retry completion, and two tablet navigation-manifest assertions. The latter read the newly rebuilt live manifest while the preview still served its earlier immutable snapshot; differing Bank chunk names confirmed that mismatch. A single-worker rerun against the final build passed all five without product changes. Original failure evidence is retained locally rather than hidden by retries.
+The full run's 14 failures were navigation/content waits, browser-context teardown and overall test timeouts on Central Hub, First Contract, First Pact, Guides, companion screens, activity guidance, clan recovery and login. The isolated rerun passed all 14 in 1.9 minutes. Original traces remain under `shinobij.client/test-results/restyle-smoke/`; rerun evidence is under `restyle-recheck/`. The full and strict suites both ran against the same fixed final build.
 
-The last prose and gathering-only CSS adjustments were validated by the final rebuild and all 14 gathering browser cases. The full regression and strict combat runs used the preceding build. Size budgets were not raised: final initial JS/CSS is 388,660 B gzip against a 389,000 B ceiling, and budgeted product JS/CSS is 8,836,509 B against 8,880,000 B. This leaves little startup headroom for future unrelated additions.
+Size budgets were not raised: final initial JS/CSS is 388,662 B gzip against a 389,000 B ceiling, and budgeted product JS/CSS is 8,839,548 B against 8,880,000 B. This leaves little startup headroom for future unrelated additions.
 
-Review screenshots: [first VN scene](evidence/vn-desktop.png), [desktop choice](evidence/choice-desktop.png), [phone choice](evidence/choice-mobile.png). The 360px and 390px views were inspected; the body scrolls independently while the exact yield and full-width primary action stay visible.
+Review screenshots: [first VN scene](evidence/vn-desktop.png), [desktop choice](evidence/choice-desktop.png), [phone choice](evidence/choice-mobile.png). The 360px and 390px views were inspected. Desktop shows the full regional-material option without clipping; smaller phones scroll the choices independently of the collection controls. Secondary text and button color pairs measure at least 6.3:1 contrast on their solid backing surfaces. Keyboard focus, native radio/checkbox semantics and reduced-motion support are retained.
 
-Detailed local logs are under the ignored `tmp/the-find/`: `npm-test-locked.log`, `lint-locked.log`, `build-locked.log`, `build-delivery.log`, `e2e-full.log`, `e2e-recheck.log`, `e2e-find-delivery.log`, and `combat-layout.log`. Browser traces and screenshots remain under the corresponding Playwright result directories.
+Detailed local logs are under the ignored `tmp/the-find/`: `npm-test-locked.log`, `restyle-lint.log`, `restyle-build.log`, `restyle-final-build.log`, `restyle-gathering.log`, `restyle-final-visual.log`, `restyle-smoke.log`, `restyle-recheck.log`, and `restyle-combat.log`.
