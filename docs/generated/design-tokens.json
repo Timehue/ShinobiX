@@ -2686,6 +2686,10 @@
         "valuePx": 520,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/GatheringFind.css",
+            "line": 170
+          },
+          {
             "source": "shinobij.client/src/styles/card-pack-opening.css",
             "line": 1078
           },
@@ -2732,6 +2736,17 @@
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1815
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 521,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/GatheringFind.css",
+            "line": 191
           }
         ]
       },
@@ -2794,6 +2809,10 @@
         "axis": "height",
         "valuePx": 560,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/GatheringFind.css",
+            "line": 191
+          },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
             "line": 455
@@ -3457,6 +3476,10 @@
         "axis": "width",
         "valuePx": 760,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/GatheringFind.css",
+            "line": 162
+          },
           {
             "source": "shinobij.client/src/components/academy-story-moments.css",
             "line": 1
