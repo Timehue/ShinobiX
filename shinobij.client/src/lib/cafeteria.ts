@@ -44,20 +44,22 @@ export type CookRecipe = {
     /** Any ONE of these is consumed (first owned wins). */
     materials: string[];
     rations: number;
+    herbs: number;
 };
 export const COOK_RECIPES: CookRecipe[] = [
-    { id: "field-rations", name: "Field Rations", ryo: 30, materials: ["hunt-beast-meat"], rations: 5 },
-    { id: "campaign-rations", name: "Campaign Rations", ryo: 80, materials: ["hunt-frost-pelt", "hunt-ash-scale"], rations: 20 },
+    { id: "field-rations", name: "Field Rations", ryo: 30, materials: ["hunt-beast-meat"], rations: 5, herbs: 1 },
+    { id: "campaign-rations", name: "Campaign Rations", ryo: 80, materials: ["hunt-frost-pelt", "hunt-ash-scale"], rations: 20, herbs: 2 },
 ];
 export const DAILY_RATION_COOK_CAP = 40;
 export const RATION_ITEM_ID = "ration-pack";
 export const COOK_MATERIAL_NAMES: Record<string, string> = {
+    "gather-field-herb": "Field Herb",
     "hunt-beast-meat": "Beast Meat",
     "hunt-frost-pelt": "Frost Pelt",
     "hunt-ash-scale": "Ash Scale",
 };
 /** Every material any recipe can consume, in recipe order, de-duplicated. */
-export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => r.materials)));
+export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => [...r.materials, 'gather-field-herb'])));
 
 /** The display name for a cook material — never the raw item id. */
 export function cookMaterialName(itemId: string): string {
@@ -80,7 +82,7 @@ const RECIPE_FOOD_NAME: Record<CookRecipeId, string> = {
 /** "Beast Meat and 30 ryo — five days of field rations." */
 export function cookRecipeLine(recipe: CookRecipe): string {
     const days = RATION_DAYS_IN_WORDS[recipe.rations] ?? String(recipe.rations);
-    return `${cookMaterialChoiceName(recipe)} and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
+    return `${cookMaterialChoiceName(recipe)}, ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'} and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
 }
 
 type OwnedShape = { inventory?: string[]; itemStacks?: { itemId: string; count: number }[] };
@@ -122,6 +124,7 @@ export function cookRecipeGate(character: OwnedShape & { ryo?: number }, recipe:
     if (Math.floor(Number(character.ryo) || 0) < recipe.ryo) return { ok: false, reason: `Not enough ryo (${recipe.ryo} needed)` };
     const material = recipe.materials.find((m) => countOwnedItem(character, m) > 0);
     if (!material) return { ok: false, reason: `Needs 1 ${cookMaterialChoiceName(recipe)}` };
+    if (countOwnedItem(character, 'gather-field-herb') < recipe.herbs) return { ok: false, reason: `Needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'} (have ${countOwnedItem(character, 'gather-field-herb')})` };
     return { ok: true, material };
 }
 

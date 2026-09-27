@@ -115,8 +115,9 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // and location-sensitive actions wait for the existing server travel
         // lease to confirm arrival. These handlers add the mission target and
         // confirmed-location gate without restoring a retired map layer.
-        lineCount(worldMapSource) <= 5_296,
-        `WorldMap.tsx grew past 5,296 lines; retired overview layers must stay retired.`,
+        // The Find adds resume/settlement wiring; its VN, choice UI and claim logic remain separate.
+        lineCount(worldMapSource) <= 5318,
+        `WorldMap.tsx grew past 5,318 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

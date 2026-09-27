@@ -141,6 +141,16 @@ export const stackableItemIds = new Set<string>([
     // KEEP IN SYNC with api/_anbu-infiltration.ts CACHE_ITEM_IDS.
     "war-supply-cache", "war-resource-cache",
     // Village Stores rations (cooked in bulk, donated in bulk).
+    "gather-field-herb",
+    "gather-binding-fiber",
+    "gather-iron-sand",
+    "gather-heartwood-bark",
+    "gather-shadow-thread",
+    "gather-rime-crystal",
+    "gather-ember-ore",
+    "gather-stormglass-shard",
+    "village-supply-bundle",
+    "village-supply-crate",
     "ration-pack",
     "thrown-shuriken", "thrown-senbon", "thrown-serpent-dust",
     "item-smoke-bomb", "item-attack-pill", "item-defense-pill",

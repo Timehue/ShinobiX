@@ -40,6 +40,8 @@ import type { GameItem, Jutsu, SavedBloodline } from "../types/combat";
 import type { Pet } from "../types/pet";
 import { TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import { getAllTileCards } from "../data/tile-cards";
+import { GatheringFind } from "../components/GatheringFind";
+import { MAX_PENDING_FINDS, pendingGatherFinds, type PendingGatherFind } from "../../../shared/gathering";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { addStoryTrait } from "../lib/story-choice-mutations";
 import { SceneAmbience } from "../components/SceneAmbience";
@@ -2648,6 +2650,12 @@ function WorldMapContent({
         auraStones?: number;
         auraDust?: number;
     };
+    const [activeGather, setActiveGather] = useState<PendingGatherFind | null>(null);
+    const savedFinds = pendingGatherFinds(character);
+    const savedFindsBanner = savedFinds.length > 0 ? <aside className="gather-resume" aria-label="Saved Finds">
+        <span><strong>Saved Finds · {savedFinds.length}/{MAX_PENDING_FINDS}</strong><br />A harvest is waiting in sector {savedFinds[0].sector}.</span>
+        <button onClick={() => setActiveGather(savedFinds[0])}>Resume find</button>
+    </aside> : null;
     const [activeChest, setActiveChest] = useState<ChestLoot | null>(null);
     const [chestVnPage, setChestVnPage] = useState(0);
     const [chestVnLine, setChestVnLine] = useState(0);
@@ -3084,7 +3092,7 @@ function WorldMapContent({
             notifyFailure("The tile is safely recorded, but its mission receipt is still syncing. Reopen the map to recover it before exploring again.");
             return null;
         }
-        return { operation, outcome: settled.outcome, reward: settled.reward };
+        return { operation, outcome: settled.outcome?.kind === "gather" && !pendingGatherFinds(settled.character).map(f => f.id).includes(settled.outcome.find.id) ? undefined : settled.outcome, reward: settled.reward };
     }
 
     function stageRecoveredPet(operation: PendingWorldRewardOperation): boolean {
@@ -3320,6 +3328,11 @@ function WorldMapContent({
         try {
             const recovered = await recoverPendingWorldRewards(true);
             if (recovered !== "none") return;
+            if (savedFinds.length >= MAX_PENDING_FINDS) {
+                setActiveGather(savedFinds[0]);
+                gameToast("Collect a saved find to make room for more exploration.", { kind: "info" });
+                return;
+            }
             const dailyTiles = character.dailyTilesExplored ?? 0;
             if (dailyTiles >= 150) {
                 alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
@@ -3356,6 +3369,11 @@ function WorldMapContent({
         reportFailure?: (message: string) => void,
     ): Promise<"recovered" | "blocked" | "retired"> {
         const notifyFailure = reportFailure ?? ((message: string) => { if (interactive) alert(message); });
+        if (explored.outcome?.kind === "gather") {
+            completeWorldRewardOperation(character.name, explored.operation.id);
+            if (interactive) setActiveGather(explored.outcome.find);
+            return "recovered";
+        }
         if (explored.outcome?.kind === "chest") {
             let failure: string | undefined;
             const chestState = await settleDiscoveredChest(explored.operation, (message) => { failure = message; });
@@ -4188,6 +4206,9 @@ function WorldMapContent({
         />
     );
 
+    if (activeGather) return <GatheringFind key={activeGather.id} find={activeGather} character={character}
+        sharedImages={sharedImages} onCharacter={onVersionedCharacter} onClose={() => setActiveGather(null)} />;
+
     if (selectedSector && selectedSector !== FESTIVAL_SECTOR) {
         const biome = biomeForSector(selectedSector);
         const sectorWeather = weatherForSector(selectedSector, biome);
@@ -4377,6 +4398,7 @@ function WorldMapContent({
 
         return (
             <div className="map-instance">
+                {savedFindsBanner}
                 {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
@@ -4997,6 +5019,7 @@ function WorldMapContent({
 
     return (
         <div className="card world-atlas-card">
+            {savedFindsBanner}
             {wmZoom.active ? (
                 <div className="wm-topbar">
                     <BackToVillageButton

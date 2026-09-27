@@ -1,0 +1,62 @@
+import { test, expect } from '@playwright/test';
+import { installUiAuditRuntime, uiAuditSave, expectUiAuditBoot } from './helpers/ui-audit-runtime';
+
+test('saved find survives dismissal and refresh; exact choice claims once', async ({page}, testInfo) => {
+    const save=uiAuditSave();
+    const find={id:'gather-browser-001',sector:33,biome:'volcano',rareTrace:true,at:Date.now()};
+    save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[find]};
+    const runtime=await installUiAuditRuntime(page,save);
+    let claims=0;
+    await page.route('**/api/world/claim-gather',async route=>{
+        claims++;
+        expect(route.request().postDataJSON()).toEqual({playerName:'AuditNinja',findId:find.id,sector:33,common:'gather-iron-sand',takeTrace:true});
+        const character={...save.character,pendingGatherFinds:[],gatherIntroSeen:true,itemStacks:[{itemId:'gather-iron-sand',count:2},{itemId:'gather-ember-ore',count:1}]};
+        const version=runtime.currentVersion()+1;
+        runtime.commitServerCharacter(character,version);
+        await route.fulfill({contentType:'application/json',body:JSON.stringify({ok:true,character,_saveVersion:version,rewards:character.itemStacks})});
+    });
+    await expectUiAuditBoot(page,runtime,'worldMap');
+    await page.getByRole('button',{name:'Resume find',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'The Find',exact:true});
+    await expect(dialog).toBeVisible();
+    await expect(dialog.locator('.gather-reward')).toContainText('2 × Field Herb + 1 × Ember Ore');
+    await dialog.getByRole('button',{name:'Save for later',exact:true}).click();
+    expect(claims).toBe(0);
+    await page.reload();
+    await page.getByRole('button',{name:'Resume find',exact:true}).click();
+    await dialog.getByRole('radio',{name:/Iron Sand/}).check();
+    await dialog.getByRole('checkbox').uncheck();
+    await expect(dialog.locator('.gather-reward')).toHaveText('YOU WILL RECEIVE3 × Iron Sand');
+    await dialog.getByRole('checkbox').check();
+    await expect(dialog.locator('.gather-reward')).toContainText('2 × Iron Sand + 1 × Ember Ore');
+    const box=await dialog.boundingBox();
+    expect(box).not.toBeNull();expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x+box!.width).toBeLessThanOrEqual(page.viewportSize()!.width+1);
+    const collectBox=await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).boundingBox();
+    expect(collectBox!.y).toBeGreaterThanOrEqual(0);
+    expect(collectBox!.y+collectBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height+1);
+    expect((await dialog.getByRole('radio',{name:/Iron Sand/}).boundingBox())!.width).toBeLessThanOrEqual(22);
+    await page.screenshot({path:testInfo.outputPath('the-find-choice.png'),fullPage:true});
+    await dialog.getByRole('button',{name:'Collect this harvest',exact:true}).click();
+    await expect(dialog).toContainText('Gathering complete');
+    expect(claims).toBe(1);
+    await dialog.getByRole('button',{name:'Return to the map',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Resume find',exact:true})).toHaveCount(0);
+});
+test('first find uses the VN renderer and skipping leaves an explicit unclaimed choice',async({page},testInfo)=>{
+    const save=uiAuditSave();save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:false,
+        pendingGatherFinds:[{id:'gather-browser-first',sector:12,biome:'forest',rareTrace:false,at:Date.now()}]};
+    const runtime=await installUiAuditRuntime(page,save);
+    let claims=0;page.on('request',r=>{if(r.url().includes('/world/claim-gather'))claims++;});
+    await expectUiAuditBoot(page,runtime,'worldMap');
+    await page.getByRole('button',{name:'Resume find',exact:true}).click();
+    const story=page.getByRole('dialog',{name:'The Find visual novel scene',exact:true});
+    await expect(story).toBeVisible();
+    await page.screenshot({path:testInfo.outputPath('the-find-vn.png'),fullPage:true});
+    await story.getByRole('button',{name:'Skip',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'The Find',exact:true});
+    await expect(dialog).toBeVisible();await expect(dialog.locator('.gather-reward')).toContainText('3 × Field Herb');
+    expect(claims).toBe(0);
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('button',{name:'Resume find',exact:true})).toBeVisible();
+});

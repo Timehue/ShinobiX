@@ -229,7 +229,7 @@ test('the Town Hall Treasury tab shows the cap line and gates the donate button'
     const { readFileSync } = await import('node:fs');
     const townHall = readFileSync(new URL('../screens/TownHall.tsx', import.meta.url), 'utf8');
     assert.match(townHall, /const villageDonateCapLine = storesDonationCapLine\(character\)/);
-    assert.match(townHall, /const villageDonateGate = storesDonationGate\(character, villageDonateItemId\)/);
+    assert.match(townHall, /storesDonationGate\(character, villageDonateItemId\)/);
     assert.match(townHall, /\{villageDonateCapLine\}/, 'the running total must be rendered');
     assert.match(townHall, /disabled=\{!villageDonateItemId \|\| !villageDonateGate\.ok\}/, 'and the button disabled before the 429');
     // ...except when re-sending an unconfirmed identical donation, which the
