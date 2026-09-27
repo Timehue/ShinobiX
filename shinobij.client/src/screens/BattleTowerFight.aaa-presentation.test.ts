@@ -43,7 +43,8 @@ test("combat hierarchy remains legible and reachable on narrow touch screens", (
 });
 
 test("the removed action strip leaves targeting controls semantic and accessible", () => {
-    assert.doesNotMatch(fight, /tower-action-guidance|targetingBlockedMessage|targetingHint/);
+    assert.match(fight, /id="tower-action-guidance" className="tower-sr-only"/);
+    assert.doesNotMatch(fight, /targetingBlockedMessage|targetingHint/);
     assert.doesNotMatch(tacticalCss, /\.tower-action-guidance/);
     assert.equal(fight.match(/aria-hidden=\{!tileActionable\}/g)?.length, 1);
     assert.equal(fight.match(/aria-hidden=\{busy \|\| !actorActionable\}/g)?.length, 1);
