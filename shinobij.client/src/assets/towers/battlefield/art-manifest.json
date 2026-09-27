@@ -52,5 +52,10 @@
       "transparent": false,
       "prompt": "Use case: stylized-concept. Asset type: production background ground for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient abandoned Japanese shrine courtyard at twilight, rain wet blue black stone paving, subtle ancient carvings eroded into some stones, fine charcoal cracks, small violet flowers in seams. Low dark masonry and a little purple mist at extreme outer edges. Soft moonlight, restrained indigo undertones, readable grey ground, NOT pitch black. 85 percent of image is open flat traversable courtyard. Edge decoration confined to outermost 8 percent. Entire center unobstructed readable ground with rich small-scale material detail and gentle contrast. Mature painted realism, consistent cinematic material rendering and texture. No characters, creatures, tall objects, trees, props in playable center, buildings, grid, hexagons, UI, text, symbols, labels, artificial vignette or large central circle. Every part of the ground must be walkable. Fully opaque."
     }
-  ]
+  ],
+  "deliveryOptimization": {
+    "backgrounds": "WebP quality 60, original 1024x683 dimensions",
+    "foregroundAtlases": "Original encodings and alpha retained",
+    "savedBytes": 86234
+  }
 }
