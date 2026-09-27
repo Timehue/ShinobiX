@@ -1,3 +1,7 @@
+import { TowerResultHeader } from "../components/TowerResultHeader";
+import { TowerPersonalBestReceipt } from "../components/TowerPersonalBestReceipt";
+import { TOWER_DISRUPT_AP, TOWER_SIGNATURES, TOWER_HONORS, towerSignaturePattern } from "../../../shared/tower-progression";
+import { towerImpactCues, type TowerImpactCue } from "../lib/tower-impact-cues";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import "../styles/battle-skin.css";
 import "../styles/tower-tactical.css";
@@ -5,7 +9,7 @@ import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "..
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import {
-    submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS,
+    submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS, withTowerRequestDeadline,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput, type TowerActionResponse,
 } from "../lib/towers-api";
 import gameBg from "../assets/background-image.webp";
@@ -20,8 +24,8 @@ import { ARENA_IMPACT_LAG_MS, combatHitLabel, diffCombatVitals, reactionDirectio
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import {
-    buildTowerMilestoneReceipt, buildTowerThreatSummary, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
-    estimateTowerActionDamage, projectTowerClearScore,
+    buildTowerMilestoneReceipt, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
+    estimateTowerActionDamage,
     TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -43,6 +47,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { ShinobiCombatShell } from "../components/ShinobiCombatShell";
 import { BattleTabBar } from "../components/BattleTabBar";
 import { CombatCommandBar, PlainCombatBattleLog } from "../components/CombatHudLayout";
+import { TowerActorDetails, TowerActorEffects } from "../components/TowerActorDetails";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
 import {
@@ -50,38 +55,26 @@ import {
     GiRun, GiSandsOfTime, GiWaterDrop,
 } from "../components/icons/LightweightGameIcons";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
+import { TowerTerrainZone, TowerTerrainProp } from "../components/TowerTerrainZone";
+import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment";
+import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
 import { spireFloorMeta, SPIRE_SHARDS_PER_TIER } from "../lib/spire-catalog";
-import arenaFloorForest from "../assets/towers/arena-floor-forest.webp";
-import arenaFloorSnow from "../assets/towers/arena-floor-snow.webp";
-import arenaFloorVolcano from "../assets/towers/arena-floor-volcano.webp";
-import arenaFloorCentral from "../assets/towers/arena-floor-central.webp";
+import arenaFloorForest from "../assets/towers/battlefield/forest-v1.webp";
+import arenaFloorSnow from "../assets/towers/battlefield/snow-v1.webp";
+import arenaFloorVolcano from "../assets/towers/battlefield/volcano-v1.webp";
+import arenaFloorCentral from "../assets/towers/battlefield/central-v1.webp";
 import { starterItemArtworkFor } from "../data/starter-items";
-import arenaFloorShadow from "../assets/towers/arena-floor-shadow.webp";
-import objectFont from "../assets/towers/objects/font.webp";
-import objectShrine from "../assets/towers/objects/shrine.webp";
-import hazardGeyser from "../assets/towers/hazards/geyser.webp";
-import obstacleForest from "../assets/towers/obstacles/forest.webp";
-import obstacleSnow from "../assets/towers/obstacles/snow.webp";
-import obstacleVolcano from "../assets/towers/obstacles/volcano.webp";
-import obstacleShadow from "../assets/towers/obstacles/shadow.webp";
-import obstacleCentral from "../assets/towers/obstacles/central.webp";
-import pylonFire from "../assets/towers/pylons/fire.webp";
-import pylonWater from "../assets/towers/pylons/water.webp";
-import pylonEarth from "../assets/towers/pylons/earth.webp";
-import pylonLightning from "../assets/towers/pylons/lightning.webp";
-import pylonWind from "../assets/towers/pylons/wind.webp";
-import hazardSprite from "../assets/towers/pylons/hazard.webp";
-import wardSprite from "../assets/towers/pylons/ward.webp";
-
+import arenaFloorShadow from "../assets/towers/battlefield/shadow-v1.webp";
 // ─── Battle Tower Fight (fullscreen pop-out combat shell) ─────────────────────
 // Renders the server-authoritative tower:<runId> session as a top-down hex
-// battlefield — the SAME tessellating clip-path hexes + avatar orbs + biome floor
-// the live PvP screen uses (PvpBattleScreen), generalised to N actors. The human
+// battlefield with illustrated biome floors and terrain clipped to the same
+// authoritative hex geometry as the combat engine, generalised to N actors. The human
 // controls their own actor; allies + enemies are AI, advanced server-side. Boss
 // units render larger; pylon/ward/hazard tiles are drawn so the tactical layer is
 // usable. On a squad clear it auto-settles rewards. See docs/battle-towers-plan.md §11.
@@ -91,14 +84,6 @@ type Mode = "idle" | "move" | "dash" | "attack" | "jutsu" | "weapon" | "heal" | 
  *  (absent for a purely tile-anchored plate). */
 type TowerCombatVfx = { id: string; target?: string; spec: CombatVfxSpec };
 type TowerImpactFloater = { id: string; tile: number; label: string; kind: "damage" | "heal" | "shield" | "status" };
-type TowerActionReplay = {
-    id: number;
-    label: string;
-    lines: string[];
-    plates: NonNullable<TowerSession["vfx"]>;
-    focusTile: number | null;
-    floaters: TowerImpactFloater[];
-};
 type TowerActionForecast = {
     title: string;
     target: string;
@@ -196,6 +181,7 @@ function useTowerDialogFocus<TDialog extends HTMLElement, TPrimary extends HTMLE
         if (!open) return;
         const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const focusFrame = window.requestAnimationFrame(() => {
+            if (document.querySelector('.game-alert-card[aria-modal="true"]')) return;
             const dialog = dialogRef.current;
             const primary = primaryRef.current;
             const primaryEnabled = primary && !primary.matches(":disabled") && primary.getAttribute("aria-disabled") !== "true";
@@ -203,6 +189,9 @@ function useTowerDialogFocus<TDialog extends HTMLElement, TPrimary extends HTMLE
             (primaryEnabled ? primary : fallback)?.focus({ preventScroll: true });
         });
         const onKeyDown = (event: KeyboardEvent) => {
+            // A confirmation is portaled above the result. Let that dialog own
+            // Tab/Escape instead of trapping its keyboard inside the result.
+            if (document.querySelector('.game-alert-card[aria-modal="true"]')) return;
             if (event.key === "Escape") {
                 event.preventDefault();
                 event.stopImmediatePropagation();
@@ -376,20 +365,6 @@ const BOSS_ORB = 78;     // bosses render larger
 // Tower combatant art is resolved through the Tower-only manifest. Unknown enemy
 // visual IDs deliberately render the visible unknown treatment below; player and
 // allied actors may use their sealed avatarImage.
-// Painted elemental-pylon sprites, by element (drawn on the flower centre).
-const PYLON_SPRITE: Record<string, string> = {
-    Fire: pylonFire, Water: pylonWater, Earth: pylonEarth, Lightning: pylonLightning, Wind: pylonWind,
-};
-// Ward / hazard flower sprites.
-const FEATURE_SPRITE: Record<string, string> = { ward: wardSprite, hazard: hazardSprite };
-// Impassable terrain-pillar sprites, keyed by the floor biome (painted game props that
-// sit on blocked tiles — the tile itself also tints dark via tileFill's isBlocked branch).
-const OBSTACLE_SPRITE: Record<string, string> = {
-    forest: obstacleForest, snow: obstacleSnow, volcano: obstacleVolcano,
-    shadow: obstacleShadow, central: obstacleCentral,
-};
-// Board-object sprites (fonts / shrines — tiles worth holding).
-const OBJECT_SPRITE: Record<string, string> = { font: objectFont, shrine: objectShrine };
 const FONT_RESOURCE_WORD: Record<string, string> = { hp: "HP", chakra: "chakra", stamina: "stamina" };
 function objectLabel(o: TowerBoardObject): string {
     if (o.kind === "shrine") return `${o.label ?? "Battle Shrine"}: your whole team deals +${o.percent}% damage while a living ally stands here (capped; enraged bosses gain nothing)`;
@@ -399,19 +374,7 @@ const ENEMY_EMOJI: Record<string, string> = {
     bandit: "🥷", archer: "🏹", blocker: "🛡️", brute: "👹", acolyte: "🔮",
     warden: "🐲", ravager: "😈", genin: "🧑",
 };
-const ELEMENT_ICON: Record<string, string> = { Fire: "🔥", Water: "🌊", Earth: "🪨", Wind: "🌪️", Lightning: "⚡" };
 
-// Manifest-chip palette by modifier kind: the Wave-2 keystones (hazard/debuff/healcut) read
-// distinctly from the amber stat chassis (hp/dmg/roundCap/enrageCap → default).
-const MODIFIER_CHIP_COLOR: Record<string, { fg: string; bg: string; border: string }> = {
-    hazard: { fg: "var(--red-300)", bg: "rgba(239,68,68,0.12)", border: "rgba(239,68,68,0.32)" },       // crimson — tile burn
-    debuff: { fg: "#d8b4fe", bg: "rgba(168,85,247,0.12)", border: "rgba(168,85,247,0.32)" },     // violet — vulnerability
-    healcut: { fg: "#5eead4", bg: "rgba(20,184,166,0.12)", border: "rgba(20,184,166,0.32)" },    // teal — healing throttle
-    extraPhase: { fg: "#fdba74", bg: "rgba(249,115,22,0.12)", border: "rgba(249,115,22,0.32)" }, // ember — extra boss phase (W3)
-    objective: { fg: "#7dd3fc", bg: "rgba(56,189,248,0.12)", border: "rgba(56,189,248,0.32)" },  // sky — secondary condition (W3)
-    dualAugment: { fg: "#f0abfc", bg: "rgba(232,121,249,0.12)", border: "rgba(232,121,249,0.34)" }, // fuchsia — keystone synergy (W3)
-    default: { fg: "#f0b27e", bg: "rgba(240,161,90,0.12)", border: "rgba(240,161,90,0.28)" },     // amber — stat chassis
-};
 // Boss portrait for a spire floor (reuses the enemy sprite atlas, keyed by boss key).
 const SPIRE_BOSS_MECHANIC_FLAVOR: Record<string, string> = {
     bulwark: "hardens its guard!", regen: "digs in and knits its wounds!",
@@ -454,19 +417,10 @@ function buildTowerPhaseBanner(session: TowerSession, boss: TowerActor | undefin
 }
 
 // Wide top-down battlefield floors, one per biome (swap any file in
-// src/assets/towers/arena-floor-<biome>.webp to re-theme — see the image spec).
+// src/assets/towers/battlefield/<biome>-v1.webp; prompts live beside the art).
 const TOWER_FLOOR: Record<string, string> = {
     forest: arenaFloorForest, central: arenaFloorCentral, shadow: arenaFloorShadow,
     snow: arenaFloorSnow, volcano: arenaFloorVolcano,
-};
-
-// Per-element pylon-flower colours (top-lit → dark for the 3D bevel).
-const PYLON_COLOR: Record<string, { top: string; bot: string; border: string }> = {
-    Fire: { top: "rgba(254,178,120,0.66)", bot: "rgba(124,45,18,0.66)", border: "rgba(251,146,60,0.95)" },
-    Water: { top: "rgba(125,211,252,0.66)", bot: "rgba(7,76,120,0.66)", border: "rgba(56,189,248,0.95)" },
-    Earth: { top: "rgba(214,184,130,0.66)", bot: "rgba(87,57,24,0.66)", border: "rgba(202,138,72,0.95)" },
-    Lightning: { top: "rgba(253,230,138,0.7)", bot: "rgba(120,90,8,0.66)", border: "rgba(250,204,21,0.95)" },
-    Wind: { top: "rgba(167,243,208,0.64)", bot: "rgba(16,90,72,0.66)", border: "rgba(52,211,153,0.95)" },
 };
 
 export function BattleTowerFight({
@@ -478,6 +432,7 @@ export function BattleTowerFight({
     initialSession,
     onExit,
     onLeaveActive,
+    onContinue,
     onRecordBattle,
     settleFn,
     settleOnAnyDone,
@@ -494,8 +449,10 @@ export function BattleTowerFight({
     runId: string;
     initialSession: TowerSession;
     onExit: () => void;
-    /** Leave only the active battle view; public Towers keep a recovery breadcrumb. */
+    /** Leave an active or unsettled view while retaining its recovery breadcrumb.
+     * This must not clear the run or mark its rewards as settled. */
     onLeaveActive?: () => void;
+    onContinue?: () => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     // Optional settle override — the Clan Boss reuses this whole fight screen but
     // banks damage into its weekly pool (api/clan-boss/assault-settle) instead of
@@ -524,10 +481,19 @@ export function BattleTowerFight({
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
+    const [showTacticalGrid, setShowTacticalGrid] = useState(false);
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     const [inspectedLoadout, setInspectedLoadout] = useState<{ kind: "jutsu" | "weapon"; id: string } | null>(null);
     const [inspectedEnemyId, setInspectedEnemyId] = useState<string | null>(null);
+    const [actorInspection, setActorInspection] = useState<{ id: string; triggerId: string } | null>(null);
+    const [inlineInspection, setInlineInspection] = useState(() => typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches);
+    useEffect(() => {
+        const media = window.matchMedia("(min-width: 1024px)");
+        const update = (event: MediaQueryListEvent) => setInlineInspection(event.matches);
+        media.addEventListener("change", update);
+        return () => media.removeEventListener("change", update);
+    }, []);
     const [hoveredTile, setHoveredTile] = useState<number | null>(null);
     // Enemy the cursor is over — centres the AOE Burst splash preview on desktop.
     const [hoverEnemyPos, setHoverEnemyPos] = useState<number | null>(null);
@@ -538,7 +504,6 @@ export function BattleTowerFight({
     const settlementPromiseRef = useRef<Promise<void> | null>(null);
     const mountedRef = useRef(true);
     const actionInFlightRef = useRef(false);
-    const [fightSyncState, setFightSyncState] = useState<"live" | "reconnecting">("live");
     const [realtimeConnected, setRealtimeConnected] = useState(() => isRealtimeConnected());
     const initialTowerMilestonesRef = useRef(new Set(character.battleTowerMilestones ?? []));
     const introDialogRef = useRef<HTMLDivElement | null>(null);
@@ -640,14 +605,20 @@ export function BattleTowerFight({
     // and bumps vfxSeq (api/towers/_engine.ts). Draw a batch once per bump;
     // re-polling the same session must not replay it. Cosmetic only — nothing
     // here is read back as combat authority.
-    const liteFx = useMemo(() => prefersLiteCombatFx(), []);
+    const liteFx = useMemo(() => prefersLiteCombatFx() || window.matchMedia("(prefers-reduced-motion: reduce)").matches, []);
+    const initialHonorsRef = useRef(character.battleTowerRecords?.honors ?? {});
     const [combatVfx, setCombatVfx] = useState<TowerCombatVfx[]>([]);
+    const [impactCues, setImpactCues] = useState<TowerImpactCue[]>([]);
+    const [resultReady, setResultReady] = useState(initialSession.status === "done");
+    useEffect(() => {
+        if (session.status !== "done") return;
+        const timer = window.setTimeout(() => setResultReady(true), liteFx ? 0 : 850);
+        return () => window.clearTimeout(timer);
+    }, [session.status, liteFx]);
     const [impactFloaters, setImpactFloaters] = useState<TowerImpactFloater[]>([]);
     const [actionFocusTile, setActionFocusTile] = useState<number | null>(null);
-    const [lastActionReplay, setLastActionReplay] = useState<TowerActionReplay | null>(null);
     const lastVfxSeqRef = useRef<number | undefined>(undefined);
     const hasObservedVfxRef = useRef(false);
-    const replaySeqRef = useRef(0);
     const presentationTimersRef = useRef<number[]>([]);
     // Hit reactions + floaters for versions this client did not submit (the
     // AI's turn, a teammate's action). The local action path shows its own
@@ -859,6 +830,11 @@ export function BattleTowerFight({
         const version = session.actionVersion;
         if (version === undefined || version === reactedVersionRef.current) return;
         reactedVersionRef.current = version;
+        const cues = towerImpactCues(previous, session.actors, session.phaseState.bossId);
+        if (cues.length) {
+            setImpactCues(cues);
+            presentationTimersRef.current.push(window.setTimeout(() => setImpactCues([]), 1250));
+        }
         const before = new Map(previous.map(actor => [actor.id, actor]));
         const floaters: TowerImpactFloater[] = [];
         const reactions: Array<{ id: string; kind: NonNullable<ReturnType<typeof reactionForHit>>; from: number; to: number }> = [];
@@ -906,6 +882,10 @@ export function BattleTowerFight({
             lagged = true;
         }
         const impact = () => {
+            if (!liteFx) for (const reaction of reactions) {
+                const anchor = findBattlefieldActor(gridLayerRef.current, reaction.id);
+                anchor?.animate?.([{ filter: "brightness(1.8) drop-shadow(0 0 9px #e3c77e)" }, { filter: "brightness(1)" }], { duration: 240, easing: "ease-out" });
+            }
             for (const reaction of reactions) {
                 playBattlefieldReaction(
                     findBattlefieldActor(gridLayerRef.current, reaction.id),
@@ -929,35 +909,6 @@ export function BattleTowerFight({
         }, 1450);
         presentationTimersRef.current.push(timer);
     }, []);
-    const replayLastAction = useCallback(() => {
-        if (!lastActionReplay) return;
-        const replaySeq = ++replaySeqRef.current;
-        const mapped = lastActionReplay.plates.map((plate, index) => ({
-            id: `${plate.target ?? "tile"}-replay-${replaySeq}-${index}`,
-            target: plate.target,
-            spec: safeCombatVfxSpec({
-                key: plate.key,
-                target: plate.anchor,
-                persistent: plate.persistent,
-                tiles: plate.tiles,
-                ...(liteFx ? { maxParticles: 4 } : {}),
-            }),
-        }));
-        const deduped = dedupeCombatVfx(mapped, fx =>
-            combatVfxAnchorKey(fx.spec, session.actors.find(actor => actor.id === fx.target)?.pos ?? -1));
-        setCombatVfx(existing => [...existing, ...deduped].slice(liteFx ? -6 : -14));
-        const replayFloaters = lastActionReplay.floaters.map((floater, index) => ({
-            ...floater,
-            id: `${floater.id}-replay-${replaySeq}-${index}`,
-        }));
-        showImpactFloaters(replayFloaters);
-        focusBoardTile(lastActionReplay.focusTile);
-        const lifetime = Math.max(900, ...deduped.map(fx => fx.spec.durationMs));
-        const timer = window.setTimeout(() => {
-            setCombatVfx(existing => existing.filter(fx => !deduped.some(shown => shown.id === fx.id)));
-        }, lifetime + 80);
-        presentationTimersRef.current.push(timer);
-    }, [lastActionReplay, liteFx, session.actors, showImpactFloaters, focusBoardTile]);
     const onBoardPointerDown = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
         if (boardZoom <= TOWER_ZOOM_MIN) return;
         if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -1052,10 +1003,10 @@ export function BattleTowerFight({
     const activeIsLiveHuman = !!activeActor && activeActor.ai === false
         && (isTeamPvp || activeActor.side !== "enemy") && activeActor.hp > 0;
     const turnLabel = session.status !== "active" || !activeActor ? ""
-        : myTurn ? "🟢 Your turn"
-        : isTeamPvp && activeActor.ai === false ? `⏳ ${activeActor.name}'s turn`
-        : activeActor.side === "enemy" ? "⚔️ Enemies acting…"
-        : activeActor.ai === false ? `⏳ ${activeActor.name}'s turn`
+        : myTurn ? "Your turn"
+        : isTeamPvp && activeActor.ai === false ? `${activeActor.name}'s turn`
+        : activeActor.side === "enemy" ? "Enemies acting…"
+        : activeActor.ai === false ? `${activeActor.name}'s turn`
         : `${activeActor.name} acting…`;
 
     useEffect(() => {
@@ -1111,9 +1062,8 @@ export function BattleTowerFight({
             stateFn(runId, me, controller.signal).then(next => {
                 if (!alive) return;
                 setSession(current => (next.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? next : current);
-                setFightSyncState("live");
             }).catch(() => {
-                if (alive && !controller.signal.aborted) setFightSyncState("reconnecting");
+                // The bounded poll retries after a transient read failure.
             }).finally(() => {
                 inFlight = false;
                 if (alive && refreshPending) queueMicrotask(poll);
@@ -1138,7 +1088,7 @@ export function BattleTowerFight({
         const request = (async () => {
             try {
                 if (settleFn) {
-                    const response = await settleFn(runId, me);
+                    const response = await withTowerRequestDeadline(() => settleFn(runId, me));
                     if (!mountedRef.current) return;
                     const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown };
                     if (mutation.character) onVersionedCharacter?.(mutation.character, mutation._saveVersion);
@@ -1182,8 +1132,13 @@ export function BattleTowerFight({
     const exitResult = useCallback(() => {
         if (resultCanExit) onExit();
     }, [resultCanExit, onExit]);
+    const leaveUnsettled = onLeaveActive ? async () => {
+        if (await gameConfirm("Leave this result and recover it later? Settlement is not confirmed. Your run stays saved; reopen this encounter to retry.")) {
+            onLeaveActive();
+        }
+    } : undefined;
     useTowerDialogFocus({
-        open: session.status === "done",
+        open: session.status === "done" && resultReady,
         dialogRef: resultDialogRef,
         primaryRef: resultPrimaryRef,
         escapeAllowed: resultCanExit,
@@ -1264,6 +1219,8 @@ export function BattleTowerFight({
     const attackAp = adjustedActionAp(40);
     const moveAp = adjustedActionAp(30);
     const utilityAp = adjustedActionAp(60);
+    const disruptAp = adjustedActionAp(TOWER_DISRUPT_AP);
+    const nearbyPylon = session.towerTactics && myActor ? session.map.features?.find(feature => feature.kind === "pylon" && feature.tiles[0] != null && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0]) && towerHexDistance(myActor.pos, feature.tiles[0], w) <= 1) : undefined;
     // The weapon currently armed for targeting (when in weapon mode).
     const armedWeapon = mode === "weapon" ? myWeapons.find(w => w.item.id === selWeaponId) : undefined;
     const weaponRange = armedWeapon?.range ?? 1;
@@ -1380,39 +1337,12 @@ export function BattleTowerFight({
     );
     const crimsonTileSet = useMemo(() => new Set(crimsonTiles), [crimsonTiles]);
 
-    // Surface the run-sealed boss profile even when Spire's modifier manifest is present;
-    // target selection and recurring strikes are distinct threats, not modifier aliases.
-    const encounterChips = useMemo(() => {
-        const hasModifierManifest = Array.isArray(session.modifierStack) && session.modifierStack.length > 0;
-        const chips: Array<{ icon: string; text: string; kind: string }> = [];
-        const boss = session.actors.find(a => a.id === session.phaseState.bossId);
-        const sealedBoss = combatFloor?.boss;
-        const strike = sealedBoss?.strike ?? boss?.character?.bossStrike as { kind?: "nova" | "volley" | "slam"; everyRounds?: number; firstRound?: number; radius?: number } | undefined;
-        const hunt = String(sealedBoss?.targetMode ?? boss?.character?.aiTargetMode ?? "");
-        if (strike?.kind) {
-            const strikeName = strike.kind === "volley" ? "Telegraphed barrage" : strike.kind === "slam" ? "Telegraphed slam and knockback" : "Telegraphed nova";
-            const cadence = Math.max(2, Number(strike.everyRounds ?? 3));
-            const firstRound = Math.max(1, Number(strike.firstRound ?? cadence));
-            chips.push({ icon: "☄️", text: `${strikeName} from round ${firstRound}, every ${cadence} rounds${strike.radius ? ` · radius ${strike.radius}` : ""} — step off violet tiles`, kind: "debuff" });
-        }
-        if (hunt) chips.push({ icon: "🎯", text: hunt === "support" ? "Hunts your support" : hunt === "squishiest" ? "Hunts your weakest guard" : "Finishes the wounded", kind: "objective" });
-        if (!hasModifierManifest) {
-            if (boss?.character?.phasePillars) chips.push({ icon: "🪨", text: "Shatters the arena at phase gates", kind: "default" });
-            if (boss?.character?.aegis) chips.push({ icon: "🛡️", text: "Raises a shield at phase gates", kind: "healcut" });
-            if (session.map.closingRing) chips.push({ icon: "🔥", text: `Arena contracts after round ${Math.max(1, Number(session.map.closingRing.fromRound ?? 6))}`, kind: "extraPhase" });
-            if ((session.map.dynamicHazards ?? []).length) chips.push({ icon: "♨️", text: "Geysers erupt on a beat — don't end the round on a vent", kind: "hazard" });
-        }
-        for (const warning of combatFloor?.briefing?.warnings?.slice(0, 3) ?? []) {
-            if (warning.trim()) chips.push({ icon: "⚠️", text: warning.trim(), kind: "debuff" });
-        }
-        return chips;
-    }, [session.modifierStack, session.actors, session.phaseState.bossId, combatFloor, session.map.closingRing, session.map.dynamicHazards]);
-
     function actionLabel(action: TowerActionInput): string {
         if (action.type === "jutsu") return selJutsu?.name ?? "jutsu";
         if (action.type === "weapon") return armedWeapon?.item.name ?? "weapon attack";
         if (action.type === "item") return myConsumables.find(entry => entry.item.id === action.itemId)?.item.name ?? "combat item";
         if (action.type === "wait") return "end turn";
+        if (action.type === "disrupt") return "Disrupt pylon";
         if (action.type === "heal") return "Basic Heal";
         if (action.type === "clear") return "clear enemy buffs";
         if (action.type === "cleanse") return "Cleanse";
@@ -1453,7 +1383,6 @@ export function BattleTowerFight({
         actionInFlightRef.current = true;
         const label = actionLabel(action);
         const previousActors = new Map(session.actors.map(actor => [actor.id, actor]));
-        const previousLogLength = session.log.length;
         setActionFeedback({ phase: "submitting", label });
         try {
             // Injected encounter transports retain their established 3-argument
@@ -1470,9 +1399,8 @@ export function BattleTowerFight({
                 ? { ...res.session, actionVersion: responseActionVersion }
                 : res.session;
             setSession(current => (nextSession.actionVersion ?? 0) >= (current.actionVersion ?? 0) ? nextSession : current);
-            setFightSyncState("live");
             if (res.applied) {
-                const replayId = Date.now();
+                const impactId = Date.now();
                 const targetId = "targetId" in action ? action.targetId : undefined;
                 const targetActor = targetId ? nextSession.actors.find(actor => actor.id === targetId) : undefined;
                 const selfActor = nextSession.actors.find(actor => actor.side === "squad" && ownedByMe(actor.ownerSlug));
@@ -1486,7 +1414,7 @@ export function BattleTowerFight({
                     const hpDelta = nextActor.hp - previous.hp;
                     if (hpDelta !== 0) {
                         floaters.push({
-                            id: `${replayId}-${nextActor.id}-hp`,
+                            id: `${impactId}-${nextActor.id}-hp`,
                             tile: nextActor.pos,
                             label: hpDelta > 0 ? `+${hpDelta} HP` : `−${Math.abs(hpDelta)}`,
                             kind: hpDelta > 0 ? "heal" : "damage",
@@ -1494,27 +1422,18 @@ export function BattleTowerFight({
                     }
                     const shieldDelta = nextActor.shield - previous.shield;
                     if (shieldDelta > 0) {
-                        floaters.push({ id: `${replayId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `+${shieldDelta} guard`, kind: "shield" });
+                        floaters.push({ id: `${impactId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `+${shieldDelta} guard`, kind: "shield" });
                     } else if (shieldDelta < 0 && hpDelta === 0) {
                         // A blow the guard ate entirely still reads — as guard, not as damage
                         // (the enemy's reply resolves inside this same response).
-                        floaters.push({ id: `${replayId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `−${-shieldDelta} guard`, kind: "shield" });
+                        floaters.push({ id: `${impactId}-${nextActor.id}-shield`, tile: nextActor.pos, label: `−${-shieldDelta} guard`, kind: "shield" });
                     }
                     const previousStatuses = new Set(previous.statuses.map(status => `${status.name}:${status.source ?? ""}`));
                     const addedStatus = nextActor.statuses.find(status => !previousStatuses.has(`${status.name}:${status.source ?? ""}`));
                     if (addedStatus) {
-                        floaters.push({ id: `${replayId}-${nextActor.id}-status`, tile: nextActor.pos, label: addedStatus.name, kind: "status" });
+                        floaters.push({ id: `${impactId}-${nextActor.id}-status`, tile: nextActor.pos, label: addedStatus.name, kind: "status" });
                     }
                 }
-                const replay: TowerActionReplay = {
-                    id: replayId,
-                    label,
-                    lines: nextSession.log.slice(previousLogLength).slice(-3),
-                    plates: [...(nextSession.vfx ?? [])],
-                    focusTile,
-                    floaters,
-                };
-                setLastActionReplay(replay);
                 shownFloaterVersionRef.current = nextSession.actionVersion;
                 showImpactFloaters(floaters);
                 focusBoardTile(focusTile);
@@ -1531,13 +1450,23 @@ export function BattleTowerFight({
         }
     }
 
+    function inspectActor(actor: TowerActor, triggerId: string) {
+        setInspectedEnemyId(actor.side === "enemy" ? actor.id : null);
+        setActorInspection({ id: actor.id, triggerId });
+    }
+
+    function closeActorInspection() {
+        if (inlineInspection && actorInspection) document.getElementById(actorInspection.triggerId)?.focus({ preventScroll: true });
+        setActorInspection(null);
+    }
+
     function onTileClick(tile: number) {
         if (suppressBoardClickRef.current) return;
         if (busy) return;
         const occ = session.actors.find(a => a.hp > 0 && a.pos === tile);
-        if (occ?.side === "enemy" && (!myTurn || mode === "idle" || !enemiesInRange.has(occ.id))) {
-            setInspectedEnemyId(occ.id);
-            focusBoardTile(occ.pos);
+        if (occ && inlineInspection) setActorInspection({ id: occ.id, triggerId: `tower-board-actor-${occ.id}` });
+        if (occ && (!myTurn || mode === "idle")) {
+            inspectActor(occ, `tower-board-actor-${occ.id}`);
             return;
         }
         if (!myTurn) return;
@@ -1669,6 +1598,7 @@ export function BattleTowerFight({
 
     // Objective progress readout (so the player can see how close they are to win/lose).
     const enemiesAlive = enemies.filter(e => e.hp > 0).length;
+    const reinforcementsRemaining = (session.pendingEnemyWaves ?? []).reduce((count, wave) => count + wave.actors.length, 0);
     const npcActor = session.actors.find(a => a.side === "npc");
     const bossActor = bossId ? session.actors.find(a => a.id === bossId) : undefined;
     const hpPct = (a: TowerActor) => Math.max(0, Math.round((a.hp / Math.max(1, a.maxHp)) * 100));
@@ -1689,8 +1619,7 @@ export function BattleTowerFight({
         : objective === "survive" ? `Held ${roundsSurvived}${holdGoal == null ? " rounds" : `/${holdGoal} rounds · ${holdRemaining} remaining`}`
         : objective === "kill-escort" && npcActor ? `${npcActor.name} ${hpPct(npcActor)}% HP · ${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`
         : objective === "reach-tile" ? (session.objectiveState.reachedGoal ? "Goal reached" : "Reach the goal tile")
-        : `${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left`;
-    const nextEnemyWave = (session.pendingEnemyWaves ?? []).find(wave => wave.actors.length > 0);
+        : `${enemiesAlive} foe${enemiesAlive !== 1 ? "s" : ""} left${reinforcementsRemaining ? ` · ${reinforcementsRemaining} incoming` : ""}`;
     const pendingBossPhases = session.phaseState.pendingPhases ?? [];
     const nextBossPhase = pendingBossPhases.length > 0 ? Math.max(...pendingBossPhases) : undefined;
     const objectiveDirective = bossUnlocked === false
@@ -1706,7 +1635,7 @@ export function BattleTowerFight({
                         : objective === "survive"
                             ? "Hold the line"
                             : objective === "kill-escort" && npcActor
-                                ? `Eliminate ${npcActor.name}`
+                                ? `Protect ${npcActor.name} and defeat every enemy`
                                 : objective === "reach-tile"
                                     ? "Reach the marked tile"
                                     : "Eliminate the enemy force";
@@ -1715,32 +1644,17 @@ export function BattleTowerFight({
         || (String(bossActor.character?.mechanic ?? "") === "bulwark"
             && enemies.some(enemy => enemy.id !== bossActor.id && enemy.hp > 0))
     ));
-    const bossDossierArt = bossActor ? avatarFor(bossActor) : null;
-    const fieldFeatures = new Set((session.map.features ?? []).map(feature => feature.kind));
-    const fieldObjects = new Set((session.map.boardObjects ?? []).map(object => object.kind));
-    const boardLegend: Array<{ kind: string; label: string }> = [];
-    if (strikeTiles.size > 0) boardLegend.push({ kind: "strike", label: "Boss strike" });
-    if (crimsonTiles.length > 0 || fieldFeatures.has("hazard") || (session.map.dynamicHazards ?? []).length > 0) {
-        boardLegend.push({ kind: "hazard", label: "Hazard" });
-    }
-    if (ringTiles.size > 0) boardLegend.push({ kind: "ring", label: "Collapse zone" });
-    if (fieldFeatures.has("pylon")) boardLegend.push({ kind: "pylon", label: "Elemental pylon" });
-    if (fieldFeatures.has("ward")) boardLegend.push({ kind: "ward", label: "Protective ward" });
-    if (fieldObjects.has("font")) boardLegend.push({ kind: "font", label: "Restoration font" });
-    if (fieldObjects.has("shrine")) boardLegend.push({ kind: "shrine", label: "Battle shrine" });
-    if (session.map.objectiveTiles.length > 0) boardLegend.push({ kind: "objective", label: "Objective tile" });
-    if (session.map.blockedTiles.length > 0) boardLegend.push({ kind: "terrain", label: "Impassable" });
-    const threatSummary = buildTowerThreatSummary({
-        round: session.round,
-        strikeLabel: session.bossStrike?.label,
-        strikeTiles: strikeTiles.size,
-        hazardTiles: crimsonTiles.length,
-        ringTiles: ringTiles.size,
-        reinforcementRound: nextEnemyWave?.round,
-        reinforcementCount: nextEnemyWave?.actors.length,
-        nextBossPhase,
-        roundCap: session.roundCap,
-    });
+    const inspectedActor = session.actors.find(actor => actor.id === actorInspection?.id) ?? null;
+    const fighterDetails = inspectedActor && actorInspection && session.status === "active" ? (
+        <TowerActorDetails actor={inspectedActor} key={inspectedActor.id} round={session.round} avatar={avatarFor(inspectedActor)}
+            triggerId={actorInspection.triggerId} onClose={closeActorInspection} inline={inlineInspection}
+            active={inspectedActor.id === activeId} owned={ownedByMe(inspectedActor.ownerSlug)}
+            intent={inspectedActor.side === "enemy" ? towerEnemyIntent(inspectedActor, session) : undefined}
+            coordinated={Boolean(session.towerTactics)}
+            signature={inspectedActor.id === bossId && session.towerTactics?.signature ? towerSignaturePattern(session.towerTactics.signature, session.towerTactics.version >= 2 ? session.phaseState.triggeredPhases.length : 0) : undefined}
+            boss={inspectedActor.id === bossId} barrier={inspectedActor.id === bossId && bossDossierBarrierActive}
+            nextPhase={inspectedActor.id === bossId ? nextBossPhase : undefined} />
+    ) : null;
     const armedActionName = mode === "jutsu" ? selJutsu?.name ?? "Jutsu"
         : mode === "weapon" ? armedWeapon?.item.name ?? "Weapon"
         : mode === "heal" ? "Basic Heal"
@@ -1756,17 +1670,6 @@ export function BattleTowerFight({
         ? null
         : enemies.find(enemy => enemy.pos === hoverEnemyPos && enemy.hp > 0) ?? null;
     const previewEnemy = hoveredEnemy ?? inspectedEnemy;
-    const scoreProjection = !isTeamPvp && !isSpire && combatFloor?.roundBudget
-        ? projectTowerClearScore({
-            floor: session.floor,
-            round: session.round,
-            roundBudget: combatFloor.roundBudget,
-            squadHpRemaining: allies.filter(actor => actor.side === "squad").reduce((total, actor) => total + Math.max(0, actor.hp), 0),
-            squadHpMax: allies.filter(actor => actor.side === "squad").reduce((total, actor) => total + Math.max(1, actor.maxHp), 0),
-            deaths: allies.filter(actor => actor.side === "squad" && actor.hp <= 0).length,
-            scoreMultiplier: session.routeChoice?.scoreMultiplier,
-        })
-        : null;
     const actionForecast: TowerActionForecast | null = (() => {
         if (!armedActionName || !myActor) return null;
         const target = (mode === "heal" || mode === "cleanse" || (mode === "jutsu" && isSelfCastJutsu(selJutsu)))
@@ -1860,34 +1763,6 @@ export function BattleTowerFight({
             detail: `${inRange ? "Click the target to confirm" : "Target is out of range"}${tags.length ? ` · Applies: ${tags.join(", ")}` : ""}${danger.length ? ` · Danger: ${danger.join(", ")}` : ""}.`,
         };
     })();
-    const hasGroundJutsuTarget = mode === "jutsu" && !!selJutsu
-        && [...jutsuRangeTiles].some(tile => !session.map.blockedTiles.includes(tile));
-    const targetingBlockedMessage = !myTurn ? ""
-        : mode === "attack" && enemiesInRange.size === 0 ? "No enemy is in melee range. Move, Dash, or choose a ranged technique."
-        : mode === "weapon" && enemiesInRange.size === 0 ? `No enemy is within ${weaponRange} hex${weaponRange === 1 ? "" : "es"} of this weapon.`
-        : mode === "clear" && enemiesInRange.size === 0 ? "No living enemy can be cleared."
-        : mode === "move" && moveTiles.size === 0 ? "No adjacent tile is open. Dash or use a movement technique."
-        : mode === "dash" && dashTiles.size === 0 ? "No legal Dash destination is open."
-        : mode === "jutsu" && !!selJutsu && !isSelfCastJutsu(selJutsu)
-            && selJutsu.target !== "EMPTY_GROUND" && enemiesInRange.size === 0 ? `No enemy is within range of ${selJutsu.name ?? "this technique"}.`
-        : mode === "jutsu" && !!selJutsu && selJutsu.target === "EMPTY_GROUND" && !hasGroundJutsuTarget ? `No legal tile is within range of ${selJutsu.name ?? "this technique"}.`
-        : "";
-    const targetingBlocked = targetingBlockedMessage.length > 0;
-    // What to do with the currently-armed action (esp. ground jutsu, which need a tile).
-    const targetingHint = !myTurn ? "" :
-        targetingBlocked ? targetingBlockedMessage :
-        mode === "move" ? "Click an adjacent tile to move." :
-        mode === "dash" ? "Click a highlighted tile to dash (up to 3 hexes)." :
-        mode === "attack" ? "Click an enemy in range to attack." :
-        mode === "weapon" ? "Click an enemy in range." :
-        mode === "heal" ? `Preview: restore ${actionForecast?.metrics.find(metric => metric.includes("HP")) ?? "health"}. Click your ninja to confirm.` :
-        mode === "cleanse" ? "Review the removable debuffs, then click your ninja to confirm." :
-        mode === "clear" ? "Click any enemy to strip its buffs." :
-        mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
-        mode === "jutsu" && isMoveJutsu(selJutsu) ? `Click a highlighted tile to flicker there with ${selJutsu?.name ?? "it"}.` :
-        mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu.name ?? "the zone"}.` :
-        mode === "jutsu" && isBurstJutsu(selJutsu) ? `Click an enemy — ${selJutsu?.name ?? "the blast"} also hits foes in the amber tiles around them.` :
-        mode === "jutsu" && selJutsu ? `Click an enemy in range to cast ${selJutsu.name ?? "it"}.` : "";
     const newlyRecordedTowerMilestones = (settlement.response?.character?.battleTowerMilestones ?? [])
         .filter(milestone => !initialTowerMilestonesRef.current.has(milestone));
     const storyFieldReport = towerStoryFieldReport(session.floor, newlyRecordedTowerMilestones);
@@ -1896,7 +1771,7 @@ export function BattleTowerFight({
     return (
         <ShinobiCombatShell
             mode="tactical"
-            className={`screen-battleTowerFight pvp-battle-layout tower-tactical-combat${variant === "team-pvp" ? " tower-team-pvp-fight" : ""}`}
+            className={`screen-battleTowerFight pvp-battle-layout tower-tactical-combat${variant === "team-pvp" ? " tower-team-pvp-fight" : session.partySize > 1 ? " tower-party-pve-fight" : ""}`}
             style={{ color: "var(--slate-200)", background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme?.backdropImage || gameBg}) center/cover fixed` }}
         >
             {storyTheme?.chapterLabel && <div className="story-fight-chapter">{storyTheme.chapterLabel}</div>}
@@ -1940,106 +1815,34 @@ export function BattleTowerFight({
 
                 {/* Squad rail (+ protect-target allies) */}
                 <aside className="tower-roster-rail tower-squad-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Your Team" : "Squad"}>
-                    <RailHeader icon="🛡" label={isTeamPvp ? "Your Team" : "Squad"} accent="var(--green-400)" />
+                    <RailHeader icon="shield" label={isTeamPvp ? "Your Team" : "Squad"} accent="var(--tower-rail-ally)" />
                     <div className="tower-roster-list">
-                        {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} />)}
+                        {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} selected={a.id === actorInspection?.id} inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
                     </div>
-                    <section className="tower-combat-intel" aria-labelledby="tower-combat-intel-title"
-                        style={encounterArt ? { ["--tower-intel-art" as string]: `url("${encounterArt.src}")` } : undefined}
-                        data-has-encounter-art={encounterArt ? "true" : undefined}>
-                        <header className="tower-intel-header">
-                            <span aria-hidden="true">◈</span>
-                            <strong id="tower-combat-intel-title">Combat intel</strong>
-                            <em>LIVE</em>
-                        </header>
-
-                        <article className="tower-objective-dossier" aria-label="Primary objective">
-                            <span className="tower-intel-kicker">Primary objective</span>
-                            <strong>{objectiveDirective}</strong>
-                            <span className="tower-intel-progress">{objectiveProgress}</span>
-                        </article>
-
-                        {(scoreProjection || session.routeChoice) && (
-                            <article className="tower-score-dossier" aria-label="Live floor score and route">
-                                {scoreProjection && (
-                                    <div className="tower-score-projection">
-                                        <span className={`tower-score-grade tower-score-grade--${scoreProjection.grade.toLowerCase()}`}>{scoreProjection.grade}</span>
-                                        <span>
-                                            <small>Projected clear</small>
-                                            <strong>{scoreProjection.score.toLocaleString()} score</strong>
-                                        </span>
-                                    </div>
-                                )}
-                                {scoreProjection && <p>{scoreProjection.paceLabel} · {scoreProjection.noDeathBonusActive ? "+50 no-KO bonus active" : "No-KO bonus lost"}</p>}
-                                {session.routeChoice && (
-                                    <p className="tower-route-live"><b>{session.routeChoice.label}</b> · {session.routeChoice.summary}</p>
-                                )}
-                            </article>
-                        )}
-
-                        {bossActor && (
-                            <article className="tower-boss-dossier" aria-label={`${bossActor.name} boss dossier`} data-barrier-active={bossDossierBarrierActive ? "true" : undefined}>
-                                <div className="tower-boss-dossier-heading">
-                                    <div className="tower-boss-dossier-portrait" aria-hidden="true">
-                                        {bossDossierArt
-                                            ? <img src={bossDossierArt} alt="" />
-                                            : <span className={isUnknownCombatant(bossActor) ? "tower-unknown-combatant" : undefined}>{emojiFor(bossActor)}</span>}
-                                    </div>
-                                    <div>
-                                        <small>Floor commander</small>
-                                        <strong>{bossActor.name}</strong>
-                                        <em>{bossActor.hp <= 0 ? "Defeated" : bossDossierBarrierActive ? "Barrier active" : "Target vulnerable"}</em>
-                                    </div>
-                                </div>
-                                <div className="tower-boss-health-meter" role="progressbar" aria-label={`${bossActor.name} health`}
-                                    aria-valuemin={0} aria-valuemax={100} aria-valuenow={hpPct(bossActor)}>
-                                    <span style={{ width: `${hpPct(bossActor)}%` }} />
-                                </div>
-                                <p className="tower-boss-phase-readout">
-                                    <b>{hpPct(bossActor)}% HP · {Math.max(0, Math.round(bossActor.shield))} Aegis</b><br />
-                                    {bossDossierBarrierActive
-                                        ? "Reinforcements are sustaining the barrier."
-                                        : nextBossPhase != null
-                                            ? `Next phase shift at ${nextBossPhase}% HP.`
-                                            : "Final phase active — commit the finish."}
-                                </p>
-                            </article>
-                        )}
-
-                        {boardLegend.length > 0 && (
-                            <div className="tower-board-legend">
-                                <span className="tower-intel-kicker">Field recognition</span>
-                                <div role="list" aria-label="Battlefield legend">
-                                    {boardLegend.map(item => (
-                                        <div key={item.kind} className="tower-board-legend-item" role="listitem">
-                                            <i className={`tower-legend-swatch tower-legend-swatch--${item.kind}`} aria-hidden="true" />
-                                            <strong>{item.label}</strong>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-                    </section>
+                    {inlineInspection && <div className="tower-sidebar-info">
+                        {myActor && <section className="tower-own-effects" aria-label="Your current buffs and debuffs">
+                            <TowerActorEffects actor={myActor} round={session.round} />
+                        </section>}
+                        {fighterDetails ?? <section id="tower-fighter-details" className="tower-fighter-placeholder" aria-label="Selected fighter">
+                            <h3 className="tower-sidebar-heading">Selected fighter</h3>
+                            <p>Select an ally or enemy to see their health and effects.</p>
+                        </section>}
+                    </div>}
                 </aside>
 
                 {/* Board */}
                 <main className={`tower-fight-main tower-battle-${battleTabs.tab}`} style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-                    <header className="tower-fight-header tower-fight-statusbar" style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", marginBottom: 6, gap: 8,
+                    <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
                         <h1 className="tower-fight-title">{isTeamPvp ? "2v2 Team Arena · eliminate the rival team" : storyEncounterTitle}</h1>
-                        <span className="tower-objective-progress" role="status" aria-label={`Objective progress: ${objectiveProgress}`}>🎯 {objectiveProgress}</span>
+                        <span className="tower-objective-progress" role="status" aria-label={`Objective progress: ${objectiveProgress}`}>{objectiveDirective} · {objectiveProgress}</span>
                         <span className="tower-round-readout" title={roundPresentation.hudTitle} aria-label={roundPresentation.hudTitle} style={{
                             color: roundPresentation.hardLimit && session.round >= roundPresentation.hardLimit - 2 ? "var(--red-400)"
                                 : roundPresentation.hardLimit && session.round >= Math.floor(roundPresentation.hardLimit * 0.66) ? "var(--gold)" : "var(--text-dim)",
                         }}>{roundPresentation.hudLabel}</span>
                         {turnLabel && (
-                            <span className="tower-fight-turn-pill" style={{
-                                display: "inline-flex", alignItems: "center", gap: 6, maxWidth: "100%", overflow: "hidden", padding: "3px 10px", borderRadius: 16, fontWeight: 700, fontSize: "0.82rem", whiteSpace: "nowrap",
-                                background: myTurn ? "linear-gradient(180deg,#16803a,#0c5226)" : "rgba(15,23,42,0.85)",
-                                border: `1px solid ${myTurn ? "var(--green-400)" : activeActor?.side === "enemy" ? "var(--red-400)" : "var(--blue-400)"}`,
-                                color: myTurn ? "#dcfce7" : "var(--slate-200)",
-                            }}>
+                            <span className="tower-fight-turn-pill" data-own-turn={myTurn} data-side={activeActor?.side}>
                                 <span className="tower-fight-turn-label" aria-live="polite">{turnLabel}</span>
                                 {activeIsLiveHuman && session.turnStartedAt ? <TowerTurnCountdown turnStartedAt={session.turnStartedAt} /> : null}
                             </span>
@@ -2050,9 +1853,9 @@ export function BattleTowerFight({
                             <span style={{ color: "var(--slate-600)" }}>·</span>
                             <span style={{ color: "var(--text-dim)", fontSize: "0.68rem" }}>{myTurn ? `${session.actionsThisTurn}/5` : "waiting"}</span>
                             <span style={{ color: "var(--slate-600)" }}>·</span>
-                            <span title="Health" style={{ color: "#fb7185", fontSize: "0.7rem", fontWeight: 700 }}>♥ {Math.max(0, myActor?.hp ?? 0)}/{myActor?.maxHp ?? 0}</span>
-                            <span title="Chakra" style={{ color: "var(--cyan)", fontSize: "0.7rem", fontWeight: 700 }}>◆ {myChakra}</span>
-                            <span title="Stamina" style={{ color: "#a3e635", fontSize: "0.7rem", fontWeight: 700 }}>⬢ {myStamina}</span>
+                            <span className="tower-header-stat" title="Health" aria-label={`Health: ${Math.max(0, myActor?.hp ?? 0)} of ${myActor?.maxHp ?? 0}`}><small>HP</small> {Math.max(0, myActor?.hp ?? 0)}/{myActor?.maxHp ?? 0}</span>
+                            <span className="tower-header-stat" title="Chakra" aria-label={`Chakra: ${myChakra}`}><small>CP</small> {myChakra}</span>
+                            <span className="tower-header-stat" title="Stamina" aria-label={`Stamina: ${myStamina}`}><small>SP</small> {myStamina}</span>
                         </div>
                         {actionFeedback.phase === "error" && (
                             <span className="tower-header-action-error" aria-hidden="true" title={reject ?? undefined}>{actionFeedback.label} failed</span>
@@ -2060,14 +1863,15 @@ export function BattleTowerFight({
                         <button type="button" className="tower-header-cancel" onClick={cancelAction}
                             disabled={busy || !canCancelAction} aria-hidden={!canCancelAction}
                             aria-label={actionFeedback.phase === "error" ? "Dismiss action error" : "Cancel action"}
-                            style={{ visibility: canCancelAction ? "visible" : "hidden" }}>
+                            hidden={!canCancelAction}>
                             <span>{actionFeedback.phase === "error" ? "Dismiss" : "Cancel action"}</span>
                         </button>
                         {session.status === "active" && (
                             <button
                                 type="button"
                                 className="tower-fight-leave"
-                                disabled={busy}
+                                disabled={isTeamPvp && busy}
+                                aria-label={isTeamPvp ? "Forfeit" : "Leave view"}
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
                                     if (isTeamPvp) {
@@ -2076,13 +1880,10 @@ export function BattleTowerFight({
                                         (onLeaveActive ?? onExit)();
                                     }
                                 }}
-                            >{isTeamPvp ? "Forfeit" : "Leave view"}</button>
+                            >{isTeamPvp ? "Forfeit" : "Leave"}</button>
                         )}
                     </header>
 
-                    {/* Endless Spire — sealed modifier manifest (why the numbers are bigger this floor).
-                        Wave-2 keystones (hazard/debuff/healcut) are colour-coded apart from the stat
-                        chassis (hp/dmg/round/enrage) so tactical demands read at a glance. */}
                     {session.status === "active" && remainingTurnActors.length > 0 && (
                         <ol className="tower-turn-queue" aria-label="Remaining turn order" title="Scroll horizontally for later fighters." tabIndex={0}>
                             {remainingTurnActors.map((actor, index) => (
@@ -2094,46 +1895,12 @@ export function BattleTowerFight({
                         </ol>
                     )}
 
-                    <div className={`tower-threat-summary${threatSummary.length > 0 ? " has-threats" : ""}`} role="status" aria-live="polite" aria-label="Immediate battlefield threats">
-                        <strong>{threatSummary.length > 0 ? "Immediate threats" : "Tactical read"}</strong>
-                        {threatSummary.length > 0
-                            ? threatSummary.map(threat => <span key={threat}>{threat}</span>)
-                            : <span>No telegraphed strike this round. Hold formation and advance the objective.</span>}
-                    </div>
-
-                    {Array.isArray(session.modifierStack) && session.modifierStack.length > 0 && (
-                        <div className="tower-mechanic-strip" role="list" aria-label="Sealed floor modifiers">
-                            {session.modifierStack.map((m, i) => {
-                                const c = MODIFIER_CHIP_COLOR[m.kind] ?? MODIFIER_CHIP_COLOR.default!;
-                                return (
-                                    <span key={i} className="tower-mechanic-chip" role="listitem" title={m.label} style={{
-                                        fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                                        color: c.fg, background: c.bg, border: `1px solid ${c.border}`,
-                                    }}>{m.label}</span>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    {/* Story encounter manifest — the boss's kit as chips (mirrors the spire chips) */}
-                    {encounterChips.length > 0 && (
-                        <div className="tower-mechanic-strip" role="list" aria-label="Encounter mechanics and warnings">
-                            {encounterChips.map((c, i) => {
-                                const pal = MODIFIER_CHIP_COLOR[c.kind] ?? MODIFIER_CHIP_COLOR.default!;
-                                return (
-                                    <span key={i} className="tower-mechanic-chip" role="listitem" style={{
-                                        fontSize: "0.72rem", fontWeight: 600, padding: "2px 8px", borderRadius: 999,
-                                        color: pal.fg, background: pal.bg, border: `1px solid ${pal.border}`,
-                                    }}>{c.icon} {c.text}</span>
-                                );
-                            })}
-                        </div>
-                    )}
-
-                    <div className="tower-board-stage">
+                    <div className="tower-field-tools">
                         <div className="tower-board-toolbar">
                             <span className="tower-board-help">Drag the field to pan after zooming in.</span>
                             <div className="tower-board-controls" role="group" aria-label="Battlefield view controls">
+                                {!inlineInspection && myActor && <button id="tower-own-effects-toggle" type="button" aria-label="Your effects" aria-haspopup="dialog" onClick={() => inspectActor(myActor, "tower-own-effects-toggle")}>Effects</button>}
+                                <button className="tower-grid-toggle" type="button" aria-pressed={showTacticalGrid} onClick={() => setShowTacticalGrid(value => !value)} title="Show the tactical hex grid">Grid</button>
                                 <button type="button" onClick={() => changeBoardZoom(-TOWER_ZOOM_STEP)} disabled={boardZoom <= TOWER_ZOOM_MIN} aria-label="Zoom battlefield out">−</button>
                                 <input type="range" min={TOWER_ZOOM_MIN} max={maximumBoardZoom} step={0.05} value={boardZoom} aria-label="Battlefield zoom"
                                     onChange={event => setBoardZoom(clampTowerZoom(Number(event.target.value), maximumBoardZoom))} />
@@ -2142,14 +1909,11 @@ export function BattleTowerFight({
                                 <button type="button" onClick={resetBoardView} disabled={boardZoom === TOWER_ZOOM_MIN && boardPan.x === 0 && boardPan.y === 0}>Fit / reset</button>
                             </div>
                         </div>
+                    </div>
 
-                        {lastActionReplay && (
-                            <div className="tower-last-action" aria-label={`Last action: ${lastActionReplay.label}`}>
-                                <span><small>Last action</small><strong>{lastActionReplay.label}</strong></span>
-                                <button type="button" onClick={replayLastAction} aria-label={`Replay ${lastActionReplay.label} effects`}>↻ Replay</button>
-                            </div>
-                        )}
-
+                    <div className="tower-board-stage">
+                        {nearbyPylon && session.status === "active" && <button type="button" className="tower-disrupt-control" disabled={!myTurn || busy || session.actionsThisTurn >= 5 || session.activeAp < disruptAp} onClick={() => void send({ type: "disrupt", tile: nearbyPylon.tiles[0]! })} title="Disable this pylon, interrupt the boss telegraph and expose the boss for two rounds.">Disrupt pylon <small>{disruptAp} AP</small></button>}
+                        {session.bossStrike && session.towerTactics?.telegraph && <div className="tower-signature-warning" role="status" title={TOWER_SIGNATURES[session.towerTactics.telegraph.kind].counter} aria-label={`${session.bossStrike.label}. Round end. ${TOWER_SIGNATURES[session.towerTactics.telegraph.kind].counter}`}><strong>{session.bossStrike.label?.split(": ").slice(1).join(": ") || "Boss strike"}</strong><span> · Round end</span></div>}
                         {actionForecast && (
                             <aside className="tower-action-forecast" aria-label={`${actionForecast.title} targeting preview`}>
                                 <div className="tower-action-forecast-heading">
@@ -2164,10 +1928,10 @@ export function BattleTowerFight({
                         )}
 
                         <div ref={battlefieldCallbackRef} className={`tower-board-area${boardZoom > TOWER_ZOOM_MIN ? " is-pannable" : ""}`}
+                        data-grid-visible={showTacticalGrid || mode !== "idle"} data-biome={session.map.biome}
                         role="region" aria-label="Tactical battlefield. Use the zoom controls, then drag to pan."
-                        aria-describedby={(fightSyncState === "reconnecting" || actionFeedback.phase !== "idle" || armedActionName || (!myTurn && session.status === "active")) ? "tower-action-guidance" : undefined}
                         onPointerDown={onBoardPointerDown} onPointerMove={onBoardPointerMove} onPointerUp={endBoardPointer} onPointerCancel={endBoardPointer}
-                        style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "2px solid #1f2937", background: `radial-gradient(ellipse at center, rgba(5,12,8,0.05), rgba(4,9,6,0.4)), url(${biomeFloor}) center/cover no-repeat` }}>
+                        style={{ flex: 1, position: "relative", overflow: "hidden", borderRadius: 10, border: "1px solid #53605d", background: `linear-gradient(rgba(8,13,17,.35), rgba(8,13,17,.35)), url(${biomeFloor}) center/cover no-repeat` }}>
                         {/* left/top carry only the CENTERING offset, which changes on
                             resize or zoom. The pan itself rides `transform`, written
                             by applyBoardPan — a compositor move rather than a relayout
@@ -2180,6 +1944,7 @@ export function BattleTowerFight({
                             willChange: boardZoom > TOWER_ZOOM_MIN ? "transform" : undefined,
                         }}>
                             <div className="hex-grid-layer" ref={gridLayerRef} style={{ position: "absolute", left: 0, top: 0, width: layer.width, height: layer.height, transform: `scale(${renderedScale})`, transformOrigin: "top left" }}>
+                                <div className="tower-battlefield-ground" aria-hidden="true" style={{ backgroundImage: `url(${biomeFloor})` }} />
                                 {/* hex tiles */}
                                 {Array.from({ length: w * h }, (_, pos) => {
                                     const { left, top } = towerHexPixel(pos, w);
@@ -2239,11 +2004,16 @@ export function BattleTowerFight({
                                             aria-hidden={!tileActionable}
                                             inert={!tileActionable ? true : undefined}
                                             className="tower-hex-tile"
+                                            data-move={isMove || undefined} data-range={inJ || undefined}
+                                            data-blocked={isBlocked || undefined} data-goal={isGoal || undefined}
                                             style={{
                                                 left, top, width: HEX_W, height: HEX_H,
                                                 cursor: tileActionable ? "pointer" : "default",
-                                                ...tileFill(feat, { isMove, inJ, isGoal, isBlocked }),
-                                            }} />
+                                            }}>
+                                            <svg className="tower-tile-outline" viewBox="0 0 72 42" aria-hidden="true" focusable="false">
+                                                <polygon points="18,1.68 54,1.68 72,21 54,40.32 18,40.32 0,21" />
+                                            </svg>
+                                        </button>
                                     );
                                 })}
 
@@ -2253,129 +2023,54 @@ export function BattleTowerFight({
                                         style={{ left, top, width: HEX_W, height: HEX_H }} />;
                                 })()}
 
-                                {/* Instant ground-field preview: all tiles affected by this cast. */}
-                                {[...instantGroundPreviewTiles].map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`instant-preview-${t}`} className="tower-hex-tile" aria-hidden="true"
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(34,211,238,0.36)", filter: "drop-shadow(0 0 3px rgba(34,211,238,0.9))", zIndex: 3, pointerEvents: "none" }} />;
-                                })}
+                                {/* Authored terrain follows the exact sealed feature and effect footprints. */}
+                                {(session.map.features ?? []).map((feat, index) => (
+                                    <TowerTerrainZone key={"feature-art-" + index} tiles={feat.tiles} width={w} height={h}
+                                        kind={towerFeatureTerrain(feat.kind, feat.kind === "pylon" ? feat.element : undefined, feat.label)} label={featureLabel(feat)} inactive={feat.kind === "pylon" && session.towerTactics?.disruptedPylons.includes(feat.tiles[0])} />
+                                ))}
+                                <TowerTerrainZone tiles={session.map.objectiveTiles} width={w} height={h} kind="objective" />
+                                {(session.groundEffects ?? []).map((zone, index) => (
+                                    <TowerTerrainZone key={"ground-art-" + index} tiles={zone.tiles} width={w} height={h}
+                                        kind={zone.tags?.some(tag => tag.name === "Poison") ? "poison" : zone.tags?.some(tag => tag.name === "Recoil") ? "recoil" : "curse"}
+                                        label={zone.name + " — " + zone.rounds + " rounds left"} />
+                                ))}
+                                <TowerTerrainZone tiles={crimsonTiles} width={w} height={h} kind="fire" urgent label="Hazard — burns at round end" />
+                                <TowerTerrainZone tiles={[...strikeTiles]} width={w} height={h} kind="strike" urgent
+                                    label={(session.bossStrike?.label ?? "Boss strike") + " — erupts at round end"} />
+                                <TowerTerrainZone tiles={[...ringTiles]} width={w} height={h} kind="collapse" urgent label="Collapsing arena — damage at round end" />
 
-                                {/* persistent ground-effect zones (tile-placed jutsu) */}
-                                {(session.groundEffects ?? []).flatMap((z, zi) => z.tiles.map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    const tag = z.tags?.[0]?.name;
-                                    // toxic-green Poison / red Recoil / purple debuff — saturated + outlined so the
-                                    // zone reads clearly over the floor and pylon tints.
-                                    const fill = tag === "Poison" ? "rgba(190,242,100,0.5)" : tag === "Recoil" ? "rgba(248,113,113,0.5)" : "rgba(192,132,252,0.5)";
-                                    const edge = tag === "Poison" ? "rgba(132,204,22,0.95)" : tag === "Recoil" ? "rgba(239,68,68,0.95)" : "rgba(168,85,247,0.95)";
-                                    return <div key={`z-${zi}-${t}`} className="tower-hex-tile" title={`${z.name} — ${z.rounds} round${z.rounds !== 1 ? "s" : ""} left`}
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 2px ${edge})`, zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                {/* Aiming stays a precise outline above the physical artwork. */}
+                                {[{ tiles: instantGroundPreviewTiles, kind: "field" }, { tiles: aoeBurstTiles, kind: "burst" }].flatMap(preview => [...preview.tiles].map(tile => {
+                                    const { left, top } = towerHexPixel(tile, w);
+                                    return <svg key={preview.kind + tile} className={"tower-target-footprint tower-target-footprint--" + preview.kind}
+                                        aria-hidden="true" focusable="false" viewBox="0 0 72 42" style={{ left, top, width: HEX_W, height: HEX_H }}>
+                                        <polygon points="18,1.68 54,1.68 72,21 54,40.32 18,40.32 0,21" />
+                                    </svg>;
                                 }))}
 
-                                {/* AOE Burst splash preview — amber footprint of the target-centred blast (target + touching hexes) */}
-                                {[...aoeBurstTiles].map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`burst-${t}`} className="tower-hex-tile" aria-hidden
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(251,146,60,0.34)", filter: "drop-shadow(0 0 2px rgba(249,115,22,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 1.6s ease-in-out infinite" }} />;
+                                {/* Props share the environment's materials and sort by board row. */}
+                                {(session.map.features ?? []).map((feat, index) => {
+                                    const tile = feat.tiles[0];
+                                    return tile == null ? null : <TowerTerrainProp inactive={session.towerTactics?.disruptedPylons.includes(tile)} key={"feature-prop-" + index} tile={tile} width={w} size={62 * TOWER_ENVIRONMENT_PROP_SCALE}
+                                        kind={towerFeatureProp(feat.kind, feat.kind === "pylon" ? feat.element : undefined, feat.label)} label={featureLabel(feat)} />;
                                 })}
-
-                                {/* Endless Spire hazard telegraph — crimson "this burns at round end" warning so the
-                                    squad can step off before it lands. Exact deterministic hazards only (server omits
-                                    reactive proximity tiles). Boss-strike + closing-ring tiles are filtered OUT here —
-                                    they get their own violet / ember reads below so each danger is distinguishable. */}
-                                {crimsonTiles.map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`haz-${t}`} className="tower-hex-tile" aria-hidden title="Hazard — burns at round end"
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(220,38,38,0.32)", filter: "drop-shadow(0 0 3px rgba(239,68,68,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 1s ease-in-out infinite" }} />;
-                                })}
-
-                                {/* Boss strike telegraph — VIOLET "the boss detonates HERE at round's end" zone.
-                                    Snapshotted server-side when primed, so this footprint is a hard guarantee. */}
-                                {[...strikeTiles].map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`strike-${t}`} className="tower-hex-tile" aria-hidden title={`${session.bossStrike?.label ?? "Boss strike"} — erupts at round's end`}
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(147,51,234,0.38)", filter: "drop-shadow(0 0 4px rgba(192,132,252,0.95))", zIndex: 3, pointerEvents: "none", animation: "towerHazardPulse 0.8s ease-in-out infinite" }} />;
-                                })}
-
-                                {/* Closing ring — EMBER collapse zone outside the shrinking safe circle. A slower,
-                                    heavier pulse than the strike so "terrain" reads apart from "attack". */}
-                                {[...ringTiles].map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    return <div key={`ring-${t}`} className="tower-hex-tile" aria-hidden title="Collapsing arena — chips you at round end"
-                                        style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: "rgba(194,65,12,0.4)", filter: "drop-shadow(0 0 3px rgba(251,146,60,0.9))", zIndex: 3, pointerEvents: "none", animation: "towerZonePulse 2.2s ease-in-out infinite" }} />;
-                                })}
-
-                                {/* feature markers — one icon at a pylon flower's centre, one per
-                                    tile for scattered hazards / single wards */}
-                                {(session.map.features ?? []).map((feat, fi) => {
-                                    const center = feat.tiles[0];
-                                    if (center == null) return null;
-                                    const { left, top } = towerHexPixel(center, w);
-                                    const cx = left + HEX_W / 2, cy = top + HEX_H / 2;
-                                    const sprite = feat.kind === "pylon" ? PYLON_SPRITE[feat.element] : FEATURE_SPRITE[feat.kind];
-                                    if (sprite) {
-                                        const S = 38;
-                                        return <img key={`f-${fi}`} src={sprite} alt="" aria-hidden="true" title={featureLabel(feat)}
-                                            style={{ position: "absolute", left: cx - S / 2, top: cy - S + 9, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 2px 2px rgba(0,0,0,0.75))" }} />;
-                                    }
-                                    return (
-                                        <div key={`f-${fi}`} title={featureLabel(feat)} aria-hidden
-                                            style={{ position: "absolute", left: cx - 11, top: cy - 13, fontSize: 18, lineHeight: 1, zIndex: 4, pointerEvents: "none", textShadow: "0 1px 3px rgba(0,0,0,0.9)" }}>
-                                            {featureIcon(feat)}
-                                        </div>
-                                    );
-                                })}
-
-                                {/* terrain pillars — painted biome props on the impassable tiles (movement,
-                                    pathing and the dark tile tint are already handled; this is the body) */}
-                                {session.map.blockedTiles.map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    const sprite = OBSTACLE_SPRITE[session.map.biome ?? "central"] ?? OBSTACLE_SPRITE.central!;
-                                    const S = 46;
-                                    return <img key={`obs-${t}`} src={sprite} alt="" aria-hidden title="Impassable terrain"
-                                        style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: "drop-shadow(0 3px 3px rgba(0,0,0,0.8))" }} />;
-                                })}
-
-                                {/* dynamic hazards — geyser vents. The vent sits on the tile always; when it's
-                                    about to erupt the tile also joins the crimson telegraph (rendered above). */}
-                                {(session.map.dynamicHazards ?? []).flatMap((hz, hi) => (hz.tiles ?? []).map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    const primed = (session.map.nextRoundHazardTiles ?? []).includes(t);
-                                    const S = 40;
-                                    return (
-                                        <span key={`geyser-${hi}-${t}`}>
-                                            <div className="tower-hex-tile" aria-hidden
-                                                style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: primed ? "rgba(234,88,12,0.34)" : "rgba(234,88,12,0.12)", filter: "drop-shadow(0 0 3px rgba(249,115,22,0.7))", zIndex: 2, pointerEvents: "none", animation: primed ? "towerHazardPulse 0.9s ease-in-out infinite" : "towerZonePulse 2.8s ease-in-out infinite" }} />
-                                            <img src={hazardGeyser} alt="" aria-hidden="true" title={`Geyser — erupts every ${Math.max(2, Number(hz.everyRounds ?? 3))} rounds for ${hz.pct}% max HP; don't end the round on it`}
-                                                style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8))${primed ? " drop-shadow(0 0 7px rgba(249,115,22,0.95))" : ""}` }} />
-                                        </span>
-                                    );
-                                }))}
-
-                                {/* board objects — fonts & shrines. The tile glows (turquoise font / gold
-                                    shrine, tinted by the holder for shrines) and the prop sits on it. */}
-                                {(session.map.boardObjects ?? []).flatMap((o, oi) => (o.tiles ?? []).map(t => {
-                                    const { left, top } = towerHexPixel(t, w);
-                                    const holder = o.kind === "shrine"
-                                        ? session.actors.find(a => a.hp > 0 && (a.side === "squad" || a.side === "enemy") && a.pos === t)?.side
+                                {session.map.blockedTiles.map(tile => <TowerTerrainProp key={"obstacle-" + tile} tile={tile} width={w}
+                                    kind={towerObstacleProp(session.map.biome)} label="Impassable terrain" size={66} />)}
+                                {(session.map.dynamicHazards ?? []).flatMap((hazard, index) => (hazard.tiles ?? []).map(tile => (
+                                    <span key={"geyser-" + index + "-" + tile}>
+                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind="eruption" urgent={(session.map.nextRoundHazardTiles ?? []).includes(tile)} />
+                                        <TowerTerrainProp tile={tile} width={w} kind="geyser" size={54}
+                                            label={"Geyser — erupts every " + Math.max(2, Number(hazard.everyRounds ?? 3)) + " rounds for " + hazard.pct + "% max HP"} />
+                                    </span>
+                                )))}
+                                {(session.map.boardObjects ?? []).flatMap((object, index) => (object.tiles ?? []).map(tile => {
+                                    const holder = object.kind === "shrine"
+                                        ? session.actors.find(actor => actor.hp > 0 && (actor.side === "squad" || actor.side === "enemy") && actor.pos === tile)?.side
                                         : undefined;
-                                    const glow = o.kind === "font" ? "rgba(45,212,191,0.9)"
-                                        : holder === "squad" ? "rgba(103,232,249,0.95)"
-                                        : holder === "enemy" ? "rgba(251,113,133,0.95)"
-                                        : "rgba(250,204,21,0.85)";
-                                    const fill = o.kind === "font" ? "rgba(20,184,166,0.3)"
-                                        : holder === "squad" ? "rgba(34,211,238,0.3)"
-                                        : holder === "enemy" ? "rgba(244,63,94,0.3)"
-                                        : "rgba(250,204,21,0.24)";
-                                    const S = 42;
-                                    return (
-                                        <span key={`bo-${oi}-${t}`}>
-                                            <div className="tower-hex-tile" aria-hidden
-                                                style={{ position: "absolute", left, top, width: HEX_W, height: HEX_H, background: fill, filter: `drop-shadow(0 0 3px ${glow})`, zIndex: 2, pointerEvents: "none", animation: "towerZonePulse 2.4s ease-in-out infinite" }} />
-                                            <img src={OBJECT_SPRITE[o.kind]} alt="" aria-hidden="true" title={objectLabel(o)}
-                                                style={{ position: "absolute", left: left + HEX_W / 2 - S / 2, top: top + HEX_H * 0.9 - S, width: S, height: S, objectFit: "contain", zIndex: 5, pointerEvents: "none", filter: `drop-shadow(0 2px 3px rgba(0,0,0,0.8)) drop-shadow(0 0 6px ${glow})` }} />
-                                        </span>
-                                    );
+                                    return <span key={"object-" + index + "-" + tile}>
+                                        <TowerTerrainZone tiles={[tile]} width={w} height={h} kind={object.kind === "font" ? "healing" : "shrine"} holder={holder} />
+                                        <TowerTerrainProp tile={tile} width={w} kind={object.kind} label={objectLabel(object)} size={54} />
+                                    </span>;
                                 }))}
 
                                 {/* actor orbs (a just-downed fighter stays one beat for its KO sag) */}
@@ -2396,9 +2091,9 @@ export function BattleTowerFight({
                                     );
                                     // While aiming, only actual actor targets may intercept
                                     // the field; inspection must not cover a ground destination.
-                                    const inspectable = a.side === "enemy" && mode === "idle";
+                                    const inspectable = mode === "idle" || !myTurn;
                                     const actorActionable = targetable || selfTargetable || inspectable;
-                                    const inspected = a.id === inspectedEnemyId;
+                                    const inspected = a.id === actorInspection?.id;
                                     const isActive = a.id === activeId;
                                     const img = avatarFor(a);
                                     const battleSprite = a.side === "enemy" && !isTeamPvp
@@ -2431,13 +2126,13 @@ export function BattleTowerFight({
                                         );
                                     }
                                     return (
-                                        <button key={a.id} type="button" className="tower-board-actor" onClick={() => onTileClick(a.pos)} data-protected={bossBarrierActive ? "true" : undefined} data-inspected={inspected ? "true" : undefined}
+                                        <button key={a.id} type="button" className="tower-board-actor" onClick={() => onTileClick(a.pos)} id={`tower-board-actor-${a.id}`} data-protected={bossBarrierActive ? "true" : undefined} data-inspected={inspected ? "true" : undefined}
                                             data-combat-target-tile={a.pos}
                                             aria-disabled={busy || !actorActionable}
                                             tabIndex={!busy && actorActionable ? 0 : -1}
                                             aria-hidden={busy || !actorActionable}
                                             inert={busy || !actorActionable ? true : undefined}
-                                            aria-label={`${a.name}, ${Math.max(0, a.hp)} of ${a.maxHp} health${unknownCombatant ? ". Unknown combatant portrait" : ""}${bossBarrierActive ? ". Barrier active" : ""}. ${targetable || selfTargetable ? `Select as target for ${armedActionName ?? "armed action"}` : inspectable ? "Inspect and center this enemy" : "Not a valid target"}.`}
+                                            aria-label={`${a.name}, ${Math.max(0, a.hp)} of ${a.maxHp} health${unknownCombatant ? ". Unknown combatant portrait" : ""}${bossBarrierActive ? ". Barrier active" : ""}. ${targetable || selfTargetable ? `Select as target for ${armedActionName ?? "armed action"}` : inspectable ? "Inspect this fighter" : "Not a valid target"}.`}
                                             title={`${a.name} ${a.hp}/${a.maxHp}`}
                                             onMouseEnter={a.side === "enemy" ? () => setHoverEnemyPos(a.pos) : undefined}
                                             onMouseLeave={a.side === "enemy" ? () => setHoverEnemyPos(null) : undefined}
@@ -2456,7 +2151,7 @@ export function BattleTowerFight({
                                                     outlineOffset: 2,
                                                     boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : inspected ? "0 0 16px 4px rgba(167,139,250,0.75)" : undefined,
                                                 }}>
-                                                {isBoss && <span aria-hidden="true" style={{ position: "absolute", top: -2, right: -2, fontSize: 16, filter: "drop-shadow(0 1px 2px #000)" }}>👑</span>}
+                                                {isBoss && <GameIcon name="sigil" size={16} style={{ position: "absolute", top: -2, right: -2, color: "var(--tower-hud-gold)", filter: "drop-shadow(0 1px 2px #000)" }} />}
                                                 {bossBarrierActive && <span className="tower-boss-barrier" aria-hidden="true" />}
                                                 {unknownCombatant && <span className="tower-unknown-combatant-badge" aria-hidden="true">Unknown</span>}
                                             </BattlefieldActor>
@@ -2475,6 +2170,11 @@ export function BattleTowerFight({
 
                                 {/* Server-authored combat VFX (cosmetic; see the stream above). */}
                                 {combatVfx.map(renderCombatVfx)}
+                                {impactCues.map((cue, index) => {
+                                    const point = tileCenter(cue.tile);
+                                    const stack = impactCues.slice(0, index).filter(other => other.actorId === cue.actorId).length;
+                                    return <span key={`${cue.actorId}-${cue.kind}`} className={`tower-impact-cue tower-impact-cue--${cue.kind}`} style={{ left: point.x, top: point.y - stack * 28 }} aria-hidden="true">{cue.label}</span>;
+                                })}
                                 {impactFloaters.map((floater, index) => {
                                     const center = tileCenter(floater.tile);
                                     return <span key={floater.id} className={`tower-impact-floater tower-impact-floater--${floater.kind}`}
@@ -2498,16 +2198,6 @@ export function BattleTowerFight({
 
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
                     <div className="tower-action-dock">
-                        <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
-                            {fightSyncState === "reconnecting" ? "Reconnecting to the Tower. Showing the last confirmed battlefield. Actions remain available and the server will verify the current revision."
-                                : actionFeedback.phase === "submitting" ? `Submitting ${actionFeedback.label}. Waiting for the authoritative Tower result.`
-                                : actionFeedback.phase === "error" ? `${actionFeedback.label} was rejected. ${reject ?? "Try another action."}`
-                                : targetingBlocked ? `${armedActionName ?? "Action"} has no legal target. ${targetingHint}`
-                                : armedActionName ? `${armedActionName} armed. ${targetingHint}`
-                                : !myTurn && session.status === "active" ? `${turnLabel || "Waiting for the active fighter"}. ${activeActor?.name ?? "Another fighter"} is acting.`
-                                : "Choose an action."}
-                        </div>
-
                         {/* Command bar */}
                         <CombatCommandBar style={myTurn ? undefined : { opacity: 0.65 }}>
                             <button className={mode === "attack" ? "selected-action" : ""}
@@ -2712,12 +2402,11 @@ export function BattleTowerFight({
 
                 {/* Enemy + log rail */}
                 <aside className="tower-roster-rail tower-enemy-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Rival Team and battle log" : "Enemies and battle log"}>
-                    <RailHeader icon="👹" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--red-400)" />
+                    <RailHeader icon="sword" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--tower-rail-foe)" />
                     <div className="tower-roster-list">
                         {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)}
                             selected={a.id === inspectedEnemyId}
-                            intent={towerEnemyIntent(a, session)}
-                            onInspect={() => { setInspectedEnemyId(current => current === a.id ? null : a.id); focusBoardTile(a.pos); }} />)}
+                            inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
                     </div>
                     <PlainCombatBattleLog
                         className="tower-rail-battle-log"
@@ -2735,30 +2424,33 @@ export function BattleTowerFight({
                 </aside>
             </div>
 
+            {!inlineInspection && fighterDetails}
+
             {/* Result overlay */}
-            {session.status === "done" && (isSpire && spireMeta ? (
+            {session.status === "done" && resultReady && (isSpire && spireMeta ? (
                 // ── Endless Spire — cinematic ascension result ──
-                <div className="spire-result">
-                    <div ref={resultDialogRef} className={`spire-result-card ${session.winner === "squad" ? "win" : "loss"}`}
+                <div className="tower-completion-overlay">
+                    <div ref={resultDialogRef} className={`tower-completion-card ${session.winner === "squad" ? "win" : "loss"}`}
                         role="dialog" aria-modal="true" aria-labelledby="tower-spire-result-title" tabIndex={-1}
                         style={{ ["--boss-accent" as string]: spireMeta.boss.accent, ["--boss-glow" as string]: spireMeta.boss.glow }}>
-                        {bossPortrait && <img className="spire-result-portrait" src={bossPortrait} alt={spireMeta.boss.name} />}
-                        <div className="spire-result-kicker">Floor {spireMeta.tier} · {spireMeta.boss.name}</div>
+                        <TowerResultHeader titleId="tower-spire-result-title"
+                            title={session.winner === "squad" ? `Floor ${spireMeta.tier} ascended` : "Turned back"}
+                            chapter="Endless Spire" encounter={`Floor ${spireMeta.tier} · ${spireMeta.boss.name}`} />
+                        <div className="tower-completion-body">
                         {session.winner === "squad" ? (
                             <>
-                                <h1 id="tower-spire-result-title" className="spire-result-title win">Floor {spireMeta.tier} Ascended</h1>
                                 {spireMeta.isMilestone && (
-                                    <div className="spire-result-milestone">🏅 Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
+                                    <div className="tower-result-milestone-receipt">Title unlocked — <b>{spireMeta.milestoneTitle}</b></div>
                                 )}
-                                <div className="spire-result-rewards">
+                                <div className="tower-completion-reward">
                                     {/* settle.results is keyed by the canonical ownerSlug (settle.ts),
                                         not the display name — look it up by meSlug, and only claim a
                                         banked/paid state once the member's result actually arrives. */}
                                     {settlement.response?.results[meSlug]
-                                        ? <span className={`spire-reward-shard in${settlement.response.results[meSlug]!.paid ? "" : " muted"}`}>
-                                            💠 {towerRewardReceiptText(settlement.response.results[meSlug]!, true)}
+                                        ? <span className={settlement.response.results[meSlug]!.paid ? undefined : "hint"}>
+                                            {towerRewardReceiptText(settlement.response.results[meSlug]!, true)}
                                         </span>
-                                        : <span className="spire-reward-shard pending">💠 {settlement.phase === "error" ? "Settlement paused" : "Settling…"}</span>}
+                                        : <span className="hint">{settlement.phase === "error" ? "Settlement paused" : "Settling…"}</span>}
                                 </div>
                                 {newlyRecordedTowerMilestones.map(milestone => (
                                     <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
@@ -2769,50 +2461,58 @@ export function BattleTowerFight({
                             </>
                         ) : (
                             <>
-                                <h1 id="tower-spire-result-title" className="spire-result-title loss">Turned Back</h1>
                                 <p className="spire-result-sub">The {spireMeta.boss.name} holds Floor {spireMeta.tier}. Regroup and climb again — retries are free.</p>
                             </>
                         )}
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
-                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
-                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="spire-result-btn" onClick={exitResult} aria-disabled={!resultCanExit} disabled={!resultCanExit}
+                        {!isTeamPvp && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
+                        {!isTeamPvp && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
+                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
+                        <div className="tower-completion-actions">
+                        {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
+                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult} aria-disabled={!resultCanExit} disabled={!resultCanExit}
                             title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
-                            {session.winner === "squad" ? "▲ Return to the Spire" : "↺ Back to the Spire"}
+                            Return to the Spire
                         </button>
+                        </div>
+                        </div>
                     </div>
                 </div>
             ) : (
-                // ── Story floors — the original result card ──
-                <div style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(2,6,14,0.82)" }}>
-                    <div ref={resultDialogRef} className="card" role="dialog" aria-modal="true" aria-labelledby="tower-story-result-title" tabIndex={-1}
-                        style={{ textAlign: "center", padding: "1.6rem", maxWidth: 420 }}>
-                        {!isTeamPvp && (sealedStoryFloor?.name || sealedStoryFloor?.chapterTitle) ? (
-                            <div className="tower-story-result-kicker">
-                                {sealedStoryFloor.chapterTitle ? `${sealedStoryFloor.chapterTitle} · ` : ""}{sealedStoryFloor.name ?? `Floor ${session.floor}`}
-                            </div>
-                        ) : null}
-                        <h1 id="tower-story-result-title" style={{ marginTop: 0, color: session.winner === "squad" ? "var(--green-400)" : session.winner === "draw" ? "var(--gold)" : "var(--red-400)" }}>
-                            {isTeamPvp
-                                ? session.winner === "squad" ? "🏆 Team Victory" : session.winner === "draw" ? "⚖ Match Draw" : "Team Defeat"
-                                : session.winner === "squad" ? `🏆 Floor ${session.floor} Cleared` : `💀 Floor ${session.floor} Failed`}
-                        </h1>
+                // Story and shared Tower encounters use the same restrained result frame.
+                <div className="tower-completion-overlay">
+                    <div ref={resultDialogRef} className={`tower-completion-card ${session.winner === "squad" ? "win" : "loss"}`} role="dialog" aria-modal="true" aria-labelledby="tower-story-result-title" tabIndex={-1}>
+                        <TowerResultHeader titleId="tower-story-result-title"
+                            title={isTeamPvp
+                                ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
+                                : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
+                            chapter={isTeamPvp ? "Team Arena" : sealedStoryFloor?.chapterTitle || "Battle Towers"}
+                            encounter={!isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
+                            art={storyTheme?.backdropImage} />
+                        <div className="tower-completion-body">
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
                         {isTeamPvp && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
                         {!isTeamPvp && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
-                                ? <p>{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
+                                ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
                                 : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
                         )}
                         {newlyRecordedTowerMilestones.map(milestone => (
                             <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
                         ))}
                         {storyFieldReport && <p className="tower-result-milestone-receipt">{storyFieldReport}</p>}
-                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
-                        <button ref={resultCanExit ? resultPrimaryRef : undefined} style={{ marginTop: 12, padding: "0.7rem 1.4rem" }} onClick={exitResult}
+                        {!isTeamPvp && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
+                        {!isTeamPvp && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
+                        <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
+                        <div className="tower-completion-actions">
+                        {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
+                        <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}
                             title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
                             {isTeamPvp ? "Return to Team Arena" : "Return to the Tower"}
                         </button>
+                        </div>
+                        </div>
                     </div>
                 </div>
             ))}
@@ -2821,7 +2521,7 @@ export function BattleTowerFight({
 }
 
 // ── Tile fill (feature tint + state highlight) ───────────────────────────────
-function SettlementStatusNotice({ state, required, onRetry, primaryRef }: { state: SettlementState; required: boolean; onRetry: () => void; primaryRef?: RefObject<HTMLButtonElement | null> }) {
+function SettlementStatusNotice({ state, required, onRetry, onLeave, primaryRef }: { state: SettlementState; required: boolean; onRetry: () => void; onLeave?: () => void; primaryRef?: RefObject<HTMLButtonElement | null> }) {
     if (!required || state.phase === "settled") return null;
     if (state.phase === "error") {
         return (
@@ -2829,44 +2529,19 @@ function SettlementStatusNotice({ state, required, onRetry, primaryRef }: { stat
                 <strong>Settlement was not confirmed</strong>
                 <span>{state.message ?? "The server did not confirm this receipt."} Your completed run is still saved.</span>
                 <button ref={primaryRef} type="button" onClick={onRetry}>Retry settlement</button>
+                {onLeave && <button type="button" onClick={onLeave}>Leave and recover later</button>}
             </div>
         );
     }
     return (
         <div className="tower-settlement-status" role="status" aria-live="polite">
             <strong>{state.attempts > 1 ? `Retrying settlement (attempt ${state.attempts})…` : "Finalizing the run receipt…"}</strong>
-            <span>Keep this result open until the server confirms it.</span>
+            <span>{onLeave ? "Waiting for confirmation. You can leave this view and recover the saved result later." : "Keep this result open until the server confirms it."}</span>
+            {onLeave && <button ref={primaryRef} type="button" onClick={onLeave}>Leave and recover later</button>}
         </div>
     );
 }
 
-function tileFill(
-    feat: TowerFeature | undefined,
-    s: { isMove: boolean; inJ: boolean; isGoal: boolean; isBlocked: boolean },
-): { background: string; borderColor: string; boxShadow?: string } {
-    // Top-lit → dark-bottom gradient gives each hex a raised, beveled 3D look.
-    const g = (top: string, bot: string) => `linear-gradient(180deg, ${top} 0%, ${bot} 100%)`;
-    if (s.isMove) return { background: g("rgba(196,255,150,0.8)", "rgba(45,120,28,0.62)"), borderColor: "#bef264" };
-    if (s.inJ) return { background: g("rgba(147,197,253,0.62)", "rgba(29,78,216,0.55)"), borderColor: "var(--blue-400)" };
-    if (s.isBlocked) return { background: g("rgba(120,130,150,0.62)", "rgba(30,38,56,0.72)"), borderColor: "rgba(148,163,184,0.5)" };
-    if (feat) {
-        if (feat.kind === "pylon") {
-            const c = PYLON_COLOR[feat.element] ?? PYLON_COLOR.Water!;
-            return { background: g(c.top, c.bot), borderColor: c.border };
-        }
-        if (feat.kind === "ward") return { background: g("rgba(226,232,240,0.6)", "rgba(71,85,105,0.64)"), borderColor: "rgba(226,232,240,0.9)" };
-        if (feat.kind === "hazard") return { background: g("rgba(254,160,120,0.68)", "rgba(127,29,29,0.68)"), borderColor: "rgba(248,113,113,0.95)" };
-    }
-    if (s.isGoal) return { background: g("rgba(253,224,71,0.62)", "rgba(133,77,14,0.62)"), borderColor: "var(--gold)" };
-    // Default tile: muted grass-green top → dark forest base, matching the arena floor.
-    // Translucent so the grass shows through; the dark hex outline (CSS) keeps it visible.
-    return { background: g("rgba(126,162,96,0.42)", "rgba(20,38,18,0.6)"), borderColor: "rgba(60,80,45,0.6)" };
-}
-function featureIcon(feat: TowerFeature): string {
-    if (feat.kind === "pylon") return ELEMENT_ICON[feat.element] ?? "🔆";
-    if (feat.kind === "ward") return "🛡️";
-    return "⚠️";
-}
 function featureLabel(feat: TowerFeature): string {
     if (feat.kind === "pylon") return `${feat.label ?? "Pylon"}: +${feat.percent}% ${feat.element} / −${feat.percent}% ${feat.weakenElement} (attacking from here)`;
     if (feat.kind === "ward") return `${feat.label ?? "Ward"}: −${feat.percent}% damage taken while standing here`;
@@ -2888,15 +2563,12 @@ function towerEnemyIntent(actor: TowerActor, session: TowerSession): string {
     return ready?.name ? `${target} · ${ready.name} ready` : target;
 }
 
-function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown, selected, onInspect, intent }: { actor: TowerActor; round: number; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean; selected?: boolean; onInspect?: () => void; intent?: string }) {
+function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown, selected, inspectionInline, onInspect }: { actor: TowerActor; round: number; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean; selected?: boolean; inspectionInline?: boolean; onInspect?: () => void }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
     const visibleStatuses = [...activeCombatDisplayStatuses(actor.statuses, round)]
         .sort((a, b) => Number(b.source === "item-smoke-bomb") - Number(a.source === "item-smoke-bomb"));
-    const enemyJutsu = Array.isArray(actor.character.jutsu) ? actor.character.jutsu as JutsuLike[] : [];
-    const maximumRange = Math.max(1, ...enemyJutsu.map(jutsu => Math.max(1, Number(jutsu.range ?? 1))));
-    const defensiveStatuses = visibleStatuses.filter(status => status.kind === "positive").map(status => status.name).slice(0, 2);
     const cardStyle: CSSProperties = {
         display: "flex", gap: 8, alignItems: "center", width: "100%", padding: "5px 7px", marginBottom: 5,
         borderRadius: 6, background: selected ? "rgba(76,29,149,0.3)" : highlight ? "#15233b" : "rgba(11,18,32,0.7)",
@@ -2910,7 +2582,7 @@ function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>
-                    <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{boss ? "👑 " : ally ? "🛡️ " : ""}{actor.name}{ally ? " (protect)" : ""}</strong>
+                    <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(boss || ally) && <GameIcon name={boss ? "sigil" : "shield"} size={12} style={{ color: "var(--tower-hud-gold)", verticalAlign: "-1px", marginRight: 4 }} />}{actor.name}{ally ? " (protect)" : ""}</strong>
                     <span style={{ color: "var(--text-dim)", flexShrink: 0 }}>{Math.max(0, actor.hp)}/{actor.maxHp}</span>
                 </div>
                 <div style={{ height: 5, background: "#0b1220", borderRadius: 3, marginTop: 3 }}>
@@ -2928,18 +2600,13 @@ function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown
                     </div>
                 )}
                 {unknown && <span className="tower-unknown-combatant-label">Unknown combatant art</span>}
-                {selected && actor.side === "enemy" && (
-                    <span className="tower-roster-intel">
-                        <span><b>Intent</b> {intent ?? "Advance and pressure the nearest target"}</span>
-                        <span><b>Reach</b> {maximumRange} hex{maximumRange === 1 ? "" : "es"} · <b>Guard</b> {Math.max(0, actor.shield)}{defensiveStatuses.length ? ` · ${defensiveStatuses.join(", ")}` : ""}</span>
-                    </span>
-                )}
+
             </div>
         </>
     );
     if (onInspect) {
         return <button type="button" className="tower-roster-actor-button" style={cardStyle} onClick={onInspect}
-            aria-pressed={selected} disabled={dead} title={`Inspect and center ${actor.name}`}>{content}</button>;
+            id={`tower-roster-actor-${actor.id}`} aria-haspopup={inspectionInline ? undefined : "dialog"} aria-controls="tower-fighter-details" aria-pressed={selected} title={`Inspect ${actor.name}`}>{content}</button>;
     }
     return <div style={cardStyle}>{content}</div>;
 }
@@ -2979,10 +2646,10 @@ function MiniBar({ val, max, color }: { val: number; max: number; color: string 
     );
 }
 
-function RailHeader({ icon, label, accent, mt }: { icon: string; label: string; accent: string; mt?: number }) {
+function RailHeader({ icon, label, accent, mt }: { icon: GameIconName; label: string; accent: string; mt?: number }) {
     return (
         <div style={{ display: "flex", alignItems: "center", gap: 7, margin: `${mt ?? 0}px 0 8px`, padding: "5px 8px", borderRadius: 7, background: "rgba(15,23,42,0.65)", borderLeft: `3px solid ${accent}` }}>
-            <span style={{ fontSize: 15 }} aria-hidden="true">{icon}</span>
+            <GameIcon name={icon} size={15} style={{ color: "var(--tower-hud-gold)", flexShrink: 0 }} />
             <strong style={{ fontSize: "0.88rem", letterSpacing: 0.3 }}>{label}</strong>
         </div>
     );

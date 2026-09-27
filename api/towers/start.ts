@@ -349,7 +349,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hostSlug: hostName,
                 requestId: partyRequestId,
                 expectedVersion,
-                binding,
+                // The request selects the floor; the ready room owns the agreed route.
+                binding: authoritativeParty.binding,
                 enforceStartCap: !identity.admin,
                 allowShortSpireParty: identity.admin,
             }, identity.admin ? { seed: () => 12345 } : {});
@@ -537,7 +538,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const now = Date.now();
         const session = buildTowerEncounter({ floor, squad, runId, seed, partySize: squad.length, now, ascension, spireBossId });
-        if (mode === 'story' && !authoritativeParty) applyTowerRouteChoice(session, body.routeChoice);
+        applyTowerRouteChoice(session, authoritativeParty ? authoritativeParty.binding.routeChoice : body.routeChoice);
         if (authoritativeParty) {
             const bound = session as PartyBoundSession;
             bound.towerPartyId = authoritativeParty.id;

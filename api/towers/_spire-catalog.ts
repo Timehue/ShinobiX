@@ -23,7 +23,7 @@ import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v4' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v5' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -76,7 +76,7 @@ const SPIRE_BOSSES: Record<SpireBossKey, SpireBossDef> = {
     },
     sovereign: {
         aiId: 'spire-sovereign', mechanic: 'enrage', phases: [75, 50, 25], roundBudget: 20,
-        biome: 'shadow', guardPod: 2, name: 'Spire Sovereign',
+        biome: 'shadow', guardPod: 2, name: 'Spire Sovereign', terrainPillars: 4,
         targetMode: 'lowest-hp',
         strike: { kind: 'nova', pct: 8, radius: 1, everyRounds: 3, firstRound: 3 },
     },

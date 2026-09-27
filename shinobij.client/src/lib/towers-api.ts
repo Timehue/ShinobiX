@@ -1,3 +1,4 @@
+import type { TowerTacticsState, TowerClearComparison } from "../../../shared/tower-progression";
 /*
  * Battle Towers — client API + session types.
  *
@@ -124,9 +125,9 @@ export type TowerRouteChoice = {
 };
 
 export const TOWER_ROUTE_CHOICES: readonly TowerRouteChoice[] = [
-    { id: 'rest-shrine', label: 'Rest Shrine', summary: 'Start with a 12% max-HP barrier.', scoreMultiplier: 1 },
+    { id: 'rest-shrine', label: 'Rest Shrine', summary: 'Start the floor with a 12% max-HP barrier.', scoreMultiplier: 1 },
     { id: 'focused-assault', label: 'Focused Assault', summary: 'Deal 10% more damage for the first 3 rounds.', scoreMultiplier: 1 },
-    { id: 'elite-shortcut', label: 'Elite Shortcut', summary: 'Enemies gain 18% HP and 10% damage; clear score ×1.25.', scoreMultiplier: 1.25 },
+    { id: 'elite-shortcut', label: 'Elite Shortcut', summary: 'Enemies gain 18% HP and 10% damage; clear score and Story first-clear ryo ×1.25.', scoreMultiplier: 1.25 },
 ] as const;
 
 export type TowerFloorView = {
@@ -147,6 +148,7 @@ export type TowerFloorView = {
 };
 
 export type TowerSession = {
+    towerTactics?: TowerTacticsState;
     towerId: string;
     runId: string;
     floor: number;
@@ -226,6 +228,7 @@ export const SPIRE_MAX_TIER = 20;
 export const SPIRE_MILESTONE_FLOORS = [5, 10, 15, 20];
 
 export type TowerActionInput =
+    | { type: 'disrupt'; tile: number }
     | { type: 'move'; tile: number }
     | { type: 'dash'; tile: number }
     | { type: 'attack'; targetId: string }
@@ -267,6 +270,7 @@ export type TowerActionCommandMeta = { moveToken: string; expectedVersion?: numb
 export type TowerSettleResult = { paid: boolean; reason?: string; score?: number };
 export type TowerConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 export type TowerSettleResponse = {
+    personalBest?: TowerClearComparison;
     runId: string;
     winner: TowerSession['winner'];
     results: Record<string, TowerSettleResult>;
@@ -325,8 +329,8 @@ export type TowerFloorMeta = {
 };
 
 export type TowerPartyBinding =
-    | { mode: 'story'; floor: number }
-    | { mode: 'spire'; ascensionTier: number };
+    | { mode: 'story'; floor: number; routeChoice?: 'rest-shrine' | 'focused-assault' | 'elite-shortcut' }
+    | { mode: 'spire'; ascensionTier: number; routeChoice?: 'rest-shrine' | 'focused-assault' | 'elite-shortcut' };
 
 export type TowerPartyMember = {
     slug: string;
@@ -389,8 +393,8 @@ export type TowerPartyEnvelope = {
 };
 
 export type TowerPartyMutation =
-    | { action: 'create'; mode: 'story'; floor: number }
-    | { action: 'create'; mode: 'spire'; ascensionTier: number }
+    | { action: 'create'; mode: 'story'; floor: number; routeChoice?: TowerRouteChoiceId }
+    | { action: 'create'; mode: 'spire'; ascensionTier: number; routeChoice?: TowerRouteChoiceId }
     | { action: 'join'; inviteCode: string; expectedVersion?: number }
     | { action: 'accept' | 'decline' | 'leave' | 'ready' | 'unready'; partyId: string; expectedVersion: number }
     | { action: 'invite' | 'kick' | 'revoke-invite' | 'remove-ai'; partyId: string; target: string; expectedVersion: number }
@@ -475,15 +479,23 @@ export async function withTowerRequestDeadline<T>(
 ): Promise<T> {
     const controller = new AbortController();
     let timedOut = false;
-    const abortFromCaller = () => controller.abort();
-    if (externalSignal?.aborted) controller.abort();
-    else externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
+    let rejectDeadline!: (reason: Error) => void;
+    const deadline = new Promise<never>((_resolve, reject) => { rejectDeadline = reject; });
+    const abortFromCaller = () => {
+        controller.abort();
+        rejectDeadline(new DOMException('Aborted', 'AbortError'));
+    };
+    if (externalSignal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    externalSignal?.addEventListener('abort', abortFromCaller, { once: true });
     const timeout = globalThis.setTimeout(() => {
         timedOut = true;
         controller.abort();
+        rejectDeadline(new TowerTransportError('The Tower request timed out. Check your connection and try again.'));
     }, Math.max(1, timeoutMs));
     try {
-        return await operation(controller.signal);
+        // Aborting fetch is best effort: injected transports or stalled response
+        // readers may ignore it. The UI must still leave its pending state.
+        return await Promise.race([operation(controller.signal), deadline]);
     } catch (error) {
         if (timedOut) throw new TowerTransportError('The Tower request timed out. Check your connection and try again.');
         throw error;
