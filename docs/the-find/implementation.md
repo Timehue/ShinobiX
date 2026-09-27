@@ -98,3 +98,12 @@ The merged revision passed all 12,535 unit/API tests, full client lint (zero err
 Runtime packaging excludes the unused elemental-impact-atlas-source.png authoring master; its WebP runtime export is retained. After that exclusion, the merged client artifact measures 537,479,788 B (512.6 MiB). The total runtime-asset allowance is now 514 MiB to accommodate approximately 1.2 MB of new gathering scenes/icons. This does not raise the initial JavaScript/CSS limits: the final initial graph is 388,707 B gzip against 389,000 B, and product JS/CSS is 8,860,474 B against main's existing 8,910,000 B limit.
 
 These integration checks supplement the earlier full smoke and strict combat-layout runs; those two full suites were not repeated during this merge. Logs are under tmp/the-find/main-merge-*.log and main-release-*.log. Live deployment confirmation is performed after the authorized main push.
+
+
+## Production image follow-up
+
+The first pushed revision exposed a production-only bundle overrun. The final fix separates the small supply-routing module into shared/gathering-supplies.ts and removes an unused gathering re-export from the eagerly loaded exploration recovery module. Recipes and biome data now stay off startup.
+
+The complete root build was rerun with the exact public placeholder VITE settings from the production-image workflow. It passes at 388,314 B initial gzip (unchanged 389,000 B limit) and 8,918,449 B total product JS/CSS. The total product allowance is 8,950,000 B for the added gathering feature, with roughly 31 KB of production margin; startup limits were not raised. Runtime assets remain within the documented 514 MiB allowance.
+
+The final dependency split passed all 12,535 unit/API tests, scoped lint, all 21 gathering browser cases, and the real Express Village Stores browser journey. Production-parity evidence: tmp/the-find/production-final-build.log, production-drain-unit.log, production-final-browser.log, and production-final-stores.log.

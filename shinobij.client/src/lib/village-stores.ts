@@ -1,4 +1,4 @@
-import { provisionValue } from '../../../shared/gathering-materials';
+import { provisionValue } from '../../../shared/gathering-supplies';
 /*
  * Village Stores — client mirror of api/_village-stores.ts + api/_village-intel.ts.
  *
@@ -196,7 +196,7 @@ export const CRAFT_POINT_VALUES: Readonly<Record<string, number>> = {
 /** Which store an item donation lands in — mirrors storesDonationRouting's
  *  id rule (ration-pack → provisions; anything in CRAFT_POINT_VALUES →
  *  materials; everything else stays a loose treasury item). */
-export { provisionValue } from '../../../shared/gathering-materials';
+export { provisionValue } from '../../../shared/gathering-supplies';
 
 export function storesDonationBucket(itemId: string): "provisions" | "materialPoints" | null {
     const id = String(itemId ?? "");
