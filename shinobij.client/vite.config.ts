@@ -100,6 +100,8 @@ const PUBLIC_AUTHORING_PREFIXES = [
     'pet-models/roster-references',
 ] as const;
 const PUBLIC_LOCAL_ONLY_ASSETS = new Set([
+    // Elemental VFX loads the WebP export; retain its PNG master only for authoring.
+    'assets/warfront/elemental-impact-atlas-source.png',
     // Approval and LOD generation records are read from public/ by the asset
     // pipeline and tests. Runtime model URLs come from the generated TS maps.
     'pet-models/roster-manifest.json',
