@@ -85,3 +85,16 @@ No additional game-code defects were found. This audit adds regression coverage 
 The browser suite uses deterministic API fixtures to verify client behavior; the economy journeys call real authenticated handlers against isolated in-memory storage. No live player accounts or production service were modified. Earlier full smoke and strict combat-layout evidence above applies to the same unchanged game code and build.
 
 Audit logs: `tmp/the-find/functional-focused.log`, `functional-journeys.log`, `functional-full-unit.log`, `functional-browser-probe.log`, `functional-browser.log` and `functional-lint.log`. Browser traces/screenshots are under `shinobij.client/test-results/functional-find/`.
+
+
+## Main integration release checks, 2026-09-27
+
+Merged current remote main at ac735d21a6bd8bcdb5538c665a049ed945296dc3, retaining its six tower commits. The save-ownership parity conflict was resolved by retaining both gathering fields and battleTowerRecords. The generated design-token handoff now includes The Find's breakpoints.
+
+The baseline main CI failure in BattleTowerFight.aaa-presentation.test.ts was a stale assertion rejecting a screen-reader-only status identifier. The corrected test still forbids the retired visible strip and requires the accessible status message; all 32 related tower contracts pass. No tower gameplay behavior was changed.
+
+The merged revision passed all 12,535 unit/API tests, full client lint (zero errors, 14 existing warnings), and all 21 gathering browser cases. The real Express Village Stores desktop browser journey also passed after supplying its fixture with the newly required three herbs and asserting their exact consumption. Compilation, story checks, distribution verification, and JavaScript/CSS size gates passed.
+
+Runtime packaging excludes the unused elemental-impact-atlas-source.png authoring master; its WebP runtime export is retained. After that exclusion, the merged client artifact measures 537,479,788 B (512.6 MiB). The total runtime-asset allowance is now 514 MiB to accommodate approximately 1.2 MB of new gathering scenes/icons. This does not raise the initial JavaScript/CSS limits: the final initial graph is 388,707 B gzip against 389,000 B, and product JS/CSS is 8,860,474 B against main's existing 8,910,000 B limit.
+
+These integration checks supplement the earlier full smoke and strict combat-layout runs; those two full suites were not repeated during this merge. Logs are under tmp/the-find/main-merge-*.log and main-release-*.log. Live deployment confirmation is performed after the authorized main push.

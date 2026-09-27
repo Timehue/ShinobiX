@@ -141,6 +141,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
         // for the donation legs.
         itemStacks: [
             { itemId: 'hunt-beast-meat', count: 5 },
+            { itemId: 'gather-field-herb', count: 3 },
             { itemId: 'hunt-frost-pelt', count: 3 },
             { itemId: 'hunt-ash-scale', count: 30 },
         ],
@@ -178,6 +179,7 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
     // that proved nothing.
     const canonical = await readSave(request, name, token);
     expect(countOwned(canonical, 'hunt-beast-meat')).toBe(5);
+    expect(countOwned(canonical, 'gather-field-herb')).toBe(3);
     expect(countOwned(canonical, 'hunt-ash-scale')).toBe(30);
     expect(Number((canonical.character as Record<string, unknown>).ryo)).toBeGreaterThanOrEqual(50_000);
 
@@ -304,6 +306,7 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         expect(countOwned(afterCook, 'ration-pack'), 'the server must hold the cooked packs').toBe(cookedTotal);
         expect(countOwned(afterCook, 'hunt-beast-meat')).toBe(4);
         expect(countOwned(afterCook, 'hunt-frost-pelt')).toBe(2);
+        expect(countOwned(afterCook, 'gather-field-herb'), 'field and campaign rations consume one and two herbs').toBe(0);
         expect(Number((afterCook.character as Record<string, unknown>).ryo)).toBe(50_000 - 30 - 80);
 
         // ── 3. Town Hall → Treasury: donate rations into Provisions (UI) ──
