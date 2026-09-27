@@ -5,6 +5,7 @@ import { renderToString } from "react-dom/server";
 import type { Character } from "../types/character";
 import type { PlayerSavePayload } from "./player-save-types";
 import { createCharacter } from "./create-character";
+import { regenerateIdleVitals } from "./loaded-vitals";
 import { createPlayerSaveCoordinator } from "./player-save-coordinator";
 import { usePlayerSaveState } from "./use-player-save-state";
 import { refreshPlayerSaveSnapshot, trackPlayerMissionChange, trackPlayerSectorChange } from "./player-save-tracking";
@@ -250,4 +251,43 @@ test("a failed autosave arms retry; a successful required save clears the pendin
         assert.equal(f.owner.charDirtyRef.current, false);
         assert.equal(f.owner.saveFailCountRef.current, 0);
     } finally { clearTimeout(timer); }
+});
+
+
+test("idle ticks during a required save cannot keep its acknowledged progress dirty", async () => {
+    const f = fixture(), response = deferred<Response>();
+    let character = { ...f.initial, hp: 40, chakra: 40, stamina: 40, maxHp: 100, maxChakra: 100, maxStamina: 100 };
+    refreshPlayerSaveSnapshot(character, character.name, f.fields, f.owner);
+    const revision = f.owner.savePayloadRevisionRef.current;
+    globalThis.fetch = async () => response.promise;
+    const saving = f.owner.pushSaveToServer(f.fields.buildPlayerSavePayload, character, character.name, undefined, { useLatestAtExecution: true });
+    await tick();
+    for (let i = 0; i < 4; i++) {
+        character = regenerateIdleVitals(character, 1);
+        refreshPlayerSaveSnapshot(character, character.name, f.fields, f.owner);
+    }
+    response.resolve(json(6));
+    await saving;
+    assert.equal(f.owner.latestSaveRef.current?.character, character, "the latest preview still receives regenerated vitals");
+    assert.equal(f.owner.savePayloadRevisionRef.current, revision, "passive ticks are not unsaved player progress");
+    assert.equal(f.owner.charDirtyRef.current, false, "logout can finish after the durable acknowledgement");
+});
+
+test("a player edit or standalone change alongside regeneration still invalidates a save acknowledgement", async () => {
+    for (const change of ["character", "sector"] as const) {
+        const f = fixture(), response = deferred<Response>();
+        const before = { ...f.initial, hp: 40, chakra: 40, stamina: 40, maxHp: 100, maxChakra: 100, maxStamina: 100 };
+        refreshPlayerSaveSnapshot(before, before.name, f.fields, f.owner);
+        const revision = f.owner.savePayloadRevisionRef.current;
+        globalThis.fetch = async () => response.promise;
+        const saving = f.owner.pushSaveToServer(f.fields.buildPlayerSavePayload, before, before.name, undefined, { useLatestAtExecution: true });
+        await tick();
+        const regenerated = regenerateIdleVitals(before, 1);
+        refreshPlayerSaveSnapshot(change === "character" ? { ...regenerated, nindo: "Keep this edit" } : regenerated,
+            before.name, change === "sector" ? { ...f.fields, currentSector: f.fields.currentSector + 1 } : f.fields, f.owner);
+        response.resolve(json(6));
+        await saving;
+        assert.ok(f.owner.savePayloadRevisionRef.current > revision, change);
+        assert.equal(f.owner.charDirtyRef.current, true, change + " must still be saved before logout");
+    }
 });

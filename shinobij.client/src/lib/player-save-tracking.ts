@@ -85,7 +85,13 @@ export function refreshPlayerSaveSnapshot(character: Character | null, currentAc
     if (!previousIdentity
         || previousIdentity.length !== payloadIdentity.length
         || payloadIdentity.some((value, index) => !Object.is(value, previousIdentity[index]))) {
-        savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
+        // Idle vitals already do not dirty the save. They must not invalidate
+        // an in-flight acknowledgement either: otherwise every slow logout save
+        // finishes behind the next regen tick and can never clear its dirty flag.
+        const onlyIdleRegen = previousIdentity?.length === payloadIdentity.length
+            && isIdleVitalsOnlyChange(previousIdentity[0], character)
+            && payloadIdentity.every((value, index) => index === 0 || Object.is(value, previousIdentity[index]));
+        if (!onlyIdleRegen) savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
         savePayloadIdentityRef.current = payloadIdentity;
     }
     latestSaveRef.current = {
