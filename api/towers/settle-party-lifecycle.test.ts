@@ -3,6 +3,7 @@ import { before, beforeEach, describe, it } from 'node:test';
 import { getFloor } from './_floor-catalog.js';
 import { sealTowerCatalogFloor } from './_session-floor.js';
 import type { TowerActor, TowerSession } from './_tower-session.js';
+import type { TowerClearComparison } from '../../shared/tower-progression.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -23,7 +24,7 @@ before(async () => {
 });
 
 beforeEach(async () => {
-    for (const prefix of ['tower:*', 'tower-party:*', 'tower-party-player:*', 'battle-lock:*', 'save:*']) {
+    for (const prefix of ['tower:*', 'tower-record-comparison:*', 'tower-party:*', 'tower-party-player:*', 'battle-lock:*', 'save:*']) {
         for (const key of await kv.keys(prefix)) await kv.del(key);
     }
 });
@@ -110,15 +111,24 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
         const partial = await settle(runId);
         assert.equal(partial.statusCode, 200);
         assert.equal(partial.body?.settled, false);
+        assert.equal(partial.body?.personalBest, undefined);
         assert.equal((await kv.get<{ status: string }>(`tower-party:${partyId}`))?.status, 'active');
         assert.equal(await kv.get('tower-party-player:host'), partyId);
         assert.equal(await kv.get('tower-party-player:alice'), partyId);
         assert.notEqual(await kv.get('battle-lock:host'), null);
 
-        await kv.set('save:alice', save('alice'));
+        const alice = save('alice');
+        await kv.set('save:alice', { ...alice, character: { ...alice.character, battleTowerRecords: {
+            honors: {}, bests: { 'story:1:2:standard': { mode: 'story', floor: 1, partySize: 2, bestScore: 100, fastestRounds: 10, noKnockout: false } },
+        } } });
         const stable = await settle(runId);
         assert.equal(stable.statusCode, 200);
         assert.equal(stable.body?.settled, true);
+        const comparison = stable.body?.personalBest as TowerClearComparison;
+        assert.equal(comparison.runId, runId);
+        assert.equal(comparison.previous, undefined, 'caller receives their own baseline, not another squad member\'s');
+        assert.equal((await kv.get<TowerClearComparison>(`tower-record-comparison:${runId}:alice`))?.previous?.bestScore, 100);
+        assert.deepEqual((await settle(runId)).body?.personalBest, comparison, 'endpoint replay keeps the original comparison');
         assert.equal((await kv.get<{ status: string }>(`tower-party:${partyId}`))?.status, 'closed');
         assert.equal(await kv.get('tower-party-player:host'), null);
         assert.equal(await kv.get('tower-party-player:alice'), null);

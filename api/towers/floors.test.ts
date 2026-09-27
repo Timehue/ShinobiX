@@ -69,7 +69,7 @@ test('Chapter 2 public metadata carries the sealed arc briefing without exposing
     assert.equal('boss' in breach, false);
 
     const archive = floor(12);
-    assert.equal(archive.objective, 'break-objective');
+    assert.equal(archive.objective, 'defeat-boss');
     assert.equal(archive.bossMechanic, 'bulwark');
     assert.deepEqual(archive.bossStrike, { kind: 'volley', everyRounds: 3, firstRound: 3, radius: 1 });
 

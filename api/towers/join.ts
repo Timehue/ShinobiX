@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, isTowerRunLapsed} from './_tower-store.js';
+import { readSession, needsTowerLapseReconciliation } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 
 /*
@@ -36,8 +36,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const session = await readSession(runId);
         if (!session) return res.status(404).json({ error: 'Run not found.' });
         // F08: a lapsed run cannot be joined; it is recorded as a forfeit.
-        if (isTowerRunLapsed(session)) {
-            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, playerName);
+        if (needsTowerLapseReconciliation(session)) {
+            const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, playerName);
+            if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending' });
             return res.status(410).json({ error: 'This run lapsed unattended and is over.', errorCode: 'run-lapsed' });
         }
 
