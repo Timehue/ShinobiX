@@ -118,6 +118,7 @@ const ECHOES_VERSION = new Set([
 // importing the low-level bumper themselves. Their authenticated response is
 // still responsible for echoing the helper's exact committed version.
 const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
+    'towers/settle.ts',
     // These commits now use the existing exact-CAS versioned writer so a lost
     // acknowledgement cannot roll back an already-paid checkpoint or death.
     'hollow-gate/combat-settle.ts',
@@ -265,6 +266,9 @@ const EXEMPT = new Set([
     // exposing the host's version from the helper would be ambiguous and unsafe.
     'towers/_entry-recovery.ts',
     'towers/_tower-store.ts',
+    // Multi-member records helper; towers/settle re-reads and echoes the caller's
+    // committed character and _saveVersion after every member's record settles.
+    'towers/_records.ts',
     // Many actions on one route, most of them world/village rows rather than
     // saves. Its one save-versioning action — the village-war declaration's
     // Honor Seal debit, live only when the war map is disabled — echoes the

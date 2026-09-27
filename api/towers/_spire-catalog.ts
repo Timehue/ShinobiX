@@ -23,7 +23,7 @@ import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v5' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v6' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -133,14 +133,13 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // real-engine release sim in scripts/spire-balance.test.ts. HP stays the per-encounter tuning
 // knob because each boss mechanic adds a very different TTK tax; global stat/damage changes
 // would also perturb the already-shipped story tower.
-// F8/F11/F12/F13/F18/F20 include the small TTK correction measured after the reviewed arena
-// ladder replaced their oversized boards. F15's 47,900 is the Spire-only calibration for
-// Sovereign's canonical radius-2 AOE_SPIRAL; shared PvE/PvP combat remains the source of truth.
+// Calibrated for signature counters, pylon disruption, and hazard-aware squad movement.
+// The existing release bands remain fixed across all five weekly blessings.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
-    19300, 33300, 52500, 31000, 53010,   // 6-10
-    51250, 46750, 43000, 51000, 47900,   // 11-15
-    38000, 31200, 41000, 28000, 29500,   // 16-20
+    19300, 33300, 45000, 24000, 56700,   // 6-10
+    39600, 24300, 33100, 37600, 61300,   // 11-15
+    29400, 25400, 31300, 27800, 40300,   // 16-20
 ];
 
 /** The four milestone floors (title/border unlocks; keys namespaced spire-tier-N in settle). */
