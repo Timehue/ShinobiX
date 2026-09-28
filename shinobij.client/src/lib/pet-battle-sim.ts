@@ -744,8 +744,8 @@ function petMatchupMult(attacker: Pet | undefined, defender: Pet | undefined): n
     return m;
 }
 function petElementLabel(mult: number): string {
-    if (mult > 1) return "🔆 Super effective!";
-    if (mult < 1) return "⛔ Not very effective…";
+    if (mult > 1) return "Super effective!";
+    if (mult < 1) return "Not very effective…";
     return "";
 }
 
@@ -815,7 +815,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
     const faster = player.pet.speed >= enemy.pet.speed ? player : enemy;
     const logs: string[] = [
         `${player.pet.name} enters against ${enemy.owner}'s ${enemy.pet.name}.`,
-        `⚡ ${faster.pet.name} is quicker on its feet — speed will decide who strikes first.`,
+        `${faster.pet.name} is quicker on its feet — speed will decide who strikes first.`,
     ];
     const frames: PetArenaFrame[] = [];
     let playerCombo = 0;
@@ -1103,15 +1103,15 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             let procNote = "";
             let consFlash: string | undefined; // banner key for a consumable proc
             // Focus is consumed by the strike it empowers.
-            if (actor2.focusReady) { procActor = { ...procActor, focusReady: false }; procNote += " 🎯 Focused strike!"; }
-            if (guardMult < 1) procNote += " 🛡️ Guarded!";
+            if (actor2.focusReady) { procActor = { ...procActor, focusReady: false }; procNote += " Focused strike!"; }
+            if (guardMult < 1) procNote += " Guarded!";
             // Mark is spent the moment it amplifies a hit.
-            if (markMult > 1) { procTarget = { ...procTarget, markedRounds: 0 }; procNote += " 🔻 Marked!"; }
+            if (markMult > 1) { procTarget = { ...procTarget, markedRounds: 0 }; procNote += " Marked!"; }
             if (kind === "basic" && remainDamage > 0) {
                 const dot = petGearDotOnHit(actor2.pet);
-                if (dot) { procTarget = { ...procTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
+                if (dot) { procTarget = { ...procTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " Poisoned!"; }
                 const lsHeal = petGearLifestealHeal(actor2.pet, damage);
-                if (lsHeal > 0) { procActor = { ...procActor, hp: Math.min(procActor.pet.hp, procActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
+                if (lsHeal > 0) { procActor = { ...procActor, hp: Math.min(procActor.pet.hp, procActor.hp + lsHeal) }; procNote += ` +${lsHeal} HP`; }
             }
             if (actor2.pet.trait === "Hollowborn" && remainDamage > 0) {
                 const drain = Math.floor(damage * 0.12);
@@ -1121,7 +1121,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             // Smoke Pellet — the mitigation applied above is now spent.
             if (mitigateMult < 1) {
                 procTarget = { ...procTarget, consMitigate: 0 };
-                procNote += ` 💨 ${target2.pet.name} blunts the blow!`;
+                procNote += ` ${target2.pet.name} blunts the blow!`;
                 consFlash = "consumBlock";
             }
             // Thornmail Oil — reflect a cut of the hit back at the attacker.
@@ -1129,13 +1129,13 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 const reflect = Math.max(1, Math.floor(damage * (target2.consThorns ?? 0) / 100));
                 procActor = { ...procActor, hp: Math.max(0, procActor.hp - reflect) };
                 procTarget = { ...procTarget, consThorns: 0 };
-                procNote += ` 🌵 ${target2.pet.name} reflects ${reflect}!`;
+                procNote += ` ${target2.pet.name} reflects ${reflect}!`;
                 consFlash = "consumReflect";
             }
             // Second Wind — survive an otherwise-lethal blow at 1 HP.
             if (procTarget.hp <= 0 && (procTarget.consEndure ?? 0) > 0) {
                 procTarget = { ...procTarget, hp: 1, consEndure: (procTarget.consEndure ?? 0) - 1 };
-                procNote += ` 💪 ${procTarget.pet.name} endures at 1 HP!`;
+                procNote += ` ${procTarget.pet.name} endures at 1 HP!`;
                 consFlash = "consumEndure";
             }
             // Lifeline Elixir — first dip below the threshold instantly heals.
@@ -1145,7 +1145,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 && (target2.hp / lifelineMax) * 100 >= PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
                 const heal = Math.max(1, Math.floor(lifelineMax * (procTarget.consLifeline ?? 0) / 100));
                 procTarget = { ...procTarget, hp: Math.min(lifelineMax, procTarget.hp + heal), consLifeline: 0 };
-                procNote += ` ✨ Lifeline heals ${heal}!`;
+                procNote += ` Lifeline heals ${heal}!`;
                 consFlash = "consumLifeline";
             }
             // Combo tracking
@@ -1163,7 +1163,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                 (dmgBonus > 1 && actor2.pet.trait === "Hollowborn") ? { actor: actorSide as "player" | "enemy", trait: "Hollowborn" } :
                 undefined;
             const elementNote = petElementLabel(elementMult);
-            const coverNote = defenderBehindCover ? " 🧱 Behind cover!" : "";
+            const coverNote = defenderBehindCover ? " Behind cover!" : "";
             // Signature cut-in when this jutsu is the actor's strongest move.
             const sigMove: PetArenaFrame["signatureMove"] = (jutsuName && jutsuName === petSignatureJutsu(actor2.pet))
                 ? { name: jutsuName, petName: actor2.pet.name, side: actorSide as "player" | "enemy", flagship: actor2.pet.rarity === "mythic" }
@@ -1174,7 +1174,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
             pushFrame(round, msg, actorSide, kind, damage, crit, traitFlash, currentCombo >= 3 ? currentCombo : undefined, undefined, undefined, sigMove);
             // KO frame
             if (procTarget.hp <= 0) {
-                const koMsg = `💥 K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
+                const koMsg = `K.O.! ${actor2.pet.name} knocks out ${target2.pet.name}!`;
                 logs.push(koMsg);
                 pushFrame(round, koMsg, actorSide, "result", undefined, undefined, undefined, undefined, undefined, true);
             }
@@ -1444,7 +1444,7 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
                     attackBuff: damagedTarget.attackBuff - atkCut,
                     defenseBuff: damagedTarget.defenseBuff - defCut,
                 };
-                const msg = `Round ${round}: 🌍 ${actor.pet.name} crushes ${target.pet.name} — strips ${atkCut} ATK / ${defCut} DEF.${battlebornNote}`;
+                const msg = `Round ${round}: ${actor.pet.name} crushes ${target.pet.name} — strips ${atkCut} ATK / ${defCut} DEF.${battlebornNote}`;
                 logs.push(msg);
                 if (actorSide === "player") { player = returnedActor; enemy = crushed; } else { enemy = returnedActor; player = crushed; }
                 pushFrame(round, msg, actorSide, "debuff");
@@ -1624,14 +1624,14 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         // poison so a pet can suffer both at once.
         if (player.burnRounds > 0 && player.burnDamage > 0) {
             player = { ...player, hp: Math.max(0, player.hp - player.burnDamage), burnRounds: player.burnRounds - 1 };
-            const msg = `Round ${round}: 🔥 ${player.pet.name} burns for ${player.burnDamage} damage.`;
+            const msg = `Round ${round}: ${player.pet.name} burns for ${player.burnDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "player", "dot", player.burnDamage);
             if (player.hp <= 0) break;
         }
         if (enemy.burnRounds > 0 && enemy.burnDamage > 0) {
             enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.burnDamage), burnRounds: enemy.burnRounds - 1 };
-            const msg = `Round ${round}: 🔥 ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
+            const msg = `Round ${round}: ${enemy.pet.name} burns for ${enemy.burnDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "enemy", "dot", enemy.burnDamage);
             if (enemy.hp <= 0) break;
@@ -1641,14 +1641,14 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
         // (the heal-reduction lives in the heal handler). Mirrors burn.
         if (player.woundRounds > 0 && player.woundDamage > 0) {
             player = { ...player, hp: Math.max(0, player.hp - player.woundDamage), woundRounds: player.woundRounds - 1 };
-            const msg = `Round ${round}: 🩸 ${player.pet.name} bleeds for ${player.woundDamage} damage.`;
+            const msg = `Round ${round}: ${player.pet.name} bleeds for ${player.woundDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "player", "dot", player.woundDamage);
             if (player.hp <= 0) break;
         }
         if (enemy.woundRounds > 0 && enemy.woundDamage > 0) {
             enemy = { ...enemy, hp: Math.max(0, enemy.hp - enemy.woundDamage), woundRounds: enemy.woundRounds - 1 };
-            const msg = `Round ${round}: 🩸 ${enemy.pet.name} bleeds for ${enemy.woundDamage} damage.`;
+            const msg = `Round ${round}: ${enemy.pet.name} bleeds for ${enemy.woundDamage} damage.`;
             logs.push(msg);
             pushFrame(round, msg, "enemy", "dot", enemy.woundDamage);
             if (enemy.hp <= 0) break;
@@ -1771,10 +1771,10 @@ export function runPetArenaBattle(playerPetIn: Pet, opponentPetIn: Pet, opponent
 // charge they trigger so the item is one-shot.
 function petReactivePreHit(defender: PetBattleFighter, rawDamage: number): { damage: number; defender: PetBattleFighter; dodged: boolean; note: string; flash?: string } {
     if ((defender.consDodge ?? 0) > 0) {
-        return { damage: 0, defender: { ...defender, consDodge: (defender.consDodge ?? 0) - 1 }, dodged: true, note: ` 💨 ${defender.pet.name} dodges!`, flash: "consumDodge" };
+        return { damage: 0, defender: { ...defender, consDodge: (defender.consDodge ?? 0) - 1 }, dodged: true, note: ` ${defender.pet.name} dodges!`, flash: "consumDodge" };
     }
     if ((defender.consMitigate ?? 0) > 0) {
-        return { damage: Math.max(1, Math.floor(rawDamage * (1 - (defender.consMitigate ?? 0) / 100))), defender: { ...defender, consMitigate: 0 }, dodged: false, note: ` 💨 ${defender.pet.name} blunts the blow!`, flash: "consumBlock" };
+        return { damage: Math.max(1, Math.floor(rawDamage * (1 - (defender.consMitigate ?? 0) / 100))), defender: { ...defender, consMitigate: 0 }, dodged: false, note: ` ${defender.pet.name} blunts the blow!`, flash: "consumBlock" };
     }
     return { damage: rawDamage, defender, dodged: false, note: "" };
 }
@@ -1785,12 +1785,12 @@ function petReactivePostHit(attacker: PetBattleFighter, defender: PetBattleFight
         const reflect = Math.max(1, Math.floor(damageDealt * (d.consThorns ?? 0) / 100));
         a = { ...a, hp: Math.max(0, a.hp - reflect) };
         d = { ...d, consThorns: 0 };
-        note += ` 🌵 ${d.pet.name} reflects ${reflect}!`;
+        note += ` ${d.pet.name} reflects ${reflect}!`;
         flash = "consumReflect";
     }
     if (d.hp <= 0 && (d.consEndure ?? 0) > 0) {
         d = { ...d, hp: 1, consEndure: (d.consEndure ?? 0) - 1 };
-        note += ` 💪 ${d.pet.name} endures at 1 HP!`;
+        note += ` ${d.pet.name} endures at 1 HP!`;
         flash = "consumEndure";
     }
     const maxHp = d.pet.hp;
@@ -1799,7 +1799,7 @@ function petReactivePostHit(attacker: PetBattleFighter, defender: PetBattleFight
         && (preHitHp / maxHp) * 100 >= PET_CONSUMABLE_LIFELINE_THRESHOLD_PCT) {
         const heal = Math.max(1, Math.floor(maxHp * (d.consLifeline ?? 0) / 100));
         d = { ...d, hp: Math.min(maxHp, d.hp + heal), consLifeline: 0 };
-        note += ` ✨ Lifeline heals ${heal}!`;
+        note += ` Lifeline heals ${heal}!`;
         flash = "consumLifeline";
     }
     return { attacker: a, defender: d, note, flash };
@@ -2344,10 +2344,10 @@ export function runPetArenaParty(
             let hitTarget = { ...pre.defender, hp: Math.max(0, pre.defender.hp - dmg) };
             let procNote = pre.note;
             const dot = petGearDotOnHit(actor.pet);
-            if (dot) { hitTarget = { ...hitTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " ☠️ Poisoned!"; }
+            if (dot) { hitTarget = { ...hitTarget, dotDamage: dot.damage, dotRounds: dot.rounds }; procNote += " Poisoned!"; }
             let hitActor = actor;
             const lsHeal = petGearLifestealHeal(actor.pet, dmg);
-            if (lsHeal > 0) { hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + lsHeal) }; procNote += ` 🩸 +${lsHeal} HP`; }
+            if (lsHeal > 0) { hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + lsHeal) }; procNote += ` +${lsHeal} HP`; }
             if (actor.pet.trait === "Hollowborn" && dmg > 0) {
                 const drain = Math.floor(dmg * 0.12);
                 if (drain > 0) hitActor = { ...hitActor, hp: Math.min(hitActor.pet.hp, hitActor.hp + drain) };
@@ -2359,7 +2359,7 @@ export function runPetArenaParty(
             procNote += post.note;
             const consFlashKey = post.flash ?? pre.flash;
             const basicFlash: PetArenaFrame["traitFlash"] = consFlashKey ? { actor: isPlayerSlot(damageTargetSlot) ? "player" : "enemy", trait: consFlashKey } : undefined;
-            const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
+            const elementNote = elementMult > 1 ? " Super effective!" : elementMult < 1 ? " Resisted." : "";
             const msg = `Round ${round}: ${actor.pet.name} basic-attacks ${damageTarget.pet.name} for ${dmg} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}${procNote}`;
             logs.push(msg);
             pushPartyFrame(round, msg, actorSlot, "basic", dmg, crit, basicFlash, undefined, fighters[damageTargetSlot]!.hp <= 0, damageTargetSlot);
@@ -2441,8 +2441,8 @@ export function runPetArenaParty(
                 const healedActor = fighters[actorSlot]!;
                 if (drain > 0 && healedActor.hp > 0) fighters[actorSlot] = { ...healedActor, hp: Math.min(healedActor.pet.hp, healedActor.hp + drain) };
             }
-            const elementNote = elementMult > 1 ? " 🔆 Super effective!" : elementMult < 1 ? " ⛔ Resisted." : "";
-            const consNote = `${mitigateMult < 1 ? ` 💨 ${target.pet.name} blunts the blow!` : ""}${post.note}`;
+            const elementNote = elementMult > 1 ? " Super effective!" : elementMult < 1 ? " Resisted." : "";
+            const consNote = `${mitigateMult < 1 ? ` ${target.pet.name} blunts the blow!` : ""}${post.note}`;
             const msg = `Round ${round}: ${actor.pet.name} uses ${jutsuName} on ${target.pet.name} for ${damage} damage${crit ? " — CRITICAL HIT!" : ""}.${elementNote}${consNote}`;
             logs.push(msg);
             const consFlashKey = post.flash ?? (mitigateMult < 1 ? "consumBlock" : undefined);
@@ -2550,7 +2550,7 @@ export function runPetArenaParty(
                 const effectiveBurn = target.pet.trait === "Guardian" ? Math.max(1, Math.floor(burnDmg * 0.5)) : burnDmg;
                 const burnRounds = Math.max(1, chosen.rounds ?? 2);
                 fighters[targetSlot] = applyStatusToFighter(target, "burn", burnRounds, effectiveBurn);
-                const msg = `Round ${round}: 🔥 ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round.`;
+                const msg = `Round ${round}: ${actor.pet.name} burns ${target.pet.name} for ${effectiveBurn}/round.`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, actorSlot, "dot", undefined, undefined, undefined, undefined, undefined, targetSlot);
                 return;
@@ -2558,7 +2558,7 @@ export function runPetArenaParty(
             case "freeze": {
                 const rounds = Math.max(1, chosen.rounds ?? 2);
                 fighters[targetSlot] = applyStatusToFighter(target, "freeze", rounds);
-                const msg = `Round ${round}: 🧊 ${actor.pet.name} freezes ${target.pet.name}.`;
+                const msg = `Round ${round}: ${actor.pet.name} freezes ${target.pet.name}.`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
                 return;
@@ -2566,7 +2566,7 @@ export function runPetArenaParty(
             case "confuse": {
                 const rounds = Math.max(1, chosen.rounds ?? 2);
                 fighters[targetSlot] = applyStatusToFighter(target, "confuse", rounds);
-                const msg = `Round ${round}: 🌀 ${actor.pet.name} confuses ${target.pet.name}.`;
+                const msg = `Round ${round}: ${actor.pet.name} confuses ${target.pet.name}.`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
                 return;
@@ -2581,7 +2581,7 @@ export function runPetArenaParty(
                     return;
                 }
                 fighters[targetSlot] = applyStatusToFighter(target, "stun", reduced);
-                const msg = `Round ${round}: 💤 ${actor.pet.name} stuns ${target.pet.name}.`;
+                const msg = `Round ${round}: ${actor.pet.name} stuns ${target.pet.name}.`;
                 logs.push(msg);
                 pushPartyFrame(round, msg, actorSlot, "movelock", undefined, undefined, undefined, undefined, undefined, targetSlot);
                 return;
@@ -2596,7 +2596,7 @@ export function runPetArenaParty(
                 const after = fighters[targetSlot]!;
                 if (after.hp > 0) {
                     fighters[targetSlot] = { ...after, attackBuff: after.attackBuff - atkCut, defenseBuff: after.defenseBuff - defCut };
-                    const msg2 = `Round ${round}: 🌍 ${actor.pet.name}'s crush strips ${atkCut} ATK / ${defCut} DEF.`;
+                    const msg2 = `Round ${round}: ${actor.pet.name}'s crush strips ${atkCut} ATK / ${defCut} DEF.`;
                     logs.push(msg2);
                     pushPartyFrame(round, msg2, actorSlot, "debuff", undefined, undefined, undefined, undefined, undefined, targetSlot);
                 }
@@ -2715,13 +2715,13 @@ export function runPetArenaParty(
             const g = fighters[s]!;
             if (g.burnRounds > 0 && g.burnDamage > 0) {
                 fighters[s] = { ...g, hp: Math.max(0, g.hp - g.burnDamage), burnRounds: g.burnRounds - 1 };
-                pushPartyFrame(round, `🔥 ${g.pet.name} burns for ${g.burnDamage} damage.`, s, "dot", g.burnDamage);
+                pushPartyFrame(round, `${g.pet.name} burns for ${g.burnDamage} damage.`, s, "dot", g.burnDamage);
             }
             // Phase 12: wound bleed (ticks its own counter, like burn).
             const w = fighters[s]!;
             if (w.woundRounds > 0 && w.woundDamage > 0) {
                 fighters[s] = { ...w, hp: Math.max(0, w.hp - w.woundDamage), woundRounds: w.woundRounds - 1 };
-                pushPartyFrame(round, `🩸 ${w.pet.name} bleeds for ${w.woundDamage} damage.`, s, "dot", w.woundDamage);
+                pushPartyFrame(round, `${w.pet.name} bleeds for ${w.woundDamage} damage.`, s, "dot", w.woundDamage);
             }
         }
         if (playerLiving() === 0 || enemyLiving() === 0) break;

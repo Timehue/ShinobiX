@@ -55,7 +55,7 @@ export async function strikeDownSleeper(opts: {
 }): Promise<void> {
     const { opponent, attackerName, isTraveling, setCharacter, setPlayerRoster, onServerVersion } = opts;
     if (isTraveling) { alert("You cannot attack while traveling."); return; }
-    if (!(await gameConfirm(`🌙 ${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`, { danger: true, confirmLabel: "Strike" }))) return;
+    if (!(await gameConfirm(`${opponent.name} sleeps, defenseless, in this sector.\n\nStrike them down? They'll wake battered in their village's hospital.`, { danger: true, confirmLabel: "Strike" }))) return;
 
     try {
         // attackerName lets an admin-authed session (no player identity of its
@@ -119,7 +119,7 @@ export async function strikeDownSleeper(opts: {
             r.bounty ? `+${r.bounty.toLocaleString()} ryo BOUNTY on their head` : "",
             r.seals ? `+${r.seals} Honor Seals` : "",
         ].filter(Boolean).join(", ") : "";
-        alert(`💤 You struck down ${r?.target ?? opponent.name}! They've been sent to the hospital.`
+        alert(`You struck down ${r?.target ?? opponent.name}! They've been sent to the hospital.`
             + (gains ? `\n${gains}` : (r && !r.rewardEligible ? "\n(No rewards — same household/device.)" : "")));
     } catch {
         alert("Could not reach the server. Try again.");

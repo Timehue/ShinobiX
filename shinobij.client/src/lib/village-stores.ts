@@ -105,22 +105,21 @@ const KIND_LABEL: Record<StoresLedgerKind, string> = {
 /** Kinds whose amount is counted in MATERIALS rather than rations. */
 const POINT_KINDS: ReadonlySet<StoresLedgerKind> = new Set<StoresLedgerKind>(["convert", "structure"]);
 
-/** A glyph per ledger kind, so a run of "−" rows reads as a supply log rather
- *  than a column of errors. Decorative only — every row still spells its kind
- *  out in words, so the icon is never the only carrier of meaning. */
+/** A painted game-art mark per ledger kind, so a run of "−" rows reads as a
+ *  supply log rather than a column of errors. Each row also spells out its kind. */
 const KIND_ICON: Record<StoresLedgerKind, string> = {
-    spoil: "🍂",
-    war: "⚔️",
-    merc: "🗡️",
-    garrison: "🛡️",
-    convert: "⚙️",
-    structure: "🏯",
-    "feed-toggle": "🍚",
-    "home-loss": "🏳️",
+    spoil: "biomeForest",
+    war: "attack",
+    merc: "roleAssassin",
+    garrison: "roleDefender",
+    convert: "training",
+    structure: "clanHall",
+    "feed-toggle": "rations",
+    "home-loss": "warning",
 };
 
 export function storesLedgerIcon(kind: StoresLedgerKind): string {
-    return KIND_ICON[kind] ?? "📦";
+    return KIND_ICON[kind] ?? "warning";
 }
 
 const STRUCTURE_NAMES: Record<string, string> = {

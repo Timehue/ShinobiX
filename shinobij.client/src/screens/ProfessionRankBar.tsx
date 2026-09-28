@@ -2,6 +2,7 @@ import { professionThresholds } from "../lib/profession-bonuses";
 import { PROFESSION_MAX_RANK } from "../constants/profession";
 import type { CSSProperties } from "react";
 import type { Character, Profession } from "../App";
+import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 
 
 const LABELS: Record<Profession, string> = {
@@ -16,10 +17,10 @@ const ACCENTS: Record<Profession, string> = {
     petTamer: "#84cc16",
 };
 
-const ICONS: Record<Profession, string> = {
-    healer: "✚",
-    vanguard: "⚔",
-    petTamer: "🐾",
+const ICONS: Record<Profession, GameArtIconKind> = {
+    healer: "healer",
+    vanguard: "vanguard",
+    petTamer: "petTamer",
 };
 
 export function ProfessionRankBar({
@@ -65,7 +66,7 @@ export function ProfessionRankBar({
     if (compact) {
         return (
             <div className="profession-rank-compact" style={{ display: "flex", alignItems: "center", gap: 8, "--profession-accent": accent } as CSSProperties}>
-                <span style={{ color: accent, fontWeight: 600 }}>{icon} {label}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: accent, fontWeight: 600 }}><GameArtIcon kind={icon} size={16} /> {label}</span>
                 <span className="hint" style={{ fontSize: "0.78rem" }}>
                     Rank {rank}{nextRankXp !== null && ` · ${xpIntoRank.toLocaleString()} / ${xpForNextRank.toLocaleString()} XP`}
                     {nextRankXp === null && " · MAX"}
@@ -80,7 +81,7 @@ export function ProfessionRankBar({
     return (
         <section className="summary-box profession-rank-card" aria-label={`${label} profession progress`} style={{ background: `linear-gradient(180deg, ${accent}15, rgba(8,10,22,0.4))`, border: `1px solid ${accent}55`, "--profession-accent": accent } as CSSProperties}>
             <div className="profession-rank-heading" style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
-                <strong style={{ color: accent, fontSize: "1.05rem" }}>{icon} {label}</strong>
+                <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: accent, fontSize: "1.05rem" }}><GameArtIcon kind={icon} size={20} /> {label}</strong>
                 <span className="hint">
                     Rank <strong style={{ color: accent }}>{rank}</strong>
                     {rank >= PROFESSION_MAX_RANK && <span style={{ marginLeft: 6, color: accent }}>· MAX</span>}

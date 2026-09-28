@@ -40,6 +40,7 @@ import { PetHomeTabs } from "../components/PetHomeTabs";
 import { CompanionIdentity } from "../components/CompanionIdentity";
 import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { BattleLogLine } from "../components/BattleLogLine";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
@@ -2204,7 +2205,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             <section className={`summary-box pet-arena-log${visibleLog.length === 0 ? " is-idle" : ""}`} role="log" aria-label="Pet battle log" aria-live="polite" aria-relevant="additions text">
                 <div className="pet-arena-log-heading"><GameIcon name="scroll" size={18} /><span><small>Arena feed</small><strong>Battle record</strong></span><em>{visibleLog.length ? `${visibleLog.length} events` : "Awaiting bell"}</em></div>
-                {visibleLog.length === 0 ? <p className="hint">Your live combat calls and decisive moments will appear here after the bell.</p> : visibleLog.map((line, index) => <p key={`${line}-${index}`}>{line}</p>)}
+                {visibleLog.length === 0 ? <p className="hint">Your live combat calls and decisive moments will appear here after the bell.</p> : visibleLog.map((line, index) => <BattleLogLine key={`${line}-${index}`} line={line} />)}
             </section>
             </>
             )}

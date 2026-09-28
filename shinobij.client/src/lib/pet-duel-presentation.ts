@@ -280,7 +280,7 @@ export type PetOpeningTactic = {
     strength: string;
     tradeoff: string;
     color: string;
-    glyph: string;
+    artKind: "attack" | "map" | "guard";
 };
 
 export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
@@ -292,7 +292,7 @@ export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
         strength: "Best for denying setup and forcing ranged pets into close exchanges.",
         tradeoff: "Commits harder, dodges less, and can be punished by a patient counter-fighter.",
         color: "#f87171",
-        glyph: "▲",
+        artKind: "attack",
     },
     {
         stance: 1,
@@ -302,7 +302,7 @@ export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
         strength: "Reliable into unknown opponents and flexible when momentum changes.",
         tradeoff: "Offers no extreme advantage and may surrender tempo to a specialized game plan.",
         color: "#93c5fd",
-        glyph: "◆",
+        artKind: "map",
     },
     {
         stance: 2,
@@ -312,7 +312,7 @@ export const PET_OPENING_TACTICS: readonly PetOpeningTactic[] = [
         strength: "Best for punishing reckless pressure and protecting a fragile or ranged fighter.",
         tradeoff: "Attacks less often and can allow support or ranged opponents time to establish control.",
         color: "#5eead4",
-        glyph: "▼",
+        artKind: "guard",
     },
 ] as const;
 

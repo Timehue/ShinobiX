@@ -1296,7 +1296,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                                             disabled={tacticCommitting}
                                             style={{ minWidth: 0, minHeight: mobileQa ? 75 : 94, padding: mobileQa ? "8px 5px" : "11px 10px", borderRadius: 12, border: `${selected ? 2.5 : 1.5}px solid ${tactic.color}`, background: selected ? `linear-gradient(180deg,${tactic.color}48,rgba(4,8,18,.97))` : `linear-gradient(180deg,${tactic.color}1f,rgba(4,8,18,.95))`, color: tactic.color, boxShadow: selected ? `inset 0 -3px 0 ${tactic.color},0 0 24px ${tactic.color}55,0 8px 20px rgba(0,0,0,.48)` : `inset 0 -2px 0 ${tactic.color}66,0 5px 16px rgba(0,0,0,.4)`, transform: selected ? "translateY(-3px)" : undefined, cursor: tacticCommitting ? "default" : "pointer", transition: "transform 150ms ease,border-width 150ms ease,box-shadow 150ms ease,background 150ms ease" }}
                                         >
-                                            <span aria-hidden style={{ display: "block", font: `900 ${mobileQa ? 13 : 17}px/1 Inter,sans-serif` }}>{tactic.glyph}</span>
+                                            <span aria-hidden style={{ display: "block" }}><GameArtIcon kind={tactic.artKind} size={mobileQa ? 20 : 24} /></span>
                                             <strong style={{ display: "block", marginTop: 5, font: `900 ${mobileQa ? 9 : 12}px/1 var(--font-display),Inter,sans-serif`, letterSpacing: ".06em", textTransform: "uppercase" }}>{tactic.name}</strong>
                                             <span style={{ display: "block", marginTop: 6, color: "#dbe5f1", font: `700 ${mobileQa ? 7 : 9}px/1.25 Inter,sans-serif` }}>{tactic.short}</span>
                                         </button>
@@ -1461,7 +1461,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         <div className="pet-move-streaks" />
                         <div className="pet-move-card">
                             <div className="pet-move-meta">
-                                <span className="pet-move-glyph" aria-hidden="true">{cat.glyph}</span>
+                                <span className="pet-move-glyph" aria-hidden="true"><GameArtIcon kind={cat.artKind} size={19} /></span>
                                 <span>{category}</span>
                                 {elementName && <span style={{ opacity: .58 }}>· {elementName}</span>}
                                 {moveCallout.who && <span style={{ opacity: .78 }}>· {moveCallout.who}</span>}

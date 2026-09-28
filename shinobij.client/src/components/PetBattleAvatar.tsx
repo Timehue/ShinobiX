@@ -6,7 +6,19 @@ import { petCollarVisual, petTraitDescriptions } from "../data/pet-config";
 import { petBattleSprite, petBattleLayers, petBattleSheet, petAvatarStateClass } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import type { PetVisualState } from "../types/pet-battle";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 import { PetArtwork } from "./PetArtwork";
+
+const JUTSU_KIND_ART: Record<string, GameArtIconKind> = {
+    damage: "attack",
+    buff: "elementLightning",
+    heal: "vitality",
+    debuff: "warning",
+    dot: "biomeShadow",
+    move: "speed",
+    barrier: "guard",
+    movelock: "key",
+};
 
 export function PetBattleAvatar({ pet, side, active, hit, status, sharedImages = {}, visualState = "idle" }: { pet: Pet; side: "player" | "enemy"; active: boolean; hit?: boolean; status?: { poisoned?: number; atkBuff?: boolean; defBuff?: boolean }; sharedImages?: Record<string, string>; visualState?: PetVisualState }) {
     // Sprite mode, most-dimensional first:
@@ -84,12 +96,10 @@ export function PetArenaCard({ owner, pet, sharedImages = {} }: { owner: string;
                 <div className="pet-arena-jutsu-list">
                     {pet.jutsus.length ? pet.jutsus.map((jutsu) => {
                         const kindColors: Record<string, string> = { damage: "var(--red-300)", buff: "var(--green-300)", heal: "var(--green-400)", debuff: "#f97316", dot: "var(--purple-400)", move: "var(--blue-300)", barrier: "#7dd3fc", movelock: "#fbbf24" };
-                        const kindIcons:  Record<string, string> = { damage: "⚔", buff: "⬆", heal: "✚", debuff: "⬇", dot: "☠", move: "➡", barrier: "◇", movelock: "⛓" };
                         const col  = kindColors[jutsu.kind] ?? "#aaa";
-                        const icon = kindIcons[jutsu.kind]  ?? "✦";
                         return (
                             <span key={jutsu.name} className="pet-arena-jutsu-chip" style={{ borderColor: col, color: col }}>
-                                {icon} {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
+                                <GameArtIcon kind={JUTSU_KIND_ART[jutsu.kind] ?? "attack"} size={15} /> {jutsu.name}{jutsu.power > 0 ? ` · P${jutsu.power}` : ""} · CD{jutsu.cooldown}
                             </span>
                         );
                     }) : <span style={{ color: "#555" }}>No jutsu</span>}

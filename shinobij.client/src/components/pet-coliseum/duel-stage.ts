@@ -85,13 +85,13 @@ export type DuelMoveCalloutTone = "attack" | "support" | "maneuver" | "combo";
  *  This used to be keyed by side — blue for your pet, red for theirs — which meant a
  *  heal, a shield, a sidestep and a fireball were the same banner with different
  *  words. Owner feedback was exactly that: "you can't tell what is a buff or an
- *  attack". Colour and glyph now carry the category, so one glance classifies the
+ *  attack". Colour and painted art now carry the category, so one glance classifies the
  *  beat; the actor's name carries the side. */
-export const MOVE_CALLOUT_STYLE: Record<DuelMoveCalloutTone, { color: string; text: string; glyph: string; label: string }> = {
-    attack: { color: "#fbbf24", text: "#fef3c7", glyph: "⚔", label: "" },
-    support: { color: "#34d399", text: "#d1fae5", glyph: "▲", label: "POWER UP ·" },
-    maneuver: { color: "#a78bfa", text: "#ede9fe", glyph: "↷", label: "SHIFT ·" },
-    combo: { color: "#f472b6", text: "#fce7f3", glyph: "✦", label: "COMBO ·" },
+export const MOVE_CALLOUT_STYLE: Record<DuelMoveCalloutTone, { color: string; text: string; artKind: "attack" | "vitality" | "speed" | "crown"; label: string }> = {
+    attack: { color: "#fbbf24", text: "#fef3c7", artKind: "attack", label: "" },
+    support: { color: "#34d399", text: "#d1fae5", artKind: "vitality", label: "POWER UP ·" },
+    maneuver: { color: "#a78bfa", text: "#ede9fe", artKind: "speed", label: "SHIFT ·" },
+    combo: { color: "#f472b6", text: "#fce7f3", artKind: "crown", label: "COMBO ·" },
 };
 
 

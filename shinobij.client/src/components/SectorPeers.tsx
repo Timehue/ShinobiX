@@ -1,4 +1,5 @@
 import { SectorPortrait } from "./SectorPortrait";
+import { GameIcon } from "./icons/GameIcon";
 /*
  * SectorPeers — live "walking" overlay for OTHER players in your sector (2D).
  *
@@ -183,7 +184,7 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
                                     <span className="sector-avatar-pin" />
                                 </span>
                             </span>
-                            <span className="sector-peer-label">{it.name}{it.sleeping ? " 💤" : ""}</span>
+                            <span className="sector-peer-label">{it.name}{it.sleeping && <> <GameIcon name="moon" size={12} title="Sleeping" /></>}</span>
                         </div>
                     </div>
                 );

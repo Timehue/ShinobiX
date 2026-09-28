@@ -533,7 +533,7 @@ export function applyRoundResult(run: GauntletRun, won: boolean): GauntletRun {
         const reward = valorRewardForRound(run.round);
         const roundsCleared = run.roundsCleared + 1;
         if (run.round >= run.maxRounds) {
-            return { ...run, status: "won", valor: run.valor + reward, roundsCleared, log: [...run.log, `Round ${run.round} won — THE GAUNTLET IS CLEARED! 🏆`] };
+            return { ...run, status: "won", valor: run.valor + reward, roundsCleared, log: [...run.log, `Round ${run.round} won — THE GAUNTLET IS CLEARED!`] };
         }
         return {
             ...run, status: "drafting", round: nextRound, valor: run.valor + reward + income, roundsCleared, rerolls: 0,
