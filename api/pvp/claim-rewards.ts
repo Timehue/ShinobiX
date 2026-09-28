@@ -737,7 +737,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             cap: DAILY_COMBAT_STAT_CAP,
                         });
                         const baseEarned = statBudget.points;
-                        const boosted = Math.round(baseEarned * growthMult * statGainMultiplier() * growthEventBoost);
+                        const boosted = Math.round(baseEarned * statGainMultiplier() * growthEventBoost);
                         const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
                         combatGrowthAwarded = g.spent;
                         if (baseEarned > 0 && g.spent > 0) {

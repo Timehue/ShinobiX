@@ -289,7 +289,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // wins also skip this ordinary purse because their run has a separate
             // settlement, but still receive the shared capped PvE stat growth.
             if (!paysReward) {
-                const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now(), continuousVitals, spar);
                 const dungeonSettled = sealedBattleKind === 'dungeon'
                     ? applyDungeonWardenSettlement({
                         character: companionCharacter,
@@ -404,6 +403,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ryo: reward.ryo,
                 capped: reward.capped,
                 dailyCount,
+                statPoints: growth.spent,
             };
             const withLegacyReceipt = { ...worldProgression.character, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
             const worldHunt = sealedWorldContext?.kind === 'hunt-target'
