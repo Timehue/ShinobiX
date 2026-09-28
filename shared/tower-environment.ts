@@ -29,12 +29,15 @@ export function pickTowerElements(seed: number): string[] {
 export function rollTowerEnvironment(pool: readonly TowerEnvironmentFeature[], seed: number): TowerEnvironmentFeature[] {
     if (!pool.length) return [];
     const random = randomStream(seed ^ 0x7a39b145);
+    // Keep the pylon as the floor's tactical anchor and add just one secondary
+    // zone. Rotating ward/hazard keeps runs varied without crowding the arena.
+    const secondaryKind = random() < 0.5 ? 'ward' : 'hazard';
     const defaults: TowerEnvironmentFeature[] = [
         { kind: 'pylon', tiles: [], element: 'Fire', weakenElement: 'Water', percent: 25, label: 'Flame Pylon' },
         { kind: 'ward', tiles: [], percent: 22, label: 'Warded Stone' },
         { kind: 'hazard', tiles: [], percent: 12, label: 'Hazard' },
     ];
-    return defaults.map(fallback => {
+    return defaults.filter(feature => feature.kind === 'pylon' || feature.kind === secondaryKind).map(fallback => {
         const candidates = pool.filter(feature => feature.kind === fallback.kind);
         const selected = candidates[Math.floor(random() * candidates.length)] ?? fallback;
         const feature = { ...selected, tiles: [] };
