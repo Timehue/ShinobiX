@@ -23,8 +23,9 @@ import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
 import { HollowGateBossCinematic } from "./HollowGateBossCinematic";
 import { HollowGateShardBar } from "../../components/HollowGateShardBar";
+import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
 import { HOLLOW_GATE_ICON_KEY, HOLLOW_GATE_ICON_ROLES } from "../../data/hollow-gate-atlas";
-import { hollowGateIntroPagesFor, hollowGateTileIconForKind } from "../../data/hollow-gate-flavor";
+import { hollowGateIntroPagesFor } from "../../data/hollow-gate-flavor";
 import { computeHollowGateVisible } from "../../lib/hollow-gate-visibility";
 import { hollowGateBossDisplayName, hollowGateRunMaxFloor } from "../../lib/hollow-gate-variant";
 import { hollowGateClawBackPreview } from "../../lib/hollow-gate-run";
@@ -34,7 +35,7 @@ import {
     hollowGateFloorProfile,
 } from "../../lib/hollow-gate-presentation";
 import type { HollowGateEventModal } from "../../lib/hollow-gate-tile";
-import { WING_GLYPH, WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
+import { WING_TINT, wingThemeAt } from "../../lib/hollow-gate-wings";
 import { isPetOnExpedition } from "../../lib/pet";
 import {
     playGameSfx,
@@ -43,6 +44,13 @@ import {
     stopGameAmbience,
 } from "../../lib/game-audio";
 import type { Character, HollowGateShrineRun, HollowGateTerrain, HollowGateTileKind, VersionedCharacterCommit } from "../../types/character";
+
+const HOLLOW_GATE_TILE_ART: Partial<Record<HollowGateTileKind, GameArtIconKind>> = {
+    battle: "attack", elite: "roleAssassin", trap: "warning", chest: "reward",
+    pet_event: "petTamer", pet_battle: "petTamer", tile_game: "dice", shard_vein: "fateShard",
+    shrine: "gate", story: "scroll", boss: "attack", exit: "worldMap", locked: "key",
+    npc: "healer", descend: "worldMap",
+};
 
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
 
@@ -286,10 +294,10 @@ export function HollowGateShrineView({
                                         <style>{`@keyframes hgPulse { 0%,100%{opacity:1} 50%{opacity:0.35} }`}</style>
                                     </div>
                                     <div style={{ fontSize: 13 }}>
-                                        <span title="Shrine Keys">🔑 {run.keys}</span>
-                                        <span style={{ marginLeft: 12 }} title="Torch of Reiki">🔥 {run.torch}/10</span>
-                                        <span style={{ marginLeft: 12 }} title="Banked Hollow Shards">💎 {character.hollowShards ?? 0}</span>
-                                        {(() => { const ar = hollowGateClawBackPreview(character, run); const rr = ar.ryo ?? 0; const rs = ar.hollowShards ?? 0; return (rr || rs) ? <span style={{ marginLeft: 12, color: "#fda4af" }} title="Lost if you die now — Sanctify Loot to protect it">⚠ {[rr ? `${rr} ryo` : "", rs ? `${rs}💎` : ""].filter(Boolean).join(" · ")} at risk</span> : null; })()}
+                                        <span title="Shrine Keys"><GameArtIcon kind="key" size={15} /> {run.keys}</span>
+                                        <span style={{ marginLeft: 12 }} title="Torch of Reiki"><GameArtIcon kind="elementFire" size={15} /> {run.torch}/10</span>
+                                        <span style={{ marginLeft: 12 }} title="Banked Hollow Shards"><GameArtIcon kind="fateShard" size={15} /> {character.hollowShards ?? 0}</span>
+                                        {(() => { const ar = hollowGateClawBackPreview(character, run); const rr = ar.ryo ?? 0; const rs = ar.hollowShards ?? 0; return (rr || rs) ? <span style={{ marginLeft: 12, color: "#fda4af" }} title="Lost if you die now — Sanctify Loot to protect it"><GameArtIcon kind="warning" size={15} /> {[rr ? `${rr} ryo` : "", rs ? `${rs} Hollow Shards` : ""].filter(Boolean).join(" · ")} at risk</span> : null; })()}
                                     </div>
                                 </div>
                             </div>
@@ -567,7 +575,7 @@ export function HollowGateShrineView({
                                         }
                                         const styleBg = layers.length > 0 ? layers.join(", ") : undefined;
 
-                                        // ── Icon: atlas image (shrine:icon-<slot>) or emoji ────
+                                        // ── Icon: atlas image (shrine:icon-<slot>) or themed game art ────
                                         function iconSlotIdFor(k: HollowGateTileKind): string | null {
                                             if (k === "pet_event") return "pet";
                                             if (k === "pet_battle") return "petbattle";
@@ -579,12 +587,7 @@ export function HollowGateShrineView({
                                         const showIcon = !wall && (visible || known) && !(isSurpriseKind && !revealed) && tile.kind !== "empty";
                                         const iconSlotId = showIcon ? iconSlotIdFor(tile.kind) : null;
                                         const iconImage = iconSlotId ? pickRoleIconImage(iconSlotId, i) : undefined;
-                                        let icon = "";
-                                        if (showIcon) {
-                                            icon = hollowGateTileIconForKind(tile.kind);
-                                            // Label wing doors with their destination (🏆/🐺/⚔) for an informed choice.
-                                            if (tile.terrain === "door") { const dt = wingThemeAt(run, i); if (dt && WING_GLYPH[dt]) icon = WING_GLYPH[dt]; }
-                                        }
+                                        const iconArtKind = tile.terrain === "door" ? "gate" : HOLLOW_GATE_TILE_ART[tile.kind] ?? "warning";
 
                                         const clickable = known && !wall && !isPlayer;
                                         const isDest = walkTarget === i;
@@ -630,7 +633,7 @@ export function HollowGateShrineView({
                                                          aria-hidden="true"
                                                          className="hg-icon-img"
                                                      />
-                                                 ) : icon ? <span className="hg-icon" aria-hidden="true">{icon}</span> : null}
+                                                 ) : showIcon ? <span className="hg-icon" aria-hidden="true"><GameArtIcon kind={iconArtKind} size={22} /></span> : null}
                                             </div>
                                         );
                                     })}
@@ -704,16 +707,15 @@ export function HollowGateShrineView({
                                         <h4 style={{ margin: "0 0 6px", color: "#c4b5fd" }}>Map Legend</h4>
                                         {/* Legend uses the same atlas icon as the dungeon when the admin
                                             assigned one via the Atlas Tile Picker. Falls back to the
-                                            emoji glyph from hollowGateTileIconForKind otherwise. The
+                                            matching painted game art otherwise. The
                                             "wall" slot uses the room-floor/wall atlas tile instead since
                                             walls render as terrain, not an icon. */}
                                         {(() => {
-                                            // Map slot id → emoji fallback. Keeps the legend self-contained.
-                                            const fallbackEmoji: Record<string, string> = {
-                                                you: "🥷", battle: "⚔", elite: "☠", boss: "👹", trap: "▲",
-                                                chest: "▣", shrine: "⛩", story: "📜", pet: "🐾", petbattle: "🐺",
-                                                tilegame: "🀄", npc: "👤",
-                                                descend: "▼", exit: "⇩", locked: "🔒", wall: "▦",
+                                            // Map slot id → themed fallback art. Keeps the legend self-contained.
+                                            const fallbackArt: Record<string, GameArtIconKind> = {
+                                                you: "roleDefender", battle: "attack", elite: "roleAssassin", boss: "attack", trap: "warning",
+                                                chest: "reward", shrine: "gate", story: "scroll", pet: "petTamer", petbattle: "petTamer",
+                                                tilegame: "dice", npc: "healer", descend: "worldMap", exit: "worldMap", locked: "key", wall: "biomeCentral",
                                             };
                                             // Walls use the atlas wall tile (terrain), not an icon slot.
                                             const wallTileImg = sharedImages["shrine:tile-wall"] ?? sharedImages["shrine:tile-wall-0"];
@@ -738,7 +740,7 @@ export function HollowGateShrineView({
                                                         {img ? (
                                                             <img src={img} alt="" style={{ width: 18, height: 18, objectFit: "contain", imageRendering: "pixelated" }} />
                                                         ) : (
-                                                            <span style={{ width: 18, textAlign: "center" }}>{fallbackEmoji[slotId]}</span>
+                                                            <GameArtIcon kind={fallbackArt[slotId] ?? "warning"} size={18} />
                                                         )}
                                                         <span>{label}</span>
                                                     </span>
@@ -886,8 +888,8 @@ export function HollowGateShrineView({
                                             <div style={{ background: "rgba(168,85,247,0.12)", padding: 10, borderRadius: 6 }}><strong>Ancient Tablet</strong><br/>{hollowGateHiddenChamber.searched ? "Read" : "Readable"}</div>
                                         </div>
                                         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}>🔍 Search Chamber</button>
-                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}>🏺 Take Relic</button>
+                                            <button autoFocus={!hollowGateHiddenChamber.searched} disabled={hollowGateHiddenChamber.searched} onClick={() => { playGameSfx("paper", { gain: 0.72 }); onSearchHiddenChamber(); }}><GameArtIcon kind="map" size={16} /> Search Chamber</button>
+                                            <button disabled={hollowGateHiddenChamber.relicTaken} onClick={() => { playGameSfx("mythic", { gain: 0.62 }); onTakeHiddenChamberRelic(); }}><GameArtIcon kind="reward" size={16} /> Take Relic</button>
                                             <button autoFocus={hollowGateHiddenChamber.searched} onClick={onCloseHiddenChamber} className="danger-button">Return to Shrine</button>
                                             <button onClick={onEmergencyForfeit} className="danger-button">
                                                 {exitPending ? "Settling Run..." : "Emergency Forfeit Run"}
