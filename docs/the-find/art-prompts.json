@@ -1,0 +1,173 @@
+{
+  "direction": "Main-story painterly illustration and existing transparent inventory cutouts. Replaces discarded photographic studies.",
+  "referenceScenes": [
+    "ashen-threshold.webp",
+    "ashen-willing-flame-v1.webp",
+    "ashen-kiln-road-wagon-v1.webp",
+    "frostfang-field-blue-ice-gully-v1.webp"
+  ],
+  "referenceItems": [
+    "hunt-torn-hide-v1.webp",
+    "hunt-ember-scale-v1.webp",
+    "relic-rimeglass-lens.webp"
+  ],
+  "forestPrompt": "Use case: style-transfer. Image 1 is the EDIT TARGET: our new forest gathering VN background. Images 2 and 3 are STYLE REFERENCES from this game's main storyline and must define the final look. Restyle image 1 to belong seamlessly beside these main-story illustrations: deliberately painted Japanese fantasy visual-novel background, confidently drawn contours, simplified readable planes and foliage clusters, controlled brush-rendered wood and rock, luminous but restrained painted lighting, clear midground and distant atmospheric layers. Match the hand-painted illustrated rendering and palette discipline of reference images, especially image 3. Remove photographic microtexture, lens blur and photographic realism. Retain the forest stream, cedar roots and exposed heartwood bark focal point, but render them as a polished authored illustration, not a photo. Keep landscape 16:9 and a calm lower area for dialogue. No people, no lettering, no UI, no borders. Do not copy the structures from references; they are style guides only.",
+  "herbPrompt": "Use case: style-transfer. Image 1 is the EDIT TARGET, a new Field Herb icon. Images 2 and 3 are this game's CURRENT INVENTORY ICONS and are the strict visual-style references. Completely redraw the herb in their illustrated inventory-icon style: crisp hand-painted fantasy game art, clear dark contours, broad sculpted shading and rich localized highlights, stylized readable leaf silhouettes, simplified detail to work at 48 pixels, polished premium RPG item illustration. Keep only a small bunch of six to nine broad green medicinal leaves, two tiny white flower sprigs, and a single coarse twine tie. Center entire bunch, keep all extremities inside frame, use 10 percent padding. REMOVE ALL photographic styling, microtexture, studio lighting, surface and background. Output square on a genuinely TRANSPARENT background with clean alpha edges, exactly like the reference cutouts. No writing, labels, border, frame, ground shadow, UI, or glow cloud. Match current game icons, not product photography.",
+  "scenePrompts": [
+    {
+      "biome": "shadow",
+      "target": "exec-79e8791d-f8a7-4df6-b6f2-34012987c7da.png",
+      "prompt": "Use case: style-transfer. Image 1 is the EDIT TARGET, a shadow gathering VN environment. Image 2 is the approved painted rendering direction for this new series. Image 3 is the game's main-story illustration style reference. Redraw image 1 with the same authored hand-painted Japanese fantasy visual-novel rendering as images 2 and 3: confident drawn contours, readable planes, controlled painted texture and foliage clusters, sculpted illustration shadows, luminous painted light and layered atmospheric depth. Keep image 1's distinct shadow palette and its gathering material focal object. Remove photographic microtexture and lens blur. Preserve the composition, region, and objects; no borrowed buildings or objects from the style references. Landscape 16:9, calm lower dialogue area. Rich premium illustration matching the main storyline, no people, lettering, UI, borders or watermark."
+    },
+    {
+      "biome": "snow",
+      "target": "exec-6a39aadd-c0ab-4a45-9413-538123d55416.png",
+      "prompt": "Use case: style-transfer. Image 1 is the EDIT TARGET, a snow gathering VN environment. Image 2 is the approved painted rendering direction for this new series. Image 3 is the game's main-story illustration style reference. Redraw image 1 with the same authored hand-painted Japanese fantasy visual-novel rendering as images 2 and 3: confident drawn contours, readable planes, controlled painted texture and foliage clusters, sculpted illustration shadows, luminous painted light and layered atmospheric depth. Keep image 1's distinct snow palette and its gathering material focal object. Remove photographic microtexture and lens blur. Preserve the composition, region, and objects; no borrowed buildings or objects from the style references. Landscape 16:9, calm lower dialogue area. Rich premium illustration matching the main storyline, no people, lettering, UI, borders or watermark."
+    },
+    {
+      "biome": "volcano",
+      "target": "exec-4b42c71f-b538-43a0-9379-ef713e838a4a.png",
+      "prompt": "Use case: style-transfer. Image 1 is the EDIT TARGET, a volcano gathering VN environment. Image 2 is the approved painted rendering direction for this new series. Image 3 is the game's main-story illustration style reference. Redraw image 1 with the same authored hand-painted Japanese fantasy visual-novel rendering as images 2 and 3: confident drawn contours, readable planes, controlled painted texture and foliage clusters, sculpted illustration shadows, luminous painted light and layered atmospheric depth. Keep image 1's distinct volcano palette and its gathering material focal object. Remove photographic microtexture and lens blur. Preserve the composition, region, and objects; no borrowed buildings or objects from the style references. Landscape 16:9, calm lower dialogue area. Rich premium illustration matching the main storyline, no people, lettering, UI, borders or watermark."
+    },
+    {
+      "biome": "central",
+      "target": "exec-6f72f37f-b4c0-4b51-8c08-80aa76f2ccac.png",
+      "prompt": "Use case: style-transfer. Image 1 is the EDIT TARGET, a central gathering VN environment. Image 2 is the approved painted rendering direction for this new series. Image 3 is the game's main-story illustration style reference. Redraw image 1 with the same authored hand-painted Japanese fantasy visual-novel rendering as images 2 and 3: confident drawn contours, readable planes, controlled painted texture and foliage clusters, sculpted illustration shadows, luminous painted light and layered atmospheric depth. Keep image 1's distinct central palette and its gathering material focal object. Remove photographic microtexture and lens blur. Preserve the composition, region, and objects; no borrowed buildings or objects from the style references. Landscape 16:9, calm lower dialogue area. Rich premium illustration matching the main storyline, no people, lettering, UI, borders or watermark."
+    }
+  ],
+  "itemPrompts": [
+    {
+      "id": "gather-binding-fiber",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of a compact coil of tan reed and flax binding fibers, with one loose frayed end. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-iron-sand",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of a small open folded charcoal cloth pouch holding black metallic iron sand, a few bright mineral grains. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-heartwood-bark",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of three layered reddish brown cedar bark pieces with fibrous edges and an amber resin bead. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-shadow-thread",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of a small near-black silk skein with restrained violet-silver highlights and a few loose ends. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-rime-crystal",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of one pale-blue translucent crystal cluster with angular facets and a little frost. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-ember-ore",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of one palm-sized dark volcanic ore chunk with orange-red glowing veins. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "gather-stormglass-shard",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of one angular smoky-blue translucent stormglass shard with a silver-blue edge and a thin white internal lightning vein. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "village-supply-bundle",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of one compact olive canvas bundle tied securely with cream rope, a wrapped ration packet beneath the rope. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    },
+    {
+      "id": "village-supply-crate",
+      "prompt": "Use case: style-transfer. Transform the first reference inventory icon into a new item illustration of one compact wooden provision crate bound with rope, its fitted lid ajar showing two olive canvas ration parcels. Both images are current ShinobiX inventory art; match their existing painted RPG icon rendering exactly. Crisp illustrated contours, smoothly painted sculpted forms, broad rich highlights and shadows, saturated local color, simplified fine details, clear silhouette readable at 48 pixels. One whole centered object with 10 percent padding. Genuinely TRANSPARENT square canvas, clean alpha cutout exactly as the reference items. No floor, no studio background, no photographic texture, no environment, no lettering, no numbers, no frames, no UI, no decorative glow. Preserve the references' illustration style while replacing the subject with the specified new item."
+    }
+  ],
+  "assets": [
+    {
+      "kind": "scene",
+      "id": "forest",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-29201c57-7617-4078-b83a-14c8978bffa4.png",
+      "target": "shinobij.client/public/scenes/the-find/forest-v1.webp"
+    },
+    {
+      "kind": "scene",
+      "id": "shadow",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-2485b8d9-a8b6-46db-8f0e-0f685834a042.png",
+      "target": "shinobij.client/public/scenes/the-find/shadow-v1.webp"
+    },
+    {
+      "kind": "scene",
+      "id": "snow",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-4fd6fe03-99ee-409a-afda-d49672f6dcac.png",
+      "target": "shinobij.client/public/scenes/the-find/snow-v1.webp"
+    },
+    {
+      "kind": "scene",
+      "id": "volcano",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-395c92b6-9a7d-40dd-a0c1-50ef0f2c84c1.png",
+      "target": "shinobij.client/public/scenes/the-find/volcano-v1.webp"
+    },
+    {
+      "kind": "scene",
+      "id": "central",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-28edfb04-666e-44c1-a3b3-c08204b8d56d.png",
+      "target": "shinobij.client/public/scenes/the-find/central-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-field-herb",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-30a53ada-82dc-47d4-a308-f67ded4fd88f.png",
+      "target": "shinobij.client/public/items/gather-field-herb-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-binding-fiber",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-cc9932d3-660e-4e62-bf0a-08193db5a47b.png",
+      "target": "shinobij.client/public/items/gather-binding-fiber-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-iron-sand",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-f34ab8a2-17ac-4dcd-985d-b67af4951c01.png",
+      "target": "shinobij.client/public/items/gather-iron-sand-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-heartwood-bark",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-e72a9719-65cd-41c6-b266-7acac7322048.png",
+      "target": "shinobij.client/public/items/gather-heartwood-bark-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-shadow-thread",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-ea91f024-4ff3-4b58-9f16-9edde2133abe.png",
+      "target": "shinobij.client/public/items/gather-shadow-thread-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-rime-crystal",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-46e46f80-9dc2-4097-afa2-6285b451cc3a.png",
+      "target": "shinobij.client/public/items/gather-rime-crystal-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-ember-ore",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-f3afc529-9cbf-4075-9fe0-c7ab7fbca192.png",
+      "target": "shinobij.client/public/items/gather-ember-ore-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "gather-stormglass-shard",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-a2dfd8f5-2c70-4f35-91ba-1fb53d39a7c5.png",
+      "target": "shinobij.client/public/items/gather-stormglass-shard-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "village-supply-bundle",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-d8b9df5a-79e0-479c-80e0-b35edbb39939.png",
+      "target": "shinobij.client/public/items/village-supply-bundle-v1.webp"
+    },
+    {
+      "kind": "item",
+      "id": "village-supply-crate",
+      "source": "C:/Users/Tyler R/.codex/generated_images/01a0e405-e8e2-7d73-8200-4580996520c3/exec-13a27f78-e210-461f-bb2f-a728dc040302.png",
+      "target": "shinobij.client/public/items/village-supply-crate-v1.webp"
+    }
+  ],
+  "delivery": {
+    "scenes": "1600x900 WebP, quality 74, effort 6; optimized from original PNG masters for the unchanged 512 MB runtime ceiling",
+    "items": "256x256 WebP, quality 94, alpha preserved",
+    "totalBytes": 1199822
+  }
+}

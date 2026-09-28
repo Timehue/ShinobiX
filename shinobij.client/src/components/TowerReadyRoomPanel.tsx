@@ -1,3 +1,4 @@
+import { TOWER_ROUTE_CHOICES, type TowerRouteChoiceId } from "../lib/towers-api";
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { visiblePoll } from "../lib/poll";
 import { isRealtimeConnected, onStatus, onTowerKick } from "../lib/presence-socket";
@@ -228,6 +229,7 @@ function partyErrorText(error: unknown): string {
 export function TowerReadyRoomPanel({
     character,
     following,
+    routeChoice = "rest-shrine",
     storyFloor,
     storyFloorMeta,
     storyFloorActionable,
@@ -241,6 +243,7 @@ export function TowerReadyRoomPanel({
 }: {
     character: Character;
     following: string[];
+    routeChoice?: TowerRouteChoiceId;
     storyFloor: number | null;
     storyFloorMeta?: TowerFloorMeta | null;
     storyFloorActionable: boolean;
@@ -450,8 +453,8 @@ export function TowerReadyRoomPanel({
 
     function createRoom(binding: TowerPartyBinding) {
         const mutation: TowerPartyMutation = binding.mode === "story"
-            ? { action: "create", mode: "story", floor: binding.floor }
-            : { action: "create", mode: "spire", ascensionTier: binding.ascensionTier };
+            ? { action: "create", mode: "story", floor: binding.floor, routeChoice }
+            : { action: "create", mode: "spire", ascensionTier: binding.ascensionTier, routeChoice };
         void runRequest("create", () => mutateTowerPartyWithLostResponseRetry(playerName, mutation));
     }
 
@@ -691,7 +694,7 @@ export function TowerReadyRoomPanel({
                         <div className="tower-ready-room-mission-copy">
                             <span>Bound encounter</span>
                             <h3 id="tower-ready-room-mission-title">
-                                {bindingLabel(party.binding)}{boundStoryFloor ? ` · ${boundStoryFloor.name}` : ""}
+                                {bindingLabel(party.binding)} · {TOWER_ROUTE_CHOICES.find(choice => choice.id === (party.binding.routeChoice ?? "rest-shrine"))?.label}{boundStoryFloor ? ` · ${boundStoryFloor.name}` : ""}
                             </h3>
                             {boundStoryFloor ? (
                                 <small id="tower-ready-room-mission-details">

@@ -224,6 +224,29 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.ok(!hazard.includes((a as { tile: number }).tile), 'flees onto a safe tile off the hazard');
     });
 
+    it('AI takes a safe detour around a hazard wall without stalling or oscillating', () => {
+        const hazard = Array.from({ length: 7 }, (_, row) => row * 8 + 4);
+        const actor = makeActor('sq-1', 'squad', 27);
+        const target = makeActor('en-1', 'enemy', 29);
+        const s = makeSession([actor, target], { map: {
+            ...MAP8, features: [{ kind: 'hazard', tiles: hazard, percent: 12 }],
+        } });
+        s.turnQueue = [actor.id, target.id];
+        const visited = new Set([actor.pos]);
+        for (let step = 0; step < 30 && hexDistance(actor.pos, target.pos, 8) > 1; step++) {
+            s.activeAp = 100;
+            s.actionsThisTurn = 0;
+            const action = pickAiAction(s, actor, makeRng(1));
+            assert.equal(action.type, 'move', 'a reachable opponent must not leave AI waiting at the hazard edge');
+            if (action.type !== 'move') break;
+            assert.ok(!hazard.includes(action.tile), 'the detour stays off damaging tiles');
+            assert.ok(!visited.has(action.tile), 'the AI must not bounce between safe tiles');
+            visited.add(action.tile);
+            assert.equal(applyAction(s, makeFloor('defeat-all'), action, makeRng(1)).applied, true);
+        }
+        assert.equal(hexDistance(actor.pos, target.pos, 8), 1, 'AI reaches attack range via the safe gap');
+    });
+
     it('BFS pathing routes AI around a wall that would stall the greedy step', () => {
         // 8x8 board with a vertical wall on column 4 (rows 0-6), gap only at row 7 (pos 60).
         // A greedy one-step would jam at the wall (no distance-reducing free neighbour) and the
@@ -1787,4 +1810,23 @@ describe('Battle Towers basic actions', () => {
             assert.ok(shielded.me.shield > 0, `the wielder gains shield on top, shield=${shielded.me.shield}`);
         });
     });
+});
+
+
+for (const primary of ['en-1', 'en-2']) it(`shieldman protection follows each AOE victim when targeting ${primary}`, () => {
+    function cast(guarded: boolean) {
+        const sq = makeActor('sq-1', 'squad', 0, { character: { specialty: 'Ninjutsu', level: 100, stats: { ninjutsuOffense: 1500 }, jutsu: [{ id: 'formation-nova', type: 'Ninjutsu', ap: 60, range: 4, effectPower: 60, method: 'AOE_CIRCLE' }] } });
+        const target = (id: string, pos: number) => makeActor(id, 'enemy', pos, { hp: 100000, maxHp: 100000, character: { level: 100, stats: { ninjutsuDefense: 200 } } });
+        const s = makeSession([sq, target('en-1',1), target('en-2',2), target('guard',3)]);
+        s.towerTactics = { version: 1, disruptedPylons: [], chargeBaits: 0, avoidedStrikes: 0, squadKnockouts: [] };
+        s.actors[3].character.combatRole = guarded ? 'vanguard' : 'bruiser';
+        s.turnQueue = ['sq-1']; s.activeAp = 100;
+        const result = applyAction(s, makeFloor('defeat-all'), {actorId:'sq-1',type:'jutsu',jutsuId:'formation-nova',targetId:primary}, makeRng(1));
+        assert.equal(result.applied,true);
+        return s.actors.slice(1).map(actor => 100000-actor.hp);
+    }
+    const baseline=cast(false), guarded=cast(true);
+    assert.ok(baseline[0]>0 && baseline[1]>0);
+    assert.equal(guarded[0],baseline[0], 'a distant shieldman must not protect the unguarded victim');
+    assert.ok(guarded[1]<baseline[1], 'the adjacent victim retains protection regardless of primary selection');
 });

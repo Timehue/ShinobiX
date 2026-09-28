@@ -101,7 +101,7 @@ describe('Tower action idempotency and optimistic recovery', () => {
         assert.equal(isTowerActionType('stale-client-action'), false);
         assert.equal(isTowerActionType(undefined), false);
         assert.deepEqual(TOWER_ACTION_TYPES, [
-            'move', 'dash', 'attack', 'jutsu', 'weapon', 'item', 'heal', 'cleanse', 'clear', 'summon', 'wait',
+            'move', 'dash', 'disrupt', 'attack', 'jutsu', 'weapon', 'item', 'heal', 'cleanse', 'clear', 'summon', 'wait',
         ]);
         const source = readFileSync(resolve(process.cwd(), 'api/towers/action.ts'), 'utf8');
         const validation = source.indexOf('if (!isTowerActionType(type))');
@@ -110,5 +110,7 @@ describe('Tower action idempotency and optimistic recovery', () => {
         assert.ok(validation >= 0 && validation < afk && afk < apply,
             'unknown types fail before any turn mutation or action application');
         assert.match(source, /reason:\s*'invalid-action-type'/);
+        assert.match(source, /type === 'move' \|\| type === 'dash' \|\| type === 'disrupt'\) intent\.tile/);
+        assert.equal(isTowerActionType('support'), false, 'AI restoration is never a public command');
     });
 });

@@ -29,8 +29,8 @@ describe('sector exploration settlement', () => {
             return () => values[index++] ?? 0;
         };
         assert.deepEqual(rollSectorExploreOutcome(sequence(0.149)), { kind: 'chest' });
-        assert.deepEqual(rollSectorExploreOutcome(sequence(0.15, 0.80)), { kind: 'battle' });
-        assert.deepEqual(rollSectorExploreOutcome(sequence(0.99, 0.8001)), { kind: 'none' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.15, 0.60)), { kind: 'battle' });
+        assert.deepEqual(rollSectorExploreOutcome(sequence(0.99, 0.70)), { kind: 'none' });
         assert.deepEqual(
             rollSectorExploreOutcome(sequence(0.01, 0.20), false),
             { kind: 'battle' },

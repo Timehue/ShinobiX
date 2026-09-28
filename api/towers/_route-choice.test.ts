@@ -64,3 +64,18 @@ test('Elite Shortcut raises enemy pressure and seals its score multiplier', () =
     session.routeChoice!.scoreMultiplier = 2;
     assert.equal(towerRouteScoreMultiplier(session), 1.25, 'settlement derives the multiplier from the sealed route id');
 });
+
+
+test('routes apply once and scale delayed reinforcements too', () => {
+    const session = fixture();
+    session.pendingEnemyWaves = [{round:3,actors:[structuredClone(session.actors[1])]}];
+    applyTowerRouteChoice(session,'elite-shortcut');
+    assert.equal(session.pendingEnemyWaves[0].actors[0].maxHp,1180);
+    const sealed=structuredClone(session);
+    applyTowerRouteChoice(session,'focused-assault');
+    assert.deepEqual(session,sealed);
+});
+test('Rest Shrine restores missing health without exceeding max HP', () => {
+    const session=fixture();session.actors[0].hp=500;
+    applyTowerRouteChoice(session,'rest-shrine');assert.equal(session.actors[0].hp,700);
+});

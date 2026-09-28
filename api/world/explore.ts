@@ -1,3 +1,5 @@
+import { MAX_PENDING_FINDS, pendingGatherFinds } from '../../shared/gathering.js';
+import { sealGatherFind } from './_gather.js';
 import { safeLogValue } from '../_safe-log.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { randomInt } from 'node:crypto';
@@ -143,9 +145,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : [];
             const activePet = cleanPetEncounterPointer(await kv.get(activePetKey));
             const pendingDungeonMiss = unresolvedFreeDungeonMiss(character);
-            const prior = receipts.find((entry) => entry.id === requestId);
+            const savedFind = pendingGatherFinds(character).find((entry) => entry.id === requestId);
+            const prior = receipts.find((entry) => entry.id === requestId) ?? (savedFind ? {
+                id: savedFind.id, sector: savedFind.sector, at: savedFind.at,
+                reward: { sector: savedFind.sector, xp: 0, ryo: 0 }, outcome: { kind: 'gather', find: savedFind },
+            } : undefined);
             if (prior || durable) {
                 const authority = prior ?? durable!;
+                if (Number(authority.sector) !== Math.floor(Number(body.sector)))
+                    return { ok: false as const, status: 409, error: 'That exploration request id is already bound to another sector.' };
                 const replayCharacter = pendingDungeonMiss?.requestId === requestId
                     ? resolveFreeDungeonMiss(character, requestId)
                     : character;
@@ -167,6 +175,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 write: replayCharacter === character ? false as const : true,
                 };
             }
+            if (!externalProof && pendingGatherFinds(character).length >= MAX_PENDING_FINDS)
+                return { ok: false as const, status: 409, error: 'pending-find-limit' };
             let petMissRequestId = '';
             if (pendingDungeonMiss && pendingDungeonMiss.requestId !== requestId) {
                 return {
@@ -320,6 +330,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? rollSectorExploreOutcome(
                     () => randomInt(1_000_000_000) / 1_000_000_000,
                     chestsToday < DAILY_ANCIENT_CHEST_LIMIT && chestPoolHasRoom,
+                    Number(character.level) || 1,
                 )
                 : externalProof
                     ? { kind: 'external' as const, source: externalProof.kind }
@@ -340,7 +351,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // legacy-shaped best-effort debit rather than a double count.
                     poolReserved: poolEnabled,
                 }
-                : rolledOutcome;
+                : rolledOutcome?.kind === 'gather'
+                    ? { kind: 'gather' as const, find: sealGatherFind(requestId, requestedSector, () => randomInt(1_000_000_000) / 1_000_000_000)! }
+                    : rolledOutcome;
             // Once the server resolves the branch, a chest or battle counts as
             // the explored tile but cannot also collect the quiet-tile ryo.
             // Legacy pet/dungeon callers may still explicitly request `tile`.
@@ -413,7 +426,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const nextCharacter = resolveFreeDungeonMiss(nextCharacterBeforeDungeonResolution, requestId);
             return {
                 ok: true as const,
-                character: { ...nextCharacter, redeemedSectorExplorations: [...receipts.slice(-149), receipt] },
+                character: { ...nextCharacter, redeemedSectorExplorations: [...receipts.slice(-149), receipt],
+                    ...(outcome?.kind === 'gather' && outcome.find ? { pendingGatherFinds: [...pendingGatherFinds(character), outcome.find] } : {}),
+                },
                 value: {
                     reward: applied.reward,
                     outcome,

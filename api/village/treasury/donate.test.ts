@@ -250,3 +250,53 @@ describe('village treasury donation under lock contention', () => {
         }
     });
 });
+
+describe('gathered village supply containers', () => {
+    it('bundles and packs share the 40-provision cap, preserve per-item merit, and replay without double debit', async () => {
+        await seedDonor({itemStacks:[{itemId:'village-supply-bundle',count:4},{itemId:'ration-pack',count:20},{itemId:'village-supply-crate',count:1}]});
+        const body={itemId:'village-supply-bundle',count:3,requestId:'gather-bundles-donate-1'};
+        const first=await post(body);assert.equal(first.statusCode,200,JSON.stringify(first.body));
+        assert.deepEqual(first.body?.stores,{provisions:30,materialPoints:0});
+        assert.equal(await meritOf(),meritForDonation(3*500));
+        assert.equal((await post(body)).body?.replayed,true);
+        assert.equal((await post({itemId:'village-supply-crate',count:1,requestId:'gather-crate-over-cap'})).statusCode,429);
+        assert.equal((await post({itemId:'ration-pack',count:10,requestId:'gather-packs-remainder'})).statusCode,200);
+        assert.equal((await post({itemId:'village-supply-bundle',count:1,requestId:'gather-bundle-over-cap'})).statusCode,429);
+        const state=await kv.get<{treasury:{provisions:number;items:unknown[]}}>(VILLAGE_KEY);
+        assert.equal(state?.treasury.provisions,40);assert.deepEqual(state?.treasury.items,[]);
+        const save=await kv.get<{character:{itemStacks:{itemId:string;count:number}[];rationsDonatedToday:number}}>('save:'+PLAYER);
+        assert.equal(save?.character.rationsDonatedToday,40);
+        assert.equal(save?.character.itemStacks.find(s=>s.itemId==='village-supply-crate')?.count,1);
+    });
+    it('a crate survives a failed credit and retry stocks exactly 40 with the original per-item merit',async(t)=>{
+        await seedDonor({itemStacks:[{itemId:'village-supply-crate',count:2}]});
+        const realSet=kv.set.bind(kv);let fail=true;
+        t.mock.method(kv,'set',async(key:string,value:unknown,options?:unknown)=>{
+            if(key===VILLAGE_KEY&&fail){fail=false;throw Error('test credit unavailable');}
+            return realSet(key,value,options as never);
+        });
+        const body={itemId:'village-supply-crate',count:1,requestId:'gather-crate-lost-credit'};
+        const first=await post(body);assert.ok(first.statusCode>=500);
+        t.mock.restoreAll();
+        const retry=await post(body);assert.equal(retry.statusCode,200,JSON.stringify(retry.body));
+        assert.equal((await kv.get<{treasury:{provisions:number}}>(VILLAGE_KEY))?.treasury.provisions,40);
+        assert.equal(await meritOf(),meritForDonation(500));
+        const ch=(await kv.get<{character:Record<string,unknown>}>('save:'+PLAYER))!.character;
+        assert.deepEqual(ch.itemStacks,[{itemId:'village-supply-crate',count:1}]);assert.equal(ch.rationsDonatedToday,40);
+        assert.equal((await post(body)).statusCode,200);
+        assert.equal((await kv.get<{treasury:{provisions:number}}>(VILLAGE_KEY))?.treasury.provisions,40);
+    });
+    it('disabled stores refuse both containers without spending inventory or falling back to loose treasury',async()=>{
+        await seedDonor({itemStacks:[{itemId:'village-supply-bundle',count:1},{itemId:'village-supply-crate',count:1}]});
+        const before=await kv.get('save:'+PLAYER);
+        process.env.DISABLE_VILLAGE_STORES='1';
+        try {
+            for(const itemId of ['village-supply-bundle','village-supply-crate']){
+                const r=await post({itemId,count:1,requestId:'disabled-'+itemId});assert.equal(r.statusCode,409);
+                assert.match(String(r.body?.error),/unavailable|reopen/i);
+            }
+            assert.deepEqual(await kv.get('save:'+PLAYER),before);
+            assert.deepEqual((await kv.get<{treasury:unknown}>(VILLAGE_KEY))?.treasury,{ryo:0,items:[]});
+        }finally{delete process.env.DISABLE_VILLAGE_STORES;}
+    });
+});

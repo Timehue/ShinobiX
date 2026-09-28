@@ -12,7 +12,10 @@ export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
  */
 export const SECTOR_EXPLORE_CHEST_CHANCE = 0.15;
 
+import type { PendingGatherFind } from '../../shared/gathering.js';
+
 export type SectorExploreOutcome =
+    | { kind: 'gather'; find?: PendingGatherFind }
     // `poolReserved` marks a chest that already took its slot from the SHARED
     // sector chest pool at discovery time, so /world/open-chest never has to
     // reserve (and therefore can never refuse) a chest the player already holds.
@@ -30,12 +33,23 @@ export type SectorExploreOutcome =
 export function rollSectorExploreOutcome(
     random: () => number,
     chestAvailable = true,
+    level = 1,
 ): SectorExploreOutcome {
     const unit = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
     const chestRoll = unit();
     if (chestAvailable && chestRoll < SECTOR_EXPLORE_CHEST_CHANCE) return { kind: 'chest' };
-    if (unit() <= 0.80) return { kind: 'battle' };
-    return { kind: 'none' };
+    const rates = sectorExplorePostChestRates(level, chestAvailable);
+    const roll = unit();
+    if (roll < rates.battle) return { kind: 'battle' };
+    if (roll < rates.battle + rates.quiet) return { kind: 'none' };
+    return { kind: 'gather' };
+}
+
+/** Move exactly 15 and 5 overall percentage points after earlier probes. */
+export function sectorExplorePostChestRates(level: number, chestAvailable: boolean) {
+    const survival = level >= 50 ? 0.98 * 0.95 : 0.95;
+    const d = survival * (chestAvailable ? 1 - SECTOR_EXPLORE_CHEST_CHANCE : 1);
+    return { battle: (0.8 * d - 0.15) / d, quiet: (0.2 * d - 0.05) / d, gather: 0.20 / d, survival, d };
 }
 
 export function sectorExploreReward(sectorRaw: unknown): { sector: number; xp: number; ryo: number } | null {

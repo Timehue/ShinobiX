@@ -7,6 +7,7 @@
 // and into the store, enforces the donor's UTC-day caps, and reports the
 // ryo-equivalent used for meritForDonation. Anything else is left untouched.
 
+import { isVillageSupplyGood } from '../shared/gathering.js';
 import type { DonationOutcome, TreasuryDonation } from './_treasury-donate.js';
 import { cleanTreasuryItems } from './_treasury-donate.js';
 import {
@@ -41,6 +42,8 @@ export function routeStoresDonation(
     opts: { materialPoints: boolean; now?: number },
 ): StoresRouteResult {
     if (donation.kind !== 'item') return { ok: true, routed: null, nextDonorChar: outcome.nextDonorChar, nextTreasury: outcome.nextTreasury };
+    if (isVillageSupplyGood(donation.itemId) && !opts.materialPoints)
+        return { ok: false, status: 409, error: 'Village supplies belong in your village Town Hall, not a clan treasury.' };
     const route = storesDonationRouting(donation.itemId, donation.count, craftPoints);
     if (!route || (route.store === 'materialPoints' && !opts.materialPoints)) {
         return { ok: true, routed: null, nextDonorChar: outcome.nextDonorChar, nextTreasury: outcome.nextTreasury };

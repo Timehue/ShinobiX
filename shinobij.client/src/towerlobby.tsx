@@ -54,16 +54,16 @@ const MOCK: TowerFloorMeta[] = [
     F(1, "Foothold", "forest", "defeat-all", 8, "foothold"),
     F(2, "Crossfire Glade", "forest", "defeat-all", 8, "crossfire-glade"),
     F(3, "Frozen Gauntlet", "snow", "defeat-all", 9, "frozen-gauntlet"),
-    F(4, "Hold the Line", "central", "protect-npc", 8, "hold-the-line"),
+    F(4, "Courtyard Counterattack", "central", "defeat-all", 8, "hold-the-line"),
     F(5, "Warden of the Spire", "volcano", "defeat-boss", 14, "spire-warden", true, "tower-floor-5"),
     F(6, "The Acolyte Coven", "shadow", "defeat-all", 10, "acolyte-coven"),
     F(7, "The Hollow Revenant", "shadow", "defeat-all-then-boss", 16, "hollow-revenant", true),
-    F(8, "Escort the Vanguard", "central", "kill-escort", 12, "escort-vanguard"),
+    F(8, "Vanguard Ambush", "central", "defeat-all", 12, "escort-vanguard"),
     F(9, "Pit of Embers", "volcano", "kill-adds-first", 16, "pit-of-embers", true),
     F(10, "The Spire Sovereign", "shadow", "defeat-boss", 18, "spire-sovereign", true, "tower-floor-10"),
     F(11, "Stormglass Breach", "forest", "defeat-all", 12, "stormglass-breach"),
-    F(12, "The Thunder Archive", "snow", "break-objective", 17, "thunder-archive", true),
-    F(13, "Bridge of a Thousand Bolts", "central", "protect-npc", 10, "thousand-bolt-bridge"),
+    F(12, "The Thunder Archive", "snow", "defeat-boss", 17, "thunder-archive", true),
+    F(13, "Bridge of a Thousand Bolts", "central", "defeat-all", 10, "thousand-bolt-bridge"),
     F(14, "Hall of Broken Reflections", "shadow", "defeat-all", 14, "broken-reflections"),
     F(15, "The Stormglass Crown", "volcano", "kill-adds-first", 20, "stormglass-crown", true, "tower-floor-15"),
 ];
@@ -81,7 +81,7 @@ window.fetch = ((url: RequestInfo | URL, ...rest: unknown[]) => {
 
 createRoot(document.getElementById("root")!).render(
     <BattleTowersLobby
-        character={{ name: "Rill", level: 45, ryo: 12_000, battleTowerBestFloor: 4, battleTowerRating: 1840, battleTowerClearedFloors: [1, 2, 3, 4] } as never}
+        character={{ name: "Rill", level: 45, ryo: 12_000, battleTowerBestFloor: 4, battleTowerRating: 1840, battleTowerClearedFloors: [1, 2, 3, 4], battleTowerRecords: {bests:{'story:4:1:elite-shortcut':{mode:'story',floor:4,partySize:1,bestScore:1820,fastestRounds:6,noKnockout:true}},honors:{'tower-clean-clear':1000,'tower-par-clear':1000,'tower-elite-clear':1000}} } as never}
         updateCharacter={() => {}}
         onEnter={() => {}}
         onBack={() => {}}

@@ -13,7 +13,7 @@ export const TOWER_ROUTE_CHOICES: Record<TowerRouteChoiceId, TowerRouteChoice> =
     'rest-shrine': {
         id: 'rest-shrine',
         label: 'Rest Shrine',
-        summary: 'The squad enters with a 12% max-HP barrier.',
+        summary: 'Start the floor with a barrier equal to 12% of max HP.',
         scoreMultiplier: 1,
     },
     'focused-assault': {
@@ -25,7 +25,7 @@ export const TOWER_ROUTE_CHOICES: Record<TowerRouteChoiceId, TowerRouteChoice> =
     'elite-shortcut': {
         id: 'elite-shortcut',
         label: 'Elite Shortcut',
-        summary: 'Enemies gain 18% HP and 10% damage; a clear earns 25% more score.',
+        summary: 'Enemies gain 18% HP and 10% damage; a clear earns 25% more score and Story first-clear ryo.',
         scoreMultiplier: 1.25,
     },
 };
@@ -38,6 +38,7 @@ export function parseTowerRouteChoice(value: unknown): TowerRouteChoiceId {
 /** Apply one run-sealed Story route before round one. This mutates only the
  * newly-created server session; the client can never alter it after entry. */
 export function applyTowerRouteChoice(session: TowerSession, requested: unknown): TowerRouteChoice {
+    if (session.routeChoice) return session.routeChoice;
     const choice = TOWER_ROUTE_CHOICES[parseTowerRouteChoice(requested)];
     session.routeChoice = { ...choice };
 
@@ -46,6 +47,7 @@ export function applyTowerRouteChoice(session: TowerSession, requested: unknown)
         for (const actor of squad) {
             const barrier = Math.max(1, Math.floor(actor.maxHp * 0.12));
             actor.shield += barrier;
+            actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(actor.maxHp * .2));
         }
     } else if (choice.id === 'focused-assault') {
         for (const actor of squad) {
@@ -59,7 +61,7 @@ export function applyTowerRouteChoice(session: TowerSession, requested: unknown)
             });
         }
     } else {
-        for (const actor of session.actors.filter(candidate => candidate.side === 'enemy')) {
+        for (const actor of [...session.actors, ...(session.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)].filter(candidate => candidate.side === 'enemy')) {
             actor.maxHp = Math.max(1, Math.ceil(actor.maxHp * 1.18));
             actor.hp = actor.maxHp;
             actor.character = {

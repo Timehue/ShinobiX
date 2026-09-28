@@ -31,6 +31,7 @@ export function newWorldRewardRequestId(): string {
 export type ExploreCredit = 'full' | 'tile';
 export type ExternalExploreProof = { kind: 'dungeon' | 'pet'; token: string };
 export type SectorExploreOutcome =
+    | { kind: 'gather'; find: import('../../../shared/gathering').PendingGatherFind }
     | { kind: 'chest' }
     | { kind: 'battle' }
     | { kind: 'none' }
@@ -87,6 +88,7 @@ export function worldRewardFailureMessage(result: WorldRewardFailure, kind: 'exp
     const recovery = kind === 'chest'
         ? 'Your discovered chest remains saved. Reopen the map to recover it.'
         : 'Try exploring again; the same saved attempt will be reused.';
+    if (reason === 'pending-find-limit') return 'Your field satchel holds 24 pending finds. Open Saved Finds on the map and collect one to keep exploring.';
     if (reason === 'daily-limit') return kind === 'chest'
         ? 'Daily chest limit reached. Resets at midnight UTC. Your discovered chest remains saved for recovery.'
         : 'Daily tile exploration limit reached (150/150). Resets at midnight UTC.';

@@ -31,7 +31,8 @@ describe('solo-PvE published content compatibility', () => {
         // 174 → 180: Ranked Format's neutral kit (api/pvp/_ranked-format.ts) —
         // 5 "Ranked Seal" armor pieces + the ranked-format-kunai throwable.
         // 180 → 185: the five Beast Seals used by wild-pet binding.
-        assert.equal(items.length, 185, 'update the compatibility report when the generated catalog changes');
+        // 185 to 195: eight gathering materials and two village supply goods (no combat effects).
+        assert.equal(items.length, 195, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

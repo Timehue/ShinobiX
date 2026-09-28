@@ -53,10 +53,11 @@ export type CookRecipe = {
     materials: readonly string[];
     /** ration-pack produced per cook. */
     rations: number;
+    herbs: number;
 };
 export const COOK_RECIPES: Record<CookRecipeId, CookRecipe> = {
-    'field-rations': { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], rations: 5 },
-    'campaign-rations': { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-frost-pelt', 'hunt-ash-scale'], rations: 20 },
+    'field-rations': { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], rations: 5, herbs: 1 },
+    'campaign-rations': { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-frost-pelt', 'hunt-ash-scale'], rations: 20, herbs: 2 },
 };
 
 /** Display names for the cook materials. A refusal reaches the player as a
@@ -100,7 +101,10 @@ export function applyCookRecipe(character: Record<string, unknown>, recipe: Cook
     if (ryo < recipe.ryo) return { ok: false, error: `Not enough ryo. ${recipe.name} costs ${recipe.ryo}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
     const materialUsed = recipe.materials.find((m) => countOwned(character, m) > 0);
     if (!materialUsed) return { ok: false, error: `${recipe.name} needs 1 ${cookMaterialChoiceName(recipe)}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
+    if (countOwned(character, 'gather-field-herb') < recipe.herbs)
+        return { ok: false, error: `${recipe.name} needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
     let next = removeOwned({ ...character, ryo: ryo - recipe.ryo }, materialUsed, 1);
+    next = removeOwned(next, 'gather-field-herb', recipe.herbs);
     next = addOwned(next, RATION_ITEM_ID, recipe.rations, true);
     next = stampDailyCounter(next, COOK_DATE_FIELD, COOK_COUNT_FIELD, today, dailyCooked + recipe.rations);
     return { ok: true, character: next, cooked: recipe.rations, dailyCooked: dailyCooked + recipe.rations, dailyCap: DAILY_RATION_COOK_CAP, materialUsed };

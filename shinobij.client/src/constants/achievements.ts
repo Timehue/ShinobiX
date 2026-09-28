@@ -123,6 +123,12 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
 
     // Trials
     { id: "tournament-3", name: "Arena Champion", desc: "Win 3 tournaments.",          category: "Tournament", icon: "🏆", check: c => (c.totalTournamentsCompleted ?? 0) >= 3, progress: c => numericProgress(c.totalTournamentsCompleted, 3, "tournament wins") },
+    { id: "tower-clean-clear", name: "Unbroken Squad", desc: "Clear a Tower floor with no squad knockouts.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-clean-clear"]) },
+    { id: "tower-par-clear", name: "Ahead of the Bell", desc: "Clear a Tower floor within its score par.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-par-clear"]) },
+    { id: "tower-disrupt-clear", name: "Seal Breaker", desc: "Disrupt a pylon and clear the floor.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-disrupt-clear"]) },
+    { id: "tower-bait-clear", name: "Turn the Tide", desc: "Bait a boss charge into a pillar and clear the floor.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-bait-clear"]) },
+    { id: "tower-dodge-clear", name: "Untouchable", desc: "Evade a signature boss strike and clear the floor.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-dodge-clear"]) },
+    { id: "tower-elite-clear", name: "Against the Odds", desc: "Clear a floor using the Elite Shortcut.", category: "Trials", icon: "◆", check: c => Boolean(c.battleTowerRecords?.honors["tower-elite-clear"]) },
     { id: "tower-25",     name: "Tower Survivor", desc: "Win 25 Endless Tower runs.",  category: "Trials", icon: "🗼", check: c => (c.totalEndlessTowerWins ?? 0) >= 25 },
     // Endless Spire milestones — a wearable-title chase up the ascension ladder (floors 5/10/15/20).
     { id: "spire-5",      name: "Spire Ascendant", desc: "Ascend to Endless Spire floor 5.",  category: "Trials", icon: "🗼", check: c => (c.battleTowerAscension ?? 0) >= 5 },

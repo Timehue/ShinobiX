@@ -20,6 +20,8 @@
  * api/_release-flags.ts. Underscore-prefixed → a helper, not a route.
  */
 
+import { provisionValue } from '../shared/gathering.js';
+
 export const RATION_ITEM_ID = 'ration-pack';
 
 /** Provisions lost per day before any consumer eats (floored). */
@@ -127,7 +129,8 @@ export function storesDonationRouting(
     craftPoints: Readonly<Record<string, number>>,
 ): { store: 'provisions'; amount: number } | { store: 'materialPoints'; amount: number; perItem: number } | null {
     const n = nonNeg(count);
-    if (itemId === RATION_ITEM_ID) return { store: 'provisions', amount: n };
+    const provisions = provisionValue(itemId);
+    if (provisions) return { store: 'provisions', amount: n * provisions };
     const per = craftPoints[itemId];
     if (per && per > 0) return { store: 'materialPoints', amount: n * per, perItem: per };
     return null;

@@ -91,10 +91,13 @@ test("Team PvP presentation keeps live-player art and hides disabled consumable 
 });
 
 test("mobile Tower combat wraps critical controls and permits page scroll at fit zoom", () => {
-    assert.match(fight, /className="tower-fight-header tower-fight-statusbar"[\s\S]{0,120}?flexWrap:\s*"wrap"/,
+    assert.match(fight, /className="tower-fight-header tower-fight-statusbar"/,
         "the header must retain both its compact-layout hook and semantic status-bar hook");
-    assert.match(fight, /className="tower-fight-turn-pill"[\s\S]{0,160}?maxWidth:\s*"100%"/);
-    assert.equal(fight.match(/className="tower-mechanic-chip"/g)?.length, 2);
+    assert.match(fight, /className="tower-fight-turn-pill"/);
+    assert.match(tacticalCss, /\.tower-fight-turn-pill\s*\{[^}]*max-width:\s*100%/,
+        "the redesigned turn indicator must stay within its available width");
+    assert.doesNotMatch(fight, /className="tower-mechanic-chip"/);
+    assert.match(tacticalCss, /\.tower-fight-header\s*\{[^}]*flex-wrap: wrap;/);
     assert.match(tacticalCss, /\.tower-mechanic-chip\s*\{[\s\S]{0,140}?overflow-wrap:\s*anywhere[\s\S]{0,80}?white-space:\s*normal/);
     assert.match(tacticalCss, /\.tower-board-area\s*\{[\s\S]*?touch-action:\s*pan-y/);
     assert.match(tacticalCss, /\.tower-board-area\.is-pannable\s*\{[^}]*touch-action:\s*none/);

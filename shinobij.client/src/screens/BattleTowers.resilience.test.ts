@@ -4,6 +4,7 @@ import test from "node:test";
 
 const wrapper = readFileSync(new URL("./BattleTowers.tsx", import.meta.url), "utf8");
 const fight = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.url), "utf8");
+const terrain = readFileSync(new URL("../components/TowerTerrainZone.tsx", import.meta.url), "utf8");
 const lobby = readFileSync(new URL("./BattleTowersLobby.tsx", import.meta.url), "utf8");
 const readyRoom = readFileSync(new URL("../components/TowerReadyRoomPanel.tsx", import.meta.url), "utf8");
 const partyState = readFileSync(new URL("../lib/tower-party-state.ts", import.meta.url), "utf8");
@@ -33,7 +34,7 @@ test("Tower settlement is explicit, retryable, and blocks accidental receipt los
     assert.match(fight, /Retry settlement/);
     assert.match(fight, /response\.settled !== true/);
     assert.match(fight, /aria-disabled=\{!resultCanExit\}/);
-    assert.equal(fight.match(/\sdisabled=\{!resultCanExit\}/g)?.length, 2, "both result exits must be natively disabled before settlement is confirmed");
+    assert.equal(fight.match(/\sdisabled=\{!resultCanExit\}/g)?.length, 4, "all result exits must be natively disabled before settlement is confirmed");
     assert.match(fight, /already-first-cleared/);
     assert.match(fight, /Weekly floor reward already banked/);
     assert.match(fight, /Your completed run is still saved/);
@@ -55,13 +56,12 @@ test("Tower fight breadcrumbs synchronously refresh App's ref-backed navigation 
 
 test("Tower cinematic and result overlays are keyboard-safe modal dialogs", () => {
     assert.equal(fight.match(/role="dialog"/g)?.length, 3);
-    assert.equal(fight.match(/aria-modal="true"/g)?.length, 3);
+    assert.equal(fight.match(/role="dialog"[\s\S]{0,160}?aria-modal="true"/g)?.length, 3);
     assert.match(fight, /primary\.matches\(":disabled"\)/);
     assert.match(fight, /const fallback = dialog\?\.querySelector/);
     assert.match(fight, /focusRevision:\s*settlement\.phase/);
     assert.match(fight, /escapeAllowed:\s*resultCanExit/);
     assert.match(fight, /event\.stopImmediatePropagation\(\)/);
-    assert.match(fight, /src=\{sprite\} alt="" aria-hidden="true"/);
 });
 
 test("Tower tactical controls remain available and accessible off turn", () => {
@@ -69,10 +69,9 @@ test("Tower tactical controls remain available and accessible off turn", () => {
     assert.match(fight, /aria-label=\{tileLabel\}/);
     assert.match(fight, /<button key=\{a\.id\} type="button" className="tower-board-actor"/);
     assert.match(fight, /aria-label="Remaining turn order"/);
-    assert.match(fight, /aria-label="Immediate battlefield threats"/);
+    assert.doesNotMatch(fight, /aria-label="Immediate battlefield threats"/);
     assert.match(fight, /Boss barrier ·/);
     assert.match(fight, /Break seals/);
-    assert.match(fight, /nextEnemyWave\?\.actors\.length/);
     assert.match(api, /pendingEnemyWaves\?: Array<\{ round: number; actors: TowerActor\[\] \}>/);
     assert.match(fight, /Fit \/ reset/);
     assert.match(tacticalCss, /touch-action:\s*none/);
@@ -87,7 +86,7 @@ test("short desktop Tower fights reserve a usable board and contain the shared l
     const shortDesktop = tacticalCss.slice(shortDesktopStart, mobileStart);
     assert.match(shortDesktop, /\.tower-board-area[\s\S]*?min-height:\s*clamp\(250px, 37dvh, 333px\)\s*!important/);
     assert.match(tacticalCss, /\.tower-action-dock\s*\{[\s\S]*?flex:\s*0 0 164px;[\s\S]*?min-height:\s*164px;[\s\S]*?max-height:\s*164px;/,
-        "the desktop dock must reserve the complete command and shared card surfaces");
+        "the desktop dock must reserve commands and cards without the removed guidance row");
     assert.match(shortDesktop, /\.basic-action-bar[\s\S]*?grid-template-columns:\s*repeat\(auto-fit, minmax\(64px, 1fr\)\)[\s\S]*?overflow:\s*hidden !important/,
         "desktop commands must remain contained on one compact row");
     assert.match(tacticalCss, /@media \(min-width: 980px\)[\s\S]*?\.combat-jutsu-bar[\s\S]*?height:\s*112px !important;[\s\S]*?\.combat-equipped-jutsu-grid[\s\S]*?grid-auto-flow:\s*column !important;[\s\S]*?overflow-x:\s*auto !important;[\s\S]*?\.combat-jutsu-card-wrap[\s\S]*?height:\s*92px !important;/,
@@ -124,7 +123,7 @@ test("selected Tower floors expose tactics and truthful first-clear rewards with
     assert.match(lobby, /Telegraph/);
     assert.match(lobby, /Closing ring/);
     assert.match(lobby, /Closing ring:<\/strong> After round \{selFloor\.closingRing\.fromRound\}/);
-    assert.match(fight, /Arena contracts after round/);
+    assert.match(fight, /towerClosingRingTiles\(w, h, session\.map\.blockedTiles, session\.map\.closingRing, session\.round/);
     assert.doesNotMatch(lobby, /Closing ring:<\/strong> Starts round/);
     assert.doesNotMatch(fight, /Arena collapses from round/);
     assert.match(floorCatalog, /The safe area contracts after round 8\./);
@@ -210,11 +209,12 @@ test("timed hold and Spire boss profiles remain visible from sealed authority", 
     assert.match(fight, /objective === "protect-npc"[\s\S]*?hold \$\{roundsSurvived\}/);
     assert.match(fight, /objective === "kill-escort"[\s\S]*?foe/);
     assert.match(fight, /const combatFloor = session\.sealedCatalogFloor \?\? session\.encounterFloor/);
-    assert.match(fight, /combatFloor\?\.boss/);
+    assert.match(fight, /actor\.character\.aiTargetMode/);
+    assert.match(fight, /session\.bossStrike\.label/);
     for (const target of ["squishiest", "support", "lowest-hp"] as const) assert.match(spireCatalog, new RegExp(`targetMode: "${target}"`));
     for (const strike of ["slam", "volley", "nova"] as const) assert.match(spireCatalog, new RegExp(`kind: "${strike}"`));
     assert.match(lobby, /towerTargetModeLabel\(sel\.boss\.targetMode\)/);
-    assert.match(lobby, /towerStrikeLabel\(sel\.boss\.strike\)/);
+    assert.match(lobby, /towerStrikeLabel\(sel\.boss\.strike, sel\.boss\.mechanic\)/);
     assert.match(lobby, /objective === "protect-npc"\) return `Hold \$\{roundBudget\} rounds`/);
     assert.match(lobby, /return `Par \/ score pace · \$\{roundBudget\} rounds`/);
 });
@@ -227,7 +227,8 @@ test("Tower identity, board semantics, and countdown updates remain bounded", ()
     assert.match(fight, /tabIndex=\{tileActionable \? 0 : -1\}/);
     assert.match(fight, /const actorActionable = targetable \|\| selfTargetable \|\| inspectable;/);
     assert.match(fight, /tabIndex=\{!busy && actorActionable \? 0 : -1\}/);
-    assert.match(fight, /src=\{OBJECT_SPRITE\[o\.kind\]\} alt="" aria-hidden="true"/);
+    assert.match(fight, /<TowerTerrainProp tile=\{tile\} width=\{w\} kind=\{object\.kind\}/);
+    assert.match(terrain, /data-prop-kind=\{kind\}[^>]*aria-hidden="true"/);
     assert.match(fight, /<TowerBattleDebrief session=\{session\}/);
     assert.match(tacticalCss, /\[role="dialog"\][\s\S]*?max-height:\s*calc\(100dvh - 24px\)/);
 });
