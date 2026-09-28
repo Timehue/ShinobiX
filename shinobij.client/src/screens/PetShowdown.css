@@ -145,7 +145,16 @@
     display: grid;
     place-items: center;
 }
-.showdown-roster-name { font-weight: 700; font-size: 0.85rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.showdown-roster-name {
+    width: 100%;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 0.85rem;
+    line-height: 1.2;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
 .showdown-roster-sub { font-size: 0.72rem; color: #b9a583; }
 .showdown-roster-busy { font-size: 0.7rem; color: #f87171; }
 .showdown-roster-kit {
