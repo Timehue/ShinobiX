@@ -5,12 +5,6 @@ import { professionThresholds } from "../lib/profession-bonuses";
 import { useEffect, useState, type ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import {
-    GiRank3, GiDaggers, GiUpgrade, GiBlackFlag, GiPawPrint, GiGauntlet, GiVortex,
-    GiCrossedSwords, GiOgre, GiTrophy, GiAnvil, GiHealing,
-    GiShield, GiCrown, GiPunchBlast, GiCastle,
-} from "../components/icons/LightweightGameIcons";
-const HOL_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-import {
     type Character,
     type LbTab,
     type PlayerRecord,
@@ -254,21 +248,21 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     }
 
     const tabs: { id: LbTab; label: string; icon: ReactNode }[] = [
-        { id: "ranked",      label: "Ranked",       icon: <GiRank3 /> },
-        { id: "kills",       label: "Kill Streaks",  icon: <GiDaggers /> },
-        { id: "xp",          label: "Most Points",   icon: <GiUpgrade /> },
-        { id: "clans",       label: "Top Clans",     icon: <GiBlackFlag /> },
-        { id: "pets",        label: "Pet Wins",      icon: <GiPawPrint /> },
-        { id: "gauntlet",    label: "Gauntlet",      icon: <GiGauntlet /> },
-        { id: "endless",     label: "Endless",       icon: <GiVortex /> },
-        { id: "villageWars", label: "Village Wars",  icon: <GiCrossedSwords /> },
-        { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GiOgre /> },
-        { id: "tournament",  label: "Tournament",    icon: <GiTrophy /> },
-        { id: "professions", label: "Professions",   icon: <GiAnvil /> },
-        { id: "news",        label: "World News",  icon: <GiCastle /> },
+        { id: "ranked",      label: "Ranked",       icon: <GameArtIcon kind="crown" size={18} /> },
+        { id: "kills",       label: "Kill Streaks",  icon: <GameArtIcon kind="attack" size={18} /> },
+        { id: "xp",          label: "Most Points",   icon: <GameArtIcon kind="training" size={18} /> },
+        { id: "clans",       label: "Top Clans",     icon: <GameArtIcon kind="clanHall" size={18} /> },
+        { id: "pets",        label: "Pet Wins",      icon: <GameArtIcon kind="petTamer" size={18} /> },
+        { id: "gauntlet",    label: "Gauntlet",      icon: <GameArtIcon kind="attack" size={18} /> },
+        { id: "endless",     label: "Endless",       icon: <GameArtIcon kind="warning" size={18} /> },
+        { id: "villageWars", label: "Village Wars",  icon: <GameArtIcon kind="attack" size={18} /> },
+        { id: "weeklyBoss",  label: "Weekly Boss",   icon: <GameArtIcon kind="warning" size={18} /> },
+        { id: "tournament",  label: "Tournament",    icon: <GameArtIcon kind="crown" size={18} /> },
+        { id: "professions", label: "Professions",   icon: <GameArtIcon kind="vanguard" size={18} /> },
+        { id: "news",        label: "World News",  icon: <GameArtIcon kind="scroll" size={18} /> },
         ...(legacyAvailable ? [
-            { id: "legends" as const, label: "Legends",   icon: <GiCrown /> },
-            { id: "eras" as const,    label: "World Eras", icon: <GiShield /> },
+            { id: "legends" as const, label: "Legends",   icon: <GameArtIcon kind="crown" size={18} /> },
+            { id: "eras" as const,    label: "World Eras", icon: <GameArtIcon kind="biomeShadow" size={18} /> },
         ] : []),
     ];
 
@@ -276,9 +270,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     // threshold (rank just clamps at 10), so a maxed Healer who keeps healing
     // shows higher than one who just hit max — leaderboards stay meaningful.
     const professionTabs: { id: Profession; label: string; accent: string; icon: ReactNode }[] = [
-        { id: "healer", label: "Healer", accent: "#22d3ee", icon: <GiHealing /> },
-        { id: "vanguard", label: "Vanguard", accent: "#f97316", icon: <GiCrossedSwords /> },
-        { id: "petTamer", label: "Pet Tamer", accent: "#84cc16", icon: <GiPawPrint /> },
+        { id: "healer", label: "Healer", accent: "#22d3ee", icon: <GameArtIcon kind="healer" size={18} /> },
+        { id: "vanguard", label: "Vanguard", accent: "#f97316", icon: <GameArtIcon kind="vanguard" size={18} /> },
+        { id: "petTamer", label: "Pet Tamer", accent: "#84cc16", icon: <GameArtIcon kind="petTamer" size={18} /> },
     ];
     function topByProfession(p: Profession, n = 10) {
         return all
@@ -302,7 +296,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             <CentralDestinationHeader
                 backLabel="Central"
                 eyebrow="The Thousand Gates · Living Record"
-                icon={<GiTrophy />}
+                icon={<GameArtIcon kind="crown" size={28} />}
                 onBack={() => setScreen("centralHub")}
                 statusLabel="Known contenders"
                 statusValue={playerRoster.length}

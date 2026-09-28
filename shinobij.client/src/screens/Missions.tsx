@@ -592,7 +592,7 @@ export function Missions({
                                 <div className="mh-combat-avatar">
                                     {ai?.image
                                         ? <img src={ai.image} alt={ai.name} />
-                                        : <span>{mission.icon}</span>}
+                                        : <GameArtIcon kind="attack" size={64} />}
                                 </div>
                                 <div className="mh-combat-body">
                                     <strong className="mh-combat-name">{mission.name}</strong>
