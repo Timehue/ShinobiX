@@ -90,7 +90,7 @@ export function placeTowerEnvironment(
     const candidates = shuffle(Array.from({ length: width * height }, (_, tile) => towerEnvironmentZone(tile, width, height))
         .filter(zone => zone.length === zoneSize && zone.every(tile => tile % width > 3 && !taken.has(tile))), randomStream(seed ^ 0x9e3779b9));
     const chosen: number[][] = [];
-    // Prefer two clear hexes between radius-two zones. Backtracking considers
+    // Prefer broad spacing between tactical zones. Backtracking considers
     // other first placements before relaxing the gap on a constrained arena.
     function place(from: number, minimumDistance: number, keepArtInside: boolean): boolean {
         if (chosen.length === features.length) return true;
