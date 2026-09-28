@@ -97,7 +97,7 @@ export function Profile({
     )
         .map((id) => getItemById(allItems, id))
         .filter((item): item is GameItem => Boolean(item));
-    const equippedBloodline = savedBloodlines.find((b) => b.id === character.equippedBloodlineId);
+    const equippedBloodline = getCharacterBloodlines(character, savedBloodlines)[0];
     const auraSphereEquipped = hasEquippedAuraSphere(character);
     const auraBonuses = getActiveAuraSphereBonuses(character);
     const auraDustNeeded = auraSphereDustNeeded(character.auraSphereLevel);

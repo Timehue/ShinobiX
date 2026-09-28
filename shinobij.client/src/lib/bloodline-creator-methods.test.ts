@@ -44,6 +44,13 @@ describe("player bloodline method/tag reachability", () => {
         }
     });
 
+    it("offers ground fields one less range than direct casts", () => {
+        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 0, "INSTANT_EFFECT"), 3);
+        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 4, "INSTANT_EFFECT"), 4);
+        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 3, "AOE_SPIRAL"), 3);
+        assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 5, "SINGLE"), 5);
+    });
+
     it("keeps movement-method precedence over Copy and Mirror direct targeting", () => {
         assert.equal(bloodlineCreatorTargetForMethod("AOE_CIRCLE", "SELF", {
             ap: 60,

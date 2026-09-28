@@ -6,7 +6,7 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyJutsu, applyGroundEffectToFighter, tickGroundEffects } from './move.js';
+import { applyJutsu, applyGroundEffectToFighter, poisonSpendDamage, reconcileGroundStatuses, tickGroundEffects } from './move.js';
 import { sanitizeJutsuList } from './session.js';
 import type { PvpFighter, PvpStatus, PvpGroundEffect } from './session.js';
 
@@ -406,6 +406,48 @@ describe('ground effects apply once per pass and respect prevent / timing', () =
         f = applyGroundEffectToFighter(f, poisonZone(), 1).fighter;
         f = applyGroundEffectToFighter(f, poisonZone(), 2).fighter;
         assert.equal(f.statuses.filter(s => s.name === 'Poison').length, 1, 'still one Poison after two passes');
+    });
+
+    it('removes zone Poison, Recoil, and damage decrease on exit but preserves direct effects', () => {
+        const zone: PvpGroundEffect = {
+            ...poisonZone(),
+            tags: [
+                { name: 'Poison', percent: 10 },
+                { name: 'Recoil', percent: 20 },
+                { name: 'Decrease Damage Given', percent: 30 },
+            ],
+        };
+        const direct: PvpStatus = { name: 'Decrease Damage Given', rounds: 2, percent: 15, kind: 'negative' };
+        const standing = applyGroundEffectToFighter(fighter('B', 1000, [direct], 5), zone, 1).fighter;
+        assert.equal(standing.statuses.filter(s => s.source === 'ground:z').length, 3);
+        const exited = reconcileGroundStatuses({ ...standing, pos: 6 }, [zone], 'p2');
+        assert.deepEqual(exited.statuses, [direct]);
+    });
+
+    it('preserves direct Poison and Recoil when an overlapping field ends', () => {
+        const directPoison: PvpStatus = { name: 'Poison', rounds: 2, percent: 8, kind: 'negative' };
+        const directRecoil: PvpStatus = { name: 'Recoil', rounds: 2, percent: 15, kind: 'negative' };
+        const zone: PvpGroundEffect = {
+            ...poisonZone(),
+            tags: [{ name: 'Poison', percent: 10 }, { name: 'Recoil', percent: 20 }],
+        };
+        const standing = applyGroundEffectToFighter(fighter('B', 1000, [directPoison, directRecoil], 5), zone, 1).fighter;
+        assert.equal(standing.statuses.filter((status) => status.name === 'Poison').length, 2);
+        assert.equal(standing.statuses.filter((status) => status.name === 'Recoil').length, 2);
+        const zoneOnly = applyGroundEffectToFighter(fighter('B', 1000, [], 5), zone, 1).fighter;
+        assert.equal(poisonSpendDamage(standing, 100, 1), poisonSpendDamage(zoneOnly, 100, 1),
+            'overlapping poison uses the strongest percent once');
+        assert.equal(applyJutsu(standing, fighter('A'), jutsu([]), 1, 'central', 1).self.hp,
+            applyJutsu(zoneOnly, fighter('A'), jutsu([]), 1, 'central', 1).self.hp,
+            'overlapping recoil uses the strongest percent once');
+        const exited = reconcileGroundStatuses({ ...standing, pos: 6 }, [zone], 'p2');
+        assert.deepEqual(exited.statuses, [directPoison, directRecoil]);
+    });
+
+    it('removes a zone status when its field expires, even if the fighter stays put', () => {
+        const standing = applyGroundEffectToFighter(fighter('B', 1000, [], 5), poisonZone(), 1).fighter;
+        assert.equal(standing.statuses[0]?.rounds, 1);
+        assert.equal(reconcileGroundStatuses(standing, [], 'p2').statuses.length, 0);
     });
 
     it('a recurring DDG zone refreshes itself without erasing an independent direct stack', () => {

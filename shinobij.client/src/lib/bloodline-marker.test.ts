@@ -12,7 +12,7 @@ test("names every jutsu the carried bloodlines grant, first bloodline winning a 
 
     assert.equal(names.get("ashen-eyes-blood-gaze"), "Ashen Eyes");
     assert.equal(names.get("crimson-tide-surge"), "Crimson Tide");
-    // Starter comes first in getCharacterBloodlines, so it keeps a shared jutsu.
+    // When callers pass multiple kits, the first one names a shared jutsu.
     assert.equal(names.get("shared-jutsu"), "Ashen Eyes");
     assert.equal(names.size, 3);
 });

@@ -46,6 +46,8 @@ export type Jutsu = {
     element: JutsuElement;
     ap: number;
     range: number;
+    /** Ground-zone range 3/4 rules have been applied; absent on older saved zones. */
+    groundRangeVersion?: 2;
     effectPower: number;
     cooldown: number;
     currentCooldown: number;

@@ -215,7 +215,7 @@ export function JutsuLoadoutPanel({
     catalogJutsus: Jutsu[];
     /**
      * Jutsu id -> the name of the bloodline that grants it, for every jutsu the
-     * character's starter/equipped bloodlines carry. Drives the bloodline chips
+     * character's active bloodline carries. Drives the bloodline chips
      * and the "Bloodline Only" source filter; an absent entry = ordinary jutsu.
      */
     bloodlineJutsuNames?: ReadonlyMap<string, string>;

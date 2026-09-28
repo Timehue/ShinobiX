@@ -96,7 +96,8 @@ export function jutsuPointBreakdown(jutsu: Jutsu, rank?: Rank | null): JutsuPoin
         items.push({ label: `${tag.name}${showPercent ? ` ${tag.percent}%` : ""}`, points });
     }
     if (jutsu.ap === 40) items.push({ label: "40 AP utility", points: 1 });
-    if (jutsu.range >= 5) items.push({ label: "Range 5", points: 0.5 });
+    const longRange = jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL" ? 4 : 5;
+    if (jutsu.range >= longRange) items.push({ label: `Range ${longRange}`, points: 0.5 });
     if (jutsu.target === "EMPTY_GROUND") {
         // AOE_CIRCLE is the cheap ring nudge; the full-range INSTANT_EFFECT
         // field and AOE_SPIRAL ground nova each cost a full point.

@@ -50,6 +50,17 @@ describe('bloodline access gate (characterMayUseJutsu)', () => {
         assert.ok(characterMayUseJutsu({ equippedBloodlineId: 'bl-mine' }, save, jutsu));
         assert.equal(characterMayUseJutsu({ equippedBloodlineId: 'bl-other' }, save, jutsu), false);
     });
+
+    it('rejects an inactive stored technique even with an ordinary or no element', () => {
+        const save = { savedBloodlines: [
+            { id: 'active', jutsus: [{ id: 'active-fire' }] },
+            { id: 'stored', jutsus: [{ id: 'stored-fire' }, { id: 'stored-none' }] },
+        ] };
+        const character = { bloodline: 'Ashen Eyes', equippedBloodlineId: 'active', elements: ['Fire'] };
+        assert.equal(characterMayUseJutsu(character, save, { id: 'stored-fire', element: 'Fire' }), false);
+        assert.equal(characterMayUseJutsu(character, save, { id: 'stored-none', element: 'None' }), false);
+        assert.equal(characterMayUseJutsu(character, save, BLOOD_JUTSU), false, 'the original starter is inactive');
+    });
 });
 
 describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => {
@@ -79,9 +90,7 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
         assert.ok(resolved.some((j) => j.id === 'ashen-eyes-blood-gaze'));
     });
 
-    it('seals jutsu only from CARRIED bloodlines, not every stored one', () => {
-        // A save can hold up to 5 forged bloodlines; only the EQUIPPED one (and
-        // the starter) may contribute jutsu — matching getCharacterBloodlines.
+    it('seals jutsu only from the active bloodline', () => {
         const save = {
             savedBloodlines: [
                 { id: 'bl-equipped', rank: 'A Rank', specialElement: 'Frost', jutsus: [{ id: 'frost-spike', element: 'Frost', effectPower: 30, ap: 60 }] },
@@ -93,6 +102,22 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
         const ids = resolved.map((j) => j.id);
         assert.ok(ids.includes('frost-spike'), 'the equipped bloodline still contributes its jutsu');
         assert.ok(!ids.includes('venom-fang'), 'a stored-but-unequipped bloodline contributes nothing');
+    });
+
+    it('drops mastered starter and stored techniques while a different bloodline is active', () => {
+        const save = { savedBloodlines: [
+            { id: 'bl-active', rank: 'A Rank', jutsus: [{ id: 'active-fire', element: 'Fire', ap: 60, effectPower: 40 }] },
+            { id: 'bl-stored', rank: 'A Rank', jutsus: [{ id: 'stored-fire', element: 'Fire', ap: 60, effectPower: 40 }] },
+        ], creatorJutsus: [{ id: 'stored-fire', element: 'Fire', ap: 60, effectPower: 40 }] };
+        const saveChar = {
+            name: 'Collector', bloodline: 'Ashen Eyes', equippedBloodlineId: 'bl-active',
+            elements: ['Fire'],
+            equippedJutsuIds: ['ashen-eyes-blood-gaze', 'active-fire', 'stored-fire'],
+            jutsuMastery: ['ashen-eyes-blood-gaze', 'active-fire', 'stored-fire']
+                .map((jutsuId) => ({ jutsuId, level: 1 })),
+        };
+        const resolved = resolveEquippedLoadout(saveChar, save, {}) as Array<{ id: string }>;
+        assert.deepEqual(resolved.map((jutsu) => jutsu.id), ['active-fire']);
     });
 
     it('does not gate save-less (NPC) resolution', () => {

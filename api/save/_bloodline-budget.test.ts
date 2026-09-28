@@ -88,6 +88,26 @@ test('a maker write may refine an owned bloodline definition', () => {
     assert.equal((out.savedBloodlines as Array<Record<string, unknown>>)[0].name, 'Refined');
 });
 
+test('a saved ground zone loses one range once and keeps its version on later saves', () => {
+    const legacy = {
+        id: 'bl-ground', name: 'Ground', rank: 'A Rank',
+        jutsus: [{
+            id: 'ground-poison', name: 'Poison Field', type: 'Ninjutsu', element: 'Fire',
+            ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            tags: [{ name: 'Poison', percent: 30 }],
+        }],
+    };
+    const first = sanitizeCharacterSave(incoming([legacy]), stored([legacy]), { bloodlineWriteIntent: legacy.id });
+    const saved = (first.savedBloodlines as Array<{ jutsus: Array<{ range: number; groundRangeVersion?: number }> }>)[0]!;
+    assert.equal(saved.jutsus[0]?.range, 3);
+    assert.equal(saved.jutsus[0]?.groundRangeVersion, 2);
+    const again = sanitizeCharacterSave(incoming(first.savedBloodlines as unknown[]), first,
+        { bloodlineWriteIntent: legacy.id });
+    const savedAgain = (again.savedBloodlines as Array<{ jutsus: Array<{ range: number; groundRangeVersion?: number }> }>)[0]!;
+    assert.equal(savedAgain.jutsus[0]?.range, 3);
+    assert.equal(savedAgain.jutsus[0]?.groundRangeVersion, 2);
+});
+
 test('a first save retains a built-in equipped bloodline', () => {
     const id = 'starter-bloodline-ashen-eyes';
     const out = sanitizeCharacterSave(incoming([], { character: { name: 'Tester', level: 1, equippedBloodlineId: id } }), null);
@@ -105,6 +125,63 @@ test('an explicit owned-bloodline swap survives the ordinary save boundary', () 
         { bloodlineEquipIntent: older.id },
     );
     assert.equal((out.character as Record<string, unknown>).equippedBloodlineId, older.id);
+});
+
+test('an explicit switch from a stored bloodline back to the original starter is saved', () => {
+    const custom = mkBloodline('bl-current', 'A Rank');
+    const originalId = 'starter-bloodline-ashen-eyes';
+    const existing = stored([custom]);
+    existing.character = { name: 'Tester', level: 50, bloodline: 'Ashen Eyes', equippedBloodlineId: custom.id };
+    const out = sanitizeCharacterSave(
+        incoming([custom], { character: { name: 'Tester', level: 50, bloodline: 'Ashen Eyes', equippedBloodlineId: originalId } }),
+        existing,
+        { bloodlineEquipIntent: originalId },
+    );
+    assert.equal((out.character as Record<string, unknown>).equippedBloodlineId, originalId);
+});
+
+test('a character cannot equip a different built-in bloodline through the save intent', () => {
+    const custom = mkBloodline('bl-current', 'A Rank');
+    const existing = stored([custom]);
+    existing.character = { name: 'Tester', level: 50, bloodline: 'Ashen Eyes', equippedBloodlineId: custom.id };
+    const otherId = 'starter-bloodline-iron-fang';
+    const out = sanitizeCharacterSave(
+        incoming([custom], { character: { name: 'Tester', level: 50, bloodline: 'Iron Fang', equippedBloodlineId: otherId } }),
+        existing,
+        { bloodlineEquipIntent: otherId },
+    );
+    assert.equal((out.character as Record<string, unknown>).equippedBloodlineId, custom.id);
+});
+
+test('a save drops inactive bloodline slots but keeps their trained mastery', () => {
+    const first = { ...mkBloodline('bl-first', 'B Rank'), jutsus: [
+        { ...mkBloodline('bl-first', 'B Rank').jutsus[0], tags: [] },
+    ] };
+    const second = { ...mkBloodline('bl-second', 'B Rank'), jutsus: [
+        { ...mkBloodline('bl-second', 'B Rank').jutsus[0], tags: [] },
+    ] };
+    const ids = ['ashen-eyes-blood-gaze', first.jutsus[0]!.id, second.jutsus[0]!.id, 'starter-buki-fire-1'];
+    const character = {
+        name: 'Tester', level: 50, bloodline: 'Ashen Eyes', equippedBloodlineId: first.id,
+        patreon: { active: true },
+        equippedJutsuIds: ids,
+        jutsuMastery: ids.map((jutsuId) => ({ jutsuId, level: 1, xp: 0 })),
+    };
+    const existing = { ...stored([first, second]), character };
+    const out = sanitizeCharacterSave(incoming([first, second], { character }), existing);
+    const savedCharacter = out.character as Record<string, unknown>;
+    assert.deepEqual(savedCharacter.equippedJutsuIds, [first.jutsus[0]!.id, 'starter-buki-fire-1']);
+    assert.equal((savedCharacter.jutsuMastery as Array<{ jutsuId: string }>).some((row) => row.jutsuId === second.jutsus[0]!.id), true);
+    assert.equal((out.savedBloodlines as unknown[]).length, 2);
+
+    const starterId = 'starter-bloodline-ashen-eyes';
+    const switched = sanitizeCharacterSave(
+        incoming([first, second], { character: { ...character, equippedBloodlineId: starterId } }),
+        existing,
+        { bloodlineEquipIntent: starterId },
+    );
+    assert.deepEqual((switched.character as Record<string, unknown>).equippedJutsuIds,
+        ['ashen-eyes-blood-gaze', 'starter-buki-fire-1']);
 });
 
 test('incoming payload cannot forge its own pending entitlement', () => {

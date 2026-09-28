@@ -166,7 +166,9 @@ function normalizeOne(
     const groundTarget = hasMove || method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
     const affectsOpponent = ap !== 40 || tags.some((tag) => OPPONENT_AFFECTING_TAGS.has(tag.name));
     const target = groundTarget ? 'EMPTY_GROUND' : method === 'AOE_BURST' || affectsOpponent ? 'OPPONENT' : 'SELF';
-    const range = target === 'SELF' ? 0 : Number(raw.range) === 5 ? 5 : 4;
+    const groundZone = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
+    const groundRange = raw.groundRangeVersion === 2 ? Number(raw.range) : Number(raw.range) - 1;
+    const range = target === 'SELF' ? 0 : groundZone ? (groundRange >= 4 ? 4 : 3) : Number(raw.range) === 5 ? 5 : 4;
 
     let usedNuke = false;
     let effectPower = 0;
@@ -187,6 +189,7 @@ function normalizeOne(
         element: sharedElement,
         ap,
         range,
+        ...(groundZone ? { groundRangeVersion: 2 } : {}),
         effectPower,
         cooldown: 7,
         currentCooldown: 0,

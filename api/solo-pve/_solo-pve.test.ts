@@ -6,7 +6,7 @@ import type { PvpFighter } from '../pvp/session.js';
 import { hydrateCharacterFromSave } from '../pvp/session.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { buildSoloPveAiEncounter } from './_ai-encounter.js';
-import { hexDistance } from '../combat-core/grid.js';
+import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { GRID_H, GRID_W } from '../combat-core/constants.js';
 import { applySoloPveAction, endSoloPveTurn } from './_engine.js';
 import { executeSoloPveAction, type SoloPveLock } from './_action-service.js';
@@ -287,6 +287,23 @@ describe('Weekly Boss score-attack rules on the solo runtime', () => {
 });
 
 describe('solo-PvE engine', () => {
+    it('clears field poison and recoil as soon as the player steps off the zone', () => {
+        const source = 'ground:enemy-field';
+        const standing = makeSession();
+        standing.groundEffects = [{
+            id: 'enemy-field', owner: 'p2', name: 'Enemy Field', tiles: [standing.player.pos], rounds: 2,
+            tags: [{ name: 'Poison', percent: 10 }, { name: 'Recoil', percent: 20 }],
+        }];
+        standing.player.statuses = [
+            { name: 'Poison', rounds: 1, percent: 10, kind: 'negative', source },
+            { name: 'Recoil', rounds: 1, percent: 20, kind: 'negative', source },
+        ];
+        const destination = hexNeighbors(standing.player.pos).find((tile) => tile !== standing.enemy.pos)!;
+        const moved = applySoloPveAction(standing, { type: 'move', tile: destination });
+        assert.equal(moved.applied, true);
+        assert.equal(moved.session.player.pos, destination);
+        assert.equal(moved.session.player.statuses.some((status) => status.source === source), false);
+    });
     it('resolves only a server-sealed jutsu through the shared resolver', () => {
         const session = makeSession();
         session.player.character.jutsu = [{
@@ -1049,6 +1066,29 @@ describe('solo-PvE engine', () => {
         exposed.companion!.pos = 51;
         const countered = applySoloPveAction(exposed, { type: 'wait' });
         assert.ok(countered.session.events.some((event) => event.actor === 'enemy' && event.target === 'companion'), 'the enemy can target the independent pet actor');
+    });
+
+    it('clears a field status at the companion move event when the pet leaves the field', () => {
+        const session = createSoloPveSession({
+            sessionId: 'companion-field-exit', ownerSlug: 'alice',
+            encounter: { kind: 'test', id: 'companion-field-exit' },
+            player: makeFighter('Alice', 62), enemy: makeFighter('Rival', 63), now: NOW,
+            companion: {
+                petId: 'pet-1', name: 'Fang', hp: 300, damage: 120, happiness: 100, loyal: false,
+                moves: [{ name: 'Bite', kind: 'damage', power: 45, cooldown: 1, rounds: 2, signature: true }],
+                pveGearId: '',
+            },
+        });
+        const summoned = applySoloPveAction(session, { type: 'summon' }).session;
+        summoned.companion!.pos = 0;
+        summoned.groundEffects = [{
+            id: 'enemy-field', owner: 'p2', name: 'Enemy Field', tiles: [0], rounds: 2,
+            tags: [{ name: 'Poison', percent: 10 }],
+        }];
+        const advanced = applySoloPveAction(summoned, { type: 'wait' }).session;
+        const move = advanced.events.find((event) => event.actor === 'companion' && event.action === 'companionMove' && event.target === 'tile');
+        assert.ok(move, 'the companion moves out of the field');
+        assert.equal(move.after.companion?.statuses.some((status) => status.source === 'ground:enemy-field'), false);
     });
 });
 

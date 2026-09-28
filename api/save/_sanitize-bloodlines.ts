@@ -3,9 +3,45 @@ import { sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { sanitizeJutsuVisualEffect } from '../_jutsu-visuals.js';
 import { normalizePlayerBloodlineJutsus } from '../bloodlines/_jutsu-schema.js';
 import { enforceBloodlineBudget, type RawJutsu, bloodlinePoints } from '../_jutsu-points.js';
-import { BUILTIN_BLOODLINES } from '../pvp/_bloodline-gate.js';
+import { BUILTIN_BLOODLINES, carriedBloodlines } from '../pvp/_bloodline-gate.js';
 
 const BUILTIN_BLOODLINE_IDS = new Set(BUILTIN_BLOODLINES.map((bloodline) => bloodline.id));
+
+/** Keep trained IDs, but never persist an inactive bloodline's combat slots. */
+export function filterActiveBloodlineJutsuIds(
+    character: Record<string, unknown>,
+    savedBloodlines: unknown,
+    equippedIds: readonly string[],
+): string[] {
+    const save = { savedBloodlines };
+    const active = carriedBloodlines(character, save)[0];
+    // Legacy saves without any bloodline identity retain their ID preferences
+    // until that identity is repaired; the combat seal still rejects the jutsu.
+    if (!active) return [...equippedIds];
+    const activeIds = active.jutsuIds;
+    const builtinOwnerByJutsuId = new Map(BUILTIN_BLOODLINES.flatMap((bloodline) =>
+        bloodline.jutsuIds.map((id) => [id, bloodline.id] as const)));
+    const bloodlineIds = new Set(builtinOwnerByJutsuId.keys());
+    if (Array.isArray(savedBloodlines)) {
+        for (const entry of savedBloodlines) {
+            if (!entry || typeof entry !== 'object') continue;
+            const jutsus = (entry as Record<string, unknown>).jutsus;
+            if (!Array.isArray(jutsus)) continue;
+            for (const jutsu of jutsus) {
+                if (jutsu && typeof jutsu === 'object') {
+                    const id = String((jutsu as Record<string, unknown>).id ?? '').trim().toLowerCase();
+                    if (id) bloodlineIds.add(id);
+                }
+            }
+        }
+    }
+    return equippedIds.filter((id) => {
+        const key = id.trim().toLowerCase();
+        const builtinOwner = builtinOwnerByJutsuId.get(key);
+        if (builtinOwner) return active?.id === builtinOwner;
+        return !bloodlineIds.has(key) || activeIds.has(key);
+    });
+}
 
 /**
  * A save with no write intent (an autosave, or a client from before the maker
@@ -80,11 +116,17 @@ export function preserveEquippedBloodline(
         : []);
     const requested = typeof character.equippedBloodlineId === 'string' ? character.equippedBloodlineId : '';
     const stored = typeof storedCharacter.equippedBloodlineId === 'string' ? storedCharacter.equippedBloodlineId : '';
+    const originalRaw = storedCharacter.bloodline || character.bloodline;
+    const originalName = originalRaw === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(originalRaw ?? '');
+    const originalId = BUILTIN_BLOODLINES.find((bloodline) => bloodline.name === originalName)?.id;
     // A stale full-save payload must not point a newly forged character back to
     // a removed bloodline (or to the starter slot). Only an owned custom id may
     // replace an already equipped custom id.
     if (ownedIds.has(requested) && (requested === stored || requested === equipIntent || acceptedForge)) return;
-    if (BUILTIN_BLOODLINE_IDS.has(requested) && (requested === stored || requested === equipIntent || !stored)) return;
+    if (BUILTIN_BLOODLINE_IDS.has(requested)
+        && (requested === stored
+            || (requested === originalId && (requested === equipIntent || !stored))
+            || (!stored && !originalId))) return;
     if (ownedIds.has(stored) || BUILTIN_BLOODLINE_IDS.has(stored)) character.equippedBloodlineId = stored;
     else if (ownedIds.size > 0) character.equippedBloodlineId = ownedIds.values().next().value;
     else if (requested || stored) character.equippedBloodlineId = '';
