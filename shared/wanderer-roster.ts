@@ -12,12 +12,21 @@
  *   client: shinobij.client/src/lib/wanderers.ts re-exports everything here
  *   server: api/sector/_wanderer-encounter.ts + api/missions/_world-ai-fight.ts
  *
- * Keep this module dependency-free apart from shared/sector-geo so both sides
- * can import it (the server compiles it under Node16 resolution, the client
- * under Vite's bundler resolution — plain ESM, no enums, no `.js` imports of
- * anything outside shared/).
+ * Keep this module dependency-free apart from shared/sector-geo and the shared
+ * world clock (shared/world-phase, shared/world-clock) so both sides can import
+ * it (the server compiles it under Node16 resolution, the client under Vite's
+ * bundler resolution — plain ESM, no enums, no `.js` imports of anything
+ * outside shared/).
+ *
+ * Night ninjas: after dark (shared/world-phase isWorldNight) some sectors gain
+ * one extra wanderer in the reserved roster slot WANDERER_NIGHT_INDEX. Its id
+ * has the normal natural shape, so every server authority above resolves it,
+ * but WHO it is comes from a separate per-night roll, and it exists only while
+ * the world is dark. The daytime cast is untouched by it.
  */
 import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
+import { isWorldNight } from "./world-phase.js";
+import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
 
 export type WandererVerb =
     | "attack" | "gift" | "gamble" | "petDuel" | "quest"
@@ -34,6 +43,9 @@ export type WandererArchetypeId =
     | "bandit" | "gambler" | "pilgrim" | "beast" | "sage"
     | "merchant" | "medic" | "patrol" | "tracker" | "courier" | "bountyHunter"
     | "wanderingSage"
+    // Night-only hostile ninja. Weight 0: never in the daytime roll; it comes
+    // from rollNightWanderer below, in the reserved night slot.
+    | "nightblade"
     // The eight Legacy Emissaries (lib/legacy-emissaries.ts) — weight-0 like the
     // Sage: never rolled into the natural cast, synthed per window.
     | "storm-caller-ryn" | "veil-mother-suzu" | "iron-pilgrim-daigo" | "blade-keeper-hana"
@@ -221,6 +233,22 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
             "I've spoken with three people who saw your work. We should compare notes.",
         ],
     },
+    // Night ninjas. Weight 0 keeps them out of the daytime roll; they appear
+    // only after dark, one at most per sector, via rollNightWanderer. They
+    // fight like a road bandit (kind 'wanderer', verb 'attack').
+    nightblade: {
+        verb: "attack",
+        weight: 0,
+        tellTint: "#a78bfa",
+        names: ["Sumi of the Unlit Road", "Hollow-Moon Kaito", "Nightjar Reiko", "Oboro Three-Shadows", "Tsukika the Quiet Blade"],
+        greetings: [
+            "You carried a lantern out here. That's how I found you.",
+            "Nobody patrols this road after dark. Nobody but me.",
+            "I've followed you since the moon came up. Turn around.",
+            "The day belongs to the villages. The night is mine.",
+            "Put the light out. We'll settle this the way the dark likes it.",
+        ],
+    },
     // The eight Legacy Emissaries. All weight 0: like the Sage they are synthed
     // per window (lib/legacy-emissaries.ts rollEmissarySpawn), never rolled into
     // the natural cast — these entries exist to satisfy the archetype record;
@@ -242,7 +270,8 @@ const ARCHETYPE_IDS = Object.keys(WANDERER_ARCHETYPES) as WandererArchetypeId[];
  *  bandits remain the intrusive threat that actively hunts the player. */
 function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
     if (archetype === "bandit") return "pursue";
-    if (archetype === "beast" || archetype === "patrol" || archetype === "tracker") return "patrol";
+    // Night ninjas prowl rather than charge: the player chooses to engage.
+    if (archetype === "beast" || archetype === "patrol" || archetype === "tracker" || archetype === "nightblade") return "patrol";
     return "stationary";
 }
 
@@ -394,6 +423,83 @@ export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
     return out;
 }
 
+// ── Night ninjas ─────────────────────────────────────────────────────────────
+/** The roster slot a night ninja occupies. The daytime roll only ever fills
+ *  0..WANDERER_MAX_INDEX, so the two never collide. */
+export const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
+/** Share of playable wild sectors that hold a night ninja on a given night.
+ *  Tune for density; it is independent of the daytime thresholds above. */
+export const NIGHT_WANDERER_CHANCE = 0.22;
+/** The server still honours a night ninja this long after dawn, so a fight
+ *  started in the last seconds of night (or on a slightly slow clock) is not
+ *  refused. The client stops showing it at dawn exactly. */
+export const NIGHT_WANDERER_GRACE_MS = 60_000;
+
+/** Which night it is (one per world day, counted from the epoch), or null in
+ *  daylight. A night runs 20:00 → 05:00 in-world, across the day boundary, so
+ *  the count is shifted by the four hours before midnight. */
+export function worldNightIndexFromMs(nowMs: number): number | null {
+    if (!isWorldNight(nowMs)) return null;
+    return Math.floor((nowMs + 4 * WORLD_HOUR_MS) / WORLD_DAY_MS);
+}
+
+/**
+ * The night ninja in `sector` on night `nightIndex`, or null. Deterministic
+ * from (sector, nightIndex, dayBucket), so every player sees the same one.
+ * The six-hour window is part of the seed on purpose: every third night the
+ * window rolls over at in-world midnight, and the id (which carries the
+ * bucket) changes with it. Seeding on the window too makes that a FRESH
+ * ninja, exactly as the daytime cast reshuffles, instead of the same ninja
+ * returning under a new id with its cooldown forgotten.
+ */
+export function rollNightWanderer(sector: number, nightIndex: number, dayBucket: number): Wanderer | null {
+    if (!isPlayableWildSector(sector) || !Number.isSafeInteger(nightIndex)) return null;
+    const rng = mulberry32(wandererHash32(`night:${sector}:${nightIndex}:${dayBucket}`));
+    if (rng() >= NIGHT_WANDERER_CHANCE) return null;
+    const meta = WANDERER_ARCHETYPES.nightblade;
+    const taken = new Set(rollWanderers(sector, dayBucket).map((w) => w.homeTile));
+    let home = interiorTile(rng);
+    let guard = 0;
+    while (taken.has(home) && guard++ < 8) home = interiorTile(rng);
+    const waypoints = [home];
+    const legs = 2 + Math.floor(rng() * 2);
+    for (let w = 0; w < legs; w++) waypoints.push(nearbyTile(home, rng));
+    return {
+        id: `w-${sector}-${dayBucket}-${WANDERER_NIGHT_INDEX}`,
+        name: meta.names[Math.floor(rng() * meta.names.length)],
+        archetype: "nightblade",
+        verb: meta.verb,
+        level: wandererLevelFor(sector, rng),
+        homeTile: home,
+        waypoints: Array.from(new Set(waypoints)),
+        movement: naturalWandererMovement("nightblade"),
+        greeting: meta.greetings[Math.floor(rng() * meta.greetings.length)],
+        tellTint: meta.tellTint,
+        avatarKey: "nightblade",
+    };
+}
+
+/** The night ninja standing in `sector` at `nowMs`, or null (daylight, or no
+ *  ninja in this sector tonight). Strict: gone at dawn. */
+export function nightWandererAt(sector: number, dayBucket: number, nowMs: number): Wanderer | null {
+    const night = worldNightIndexFromMs(nowMs);
+    return night === null ? null : rollNightWanderer(sector, night, dayBucket);
+}
+
+/** The full natural cast of a sector at an instant: the daytime roll, plus a
+ *  night ninja after dark. */
+export function wandererCastAt(sector: number, dayBucket: number, nowMs: number): Wanderer[] {
+    const cast = rollWanderers(sector, dayBucket);
+    const night = nightWandererAt(sector, dayBucket, nowMs);
+    return night ? [...cast, night] : cast;
+}
+
+/** The wanderer in one roster slot at an instant (either kind), or null. */
+export function wandererForSlot(sector: number, dayBucket: number, index: number, nowMs: number): Wanderer | null {
+    if (index === WANDERER_NIGHT_INDEX) return nightWandererAt(sector, dayBucket, nowMs);
+    return rollWanderers(sector, dayBucket)[index] ?? null;
+}
+
 // ── Ids + relocation ─────────────────────────────────────────────────────────
 export const WANDERER_SECTOR_COUNT = MAX_WILD_SECTOR;
 
@@ -419,8 +525,13 @@ export function resolveWandererById(id: string, nowMs: number): Wanderer | null 
     if (!parsed
         || !Number.isSafeInteger(parsed.sector) || !isPlayableWildSector(parsed.sector)
         || !Number.isSafeInteger(parsed.dayBucket) || parsed.dayBucket < 0
-        || !Number.isSafeInteger(parsed.index) || parsed.index < 0 || parsed.index > WANDERER_MAX_INDEX
+        || !Number.isSafeInteger(parsed.index) || parsed.index < 0 || parsed.index > WANDERER_NIGHT_INDEX
         || parsed.dayBucket !== wandererDayBucketFromMs(nowMs)) return null;
+    if (parsed.index === WANDERER_NIGHT_INDEX) {
+        // A night ninja exists only after dark, with a short grace past dawn.
+        return nightWandererAt(parsed.sector, parsed.dayBucket, nowMs)
+            ?? nightWandererAt(parsed.sector, parsed.dayBucket, nowMs - NIGHT_WANDERER_GRACE_MS);
+    }
     return rollWanderers(parsed.sector, parsed.dayBucket)[parsed.index] ?? null;
 }
 

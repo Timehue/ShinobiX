@@ -10,7 +10,7 @@ import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './
 import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
-    naturalWandererClaimOk,
+    naturalWandererOffers,
     wandererUseCooldownKey,
     withWandererUseState,
 } from './_wanderer-encounter.js';
@@ -46,8 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const wandererId = typeof body.wandererId === 'string' ? body.wandererId.trim() : '';
         // Not just the id's SHAPE: the server re-rolls the roster and refuses an
         // id it does not currently put on the road, plus any archetype/verb/
-        // level/name the client echoed back that disagrees with that roll.
-        if (!naturalWandererClaimOk(wandererId, Date.now(), body)) {
+        // level/name the client echoed back that disagrees with that roll. And
+        // only a wanderer the roll makes a gift-giver may pay a gift, whether or
+        // not the client sent a verb.
+        if (!naturalWandererOffers(wandererId, Date.now(), body, ['gift'])) {
             return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
         }
         const sector = Math.max(1, Math.min(60, Math.floor(Number(body.sector ?? 0)) || 0));

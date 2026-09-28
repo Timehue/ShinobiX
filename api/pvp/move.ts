@@ -650,9 +650,13 @@ function damageMasteryFor(self: PvpFighter, jutsu: Jutsu, masteryLevel: number):
 //   2. resolveTagStatuses — apply/prevent statuses + INSTANT movement (Push/Pull),
 //                           and surface the Heal/Shield/Barrier/Pierce outcomes
 //   3. resolveDamageNumber— final damage = pierce true-damage OR base×(1−DR)×amp
-//   4. resolvePostDamage  — shield → reflect → absorb → item passives → wound →
-//                           recoil → lifesteal → siphon   (order is load-bearing)
+//   4. resolvePostDamage  — shield → absorb → item absorb → reflect → item reflect
+//                           → item lifesteal → wound/siphon (authored tag order)
+//                           → recoil → lifesteal          (order is load-bearing)
 //   5. applyJutsu (below) — applies the pending self heal/shield, returns the result
+//
+// The order is written down as data in api/combat-core/resolution-order.ts and
+// pinned to this file by resolution-order.test.ts.
 //
 // Phases 1 & 3 read the ORIGINAL fighters on purpose, so amp/DR can't read a buff
 // THIS cast just applied. Phases 2 & 4 thread the mutated copies. DoT/tick effects
@@ -940,15 +944,18 @@ function resolveDamageNumber(self: PvpFighter, opponent: PvpFighter, jutsu: Juts
 
 // Phase 4 — the post-damage consequence pipeline. Resolution order is LOAD-BEARING
 // (every step reads the FINAL post-mitigation damage, finalDmg) and is the single
-// authority for it:
-//   1. shield block         → finalDmg = damage − blocked
-//   2. reflect (status)      % of finalDmg back to the attacker
-//   3. absorb (status)       % of finalDmg healed to the defender
-//   4. item absorb / reflect / lifesteal (named-armor passives)
-//   5. wound                 bleed seeded from finalDmg (rank-capped)
-//   6. recoil (status)       attacker self-damage from their own hit
-//   7. lifesteal (status)    attacker heal from finalDmg
-//   8. siphon                attacker heal from finalDmg
+// authority for it. POST_DAMAGE_ORDER in api/combat-core/resolution-order.ts
+// lists these steps and resolution-order.test.ts pins them to the code below:
+//   1. shield block          → finalDmg = damage − blocked
+//   2. absorb (status)        % of finalDmg healed to the defender (not if lethal)
+//   3. item absorb            the defender's armor passive, same rule
+//   4. reflect (status)       % of finalDmg back to the attacker
+//   5. item reflect           the defender's armor passive
+//   6. item lifesteal         the attacker's armor passive
+//   7. wound / siphon         in the jutsu's authored tag order (wound bleeds the
+//                             defender, rank-capped; siphon heals the attacker)
+//   8. recoil (status)        attacker self-damage from their own hit
+//   9. lifesteal (status)     attacker heal from finalDmg
 // All post-damage effects are capped at 60% of finalDmg via cappedPostDamage().
 // Pierce skips shield/reflect/absorb (true damage). Reordering changes outcomes.
 function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round: number, masteryLevel: number, damage: number, pierce: boolean, healBoost: number): { s: PvpFighter; o: PvpFighter; lines: string[]; fx: HitFxEvent[] } {

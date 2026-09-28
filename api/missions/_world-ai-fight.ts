@@ -11,6 +11,7 @@ import { huntMissionById } from './_mission-catalog.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
+import { parseWandererId, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import { activeVillageWarEnemiesOf } from '../world-state.js';
 import { activeWorldCrisisEncounter } from '../world-crisis/_state.js';
 import {
@@ -536,7 +537,11 @@ export async function buildWorldAiFightSpec(params: {
         }
         const wanderer = resolveNaturalWorldWanderer(request.sourceId, character, request.sector, now);
         if (!wanderer || wanderer.verb !== 'attack') throw new Error('world-wanderer-not-attackable');
-        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, wanderer.name, level + 1, 0, 'bruiser'), environment,
+        // A night ninja (shared/wanderer-roster.ts) fights with the burst
+        // template for a different feel; same level offset and no stat bonus,
+        // so it is no stronger than a road bandit.
+        const loadout = wanderer.id === 'nightblade' ? 'burst' : 'bruiser';
+        return { profile: runtimeProfile(`world-wanderer-${request.sourceId}`, wanderer.name, level + 1, 0, loadout), environment,
             context: { kind: request.kind, sourceId: request.sourceId, sector: request.sector, stage: 0, displayName: wanderer.name, finalStage: true } };
     }
 
@@ -711,7 +716,11 @@ export function applyWorldAiFightSettlement(
         next = { ...next, wandererCooldowns: { ...cooldowns, [context.sourceId]: Math.max(currentUntil, now + CONTRACT_HUNTER_COOLDOWN_MS) } };
     }
 
-    if (context.kind === 'wanderer') {
+    // The robber streak (-> bandit ambush gauntlet) and the road nemesis belong
+    // to the bandit gang. A night ninja (the reserved night roster slot) is a
+    // lone prowler: beating or losing to one moves neither.
+    const nightNinja = context.kind === 'wanderer' && parseWandererId(context.sourceId)?.index === WANDERER_NIGHT_INDEX;
+    if (context.kind === 'wanderer' && !nightNinja) {
         const streak = Math.max(0, Math.floor(Number(character.robberStreak) || 0));
         if (context.sourceId === 'nemesis') {
             const nemesis = character.wandererNemesis as Record<string, unknown> | undefined;

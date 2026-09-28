@@ -101,6 +101,18 @@ export function setSharedDojoCircuitEnabled(enabled: boolean): void {
     sharedDojoCircuitEnabledCache = enabled === true;
 }
 
+/** The timed boost event exactly as the last game-state frame carried it
+ *  (admin-started, see shared/boost-event.ts). It is kept raw on purpose:
+ *  lib/boost-event-state.ts sanitizes it on read, which keeps the boost-event
+ *  module out of the startup bundle this file ships in. */
+let sharedBoostEventPayloadCache: unknown = null;
+export function sharedBoostEventPayload(): unknown {
+    return sharedBoostEventPayloadCache;
+}
+export function setSharedBoostEventPayload(event: unknown): void {
+    sharedBoostEventPayloadCache = event ?? null;
+}
+
 export function saveArenaTournament(tournament: ArenaTournament | null) {
     sharedArenaTournamentCache = tournament;
     persistSharedGameState({ kind: "arenaTournament", tournament });
@@ -165,6 +177,7 @@ export function hydrateSharedGameState(data: {
     clanPetBattles?: Record<string, PendingClanPetBattle>;
     weeklyBossAiId?: string | null;
     dojoCircuitEnabled?: boolean;
+    boostEvent?: unknown;
 }): boolean {
     const villageStates: Record<string, VillageState> = {};
     const rawVS = data.villageStates;
@@ -230,13 +243,14 @@ export function hydrateSharedGameState(data: {
         : null;
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
     sharedDojoCircuitEnabledCache = data.dojoCircuitEnabled === true;
+    sharedBoostEventPayloadCache = data.boostEvent ?? null;
     // See hydrateSharedWorldState: report change so the 5s poller skips the
     // wasted full-app re-render when the server payload is unchanged.
     const snapshot = JSON.stringify([
         sharedVillageStateCache,
         sharedArenaTournamentCache, sharedArenaActiveFightsCache,
         sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
-        sharedDojoCircuitEnabledCache,
+        sharedDojoCircuitEnabledCache, sharedBoostEventPayloadCache,
     ]);
     const changed = snapshot !== lastSharedGameStateSnapshot;
     lastSharedGameStateSnapshot = snapshot;

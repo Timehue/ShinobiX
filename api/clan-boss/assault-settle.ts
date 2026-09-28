@@ -17,6 +17,7 @@ import { completeParty } from './_party.js';
 import { announce } from '../_announce.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
+import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { clanBossEnabled } from '../_release-flags.js';
 
 /*
@@ -199,6 +200,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 source: `party-${party.length}:${result.won ? 'won' : result.wiped ? 'wiped' : 'timeout'}:${strongestThreshold}`,
             });
         }
+        // Balance telemetry (api/_combat-usage.ts), once per run by its own gate.
+        recordTowerCombatUsage(session, 'clan-boss');
 
         // Multiple idempotent helpers may have advanced the caller's save. Echo the
         // final authoritative version/character so the next autosave cannot collide

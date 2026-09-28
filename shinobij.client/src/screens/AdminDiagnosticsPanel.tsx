@@ -13,6 +13,7 @@ import {
 } from "../../../shared/public-capabilities";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import { canReconcileEconomyTx } from "../lib/economy-reconcile-kinds";
+import { AdminCombatUsagePanel } from "../components/AdminCombatUsagePanel";
 
 // ─── Admin Diagnostics Panel ──────────────────────────────────────────────────
 // Read-only operations/observability surface backing the reliability work:
@@ -50,10 +51,10 @@ type AuditEntry = {
     reason?: string; meta?: Record<string, unknown>;
 };
 type AuditDomain = "content" | "reward" | "sector" | "combat" | "legacy";
-type DiagnosticsSection = "capabilities" | "assets" | "receipts" | "audit" | "economy" | "beta" | "operations" | "index";
+type DiagnosticsSection = "capabilities" | "assets" | "receipts" | "audit" | "economy" | "beta" | "balance" | "operations" | "index";
 
 const DIAGNOSTICS_SECTIONS: readonly DiagnosticsSection[] = [
-    "capabilities", "assets", "receipts", "audit", "economy", "beta", "operations", "index",
+    "capabilities", "assets", "receipts", "audit", "economy", "beta", "balance", "operations", "index",
 ];
 type RuntimeCapabilityRow = {
     modeId: string;
@@ -206,7 +207,7 @@ const box: React.CSSProperties = { background: "#1a1a22", border: "1px solid #33
 const pill: React.CSSProperties = { display: "inline-block", background: "#2a2a36", borderRadius: 6, padding: "2px 8px", margin: "2px 4px 2px 0", fontSize: "0.8rem" };
 const mono: React.CSSProperties = { fontFamily: "monospace", fontSize: "0.82rem" };
 
-export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
+export function AdminDiagnosticsPanel({ adminPw, fullAdmin = false }: { adminPw: string; fullAdmin?: boolean }) {
     const [section, setSection] = useState<DiagnosticsSection>("capabilities");
 
     // Exact current server projection. One authenticated no-store response owns
@@ -513,7 +514,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
         <div>
             <h3>🛠️ Diagnostics</h3>
             <p style={{ color: "#9aa", fontSize: "0.85rem", marginTop: 0 }}>
-                Read-only operations tools — public capabilities, assets, battle receipts, audit log, economy, beta telemetry, and player index health.
+                Read-only operations tools — public capabilities, assets, battle receipts, audit log, economy, beta telemetry, combat balance, and player index health.
             </p>
             <div className="admin-diagnostics-tabs" role="tablist" aria-label="Diagnostics sections">
                 {DIAGNOSTICS_SECTIONS.map((s) => (
@@ -529,7 +530,7 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                         onKeyDown={handleHorizontalTabKeyDown}
                         onClick={() => setSection(s)}
                     >
-                        {s === "capabilities" ? "Capabilities" : s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : s === "operations" ? "Clan Boss" : "Player Index"}
+                        {s === "capabilities" ? "Capabilities" : s === "assets" ? "Assets" : s === "receipts" ? "Battle Receipts" : s === "audit" ? "Audit Log" : s === "economy" ? "Economy" : s === "beta" ? "Beta" : s === "balance" ? "Combat Balance" : s === "operations" ? "Clan Boss" : "Player Index"}
                     </button>
                 ))}
             </div>
@@ -819,6 +820,8 @@ export function AdminDiagnosticsPanel({ adminPw }: { adminPw: string }) {
                     )}
                 </div>
             )}
+
+            {section === "balance" && <AdminCombatUsagePanel adminPw={adminPw} canReset={fullAdmin} />}
 
             {section === "beta" && (
                 <div>

@@ -318,6 +318,8 @@ import rankedSeasonHandler from './api/ranked-season.js';
 import moderationHandler from './api/admin/moderation.js';
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
 import adminBattleReceiptsHandler from './api/admin/battle-receipts.js';
+import adminBoostEventHandler from './api/admin/boost-event.js';
+import adminCombatUsageHandler from './api/admin/combat-usage.js';
 // Admin: asset-registry report + per-domain audit-log reader (diagnostics)
 import adminAssetReportHandler from './api/admin/asset-report.js';
 import adminAuditLogHandler from './api/admin/audit-log.js';
@@ -804,6 +806,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
     route('/admin/battle-receipts', adminBattleReceiptsHandler);
+    route('/admin/boost-event', adminBoostEventHandler);
+    route('/admin/combat-usage', adminCombatUsageHandler);
 
     // ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────
     route('/admin/asset-report', adminAssetReportHandler);
