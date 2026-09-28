@@ -30,7 +30,7 @@ import {
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
-import festivalMarkerArt from "../assets/festival/sunscar-queen-v1.webp";
+import festivalMarkerArt from "../assets/festival/sunscar-festival-marker-v1.webp";
 import { firstContractVisible, openFirstContract } from "../lib/first-contract";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, VersionedCharacterCommit } from "../types/character";
