@@ -1571,6 +1571,32 @@ describe('Battle Towers AOE + consumables', () => {
         assert.equal(applyAction(s2, floor, { actorId: 'sq-1', type: 'jutsu', jutsuId: 'flicker', tile: Number.NaN }, makeRng(1)).reason, 'bad-tile');
         assert.equal(getActor(s2, 'sq-1')!.pos, 0, 'malformed movement anchors cannot corrupt actor position');
     });
+
+    it('a Move-tag AOE_CIRCLE relocates first, then hits every hostile in the landing ring', () => {
+        const landing = 3;
+        const ring = towerNeighbors(landing, MAP8.width, MAP8.height)[0]!;
+        const outer = Array.from({ length: MAP8.width * MAP8.height }, (_, tile) => tile)
+            .find(tile => hexDistance(landing, tile, MAP8.width) > 1 && tile !== 0)!;
+        const blitz = {
+            id: 'blitz', name: 'Blitz', type: 'Taijutsu', ap: 60, range: 4, effectPower: 40,
+            chakraCost: 10, target: 'EMPTY_GROUND', method: 'AOE_CIRCLE',
+            tags: [{ name: 'Move', percent: 0 }, { name: 'Wound', percent: 20 }],
+        };
+        const caster = makeActor('sq-1', 'squad', 0, {
+            chakra: 300, maxChakra: 300,
+            character: { specialty: 'Taijutsu', stats: { taijutsuOffense: 2500, taijutsuDefense: 2500 }, jutsu: [blitz] },
+        });
+        const primary = makeActor('en-1', 'enemy', ring, { hp: 99999, maxHp: 99999, character: WEAK });
+        const outside = makeActor('en-2', 'enemy', outer, { hp: 99999, maxHp: 99999, character: WEAK });
+        const s = makeSession([caster, primary, outside]);
+        startRound(s);
+        const result = applyAction(s, floor, { actorId: caster.id, type: 'jutsu', jutsuId: blitz.id, tile: landing }, makeRng(1));
+        assert.ok(result.applied);
+        assert.equal(getActor(s, caster.id)!.pos, landing, 'caster lands on the chosen open tile');
+        assert.ok(getActor(s, primary.id)!.hp < 99999, 'hostile in the impact ring is hit');
+        assert.equal(getActor(s, outside.id)!.hp, 99999, 'hostile outside the ring is untouched');
+        assert.equal(getActor(s, caster.id)!.chakra, 290, 'cast resource cost is paid once');
+    });
 });
 
 // ─── Basic actions: heal / cleanse / clear / dash (ported from PvP) ───────────

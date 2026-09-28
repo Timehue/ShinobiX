@@ -22,13 +22,19 @@ import facilityMissionHall from "../assets/village-icons/mission-hall.webp";
 import facilityShop from "../assets/village-icons/shop.webp";
 import facilityClanHall from "../assets/village-icons/clan-hall.webp";
 import facilityCafeteria from "../assets/village-icons/cafeteria.webp";
+import facilityTownHall from "../assets/village-icons/townhall.webp";
+import facilityBank from "../assets/village-icons/bank.webp";
+import facilityTraining from "../assets/village-icons/stat-training.webp";
+import facilityHospital from "../assets/village-icons/hospital.webp";
+import facilityWorldMap from "../assets/village-icons/world-map.webp";
 
 export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "mission" | "ryo" | "fateShard" | "boneCharm"
     | "roleDefender" | "roleTracker" | "roleAssassin" | "roleSage"
     | "elementFire" | "elementWater" | "elementWind" | "elementEarth" | "elementLightning"
     | "biomeForest" | "biomeSnow" | "biomeVolcano" | "biomeCentral" | "biomeShadow"
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
-    | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations";
+    | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
+    | "townHall" | "bank" | "training" | "hospital" | "worldMap";
 
 const ART: Record<GameArtIconKind, string> = {
     vitality: "/ui/game-icons/vitality.webp",
@@ -49,6 +55,8 @@ const ART: Record<GameArtIconKind, string> = {
     key: "/items/item-hollow-gate-key-v1.webp",
     scroll: "/items/item-territory-control-scroll-v1.webp",
     clanHall: facilityClanHall, rations: facilityCafeteria,
+    townHall: facilityTownHall, bank: facilityBank, training: facilityTraining,
+    hospital: facilityHospital, worldMap: facilityWorldMap,
 };
 
 export function GameArtIcon({ kind, size = 20, className }: { kind: GameArtIconKind; size?: number; className?: string }) {

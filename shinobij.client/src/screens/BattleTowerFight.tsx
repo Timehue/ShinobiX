@@ -1291,6 +1291,12 @@ export function BattleTowerFight({
     // around EVERY in-range enemy so the jutsu always reads as an area hit, never single-target.
     const aoeBurstTiles = useMemo(() => {
         const out = new Set<number>();
+        if (mode === "jutsu" && isMoveJutsu(selJutsu)) {
+            if (String(selJutsu?.method ?? "SINGLE").toUpperCase() !== "AOE_CIRCLE"
+                || hoveredTile == null || !jutsuRangeTiles.has(hoveredTile)) return out;
+            for (const tile of towerNeighbors(hoveredTile, w, h)) out.add(tile);
+            return out;
+        }
         if (mode !== "jutsu" || !isBurstJutsu(selJutsu)) return out;
         const hovered = hoverEnemyPos != null && session.actors.some(a => a.hp > 0 && a.side === "enemy" && a.pos === hoverEnemyPos && enemiesInRange.has(a.id));
         const centres = hovered
@@ -1298,7 +1304,7 @@ export function BattleTowerFight({
             : session.actors.filter(a => a.hp > 0 && a.side === "enemy" && enemiesInRange.has(a.id)).map(a => a.pos);
         for (const c of centres) { out.add(c); for (const n of towerNeighbors(c, w, h)) out.add(n); }
         return out;
-    }, [mode, selJutsu, hoverEnemyPos, session.actors, enemiesInRange, w, h]);
+    }, [mode, selJutsu, hoveredTile, jutsuRangeTiles, hoverEnemyPos, session.actors, enemiesInRange, w, h]);
 
     // First feature occupying each tile (for tinting + markers).
     const featureByTile = useMemo(() => {
@@ -2140,11 +2146,9 @@ export function BattleTowerFight({
                                                 sprite={battleSprite}
                                                 facing={spriteFacing}
                                                 fallback={<img src={fallbackArtFor(a)} alt="" />}
+                                                className={isActive ? "tower-actor-highlight--active" : targetable ? "tower-actor-highlight--target" : selfTargetable ? "tower-actor-highlight--self" : inspected ? "tower-actor-highlight--inspected" : ""}
                                                 style={{
                                                     width: size, height: size,
-                                                    outline: isActive ? "3px solid #fde047" : targetable ? "3px solid var(--red-300)" : selfTargetable ? "3px solid #67e8f9" : inspected ? "3px solid #a78bfa" : "none",
-                                                    outlineOffset: 2,
-                                                    boxShadow: targetable ? "0 0 16px 4px rgba(248,113,113,0.9)" : selfTargetable ? "0 0 16px 4px rgba(34,211,238,0.85)" : inspected ? "0 0 16px 4px rgba(167,139,250,0.75)" : undefined,
                                                 }}>
                                                 {isBoss && <GameIcon name="sigil" size={16} style={{ position: "absolute", top: -2, right: -2, color: "var(--tower-hud-gold)", filter: "drop-shadow(0 1px 2px #000)" }} />}
                                                 {bossBarrierActive && <span className="tower-boss-barrier" aria-hidden="true" />}

@@ -8,6 +8,7 @@ import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { useState, useEffect, useEffectEvent, useRef } from "react";
 import "../styles/index/19-town-hall.css";
 import "../styles/town-hall-aaa.css";
+import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 import { GiBroadsword, GiCrossedSwords, GiCrown, GiMoneyStack, GiPagoda, GiScrollUnfurled, GiShield, GiTreasureMap, GiUpgrade } from "../components/icons/LightweightGameIcons";
 import { visiblePoll } from "../lib/poll";
 import {
@@ -59,13 +60,13 @@ import { mercPortrait } from "../lib/merc-ai";
 import { activeVillageWarsFor, endedVillageWarRecordsFor, hollowGateDaysLeft, HOLLOW_GATE_UNLOCK_DAYS, isHollowGateUnlocked, isVillageAnbu, loadVillageState, normalizeVillageState, saveVillageState, villageOwnedTerritories, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageAgendaTask, type VillageState, type VillageTreasury, type VillageTreasuryCurrencyKey } from "../lib/world-state";
 
 const TOWN_TABS = [
-    { id: "status", label: "Command", caption: "Village posture", icon: GiPagoda },
-    { id: "upgrades", label: "Upgrades", caption: "Civic works", icon: GiUpgrade },
-    { id: "treasury", label: "Treasury", caption: "Shared stores", icon: GiMoneyStack },
-    { id: "guard", label: "Guard", caption: "Defenders", icon: GiShield },
-    { id: "notices", label: "Orders", caption: "Field dispatches", icon: GiScrollUnfurled },
-    { id: "mercenaries", label: "Mercenaries", caption: "War bands", icon: GiCrossedSwords },
-    { id: "politics", label: "Council", caption: "Leadership", icon: GiCrown },
+    { id: "status", label: "Command", caption: "Village posture", icon: "townHall" },
+    { id: "upgrades", label: "Upgrades", caption: "Civic works", icon: "training" },
+    { id: "treasury", label: "Treasury", caption: "Shared stores", icon: "bank" },
+    { id: "guard", label: "Guard", caption: "Defenders", icon: "roleDefender" },
+    { id: "notices", label: "Orders", caption: "Field dispatches", icon: "missionHall" },
+    { id: "mercenaries", label: "Mercenaries", caption: "War bands", icon: "vanguard" },
+    { id: "politics", label: "Council", caption: "Leadership", icon: "crown" },
 ] as const;
 
 type ElderFocusKey = NonNullable<Character["elderFocus"]>;
@@ -1110,7 +1111,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 { label: "Honor seals", value: (character.honorSeals ?? 0).toLocaleString(), tone: "good" },
             ]}
         />
-        <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(({ id, label, caption, icon: TabIcon }) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}><TabIcon className="town-tab-icon" aria-hidden="true" /><span><strong>{label}</strong><small>{caption}</small></span></button>)}</nav>
+        <nav className="town-tabs" aria-label="Town Hall sections">{TOWN_TABS.map(({ id, label, caption, icon }) => <button key={id} type="button" className={tab === id ? "active" : ""} aria-pressed={tab === id} onClick={() => setTab(id)}><GameArtIcon kind={icon as GameArtIconKind} className="town-tab-icon" size={25} /><span><strong>{label}</strong><small>{caption}</small></span></button>)}</nav>
         {tab === "status" && <div className="town-command">
             {supplyCall && <section className="summary-box town-supply-call" data-tone={supplyCall.tone} role="status"><div className="town-supply-call-copy"><p className="act-label">Village supply</p><h3>{supplyCall.headline}</h3><p>{supplyCall.body}</p></div><button type="button" className="town-supply-call-action" onClick={() => setScreen(supplyCall.screen)}>{supplyCall.actionLabel}</button></section>}
             <section className="town-action-center"><div className="town-section-heading"><p className="act-label">Ready now</p><h3>Village priorities</h3></div><div className="town-priority-grid">
