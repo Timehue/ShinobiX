@@ -26,8 +26,8 @@ import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs keep the navigation consistent with the HUD emblems
 // without loading a second icon library.
 import {
-    GiChatBubble, GiExitDoor, GiGears, GiHamburgerMenu,
-    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiShop, GiTreasureMap,
+    GiAdmin, GiDiscord, GiExitDoor, GiHamburgerMenu,
+    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiPremiumShop, GiSettings, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
@@ -200,15 +200,15 @@ export const MobileNav = memo(function MobileNav({
                             <h2 id="mobile-menu-support">Support</h2>
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
-                                <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiChatBubble size={20} />Discord</button>
-                                <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiShop size={20} />Premium Shop</button>
+                                <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiDiscord size={20} />Discord</button>
+                                <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiPremiumShop size={20} />Premium Shop</button>
                             </div>
                         </section>
                         <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">
                             <h2 id="mobile-menu-system">System</h2>
                             <div className="mobile-menu-grid">
-                                {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiGears size={20} />Admin</button>}
-                                <button className="mobile-menu-btn" aria-current={screen === "settings" ? "page" : undefined} onClick={() => go("settings")} onPointerDown={() => preloadScreen("settings")}><GiGears size={20} />Settings</button>
+                                {isAdminAccount && <button className="mobile-menu-btn" onClick={() => go(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><GiAdmin size={20} />Admin</button>}
+                                <button className="mobile-menu-btn" aria-current={screen === "settings" ? "page" : undefined} onClick={() => go("settings")} onPointerDown={() => preloadScreen("settings")}><GiSettings size={20} />Settings</button>
                                 <button className="mobile-menu-btn danger" onClick={() => { logoutPlayer(); setOpen(false); }}><GiExitDoor size={20} />Logout</button>
                             </div>
                         </section>

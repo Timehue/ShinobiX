@@ -66,6 +66,8 @@ function pathGlyph(path: string, options: { fill?: boolean; strokeWidth?: number
 }
 
 const attack = artGlyph("attack");
+const anvil = gameGlyph("anvil");
+const admin = gameGlyph("admin");
 const bag = artGlyph("supply");
 const bone = artGlyph("boneCharm");
 const chakra = artGlyph("auraStone");
@@ -87,6 +89,7 @@ const medal = artGlyph("crown");
 const menu = gameGlyph("menu");
 const moon = artGlyph("biomeShadow");
 const paw = artGlyph("petTamer");
+const pawGlyph = gameGlyph("paw");
 const person = artGlyph("roleDefender");
 const ryo = artGlyph("ryo");
 const scroll = artGlyph("scroll");
@@ -99,15 +102,26 @@ const target = artGlyph("roleTracker");
 const tower = artGlyph("clanHall");
 const coliseum = artGlyph("arena");
 const travel = artGlyph("gate");
+const tavern = artGlyph("tavern");
 
 const book = artGlyph("scroll");
+const bookGlyph = gameGlyph("book");
 const chat = pathGlyph("M4 4.5h16v11H9l-5 4v-15Z");
+const discord = gameGlyph("discord");
+const envelope = gameGlyph("envelope");
+const missionBoard = artGlyph("mission");
+const openBook = gameGlyph("openBook");
+const people = gameGlyph("people");
+const petYard = artGlyph("petYard");
+const premiumShop = gameGlyph("shard");
+const shop = artGlyph("shop");
 const close = pathGlyph("m6 6 12 12M18 6 6 18", { strokeWidth: 2.2 });
 const crown = artGlyph("crown");
 const eye = pathGlyph("M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Zm9.5-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z");
 const exit = pathGlyph("M10 4H5v16h5M13 8l4 4-4 4M8 12h9");
 const flag = pathGlyph("M5 21V4m0 1h11l-2 3 2 3H5");
 const gears = pathGlyph("M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7Zm0-5v2m0 13v2M3.5 12h2m13 0h2M6 6l1.4 1.4M16.6 16.6 18 18M18 6l-1.4 1.4M7.4 16.6 6 18");
+const settings = gameGlyph("settings");
 const lock = pathGlyph("M7 10V7a5 5 0 0 1 10 0v3m-11 0h12v10H6V10Z");
 const speaker = pathGlyph("M4 10h4l5-4v12l-5-4H4v-4Zm12-1c1.3 1.7 1.3 4.3 0 6m2.5-8.5c2.7 3.1 2.7 7.9 0 11");
 const speakerOff = pathGlyph("M4 10h4l5-4v5m0 4v3l-5-4H4v-4Zm12-5 5 5m0-5-5 5M3 3l18 18");
@@ -117,13 +131,13 @@ const trophy = artGlyph("crown");
 export {
     clock as GiAlarmClock,
     paw as GiAnimalHide,
-    strength as GiAnvil,
-    bag as GiBeerStein,
+    anvil as GiAnvil,
+    tavern as GiBeerStein,
     strength as GiBiceps,
     defense as GiBlackBelt,
     flag as GiBlackFlag,
     strength as GiBlacksmith,
-    book as GiBookCover,
+    bookGlyph as GiBookCover,
     book as GiBookshelf,
     speed as GiBootPrints,
     rations as GiBowlOfRice,
@@ -150,11 +164,12 @@ export {
     crystal as GiCrystalCluster,
     crystal as GiCrystalGrowth,
     attack as GiDaggers,
+    discord as GiDiscord,
     dice as GiDiceSixFacesSix,
     sigil as GiDna1,
     target as GiDragonHead,
     travel as GiDungeonGate,
-    chat as GiEnvelope,
+    envelope as GiEnvelope,
     exit as GiExitDoor,
     eye as GiEyeball,
     bone as GiFangs,
@@ -165,6 +180,14 @@ export {
     fire as GiFlame,
     attack as GiGauntlet,
     gears as GiGears,
+    admin as GiAdmin,
+    settings as GiSettings,
+    missionBoard as GiMissionBoard,
+    openBook as GiReferenceBook,
+    people as GiPeople,
+    petYard as GiPetYard,
+    premiumShop as GiPremiumShop,
+    tavern as GiTavern,
     crystal as GiGems,
     medal as GiGraduateCap,
     tower as GiGreekTemple,
@@ -190,11 +213,11 @@ export {
     person as GiNinjaHeroicStance,
     book as GiNotebook,
     target as GiOgre,
-    book as GiOpenBook,
+    openBook as GiOpenBook,
     gift as GiOpenTreasureChest,
     lock as GiPadlock,
     tower as GiPagoda,
-    paw as GiPawPrint,
+    pawGlyph as GiPawPrint,
     map as GiPositionMarker,
     attack as GiPunchBlast,
     medal as GiRank3,
@@ -204,7 +227,7 @@ export {
     clock as GiSandsOfTime,
     scroll as GiScrollUnfurled,
     defense as GiShield,
-    bag as GiShop,
+    shop as GiShop,
     snow as GiSnowflake1,
     sparkle as GiSparkles,
     speaker as GiSpeaker,
@@ -223,7 +246,7 @@ export {
     chat as GiTalk,
     target as GiTargeted,
     travel as GiTempleGate,
-    person as GiThreeFriends,
+    people as GiThreeFriends,
     bone as GiTombstone,
     map as GiTrail,
     trash as GiTrashCan,

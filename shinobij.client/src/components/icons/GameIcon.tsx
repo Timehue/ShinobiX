@@ -230,6 +230,52 @@ const PATHS: Record<GameIconName, ReactElement> = {
             <path fillRule="evenodd" clipRule="evenodd" opacity=".45" d="M10.4 13.1h3.2v8.1h-3.2z" />
         </>
     ),
+    // Sealed envelope with a crisp folded flap; distinct from the chat bubble.
+    envelope: (
+        <>
+            <path fillRule="evenodd" clipRule="evenodd" d="M4.5 5h15A2.5 2.5 0 0 1 22 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-15A2.5 2.5 0 0 1 2 16.5v-9A2.5 2.5 0 0 1 4.5 5Zm0 2v.4l7.5 5.4 7.5-5.4V7h-15Z" />
+            <path d="m3.2 8.2 7.9 5.7a1.5 1.5 0 0 0 1.8 0l7.9-5.7v8.3a1 1 0 0 1-1 1H4.2a1 1 0 0 1-1-1V8.2Z" />
+        </>
+    ),
+    // Discord-inspired gamepad mark for the community link.
+    discord: (
+        <path fillRule="evenodd" clipRule="evenodd" d="M7.1 5.1a17 17 0 0 1 9.8 0l.8 1.5 1.6-.8a16.7 16.7 0 0 1 2.4 10.9 12.5 12.5 0 0 1-4.9 2.5l-1.1-1.8c.7-.2 1.3-.5 1.9-.9a12 12 0 0 1-11.2 0c.6.4 1.2.7 1.9.9l-1.1 1.8a12.5 12.5 0 0 1-4.9-2.5A16.7 16.7 0 0 1 4.6 5.8l1.6.8.9-1.5Zm2.2 7.2a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7Zm5.4 0a1.35 1.35 0 1 0 0 2.7 1.35 1.35 0 0 0 0-2.7Z" />
+    ),
+    // Staff crest: a shield carrying a star, visibly separate from settings.
+    admin: (
+        <path fillRule="evenodd" clipRule="evenodd" d="M12 2.2 4 5.1v5.5c0 5.1 3.3 8.9 8 11.2 4.7-2.3 8-6.1 8-11.2V5.1l-8-2.9Zm0 3.1 1.8 3.6 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4-2.9-2.8 4-.6L12 5.3Z" />
+    ),
+    // Eight-tooth cog with an open center; account and game controls.
+    settings: (
+        <path fillRule="evenodd" clipRule="evenodd" d="M9.4 2.5h5.2l.5 2.2 1.4.8 2.1-.9 2.6 4.5-1.7 1.6v1.7l1.7 1.6-2.6 4.5-2.1-.9-1.4.8-.5 2.2H9.4l-.5-2.2-1.4-.8-2.1.9-2.6-4.5 1.7-1.6v-1.7L2.8 9.1l2.6-4.5 2.1.9 1.4-.8.5-2.2Zm2.6 5.1a4.4 4.4 0 1 0 0 8.8 4.4 4.4 0 0 0 0-8.8Z" />
+    ),
+    // Distinct silhouettes for the journal and the open reference book.
+    book: (
+        <>
+            <path d="M5.4 3.2h13.2A2.4 2.4 0 0 1 21 5.6v14.8H7.2A4.2 4.2 0 0 1 3 16.2V5.6a2.4 2.4 0 0 1 2.4-2.4Z" />
+            <path opacity=".42" d="M7.1 5.1h.9v12.7h-.9a2.2 2.2 0 0 0-2.2-2.2V7.3a2.2 2.2 0 0 0 2.2-2.2Z" />
+            <path d="M9.8 8h8.3v1.4H9.8zm0 3.2h8.3v1.4H9.8zm0 3.2h6.2v1.4H9.8z" />
+        </>
+    ),
+    openBook: (
+        <>
+            <path d="M11 5.1c-2.7-2-6.1-2.5-8.5-1.2v15c2.4-1.3 5.8-.8 8.5 1.2V5.1Zm2 0c2.7-2 6.1-2.5 8.5-1.2v15c-2.4-1.3-5.8-.8-8.5 1.2V5.1Z" />
+            <path opacity=".42" d="M4.5 7.1c1.5-.5 3-.3 4.5.4V9c-1.5-.7-3-.9-4.5-.4zm0 4c1.5-.5 3-.3 4.5.4V13c-1.5-.7-3-.9-4.5-.4zm11-3.6c1.5-.7 3-.9 4.5-.4v1.5c-1.5-.5-3-.3-4.5.4zm0 4c1.5-.7 3-.9 4.5-.4v1.5c-1.5-.5-3-.3-4.5.4z" />
+        </>
+    ),
+    people: (
+        <>
+            <circle cx="8.4" cy="8" r="3.2" />
+            <circle cx="17" cy="8.8" r="2.5" />
+            <path d="M2.8 19.4c0-3.5 2.3-5.8 5.6-5.8s5.6 2.3 5.6 5.8H2.8Zm11.3-4.9a5.8 5.8 0 0 1 2.9-.8c3.1 0 5.2 2.2 5.2 5.5h-6.6a7.2 7.2 0 0 0-1.5-4.7Z" />
+        </>
+    ),
+    anvil: (
+        <>
+            <path d="M3 5h18v3h-3.5l-1.2 4.7H8.7L7.5 8H3V5Zm4.2 9.2h9.6v2.2h-3.5l-1 4.6h-2.1l-1-4.6H7.2v-2.2Z" />
+            <path opacity=".42" d="M5 6.2h14v.7H5zM9.5 14.8h5v.7h-5z" />
+        </>
+    ),
 };
 
 // Game world symbols use the painted Shinobi Journey asset set. Keep tiny
@@ -239,7 +285,7 @@ const ART_BY_ICON: Partial<Record<GameIconName, GameArtIconKind>> = {
     ryo: "ryo", shard: "fateShard", crystal: "auraStone", sparkle: "elementLightning",
     medal: "crown", sigil: "crown", bone: "boneCharm", chakra: "vitality", hp: "vitality",
     sword: "attack", shield: "guard", scroll: "scroll", map: "map", target: "attack",
-    dice: "dice", dumbbell: "training", paw: "petTamer", gift: "reward", person: "roleDefender",
+    dice: "dice", dumbbell: "training", gift: "reward", person: "roleDefender",
     bag: "supply", flask: "potion", bolt: "elementLightning", leaf: "biomeForest",
     snow: "biomeSnow", moon: "biomeShadow", gate: "gate", tower: "townHall",
     rations: "rations", hazard: "warning",

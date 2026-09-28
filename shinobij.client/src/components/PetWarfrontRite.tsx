@@ -48,7 +48,7 @@ import {
     type RitePlan,
     type RiteResult,
 } from "../lib/pet-warfront-rite";
-import { petBattleSprite, petCardImage } from "../lib/pet-battle-anim";
+import { petWarfrontPortraitSources } from "../lib/pet-battle-anim";
 import { PET_VISUAL_QUALITY_PRESETS, petVisualQuality } from "../lib/pet-visual-quality";
 import { playPetSfx, primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic, stopBattleMusic } from "../lib/pet-music";
@@ -130,12 +130,16 @@ function PetPortrait({ pet, sharedImages, size = 56, placementArt = false }: {
     size?: number;
     placementArt?: boolean;
 }) {
-    const source = useMemo(
-        () => placementArt ? petCardImage(pet, sharedImages) : petBattleSprite(pet, sharedImages).src,
+    const sources = useMemo(
+        // Saved/custom portraits can outlive their upload; retain a reviewed
+        // local idle pose as the next source before falling back to an initial.
+        () => petWarfrontPortraitSources(pet, sharedImages, placementArt),
         [pet, placementArt, sharedImages],
     );
-    const [failedSource, setFailedSource] = useState<string | null>(null);
-    const visibleSource = source && source !== failedSource ? source : "";
+    const sourceKey = sources.join("\u0000");
+    const [imageFailures, setImageFailures] = useState<{ sourceKey: string; sources: Set<string> } | null>(null);
+    const failedSources = imageFailures?.sourceKey === sourceKey ? imageFailures.sources : EMPTY_FAILED_IMAGES;
+    const visibleSource = sources.find((candidate) => !failedSources.has(candidate)) ?? "";
     const needsContrastRim = pet.element === "Wind" || pet.element === "Earth";
     return (
         <span
@@ -145,11 +149,17 @@ function PetPortrait({ pet, sharedImages, size = 56, placementArt = false }: {
             style={{ width: size, height: size, borderColor: `${elColor(pet.element)}88` }}
         >
             {visibleSource
-                ? <img src={visibleSource} alt="" aria-hidden="true" draggable={false} loading={placementArt ? "eager" : "lazy"} decoding="async" onError={() => setFailedSource(visibleSource)} />
+                ? <img src={visibleSource} alt="" aria-hidden="true" draggable={false} loading={placementArt ? "eager" : "lazy"} decoding="async" onError={() => setImageFailures((current) => {
+                    const failed = new Set(current?.sourceKey === sourceKey ? current.sources : []);
+                    failed.add(visibleSource);
+                    return { sourceKey, sources: failed };
+                })} />
                 : <span className="wfr-portrait-glyph" style={{ color: elColor(pet.element) }}>{pet.name.slice(0, 1)}</span>}
         </span>
     );
 }
+
+const EMPTY_FAILED_IMAGES: ReadonlySet<string> = new Set();
 
 /** Health carried into a clash, drawn as a partial bar. A pet that returns at
  *  45% must LOOK like it returns at 45% before the fighting starts. */

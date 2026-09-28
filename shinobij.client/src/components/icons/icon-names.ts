@@ -35,6 +35,14 @@ export type GameIconName =
     | "moon"     // Moonshadow village marker
     | "gate"     // Stormveil village marker
     | "tower"    // Central citadel marker
+    | "envelope" // mail / inbox
+    | "discord"  // community server
+    | "admin"    // staff controls
+    | "settings" // account and game settings
+    | "book"     // closed logbook / journal
+    | "openBook" // guides / reference
+    | "people"   // player community
+    | "anvil"    // professions / crafting
     | "rations"  // rice bowl — war rations / provisions (NOT the hp heart)
     | "hazard";  // warning triangle — starvation / unfed alert (NOT a flag)
 
@@ -43,6 +51,7 @@ export const gameIconNames: readonly GameIconName[] = [
     "chakra", "hp", "sword", "shield", "scroll",
     "map", "target", "dice", "clock", "dumbbell", "paw", "gift",
     "person", "bag", "menu", "flask", "bolt",
-    "leaf", "snow", "moon", "gate", "tower",
+    "leaf", "snow", "moon", "gate", "tower", "envelope", "discord", "admin", "settings",
+    "book", "openBook", "people", "anvil",
     "rations", "hazard",
 ];
