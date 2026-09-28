@@ -18,6 +18,7 @@ import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
 import type { TowerSession } from './_tower-session.js';
 import { recordTowerRunSettled } from './_telemetry.js';
+import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { refreshTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { projectTowerSettlementState } from './_settlement-projection.js';
 import {
@@ -130,6 +131,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (towerPartyId) closedParty = await closeTowerPartyRun(towerPartyId, authoritativeSession.runId).catch(() => null);
             await releaseTowerBattleLeases(runId, leaseMembers).catch(() => undefined);
             await recordTowerRunSettled(authoritativeSession);
+            // Balance telemetry (api/_combat-usage.ts), once per run.
+            recordTowerCombatUsage(authoritativeSession, 'tower');
             publishTowerSessionKick(authoritativeSession, 'settled');
             if (closedParty) {
                 kickTowerPlayers(towerPartyHumanMembers(closedParty).map(member => member.slug), {

@@ -10,6 +10,7 @@ import {
     type BattleReceipt,
 } from '../_receipts.js';
 import { safeName } from '../_utils.js';
+import { recordPvpCombatUsage } from '../_combat-usage.js';
 import {
     discoverAcceptedKageDuelPointer,
     kageDuelKey,
@@ -87,7 +88,12 @@ async function ensureCommittedBattleReceipt(session: PvpSession): Promise<Battle
     if (isBattleReceiptFor(current, session.battleId)) return current;
     if (current !== null) throw new Error('pvp-battle-receipt-conflict');
     try {
-        if (await kv.compareSet(key, null, desired, { ex: RECEIPT_TTL_SEC })) return desired;
+        if (await kv.compareSet(key, null, desired, { ex: RECEIPT_TTL_SEC })) {
+            // This branch wins exactly once per battle, so it is where the
+            // balance telemetry counts the fight. Fire-and-forget, never throws.
+            recordPvpCombatUsage(session);
+            return desired;
+        }
     } catch (error) {
         const recovered = await kv.get<unknown>(key).catch(() => null);
         if (isBattleReceiptFor(recovered, session.battleId)) return recovered;

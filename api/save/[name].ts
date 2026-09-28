@@ -1,6 +1,7 @@
 import { reconcileElderFocus } from '../village/_elders.js';
 import { sanitizeNarrativeIdentity } from './_sanitize-narrative.js';
 import { sanitizeProgression } from './_sanitize-progression.js';
+import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
@@ -1116,15 +1117,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             const exXp = Math.max(0, Number(exChar.xp ?? exChar.experience ?? 0));
                             const inXp = Math.max(0, Number(inChar.xp ?? inChar.experience ?? 0));
                             const xpDelta = Math.max(0, inXp - exXp);
-                            const exStats = (exChar.stats ?? {}) as Record<string, number>;
-                            const inStats = (inChar.stats ?? {}) as Record<string, number>;
-                            const statDelta: Record<string, number> = {};
-                            for (const k of Object.keys(inStats)) {
-                                const ex = Number(exStats[k] ?? 0);
-                                const inv = Number(inStats[k] ?? 0);
-                                const d = Math.max(0, inv - ex);
-                                if (d > 0) statDelta[k] = d;
-                            }
+                            // Stat increases that are NOT an exact, entitlement-checked
+                            // spend of the player's own unspent pool. Allocating banked
+                            // points is not a gain (they were rate-limited when earned),
+                            // so a large allocation no longer trips the per-stat cap;
+                            // created, legacy-unchecked or clamped points still count.
+                            const statDelta = unfundedStatGains(inChar, exChar);
                             // Premium / power-material currency deltas (anti-tamper window).
                             const currencyDelta: Record<string, number> = {};
                             for (const k of Object.keys(MAX_CURRENCY_PER_MINUTE)) {

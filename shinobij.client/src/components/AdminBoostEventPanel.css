@@ -1,0 +1,18 @@
+.boost-admin { margin: 0 0 16px; padding: 12px; border: 1px solid rgba(250, 204, 21, .45); border-radius: 8px; background: rgba(24, 20, 6, .55); }
+.boost-admin header span { color: #facc15; font-size: .6rem; font-weight: 900; letter-spacing: .14em; }
+.boost-admin header h3 { margin: 2px 0; }
+.boost-admin header p, .boost-admin form > p { color: #cbd5e1; font-size: .8rem; }
+.boost-admin fieldset { display: grid; gap: 8px; margin: 10px 0; padding: 8px; border: 1px solid rgba(148, 163, 184, .35); border-radius: 6px; }
+/* Scoped tightly: the Admin Panel's global form rules otherwise stretch these
+   checkboxes across the row and push the labels to the far side. */
+.boost-admin .boost-admin__target { display: flex; justify-content: flex-start; align-items: flex-start; gap: 10px; width: 100%; min-height: 44px; text-align: left; cursor: pointer; }
+.boost-admin .boost-admin__target input[type="checkbox"] { flex: 0 0 20px; width: 20px; min-width: 20px; height: 20px; margin: 2px 0 0; padding: 0; }
+.boost-admin .boost-admin__target span { flex: 1 1 auto; min-width: 0; text-align: left; }
+.boost-admin__target span strong, .boost-admin__target span small { display: block; }
+.boost-admin__target span small { color: #94a3b8; }
+.boost-admin__fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.boost-admin__fields label { display: grid; gap: 4px; font-size: .8rem; }
+.boost-admin button { min-height: 44px; }
+.boost-admin__live strong { color: #fef08a; }
+.boost-admin__confirm { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.boost-admin__error { color: #fca5a5; }

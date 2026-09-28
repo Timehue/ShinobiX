@@ -36,6 +36,42 @@ export function applyPaidStatRespec(character: CharacterLike): CharacterLike | n
 }
 
 /**
+ * Per-stat increases from `existing` to `incoming` that are NOT a proven
+ * allocation of the player's own pool — what the save handler's per-minute
+ * stat window should count.
+ *
+ * Spending banked points is not a gain: the points were earned (and rate-
+ * limited) when the server granted them. So when preserveStatPointEntitlement
+ * classifies the save as an exact `allocation` (total unchanged, every
+ * increase paid for by an equal drop in unspentStats), the funded amount is
+ * subtracted. Anything else still counts in full: a save it rejects, the
+ * legacy branch that accepts stats unchecked, and any part of a raw value that
+ * the classifier had to clamp (it reads stats bounded to 10..MAX_STAT).
+ *
+ * Call it on the FINAL sanitized character, never the raw request body.
+ */
+export function unfundedStatGains(incoming: CharacterLike, existing: CharacterLike): Record<string, number> {
+    const rawIn = incoming.stats && typeof incoming.stats === 'object' ? incoming.stats as Record<string, unknown> : {};
+    const rawEx = existing.stats && typeof existing.stats === 'object' ? existing.stats as Record<string, unknown> : {};
+    const funded: Record<string, number> = {};
+    if (preserveStatPointEntitlement(incoming, existing).accepted === 'allocation') {
+        const inStats = normalizedStats(incoming.stats);
+        const exStats = normalizedStats(existing.stats);
+        for (const key of STAT_KEYS) funded[key] = Math.max(0, inStats[key] - exStats[key]);
+    }
+    const out: Record<string, number> = {};
+    for (const key of Object.keys(rawIn)) {
+        // Same arithmetic the handler has always used, so anything that was not
+        // counted before (a non-numeric value) is still not counted.
+        const delta = Math.max(0, Number(rawIn[key] ?? 0) - Number(rawEx[key] ?? 0));
+        if (!(delta > 0)) continue;
+        const counted = delta - (funded[key] ?? 0);
+        if (counted > 0) out[key] = counted;
+    }
+    return out;
+}
+
+/**
  * Ordinary saves may allocate the server-owned stat-point pool, or perform the
  * existing paid full respec. They may never create stat points. Training and
  * combat rewards write their grants directly to the stored save first.

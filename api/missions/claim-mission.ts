@@ -8,6 +8,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { combinedStatBoost } from '../_stat-growth.js';
+import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     acknowledgeNewbieCombatRun,
@@ -786,6 +787,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const saveKey = `save:${playerName}`;
         const todayKey = utcDateKey();
         const monthKey = monthKeyOf();
+        // Timed boost event (api/_boost-event.ts): read once, before the save
+        // lock. Fails neutral (1) when no event is running or storage is down.
+        const growthEventBoost = await boostMultiplier('growth');
 
         // Currency path: persist under the SAME lock the save endpoint uses so a
         // concurrent auto-save can't clobber the credit, and so two rapid claims
@@ -1151,9 +1155,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const staminaBoosted = baseStamina > 0 ? boostAmount(baseStamina, bonusPct) : 0;
             // Daily-checklist grants are boosted by the same mission bonuses that
             // used to boost mission XP, plus the era dial (aggregate-capped);
-            // one-time capstones pay their fixed value.
+            // one-time capstones pay their fixed value. A boost event multiplies
+            // the daily-checklist grant as its own factor, after the aggregate cap.
             const statPointsGranted = baseStatPoints > 0
-                ? Math.max(0, Math.round(baseStatPoints * (boostStatPoints ? combinedStatBoost(bonusPct + huntRankBonusPct) : 1)))
+                ? Math.max(0, Math.round(baseStatPoints * (boostStatPoints ? combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost : 1)))
                 : 0;
 
             // ── Apply onto the saved character ──────────────────────────────

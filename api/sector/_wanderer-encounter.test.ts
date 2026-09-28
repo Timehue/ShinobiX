@@ -10,8 +10,10 @@
  */
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { nightWandererAt, WANDERER_NIGHT_INDEX } from '../../shared/wanderer-roster.js';
 import {
     naturalWandererMatches,
+    naturalWandererOffers,
     parseNaturalWandererId,
     resolveNaturalWanderer,
     rollWanderers,
@@ -102,5 +104,32 @@ describe('shared wanderer roll on the server', () => {
         assert.deepEqual(resolveNaturalWanderer(w.id, NOW, character, dest), w, 'present at its destination');
         assert.deepEqual(resolveNaturalWanderer(w.id, NOW, {}, p.sector), w, 'unmoved: at home');
         assert.equal(resolveNaturalWanderer(w.id, NOW, {}, dest), null, 'unmoved: not at the destination');
+    });
+});
+
+describe('naturalWandererOffers: the verb comes from the roll, not the client', () => {
+    it('a wanderer passes only for the verbs it really offers, echoed verb or not', () => {
+        const pilgrim = populated('gift');
+        const bandit = populated('attack');
+        assert.equal(naturalWandererOffers(pilgrim.id, NOW, {}, ['gift']), true);
+        assert.equal(naturalWandererOffers(bandit.id, NOW, {}, ['gift']), false, 'no verb echoed: still refused');
+        assert.equal(naturalWandererOffers(bandit.id, NOW, { wandererVerb: 'attack' }, ['gift']), false);
+        // A forged echo still fails the underlying match first.
+        assert.equal(naturalWandererOffers(bandit.id, NOW, { wandererVerb: 'gift' }, ['gift']), false);
+        assert.equal(naturalWandererOffers(bandit.id, NOW, {}, ['attack', 'patrol']), true);
+    });
+
+    it('a night ninja (slot 2) offers only a fight, and only while it is night', () => {
+        // NOW sits 4s into bucket 5000, which is in-world midnight.
+        let ninja = null as ReturnType<typeof nightWandererAt>;
+        for (let sector = 1; sector <= WANDERER_SECTOR_COUNT && !ninja; sector++) ninja = nightWandererAt(sector, BUCKET, NOW);
+        assert.ok(ninja, 'no night ninja out at the fixture clock');
+        assert.equal(parseNaturalWandererId(ninja.id)?.index, WANDERER_NIGHT_INDEX);
+        for (const verb of ['gift', 'quest', 'merchant', 'medic', 'tracker', 'petDuel'] as const) {
+            assert.equal(naturalWandererOffers(ninja.id, NOW, {}, [verb]), false, verb);
+        }
+        assert.equal(naturalWandererOffers(ninja.id, NOW, {}, ['attack']), true);
+        const noon = NOW + 12 * 5 * 60 * 1000; // in-world noon, same bucket
+        assert.equal(naturalWandererOffers(ninja.id, noon, {}, ['attack']), false, 'gone by day');
     });
 });

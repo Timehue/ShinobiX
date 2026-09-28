@@ -121,7 +121,11 @@ export function SceneCritters({
         let w = 0, h = 0, dpr = Math.min(window.devicePixelRatio || 1, maxDpr);
         let crits: C[] = [];
         let raf = 0, last = 0, running = true;
-        let night = skyNow().night > 0.5;
+        // The named "night" phase (20:00–05:00 in-world) is the same window the
+        // server's night gate uses (shared/world-phase, pinned by its test), so
+        // night fauna and night-only ninjas and pets arrive and leave together.
+        // The continuous sky.night factor crossed 0.5 about an hour earlier.
+        let night = skyNow().phase === "night";
         const parent = canvas.parentElement;
 
         function makeOne(kind: string): C {
@@ -391,7 +395,7 @@ export function SceneCritters({
         // Nothing respawns unless the flag actually flips, so the tighter tick is
         // free.
         const dayTimer = window.setInterval(() => {
-            const n = skyNow().night > 0.5;
+            const n = skyNow().phase === "night";
             if (n !== night) { night = n; spawn(); }
         }, SKY_REFRESH_MS);
 

@@ -10,6 +10,7 @@ import { JUTSU_CATALOG } from '../pvp/_jutsu-catalog.js';
 import { loadAdminJutsuObjects, type AdminJutsu } from '../_admin-jutsu-catalog.js';
 import { characterMayUseJutsu } from '../pvp/_bloodline-gate.js';
 import { moraleForCharacter } from '../_war-morale.js';
+import { boostMultiplier } from '../_boost-event.js';
 import { LockContendedError } from '../_lock.js';
 import { jutsuTrainingBonusPct } from './_jutsu-ryo.js';
 
@@ -39,6 +40,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             for (const [id, jutsu] of await loadAdminJutsuObjects()) adminJutsuById.set(id.toLowerCase(), jutsu);
         }
         const adminJutsuIds = new Set(adminJutsuById.keys());
+        // Timed boost event (api/_boost-event.ts): a lesson started or queued
+        // during a jutsu-speed event takes duration ÷ multiplier. It rides the
+        // same time-multiplier argument as war morale, so the lesson engine's
+        // own clamp still bounds how short a lesson can get. Read outside the lock.
+        const jutsuEventBoost = action === 'start' || action === 'queue' ? await boostMultiplier('jutsu') : 1;
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ record, character }) => {
             const receipts = Array.isArray(character.redeemedJutsuTrainingActions) ? (character.redeemedJutsuTrainingActions as Receipt[]).slice(-127) : [];
             if (receipts.some((entry) => entry?.requestId === requestId)) return { ok: true as const, character, recordPatch: { activeJutsuTraining: record.activeJutsuTraining ?? null }, value: { activeJutsuTraining: record.activeJutsuTraining ?? null, replayed: true, cost: 0, refund: 0 } };
@@ -79,7 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                 if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
                 const start = paysWithSeals ? startJutsuSealTraining : startJutsuRyoTraining;
-                changed = start(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), trainingBonus, jutsuMorale.jutsuTimeMult);
+                changed = start(character, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), Date.now(), trainingBonus, jutsuMorale.jutsuTimeMult / jutsuEventBoost);
             } else {
                 const active = record.activeJutsuTraining && typeof record.activeJutsuTraining === 'object' ? record.activeJutsuTraining as ServerJutsuTraining : null;
                 // A pre-modern lease carries no serverToken at all, so token matching
@@ -99,7 +105,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!JUTSU_ID.test(jutsuId) || !jutsuIsKnown(jutsuId)) return { ok: false as const, status: 409, error: 'unknown-or-unowned-jutsu' };
                     if (jutsuBloodlineBlocked(jutsuId)) return { ok: false as const, status: 409, error: 'bloodline-required' };
                     const queue = paysWithSeals ? queueJutsuSealTraining : queueJutsuRyoTraining;
-                    changed = queue(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), trainingBonus, jutsuMorale.jutsuTimeMult);
+                    changed = queue(character, active, jutsuId, String(body.label ?? jutsuId), randomUUID().replace(/-/g, ''), trainingBonus, jutsuMorale.jutsuTimeMult / jutsuEventBoost);
                 } else if (action === 'cancel-queue') {
                     changed = cancelQueuedJutsuRyoTraining(character, active);
                 } else if (action === 'advance') {
