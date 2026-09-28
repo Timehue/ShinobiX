@@ -17,7 +17,9 @@ const capabilities = Object.fromEntries(PUBLIC_CAPABILITY_IDS.map(id => [id, { s
 async function briefing(page: Page, focus: MasteryFocus, changes: Record<string, unknown> = {}, extra: Partial<ActivitySpineInput> = {}, startScreen = 'village', dismissOpeningScene = false) {
     const save = uiAuditSave();
     const now = Date.now();
-    save.character = { ...save.character, statPoints: 0, unspentStats: 0, masteryFocus: focus, lastLoginRewardDate: new Date(now).toISOString().slice(0, 10), ...changes };
+    // Awakened: the Daily Briefing now waits until the player owns an element
+    // (DailyBriefingModal), and a level-85 shinobi always does.
+    save.character = { ...save.character, elements: ['Lightning'], statPoints: 0, unspentStats: 0, masteryFocus: focus, lastLoginRewardDate: new Date(now).toISOString().slice(0, 10), ...changes };
     await installUiAuditRuntime(page, save, true);
     await page.route('**/api/player/activity-spine?**', route => {
         // The client must not override the saved preference. Explicit focus

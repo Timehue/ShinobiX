@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { run } from 'node:test';
 import { spec } from 'node:test/reporters';
+import { pathToFileURL } from 'node:url';
 
 const root = resolve(import.meta.dirname, '..');
 // `shared` earns its place here: it holds the cross-cutting contracts both
@@ -70,7 +71,10 @@ if (Number.isInteger(pinnedMajor) && runningMajor !== pinnedMajor) {
         'Not an error. If a file goes red with every subtest green, read the exit code below first.');
 }
 
-const tests = run({ cwd: root, files: shardFiles, concurrency: true });
+// Children inherit this process's execArgv (`--import tsx`); the asset hook is
+// appended so client modules that import `.webp` art the Vite way can load.
+const assetHooks = pathToFileURL(join(root, 'scripts', 'test-asset-hooks.mjs')).href;
+const tests = run({ cwd: root, files: shardFiles, concurrency: true, execArgv: ['--import', assetHooks] });
 
 // Do NOT rely on `test:fail` alone to decide the exit code. It misses failure
 // modes that never surface as a discrete failing test — a worker that crashes,

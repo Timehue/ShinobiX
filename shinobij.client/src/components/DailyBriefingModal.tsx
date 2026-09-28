@@ -22,6 +22,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { currentDateKey } from "../lib/utils";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { getCharacterElements } from "../lib/elements";
 import { useSharedNow } from "../lib/use-shared-now";
 import { claimDailyLogin, type DailyLoginResult, type DailyLoginCommitFactory } from "../lib/daily-login-api";
 import { fetchAnnouncements, fetchEras, fetchLegacyStatus, useLegacyAvailability, type AnnouncementView, type EraView } from "../lib/legacy";
@@ -65,7 +66,9 @@ export function DailyBriefingModal({
     // notice board. The daily reward remains available once the player owns an
     // element, so delaying this presentation does not discard it.
     const tutorialDone = normalizeOnboardingStep(character.onboardingStep) === "done";
-    const hasAwakenedFirstElement = Array.isArray(character.elements) && character.elements.length > 0;
+    // getCharacterElements, not `elements` alone: an older save carries its one
+    // element in the legacy `element` field and must not lose the briefing.
+    const hasAwakenedFirstElement = getCharacterElements(character).length > 0;
     const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone && hasAwakenedFirstElement && !storyActive;
 
     // The login reward is collected by an explicit Claim button (not auto-granted).

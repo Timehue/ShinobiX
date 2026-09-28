@@ -114,9 +114,9 @@ test("vital deltas carry an explicit sign rather than relying on colour", () => 
     assert.match(detailsSrc, /\{positive \? "\+" : ""\}\{value\}/);
 });
 
-test("a missing image falls back to a category glyph", () => {
+test("a missing image falls back to painted category art", () => {
     assert.match(timelineSrc, /entry\.display\?\.imageRef\s*\n?\s*\?\s*<img/s);
-    assert.match(timelineSrc, /CATEGORY_GLYPH\[category\]/);
+    assert.match(timelineSrc, /<GameArtIcon kind=\{CATEGORY_ART\[category\]\}/);
 });
 
 test("receipt narrative is rendered as text, never as raw HTML", () => {

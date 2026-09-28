@@ -123,6 +123,7 @@ import { useBloodlineMakerFlow } from "./lib/use-bloodline-maker-flow";
 import { assertBloodlineSaveAcknowledged } from "./lib/bloodline-save-ack";
 import { normalizeJutsu } from "./lib/jutsu";
 import { normalizeOnboardingStep } from "./lib/onboarding-step";
+import { departureNarrative } from "./lib/departure-narrative";
 import {
     starterBloodlineOffense,
     starterJutsus,
@@ -318,7 +319,6 @@ import {
     GAME_STATE_API,
     JUTSU_MAX_LEVEL,
     STORAGE,
-    AWAKENING_VN_ID,
     AURA_SPHERE_VN_ID,
     AURA_SPHERE_ITEM_ID,
     DUNGEON_VN_ID,
@@ -4584,40 +4584,14 @@ export default function App() {
             }
         }
 
-        const routeCharacter = authoritativeCharacter ?? character;
-        const leavingVillage = screen === "village" && nextScreen !== "village";
-        const openingUnawakenedCentralHub = nextScreen === "centralHub"
-            && !!routeCharacter
-            && getCharacterElements(routeCharacter).length === 0;
-        if (routeCharacter && (leavingVillage || openingUnawakenedCentralHub) && normalizeOnboardingStep(routeCharacter.onboardingStep) === "done") {
-            // Built-in: introduce awakening before the first post-Academy trip
-            // to Central Hub, or on the legacy first departure from the village.
-            if (routeCharacter.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
-                setTriggeredEvents((ids) => [...ids, AWAKENING_VN_ID]);
-                setActiveTriggeredEvent(canonicalNarrativeEvent(awakeningLv2VnEvent, creatorEvents.find(e => e.id === AWAKENING_VN_ID)));
-                setActiveTriggerReturnScreen(nextScreen);
-                setTriggerPage(0);
-                setTriggerLine(0);
-                return;
-            }
-
-            const event = leavingVillage ? creatorEvents.find(
-                (candidate) =>
-                    candidate.eventKind === "visualNovel" &&
-                    !isReservedNarrativeId(candidate.id) &&
-                    candidate.trigger === "firstLeaveVillage" &&
-                    !triggeredEvents.includes(candidate.id) &&
-                    routeCharacter.level >= candidate.levelReq
-            ) : undefined;
-
-            if (event) {
-                setTriggeredEvents((ids) => [...ids, event.id]);
-                setActiveTriggeredEvent(event);
-                setActiveTriggerReturnScreen(nextScreen);
-                setTriggerPage(0);
-                setTriggerLine(0);
-                return;
-            }
+        const departure = departureNarrative({ character: authoritativeCharacter ?? character, screen, nextScreen, triggeredEvents, creatorEvents });
+        if (departure) {
+            setTriggeredEvents((ids) => [...ids, departure.id]);
+            setActiveTriggeredEvent(departure.event);
+            setActiveTriggerReturnScreen(nextScreen);
+            setTriggerPage(0);
+            setTriggerLine(0);
+            return;
         }
 
         if (nextScreen === "worldMap") setWorldMapKey((k) => k + 1);
@@ -5396,7 +5370,7 @@ export default function App() {
                         setScreen={stableNavigate}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
-                        storyActive={Boolean(activeTriggeredEvent)}
+                        storyActive={Boolean(activeTriggeredEvent) || academyAwakeningRequested}
                     />
                     </Suspense>
                 )}

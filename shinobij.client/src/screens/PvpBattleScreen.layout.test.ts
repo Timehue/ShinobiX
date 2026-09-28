@@ -47,7 +47,7 @@ test("the PvP battle log uses the scrollable, round-grouped semantic feed", () =
     // transient move-feedback line, so assert both the wiring and its derivation
     // rather than the old inline lines={session.log}.
     assert.match(source, /<PlainCombatBattleLog[\s\S]*?lines=\{battleLogLines\}/);
-    assert.match(source, /const battleLogLines = session && moveFeedback\s*\?\s*\[\.\.\.session\.log, `⚠️ \$\{moveFeedback\}`\]\s*:\s*\(session\?\.log \?\? \[\]\)/,
+    assert.match(source, /const battleLogLines = session && moveFeedback\s*\?\s*\[\.\.\.session\.log, `Warning: \$\{moveFeedback\}`\]\s*:\s*\(session\?\.log \?\? \[\]\)/,
         "the PvP log must stay fed by the authoritative session log");
     assert.match(source, /from "\.\.\/components\/CombatHudLayout"/);
     assert.match(combatHudSource, /className=\{classNames\("combat-text-log", className\)\}/);

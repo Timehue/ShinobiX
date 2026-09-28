@@ -15,6 +15,8 @@ const stats = {
 const baseCharacter = {
     name: "VisualNinja", village: "Ember", specialty: "Ninjutsu", bloodline: "None",
     level: 85, rankTitle: "Special Jonin", ryo: 1800, unspentStats: 0, stats,
+    // Awakened: the Daily Briefing and the first Central Hub visit both wait on it.
+    elements: ["Fire"],
     hp: 8900, maxHp: 8900, chakra: 9000, maxChakra: 9000, stamina: 9000, maxStamina: 9000,
     onboardingStep: "done", academyChecklistClaimed: true, inventory: [], itemStacks: [], equipment: {},
     pets: [], jutsuMastery: [{ jutsuId: "strike", level: 10 }], equippedJutsuIds: ["strike"],

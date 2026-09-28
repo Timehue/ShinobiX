@@ -68,6 +68,9 @@ const ART: Record<GameArtIconKind, string> = {
     event: "/ui/clan-missions/clan-mission-raid.webp",
 };
 
+// Not loading="lazy": these are ~20 KB glyphs shared by URL, and a lazy icon
+// inside an off-screen scroller (a tab strip, a card rail) is never fetched at
+// all, which leaves a blank hole where an emoji used to always render.
 export function GameArtIcon({ kind, size = 20, className, title, style }: { kind: GameArtIconKind; size?: number | string; className?: string; title?: string; style?: CSSProperties }) {
-    return <img className={className} src={ART[kind]} alt={title ?? ""} aria-hidden={title ? undefined : "true"} title={title} role={title ? "img" : undefined} width={size} height={size} loading="lazy" decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto", ...style }} />;
+    return <img className={className} src={ART[kind]} alt={title ?? ""} aria-hidden={title ? undefined : "true"} title={title} role={title ? "img" : undefined} width={size} height={size} decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto", ...style }} />;
 }

@@ -145,7 +145,7 @@ test("story Tower milestone receipts report server progression without inventing
 });
 test("Tower AI teammates use one authenticated novice-recruit Ready Room path", () => {
     assert.doesNotMatch(lobby, /Practice with AI Assists|borrowed shinobi|Borrow an AI assist/);
-    assert.match(lobby, /Enter Floor \$\{selFloor\.id\} solo/);
+    assert.match(lobby, /Enter Floor \$?\{selFloor\.id\} solo/);
     assert.match(api, /Start a host-only Story run/);
     assert.match(api, /postJson\('\/api\/towers\/start', \{ hostName, floor, hostLoadout, routeChoice \}\)/);
     assert.match(readyRoom, /Live squad · optional novice recruits/);

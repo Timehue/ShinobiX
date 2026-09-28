@@ -92,7 +92,7 @@ describe("mixed-feature public capability wiring", () => {
         }
 
         assert.match(briefing, /if \(!shouldShow\) return;/);
-        assert.match(briefing, /const hasAwakenedFirstElement = Array\.isArray\(character\.elements\) && character\.elements\.length > 0;/);
+        assert.match(briefing, /const hasAwakenedFirstElement = getCharacterElements\(character\)\.length > 0;/);
         assert.match(briefing, /!dismissed && tutorialDone && hasAwakenedFirstElement && !storyActive/,
             "the Daily Briefing must wait until the first awakening handoff is complete");
         assert.match(briefing, /if \(legacyAvailable\) void fetchEras/);

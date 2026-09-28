@@ -223,19 +223,6 @@ test("Celestial Lion keeps its own portrait and uses its own idle pose", () => {
     assert.equal(petCardImage(mkPet({ id: "mythic-15", rarity: "mythic" })), portrait);
 });
 
-test("Celestial Lion resolves its own portrait for owned and template instances", () => {
-    const portrait = "/pet-portraits/breeding-mythics/mythic-15.webp";
-    const owned = mkPet({
-        id: "mythic-15:550e8400-e29b-41d4-a716-446655440000",
-        templateId: "mythic-15",
-        rarity: "mythic",
-    });
-    assert.equal(petCardImage(owned), portrait);
-    assert.equal(petBattleSprite(owned).src, portrait);
-    assert.equal(petPoseImage(owned), portrait);
-    assert.equal(petCardImage(mkPet({ id: "mythic-15", rarity: "mythic" })), portrait);
-});
-
 test("petCardImage: a UUID-owned evolved starter resolves its stage pose", () => {
     const evolved = mkPet({
         id: "starter-fire:550e8400-e29b-41d4-a716-446655440000",

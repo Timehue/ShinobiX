@@ -109,15 +109,16 @@ describe("hunter-art beast portraits", () => {
         assert.ok(existsSync(join(here, rel)), `Apex banner missing on disk: ${rel}`);
     });
 
-    it("is wired into the live World encounter projection above the emoji fallback", () => {
+    it("is wired into the live World encounter projection above the painted fallback", () => {
         const worldMap = readFileSync(join(here, "..", "screens", "WorldMap.tsx"), "utf8");
         assert.match(worldMap, /import\s*\{[^}]*beastPortrait[^}]*\}\s*from\s*"\.\.\/data\/hunter-art"/);
         assert.match(worldMap, /pack\.image = beast\.image \|\| beastPortrait\(beast\.id\)/,
             "hunt-pack presentation must retain painted beast art");
         assert.match(worldMap, /portrait=\{huntEncounter\.ai\.image \|\| beastPortrait\(huntEncounter\.ai\.id\)\}/,
             "the encounter card must prefer painted beast art before its icon fallback");
-        assert.match(worldMap, /icon=\{huntEncounter\.ai\.icon\}/,
-            "the emoji remains a final presentation fallback");
+        const card = readFileSync(join(here, "..", "components", "HuntEncounterCard.tsx"), "utf8");
+        assert.match(card, /\{portrait\s*\?\s*<img src=\{portrait\}[\s\S]{0,160}<GameArtIcon /,
+            "a beast with no portrait still shows painted role art, never a blank frame");
     });
 
     // The card above is what you SEE before committing; this is what the fight
