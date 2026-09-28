@@ -286,7 +286,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                             disabled={!!disabledReason}
                             title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}
                         >
-                            <span className="tile-icon">{timer.icon}</span>
+                            <span className="tile-icon"><GameArtIcon kind="training" size={34} /></span>
                             <span>{trainingBusy ? "Saving…" : `Start ${timer.label}`}</span>
                             <small>+{gain} {formatStatName(selectedStat)}</small>
                             <small>{timer.staminaCost} stamina{character.stamina < timer.staminaCost ? ` · need ${timer.staminaCost - character.stamina} more` : ""}</small>

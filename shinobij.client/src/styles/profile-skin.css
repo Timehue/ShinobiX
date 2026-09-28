@@ -1822,10 +1822,7 @@
     object-fit: cover;
     z-index: 1;
 }
-.achievement-detail-emoji {
-    font-size: 72px;
-    line-height: 1;
-}
+.achievement-detail-fallback { position: relative; z-index: 0; }
 .achievement-detail-category {
     font: 600 10px var(--font-display);
     letter-spacing: 0.28em;
@@ -1874,9 +1871,7 @@
         width: 140px;
         height: 140px;
     }
-    .achievement-detail-emoji {
-        font-size: 56px;
-    }
+    .achievement-detail-fallback { width: 70px !important; height: 70px !important; }
     .achievement-detail-name {
         font-size: 18px;
     }

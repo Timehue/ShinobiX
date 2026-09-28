@@ -1019,7 +1019,7 @@ export function Profile({
                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />
-                            <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>
+                            <GameArtIcon className="achievement-detail-fallback" kind="crown" size={90} />
                         </div>
 
                         <p className="achievement-detail-category">

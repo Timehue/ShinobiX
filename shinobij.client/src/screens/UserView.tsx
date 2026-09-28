@@ -370,7 +370,7 @@ export function UserView({
                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />
-                            <GameArtIcon kind="crown" size={42} />
+                            <GameArtIcon className="achievement-detail-fallback" kind="crown" size={90} />
                         </div>
                         <p className="achievement-detail-category">
                             {selectedAchievement.hidden ? "Secret · " : ""}{selectedAchievement.category}
