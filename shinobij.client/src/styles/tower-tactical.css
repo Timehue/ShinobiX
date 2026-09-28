@@ -1870,6 +1870,14 @@
         touch-action: pan-y;
     }
     #combat.tower-tactical-combat .tower-fight-grid > main { grid-row: 1; }
+    /* The short-screen rule sets main to height:100% for a single-row grid.
+       Once the phone layout restores both rails below it, that fixed height
+       lets them paint over the action deck. Let the main row own its full
+       viewport-height content before the roster rows begin. */
+    #combat.tower-tactical-combat .tower-fight-main {
+        height: auto;
+        min-height: min(860px, calc(100dvh - 14px));
+    }
     #combat.tower-tactical-combat .tower-squad-rail { grid-column: 1; grid-row: 2; }
     #combat.tower-tactical-combat .tower-enemy-rail { grid-column: 1; grid-row: 3; }
     #combat.tower-tactical-combat .tower-fight-grid > aside {
