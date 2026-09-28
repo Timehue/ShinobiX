@@ -25,6 +25,7 @@ import { TagPicker } from "../components/TagPicker";
 import { JUTSU_VISUAL_EFFECT_OPTIONS, isJutsuVisualEffect, jutsuVisualEffectLabel } from "../lib/jutsu-visuals";
 import { combatVfxAssetFor } from "../lib/combat-vfx-assets";
 import "../styles/bloodline-awakening.css";
+import "../styles/bloodline-maker-contrast.css";
 
 // The five base elements that interact with the weather system. A bloodline's
 // special element can behave as one of these (weather buff/debuff) or as "None".
