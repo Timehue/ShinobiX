@@ -21,7 +21,7 @@ test('the Clan Hall opens on the goal board when an activity asks for it', () =>
     // Ordinary entry is unchanged: without a hint the Hall still opens on the Exchange.
     assert.match(screen, /} catch \{ return "exchange"; \}/);
     // The goal board is a real tab with the clan's objectives, progress and rewards.
-    assert.match(screen, /view === "missions" && <div className="clan-mission-grid">/);
+    assert.match(screen, /view === "missions" && \(?\s*<div className="clan-mission-grid">/);
     assert.match(screen, /clanMissionProgress\(clanData, mission\.key\)/);
 });
 

@@ -1,8 +1,3 @@
 {
-    "knownGaps": [
-        "event-item:event-kesa-marker:no-art",
-        "event-item:event-reed-tally:no-art",
-        "event-item:event-struck-warmth-token:no-art",
-        "pet:mythic-15:no-idle-pose"
-    ]
+    "knownGaps": []
 }

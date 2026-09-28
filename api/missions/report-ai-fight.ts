@@ -334,7 +334,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     statPoints = growth.spent;
                 }
-                const settled = applyAiFightOutcomeToCharacter(noPurseCharacter, outcome, playerActor, Date.now(), continuousVitals);
+                const settled = applyAiFightOutcomeToCharacter(noPurseCharacter, outcome, playerActor, Date.now(), continuousVitals, spar);
                 const worldSettled = sealedWorldContext
                     ? applyWorldAiFightSettlement(settled, sealedWorldContext, outcome, aiFightToken)
                     : settled;

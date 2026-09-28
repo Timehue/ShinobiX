@@ -97,7 +97,12 @@ test('reserved scenes cannot be redelivered through generic saved-event triggers
     assert.equal(isReservedNarrativeId('creator-village-festival'), false);
     const app = readFileSync(new URL('../App.tsx', import.meta.url), 'utf8');
     assert.match(app, /canonicalNarrativeEvent\(next\.base, edited\)/);
-    assert.equal((app.match(/!isReservedNarrativeId\((?:ev|candidate)\.id\)/g) ?? []).length, 3);
+    // The first-departure trigger moved to lib/departure-narrative.ts; count its
+    // guard there so all three generic trigger sites stay covered.
+    const departure = readFileSync(new URL('./departure-narrative.ts', import.meta.url), 'utf8');
+    const reservedGuard = /!isReservedNarrativeId\((?:ev|candidate)\.id\)/g;
+    assert.equal((app.match(reservedGuard) ?? []).length + (departure.match(reservedGuard) ?? []).length, 3);
+    assert.match(departure, /candidate\.trigger === "firstLeaveVillage"/);
     assert.doesNotMatch(app, /edited \?\? next\.base/);
     const world = readFileSync(new URL('../screens/WorldMap.tsx', import.meta.url), 'utf8');
     assert.match(world, /canonicalNarrativeEvent\(defaultPetEncounterVn, petEncounterVn/);

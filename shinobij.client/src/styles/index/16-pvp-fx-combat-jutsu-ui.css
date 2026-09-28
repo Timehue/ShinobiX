@@ -199,7 +199,9 @@
     z-index: 1 !important;
 }
 
-    .combat-jutsu-thumb img {
+    /* Direct child only: the card art. A painted fallback glyph nested in
+       .combat-jutsu-fallback-icon keeps its own size and object-fit: contain. */
+    .combat-jutsu-thumb > img {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;

@@ -85,6 +85,9 @@ test("battlefield sprites remain presentation-only inside the authoritative acto
         /<button key=\{a\.id\}[^>]*onClick=\{\(\) => onTileClick\(a\.pos\)\}[\s\S]{0,1600}?<BattlefieldActor[\s\S]{0,500}?sprite=\{battleSprite\}/,
         "the existing button must continue to own targeting while actor art stays inside it",
     );
-    assert.match(fight, /<BattlefieldActor[\s\S]{0,1000}?outline: isActive/);
+    // The active/target ring is a silhouette glow on the actor art now, not an
+    // inline rectangular outline that hid the circular ground marker.
+    assert.match(fight, /<BattlefieldActor[\s\S]{0,1000}?className=\{isActive \? "tower-actor-highlight--active"/);
+    assert.match(tacticalCss, /\.battlefield-actor\.tower-actor-highlight--active \{[^}]*drop-shadow/);
     assert.match(fight, /<BattlefieldActor[\s\S]{0,1800}?<\/BattlefieldActor>/);
 });

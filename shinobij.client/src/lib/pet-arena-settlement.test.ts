@@ -248,7 +248,7 @@ test("rewarded Warfronts render and settle only the server-minted seed", () => {
     // needs the tip TEXT inside the slice, not just its container: tips moved to
     // a constant or a child component would otherwise pass this ban unscanned.
     const battlePlanSource = arenaSource.match(/function BattlePlan\([\s\S]*?\n\}\r?\n/)?.[0] ?? "";
-    assert.match(battlePlanSource, /className="bp-tips">\s*<div>[^<{]+<\/div>/,
+    assert.match(battlePlanSource, /className="bp-tips">\s*<div>(?:<GameArtIcon [^>]*\/>\s*)?[^<{]+<\/div>/,
         "the scan must reach the Battle Plan tip text the lobby renders — if the tips move, move this scan with them");
     assert.doesNotMatch(battlePlanSource, retiredSequentialCopy,
         "the Battle Plan tips describe the retired sequential design — the Rite fights all eight at once");

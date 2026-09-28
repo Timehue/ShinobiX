@@ -19,6 +19,8 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
             'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense'].map(key => [key, 20])),
         inventory: [], itemStacks: [], equipment: {}, pets: [], jutsuMastery: [], equippedJutsuIds: [],
         level: 10, ryo: 1000, fateShards: 20, loginStreak: 6,
+        // Awakened: the Daily Briefing waits until the player owns an element.
+        elements: ['Water'],
         lastLoginRewardDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
         onboardingStep: 'done', academyChecklistClaimed: true, storyProgress: 9,
         storyVillage: 'Moonshadow Village', storyTraits: [],
