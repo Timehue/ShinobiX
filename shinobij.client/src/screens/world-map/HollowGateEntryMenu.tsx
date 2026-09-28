@@ -1,4 +1,5 @@
 import type { HollowGateEventConfig } from '../../types/character';
+import { GameArtIcon } from '../../components/GameArtIcon';
 
 /** The map owns admission and overlay state; this leaf renders the gate choices. */
 export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEvent, onEnterHollowGate, onClose, onShowAttunement }: {
@@ -11,7 +12,7 @@ export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEv
     return (
                 <div onClick={() => onClose()} style={{ position: "fixed", inset: 0, zIndex: 8999, background: "rgba(2,6,23,0.8)", display: "grid", placeItems: "center", padding: 16 }}>
                     <div onClick={(e) => e.stopPropagation()} style={{ background: "#160f2b", border: "1px solid #7c3aed", borderRadius: 12, padding: 20, maxWidth: 380, width: "100%", textAlign: "center" }}>
-                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}>⛩ The Hollow Gate</h3>
+                        <h3 style={{ marginTop: 0, color: "#e9d5ff" }}><img src="/landmarks/shrine-hollowgate.webp" alt="" width={22} height={22} /> The Hollow Gate</h3>
                         <p style={{ color: "#c4b5fd", fontSize: 14 }}>The broken torii waits. Steel yourself, or attune to the shrine with the Hollow Shards you've torn from its depths.</p>
                         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {hollowGateEventConfig?.active && (
@@ -19,7 +20,7 @@ export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEv
                                     onClick={() => { onClose(); onEnterHollowGateEvent?.(hollowGateEventConfig); }}
                                     style={{ padding: 8, borderRadius: 8, border: "1px solid #fbbf24", background: "linear-gradient(#b45309,#78350f)", color: "#fef3c7", fontWeight: 700, cursor: "pointer" }}
                                 >
-                                    ⭐ Event: {hollowGateEventConfig.label || "Event Gate"}
+                                    <GameArtIcon kind="crown" size={16} /> Event: {hollowGateEventConfig.label || "Event Gate"}
                                     <span style={{ display: "block", fontSize: 11, fontWeight: 400, color: "var(--gold-300)" }}>
                                         {Math.max(1, hollowGateEventConfig.maxFloor ?? 1)} floor{(hollowGateEventConfig.maxFloor ?? 1) === 1 ? "" : "s"}
                                         {hollowGateEventConfig.bossName ? ` · Boss: ${hollowGateEventConfig.bossName}` : ""}
@@ -28,7 +29,7 @@ export function HollowGateEntryMenu({ hollowGateEventConfig, onEnterHollowGateEv
                                 </button>
                             )}
                             <button onClick={() => { onClose(); onEnterHollowGate?.(); }} style={{ padding: 8, borderRadius: 8, border: "none", background: "linear-gradient(#7c3aed,#4c1d95)", color: "#fff", fontWeight: 600, cursor: "pointer" }}>Enter the Shrine</button>
-                            <button onClick={() => { onClose(); onShowAttunement(); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}>💎 Shrine Attunement</button>
+                            <button onClick={() => { onClose(); onShowAttunement(); }} style={{ padding: 8, borderRadius: 8, border: "1px solid #7c3aed", background: "transparent", color: "#e9d5ff", cursor: "pointer" }}><GameArtIcon kind="fateShard" size={16} /> Shrine Attunement</button>
                             <button onClick={() => onClose()} style={{ padding: 6, borderRadius: 8, border: "1px solid var(--slate-600)", background: "transparent", color: "var(--text-dim)", cursor: "pointer" }}>Cancel</button>
                         </div>
                     </div>

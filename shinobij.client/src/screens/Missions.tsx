@@ -16,6 +16,7 @@ import { EmptyState } from "../components/ui/EmptyState";
 // Currency rewards keep the game's own emblems; navigation uses typography
 // and destination artwork instead of repeating the same chrome glyphs.
 import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
@@ -479,9 +480,9 @@ export function Missions({
                         Your first official mission. Claim this one-time reward, then open your Logbook for the next Academy checklist.
                     </p>
                     <ul style={{ margin: "0 0 12px", paddingLeft: 18, lineHeight: 1.5 }}>
-                        <li>✅ Won your first Academy spar</li>
-                        <li>✅ Started stat training</li>
-                        <li>✅ Unlocked / equipped a jutsu</li>
+                        <li>✓ Won your first Academy spar</li>
+                        <li>✓ Started stat training</li>
+                        <li>✓ Unlocked / equipped a jutsu</li>
                     </ul>
                     <p style={{ margin: "0 0 12px", color: "var(--slate-300)", fontSize: 13 }}>
                         Reward: stat points, ryo, and stamina. This does not use one of today's mission slots.
@@ -612,7 +613,7 @@ export function Missions({
                                         disabled={claimingKey !== null || claimCooldownMs > 0}
                                         onClick={() => { void runClaim(`combat:${mission.key}`, () => claimCombatMission(mission)); }}
                                     >
-                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "✅ Claim Reward"}</span>
+                                        <span className="mh-combat-btn-label">{claimingKey === `combat:${mission.key}` ? "Claiming…" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : <><GameArtIcon kind="ryo" size={16} /> Claim Reward</>}</span>
                                         {/* The label is sr-only under 700px, where the button collapses to a
                                             44px glyph column. A check instead of the ordinary chevron is the
                                             only thing separating "collect" from "go" at that width. */}
@@ -757,7 +758,7 @@ export function Missions({
             {activeMissionTab === "wandering" && (
             <section className="mh-section">
                 <h3 className="mh-section-title">World Quests</h3>
-                <p className="hint">Quests you pick up out in the world. Wanderers and rift-seers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (📜) on the World Map to continue or claim, or travel to a <strong>marked sector</strong> to enter a Hollow Gate rift. Epic boss stages start from the Sage's journal.</p>
+                <p className="hint">Quests you pick up out in the world. Wanderers and rift-seers <strong>roam the sectors</strong> — find a <strong>Wandering Sage</strong> (<GameArtIcon kind="scroll" size={14} />) on the World Map to continue or claim, or travel to a <strong>marked sector</strong> to enter a Hollow Gate rift. Epic boss stages start from the Sage's journal.</p>
                 {!hasWanderingQuest && !activeRift && <p className="hint">You haven't taken any world quests yet. Look for a wanderer or a rift-seer out in the sectors and accept one.</p>}
 
                 {activeRift && (
@@ -769,7 +770,7 @@ export function Missions({
                         <div className="mh-fetch-progress-wrap">
                             <div className="mh-fetch-progress-label"><span>Travel to the sector and descend the Hollow Gate.</span></div>
                         </div>
-                        <span className="hint">Find the 🌀 rift structure there, descend, and defeat {activeRift.bossName} to complete the quest.</span>
+                        <span className="hint">Find the <GameArtIcon kind="warning" size={14} /> rift structure there, descend, and defeat {activeRift.bossName} to complete the quest.</span>
                     </div>
                 )}
 

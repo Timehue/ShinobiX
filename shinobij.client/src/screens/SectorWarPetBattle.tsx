@@ -51,7 +51,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
         <PetDuelReplayScreen<PetSession>
             pets={activeCarriedPets(character)}
             config={{
-                title: "🐾 Pet Duel — Sector War",
+                title: "Pet Duel — Sector War",
                 intro: "Send a pet to fight for this sector. The duel resolves server-side and replays here.",
                 missingText: "No pet duel selected.",
                 backLabel: "← Back",
@@ -75,13 +75,13 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                     const mine = me === s.p1.name.toLowerCase() ? "p1"
                         : s.p2 && me === s.p2.name.toLowerCase() ? "p2" : null;
                     return s.winner === "draw" ? "The pet duel ended in a draw — the sector holds."
-                        : mine && s.winner === mine ? "🏆 Your pet won the sector duel!"
+                        : mine && s.winner === mine ? "Your pet won the sector duel!"
                         : mine ? "Your pet was defeated."
                         : `${s.winner === "p1" ? s.attackerVillage : s.defenderVillage} took the duel.`;
                 },
                 waiting: (s) => s.status === "awaiting-defender"
                     ? {
-                        headline: "⏳ Waiting for a defender to answer with their pet…",
+                        headline: "Waiting for a defender to answer with their pet…",
                         detail: `Your pet ${s.p1.pet?.name} stands ready.`,
                     }
                     : null,
