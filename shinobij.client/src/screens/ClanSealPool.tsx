@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { hasPendingSealDistribution, hasPendingSealDonation, postSealDistribution, postSealDonation } from "../lib/clan-seal-pool-api";
+import { GameArtIcon } from "../components/GameArtIcon";
 import type { Character } from "../App";
 
 type LogEntry = {
@@ -87,10 +88,10 @@ export function ClanSealPool({
                 body: JSON.stringify({ playerName: character.name }),
             });
             const data = await res.json().catch(() => ({}));
-            if (!res.ok) setMsg(`❌ ${data.error ?? 'Failed'}`);
-            else setMsg(iAmEscorting ? '✅ Escort offer canceled' : '✅ Escort offer active for 1 hour');
+            if (!res.ok) setMsg(`Error: ${data.error ?? 'Failed'}`);
+            else setMsg(iAmEscorting ? 'Success: Escort offer canceled' : 'Success: Escort offer active for 1 hour');
             void fetchEscorters();
-        } catch { setMsg('❌ Network error'); }
+        } catch { setMsg('Error: Network error'); }
         finally { escortBusyRef.current = false; setEscortBusy(false); }
     }
 
@@ -109,10 +110,10 @@ export function ClanSealPool({
                     dailyDonatedSeals: Number(data.dailyDonatedToday),
                     dailyDonationDate: todayUtc,
                 });
-                setMsg(`✅ Donated ${data.donated} Seals`);
+                setMsg(`Success: Donated ${data.donated} Seals`);
                 void fetchPool();
             }
-        } catch { setMsg('❌ Donation unconfirmed — refresh before retrying.'); }
+        } catch { setMsg('Error: Donation unconfirmed — refresh before retrying.'); }
         finally { busyRef.current = false; setBusy(false); }
     }
 
@@ -125,11 +126,11 @@ export function ClanSealPool({
             if (!ok) {
                 setMsg(`❌ ${data.error ?? 'Failed'}`);
             } else {
-                setMsg(`✅ Gave ${data.distributed} Seals to ${data.recipient}`);
+                setMsg(`Success: Gave ${data.distributed} Seals to ${data.recipient}`);
                 setRecipient("");
                 void fetchPool();
             }
-        } catch { setMsg('❌ Distribution unconfirmed — refresh before retrying.'); }
+        } catch { setMsg('Error: Distribution unconfirmed — refresh before retrying.'); }
         finally { busyRef.current = false; setBusy(false); }
     }
 
@@ -138,7 +139,7 @@ export function ClanSealPool({
     return (
         <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginTop: "0.75rem" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-                <strong style={{ color: "var(--gold)" }}>🏅 Clan Honor Seal Pool</strong>
+                <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "var(--gold)" }}><GameArtIcon kind="crown" size={20} /> Clan Honor Seal Pool</strong>
                 <span style={{ color: "var(--gold)", fontWeight: 600 }}>
                     {pool?.balance.toLocaleString() ?? "—"} Seals
                 </span>
@@ -207,7 +208,7 @@ export function ClanSealPool({
 
             {(isPetTamer || isVanguard || escorters.length > 0) && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid rgba(132,204,22,0.25)" }}>
-                    <strong style={{ color: "#84cc16" }}>🐾 Pet Escort</strong>
+                    <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, color: "#84cc16" }}><GameArtIcon kind="petTamer" size={20} /> Pet Escort</strong>
                     <p className="hint" style={{ margin: "4px 0 8px", fontSize: "0.78rem" }}>
                         Pet Tamers can offer escort to their clan. Vanguard clan-mates raiding with an
                         active pet get +5% Honor Seals, and the offering Pet Tamer earns +20% Tamer XP
@@ -233,13 +234,13 @@ export function ClanSealPool({
                     )}
                     {character.petEscortBonusReady && (
                         <p className="hint" style={{ margin: "6px 0 0", fontSize: "0.78rem", color: "#84cc16" }}>
-                            🎁 +20% Tamer XP ready for your next expedition.
+                            <GameArtIcon kind="vanguard" size={17} /> +20% Tamer XP ready for your next expedition.
                         </p>
                     )}
                 </div>
             )}
 
-            {msg && <p className="hint" style={{ margin: "8px 0 6px", color: msg.startsWith("✅") ? "var(--gold)" : "var(--red-400)" }}>{msg}</p>}
+            {msg && <p className="hint" style={{ display: "flex", alignItems: "center", gap: 5, margin: "8px 0 6px", color: msg.startsWith("Success:") ? "var(--gold)" : "var(--red-400)" }}><GameArtIcon kind={msg.startsWith("Success:") ? "crown" : "warning"} size={16} /> {msg.replace(/^(Success|Error):\s*/, "")}</p>}
 
             {pool && pool.log.length > 0 && (
                 <details>
@@ -248,10 +249,10 @@ export function ClanSealPool({
                         {pool.log.map((e, i) => (
                             <div key={i} style={{ padding: "3px 0", borderBottom: "1px solid rgba(148,163,184,0.15)" }}>
                                 {e.kind === "donate"
-                                    ? <>📥 {e.by} donated <strong>{e.amount}</strong> Seals</>
+                                    ? <><GameArtIcon kind="crown" size={15} /> {e.by} donated <strong>{e.amount}</strong> Seals</>
                                     : e.kind === "distribute-refund"
-                                        ? <>↩️ <strong>{e.amount}</strong> Seals returned to the pool ({e.to} could not be credited)</>
-                                        : <>📤 {e.by} gave <strong>{e.amount}</strong> Seals to {e.to}</>}
+                                        ? <><GameArtIcon kind="warning" size={15} /> <strong>{e.amount}</strong> Seals returned to the pool ({e.to} could not be credited)</>
+                                        : <><GameArtIcon kind="crown" size={15} /> {e.by} gave <strong>{e.amount}</strong> Seals to {e.to}</>}
                                 <span className="hint" style={{ marginLeft: 6, fontSize: "0.72rem" }}>
                                     {new Date(e.at).toLocaleString()}
                                 </span>

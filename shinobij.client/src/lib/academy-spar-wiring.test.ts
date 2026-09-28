@@ -25,6 +25,8 @@ const coach = readFileSync(new URL("./first-fight-coach.ts", import.meta.url), "
 
 test("the spar launch is fail-closed on the sealed server path", () => {
     const launch = app.slice(app.indexOf("function startAcademySparringMatch"), app.indexOf("function startAcademySparringMatch") + 1400);
+    assert.match(launch, /await pushSaveToServer\(current, currentAccountName \|\| current\.name\)/,
+        "the onboarding step can advance before autosave; flush it before the server eligibility check");
     assert.match(launch, /requestStoryBossFight\(/, "the spar must launch through the sealed-fight bus");
     assert.match(launch, /kind: "academySpar"/, "…as a spar, not a chapter boss");
     assert.doesNotMatch(launch, /playLocally:|buildAcademySparDummy|temp-academy-spar|setScreen\("arena"\)/);

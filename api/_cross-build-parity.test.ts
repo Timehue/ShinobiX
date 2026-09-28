@@ -192,17 +192,21 @@ describe('parity: XP engine constants + formulas (game.ts + stats.ts ⇄ api/_xp
             assert.ok(!src.includes('STAT_POINTS_FROM_XP_TO_CAP'), `${label} resurrected the XP→stat-budget formula`);
         }
     });
-    it('the stat-derived level anchors match on both sides (leveling-without-xp map)', () => {
-        // The fitted LEVEL_EARNED_ANCHORS table is THE balance heart of
-        // stat-derived leveling — a one-sided tweak silently forks player level
-        // between client display and server authority. Pin the literal rows.
-        for (const row of ['[1, 0]', '[15, 2800]', '[30, 6200]', '[50, 11600]', '[80, 19600]', '[100, 27500]']) {
-            assert.ok(STATS.includes(row), `client lib/stats.ts lost anchor ${row}`);
-            assert.ok(XPENGINE.includes(row), `server api/_xp-engine.ts lost anchor ${row}`);
+    it('the stat-derived level curve matches on both sides', () => {
+        // A one-sided coefficient or formula change silently forks player level
+        // between client display and server authority.
+        for (const coefficient of [
+            '191.67876990268087',
+            '1.1074354304268461',
+            '-0.02226330146888855',
+            '0.00021623956441357866',
+        ]) {
+            assert.ok(STATS.includes(coefficient), `client lib/stats.ts lost curve coefficient ${coefficient}`);
+            assert.ok(XPENGINE.includes(coefficient), `server api/_xp-engine.ts lost curve coefficient ${coefficient}`);
         }
-        const interp = 'return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));';
-        assert.ok(STATS.includes(interp), 'client earnedForLevel interpolation drifted');
-        assert.ok(XPENGINE.includes(interp), 'server earnedForLevel interpolation drifted');
+        const polynomial = 'LEVEL_CURVE_QUARTIC_COEFFICIENT * n * n * n * n';
+        assert.ok(STATS.includes(polynomial), 'client earnedForLevel polynomial drifted');
+        assert.ok(XPENGINE.includes(polynomial), 'server earnedForLevel polynomial drifted');
     });
 });
 

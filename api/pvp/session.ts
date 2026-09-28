@@ -1158,9 +1158,10 @@ export function resolveEquippedLoadout(
     // A save can temporarily retain 15 persisted slot preferences after a
     // supporter lapse. Resolve only the active 12/15 account entitlement here;
     // never truncate the stored preference itself, so reactivation is lossless.
-    // Real-player PvP applies its neutral 12-slot projection after hydration;
-    // PvE callers keep the supporter flexibility. Save-less NPC callers keep
-    // their server-authored list unchanged.
+    // Real-player PvP keeps the active 12/15 account entitlement after
+    // hydration; the separate Legacy signature slot is sealed later. PvE
+    // callers retain the same entitlement behavior, while save-less NPC
+    // callers keep their server-authored list unchanged.
     const equippedIds = save ? uniqueIds.slice(0, maxLoadout(saveCharacter)) : uniqueIds;
     if (equippedIds.length === 0) return save ? [] : null;
     // Non-catalog sources, lowest priority first so later sources overwrite:

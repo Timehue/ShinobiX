@@ -1,3 +1,5 @@
+import { GameArtIcon } from "./GameArtIcon";
+
 /*
  * Clan War quick-reference manual. Popped open from a "?" button on the
  * Clan Hall → Wars tab and the Shinobi Council Hall → Clan Battles tab.
@@ -29,7 +31,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         }}
       >
         <strong style={{ color: "#fde047", fontSize: "1rem" }}>
-          📜 Clan War — Quick Guide
+          <GameArtIcon kind="scroll" size={18} /> Clan War — Quick Guide
         </strong>
         <button
           type="button"
@@ -99,7 +101,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         >
           Win damage
         </div>
-        <div style={{ padding: "0.3rem 0.6rem" }}>⚔ 1v1 PvP</div>
+        <div style={{ padding: "0.3rem 0.6rem" }}><GameArtIcon kind="attack" size={16} /> 1v1 PvP</div>
         <div
           style={{
             padding: "0.3rem 0.6rem",
@@ -112,7 +114,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         <div
           style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
         >
-          ⚔⚔ 2v2 PvP
+          <GameArtIcon kind="attack" size={16} /> <GameArtIcon kind="attack" size={16} /> 2v2 PvP
         </div>
         <div
           style={{
@@ -124,7 +126,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         >
           −60 HP
         </div>
-        <div style={{ padding: "0.3rem 0.6rem" }}>🐾 Pet 1v1</div>
+        <div style={{ padding: "0.3rem 0.6rem" }}><GameArtIcon kind="petTamer" size={16} /> Pet 1v1</div>
         <div
           style={{
             padding: "0.3rem 0.6rem",
@@ -137,7 +139,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
         <div
           style={{ padding: "0.3rem 0.6rem", background: "var(--slate-900)" }}
         >
-          🐾🐾 Pet 2v2
+          <GameArtIcon kind="petTamer" size={16} /> <GameArtIcon kind="petTamer" size={16} /> Pet 2v2
         </div>
         <div
           style={{
@@ -195,7 +197,7 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
       <p
         style={{ margin: "0 0 0.6rem", fontSize: "0.85rem", color: "#fbbf24" }}
       >
-        ⏳ <strong>Don't ghost.</strong> Pending challenges expire after{" "}
+        <GameArtIcon kind="mission" size={16} /> <strong>Don't ghost.</strong> Pending challenges expire after{" "}
         <strong>1 hour</strong> if the defender does nothing — each expired
         challenge takes <strong>−5 HP</strong> off the defender's clan.
       </p>
@@ -221,3 +223,4 @@ export function ClanWarManual({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+

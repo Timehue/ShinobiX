@@ -329,6 +329,7 @@ export function AiFightHost({
                         settled: true,
                         outcome: "win",
                         ryo: Number(recovered.reward.ryo) || 0,
+                        statPoints: 0,
                         capped: false,
                         replayed: recovered.replayed === true,
                         character: recovered.character,
@@ -707,8 +708,8 @@ function AiFightResultCard({
                                     ? <p className="story-fight-complete-rewards">Encounter cleared. Contract rewards remain available at their normal turn-in.</p>
                                     : (
                                     <p className="story-fight-complete-rewards">
-                                        +{settleResult.ryo} ryo{settleResult.capped ? " (daily cap reached)" : ""}
-                                        <span className="story-fight-complete-title">Stat points come from training, your dailies, and serious PvP.</span>
+                                        +{settleResult.ryo} ryo · +{settleResult.statPoints} stat points{settleResult.capped ? " (daily ryo cap reached)" : ""}
+                                        <span className="story-fight-complete-title">Win PvE and PvP fights for stat growth, and train or complete daily missions for more.</span>
                                     </p>
                                     )}
                 {/* Same escape hatch as the defeat branch above: a failed

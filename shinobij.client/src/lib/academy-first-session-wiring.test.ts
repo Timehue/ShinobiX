@@ -33,9 +33,13 @@ describe("Academy first-session wiring", () => {
     });
 
     it("carries the awakening choice through Central Hub instead of dropping its intent", () => {
-        assert.match(momentsSource, /intent === "openAwakening"[\s\S]*props\.onOpenAwakening\(\)/);
-        assert.match(appSource, /setAcademyAwakeningRequested\(true\)[\s\S]*setScreen\("centralHub"\)/);
-        assert.match(centralHubSource, /useState\(openAwakeningOnMount\)[\s\S]*onAwakeningRequestHandled/);
+        assert.match(momentsSource, /if \(!await saveAction\("complete", route\)\) return;[\s\S]*props\.onOpenAwakening\(\)/);
+        assert.match(appSource, /onOpenAwakening=\{\(\) => \{[\s\S]*setAcademyAwakeningRequested\(true\)[\s\S]*setScreen\("centralHub"\)/);
+        assert.match(centralHubSource, /const awakeningOpen = showAwakening \|\| openAwakeningOnMount/,
+            "a late Academy handoff must keep the Awakening Stone modal open from the request prop");
+        assert.match(centralHubSource, /const closeAwakening = \(\) => \{[\s\S]*onAwakeningRequestHandled\?\.\(\)/,
+            "the hub must consume the Academy handoff only when the modal closes");
+        assert.match(centralHubSource, /\{awakeningOpen && \([\s\S]*<Modal open=\{awakeningOpen\}/);
     });
 
     it("keeps the earned seal visible after the tutorial overlay is gone", () => {

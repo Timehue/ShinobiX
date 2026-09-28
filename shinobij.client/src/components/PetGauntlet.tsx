@@ -28,8 +28,8 @@ import { resolveSynergies, applySynergiesToSquad } from "../lib/pet-synergies";
 import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-gauntlet-stats";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
-import { elementIcon } from "../lib/elements";
 import { PetBoardArena } from "./PetBoardArena";
+import { GameArtIcon } from "./GameArtIcon";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
@@ -61,6 +61,15 @@ const ELEMENT_COLOR: Record<string, string> = {
 };
 const elColor = (el?: string | null) => (el && ELEMENT_COLOR[el]) || "#94a3b8";
 const roleOf = (p: Pet): PetRole => (p.role as PetRole | undefined) ?? derivePetRole(p).role;
+const ROLE_ART_KIND: Record<PetRole, "roleDefender" | "roleTracker" | "roleAssassin" | "roleSage"> = {
+    defender: "roleDefender", tracker: "roleTracker", assassin: "roleAssassin", sage: "roleSage",
+};
+const ELEMENT_ART_KIND: Record<string, "elementFire" | "elementWater" | "elementWind" | "elementEarth" | "elementLightning"> = {
+    Fire: "elementFire", Water: "elementWater", Wind: "elementWind", Earth: "elementEarth", Lightning: "elementLightning",
+};
+const synergyArtKind = (kind: "element" | "role", match: string) => kind === "element"
+    ? ELEMENT_ART_KIND[match] ?? "elementWind"
+    : ROLE_ART_KIND[match as PetRole] ?? "roleTracker";
 // Deterministic fight seed from the run + round so a round's fight is reproducible.
 const fightSeed = (run: GauntletRun) => (run.seed * 7919 + run.round * 104729) >>> 0;
 
@@ -72,14 +81,14 @@ function PetMiniCard({ pet, footer, sharedImages = {}, badge }: { pet: Pet; foot
             {(() => { const img = petCardImage(pet, sharedImages); return img ? <img src={img} alt="" style={{ display: "block", width: "100%", height: 70, objectFit: "contain", marginBottom: 4, filter: "drop-shadow(0 3px 5px rgba(0,0,0,0.5))" }} /> : null; })()}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
                 <strong style={{ fontSize: "0.86rem", color: "#e2e8f0" }}>{pet.name}</strong>
-                <span title={ROLE_META[role].label} style={{ fontSize: "0.92rem" }}>{ROLE_META[role].icon}</span>
+                <span title={ROLE_META[role].label}><GameArtIcon kind={ROLE_ART_KIND[role]} size={19} /></span>
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "center", margin: "3px 0 5px" }}>
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: elColor(pet.element) }}>{pet.element ?? "—"}</span>
                 <span style={{ fontSize: "0.68rem", color: "#64748b", textTransform: "capitalize" }}>· {pet.rarity}</span>
             </div>
-            <div style={{ display: "flex", gap: 8, fontSize: "0.68rem", color: "#94a3b8" }}>
-                <span title="HP">❤ {pet.hp}</span><span title="Attack">⚔ {pet.attack}</span><span title="Defense">🛡 {pet.defense}</span><span title="Speed">💨 {pet.speed}</span>
+            <div style={{ display: "flex", gap: 7, alignItems: "center", fontSize: "0.68rem", color: "#cbd5e1" }}>
+                <span title="HP"><GameArtIcon kind="vitality" size={15} /> {pet.hp}</span><span title="Attack"><GameArtIcon kind="attack" size={15} /> {pet.attack}</span><span title="Defense"><GameArtIcon kind="guard" size={15} /> {pet.defense}</span><span title="Speed"><GameArtIcon kind="speed" size={15} /> {pet.speed}</span>
             </div>
             {footer && <div style={{ marginTop: 6 }}>{footer}</div>}
         </div>
@@ -91,13 +100,13 @@ const btn = (bg: string, disabled = false): React.CSSProperties => ({
     color: disabled ? "#64748b" : "#0b1220", fontWeight: 800, fontSize: "0.78rem", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.6 : 1,
 });
 
-// Compact "+X% ⚔" parts for the run-wide buffs (Quartermaster items + stat relics).
-const buffParts = (b: GauntletBuffs): string[] => [
-    b.atk ? `+${Math.round(b.atk * 100)}% ⚔` : "",
-    b.def ? `+${Math.round(b.def * 100)}% 🛡` : "",
-    b.hp ? `+${Math.round(b.hp * 100)}% ❤` : "",
-    b.spd ? `+${Math.round(b.spd * 100)}% 💨` : "",
-].filter(Boolean);
+// Compact stat-art parts for the run-wide buffs (Quartermaster items + stat relics).
+const buffParts = (b: GauntletBuffs): { kind: "attack" | "guard" | "vitality" | "speed"; value: string }[] => [
+    b.atk ? { kind: "attack", value: `+${Math.round(b.atk * 100)}%` } : null,
+    b.def ? { kind: "guard", value: `+${Math.round(b.def * 100)}%` } : null,
+    b.hp ? { kind: "vitality", value: `+${Math.round(b.hp * 100)}%` } : null,
+    b.spd ? { kind: "speed", value: `+${Math.round(b.spd * 100)}%` } : null,
+].filter((part): part is { kind: "attack" | "guard" | "vitality" | "speed"; value: string } => part !== null);
 
 // One side of the pre-fight team stat column: pooled power, element spread, and the
 // net elemental edge vs the other squad (mirrors the board sim's element cycle).
@@ -117,20 +126,20 @@ function TeamStatCard({ title, accent, totals, edge, footer }: { title: string; 
             ) : (
                 <>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 10px", fontSize: "0.72rem", color: "#cbd5e1" }}>
-                        <span title="Team HP pool (after bonuses)">❤ {totals.hp.toLocaleString()}</span>
-                        <span title="Team attack pool (after bonuses)">⚔ {totals.attack.toLocaleString()}</span>
-                        <span title="Average defense per pet">🛡 {totals.defenseAvg}</span>
-                        <span title="Average speed per pet">💨 {totals.speedAvg}</span>
+                        <span title="Team HP pool (after bonuses)"><GameArtIcon kind="vitality" size={17} /> {totals.hp.toLocaleString()}</span>
+                        <span title="Team attack pool (after bonuses)"><GameArtIcon kind="attack" size={17} /> {totals.attack.toLocaleString()}</span>
+                        <span title="Average defense per pet"><GameArtIcon kind="guard" size={17} /> {totals.defenseAvg}</span>
+                        <span title="Average speed per pet"><GameArtIcon kind="speed" size={17} /> {totals.speedAvg}</span>
                     </div>
                     {totals.elements.length > 0 && (
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: "0.72rem", fontWeight: 700 }}>
                             {totals.elements.map((e) => (
-                                <span key={e.element} title={`${e.count}× ${e.element}`} style={{ color: elColor(e.element) }}>{elementIcon(e.element)} {e.count}</span>
+                                <span key={e.element} title={`${e.count}× ${e.element}`} style={{ display: "inline-flex", alignItems: "center", gap: 3, color: elColor(e.element) }}><GameArtIcon kind={ELEMENT_ART_KIND[e.element] ?? "elementWind"} size={17} /> {e.count}</span>
                             ))}
                         </div>
                     )}
                     <div title="Average element damage multiplier this squad deals to the other (the board sim's Fire→Wind→Lightning→Earth→Water cycle)" style={{ fontSize: "0.7rem", fontWeight: 700, color: edgeColor }}>
-                        ⚖ Elemental {edgePct === 0 ? "even" : `${edgePct > 0 ? "+" : ""}${edgePct}%`} <span style={{ color: "#64748b", fontWeight: 400 }}>×{edge.toFixed(2)}</span>
+                        <GameArtIcon kind="attack" size={15} /> Elemental {edgePct === 0 ? "even" : `${edgePct > 0 ? "+" : ""}${edgePct}%`} <span style={{ color: "#64748b", fontWeight: 400 }}>×{edge.toFixed(2)}</span>
                     </div>
                 </>
             )}
@@ -151,7 +160,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
     // each new run; a run-changing action is recorded next to its setRun call.
     const transcriptRef = useRef<GauntletAction[]>([]);
     const record = (a: GauntletAction) => { transcriptRef.current.push(a); };
-    const [shopOpen, setShopOpen] = useState(false);                     // the 🛒 relic bazaar overlay (opened on demand)
+    const [shopOpen, setShopOpen] = useState(false);                     // the relic bazaar overlay (opened on demand)
     // The active fight: the precomputed board result the board renderer plays.
     const [fight, setFight] = useState<{ result: BoardResult; key: number } | null>(null);
     // Latest character for the (single, async) reward credit — avoids a stale closure.
@@ -333,7 +342,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         <section className="summary-box" style={{ marginTop: "0.2rem", display: "grid", gap: "0.9rem" }}>
             {/* Hero header — generated banner (fal Flux) under a dark gradient for text legibility. */}
             <div style={{ borderRadius: 12, padding: "22px 20px", border: "1px solid #3b2f55", backgroundImage: `linear-gradient(105deg, rgba(8,11,22,0.86), rgba(8,11,22,0.4) 70%), url(${gauntletHero})`, backgroundSize: "cover", backgroundPosition: "center 38%" }}>
-                <h3 style={{ margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}>🗡️ Pet Gauntlet</h3>
+                <h3 style={{ display: "flex", alignItems: "center", gap: 7, margin: 0, font: "800 1.15rem var(--font-display)", color: "#fcd34d" }}><GameArtIcon kind="attack" size={30} /> Pet Gauntlet</h3>
                 <p className="hint" style={{ margin: "4px 0 0" }}>
                     Draft a run-only squad from a <strong style={{ color: "#c4b5fd" }}>randomized</strong> shop, chase element &amp; role synergies, and survive {run.maxRounds} escalating rounds.
                     Drafted pets vanish when the run ends — but clearing rounds pays <strong style={{ color: "#fcd34d" }}>Ryo</strong>, and the deepest clears
@@ -344,20 +353,23 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
 
             {/* Run status bar */}
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center", padding: "8px 14px", background: "rgba(15,23,42,0.55)", border: "1px solid #334155", borderRadius: 10, fontWeight: 800 }}>
-                <span style={{ color: "#fca5a5" }}>{"❤".repeat(Math.max(0, run.hearts))}{"🖤".repeat(Math.max(0, GAUNTLET_START_HEARTS - run.hearts))}</span>
+                <span aria-label={`${run.hearts} of ${GAUNTLET_START_HEARTS} hearts remaining`} style={{ display: "inline-flex", gap: 2 }}>
+                    {Array.from({ length: Math.max(0, run.hearts) }, (_, index) => <GameArtIcon key={`life-${index}`} kind="vitality" size={18} />)}
+                    {Array.from({ length: Math.max(0, GAUNTLET_START_HEARTS - run.hearts) }, (_, index) => <span key={`lost-${index}`} style={{ opacity: 0.25, filter: "grayscale(1)" }}><GameArtIcon kind="vitality" size={18} /></span>)}
+                </span>
                 <span title="Valor — the Gauntlet's run-only shop currency (not your Ryo)" style={{ color: "#fcd34d" }}>✦ {run.valor} Valor</span>
                 <span style={{ color: "#93c5fd" }}>Round {Math.min(run.round, run.maxRounds)} / {run.maxRounds}</span>
                 <span title="Gauntlet client build — confirms which version the live site is serving" style={{ color: "#475569", fontSize: "0.62rem", fontWeight: 700 }}>build {GAUNTLET_BUILD}</span>
                 <span style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
-                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}>🛒 Shop</button>}
+                    {!over && <button type="button" style={btn("#a855f7")} onClick={() => setShopOpen(true)}><GameArtIcon kind="shop" size={18} /> Shop</button>}
                     <button type="button" style={btn("#475569")} onClick={newRun}>↻ New Run ({GAUNTLET_NEW_RUN_FEE.toLocaleString()} ryo)</button>
                 </span>
             </div>
 
             {over ? (
                 <div style={{ textAlign: "center", padding: "1.4rem" }}>
-                    <div style={{ font: "900 2rem Inter, sans-serif", color: run.status === "won" ? "#4ade80" : "#f87171" }}>
-                        {run.status === "won" ? "🏆 Gauntlet Cleared!" : "Run Over"}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, font: "900 2rem Inter, sans-serif", color: run.status === "won" ? "#4ade80" : "#f87171" }}>
+                        {run.status === "won" ? <><GameArtIcon kind="crown" size={34} /> Gauntlet Cleared!</> : "Run Over"}
                     </div>
                     <p className="hint">{run.log[run.log.length - 1]}</p>
                     <p className="hint" style={{ margin: "2px 0 10px" }}>Cleared {run.roundsCleared} / {run.maxRounds} rounds.</p>
@@ -365,10 +377,10 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         <div style={{ display: "inline-flex", flexDirection: "column", gap: 4, padding: "10px 18px", margin: "0 auto 12px", borderRadius: 12, background: "rgba(120,53,15,0.3)", border: "1px solid rgba(250,204,21,0.5)" }}>
                             <span style={{ font: "800 1.1rem Inter, sans-serif", color: "#fcd34d" }}>{reward.ryo > 0 ? `+${reward.ryo.toLocaleString()} Ryo` : "No Ryo this run"}</span>
                             {(reward.fateShards > 0 || reward.boneCharms > 0) && (
-                                <span style={{ font: "800 0.92rem Inter, sans-serif", color: "#fde68a" }}>
-                                    {reward.fateShards > 0 ? `+${reward.fateShards} 🔮 Fate Shard${reward.fateShards === 1 ? "" : "s"}` : ""}
+                                <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, font: "800 0.92rem Inter, sans-serif", color: "#fde68a" }}>
+                                    {reward.fateShards > 0 && <><GameArtIcon kind="fateShard" size={22} /> +{reward.fateShards} Fate Shard{reward.fateShards === 1 ? "" : "s"}</>}
                                     {reward.fateShards > 0 && reward.boneCharms > 0 ? " · " : ""}
-                                    {reward.boneCharms > 0 ? `+${reward.boneCharms} 🦴 Bone Charm${reward.boneCharms === 1 ? "" : "s"}` : ""}
+                                    {reward.boneCharms > 0 && <><GameArtIcon kind="boneCharm" size={22} /> +{reward.boneCharms} Bone Charm{reward.boneCharms === 1 ? "" : "s"}</>}
                                 </span>
                             )}
                             <span className="hint" style={{ fontSize: "0.78rem" }}>Weekly score {reward.score.toLocaleString()}{reward.rank ? ` · rank #${reward.rank}` : ""} · see the Hall of Legends → Gauntlet board</span>
@@ -386,13 +398,13 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <div>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Your Formation ({fielded.length}/5)</h4>
-                            <button type="button" style={btn("#f59e0b", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}>⚔ Fight Round {run.round}</button>
+                            <button type="button" style={btn("#f59e0b", fielded.length === 0)} disabled={fielded.length === 0} onClick={startRound}><GameArtIcon kind="attack" size={18} /> Fight Round {run.round}</button>
                         </div>
                         {synergies.length > 0 ? (
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                                 {synergies.map((s) => (
                                     <span key={s.def.key} title={`${s.def.flavor} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.74rem" }}>
-                                        <span>{s.def.icon}</span>{s.def.label} ×{s.count} <span style={{ opacity: 0.85 }}>· {s.tier.note}</span>
+                                        <GameArtIcon kind={synergyArtKind(s.def.kind, s.def.match)} size={20} />{s.def.label} ×{s.count} <span style={{ opacity: 0.85 }}>· {s.tier.note}</span>
                                     </span>
                                 ))}
                             </div>
@@ -405,13 +417,13 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 <div>
                                     <p className="hint" style={{ margin: "0 0 6px", fontSize: "0.74rem" }}>Click a pet, then a cell on <strong style={{ color: "#93c5fd" }}>your side</strong> (bottom), to position it — this is the board you'll fight on. Your front line meets the enemy's in the middle.</p>
                                     <details style={{ margin: "0 0 8px", fontSize: "0.72rem" }}>
-                                        <summary style={{ cursor: "pointer", color: "#fcd34d", fontWeight: 700 }}>⚔ How combat works — roles &amp; position</summary>
+                                        <summary style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", color: "#fcd34d", fontWeight: 700 }}><GameArtIcon kind="attack" size={18} /> How combat works — roles &amp; position</summary>
                                         <div style={{ display: "grid", gap: 3, margin: "5px 0 0", padding: "7px 10px", borderRadius: 8, background: "rgba(15,23,42,0.55)", border: "1px solid #334155", color: "#cbd5e1", lineHeight: 1.45 }}>
-                                            <div><span style={{ color: "#7dd3fc" }}>🛡 Defender</span> — a tank in your <strong>front row taunts</strong>: enemy melee must hit it before your squishier pets.</div>
-                                            <div><span style={{ color: "#fca5a5" }}>🗡 Assassin</span> — <strong>dives the back row</strong>, hunting the enemy <span style={{ color: "#4ade80" }}>Sage</span> (healer) first.</div>
-                                            <div><span style={{ color: "#fbbf24" }}>🎯 Tracker</span> — ranged; <strong>snipes the lowest-HP foe</strong> anywhere, and hunts enemy Sages.</div>
+                                            <div><span style={{ display: "inline-flex", alignItems: "center", color: "#7dd3fc" }}><GameArtIcon kind="roleDefender" size={18} /> Defender</span> — a tank in your <strong>front row taunts</strong>: enemy melee must hit it before your squishier pets.</div>
+                                            <div><span style={{ display: "inline-flex", alignItems: "center", color: "#fca5a5" }}><GameArtIcon kind="roleAssassin" size={18} /> Assassin</span> — <strong>dives the back row</strong>, hunting the enemy <span style={{ color: "#4ade80" }}>Sage</span> (healer) first.</div>
+                                            <div><span style={{ display: "inline-flex", alignItems: "center", color: "#fbbf24" }}><GameArtIcon kind="roleTracker" size={18} /> Tracker</span> — ranged; <strong>snipes the lowest-HP foe</strong> anywhere, and hunts enemy Sages.</div>
                                             <div><span style={{ color: "#4ade80" }}>✚ Sage</span> — heals &amp; shields your most-wounded pet. Keep it protected — it's a target.</div>
-                                            <div style={{ marginTop: 2, color: "#94a3b8" }}>📍 <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "#fcd34d" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, color: "#94a3b8" }}><GameArtIcon kind="mission" size={17} /> <strong>Position:</strong> melee can't reach the back until the front falls. <span style={{ color: "#fcd34d" }}>Front row +12% damage</span>; <span style={{ color: "#7dd3fc" }}>back row takes −18% melee</span> (cover).</div>
                                         </div>
                                     </details>
                                     <div style={{ display: "flex", gap: 10, alignItems: "stretch", justifyContent: "center", flexWrap: "wrap" }}>
@@ -427,7 +439,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                         return (
                                                             <div key={`e${gr}-${c}`} style={{ aspectRatio: "1", borderRadius: 6, border: "1px solid rgba(220,90,90,0.26)", background: "rgba(80,25,25,0.22)", position: "relative", display: "grid", placeItems: "center", opacity: 0.72 }}>
                                                                 {eu && eimg ? <img src={eimg} alt="" draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain", transform: "scaleX(-1)" }} /> : null}
-                                                                {eu?.pet.element && <span title={eu.pet.element} style={{ position: "absolute", bottom: 0, left: 2, fontSize: "0.62rem", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}>{elementIcon(eu.pet.element)}</span>}
+                                                                {eu?.pet.element && ELEMENT_ART_KIND[eu.pet.element] && <span title={eu.pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[eu.pet.element]} size={14} /></span>}
                                                             </div>
                                                         );
                                                     }
@@ -441,8 +453,8 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                             style={{ aspectRatio: "1", borderRadius: 6, border: `1px solid ${sel ? "#facc15" : "rgba(96,165,250,0.42)"}`, background: pet ? "rgba(15,23,42,0.5)" : "rgba(30,52,82,0.3)", cursor: "pointer", padding: 2, position: "relative", display: "grid", placeItems: "center", boxShadow: sel ? "0 0 10px rgba(250,204,21,0.7)" : "none" }}>
                                                             {pet && img ? <img src={img} alt={pet.name} draggable={false} style={{ maxWidth: "100%", maxHeight: "82%", objectFit: "contain" }} /> : null}
                                                             {pet && petStar(run, pet.id) > 1 && <span title={`Merged ★${petStar(run, pet.id)}`} style={{ position: "absolute", top: 1, left: 3, fontSize: "0.56rem", fontWeight: 900, color: "#fcd34d", textShadow: "0 1px 2px rgba(0,0,0,0.9)" }}>★{petStar(run, pet.id)}</span>}
-                                                            {pet?.element && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, fontSize: "0.62rem", filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}>{elementIcon(pet.element)}</span>}
-                                                            {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, fontSize: "0.58rem", color: elColor(pet.element) }}>{ROLE_META[roleOf(pet)].icon}</span>}
+                                                            {pet?.element && ELEMENT_ART_KIND[pet.element] && <span title={pet.element} style={{ position: "absolute", bottom: 0, left: 2, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ELEMENT_ART_KIND[pet.element]} size={14} /></span>}
+                                                            {pet && <span title={ROLE_META[roleOf(pet)].label} style={{ position: "absolute", bottom: 1, right: 3, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.95))" }}><GameArtIcon kind={ROLE_ART_KIND[roleOf(pet)]} size={14} /></span>}
                                                         </button>
                                                     );
                                                 }),
@@ -454,19 +466,19 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                         and (for you) the synergies / relics / boosts you've drafted. Stacked
                                         to mirror the board halves: enemy on top, you on the bottom. */}
                                     <div style={{ flex: "1 1 208px", maxWidth: 272, minWidth: 184, display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 8 }}>
-                                        <TeamStatCard title="🛡 ENEMY SQUAD" accent="#f87171" totals={enemyTotals} edge={enemyEdge} footer={
+                                        <TeamStatCard title="ENEMY SQUAD" accent="#f87171" totals={enemyTotals} edge={enemyEdge} footer={
                                             <div style={{ fontSize: "0.64rem", color: "#fca5a5" }} title="Per-round stat multiplier applied to every enemy pet this round">Round scaling <strong>×{enemyStatMultForRound(run.round).toFixed(2)}</strong></div>
                                         } />
-                                        <TeamStatCard title="⚔ YOUR SQUAD" accent="#93c5fd" totals={playerTotals} edge={playerEdge} footer={
+                                        <TeamStatCard title="YOUR SQUAD" accent="#93c5fd" totals={playerTotals} edge={playerEdge} footer={
                                             (synergies.length > 0 || run.relics.length > 0 || buffParts(run.buffs).length > 0) ? (
                                                 <div style={{ display: "grid", gap: 5 }}>
                                                     {buffParts(run.buffs).length > 0 && (
-                                                        <div style={{ fontSize: "0.64rem", color: "#fcd34d" }} title="Run-wide boosts folded in from Quartermaster items + stat relics">Boosts: {buffParts(run.buffs).join(" · ")}</div>
+                                                        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.64rem", color: "#fcd34d" }} title="Run-wide boosts folded in from Quartermaster items + stat relics">Boosts: {buffParts(run.buffs).map((part) => <span key={part.kind} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}><GameArtIcon kind={part.kind} size={14} /> {part.value}</span>)}</div>
                                                     )}
                                                     {synergies.length > 0 && (
                                                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                                             {synergies.map((s) => (
-                                                                <span key={s.def.key} title={`${s.def.label} ×${s.count} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.62rem" }}>{s.def.icon} {s.def.label} ×{s.count}</span>
+                                                                <span key={s.def.key} title={`${s.def.label} ×${s.count} — ${s.tier.note}`} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: `${s.def.color}22`, border: `1px solid ${s.def.color}`, color: s.def.color, fontWeight: 700, fontSize: "0.62rem" }}><GameArtIcon kind={synergyArtKind(s.def.kind, s.def.match)} size={16} /> {s.def.label} ×{s.count}</span>
                                                             ))}
                                                         </div>
                                                     )}
@@ -495,9 +507,9 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                     <p className="hint" style={{ margin: 0 }}>
                         Next: {enemySquadForRound(run).map((e) => e.name).join(" + ")} ({enemySquadForRound(run)[0]?.rarity}).
                         {run.round >= GAUNTLET_SPIKE_ROUND
-                            ? <strong style={{ color: "#f87171" }}> ⚠ Elite round — enemies are far tougher from here. Optimize your squad.</strong>
+                            ? <strong style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#f87171" }}><GameArtIcon kind="warning" size={17} /> Elite round — enemies are far tougher from here. Optimize your squad.</strong>
                             : run.round === GAUNTLET_SPIKE_ROUND - 1
-                                ? <strong style={{ color: "#fbbf24" }}> ⚠ The gauntlet hardens next round ({GAUNTLET_SPIKE_ROUND}). Gear up.</strong>
+                                ? <strong style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "#fbbf24" }}><GameArtIcon kind="warning" size={17} /> The gauntlet hardens next round ({GAUNTLET_SPIKE_ROUND}). Gear up.</strong>
                                 : null}
                     </p>
 
@@ -508,7 +520,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
                             <h4 style={{ margin: 0, color: "#e2e8f0" }}>Recruit Shop</h4>
                             <button type="button" style={btn("#38bdf8", run.valor < rerollCost)} disabled={run.valor < rerollCost} onClick={() => { record({ k: "reroll" }); setRun(rerollShop(run)); }}>
-                                🎲 Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
+                                <GameArtIcon kind="dice" size={18} /> Reroll ({rerollCost === 0 ? "free" : `${rerollCost}✦`})
                             </button>
                         </div>
                         <p className="hint" style={{ margin: "0 0 6px" }}>Recruit a pet you already own to <strong style={{ color: "#fcd34d" }}>merge</strong> it — the copy levels up (★) with a stat boost instead of taking a roster slot.</p>
@@ -547,7 +559,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             {/* Title bar (transparent — the panel backdrop shows the shopkeeper) */}
                             <div style={{ position: "relative", padding: "16px 20px 10px", flexShrink: 0 }}>
                                 <button type="button" onClick={() => setShopOpen(false)} aria-label="Close shop" style={{ position: "absolute", top: 8, right: 10, width: 30, height: 30, borderRadius: 8, border: "1px solid #475569", background: "rgba(15,23,42,0.85)", color: "#e2e8f0", fontWeight: 800, fontSize: "0.9rem", cursor: "pointer" }}>✕</button>
-                                <strong style={{ color: "#fcd34d", font: "800 1.15rem var(--font-display)", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🛒 The Beastmaster's Bazaar</strong>
+                                <strong style={{ display: "inline-flex", alignItems: "center", gap: 7, color: "#fcd34d", font: "800 1.15rem var(--font-display)", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}><GameArtIcon kind="shop" size={26} /> The Beastmaster's Bazaar</strong>
                                 <p className="hint" style={{ margin: "4px 0 8px", fontStyle: "italic", color: "#f1e7c6", maxWidth: 460, textShadow: "0 1px 5px rgba(0,0,0,0.95)" }}>“{NPC_LINES[(run.round - 1) % NPC_LINES.length]}”</p>
                                 <span title="Valor — the run-only shop currency (not your Ryo)" style={{ display: "inline-block", padding: "3px 10px", borderRadius: 999, background: "rgba(0,0,0,0.6)", border: "1px solid rgba(252,211,77,0.5)", color: "#fcd34d", fontWeight: 800 }}>✦ {run.valor} Valor</span>
                             </div>
@@ -564,7 +576,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 const atFullHearts = def.id === "mend" && run.hearts >= GAUNTLET_START_HEARTS;
                                 const cost = itemCost(def, owned);
                                 const blocked = maxed || atFullHearts || run.valor < cost;
-                                const label = maxed ? "Maxed" : atFullHearts ? "Full ❤" : `Buy · ${cost}✦`;
+                                const label = maxed ? "Maxed" : atFullHearts ? "Full HP" : `Buy · ${cost}✦`;
                                 return (
                                     <div key={def.id} style={{ border: "1px solid #334155", borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", width: 150 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -612,16 +624,16 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                         once per day each (so Valor can't mint unlimited currency). */}
                     {premiumUnlocked(run) && (
                         <div>
-                            <h4 style={{ margin: "0 0 6px", color: "#fcd34d" }}>🏆 Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
+                            <h4 style={{ display: "flex", alignItems: "center", gap: 6, margin: "0 0 6px", color: "#fcd34d" }}><GameArtIcon kind="crown" size={22} /> Rare Goods <span className="hint" style={{ fontWeight: 400, fontSize: "0.74rem" }}>· cleared round 9! · banked to your account at run end (once per day each)</span></h4>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                 {[
-                                    { kind: "fateShard" as const, name: "Fate Shard", icon: "🔮", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
-                                    { kind: "boneCharm" as const, name: "Bone Charm", icon: "🦴", cost: GAUNTLET_CHARM_COST, bought: run.boughtBoneCharm },
+                                    { kind: "fateShard" as const, name: "Fate Shard", cost: GAUNTLET_SHARD_COST, bought: run.boughtFateShard },
+                                    { kind: "boneCharm" as const, name: "Bone Charm", cost: GAUNTLET_CHARM_COST, bought: run.boughtBoneCharm },
                                 ].map((p) => {
                                     const blocked = p.bought || run.valor < p.cost;
                                     return (
                                         <div key={p.kind} style={{ border: "1px solid #b45309", borderRadius: 10, background: "rgba(67,40,8,0.5)", padding: "8px 10px", width: 162 }}>
-                                            <strong style={{ fontSize: "0.84rem", color: "#fde68a" }}>{p.icon} {p.name}</strong>
+                                            <strong style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#fde68a" }}><GameArtIcon kind={p.kind} size={25} /> {p.name}</strong>
                                             <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>Bank 1 {p.name} to your account when the run ends.</p>
                                             <button type="button" style={btn("#f59e0b", blocked)} disabled={blocked} onClick={() => { record({ k: "premium", kind: p.kind }); setRun(buyPremium(run, p.kind)); }}>{p.bought ? "Queued ✓" : `Buy · ${p.cost}✦`}</button>
                                         </div>

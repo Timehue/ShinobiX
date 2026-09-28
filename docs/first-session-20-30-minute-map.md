@@ -59,7 +59,7 @@ math, rewards, existing unlock requirements, or veteran saves.
 |---|---|---|---|
 | 0:00–5:00 | Identity | Create shinobi; choose village, bloodline, portrait, and account identity | “This is my character and build foundation.” |
 | 5:00–9:00 | Bond | Experience the intro and choose a companion | “This world has tone, stakes, and a guide I chose.” |
-| 9:00–18:00 | **Prepare** | Start stat training; train a non-bloodline jutsu; equip four jutsu; equip kunai and vest | “I know how long-term growth and a battle kit work.” |
+| 9:00–18:00 | **Prepare** | Start stat training and reach Level 2 from the first Academy training action; train a non-bloodline jutsu; equip four jutsu; equip kunai and vest | “I know how long-term growth and a battle kit work, and I get an early level-up.” |
 | 18:00–27:00 | **Prove Yourself** | Win the Academy spar; recover in the Cafeteria; claim the Academy Trial | “I can fight, recover, and turn success into rewards.” |
 | 27:00–36:00 | **Find Direction** | Open the Logbook; visit a numbered sector; return to the village | “I know where goals live and how to leave and return safely.” |
 | 30:00–45:00, when ready | **Choose Your Path** | Follow the Awakening Stone story into Central Hub, awaken an element, then choose E-Rank field work or the village story | “The tutorial is over, but I have a reason to keep playing.” |
@@ -97,6 +97,12 @@ Academy “focus mode” presentation:
 - **Explore later:** a collapsed group containing everything else.
 - Direct links and the Skip action remain available.
 
+The first Academy training start grants only the points needed to reach Level 2.
+This gives the player an early level-up while the training timer begins. The
+spar checkpoint keeps the same idempotent Level 2 floor as a fallback for
+older tutorial saves. The Awakening prompt remains deferred until Academy
+completion.
+
 The focused sequence is:
 
 `Training → Jutsu → Profile → Inventory → Spar → Cafeteria → Mission Hall → Logbook → World Map`
@@ -106,8 +112,10 @@ The focused sequence is:
 Replace the coach with a compact, staged handoff:
 
 1. If the Level 2 awakening is available, recommend **Visit the Awakening
-   Stone** while keeping **Take an E-Rank mission** available. The existing
-   Awakening Stone scene introduces the destination before Central Hub opens.
+   Stone** while keeping **Take an E-Rank mission** available. Before Academy
+   completion, the Logbook does not ask the player to awaken yet. Afterward,
+   both the handoff and Logbook route through the Awakening Stone scene before
+   Central Hub opens.
 2. Once the player owns an element, offer **Take an E-Rank mission** or
    **Continue the village story**.
 

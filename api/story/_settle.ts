@@ -1,4 +1,5 @@
 import { applyDerivedLevel } from '../_xp-engine.js';
+import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 import {
     grantChronicleProgressionCards,
@@ -65,9 +66,11 @@ export function applyAcademySparSettlement(character: PlayerCharacter, proof: St
     if (proof.opponentId !== ACADEMY_SPAR_OPPONENT_ID) {
         return { ok: false, status: 409, error: 'Server combat proof does not match the Academy spar.' };
     }
-    // The teaching reward: +20 pool points (replacing the old one-time 60 XP)
-    // teaches the USER STATS panel the way the XP bar move used to.
-    const leveled = grantPoolPoints(character, 20);
+    // The teaching reward gives the player a useful first build. Keep this
+    // idempotent Level 2 floor as a fallback for saves that missed the first-
+    // training checkpoint.
+    const floor = grantAcademyLevelFloor(grantPoolPoints(character, 20), ACADEMY_LEVEL_FLOORS.spar);
+    const leveled = floor.character as PlayerCharacter;
     const maxHp = Math.max(1, Number(leveled.maxHp) || 1);
     const next: PlayerCharacter = {
         ...leveled,
@@ -78,7 +81,7 @@ export function applyAcademySparSettlement(character: PlayerCharacter, proof: St
         onboardingStep: 'cafeteria',
         academySparClaimed: true,
     };
-    return { ok: true, character: next, progress: 0, xp: 0, statPoints: 20, ryo: 30, auraDust: 0, finale: false };
+    return { ok: true, character: next, progress: 0, xp: 0, statPoints: 20 + floor.statPoints, ryo: 30, auraDust: 0, finale: false };
 }
 
 export function applyStoryBossSettlement(

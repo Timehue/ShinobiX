@@ -212,29 +212,26 @@ function examLevelCap(character: XpCharacter): number {
 // ── lib/stats.ts — stat-derived leveling (docs/leveling-without-xp-map.md) ──
 // Level is a pure function of total stat points EARNED (allocated above base +
 // the unspent pool — the conserved sum preserveStatPointEntitlement guards).
-// Anchors FITTED to the per-rank caps (straight inversion of the linear budget
-// walls at L15/L30). VERBATIM port of shinobij.client/src/lib/stats.ts;
-// parity-pinned by _cross-build-parity.test.ts + _level-curve.test.ts.
-export const LEVEL_EARNED_ANCHORS: ReadonlyArray<readonly [number, number]> = [
-    [1, 0],
-    [15, 2800],
-    [30, 6200],
-    [50, 11600],
-    [80, 19600],
-    [100, 27500],
-];
+// A smooth progressive curve gives every level a distinct threshold and a
+// generally rising next-level cost. It is calibrated at L10/L30/L80/L100 to
+// 1,800/6,100/19,500/29,000 earned points. Keep VERBATIM with
+// shinobij.client/src/lib/stats.ts; parity is pinned by _cross-build-parity.test.ts
+// + _level-curve.test.ts.
+const LEVEL_CURVE_LINEAR_COEFFICIENT = 191.67876990268087;
+const LEVEL_CURVE_QUADRATIC_COEFFICIENT = 1.1074354304268461;
+const LEVEL_CURVE_CUBIC_COEFFICIENT = -0.02226330146888855;
+const LEVEL_CURVE_QUARTIC_COEFFICIENT = 0.00021623956441357866;
 
 // Total earned stat points required to BE `level` (0 at L1).
 export function earnedForLevel(level: number): number {
     const clamped = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    for (let i = 1; i < LEVEL_EARNED_ANCHORS.length; i++) {
-        const [aL, aE] = LEVEL_EARNED_ANCHORS[i - 1];
-        const [bL, bE] = LEVEL_EARNED_ANCHORS[i];
-        if (clamped >= aL && clamped <= bL) {
-            return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
-        }
-    }
-    return 0;
+    const n = clamped - 1;
+    return Math.round(
+        LEVEL_CURVE_LINEAR_COEFFICIENT * n +
+        LEVEL_CURVE_QUADRATIC_COEFFICIENT * n * n +
+        LEVEL_CURVE_CUBIC_COEFFICIENT * n * n * n +
+        LEVEL_CURVE_QUARTIC_COEFFICIENT * n * n * n * n,
+    );
 }
 
 // The raw curve inverse: the level `earned` total points supports. Exam holds
@@ -295,13 +292,12 @@ export function gainXp(character: XpCharacter, _amount: number): XpCharacter {
 }
 
 // ── PvP-win reward composition ──────────────────────────────────────────────
-export type PvpWinGains = { ryoGain: number; deathsGate: boolean; trait: string | null; growthMult: number };
+export type PvpWinGains = { ryoGain: number; deathsGate: boolean; trait: string | null };
 
 /** The base PvP-win ryo for `char`, scaled by the active pet trait and the
  *  Death's Gate (sector 99) 2× bonus, doubled again by a sealed stronghold stamp.
- *  Character XP is retired — the old Swift
- *  +25% XP and Death's Gate ×2 XP boosts now act on PvP STAT GROWTH instead
- *  (docs/leveling-without-xp-map.md §4.1), surfaced here as `growthMult`. */
+ *  Win-based stat awards are calculated separately and are never multiplied
+ *  by pet, encounter, or era growth boosts. */
 export function computePvpWinGains(char: XpCharacter, rewardSector: unknown, rewardStronghold?: unknown): PvpWinGains {
     const pets = Array.isArray(char.pets) ? char.pets as Array<Record<string, unknown>> : [];
     const activePet = pets.find((p) => p && p.id === char.activePetId);
@@ -309,8 +305,7 @@ export function computePvpWinGains(char: XpCharacter, rewardSector: unknown, rew
     const deathsGate = Number(rewardSector) === 99;
     const multiplier = strongholdPvpRewardMultiplier(rewardSector, rewardStronghold);
     const ryoGain = (trait === 'Lucky' ? 90 : 75) * multiplier;
-    const growthMult = (trait === 'Swift' ? 1.25 : 1) * multiplier;
-    return { ryoGain, deathsGate, trait, growthMult };
+    return { ryoGain, deathsGate, trait };
 }
 
 export type PvpWinCredit = {

@@ -5,7 +5,7 @@
  *                      normalizeStats, allocatedStatPoints, addToAllStats,
  *                      formatStatName
  *   • level math     — maxHp/Chakra/Stamina for level, rankFromLevel
- *   • the LEVEL CURVE — LEVEL_EARNED_ANCHORS, earnedForLevel, levelForEarned,
+ *   • the LEVEL CURVE — earnedForLevel, levelForEarned,
  *                      earnedStatPoints (level is a function of earned stat
  *                      points; character XP is retired — see
  *                      docs/leveling-without-xp-map.md)
@@ -154,32 +154,26 @@ export function reconcileCharacterStatBudget(character: Character): Character {
 // Level is a pure function of total stat points EARNED: points allocated into
 // the 12 stats above base plus the unspent pool — the same conserved sum the
 // save sanitizer's preserveStatPointEntitlement guards, so level cannot be
-// forged without forging stats. The anchors are FITTED to the per-rank stat
-// caps: every rank boundary sits at ~68-78% of the previous band's earnable
-// capacity (a straight inversion of the old linear budget would wall at
-// L15/L30 — Academy can only produce 4,100 earned but the inverse demanded
-// 4,243). Piecewise-linear between anchors, rounded per level. Keep in
-// lock-step with api/_xp-engine.ts (parity-pinned by _cross-build-parity).
-export const LEVEL_EARNED_ANCHORS: ReadonlyArray<readonly [number, number]> = [
-    [1, 0],
-    [15, 2800],
-    [30, 6200],
-    [50, 11600],
-    [80, 19600],
-    [100, 27500],
-];
+// forged without forging stats. A smooth progressive curve gives every level
+// a distinct threshold and a generally rising next-level cost. It is
+// calibrated at L10/L30/L80/L100 to 1,800/6,100/19,500/29,000 points. Keep in
+// lock-step with api/_xp-engine.ts (parity-pinned by _cross-build-parity.test.ts
+// and _level-curve.test.ts).
+const LEVEL_CURVE_LINEAR_COEFFICIENT = 191.67876990268087;
+const LEVEL_CURVE_QUADRATIC_COEFFICIENT = 1.1074354304268461;
+const LEVEL_CURVE_CUBIC_COEFFICIENT = -0.02226330146888855;
+const LEVEL_CURVE_QUARTIC_COEFFICIENT = 0.00021623956441357866;
 
 // Total earned stat points required to BE `level` (0 at L1).
 export function earnedForLevel(level: number): number {
     const clamped = Math.max(1, Math.min(MAX_LEVEL, Math.floor(level)));
-    for (let i = 1; i < LEVEL_EARNED_ANCHORS.length; i++) {
-        const [aL, aE] = LEVEL_EARNED_ANCHORS[i - 1];
-        const [bL, bE] = LEVEL_EARNED_ANCHORS[i];
-        if (clamped >= aL && clamped <= bL) {
-            return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
-        }
-    }
-    return 0;
+    const n = clamped - 1;
+    return Math.round(
+        LEVEL_CURVE_LINEAR_COEFFICIENT * n +
+        LEVEL_CURVE_QUADRATIC_COEFFICIENT * n * n +
+        LEVEL_CURVE_CUBIC_COEFFICIENT * n * n * n +
+        LEVEL_CURVE_QUARTIC_COEFFICIENT * n * n * n * n,
+    );
 }
 
 // The raw curve inverse: the level `earned` total points supports. Exam holds

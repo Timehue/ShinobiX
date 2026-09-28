@@ -19,6 +19,7 @@ export const eventItems: GameItem[] = [
     {
         id: "event-kesa-marker",
         name: "Kesa's Ridge Marker",
+        image: "/items/event-kesa-marker.webp",
         slot: "waist",
         rarity: "rare",
         cost: 0,
@@ -31,6 +32,7 @@ export const eventItems: GameItem[] = [
     {
         id: "event-reed-tally",
         name: "Reed Family Tally",
+        image: "/items/event-reed-tally.webp",
         slot: "head",
         rarity: "rare",
         cost: 0,
@@ -73,6 +75,7 @@ export const eventItems: GameItem[] = [
     {
         id: "event-struck-warmth-token",
         name: "A Struck Warmth-Token",
+        image: "/items/event-struck-warmth-token.webp",
         slot: "waist",
         rarity: "epic",
         cost: 0,

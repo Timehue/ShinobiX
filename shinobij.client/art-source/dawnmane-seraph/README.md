@@ -16,8 +16,6 @@ This is a wild-capturable and breedable Wind Mythic defender/tank. Its five seed
 
 The replacement mesh has 45,222 vertices and 39,718 triangles. Four-angle raw, reduced, idle, gallop, cast, victory, and LOD reviews show one tail and no second tuft. The Warfront LOD has 16,948 triangles with a minimum three-view silhouette overlap of 0.9760, and the 16-frame impostor atlas is `public/pet-models/warfront-impostors/roster/mythic-15.webp`. The dense feather geometry requires the documented Dawnmane-specific LOD budget in `scripts/generate-warfront-pet-lods.mjs`.
 
-For release review, `replacement-prepared-review.png` shows the approved one-tail geometry, and `celestial-lion-colosseum-idle.png` and `celestial-lion-colosseum-battle.png` show the pet in the battle renderer. The other intermediate renders and the large raw fal downloads remain local authoring evidence.
-
 ## Production acceptance
 
 - One complete lion with four legs, two horns, two shoulder-attached feathered wings, mane, and exactly one tail with one tuft; no second body or detached proxy.

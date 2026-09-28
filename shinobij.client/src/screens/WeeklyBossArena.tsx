@@ -10,6 +10,7 @@ import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types
 import type { CreatorAi } from "../types/creator-ai";
 import type { Screen } from "../types/core";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { WeeklyBossFight } from "./WeeklyBossFight";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import {
@@ -346,7 +347,7 @@ export function WeeklyBossArena({
                 statusValue={countdown}
                 onBack={() => setScreen(backScreen)}
             />
-            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>
                     <GiPadlock style={WB_ICON} />{guardCycleAvailability === "unknown" ? "Guard-cycle status is being checked. The core Weekly Boss fight remains available." : "The Weekly Boss guard cycle is temporarily disabled. The core fight remains available."}
@@ -368,7 +369,7 @@ export function WeeklyBossArena({
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                             <strong style={{ color: "var(--red-400)", fontSize: "1.05rem" }}>{bossState.bossName ?? bossAi?.name ?? "Weekly Boss"}</strong>
                             <span style={{ fontFamily: "monospace", color: expired ? "var(--text-dim)" : "var(--gold)" }}>
-                                {expired ? <><GiTombstone style={WB_ICON} />Despawned</> : `⏱ ${countdown}`}
+                                {expired ? <><GiTombstone style={WB_ICON} />Despawned</> : <><GameArtIcon kind="mission" size={15} /> {countdown}</>}
                             </span>
                         </div>
                         {/* A stale or partial payload can arrive with hpMax 0. That used to
@@ -414,7 +415,7 @@ export function WeeklyBossArena({
             </div>
             {roaming && roam?.active && (
                 <div style={{ background: "rgba(236,91,56,0.12)", border: "1px solid rgba(236,91,56,0.5)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0 0 0.5rem", fontSize: "0.85rem" }}>
-                    🗺️ Now rampaging in <strong>Sector {roam.currentSector}</strong> · moves on in ~{Math.max(1, Math.ceil(roam.nextHopInMs / 60000))}m.
+                    <GameArtIcon kind="biomeShadow" size={17} /> Now rampaging in <strong>Sector {roam.currentSector}</strong> · moves on in ~{Math.max(1, Math.ceil(roam.nextHopInMs / 60000))}m.
                     <span style={{ color: "var(--text-dim)" }}> Find it there on the World Map to challenge it.</span>
                 </div>
             )}
@@ -521,11 +522,11 @@ export function WeeklyBossArena({
                                 ? "rgba(96,165,250,0.07)"
                                 : "transparent";
                     const tierLabel = isMvp
-                        ? "👑 MVP · core + key"
+                        ? "MVP · core + key"
                         : inCoreTier
-                            ? "💠 core + key"
+                            ? "core + key"
                             : inKeyTier
-                                ? "🗝 key"
+                                ? "key"
                                 : "";
                     return (
                         <div

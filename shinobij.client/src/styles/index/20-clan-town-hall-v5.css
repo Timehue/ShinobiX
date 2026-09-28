@@ -140,6 +140,32 @@
     min-height: 160px;
 }
 
+.clan-mission-heading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 72px;
+    margin-bottom: 6px;
+}
+
+.clan-mission-art {
+    display: block;
+    width: 72px;
+    height: 72px;
+    flex: 0 0 72px;
+    object-fit: contain;
+    filter: drop-shadow(0 5px 9px rgba(0, 0, 0, .4));
+}
+
+.clan-mission-heading h3 {
+    margin: 0 0 4px;
+    color: var(--gold);
+}
+
+.clan-mission-description {
+    margin: 0;
+}
+
 
 
 

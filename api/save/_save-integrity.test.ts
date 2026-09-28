@@ -59,7 +59,7 @@ describe('stat-derived level: sanitizer authority', () => {
             bukijutsuOffense: 10, bukijutsuDefense: 10, taijutsuOffense: 10, taijutsuDefense: 10,
             genjutsuOffense: 10, genjutsuDefense: 10, ninjutsuOffense: 10, ninjutsuDefense: 10,
         },
-        unspentStats: 12_000, // far past the L20 hold's 3,933 threshold
+        unspentStats: 12_000, // far past the L20 hold's 3,917 threshold
         examsPassed: [] as string[],
         levelLedgerMigrated: true,
         ...over,
@@ -96,19 +96,19 @@ describe('stat-derived level: sanitizer authority', () => {
     it('strict-ledger mode applies and latches the one-time migration', () => {
         const stored = heldSave({ unspentStats: 20, levelLedgerMigrated: undefined });
         const out = sanitizeStrict(wrap(heldSave({ unspentStats: 20, levelLedgerMigrated: undefined })), wrap(stored)).character as Record<string, unknown>;
-        assert.equal(out.unspentStats, 3_933);
+        assert.equal(out.unspentStats, 3_917);
         assert.equal(out.levelLedgerMigrated, true);
     });
 
     it('migrates an XP-era save up to its stored level exactly once', () => {
         const stored = heldSave({ level: 30, unspentStats: 20, levelLedgerMigrated: undefined });
         const first = sanitizeCompatible(wrap(heldSave({ level: 30, unspentStats: 20, levelLedgerMigrated: undefined })), wrap(stored)).character as Record<string, unknown>;
-        assert.equal(first.unspentStats, 6_200, 'topped up to earnedForLevel(30)');
+        assert.equal(first.unspentStats, 6_100, 'topped up to earnedForLevel(30)');
         assert.equal(first.level, 30, 'and holds the level it already had');
         assert.equal(first.levelLedgerMigrated, true);
         // Re-running against the migrated save must not top up a second time.
         const second = sanitizeCompatible(wrap(first), wrap(first)).character as Record<string, unknown>;
-        assert.equal(second.unspentStats, 6_200, 'migration is one-time');
+        assert.equal(second.unspentStats, 6_100, 'migration is one-time');
     });
 
     it('a brand-new first save gets no spurious top-up', () => {
@@ -431,15 +431,15 @@ describe('raw save server-ledger boundary', () => {
         // Stat-derived leveling: the client's level/xp writes are IGNORED —
         // xp is frozen from the stored save and level derives from the
         // validated stat ledger. The one-time migration tops the pool up to
-        // cover the stored level (earnedForLevel(20) = 3,933; earned was
-        // 22 allocated + 3 pool = 25 → +3,908 pool), so the derived level
+        // cover the stored level (earnedForLevel(20) = 3,917; earned was
+        // 22 allocated + 3 pool = 25 → +3,892 pool), so the derived level
         // lands exactly back on the stored 20 (also the genin exam hold).
         assert.equal(out.level, 20, 'client level writes are ignored; level derives from the ledger');
         assert.equal(out.xp, 40, 'xp is frozen from the stored save (retired currency)');
         assert.equal(out.levelLedgerMigrated, true, 'one-time ledger migration stamps the save');
         assert.equal(out.ryo, 500, 'generic saves cannot originate ryo, even within the old bounded gain window');
         assert.deepEqual(out.stats, { strength: 22, speed: 20 }, 'earned/allocated stats must persist');
-        assert.equal(out.unspentStats, 3 + 3908, 'the spend persists and the migration top-up lands in the pool');
+        assert.equal(out.unspentStats, 3 + 3892, 'the spend persists and the migration top-up lands in the pool');
         assert.deepEqual(out.jutsuMastery, [{ jutsuId: 'known', level: 4, xp: 30 }], 'battle mastery must persist');
         assert.deepEqual(out.inventory, ['sword'], 'net-new items require an authoritative server write even before the wider strict cutover');
         assert.equal((out.pets as Array<Record<string, unknown>>)[0]?.id, 'story-pet', 'bounded pet progression must persist');

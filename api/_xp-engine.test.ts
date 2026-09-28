@@ -70,18 +70,17 @@ function cExamCap(ch: Record<string, unknown>) {
     for (const g of C_GATES) if (!passed.includes(g.exam)) return g.level;
     return C_MAX_LEVEL;
 }
-// Stat-derived level curve (fitted anchors — lib/stats.ts LEVEL_EARNED_ANCHORS).
-const C_ANCHORS: ReadonlyArray<readonly [number, number]> = [
-    [1, 0], [15, 2800], [30, 6200], [50, 11600], [80, 19600], [100, 27500],
-];
+// Stat-derived progressive level curve (mirrors lib/stats.ts coefficients).
+const C_CURVE = [
+    191.67876990268087,
+    1.1074354304268461,
+    -0.02226330146888855,
+    0.00021623956441357866,
+] as const;
 function cEarnedForLevel(level: number): number {
     const clamped = Math.max(1, Math.min(C_MAX_LEVEL, Math.floor(level)));
-    for (let i = 1; i < C_ANCHORS.length; i++) {
-        const [aL, aE] = C_ANCHORS[i - 1];
-        const [bL, bE] = C_ANCHORS[i];
-        if (clamped >= aL && clamped <= bL) return aE + Math.round(((clamped - aL) / (bL - aL)) * (bE - aE));
-    }
-    return 0;
+    const n = clamped - 1;
+    return Math.round(C_CURVE[0] * n + C_CURVE[1] * n * n + C_CURVE[2] * n * n * n + C_CURVE[3] * n * n * n * n);
 }
 function cLevelForEarned(earned: number): number {
     const pts = Math.max(0, Math.floor(earned));
@@ -243,8 +242,8 @@ describe('derived-level golden anchors', () => {
         assert.equal(out.level, 1);
         assert.equal(out.unspentStats, 20);
     });
-    it('earned 2800 → level 15 with a full vitals refill (Genin)', () => {
-        const out = applyDerivedLevel({ level: 1, hp: 3, chakra: 1, stamina: 1, examsPassed: [], stats: {}, unspentStats: 2800 });
+    it('earned 2848 → level 15 with a full vitals refill (Genin)', () => {
+        const out = applyDerivedLevel({ level: 1, hp: 3, chakra: 1, stamina: 1, examsPassed: [], stats: {}, unspentStats: 2848 });
         assert.equal(out.level, 15);
         assert.equal(out.rankTitle, 'Genin');
         assert.equal(out.maxHp, maxHpForLevel(15));
@@ -258,9 +257,9 @@ describe('derived-level golden anchors', () => {
         assert.equal(out.rankTitle, 'Genin');
         assert.equal(out.maxHp, 2400); // maxHpForLevel(20)
     });
-    it('banked earned leaps on exam pass, and 27,500 with both exams reaches 100', () => {
-        assert.equal(applyDerivedLevel({ level: 20, examsPassed: ['genin'], stats: {}, unspentStats: 8000 }).level, 36);
-        const maxed = applyDerivedLevel({ level: 39, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 27500 });
+    it('banked earned leaps on exam pass, and 29,000 with both exams reaches 100', () => {
+        assert.equal(applyDerivedLevel({ level: 20, examsPassed: ['genin'], stats: {}, unspentStats: 8000 }).level, 38);
+        const maxed = applyDerivedLevel({ level: 39, examsPassed: ['genin', 'chunin'], stats: {}, unspentStats: 29000 });
         assert.equal(maxed.level, MAX_LEVEL);
         assert.equal(maxed.rankTitle, 'Special Jonin');
     });
@@ -278,29 +277,25 @@ describe('derived-level golden anchors', () => {
 });
 
 // ─── PvP-win reward composition ──────────────────────────────────────────────
-describe('computePvpWinGains (XP retired — ryo + growth multiplier)', () => {
+describe('computePvpWinGains (XP retired — ryo only)', () => {
     const petChar = (trait: string | null, activePetId = 'p1') => ({
         activePetId,
         pets: trait ? [{ id: 'p1', trait }] : [{ id: 'p1' }],
     });
-    it('base win: 75 ryo, growthMult 1', () => {
+    it('base win: 75 ryo', () => {
         const g = computePvpWinGains(petChar(null), 12);
-        assert.deepEqual({ ryoGain: g.ryoGain, growthMult: g.growthMult }, { ryoGain: 75, growthMult: 1 });
+        assert.equal(g.ryoGain, 75);
     });
-    it('Swift trait → growthMult 1.25 (its old +25% XP now boosts stat growth); Lucky → 90 ryo', () => {
-        assert.equal(computePvpWinGains(petChar('Swift'), 12).growthMult, 1.25);
+    it('Swift does not change win ryo; Lucky still grants 90 ryo', () => {
         assert.equal(computePvpWinGains(petChar('Swift'), 12).ryoGain, 75);
         assert.equal(computePvpWinGains(petChar('Lucky'), 12).ryoGain, 90);
-        assert.equal(computePvpWinGains(petChar('Lucky'), 12).growthMult, 1);
     });
-    it("Death's Gate (sector 99) doubles ryo and stat growth", () => {
+    it("Death's Gate (sector 99) doubles ryo", () => {
         const g = computePvpWinGains(petChar(null), 99);
-        assert.deepEqual({ ryoGain: g.ryoGain, growthMult: g.growthMult }, { ryoGain: 150, growthMult: 2 });
-        assert.equal(computePvpWinGains(petChar('Swift'), 99).growthMult, 2.5);
+        assert.equal(g.ryoGain, 150);
     });
     it('inactive pet trait is ignored (only the active pet counts)', () => {
         const g = computePvpWinGains({ activePetId: 'other', pets: [{ id: 'p1', trait: 'Swift' }] }, 12);
-        assert.equal(g.growthMult, 1);
         assert.equal(g.ryoGain, 75);
     });
 });

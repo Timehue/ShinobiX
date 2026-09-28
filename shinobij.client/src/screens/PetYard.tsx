@@ -568,7 +568,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             }
             if (character.petEscortBonusReady && Number(data.expeditionXp ?? 0) > 0 && !data.character.petEscortBonusReady) {
                 window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                    detail: { name: '🐾 Pet Escort Bonus', xp: Math.floor(Number(data.expeditionXp ?? 0) * (1 - 1 / 1.2)), profession: 'petTamer' },
+                    detail: { name: 'Pet Escort Bonus', xp: Math.floor(Number(data.expeditionXp ?? 0) * (1 - 1 / 1.2)), profession: 'petTamer' },
                 }));
             }
 
@@ -723,11 +723,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const nick = nicknameInput.trim();
         if (!nick) { setNicknameMsg("Enter a nickname first."); return; }
         if (nick.length > 24) { setNicknameMsg("Max 24 characters."); return; }
-        if (character.fateShards < 10) { setNicknameMsg("❌ Need 10 Fate Shards."); return; }
+        if (character.fateShards < 10) { setNicknameMsg("Error: Need 10 Fate Shards."); return; }
         try { await runPetProgress('nickname', { nickname: nick }); }
         catch (error) { setNicknameMsg(error instanceof Error ? error.message : 'Nickname update failed.'); return; }
         setNicknameInput("");
-        setNicknameMsg(`✅ Nickname set to "${nick}"`);
+        setNicknameMsg(`Success: Nickname set to "${nick}"`);
     }
 
     async function releasePet() {
@@ -747,8 +747,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
         const next = nextEvolution(selectedPet);
         if (!next) return;
         const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "evolution stone";
-        if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`❌ Reach level ${next.requiredLevel} first.`); return; }
-        if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`❌ Need ${stoneName} (Grand Marketplace).`); return; }
+        if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`Error: Reach level ${next.requiredLevel} first.`); return; }
+        if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`Error: Need ${stoneName} (Grand Marketplace).`); return; }
         evolveBusyRef.current = true;
         setEvolveBusy(true);
         if (!(await gameConfirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`))) {
@@ -772,7 +772,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 body: JSON.stringify({ playerName: character.name, petId: selectedPet.id }),
             });
             const data = await res.json().catch(() => ({})) as { pet?: Pet; error?: string; _saveVersion?: number };
-            if (!res.ok || !data.pet) { setEvolveMsg(`❌ ${data.error ?? "Evolution failed."}`); return; }
+            if (!res.ok || !data.pet) { setEvolveMsg(`Error: ${data.error ?? "Evolution failed."}`); return; }
             if (!onServerVersion(data._saveVersion)) return;
             // Stage art (public/pet-evos/<visualId>.webp) is stamped SERVER-side by
             // evolvePet, so prefer what /api/pet/evolve returned and only derive it
@@ -802,10 +802,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 setEvolveCutscene({ pet: evolved, oldName, oldVisualId, oldImage });
                 setEvolveMsg("");
             } else {
-                setEvolveMsg(`✅ Evolved into ${evolved.name}!`);
+                setEvolveMsg(`Success: Evolved into ${evolved.name}!`);
             }
         } catch {
-            setEvolveMsg("❌ Evolution unconfirmed — refresh before retrying.");
+            setEvolveMsg("Error: Evolution unconfirmed — refresh before retrying.");
         } finally {
             evolveBusyRef.current = false;
             setEvolveBusy(false);
@@ -1110,7 +1110,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             Rename
                                         </button>
                                     </div>
-                                    {nicknameMsg && <p className="hint" role="status" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{nicknameMsg.replace(/^[✅❌]\s*/, "")}</p>}
+                                    {nicknameMsg && <p className="hint" role="status" style={{ fontSize: "0.72rem", color: nicknameMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{nicknameMsg}</p>}
                                 </div>
                                 </details></>}
                             {yardSection === "growth" && <><div className="pet-yard-section-heading"><span className="pet-yard-kicker">Shape their potential</span><h3>Growth & training</h3><p>Town Hall bonus · +{petXpBonus.toFixed(2)}% pet XP</p></div>                            <section className="pet-evolve-panel" style={{ marginTop: 8, width: "100%", border: "1px solid rgba(56,189,248,.55)", borderRadius: 8, padding: 10, background: "rgba(14,116,144,.10)" }}>
@@ -1234,7 +1234,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                             <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
                                                 {evolveBusy ? "Evolving…" : ready ? ` Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
                                             </button>
-                                            {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("✅") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
+                                            {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
                                         </section>
                                     );
                                 })()}

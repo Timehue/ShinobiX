@@ -1,6 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect } from "react";
 import bloodlineForgeHero from "../assets/facilities/bloodline-forge-hero.webp";
+import { GameArtIcon } from "../components/GameArtIcon";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
@@ -666,7 +667,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     {bloodlineImage && <div className="admin-event-list-preview"><img src={bloodlineImage} alt={bloodlineName} /></div>}
                     <label>Rank</label>
                     {lockedRank
-                        ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge">🔒 Locked</span></div>
+                        ? <div className="bloodline-rank-locked">{rank} <span className="rank-lock-badge"><GameArtIcon kind="key" size={14} /> Locked</span></div>
                         : <select value={rank} onChange={(e) => changeRank(e.target.value as Rank)}><option>B Rank</option><option>A Rank</option><option>S Rank</option></select>
                     }
                     <div className="summary-box"><p>Total Points: {totalPoints} / {recommendedMax}</p>{specialElement.trim() && <p>Special Element: {specialElement.trim()}</p>}</div>

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { cwListWars, type CwWar } from "../lib/clan-war-api";
 import { visiblePoll } from "../lib/poll";
 import { ClanWarManual } from "./ClanWarManual";
+import { GameArtIcon } from "./GameArtIcon";
 import { CW_HP_MAX, CW_DAMAGE } from "../constants/clan";
 import { clanStoresReadout, clanWarFedToday, type ClanStoresTone } from "../lib/clan-stores";
 import type { Character } from "../types/character";
@@ -68,7 +69,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
     return (
         <div className="summary-box">
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <h3 style={{ margin: 0 }}>⚔️ Clan Wars</h3>
+                <h3 style={{ margin: 0 }}><GameArtIcon kind="attack" size={20} /> Clan Wars</h3>
                 <button
                     type="button"
                     onClick={() => setShowClanWarManual(v => !v)}
@@ -89,7 +90,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
 
             {!loading && activeWar && (
                 <div className="war-record-card" style={{ background: "#1f0a0a", borderColor: "var(--red-400)", marginTop: 10 }}>
-                    <strong style={{ color: "var(--red-400)" }}>🚨 Active Clan War vs {enemyClan}</strong>
+                    <strong style={{ color: "var(--red-400)" }}><GameArtIcon kind="warning" size={17} /> Active Clan War vs {enemyClan}</strong>
                     <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
                         <div>
                             <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.85rem" }}>
@@ -114,7 +115,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                         Started {new Date(activeWar.startedAt).toLocaleDateString()} · {activeWar.completedChallenges.length} battles completed · {activeWar.pendingChallenges.length} pending
                     </small>
                     <div className="menu" style={{ marginTop: 8 }}>
-                        <button onClick={() => setScreen("shinobiCouncil")}>🏯 Open Clan Battles</button>
+                        <button onClick={() => setScreen("shinobiCouncil")}><GameArtIcon kind="clanHall" size={17} /> Open Clan Battles</button>
                     </div>
                 </div>
             )}
@@ -127,14 +128,14 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                         Wars run until one clan's 1,000 HP hits 0. 7-day rematch cooldown.
                     </p>
                     <div className="menu" style={{ marginTop: 8 }}>
-                        <button onClick={() => setScreen("shinobiCouncil")}>🏯 Open Clan Battles</button>
+                        <button onClick={() => setScreen("shinobiCouncil")}><GameArtIcon kind="clanHall" size={17} /> Open Clan Battles</button>
                     </div>
                 </div>
             )}
 
             {!loading && rations && (
                 <section className="summary-box" style={{ marginTop: 12 }}>
-                    <h4 style={{ margin: "0 0 6px" }}>🍚 War Rations</h4>
+                    <h4 style={{ margin: "0 0 6px" }}><GameArtIcon kind="rations" size={18} /> War Rations</h4>
                     <div className="treasury-grid">
                         <p><strong>Clan stores:</strong> {rations.held ?? "None stocked yet"}</p>
                         <p><strong>Daily war cost:</strong> {rations.burn}</p>
@@ -142,7 +143,7 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                     </div>
                     <p className="hint" style={{ marginTop: 6, color: RATION_TONE_COLOR[rations.tone] }}>{rations.line}</p>
                     {onOpenTreasury && <div className="menu" style={{ marginTop: 6 }}>
-                        <button type="button" onClick={onOpenTreasury}>🍚 Open the Treasury tab</button>
+                        <button type="button" onClick={onOpenTreasury}><GameArtIcon kind="rations" size={17} /> Open the Treasury tab</button>
                     </div>}
                 </section>
             )}
@@ -157,10 +158,10 @@ export function ClanWarsPanel({ character, clanName, provisions, storesOpen = tr
                             const mvp = w.mvpByClan?.[clanName];
                             return (
                                 <div key={w.id} className="war-record-card">
-                                    <strong style={{ color: weWon ? "var(--green-400)" : "var(--red-400)" }}>{weWon ? "🏆 Victory" : "💀 Defeat"} vs {opponent}</strong>
+                                    <strong style={{ color: weWon ? "var(--green-400)" : "var(--red-400)" }}><GameArtIcon kind={weWon ? "crown" : "warning"} size={17} /> {weWon ? "Victory" : "Defeat"} vs {opponent}</strong>
                                     <small>HP: {clanName} {(w.hp[clanName] ?? 0).toLocaleString()} · {opponent} {(w.hp[opponent] ?? 0).toLocaleString()}</small>
                                     <small>Battles: {w.completedChallenges.length} · Ended {w.endedAt ? new Date(w.endedAt).toLocaleDateString() : "—"}</small>
-                                    {mvp && <small>👑 MVP: {mvp}</small>}
+                                    {mvp && <small><GameArtIcon kind="crown" size={15} /> MVP: {mvp}</small>}
                                 </div>
                             );
                         })}

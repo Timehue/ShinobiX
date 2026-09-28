@@ -245,6 +245,7 @@
     z-index: 20;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.7);
 }
+.pet-damage-float img { width: 1em; height: 1em; object-fit: contain; vertical-align: -0.12em; }
 .pet-damage-float.crit {
     color: #fbbf24;
     font-size: 1.5rem;
@@ -294,6 +295,22 @@
     border-radius: 4px;
     white-space: nowrap;
 }
+.pet-status-badge img {
+    width: 14px;
+    height: 14px;
+    object-fit: contain;
+    vertical-align: middle;
+}
+.pet-battle-vfx b img,
+.pet-trait-flash img {
+    width: 1.15em;
+    height: 1.15em;
+    object-fit: contain;
+    vertical-align: -0.18em;
+    filter: drop-shadow(0 1px 3px rgba(0,0,0,.8));
+}
+.pet-battle-vfx b { display: inline-flex; align-items: center; gap: .22em; }
+.pet-trait-flash { display: flex; align-items: center; justify-content: center; gap: .35em; }
 .pet-status-badge.poison {
     background: rgba(168, 85, 247, 0.25);
     color: var(--purple-400);

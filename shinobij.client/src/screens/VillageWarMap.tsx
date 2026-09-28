@@ -55,6 +55,7 @@ import {
 import { mercTierName } from "../lib/merc-roam-client";
 import { gameToast } from "../components/GameToast";
 import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { GiBowlOfRice, GiHazardSign } from "../components/icons/LightweightGameIcons";
 import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../data/war-ui-images";
 
@@ -287,13 +288,13 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                     <div className="vwm-info-body">
                         <p>Villages fight over the world map, <b>one sector at a time</b>. The seated <b>Kage</b> declares war on an enemy-held sector and sets how it's fought — then the whole village has <b>72 hours</b> to win it.</p>
                         <div className="vwm-info-grid">
-                            <div><b>⚔ Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Showdown). Every fight is server-decided — no faking a win.</span></div>
-                            <div><b>🏆 Most points in 72h wins</b><span>Every win scores kill points for your side and the tally counts up. Highest score when the clock runs out takes the sector — <b>a tie means the defender holds</b>. Rank is the score: felling a Kage is worth far more than a villager.</span></div>
-                            <div><b>🗺 Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
-                            <div><b>🗡 Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and scores points for the attack.</span></div>
-                            <div><b>🏯 Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
+                            <div><b><GameArtIcon kind="attack" size={17} /> Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Showdown). Every fight is server-decided — no faking a win.</span></div>
+                            <div><b><GameArtIcon kind="crown" size={17} /> Most points in 72h wins</b><span>Every win scores kill points for your side and the tally counts up. Highest score when the clock runs out takes the sector — <b>a tie means the defender holds</b>. Rank is the score: felling a Kage is worth far more than a villager.</span></div>
+                            <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
+                            <div><b><GameArtIcon kind="vanguard" size={17} /> Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and scores points for the attack.</span></div>
+                            <div><b><GameArtIcon kind="clanHall" size={17} /> Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
                             <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison as well, raising what it can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}.</span></div>
-                            <div><b>👑 Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest. Anyone can fight in a sector that's already contested.</span></div>
+                            <div><b><GameArtIcon kind="crown" size={17} /> Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest. Anyone can fight in a sector that's already contested.</span></div>
                         </div>
                     </div>
                 )}
@@ -371,7 +372,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                             );
                                         })}
                                     </div>
-                                    <p className="hint">⚔ <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war: bought with <b>War Resources</b> and reset to 0 once you're at peace. The other four are permanent (treasury Honor Seals) and can also be raised in Town Hall → Upgrades.</p>
+                                    <p className="hint"><GameArtIcon kind="attack" size={16} /> <b>Ramparts</b> &amp; <b>Watchtower</b> are per-war: bought with <b>War Resources</b> and reset to 0 once you're at peace. The other four are permanent (treasury Honor Seals) and can also be raised in Town Hall → Upgrades.</p>
                                 </>
                             )}
                             {!isKage && <p className="hint">Only the seated Kage can declare sector wars, set sector rules, and upgrade structures.</p>}
@@ -381,7 +382,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                     {mercData && (
                         <div className="card vwm-mercs">
                             <h3>Mercenaries</h3>
-                            {!isKage && <p className="hint" style={{ color: "#fbbf24" }}>👑 This is the merc roster your village can field — only your seated Kage can hire and deploy them.</p>}
+                            {!isKage && <p className="hint" style={{ color: "#fbbf24" }}><GameArtIcon kind="crown" size={16} /> This is the merc roster your village can field — only your seated Kage can hire and deploy them.</p>}
                             <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're attacking. Fights resolve server-side — a merc win scores full points for the attack, and a defender who repels one scores a quarter.</p>
                             <div className="vwm-merc-tiers">
                                 {mercData.tiers.map((t) => {
@@ -444,11 +445,11 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <span style={{ color: villageAccent(owner) }}>{owner === myVillage ? "yours" : owner}</span>
                                             </div>
                                             <div className="vwm-sector-meta">{WINCON_IMAGES[sec.winCondition] && <img src={WINCON_IMAGES[sec.winCondition]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", marginRight: 3, borderRadius: 3 }} />}{sec.winCondition} · {TERRAIN_IMAGES[sec.terrain] && <img src={TERRAIN_IMAGES[sec.terrain]} alt="" style={{ height: 16, width: 16, verticalAlign: "middle", margin: "0 3px", borderRadius: 3 }} />}{sec.terrain}</div>
-                                            {protectedCore && <small className="hint">🛡 Protected gate · home village may reclaim</small>}
+                                            {protectedCore && <small className="hint"><GameArtIcon kind="guard" size={15} /> Protected gate · home village may reclaim</small>}
                                             {contest && (
                                                 <div className="vwm-control" title={`${contest.attackerVillage} attacking — most points when the clock runs out takes the sector (tie: defender holds)`}>
                                                     <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.attackerVillage) }} /></div>
-                                                    <small>⚔ {contest.attackerPoints} : {contest.defenderPoints} 🛡 · {hoursLeft}h left</small>
+                                                    <small><GameArtIcon kind="attack" size={14} /> {contest.attackerPoints} : {contest.defenderPoints} <GameArtIcon kind="roleDefender" size={14} /> · {hoursLeft}h left</small>
                                                     <small className={`vwm-fed-chip${contest.fed === false ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {contest.fed === false ? "Unfed" : "Fed"}</small>
                                                     {view.villageUnfed && <small className="vwm-dormant"><GiHazardSign aria-hidden="true" /> {myVillage} marches hungry</small>}
                                                 </div>
@@ -509,10 +510,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 </button>
                                             )}
                                             {contest && contest.winCondition === "card" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
-                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}>⚔ Card Battle</button>
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchCardBattle(contest.id)}><GameArtIcon kind="cardHall" size={17} /> Card Battle</button>
                                             )}
                                             {contest && contest.winCondition === "pet" && (myVillage === contest.attackerVillage || myVillage === contest.defenderVillage) && (
-                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}>🐾 Pet Battle</button>
+                                                <button className="vwm-declare" disabled={!!busy} onClick={() => launchPetBattle(contest.id)}><GameArtIcon kind="petTamer" size={17} /> Pet Battle</button>
                                             )}
                                             {contest && contest.winCondition === "combat" && contest.attackerVillage === myVillage && garrisonAssaultable(contest) && (
                                                 <button
@@ -521,7 +522,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     title="No defender has fought here for hours — assault the sector's ANBU garrison instead. A real Solo PvE fight against the defending village's sealed ANBU; worth less than beating a real defender."
                                                     onClick={() => launchGarrisonAssault(sec.sector)}
                                                 >
-                                                    🛡 Assault Garrison
+                                                    <GameArtIcon kind="guard" size={17} /> Assault Garrison
                                                 </button>
                                             )}
                                             {(mine || (v.village === myVillage && isElder)) && (
@@ -559,7 +560,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     <span style={{ color: villageAccent(c.attackerVillage) }}>{c.attackerVillage}</span>
                                     <span> → sector {c.sector} → </span>
                                     <span style={{ color: villageAccent(c.defenderVillage) }}>{c.defenderVillage}</span>
-                                    <span className="vwm-contest-meta"> · {c.winCondition} · ⚔ {c.attackerPoints} : {c.defenderPoints} 🛡 · {Math.max(0, Math.ceil((c.endsAt - nowTick) / 3_600_000))}h left</span>
+                                    <span className="vwm-contest-meta"> · {c.winCondition} · <GameArtIcon kind="attack" size={14} /> {c.attackerPoints} : {c.defenderPoints} <GameArtIcon kind="roleDefender" size={14} /> · {Math.max(0, Math.ceil((c.endsAt - nowTick) / 3_600_000))}h left</span>
                                     <small className={`vwm-fed-chip${c.fed === false ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {c.fed === false ? "Unfed" : "Fed"}</small>
                                     {unfedContestIds.has(c.id) && <small className="vwm-dormant"> <GiHazardSign aria-hidden="true" /> {myVillage} marches hungry</small>}
                                 </div>

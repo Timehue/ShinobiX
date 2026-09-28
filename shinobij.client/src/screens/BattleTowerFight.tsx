@@ -57,6 +57,9 @@ import {
 import { BattlefieldActor } from "../components/BattlefieldActor";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import { TowerTerrainZone, TowerTerrainProp } from "../components/TowerTerrainZone";
+import { GameArtIcon } from "../components/GameArtIcon";
+import towerWardenFallback from "../assets/towers/enemies/warden.webp";
+import roleDefenderFallback from "../assets/roles/role-defender.webp";
 import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
@@ -141,8 +144,8 @@ function towerActionRejectionText(reason?: string): string {
 }
 type JutsuLike = { id?: string; name?: string; description?: string; battleDescription?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; chakraCost?: number; staminaCost?: number; cooldown?: number; method?: string; tags?: Array<{ name?: string }> };
 
-function towerJutsuFallbackIcon(jutsu: JutsuLike): string {
-    return jutsu.type === "Taijutsu" ? "👊" : jutsu.type === "Bukijutsu" ? "⚔" : jutsu.type === "Genjutsu" ? "👁" : "🌀";
+function towerJutsuFallbackIcon(jutsu: JutsuLike) {
+    return <GameArtIcon kind={jutsu.type === "Genjutsu" ? "warning" : "attack"} size={25} />;
 }
 
 const TOWER_DIALOG_FOCUSABLE = [
@@ -370,11 +373,6 @@ function objectLabel(o: TowerBoardObject): string {
     if (o.kind === "shrine") return `${o.label ?? "Battle Shrine"}: your whole team deals +${o.percent}% damage while a living ally stands here (capped; enraged bosses gain nothing)`;
     return `${o.label ?? "Font"}: whoever ends the round standing here restores ${o.percent}% ${FONT_RESOURCE_WORD[o.resource] ?? o.resource} (up to ${o.cap})`;
 }
-const ENEMY_EMOJI: Record<string, string> = {
-    bandit: "🥷", archer: "🏹", blocker: "🛡️", brute: "👹", acolyte: "🔮",
-    warden: "🐲", ravager: "😈", genin: "🧑",
-};
-
 // Boss portrait for a spire floor (reuses the enemy sprite atlas, keyed by boss key).
 const SPIRE_BOSS_MECHANIC_FLAVOR: Record<string, string> = {
     bulwark: "hardens its guard!", regen: "digs in and knits its wounds!",
@@ -1516,11 +1514,8 @@ export function BattleTowerFight({
         if (isTeamPvp && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }
-    function emojiFor(a: TowerActor): string {
-        if (isUnknownCombatant(a)) return UNKNOWN_TOWER_COMBATANT.glyph;
-        if (a.side === "squad") return "🥷";
-        const visual = String(a.character?.visual ?? "");
-        return ENEMY_EMOJI[visual] ?? (a.side === "npc" ? "🧑" : "✦");
+    function fallbackArtFor(a: TowerActor): string {
+        return a.side === "enemy" ? towerWardenFallback : roleDefenderFallback;
     }
 
     const myJutsu: JutsuLike[] = Array.isArray(myActor?.character?.jutsu) ? (myActor!.character.jutsu as JutsuLike[]) : [];
@@ -1806,7 +1801,7 @@ export function BattleTowerFight({
                 <div key={phaseBanner.key} className="spire-phase-banner tower-phase-banner" role="status" aria-live="polite" aria-atomic="true"
                     style={{ ["--boss-accent" as string]: spireMeta?.boss.accent ?? "#f0a15a" }}>
                     <span>
-                        <strong>⚠ {phaseBanner.title}</strong>
+                        <strong><GameArtIcon kind="warning" size={16} /> {phaseBanner.title}</strong>
                         <small>{phaseBanner.instruction}</small>
                     </span>
                 </div>
@@ -1817,7 +1812,7 @@ export function BattleTowerFight({
                 <aside className="tower-roster-rail tower-squad-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Your Team" : "Squad"}>
                     <RailHeader icon="shield" label={isTeamPvp ? "Your Team" : "Squad"} accent="var(--tower-rail-ally)" />
                     <div className="tower-roster-list">
-                        {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} ally={a.side === "npc"} selected={a.id === actorInspection?.id} inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
+                        {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} ally={a.side === "npc"} selected={a.id === actorInspection?.id} inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
                     </div>
                     {inlineInspection && <div className="tower-sidebar-info">
                         {myActor && <section className="tower-own-effects" aria-label="Your current buffs and debuffs">
@@ -2119,7 +2114,7 @@ export function BattleTowerFight({
                                                     portrait={img}
                                                     sprite={battleSprite}
                                                     facing={spriteFacing}
-                                                    fallback={emojiFor(a)}
+                                                    fallback={<img src={fallbackArtFor(a)} alt="" />}
                                                     style={{ width: size, height: size }}
                                                 />
                                             </span>
@@ -2144,7 +2139,7 @@ export function BattleTowerFight({
                                                 portrait={img}
                                                 sprite={battleSprite}
                                                 facing={spriteFacing}
-                                                fallback={emojiFor(a)}
+                                                fallback={<img src={fallbackArtFor(a)} alt="" />}
                                                 style={{
                                                     width: size, height: size,
                                                     outline: isActive ? "3px solid #fde047" : targetable ? "3px solid var(--red-300)" : selfTargetable ? "3px solid #67e8f9" : inspected ? "3px solid #a78bfa" : "none",
@@ -2311,7 +2306,7 @@ export function BattleTowerFight({
                                                     title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     aria-pressed={armed} onClick={() => armWeaponCard(wp.id ?? "")}
                                                     disabled={!myTurn || busy || out || cd > 0 || session.activeAp < ap}>
-                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{wp.name ?? "Weapon"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | R{range}{thrown ? ` | ×${left}` : ""}{cd > 0 ? ` | CD ${cd}` : ""}</span>
                                                 </button>
@@ -2339,7 +2334,7 @@ export function BattleTowerFight({
                                                     title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
                                                     disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
-                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
+                                                    <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="vitality" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
                                                     <span className="combat-jutsu-name">{cs.name ?? "Item"}</span>
                                                     <span className="combat-jutsu-info">{ap} AP | Use ×{left}{cd > 0 ? ` | CD ${cd}` : ""}</span>
                                                 </button>
@@ -2411,7 +2406,7 @@ export function BattleTowerFight({
                 <aside className="tower-roster-rail tower-enemy-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Rival Team and battle log" : "Enemies and battle log"}>
                     <RailHeader icon="sword" label={isTeamPvp ? "Rival Team" : "Enemies"} accent="var(--tower-rail-foe)" />
                     <div className="tower-roster-list">
-                        {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} emoji={emojiFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)}
+                        {enemies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} boss={a.id === bossId} unknown={isUnknownCombatant(a)}
                             selected={a.id === inspectedEnemyId}
                             inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
                     </div>
@@ -2570,7 +2565,7 @@ function towerEnemyIntent(actor: TowerActor, session: TowerSession): string {
     return ready?.name ? `${target} · ${ready.name} ready` : target;
 }
 
-function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown, selected, inspectionInline, onInspect }: { actor: TowerActor; round: number; highlight: boolean; avatar: string | null; emoji: string; boss?: boolean; ally?: boolean; unknown?: boolean; selected?: boolean; inspectionInline?: boolean; onInspect?: () => void }) {
+function ActorCard({ actor, round, highlight, avatar, fallbackArt, boss, ally, unknown, selected, inspectionInline, onInspect }: { actor: TowerActor; round: number; highlight: boolean; avatar: string | null; fallbackArt: string; boss?: boolean; ally?: boolean; unknown?: boolean; selected?: boolean; inspectionInline?: boolean; onInspect?: () => void }) {
     const pct = Math.max(0, Math.min(100, (actor.hp / Math.max(1, actor.maxHp)) * 100));
     const dead = actor.hp <= 0;
     const accent = actor.side === "squad" ? "var(--green-400)" : actor.side === "npc" ? "var(--gold)" : "var(--red-400)";
@@ -2585,7 +2580,7 @@ function ActorCard({ actor, round, highlight, avatar, emoji, boss, ally, unknown
     const content = (
         <>
             <div style={{ width: 28, height: 28, borderRadius: "50%", flexShrink: 0, overflow: "hidden", border: `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: "#0b1220" }}>
-                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span className={unknown ? "tower-unknown-combatant" : undefined} aria-label={unknown ? UNKNOWN_TOWER_COMBATANT.label : undefined} style={{ fontSize: 15 }}>{emoji}</span>}
+                {avatar ? <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <img src={fallbackArt} alt={unknown ? UNKNOWN_TOWER_COMBATANT.label : ""} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: "0.78rem", gap: 4 }}>

@@ -219,6 +219,7 @@ export type AiFightReportResult = {
     outcome?: "win" | "loss" | "draw" | "forfeit";
     xp: number;
     ryo: number;
+    statPoints: number;
     capped?: boolean;
     replayed?: boolean;
     character?: Partial<Character>;

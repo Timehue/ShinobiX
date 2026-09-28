@@ -61,7 +61,7 @@ import {
     pvpRecoveryRemainingTtlSeconds,
     pvpTerminalRecoveryExpiresAt,
 } from './_pending-session.js';
-import { reservePvpCombatStatBudget } from './_combat-stat-budget.js';
+import { reserveCombatStatBudget } from './_combat-stat-budget.js';
 import { CLAN_WAR_PVP_SCROLL_DROP_CHANCE } from '../clan/war/_war-points.js';
 import type { CommittedPvpTerminalReplay } from './_committed-terminal-effects.js';
 
@@ -696,7 +696,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // transient loser-save read miss; the winner can retry the claim.
                 const loserRecord = loserSlug ? await kv.get<Record<string, unknown>>(`save:${loserSlug}`) : null;
                 if (!loserRecord?.character) throw new Error('pvp-base-loser-save-missing');
-                const { ryoGain, growthMult } = computePvpWinGains(char, session.rewardSector, session.rewardStronghold);
+                const { ryoGain } = computePvpWinGains(char, session.rewardSector, session.rewardStronghold);
                 const sid = pvpSettlementId('base', battleId);
                 const decision = inspectPvpCredit(char, sid, 'base');
                 if (decision.fresh) {
@@ -719,25 +719,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     finalChar = mastery.character;
                     let summary: BaseOut = credit.summary;
                     let combatGrowthAwarded = 0;
-                    // Stage 4: casual PvP grants a small, daily-capped combat stat
-                    // reward into the unspent POOL (ranked = 0, skill-pure — this branch
-                    // only runs when !isRankedClaim). Pool-only keeps this write clean:
-                    // the summary's unspentStats, mirrored by the client via
-                    // applyServerBaseReward, carries it with no stat clobber. Shares the
-                    // `combat-stat-count` daily budget with AI-fight wins.
-                    if (!isRankedClaim) {
-                        // Serious (non-ranked, non-spar) PvP win → combat-use stat growth:
-                        // auto-grow the stats you fought with + a free-pool share, hard-
-                        // capped per day. Spars never reach here (baseRewards=false → no
-                        // creditBase). Ranked = 0 (skill-pure). The client mirrors the
-                        // allocated stats via summary.statGrowth and the pool via
-                        // summary.unspentStats (applyServerBaseReward + applyStatGrowth).
+                    // Eligible player-versus-player wins grant small, daily-capped
+                    // combat stat growth. Spars and pet-only ranked matches do not
+                    // reach this player-character reward path. Modern ranked player
+                    // matches settle growth in the ranked journal.
+                    const shouldGrowPlayer = !isRankedClaim
+                        || (!playerRankedV2Claim && session.rankedKind === 'player');
+                    if (shouldGrowPlayer) {
                         const statsNow = (finalChar.stats ?? {}) as Record<string, number>;
-                        // The slice ledger charges BASE points; boosts multiply the
-                        // payout after slice accounting (map §4.1): the retired Swift
-                        // +25% / Death's Gate ×2 XP bonuses (growthMult) and the era
-                        // dial scale what's granted, not what's charged.
-                        const statBudget = await reservePvpCombatStatBudget(kv, {
+                        // PvP stat rewards are the direct daily-budget amount.
+                        // Trait, encounter, and era boosts never multiply win growth.
+                        const statBudget = await reserveCombatStatBudget(kv, {
                             playerName: winnerSlug,
                             battleId,
                             eventAt: rewardEventAt,

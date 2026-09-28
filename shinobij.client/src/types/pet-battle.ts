@@ -156,7 +156,7 @@ export type BattleStatusId =
 
 export type BattleStatusKind = "dot" | "control" | "debuff" | "buff" | "shield";
 
-/** Display + rules metadata for a status (icon shown near the HP bar). */
+/** Display + rules metadata for a status (themed art shown near the HP bar). */
 export type BattleStatusDef = {
     id: BattleStatusId;
     icon: string;

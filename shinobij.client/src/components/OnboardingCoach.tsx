@@ -151,7 +151,7 @@ export function OnboardingCoach({
     onVersionedCharacter?: VersionedCharacterCommit;
     commitNarrativeAction?: (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => Promise<void>;
     onStartSpar: () => void;
-    onOpenAwakening?: () => void;
+    onOpenAwakening?: (character: Character) => void;
 }) {
     const step = normalizeOnboardingStep(character.onboardingStep);
     const coachMeta = companionStepMeta(step);
@@ -161,8 +161,11 @@ export function OnboardingCoach({
     const loadoutBaselineRef = useRef<number | null>(null);
     const equipmentBaselineRef = useRef<number | null>(null);
     const reduced = prefersReducedMotion();
-    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute) => {
-        if (commitNarrativeAction) { await commitNarrativeAction(action, sector, route); return; }
+    const persistNarrativeAction = async (action: AcademyNarrativeAction, sector?: number, route?: import('../../../shared/first-contract').FirstContractRoute): Promise<void> => {
+        if (commitNarrativeAction) {
+            await commitNarrativeAction(action, sector, route);
+            return;
+        }
         const result = await commitAcademyNarrativeAction(character.name, action, sector, route);
         if (!onVersionedCharacter?.(result.character, result._saveVersion)) {
             throw new Error("A newer Academy save is already active. Reopen this moment and try again.");
@@ -438,10 +441,13 @@ export function OnboardingCoach({
                 const equipped = academyEquippedItemCount(character.equipment);
                 return `Before we spar, put on the Rustfang Kunai and Shinobi Vest from your Inventory. That's ${Math.min(equipped, ACADEMY_STARTER_GEAR_TARGET)} of ${ACADEMY_STARTER_GEAR_TARGET} equipped.`;
             }
-            case "academySpar": return "You're too hurt to spar right now. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
-            case "cafeteria": return character.hp >= character.maxHp
-                ? "You came through the spar at full HP, so there's nothing to patch up. Let's keep moving."
-                : "The spar cost you HP. Recover in the Noodle Den before we move on.";
+            case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
+            case "cafeteria": {
+                const awakening = "The spar brought you to Level 2, unlocking your free first-element awakening. Finish the Academy route and we'll guide you to the Awakening Stone.";
+                return character.hp >= character.maxHp
+                    ? `${awakening} You're already at full HP, so we can keep moving.`
+                    : `${awakening} Recover in the Noodle Den before we move on.`;
+            }
             case "firstMission": return "Claim the Academy Trial at the Mission Hall. The reward is real. So was what happened to that dummy.";
             case "logbook": return "Open your Logbook. Shiranui left us a foxfire trail to follow.";
             case "sectorReturn": return visitedSector
@@ -550,7 +556,7 @@ export function OnboardingCoach({
                 guidePet={guidePet}
                 sharedImages={sharedImages}
                 setScreen={setScreen}
-                onOpenAwakening={onOpenAwakening}
+                onOpenAwakening={() => onOpenAwakening?.(character)}
                 commitMilestone={persistNarrativeAction}
                 onSkip={requestSkip}
             />

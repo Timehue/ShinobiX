@@ -26,6 +26,7 @@ import { NindoCard } from "../components/NindoCard";
 import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailability, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { GameArtIcon } from "../components/GameArtIcon";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "var(--red-400)", water: "var(--blue-400)", earth: "#d4a574", lightning: "#fbbf24",
@@ -38,7 +39,7 @@ const RARITY_COLORS: Record<string, string> = {
     epic: "var(--purple-400)", legendary: "#fbbf24", mythic: "#f472b6",
 };
 const PROFESSION_LABEL: Record<string, string> = {
-    healer: "✚ Healer", vanguard: "⚔ Vanguard", petTamer: "🐾 Pet Tamer",
+    healer: "Healer", vanguard: "Vanguard", petTamer: "Pet Tamer",
 };
 const elementColor = (el: string) => ELEMENT_COLORS[el.toLowerCase()] ?? "var(--slate-300)";
 const rarityColor = (r: string) => RARITY_COLORS[(r ?? "").toLowerCase()] ?? "var(--text-dim)";
@@ -140,6 +141,7 @@ export function UserView({
 
     const bloodlineName = equippedBloodline?.name || viewedCharacter.bloodline;
     const professionLabel = viewedCharacter.profession ? PROFESSION_LABEL[viewedCharacter.profession] : "";
+    const professionArt = viewedCharacter.profession === "healer" ? "healer" : viewedCharacter.profession === "vanguard" ? "vanguard" : viewedCharacter.profession === "petTamer" ? "petTamer" : null;
     const pets = viewedCharacter.pets ?? [];
     const achievementStates = ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(viewedCharacter, a) }));
     const unlockedAchievements = achievementStates.filter(entry => entry.unlocked).map(entry => entry.a);
@@ -160,14 +162,14 @@ export function UserView({
         <div className="card profile-page-card">
             <nav className="profile-mobile-tabs">
                 {([
-                    { id: 'overview',     label: '👤 Profile' },
-                    { id: 'achievements', label: '🏆 Achievements' },
+                    { id: 'overview',     label: 'Profile' },
+                    { id: 'achievements', label: 'Achievements' },
                 ] as const).map(({ id, label }) => (
                     <button
                         key={id}
                         className={`pmtab${tab === id ? ' pmtab-active' : ''}`}
                         onClick={() => setTab(id)}
-                    >{label}</button>
+                    >{id === "overview" ? <><GameArtIcon kind="vitality" size={16} /> {label}</> : <><GameArtIcon kind="crown" size={16} /> {label}</>}</button>
                 ))}
             </nav>
 
@@ -183,9 +185,9 @@ export function UserView({
 
                 {!isSelf && (
                     <div className="profile-actions">
-                        <button className="profile-action-btn" onClick={onMessage}>✉ Message</button>
+                        <button className="profile-action-btn" onClick={onMessage}><GameArtIcon kind="scroll" size={16} /> Message</button>
                         <button className="profile-action-btn" disabled={challengeBusy} onClick={() => void sendChallenge()}>
-                            {challengeBusy ? "Sending…" : "⚔ Challenge"}
+                            {challengeBusy ? "Sending…" : <><GameArtIcon kind="attack" size={16} /> Challenge</>}
                         </button>
                         <button
                             className={`profile-action-btn${isFollowed ? " following" : ""}`}
@@ -220,10 +222,10 @@ export function UserView({
                             {viewedCharacter.village} · {viewedCharacter.rankTitle} · Lv {viewedCharacter.level}/100
                         </div>
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                            <span style={chipStyle("#a78bfa")}>🩸 {bloodlineName}</span>
+                            <span style={chipStyle("#a78bfa")}><GameArtIcon kind="fateShard" size={15} /> {bloodlineName}</span>
                             {ownedElements.map((el) => <span key={el} style={chipStyle(elementColor(el))}>{el}</span>)}
-                            {viewedCharacter.clan && <span style={chipStyle("var(--gold)")}>🏳 {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
-                            {professionLabel && <span style={chipStyle("var(--cyan)")}>{professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
+                            {viewedCharacter.clan && <span style={chipStyle("var(--gold)")}><GameArtIcon kind="clanHall" size={15} /> {viewedCharacter.clan}{viewedCharacter.clanFounder ? " · Leader" : ""}</span>}
+                            {professionLabel && <span style={chipStyle("var(--cyan)")}>{professionArt && <GameArtIcon kind={professionArt} size={15} />} {professionLabel}{viewedCharacter.professionRank ? ` · R${viewedCharacter.professionRank}` : ""}</span>}
                         </div>
                     </div>
                 </section>
@@ -243,7 +245,7 @@ export function UserView({
                             <div style={{ padding: "12px 14px", background: "linear-gradient(135deg, rgba(192,132,252,.16), transparent 72%)", display: "flex", gap: 12, alignItems: "center" }}>
                                 <LegacyBadge badge={viewedLegacyDef.badge} name={viewedLegacyDef.name} size={54} stage={L.stage} />
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--purple-400)" }}>🌠 Legacy</div>
+                                    <div style={{ fontSize: ".6rem", letterSpacing: ".1em", textTransform: "uppercase", color: "var(--purple-400)" }}><GameArtIcon kind="fateShard" size={15} /> Legacy</div>
                                     <b style={{ fontSize: "1.05rem", color: "#e9d5ff" }}>{viewedLegacyDef.name}</b>
                                     <div style={{ fontSize: ".76rem", color: "var(--slate-300)" }}>
                                         Stage {roman}{earnedTitle ? ` · «${earnedTitle}»` : ""}
@@ -252,7 +254,7 @@ export function UserView({
                             </div>
                             <div style={{ padding: "10px 14px" }}>
                                 <p style={{ margin: 0, fontSize: ".78rem", color: "var(--slate-300)", fontStyle: "italic" }}>{viewedLegacyDef.flavor}</p>
-                                {era && <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>📜 Taken up in {era}.</p>}
+                                {era && <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}><GameArtIcon kind="scroll" size={14} /> Taken up in {era}.</p>}
                             </div>
                         </section>
                     );
@@ -276,7 +278,7 @@ export function UserView({
                                 return (
                                     <div key={String(p.id)} className={petVisualVariantClass(p)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
                                         <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                            {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "1.2rem" }}>🐾</span>}
+                                            {petImg ? <img src={petImg} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <GameArtIcon kind="petTamer" size={28} />}
                                         </div>
                                         <div style={{ minWidth: 0 }}>
                                             <div style={{ color: "#f8fafc", fontWeight: 600, fontSize: "0.9rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>

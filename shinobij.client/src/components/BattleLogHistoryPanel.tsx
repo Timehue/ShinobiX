@@ -192,7 +192,7 @@ export function BattleLogHistoryPanel({
 
             {!loading && rows.length === 0 ? (
                 <div className="bh-empty">
-                    <p>⚔️ No battles yet.</p>
+                    <p>No battles yet.</p>
                     <small>Fight in the arena, missions, or PvP and your recent battles will appear here to reflect on.</small>
                 </div>
             ) : (

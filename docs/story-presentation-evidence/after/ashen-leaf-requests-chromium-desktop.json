@@ -1,0 +1,13 @@
+{
+  "village": "Ashen Leaf Village",
+  "viewport": "chromium-desktop",
+  "combat": "seeded completed server session; real settlement handler tested separately",
+  "starts": 1,
+  "settlements": 5,
+  "canonicalVillagePayloadResponses": 1,
+  "canonicalVillagePayloads": [
+    "http://127.0.0.1:15183/assets/ashen-leaf-57aadeff1ad5-BFYwGVP9.json"
+  ],
+  "replayExtraStarts": 0,
+  "replayExtraSettlements": 0
+}

@@ -20,6 +20,7 @@
 
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import { createPortal } from "react-dom";
 import "../styles/pet-skin.css";
 import * as THREE from "three";
@@ -1623,7 +1624,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                     offered only on the result screen there. */}
                 {!live && <button onClick={replay} style={duelBtn}>⟲ Replay</button>}
             </div>}
-            {!ended && !cutIn && <div className="pet-duel-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}>⚔️ {freeRoam3d ? "3D Colosseum" : "Pet Colosseum"}</div>}
+            {!ended && !cutIn && <div className="pet-duel-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#fcd34d", font: "700 11px Inter, system-ui, sans-serif" }}><GameArtIcon kind="arena" size={15} /> {freeRoam3d ? "3D Colosseum" : "Pet Colosseum"}</div>}
 
             {ended && !resultVisible && (
                 <div style={{ position: "absolute", inset: 0, zIndex: 30, pointerEvents: "none", background: "radial-gradient(circle at 50% 58%,transparent 0%,rgba(3,7,18,.18) 55%,rgba(3,7,18,.62) 100%)" }}>
@@ -1673,7 +1674,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
                         </div>
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap", marginTop: 18 }}>
                             <button onClick={replay} style={resultBtn}>⟲ Replay</button>
-                            {onFightAgain && <button onClick={onFightAgain} style={resultBtn}>⚔ Fight again</button>}
+                            {onFightAgain && <button onClick={onFightAgain} style={resultBtn}><GameArtIcon kind="attack" size={17} /> Fight again</button>}
                             <button
                                 onClick={exitDuel}
                                 disabled={!!settlementStatus && settlementStatus !== "settled"}

@@ -11,7 +11,7 @@ describe('server training grant', () => {
         const out = applyTrainingGrant({ level: 1, xp: 0, stats: { strength: 10 }, unspentStats: 20 }, 'strength', 12, 0);
         assert.equal((out.character.stats as Record<string, number>).strength, 22);
         assert.equal(out.character.totalStatsTrained, 12);
-        assert.equal(out.character.level, 1); // earned 32 is far below the L2 threshold (200)
+        assert.equal(out.character.level, 1); // earned 32 is far below the L2 threshold (193)
         assert.equal(out.character.xp, 0);    // frozen field untouched
         assert.equal(out.overflow, 0);
     });
@@ -29,6 +29,6 @@ describe('server training grant', () => {
         assert.equal(out.overflow, 49);
         assert.equal(out.character.unspentStats, 49); // cap-truncated points are NOT destroyed
         assert.equal(out.character.totalStatsTrained, 6);
-        assert.equal(out.character.level, 2); // earned 340 + 49 = 389 ≥ earnedForLevel(2)=200
+        assert.equal(out.character.level, 3); // earned 340 + 49 = 389 reaches the new L3 threshold
     });
 });

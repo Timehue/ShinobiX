@@ -126,11 +126,11 @@ export function resolveAiFightOutcome(session: AiFightSession | null | undefined
 }
 
 /**
- * Whether this settle should pay the sealed reward.
+ * Whether this settle should pay the ordinary sealed reward purse.
  *
- * Only a WIN pays, and a plain practice bout never does — no ryo, stats,
- * currency, items or kill credit. Progression comes from missions, hunts, raids,
- * real PvP and training; a sealed sparring session is not a faucet.
+ * Only a WIN pays, and a plain practice bout never does — no ryo, currency,
+ * items or kill credit. Dungeon Warden wins use their own run settlement and
+ * still receive capped combat stat growth through report-ai-fight.
  *
  * Practice still SETTLES, though — its token is consumed and any consumable it
  * burned stays spent — but as a spar it writes no physical consequence (see

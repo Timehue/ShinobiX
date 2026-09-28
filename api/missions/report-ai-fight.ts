@@ -9,7 +9,9 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { aiFightReward, AI_FIGHT_DAILY_COUNT_TTL_SECONDS, AI_FIGHT_HARD_CAP_PER_DAY, AI_FIGHT_SOFT_CAP_PER_DAY } from './_ai-fight-reward.js';
 import { legacyEnabled, bumpLegacyStats, type LegacyStatDeltas } from '../_legacy-track.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { gainXp } from '../_xp-engine.js';
+import { applyDerivedLevel, gainXp } from '../_xp-engine.js';
+import { AI_PVE_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, computeCombatStatGrowth } from '../_stat-growth.js';
+import { reserveCombatStatBudget } from '../pvp/_combat-stat-budget.js';
 import { withKvLock } from '../_lock.js';
 import {
     AI_FIGHT_TOKEN_TTL_SECONDS,
@@ -199,7 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
         const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
-                ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number } =>
+                ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number; statPoints?: number } =>
                     !!entry && typeof entry === 'object' && typeof (entry as { token?: unknown }).token === 'string')
                 : [];
             const tokenData = await kv.get<AiFightToken>(tokenKey);
@@ -259,6 +261,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ryo: Math.max(0, Math.floor(Number(prior.ryo) || 0)),
                     capped: prior.capped === true,
                     dailyCount: Math.max(0, Math.floor(Number(prior.dailyCount) || 0)),
+                    statPoints: Math.max(0, Math.floor(Number(prior.statPoints) || 0)),
                 };
                 const migratedWorld = sealedWorldContext
                     ? applyWorldAiFightSettlement(character, sealedWorldContext, outcome, aiFightToken)
@@ -282,30 +285,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? deductUsedItems(character, playerItemsUsed)
                     : character;
 
-            // A loss, draw or forfeit consumes the token and writes the physical
-            // consequence, but pays nothing and never touches the daily counter —
-            // the counter is a REWARD counter, and a defeat earned no reward.
+            // Losses, draws, forfeits and practice wins skip rewards. Dungeon
+            // wins also skip this ordinary purse because their run has a separate
+            // settlement, but still receive the shared capped PvE stat growth.
             if (!paysReward) {
                 const settled = applyAiFightOutcomeToCharacter(companionCharacter, outcome, playerActor, Date.now(), continuousVitals, spar);
                 const dungeonSettled = sealedBattleKind === 'dungeon'
                     ? applyDungeonWardenSettlement({
-                        character: settled,
+                        character: companionCharacter,
                         dungeonRunToken: tokenData.dungeonRunToken,
                         opponentId: tokenData.opponentId,
                         proofId: aiFightToken,
                         outcome,
                     })
-                    : { ok: true as const, character: settled };
+                    : { ok: true as const, character: companionCharacter };
                 if (!dungeonSettled.ok) {
                     return { ok: false as const, status: 409, error: dungeonSettled.error };
                 }
+                let noPurseCharacter = dungeonSettled.character;
+                let statPoints = 0;
+                // Dungeon Warden wins use their own reward settlement, so they
+                // skip the ordinary AI purse above. They still receive the same
+                // small PvE stat growth as every other eligible PvE win.
+                if (outcome === 'win' && sealedBattleKind === 'dungeon') {
+                    const statBudget = await reserveCombatStatBudget(kv, {
+                        playerName,
+                        battleId: `ai-fight:${aiFightToken}`,
+                        eventAt: tokenData.mintedAt,
+                        requested: AI_PVE_STAT_POINTS_PER_WIN,
+                        cap: DAILY_COMBAT_STAT_CAP,
+                    });
+                    const earnedStatPoints = statBudget.points;
+                    const growth = computeCombatStatGrowth(
+                        (noPurseCharacter.stats ?? {}) as Record<string, number>,
+                        Number(noPurseCharacter.level) || 1,
+                        earnedStatPoints,
+                        earnedStatPoints,
+                    );
+                    if (growth.spent > 0) {
+                        const stats: Record<string, number> = { ...((noPurseCharacter.stats ?? {}) as Record<string, number>) };
+                        for (const [key, value] of Object.entries(growth.allocated)) {
+                            stats[key] = (Number(stats[key]) || 0) + (value ?? 0);
+                        }
+                        noPurseCharacter = applyDerivedLevel({
+                            ...noPurseCharacter,
+                            stats,
+                            unspentStats: Math.max(0, Math.floor(Number(noPurseCharacter.unspentStats) || 0)) + growth.unspentGain,
+                        }) as Record<string, unknown>;
+                    }
+                    statPoints = growth.spent;
+                }
+                const settled = applyAiFightOutcomeToCharacter(noPurseCharacter, outcome, playerActor, Date.now(), continuousVitals);
                 const worldSettled = sealedWorldContext
-                    ? applyWorldAiFightSettlement(dungeonSettled.character, sealedWorldContext, outcome, aiFightToken)
-                    : dungeonSettled.character;
+                    ? applyWorldAiFightSettlement(settled, sealedWorldContext, outcome, aiFightToken)
+                    : settled;
                 const worldProgression = sealedWorldContext
                     ? applyWorldAiDurableProgression(record, worldSettled, sealedWorldContext, outcome)
                     : { character: worldSettled };
-                const redemption: AiFightRedemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0 };
+                const redemption: AiFightRedemption = { token: aiFightToken, xp: 0, ryo: 0, capped: false, dailyCount: 0, statPoints };
                 const withLegacyReceipt = { ...worldProgression.character, redeemedAiFightRewards: [...redeemed.slice(-99), redemption] };
                 return {
                     ok: true as const,
@@ -318,7 +355,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const dailyCount = authority.dailyCount;
             const reward = aiFightReward(claim.xp, claim.ryo, dailyCount);
             const leveled = gainXp(companionCharacter, reward.xp) as Record<string, unknown>;
-            const paid = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
+            const statBudget = await reserveCombatStatBudget(kv, {
+                playerName,
+                battleId: `ai-fight:${aiFightToken}`,
+                eventAt: tokenData.mintedAt,
+                requested: AI_PVE_STAT_POINTS_PER_WIN,
+                cap: DAILY_COMBAT_STAT_CAP,
+            });
+            const earnedStatPoints = statBudget.points;
+            const growth = computeCombatStatGrowth(
+                (leveled.stats ?? {}) as Record<string, number>,
+                Number(leveled.level) || 1,
+                earnedStatPoints,
+                earnedStatPoints,
+            );
+            let paid: Record<string, unknown> = { ...leveled, ryo: Number(leveled.ryo ?? 0) + reward.ryo };
+            if (growth.spent > 0) {
+                const stats: Record<string, number> = { ...((paid.stats ?? {}) as Record<string, number>) };
+                for (const [key, value] of Object.entries(growth.allocated)) {
+                    stats[key] = (Number(stats[key]) || 0) + (value ?? 0);
+                }
+                paid = applyDerivedLevel({
+                    ...paid,
+                    stats,
+                    unspentStats: Math.max(0, Math.floor(Number(paid.unspentStats) || 0)) + growth.unspentGain,
+                }) as Record<string, unknown>;
+            }
             const rewarded = applyAiFightSecondaryRewards(
                 paid,
                 tokenData,
@@ -617,6 +679,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             outcome,
             xp: reward.xp,
             ryo: reward.ryo,
+            statPoints: reward.statPoints,
             capped: reward.capped,
             dailyCount,
             fetchMissionsCredited,

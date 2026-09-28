@@ -1,4 +1,5 @@
 import { offerFirstContract, readFirstContract, isFirstContractRoute, firstContractReturnedLater } from '../../shared/first-contract.js';
+import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 export const ACADEMY_NARRATIVE_ACTIONS = ['incident', 'trace', 'seal', 'logbook', 'complete', 'skip', 'combat', 'discovery', 'companion', 'contract-acknowledge', 'contract-return'] as const;
 export type AcademyNarrativeAction = typeof ACADEMY_NARRATIVE_ACTIONS[number];
 
@@ -106,7 +107,11 @@ export function applyAcademyNarrativeAction(
         if (step !== "sectorReturn" || character.academySectorVisited !== true || character.academyFieldSeal !== true) {
             return { ok: false, status: 409, error: "Accept the field seal before completing the Academy path." };
         }
-        const graduated: Character = offerFirstContract({ ...character, onboardingStep: "done" }, 'academy');
+        const floor = grantAcademyLevelFloor(
+            { ...character, onboardingStep: "done" },
+            ACADEMY_LEVEL_FLOORS.graduation,
+        );
+        const graduated: Character = offerFirstContract(floor.character, 'academy');
         if (isFirstContractRoute(rawRoute) && readFirstContract(graduated.firstContract)) {
             const selected = applyAcademyNarrativeAction(graduated, record, rawRoute);
             return selected.ok ? { ...selected, changed: true } : selected;

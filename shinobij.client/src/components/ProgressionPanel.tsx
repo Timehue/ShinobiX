@@ -67,7 +67,7 @@ export function ProgressionPanel({ character }: { character: Character }) {
                         <div className="prog-sub">
                             {progress.heldBy
                                 ? <>Level {level + 1} is held until you pass the <strong>{progress.heldBy}</strong> — the points you earn now are banked and apply the moment you pass.</>
-                                : <>{progress.remaining.toLocaleString()} stat points to Level {level + 1} — earn them training, doing your dailies, and in serious PvP.</>}
+                                : <>{progress.remaining.toLocaleString()} stat points to Level {level + 1} — earn them through training, daily missions, PvE wins, and PvP wins.</>}
                         </div>
                     </>
                 )}

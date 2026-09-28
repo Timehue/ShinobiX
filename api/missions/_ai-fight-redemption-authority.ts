@@ -12,6 +12,7 @@ export type AiFightRedemption = {
     ryo: number;
     capped: boolean;
     dailyCount: number;
+    statPoints: number;
 };
 
 type AiFightRewardReceipt = AiFightRedemption & {
@@ -312,12 +313,14 @@ function parseReceipt(raw: unknown): AiFightRewardReceipt | null {
     const xp = safeInteger(value.xp);
     const ryo = safeInteger(value.ryo);
     const dailyCount = safeInteger(value.dailyCount);
+    // Old receipts predate per-win PvE stat growth.
+    const statPoints = value.statPoints === undefined ? 0 : safeInteger(value.statPoints);
     const mintedAt = safeInteger(value.mintedAt);
     const expiresAt = safeInteger(value.expiresAt);
     const settledAt = safeInteger(value.settledAt);
     if (typeof value.token !== 'string' || !/^[A-Za-z0-9]{1,96}$/.test(value.token)
         || typeof value.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(value.fingerprint)
-        || xp === null || ryo === null || dailyCount === null
+        || xp === null || ryo === null || dailyCount === null || statPoints === null
         || typeof value.capped !== 'boolean'
         || mintedAt === null || mintedAt <= 0
         || expiresAt === null || expiresAt <= mintedAt
@@ -333,6 +336,7 @@ function parseReceipt(raw: unknown): AiFightRewardReceipt | null {
         ryo,
         capped: value.capped,
         dailyCount,
+        statPoints,
     };
 }
 
@@ -426,6 +430,7 @@ export function inspectAiFightRedemptionAuthority(params: {
                 ryo: existing.ryo,
                 capped: existing.capped,
                 dailyCount: existing.dailyCount,
+                statPoints: existing.statPoints,
             },
         };
     }

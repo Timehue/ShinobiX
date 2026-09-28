@@ -20,6 +20,9 @@ type SaveRecord = {
     character?: {
         name?: string;
         level?: number;
+        unspentStats?: number;
+        elements?: string[];
+        claimedAwakenings?: string[];
         stats?: Record<string, number>;
         onboardingStep?: string;
         activePetId?: string;
@@ -184,7 +187,7 @@ for (const grantDelayMs of [0, 500]) {
 test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
     const completeRealTraining = process.env.JOURNEY_COMPLETE_REAL_TRAINING === '1';
     // Optional local certification waits for the unchanged 15-minute server timer.
-    test.setTimeout(completeRealTraining ? 20 * 60_000 : 240_000);
+    test.setTimeout(completeRealTraining ? 20 * 60_000 : 12 * 60_000);
     test.skip(testInfo.project.name !== 'chromium-desktop-live', 'one desktop run covers the full first-session authority journey');
     const journeyStartedAt = Date.now();
     if (grantDelayMs) {
@@ -243,6 +246,29 @@ test(`a new player completes the full persisted Academy first session against bu
             navigationInProgress = false;
         }
     };
+    const reachAfterStory = async (selector: string) => {
+        const destination = page.locator(selector);
+        const skip = page.getByRole('button', { name: /^(Skip|Skip visual novel scene)$/ });
+        const closeBriefing = page.getByRole('button', { name: 'Close briefing' });
+        const closePatchNotes = page.locator('.patch-notes').getByRole('button', { name: 'Got it' });
+        for (let scene = 0; scene < 12; scene++) {
+            await expect(closePatchNotes.or(closeBriefing).or(skip).or(destination).first()).toBeVisible();
+            if (await closePatchNotes.isVisible()) {
+                if (await closePatchNotes.click({ timeout: 2_000 }).then(() => true).catch(() => false)) continue;
+            }
+            if (await skip.isVisible()) {
+                if (await skip.click({ timeout: 2_000 }).then(() => true).catch(() => false)) continue;
+            }
+            if (await closeBriefing.isVisible()) {
+                if (await closeBriefing.click({ timeout: 2_000 }).then(() => true).catch(() => false)) continue;
+            }
+            // A completed scene may reveal the village for one render before
+            // the next queued story chapter mounts.
+            await page.waitForTimeout(800);
+            if (!await skip.isVisible()) return;
+        }
+        await expect(destination).toBeVisible();
+    };
 
     await createCharacter(page, playerName, password);
 
@@ -278,6 +304,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'jutsu'
         && Boolean(save.activeTraining?.token)
+        && Number(save.character?.level) >= 2
     ), 'stat training and the jutsu handoff must persist');
 
     // A hard reload at the first server-backed milestone proves the tutorial
@@ -319,12 +346,9 @@ test(`a new player completes the full persisted Academy first session against bu
     }
     const beginSparButton = page.getByRole('button', { name: /Begin the Resonance Trial/ });
     await expect(beginSparButton).toBeVisible();
-    await waitForPersisted(page, playerName, (save) => (
-        save.character?.onboardingStep === 'academySpar'
-        && Object.values(save.character.equipment ?? {}).includes('rustfang-kunai')
-        && Object.values(save.character.equipment ?? {}).includes('shinobi-vest')
-    ), 'both starter gear items and the spar handoff must persist');
-
+    // Start immediately after the UI exposes the spar. This deliberately races
+    // the debounced save that records academySpar, matching a first-time player's
+    // first click. App must flush the authoritative step before calling spar-start.
     const sparStart = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/story/spar-start');
     await beginSparButton.click();
@@ -384,7 +408,10 @@ test(`a new player completes the full persisted Academy first session against bu
         save.character?.onboardingStep === 'cafeteria'
         && save.character.academySparClaimed === true
         && save.character.academyIncidentSeen === true
+        && Number(save.character.level) >= 2
     ), 'the sealed spar reward, aftermath, and recovery handoff must persist');
+    await expect(page.locator('.onboarding-coach-banner')).toContainText('Level 2');
+    await expect(page.locator('.onboarding-coach-banner')).toContainText('Awakening Stone');
 
     await page.getByRole('button', { name: 'Go to Noodle Den' }).click();
     await expect(page.getByRole('heading', { name: 'Noodle Den' })).toBeVisible();
@@ -418,14 +445,14 @@ test(`a new player completes the full persisted Academy first session against bu
 
     await page.getByRole('button', { name: 'Open Logbook' }).click();
     await expect(page.getByRole('heading', { name: 'Logbook' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Open World Map' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Open World Map', exact: true })).toBeVisible();
 
     // The long authority journey runs once, but its final navigation/recovery
     // seam deliberately switches to the canonical 390x844 viewport. This pairs
     // the stateful desktop coverage with the direct-travel and critical
     // mobile-control contract exercised by adaptive-shell.spec.ts.
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.getByRole('button', { name: 'Open World Map' }).click();
+    await page.getByRole('button', { name: 'Open World Map', exact: true }).click();
     await expect(page.locator('.anime-world-map')).toBeVisible();
     const storageNotice = page.getByRole('button', { name: 'Got it' });
     if (await storageNotice.isVisible().catch(() => false)) await storageNotice.click();
@@ -460,7 +487,7 @@ test(`a new player completes the full persisted Academy first session against bu
     await fieldSeal.getByRole('button', { name: 'Accept the Field Seal' }).click();
     const nextStep = page.getByRole('dialog', { name: 'Your next step is yours.' });
     await expect(nextStep).toBeVisible();
-    await nextStep.getByRole('button', { name: 'Stay in the village for now' }).click();
+    await nextStep.getByRole('button', { name: 'Visit the Awakening Stone' }).click();
 
     const completed = await waitForPersisted(page, playerName, (save) => {
         const character = save.character;
@@ -475,16 +502,60 @@ test(`a new player completes the full persisted Academy first session against bu
             && character.academySparClaimed === true
             && character.academyTrialClaimed === true
             && character.academySectorVisited === true
-            && character.academyFieldSeal === true;
+            && character.academyFieldSeal === true
+            && Number(character.level) >= 10;
     }, 'the complete first-session contract must persist');
     expect(Number(completed._saveVersion)).toBeGreaterThan(0);
     expect(completed.currentSector).toBe(0);
     expect(completed.character?.firstContract?.source).toBe('academy');
 
+    // The Academy handoff routes through the awakening story and opens the
+    // Level 2 free roll. Complete any queued authored scene first, then verify
+    // the real server grant lands on the saved character.
+    const awakeningDialog = page.getByRole('dialog', { name: 'Awakening Stone' });
+    const skipScene = page.getByRole('button', { name: /^(Skip|Skip visual novel scene)$/ });
+    const advanceScene = page.getByRole('button', { name: /^(Next|Continue)$/ });
+    const closeBriefing = page.getByRole('button', { name: 'Close briefing' });
+    const closePatchNotes = page.locator('.patch-notes').getByRole('button', { name: 'Got it' });
+    const awakeningStone = page.getByRole('button', { name: /Awaken Free awakening ready Awakening Stone/ });
+    for (let beat = 0; beat < 20 && !await awakeningDialog.isVisible().catch(() => false); beat++) {
+        if (await closePatchNotes.isVisible().catch(() => false)) await closePatchNotes.click();
+        else if (await closeBriefing.isVisible().catch(() => false)) await closeBriefing.click();
+        else if (await skipScene.isVisible().catch(() => false)) await skipScene.click();
+        else if (await advanceScene.isVisible().catch(() => false)) await advanceScene.click();
+        else if (await awakeningStone.isVisible().catch(() => false)) await awakeningStone.click();
+        else await expect(awakeningDialog.or(skipScene).or(advanceScene).first()).toBeVisible();
+    }
+    await expect(awakeningDialog).toBeVisible();
+    await expect(awakeningDialog.getByRole('button', { name: /Awaken Element/ })).toContainText('Level 2 reward');
+    const awakeningResponse = page.waitForResponse((response) => response.request().method() === 'POST'
+        && new URL(response.url()).pathname === '/api/awakening/roll');
+    await awakeningDialog.getByRole('button', { name: /Awaken Element/ }).click();
+    expect((await awakeningResponse).status()).toBe(200);
+    await waitForPersisted(page, playerName, (save) => (
+        (save.character?.elements?.length ?? 0) > 0
+        && save.character?.claimedAwakenings?.includes('awakening-free-lv2') === true
+    ), 'the Level 2 free awakening and its one-time claim must persist');
+    await awakeningDialog.getByRole('button', { name: 'Return to Central' }).click();
+    if (await closeBriefing.isVisible().catch(() => false)) await closeBriefing.click();
+    await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();
+    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
+
     await hardReload();
     await expect(page.locator('.icx-root')).toHaveCount(0);
     await expect(page.locator('.onboarding-coach-banner')).toHaveCount(0);
-    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
+    // The Academy rewards now reach Ninth Rank. Finish the resulting Aura
+    // Sphere story and claim its item before checking the resumed village.
+    const auraAdvance = page.getByRole('button', { name: /^(Next|Continue|Begin Battle)$/ });
+    await expect(auraAdvance.or(page.locator('.stormveil-village-screen'))).toBeVisible();
+    if (await auraAdvance.isVisible()) {
+        for (let line = 0; line < 7; line++) {
+            await expect(auraAdvance).toBeVisible();
+            await auraAdvance.click();
+        }
+        await page.getByRole('button', { name: 'Claim Aura Sphere' }).click();
+    }
+    await reachAfterStory('.stormveil-village-screen');
     await expect(page.locator('.mobile-bottom-nav')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 
@@ -493,6 +564,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // The final autosave and logout share the real 3-second save-burst bucket.
     // Preserve the existing Academy checkpoint before beginning another activity.
     await page.waitForTimeout(3_100);
+    await reachAfterStory('.stormveil-village-screen');
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
     const mobileMenu = page.getByRole('dialog', { name: 'Shinobi menu' });
     await expect(mobileMenu).toBeVisible();
@@ -510,7 +582,7 @@ test(`a new player completes the full persisted Academy first session against bu
         && new URL(response.url()).pathname.toLowerCase() === `/api/save/${encodeURIComponent(playerName.toLowerCase())}`);
     await page.getByRole('button', { name: 'Enter Village' }).click();
     expect((await loginSave).status()).toBe(200);
-    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
+    await reachAfterStory('.stormveil-village-screen');
     await expect(page.locator('.icx-root')).toHaveCount(0);
     await expect(page.locator('.onboarding-coach-banner')).toHaveCount(0);
     await waitForPersisted(page, playerName, (save) => (
@@ -530,15 +602,18 @@ test(`a new player completes the full persisted Academy first session against bu
     const care = await browserApi(page, '/api/pet/progress', { playerName, action: 'pet', petId: completed.character?.activePetId });
     expect(care.status, JSON.stringify(care.body)).toBe(200);
     await hardReload();
+    await reachAfterStory('.fc-ribbon');
     await page.locator('.fc-ribbon').getByRole('button', { name: 'Read your entry' }).click();
     const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
     await expect(journal).toContainText('You took time to care for one of your companions.');
     await page.screenshot({ path: testInfo.outputPath('first-contract-live-recap.png') });
     await journal.getByRole('button', { name: 'Choose your next goal' }).click();
     await waitForPersisted(page, playerName, (save) => Boolean(save.character?.firstContract?.completedAt && save.character.firstContract.acknowledgedAt), 'completion and its acknowledgement must persist');
+    await reachAfterStory('.mobile-bottom-nav');
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();
     await expect(page.locator('.stormveil-village-screen')).toBeVisible();
     await hardReload();
+    await reachAfterStory('.stormveil-village-screen');
     await expect(page.locator('.fc-ribbon')).toHaveCount(0);
     expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);

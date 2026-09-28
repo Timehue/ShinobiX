@@ -11,7 +11,9 @@
  * Pure helpers — no App state, unit-tested in hollow-gate-path.test.ts.
  */
 import { computeHollowGateVisible } from "./hollow-gate-visibility";
-import type { HollowGateShrineRun } from "../types/character";
+import { hollowGateFlavorFor } from "../data/hollow-gate-flavor";
+import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
+import type { WingStep } from "./hollow-gate-wings";
 
 const CARD: ReadonlyArray<readonly [number, number]> = [[0, -1], [0, 1], [-1, 0], [1, 0]];
 
@@ -45,6 +47,37 @@ export function markHollowGateSeen(run: HollowGateShrineRun): HollowGateShrineRu
         if (t && !t.seen) tiles[i] = { ...t, seen: true };
     }
     return { ...run, tiles };
+}
+
+export type HollowGateMoveEffect = {
+    wallBump: boolean;
+    blockMessage?: string;
+    committedTheme?: string;
+    torchSputtered: boolean;
+    justResolved: { tile: HollowGateTile; nx: number; ny: number } | null;
+    ambushImmediate: boolean;
+    step?: { requestId: string; fromX: number; fromY: number; toX: number; toY: number };
+};
+
+/** Project one accepted input before React paints; the caller seals the step. */
+export function projectHollowGateMove(
+    run: HollowGateShrineRun, nx: number, ny: number, wing: WingStep, requestId: string,
+): { run: HollowGateShrineRun; effect: HollowGateMoveEffect } {
+    const idx = ny * run.width + nx;
+    const tile = run.tiles[idx];
+    const tiles = run.tiles.slice();
+    tiles[idx] = { ...tile, revealed: true, flavor: tile.flavor ?? hollowGateFlavorFor(tile.kind) };
+    return {
+        run: markHollowGateSeen({ ...run, ...(wing.patch ?? {}), playerX: nx, playerY: ny, tiles }),
+        effect: {
+            wallBump: false,
+            committedTheme: wing.committedTheme,
+            torchSputtered: false,
+            justResolved: tile.resolved ? null : { tile: { ...tile, revealed: true }, nx, ny },
+            ambushImmediate: false,
+            step: { requestId, fromX: run.playerX, fromY: run.playerY, toX: nx, toY: ny },
+        },
+    };
 }
 
 /**

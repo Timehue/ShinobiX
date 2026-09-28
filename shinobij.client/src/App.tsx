@@ -4584,9 +4584,15 @@ export default function App() {
             }
         }
 
-        if (character && screen === "village" && nextScreen !== "village" && normalizeOnboardingStep(character.onboardingStep) === "done") {
-            // Built-in: Awakening Stone VN fires first time leaving village at level 2+
-            if (character.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
+        const routeCharacter = authoritativeCharacter ?? character;
+        const leavingVillage = screen === "village" && nextScreen !== "village";
+        const openingUnawakenedCentralHub = nextScreen === "centralHub"
+            && !!routeCharacter
+            && getCharacterElements(routeCharacter).length === 0;
+        if (routeCharacter && (leavingVillage || openingUnawakenedCentralHub) && normalizeOnboardingStep(routeCharacter.onboardingStep) === "done") {
+            // Built-in: introduce awakening before the first post-Academy trip
+            // to Central Hub, or on the legacy first departure from the village.
+            if (routeCharacter.level >= 2 && !triggeredEvents.includes(AWAKENING_VN_ID)) {
                 setTriggeredEvents((ids) => [...ids, AWAKENING_VN_ID]);
                 setActiveTriggeredEvent(canonicalNarrativeEvent(awakeningLv2VnEvent, creatorEvents.find(e => e.id === AWAKENING_VN_ID)));
                 setActiveTriggerReturnScreen(nextScreen);
@@ -4595,14 +4601,14 @@ export default function App() {
                 return;
             }
 
-            const event = creatorEvents.find(
+            const event = leavingVillage ? creatorEvents.find(
                 (candidate) =>
                     candidate.eventKind === "visualNovel" &&
                     !isReservedNarrativeId(candidate.id) &&
                     candidate.trigger === "firstLeaveVillage" &&
                     !triggeredEvents.includes(candidate.id) &&
-                    character.level >= candidate.levelReq
-            );
+                    routeCharacter.level >= candidate.levelReq
+            ) : undefined;
 
             if (event) {
                 setTriggeredEvents((ids) => [...ids, event.id]);
@@ -4734,13 +4740,25 @@ export default function App() {
     // The SEALED server fight (api/story/spar-start) is hosted by
     // StoryBossFightHost like every other story-lane bout. A failed start remains
     // fail-closed; the client never recreates the dummy or resolves the fight.
-    function startAcademySparringMatch() {
-        if (!character) return;
-        requestStoryBossFight({
+    async function startAcademySparringMatch() {
+        const current = characterRef.current ?? character;
+        if (!current) return;
+        try {
+            // The coach can advance to academySpar locally while the debounced
+            // autosave is still pending. Commit that step before /spar-start
+            // checks the server-owned save, or a valid first click can be
+            // rejected as though the player were on the wrong onboarding beat.
+            await pushSaveToServer(current, currentAccountName || current.name);
+        } catch {
+            alert("Your Academy progress could not be saved yet. Please try starting the spar again.");
+            return;
+        }
+        const started = requestStoryBossFight({
             kind: "academySpar",
             bossName: "Academy Training Dummy",
             bossPortrait: academyTrainingDummyImg,
         });
+        if (!started) alert("The Academy spar could not start. Please try again.");
     }
 
     async function leaveDungeon() {
@@ -5852,6 +5870,11 @@ export default function App() {
                         onStartSpar={startAcademySparringMatch}
                         onOpenAwakening={() => {
                             setAcademyAwakeningRequested(true);
+                            // Academy completion just committed this character
+                            // through the versioned narrative endpoint. Route
+                            // directly so a queued first-departure VN or other
+                            // navigation interception cannot drop the explicit
+                            // Awakening Stone choice.
                             setScreen("centralHub");
                         }}
                     />

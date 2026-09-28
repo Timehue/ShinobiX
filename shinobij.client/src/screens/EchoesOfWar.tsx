@@ -48,6 +48,7 @@ import { echoesReactiveEraIntro, echoesReactiveVictory } from "../lib/echoes-wit
 import { ContentLoadBoundary } from "../components/StoryContentBoundary";
 import { TriggeredVisualNovel } from "../components/TriggeredVisualNovel";
 import { CardClashDuel } from "./CardClashDuel";
+import { GameArtIcon } from "../components/GameArtIcon";
 import "./EchoesOfWar.css";
 
 /** Beat between "you chose to enter" and the board mounting: the matchup
@@ -95,7 +96,6 @@ function sceneEvent(opponent: EchoesOpponent, scenes: EchoesOpponentScenes, kind
         id: `${opponent.id}-${kind}`,
         name: `${opponent.name}, ${opponent.title}`,
         biome: "central",
-        icon: "📜",
         eventKind: "visualNovel",
         vnTitle: `${opponent.name}, ${opponent.title}`,
         image: opponent.sceneImage,
@@ -120,7 +120,6 @@ function eraIntroEvent(era: EchoesEra, pages: EchoesScenePage[]): CreatorEvent {
         id: `${era.id}-intro`,
         name: `${era.ageLabel} · ${era.title}`,
         biome: "central",
-        icon: "📜",
         eventKind: "visualNovel",
         vnTitle: `${era.ageLabel} · ${era.title}`,
         image: era.plateImage,
@@ -551,7 +550,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                     {subline ? <p className="echoes-sub">{ECHOES_HERO_COPY.subtitle}</p> : null}
                 </div>
                 <div className="echoes-header-stats">
-                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall.">🏛️ Chronicle Points: <strong>{chroniclePoints}</strong></span>
+                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall."><GameArtIcon kind="cardHall" size={17} /> Chronicle Points: <strong>{chroniclePoints}</strong></span>
                     <span className="echoes-stat">Highest memory: Floor {highestFloor}</span>
                     <div className="echoes-progress" aria-label={`Stories completed: ${completed} of ${ECHOES_OPPONENTS.length}`}>
                         <span>Stories {completed}/{ECHOES_OPPONENTS.length}</span>
@@ -596,7 +595,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                         <span className="echoes-kicker">Echoes of War · Floor {selected.floor}{selected.isBoss ? " · Chapter Boss" : ""}</span>
                         <h1>{selected.name}, {selected.title}</h1>
                     </div>
-                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall.">🏛️ {chroniclePoints}</span>
+                    <span className="echoes-points-chip" title="Spend Chronicle Points on card packs in the Card Hall."><GameArtIcon kind="cardHall" size={17} /> {chroniclePoints}</span>
                 </header>
                 <section className={`echoes-detail-stage ${selected.isBoss ? "echoes-detail-stage--boss" : ""}`}>
                     <div className="echoes-detail-backdrop" style={{ backgroundImage: `url(${selected.sceneImage})` }} aria-hidden="true" />
@@ -672,7 +671,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                 <div className="echoes-node-body">
                     {state === "locked" ? (
                         <>
-                            <strong className="echoes-node-name">🔒 A sealed memory</strong>
+                            <strong className="echoes-node-name"><GameArtIcon kind="key" size={16} /> A sealed memory</strong>
                             <span className="echoes-node-meta">{opponent.lockedHint}</span>
                         </>
                     ) : (
@@ -718,7 +717,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                             <p className="echoes-sub">{selectedEra.tagline}</p>
                         </div>
                         <div className="echoes-header-stats">
-                            <span className="echoes-points-chip">🏛️ {chroniclePoints}</span>
+                            <span className="echoes-points-chip"><GameArtIcon kind="cardHall" size={17} /> {chroniclePoints}</span>
                             <span className="echoes-stat">{eraCleared}/{eraOpponents.length} memories finished</span>
                             <button className="echoes-ghost-btn" onClick={() => playEraIntro(selectedEra, {})}>Replay Age Intro</button>
                             {eraCleared >= eraOpponents.length ? (
@@ -786,7 +785,7 @@ function EchoesOfWarContent({ character, creatorCards, updateCharacter, onVersio
                                         <span className="echoes-age-plate-track"><span className="echoes-age-plate-fill" style={{ width: `${(done / total) * 100}%` }} /></span>
                                         <span className="echoes-age-plate-count">{complete ? "✓ Recorded" : `${done}/${total}`}</span>
                                     </span>
-                                ) : <span className="echoes-age-plate-lock">🔒</span>}
+                                ) : <span className="echoes-age-plate-lock"><GameArtIcon kind="key" size={17} /></span>}
                             </span>
                         </button>
                     );

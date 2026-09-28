@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { JutsuSpriteFx } from "./JutsuSpriteFx";
 import { PetBattleAvatar } from "./PetBattleAvatar";
+import { GameArtIcon } from "./GameArtIcon";
 import { PET_GRID_COLS, PET_GRID_SIZE, PET_SPAWN_1V1 } from "../constants/pet-arena";
 import type { Pet } from "../types/pet";
 import type { PetArenaFrame, PetBattleRecord, PetFrameStatus } from "../types/pet-arena";
@@ -148,19 +149,29 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
         frame?.actionKind === "movelock"  ? targetTile :
         frame?.actionKind === "result"    ? selfTile   : -1;
     const effectLabel =
-        frame?.actionKind === "buff"      ? "⬆️ Boost!"    :
-        frame?.actionKind === "basic"     ? (frame.damage ? `-${frame.damage}` : "👊 Hit!") :
-        frame?.actionKind === "damage"    ? (frame.crit ? `💥 ${frame.damage}!` : frame.damage ? `-${frame.damage}` : "💥 Strike!") :
-        frame?.actionKind === "lifesteal" ? (frame.damage ? `-${frame.damage}` : "🩸 Drain!") :
-        frame?.actionKind === "heal"      ? "💚 Heal!"    :
-        frame?.actionKind === "dot"       ? "☠️ Poison!"   :
-        frame?.actionKind === "move"      ? "💨 Dash!"    :
-        frame?.actionKind === "barrier"   ? "🛡️ Barrier!" :
-        frame?.actionKind === "shield"    ? "🛡️ Shield!"  :
-        frame?.actionKind === "absorb"    ? "🌀 Absorb!"  :
-        frame?.actionKind === "movelock"  ? "⛓️ Root!"    :
-        frame?.actionKind === "debuff"    ? "⬇️ Weaken!"  :
-        frame?.actionKind === "result"    ? result        : "";
+        frame?.actionKind === "buff"      ? "Boost!" :
+        frame?.actionKind === "basic"     ? (frame.damage ? `-${frame.damage}` : "Hit!") :
+        frame?.actionKind === "damage"    ? (frame.crit ? `${frame.damage}!` : frame.damage ? `-${frame.damage}` : "Strike!") :
+        frame?.actionKind === "lifesteal" ? (frame.damage ? `-${frame.damage}` : "Drain!") :
+        frame?.actionKind === "heal"      ? "Heal!" :
+        frame?.actionKind === "dot"       ? "Poison!" :
+        frame?.actionKind === "move"      ? "Dash!" :
+        frame?.actionKind === "barrier"   ? "Barrier!" :
+        frame?.actionKind === "shield"    ? "Shield!" :
+        frame?.actionKind === "absorb"    ? "Absorb!" :
+        frame?.actionKind === "movelock"  ? "Root!" :
+        frame?.actionKind === "debuff"    ? "Weaken!" :
+        frame?.actionKind === "result"    ? result : "";
+    const effectArt = frame?.actionKind === "heal" ? "/combat-vfx/heal.webp"
+        : frame?.actionKind === "dot" ? "/combat-vfx/poison.webp"
+        : frame?.actionKind === "lifesteal" ? "/combat-vfx/blood.webp"
+        : frame?.actionKind === "move" ? "/ui/game-icons/speed.webp"
+        : frame?.actionKind === "barrier" || frame?.actionKind === "shield" ? "/combat-vfx/shield.webp"
+        : frame?.actionKind === "absorb" ? "/combat-vfx/absorb.webp"
+        : frame?.actionKind === "movelock" ? "/combat-vfx/earth.webp"
+        : frame?.actionKind === "debuff" ? "/combat-vfx/debuff.webp"
+        : frame?.actionKind === "damage" ? "/combat-vfx/impact.webp"
+        : "/ui/clan-missions/clan-mission-battle.webp";
     // User-facing floating-number / text-pop class for the per-tile label, so
     // damage / heal / shield / status numbers read in their own color near the
     // target sprite (not only in the log). Crit damage also gets the crit-text
@@ -185,22 +196,31 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
     const superEffective = !!frame && !winnerPet && /super effective/i.test(frame.message ?? "") && (frame.actionKind === "damage" || frame.actionKind === "basic" || frame.actionKind === "lifesteal");
 
     // Trait flash label (also carries reactive battle-consumable flashes).
-    const traitLabel =
-        frame?.traitFlash?.trait === "Lucky"      ? "🍀 LUCKY DODGE!"      :
-        frame?.traitFlash?.trait === "Aggressive" ? "🔥 AGGRESSIVE CRIT!"  :
-        frame?.traitFlash?.trait === "Guardian"   ? "🛡️ GUARDIAN BLOCK!"  :
-        frame?.traitFlash?.trait === "guardBlock" ? "🛡️ BLOCK!"           :
-        frame?.traitFlash?.trait === "Battleborn" ? "⚔️ BATTLEBORN BONUS!" :
-        frame?.traitFlash?.trait === "Swift"      ? "⚡ SWIFT STRIKE!"     :
-        frame?.traitFlash?.trait === "Fateweaver" ? "✦ FATEWEAVER TWIST!" :
-        frame?.traitFlash?.trait === "Hollowborn" ? "🩸 HOLLOWBORN DRAIN!" :
-        frame?.traitFlash?.trait === "petEvade"       ? "⚡ EVADED!"        :
-        frame?.traitFlash?.trait === "consumDodge"    ? "💨 DODGED!"        :
-        frame?.traitFlash?.trait === "consumBlock"    ? "🛡️ SMOKE SCREEN!"  :
-        frame?.traitFlash?.trait === "consumReflect"  ? "🌵 THORNS!"        :
-        frame?.traitFlash?.trait === "consumEndure"   ? "💪 SECOND WIND!"   :
-        frame?.traitFlash?.trait === "consumLifeline" ? "✨ LIFELINE!"      :
-        frame?.traitFlash?.trait === "consumCleanse"  ? "🧹 CLEANSED!"      : "";
+    const traitFlash = frame?.traitFlash?.trait;
+    const traitLabel = traitFlash === "Lucky" ? "LUCKY DODGE!"
+        : traitFlash === "Aggressive" ? "AGGRESSIVE CRIT!"
+        : traitFlash === "Guardian" ? "GUARDIAN BLOCK!"
+        : traitFlash === "guardBlock" ? "BLOCK!"
+        : traitFlash === "Battleborn" ? "BATTLEBORN BONUS!"
+        : traitFlash === "Swift" ? "SWIFT STRIKE!"
+        : traitFlash === "Fateweaver" ? "FATEWEAVER TWIST!"
+        : traitFlash === "Hollowborn" ? "HOLLOWBORN DRAIN!"
+        : traitFlash === "petEvade" ? "EVADED!"
+        : traitFlash === "consumDodge" ? "DODGED!"
+        : traitFlash === "consumBlock" ? "SMOKE SCREEN!"
+        : traitFlash === "consumReflect" ? "THORNS!"
+        : traitFlash === "consumEndure" ? "SECOND WIND!"
+        : traitFlash === "consumLifeline" ? "LIFELINE!"
+        : traitFlash === "consumCleanse" ? "CLEANSED!" : "";
+    const traitArt = traitFlash === "Aggressive" ? "/combat-vfx/fire.webp"
+        : traitFlash === "Guardian" || traitFlash === "guardBlock" || traitFlash === "consumBlock" ? "/combat-vfx/shield.webp"
+        : traitFlash === "Battleborn" ? "/ui/clan-missions/clan-mission-battle.webp"
+        : traitFlash === "Swift" || traitFlash === "petEvade" || traitFlash === "consumDodge" ? "/ui/game-icons/speed.webp"
+        : traitFlash === "Hollowborn" ? "/combat-vfx/blood.webp"
+        : traitFlash === "consumReflect" ? "/combat-vfx/reflect.webp"
+        : traitFlash === "consumEndure" || traitFlash === "consumLifeline" ? "/combat-vfx/heal.webp"
+        : traitFlash === "consumCleanse" ? "/combat-vfx/cleanse.webp"
+        : "/combat-vfx/impact.webp";
 
     // Float color class — lifesteal shows a green +drain on the attacker's bar
     const playerFloatClass =
@@ -404,15 +424,15 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                 const def = BATTLE_STATUS_DEFS[s.id];
                 return (
                     <span key={s.id} className={`pet-status-badge pet-status-${def.kind}`} title={`${def.label} — ${def.description}`}>
-                        {def.icon}{s.rounds > 1 ? `×${s.rounds}` : ""}
+                        <img src={def.icon} alt="" aria-hidden="true" width={15} height={15} />{s.rounds > 1 ? `×${s.rounds}` : ""}
                     </span>
                 );
             })}
-            {st?.atkBuff   && <span className="pet-status-badge atk" title="Attack up">⚔️ATK↑</span>}
-            {st?.defBuff   && <span className="pet-status-badge def" title="Defense up">🛡️DEF↑</span>}
-            {st?.shield    && <span className="pet-status-badge shield" title="Shield — absorbs damage before HP">🔰{st.shield}</span>}
-            {st?.absorbing && <span className="pet-status-badge absorb" title="Absorb stance">✨ABSORB</span>}
-            {st?.bracing   && <span className="pet-status-badge" title="Bracing — resists knockback and crits">🧱</span>}
+            {st?.atkBuff   && <span className="pet-status-badge atk" title="Attack up"><GameArtIcon kind="attack" size={15} /> ATK↑</span>}
+            {st?.defBuff   && <span className="pet-status-badge def" title="Defense up"><GameArtIcon kind="guard" size={15} /> DEF↑</span>}
+            {st?.shield    && <span className="pet-status-badge shield" title="Shield — absorbs damage before HP"><GameArtIcon kind="guard" size={15} /> {st.shield}</span>}
+            {st?.absorbing && <span className="pet-status-badge absorb" title="Absorb stance"><GameArtIcon kind="vitality" size={15} /> ABSORB</span>}
+            {st?.bracing   && <span className="pet-status-badge" title="Bracing — resists knockback and crits"><GameArtIcon kind="guard" size={15} /></span>}
         </>
     );
 
@@ -434,7 +454,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             <div className="pet-prefight-sub">Lv {playerPet.level} · {playerPet.rarity}{playerPet.element && playerPet.element !== "None" ? ` · ${playerPet.element}` : ""}</div>
                             <div className="pet-prefight-archetype">{petArchetypeFor(playerPet)}</div>
                             <div className="pet-prefight-stats">
-                                <span>❤ {playerPet.hp}</span><span>⚔ {playerPet.attack}</span><span>🛡 {playerPet.defense}</span><span>⚡ {playerPet.speed}</span>
+                                <span><GameArtIcon kind="vitality" size={15} /> {playerPet.hp}</span><span><GameArtIcon kind="attack" size={15} /> {playerPet.attack}</span><span><GameArtIcon kind="guard" size={15} /> {playerPet.defense}</span><span><GameArtIcon kind="speed" size={15} /> {playerPet.speed}</span>
                             </div>
                             {playerRecord && (
                                 <div className="pet-prefight-record">
@@ -452,7 +472,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             <div className="pet-prefight-sub">Lv {enemyPet.level} · {enemyPet.rarity}{enemyPet.element && enemyPet.element !== "None" ? ` · ${enemyPet.element}` : ""}</div>
                             <div className="pet-prefight-archetype">{petArchetypeFor(enemyPet)}</div>
                             <div className="pet-prefight-stats">
-                                <span>❤ {enemyPet.hp}</span><span>⚔ {enemyPet.attack}</span><span>🛡 {enemyPet.defense}</span><span>⚡ {enemyPet.speed}</span>
+                                <span><GameArtIcon kind="vitality" size={15} /> {enemyPet.hp}</span><span><GameArtIcon kind="attack" size={15} /> {enemyPet.attack}</span><span><GameArtIcon kind="guard" size={15} /> {enemyPet.defense}</span><span><GameArtIcon kind="speed" size={15} /> {enemyPet.speed}</span>
                             </div>
                             {enemyRecord && (
                                 <div className="pet-prefight-record">
@@ -472,7 +492,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
 
             {/* Trait flash banner */}
             {frame?.traitFlash && traitLabel && (
-                <div key={frame.message} className={`pet-trait-flash ${frame.traitFlash.actor}`}>{traitLabel}</div>
+                <div key={frame.message} className={`pet-trait-flash ${frame.traitFlash.actor}`}><img src={traitArt} alt="" aria-hidden="true" />{traitLabel}</div>
             )}
 
             {/* Combo counter */}
@@ -496,7 +516,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
             )}
 
             {/* "1 HIT LEFT" — flashes when a fighter is on the brink. */}
-            {oneHitWarn && <div className="pet-onehit-warn">⚠ ONE HIT LEFT ⚠</div>}
+            {oneHitWarn && <div className="pet-onehit-warn"><GameArtIcon kind="warning" size={18} /> ONE HIT LEFT <GameArtIcon kind="warning" size={18} /></div>}
 
             {/* HP bars with status badges. 4-pet mode (simultaneous 2v2)
                 renders four compact bars (lead + reserve per side). 1v1
@@ -509,15 +529,15 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             { slot: "playerReserve", pet: playerReservePet, snap: frame.party4v4.playerReserve },
                         ] as const).map(({ slot, pet, snap }) => pet && (
                             <div key={slot} className={`pet-arena-fighter-bar${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
-                                <strong>{pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
+                                <strong>{pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " · KO" : ""}</strong>
                                 <div className="pet-status-badges">
-                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
-                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
-                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
-                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
-                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
-                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
-                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
+                                    {snap.status.poisoned && <span className="pet-status-badge poison"><img src="/combat-vfx/poison.webp" alt="" aria-hidden="true" />×{snap.status.poisoned}</span>}
+                                    {snap.status.burn     && <span className="pet-status-badge poison"><img src="/combat-vfx/fire.webp" alt="" aria-hidden="true" />×{snap.status.burn}</span>}
+                                    {snap.status.freeze   && <span className="pet-status-badge movelock"><GameArtIcon kind="elementWater" size={14} />×{snap.status.freeze}</span>}
+                                    {snap.status.confuse  && <span className="pet-status-badge movelock"><img src="/combat-vfx/shadow.webp" alt="" aria-hidden="true" />×{snap.status.confuse}</span>}
+                                    {snap.status.stun     && <span className="pet-status-badge movelock"><img src="/combat-vfx/impact.webp" alt="" aria-hidden="true" />×{snap.status.stun}</span>}
+                                    {snap.status.shield   && <span className="pet-status-badge shield"><img src="/combat-vfx/shield.webp" alt="" aria-hidden="true" />{snap.status.shield}</span>}
+                                    {snap.status.absorbing && <span className="pet-status-badge absorb"><img src="/combat-vfx/absorb.webp" alt="" aria-hidden="true" />ABSORB</span>}
                                 </div>
                                 <span>{snap.hp}/{snap.maxHp} HP</span>
                                 <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
@@ -532,15 +552,15 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                             { slot: "enemyReserve", pet: enemyReservePet, snap: frame.party4v4.enemyReserve },
                         ] as const).map(({ slot, pet, snap }) => pet && (
                             <div key={slot} className={`pet-arena-fighter-bar enemy${snap.ko ? " pet-arena-fighter-bar-ko" : ""}`} style={snap.ko ? { opacity: 0.45 } : undefined}>
-                                <strong>{enemyOwner}: {pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " 💀" : ""}</strong>
+                                <strong>{enemyOwner}: {pet.name}{pet.element && pet.element !== "None" ? ` · ${pet.element}` : ""}{snap.ko ? " · KO" : ""}</strong>
                                 <div className="pet-status-badges">
-                                    {snap.status.poisoned && <span className="pet-status-badge poison">☠️×{snap.status.poisoned}</span>}
-                                    {snap.status.burn     && <span className="pet-status-badge poison">🔥×{snap.status.burn}</span>}
-                                    {snap.status.freeze   && <span className="pet-status-badge movelock">🧊×{snap.status.freeze}</span>}
-                                    {snap.status.confuse  && <span className="pet-status-badge movelock">🌀×{snap.status.confuse}</span>}
-                                    {snap.status.stun     && <span className="pet-status-badge movelock">💤×{snap.status.stun}</span>}
-                                    {snap.status.shield   && <span className="pet-status-badge shield">🔰{snap.status.shield}</span>}
-                                    {snap.status.absorbing && <span className="pet-status-badge absorb">✨ABSORB</span>}
+                                    {snap.status.poisoned && <span className="pet-status-badge poison"><img src="/combat-vfx/poison.webp" alt="" aria-hidden="true" />×{snap.status.poisoned}</span>}
+                                    {snap.status.burn     && <span className="pet-status-badge poison"><img src="/combat-vfx/fire.webp" alt="" aria-hidden="true" />×{snap.status.burn}</span>}
+                                    {snap.status.freeze   && <span className="pet-status-badge movelock"><GameArtIcon kind="elementWater" size={14} />×{snap.status.freeze}</span>}
+                                    {snap.status.confuse  && <span className="pet-status-badge movelock"><img src="/combat-vfx/shadow.webp" alt="" aria-hidden="true" />×{snap.status.confuse}</span>}
+                                    {snap.status.stun     && <span className="pet-status-badge movelock"><img src="/combat-vfx/impact.webp" alt="" aria-hidden="true" />×{snap.status.stun}</span>}
+                                    {snap.status.shield   && <span className="pet-status-badge shield"><img src="/combat-vfx/shield.webp" alt="" aria-hidden="true" />{snap.status.shield}</span>}
+                                    {snap.status.absorbing && <span className="pet-status-badge absorb"><img src="/combat-vfx/absorb.webp" alt="" aria-hidden="true" />ABSORB</span>}
                                 </div>
                                 <span>{snap.hp}/{snap.maxHp} HP</span>
                                 <div className={`pet-arena-hpbar${!winnerPet && (snap.hp / snap.maxHp * 100) <= 30 ? " pet-arena-hpbar-low" : ""}`}>
@@ -560,7 +580,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         <i style={{ width: `${playerPercent}%` }} />
                         {playerFloatClass && frame && (
                             <span key={frame.message} className={playerFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
+                                <img src={effectArt} alt="" aria-hidden="true" /> {frame.actionKind === "lifesteal" ? `+${frame.damage}` : frame.crit ? `CRIT -${frame.damage}` : frame.actionKind === "heal" ? `+${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -574,7 +594,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                         <i style={{ width: `${enemyPercent}%` }} />
                         {enemyFloatClass && frame && (
                             <span key={frame.message} className={enemyFloatClass}>
-                                {frame.actionKind === "lifesteal" ? `🩸 +${frame.damage}` : frame.crit ? `💥 CRIT -${frame.damage}` : frame.actionKind === "dot" ? `☠️ -${frame.damage}` : frame.actionKind === "heal" ? `💚 +${frame.damage ?? "heal"}` : `-${frame.damage}`}
+                                <img src={effectArt} alt="" aria-hidden="true" /> {frame.actionKind === "lifesteal" ? `+${frame.damage}` : frame.crit ? `CRIT -${frame.damage}` : frame.actionKind === "heal" ? `+${frame.damage ?? "heal"}` : `-${frame.damage}`}
                             </span>
                         )}
                     </div>
@@ -742,7 +762,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                     {hasEffect && (
                                         <span className={`pet-battle-vfx${frame?.crit ? " crit" : ""}${frame?.isKO ? " ko" : ""}${frame?.isKO ? "" : elClass}`} key={`${frame?.message}-${index}`}>
                                             <i />
-                                            <b className={effectNumberClass}>{effectLabel}</b>
+                                            <b className={effectNumberClass}><img src={effectArt} alt="" aria-hidden="true" />{effectLabel}</b>
                                             <em />
                                         </span>
                                     )}
@@ -834,7 +854,7 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                 <div className="pet-event-ticker">
                     {[...recentFrames].reverse().map((f, i) => (
                         <span key={`${f.message}-${i}`} className={`pet-event-chip ${f.actor} ${f.actionKind ?? ""} ${i === 0 ? "latest" : ""}`}>
-                            {f.actionKind === "dot" ? "☠" : f.actionKind === "buff" ? "⬆" : f.actionKind === "heal" ? "✚" : f.actionKind === "move" ? "➡" : f.actionKind === "debuff" ? "⬇" : f.actionKind === "lifesteal" ? "🧛" : f.actionKind === "shield" ? "🛡" : f.actionKind === "absorb" ? "🌀" : f.actionKind === "barrier" ? "◇" : f.actionKind === "movelock" ? "⛓" : f.crit ? "💥" : "⚔"}
+                            <GameArtIcon kind={f.actionKind === "heal" || f.actionKind === "lifesteal" ? "vitality" : f.actionKind === "move" ? "speed" : f.actionKind === "shield" || f.actionKind === "barrier" || f.actionKind === "absorb" || f.actionKind === "movelock" ? "guard" : f.actionKind === "dot" ? "elementFire" : "attack"} size={14} />
                             {" "}{f.message.replace(/^Round \d+: /, "").slice(0, 42)}
                         </span>
                     ))}
