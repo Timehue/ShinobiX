@@ -28,6 +28,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             save.character = { ...save.character, stamina: 7 };
             const runtime = await installUiAuditRuntime(page, save);
             await expectUiAuditBoot(page, runtime, 'training');
+            await page.getByRole('button', { name: /^Strength/ }).click();
             const start = page.getByRole('button', { name: /Start 15 Minutes/ });
             await start.scrollIntoViewIfNeeded();
             await capture(page, '15-training-cost');
@@ -54,7 +55,9 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             await page.getByRole('button', { name: 'Collect Training', exact: true }).click();
             await expect(page.locator('.training-feedback[role="status"]')).toContainText('+3 Strength');
             await expect(page.getByRole('alertdialog', { name: 'Notice' })).toHaveCount(0);
+            await page.getByRole('button', { name: /^Strength/ }).click();
             await expect(page.getByRole('button', { name: /Start 15 Minutes/ })).toBeEnabled();
+            await page.getByRole('button', { name: 'Close', exact: true }).click();
             await capture(page, '21-training-receipt');
         });
 

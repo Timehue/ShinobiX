@@ -536,7 +536,7 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
 
     const queueUp = page.getByRole("button", { name: "Queue Up for Ranked" });
     await expect(queueUp).toBeEnabled();
-    await expect(page.getByText("Players in queue:")).toContainText("0");
+    await expect(page.getByText("Players matchmaking:")).toContainText("0");
     if (isDesktop) {
         await queueUp.focus();
         await page.keyboard.press("Enter");
@@ -554,7 +554,7 @@ test("Arena District serializes ranked join, poll, and leave on desktop and mobi
     expect(api.rankedQueueActions()).toEqual(["join"]);
     api.releaseRankedJoin();
     await expect.poll(() => api.rankedQueueActions()).toEqual(["join", "poll"]);
-    await expect(page.getByText("Players in queue:")).toContainText("1");
+    await expect(page.getByText("Players matchmaking:")).toContainText("1");
 
     if (isDesktop) {
         await leave.focus();
