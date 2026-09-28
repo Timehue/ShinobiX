@@ -50,15 +50,12 @@ function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
     })), method);
     const target = bloodlineCreatorTargetForMethod(method, jutsu.target, { ap: jutsu.ap, tags });
     const groundZone = method === "INSTANT_EFFECT" || method === "AOE_SPIRAL";
-    const range = groundZone && jutsu.groundRangeVersion !== 2
-        ? Math.max(3, jutsu.range - 1)
-        : jutsu.range;
     const normalized = normalizeJutsu({
         ...jutsu,
         bloodlineRank: rank,
         method,
         target,
-        range: bloodlineCreatorRangeForTarget(target, range, method),
+        range: bloodlineCreatorRangeForTarget(target, jutsu.range, method),
         ...(groundZone ? { groundRangeVersion: 2 as const } : {}),
         tags,
     });
@@ -154,7 +151,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             const wasGroundZone = jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL";
             const becomesGroundZone = merged.method === "INSTANT_EFFECT" || merged.method === "AOE_SPIRAL";
             if (updated.method && wasGroundZone !== becomesGroundZone && updated.range === undefined) {
-                merged.range = becomesGroundZone ? Math.max(3, jutsu.range - 1) : Math.min(5, jutsu.range + 1);
+                // Switching method keeps the selected reach unless the new method's cap requires clamping it.
+                merged.range = bloodlineCreatorRangeForTarget("OPPONENT", jutsu.range, merged.method);
                 if (becomesGroundZone) merged.groundRangeVersion = 2;
             }
             // AOE Movement (ground nova) is locked to the 60-AP damage tier — it

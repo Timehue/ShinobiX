@@ -300,11 +300,38 @@ test('ground methods seal to range three or four without changing direct casts',
             : [{ name: 'Poison', percent: 30 }],
     });
     assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 3)], 'A Rank')[0]?.range, 3);
-    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 4)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 4)], 'A Rank')[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 5)], 'A Rank')[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 3)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 4)], 'A Rank')[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 5)], 'A Rank')[0]?.range, 4);
     const authoredLong = normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 4), groundRangeVersion: 2 }], 'A Rank');
     assert.equal(authoredLong[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus(authoredLong, 'A Rank')[0]?.range, 4, 'a migrated range is stable on later saves');
+    assert.equal(normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 3), groundRangeVersion: 2 }], 'A Rank')[0]?.range, 3);
+});
+
+test('an unversioned range-four instant field reaches its fourth hex ring', () => {
+    const [jutsu] = normalizePlayerBloodlineJutsus([{
+        id: 'field', name: 'Field', type: 'Ninjutsu', element: 'Fire',
+        ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+        tags: [{ name: 'Poison', percent: 30 }],
+    }], 'A Rank');
+    assert.ok(jutsu);
+    const plan = resolveJutsuActionPlan({
+        jutsu: {
+            id: 'field', name: 'Field', type: 'Ninjutsu',
+            target: String(jutsu.target), method: String(jutsu.method),
+            range: Number(jutsu.range), ap: Number(jutsu.ap),
+            tags: jutsu.tags,
+        },
+        casterPos: 65, opponentPos: 69, tile: 66,
+        casterChakra: 100, casterStamina: 100, casterStatuses: [],
+        round: 1, availableAp: 100, actionsThisTurn: 0, cooldownRemaining: 0,
+        board: { width: 12, height: 10, unavailableTiles: new Set<number>() },
+    });
+    assert.ok(plan.accepted);
+    assert.equal(plan.range, 4);
+    assert.equal(plan.footprint.length, 61);
+    assert.equal(plan.hitsOpponent, true);
 });
