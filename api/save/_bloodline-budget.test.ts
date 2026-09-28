@@ -88,7 +88,7 @@ test('a maker write may refine an owned bloodline definition', () => {
     assert.equal((out.savedBloodlines as Array<Record<string, unknown>>)[0].name, 'Refined');
 });
 
-test('a saved ground zone loses one range once and keeps its version on later saves', () => {
+test('a saved range-four ground zone keeps its range on later saves', () => {
     const legacy = {
         id: 'bl-ground', name: 'Ground', rank: 'A Rank',
         jutsus: [{
@@ -99,12 +99,12 @@ test('a saved ground zone loses one range once and keeps its version on later sa
     };
     const first = sanitizeCharacterSave(incoming([legacy]), stored([legacy]), { bloodlineWriteIntent: legacy.id });
     const saved = (first.savedBloodlines as Array<{ jutsus: Array<{ range: number; groundRangeVersion?: number }> }>)[0]!;
-    assert.equal(saved.jutsus[0]?.range, 3);
+    assert.equal(saved.jutsus[0]?.range, 4);
     assert.equal(saved.jutsus[0]?.groundRangeVersion, 2);
     const again = sanitizeCharacterSave(incoming(first.savedBloodlines as unknown[]), first,
         { bloodlineWriteIntent: legacy.id });
     const savedAgain = (again.savedBloodlines as Array<{ jutsus: Array<{ range: number; groundRangeVersion?: number }> }>)[0]!;
-    assert.equal(savedAgain.jutsus[0]?.range, 3);
+    assert.equal(savedAgain.jutsus[0]?.range, 4);
     assert.equal(savedAgain.jutsus[0]?.groundRangeVersion, 2);
 });
 
