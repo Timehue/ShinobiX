@@ -43,7 +43,7 @@ import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
-import { loadBoostEvent } from "../lib/world-state";
+import { loadBoostEvent } from "../lib/boost-event-state";
 import { boostMultiplierAt } from "../../../shared/boost-event";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
