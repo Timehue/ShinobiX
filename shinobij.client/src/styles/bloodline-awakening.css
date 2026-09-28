@@ -358,6 +358,18 @@
     box-shadow: inset 0 1px rgba(255, 255, 255, 0.025), inset 0 -1px 3px rgba(0, 0, 0, 0.28);
 }
 
+/* Native option menus do not reliably inherit the select's dark surface and
+   light text. Keep available choices readable, and reserve the muted treatment
+   for choices the builder actually disables. */
+.app-shell[data-screen="bloodlineMaker"] .maker-card select option {
+    color: #edf2f7;
+    background-color: #07101c;
+}
+.app-shell[data-screen="bloodlineMaker"] .maker-card select option:disabled {
+    color: #718096;
+    background-color: #111a27;
+}
+
 .app-shell[data-screen="bloodlineMaker"] .maker-card > textarea { min-height: 82px; resize: vertical; line-height: 1.5; }
 .app-shell[data-screen="bloodlineMaker"] .maker-card input:focus,
 .app-shell[data-screen="bloodlineMaker"] .maker-card textarea:focus,

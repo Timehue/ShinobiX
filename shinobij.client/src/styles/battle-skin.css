@@ -3892,6 +3892,62 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     color: #e3c77e;
 }
 
+/* The shared timeline base is intentionally light for non-combat screens.
+   Give the archived battle transcript its own dark surface so the bright
+   semantic log colors and action headlines retain contrast. */
+.battle-log-screen .durable-round-log .timeline-round {
+    margin: 0 0 9px;
+    overflow: hidden;
+    border: 1px solid rgba(196, 162, 90, 0.2);
+    border-radius: 8px;
+    background: linear-gradient(180deg, rgba(12, 20, 33, 0.96), rgba(5, 10, 19, 0.98));
+}
+.battle-log-screen .durable-round-log .timeline-round-header {
+    min-height: 36px;
+    padding: 7px 12px;
+    border: 0;
+    background: rgba(196, 162, 90, 0.08);
+    color: #e8d496;
+    font: 700 12px/1.2 Inter, system-ui, sans-serif;
+}
+.battle-log-screen .durable-round-log .timeline-round-header:hover {
+    background: rgba(196, 162, 90, 0.14);
+}
+.battle-log-screen .durable-round-log .timeline-round-count {
+    color: #9eacbd;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+}
+.battle-log-screen .durable-round-log .timeline-entry {
+    display: block;
+    margin: 0;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(151, 170, 194, 0.1);
+    background: transparent;
+    color: #dce5ef;
+}
+.battle-log-screen .durable-round-log .timeline-entry:last-child {
+    border-bottom: 0;
+}
+.battle-log-screen .durable-round-log .timeline-entry-head {
+    margin: 0 0 4px;
+    color: #e8edf5;
+    font: 600 13px/1.5 Inter, system-ui, sans-serif;
+}
+.battle-log-screen .durable-round-log .battle-log-heal { color: #86efac; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-damage { color: #fca5a5; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-dmgmod { color: #93c5fd; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-shield { color: #7dd3fc; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-control { color: #fbbf24; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-prevent { color: #5eead4; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-tempo { color: #c4b5fd; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-system { color: #e8d496; font-weight: 600; }
+.battle-log-screen .durable-round-log .battle-log-effect { color: #d8b4fe; font-weight: 600; }
+.battle-log-screen .durable-round-log :is(.battle-log-line, .bl-head-text) .bl-num {
+    color: #fff4ce;
+    font-weight: 800;
+}
+
 .dbrl-empty,
 .bls-legacy-note { color: rgba(148, 163, 184, 0.78); }
 
