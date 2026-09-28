@@ -1158,7 +1158,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // used to boost mission XP, plus the era dial (aggregate-capped);
             // one-time capstones pay their fixed value. A boost event multiplies
             // the daily-checklist grant as its own factor, after the aggregate cap.
-            const statPointsGranted = baseStatPoints > 0
+            let statPointsGranted = baseStatPoints > 0
                 ? Math.max(0, Math.round(baseStatPoints * (boostStatPoints ? combinedStatBoost(bonusPct + huntRankBonusPct) * growthEventBoost : 1)))
                 : 0;
 
