@@ -66,11 +66,12 @@ export function storedTrainingGrant(raw: unknown, token: string): StoredTraining
     const sealedGain = Math.floor(Number(record.statGain));
     const sealedXp = Math.floor(Number(record.xp));
     if (!TRAINING_STATS.has(stat)) return null;
-    // Hard upper bound on anything trustedTrainingRewards can seal: 8h tier base
-    // 160 × the aggregate boost ceiling (2.5) × the rookie peak (5) = 2,000.
-    // MAX_SEALED_STAT_GAIN carries a little headroom above that so a tier or
-    // dial nudge does not silently start rejecting valid leases — it is a
-    // sanity bound, not a balance lever. Old leases (sealed before the rookie
+    // Hard upper bound on anything start.ts can seal: the 8h tier's base gain
+    // (72 = 9/h × 8h, api/_training-config.ts) × the aggregate boost ceiling
+    // (2.5) × the rookie peak (5) = 900, × a 2× boost event
+    // (shared/boost-event.ts BOOST_MAX_MULTIPLIER) = 1,800. MAX_SEALED_STAT_GAIN
+    // carries headroom above that so a tier or dial nudge does not silently
+    // start rejecting valid leases — it is a sanity bound, not a balance lever. Old leases (sealed before the rookie
     // curve, ≤1000) still validate unchanged. sealedXp is a retired legacy field
     // (character XP is gone) — still parsed off old leases, never paid.
     if (!Number.isFinite(sealedGain) || sealedGain < 0 || sealedGain > MAX_SEALED_STAT_GAIN) return null;

@@ -1,6 +1,8 @@
 import { PET_CATALOG } from './_catalog.js';
 import { createOwnedPet, resolvePetTemplateId, rollOwnedPetTrait } from './_owned-pet.js';
 import { sectorWeatherElements, type SectorWeather } from '../../shared/sector-weather.js';
+import { isWorldNight } from '../../shared/world-phase.js';
+import { isNightOnlyWildPet, NIGHT_PET_NIGHT_WEIGHT } from '../../shared/night-pets.js';
 
 const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn'] as const;
 export type WildPetTrait = typeof TRAITS[number];
@@ -18,16 +20,23 @@ export function rollWildPet(random: () => number, now = Date.now(), condition?: 
     const roll = options?.guaranteed ? random() * WILD_HIT_CEILING : random();
     const rarity = roll <= 0.002 ? 'mythic' : roll <= 0.007 ? 'legendary' : roll <= 0.01 ? 'rare' : roll <= WILD_HIT_CEILING ? 'standard' : null;
     if (!rarity) return null;
-    const pool = Object.values(PET_CATALOG).filter((pet) => pet.rarity === rarity && pet.wildSpawnable !== false);
+    // Night-only pets (shared/night-pets.ts) are in the pool only after dark,
+    // judged by the same world clock as the sky. Like weather, this changes
+    // WHICH pet of the sealed rarity appears, never the hit or rarity roll.
+    const night = isWorldNight(now);
+    const pool = Object.values(PET_CATALOG).filter((pet) => pet.rarity === rarity && pet.wildSpawnable !== false
+        && (night || !isNightOnlyWildPet(String(pet.id))));
     const unit = Math.max(0, Math.min(0.999999, random()));
     let template: typeof pool[number] | undefined = pool[Math.floor(unit * pool.length)];
     // World weather changes WHICH pet of the sealed rarity appears, never the
     // original hit/miss or rarity roll above. Clan-stamped skies are resolved by
     // encounter-start before this function receives the condition.
-    if (condition && pool.length > 0) {
-        const elements = sectorWeatherElements(condition.weather);
-        const weights = pool.map((pet) => pet.element === elements.positiveElement ? 2.5
-            : pet.element === elements.negativeElement ? 0.75 : 1);
+    const nightWeight = (id: string) => (night && isNightOnlyWildPet(id) ? NIGHT_PET_NIGHT_WEIGHT : 1);
+    if ((condition || night) && pool.length > 0) {
+        const elements = condition ? sectorWeatherElements(condition.weather) : null;
+        const weights = pool.map((pet) => (!elements ? 1
+            : pet.element === elements.positiveElement ? 2.5
+            : pet.element === elements.negativeElement ? 0.75 : 1) * nightWeight(String(pet.id)));
         const target = unit * weights.reduce((sum, weight) => sum + weight, 0);
         let cumulative = 0;
         template = pool.find((_, index) => (cumulative += weights[index]) > target) ?? pool.at(-1);

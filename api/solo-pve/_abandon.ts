@@ -10,6 +10,7 @@ import {
 } from './_session.js';
 import { compareWriteSoloPveSession, readSoloPveSession, soloPveSessionKey } from './_store.js';
 import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
+import { recordSoloPveCombatUsage } from '../_combat-usage.js';
 
 /*
  * Authorized terminal transition for an ACTIVE Solo-PvE session that its owner
@@ -133,6 +134,7 @@ export async function abandonSoloPveSession(
             return { ok: false as const, status: 409, error: 'The encounter changed while it was being abandoned. Please retry.', retryable: true };
         }
         void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+        recordSoloPveCombatUsage(next); // balance telemetry, NX-gated per session
         return { ok: true as const, session: next, transitioned: true };
     }, { failClosed: true, ttlSec: 10 });
 }
@@ -184,6 +186,7 @@ export async function terminalizeLapsedSoloPveSession(
             return { ok: false as const, status: 409, error: 'The encounter changed while its lapse was being recorded.', retryable: true };
         }
         void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+        recordSoloPveCombatUsage(next); // balance telemetry, NX-gated per session
         return { ok: true as const, session: next, transitioned: true };
     }, { failClosed: true, ttlSec: 10 });
 }

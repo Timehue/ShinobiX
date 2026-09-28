@@ -313,6 +313,32 @@ Demonstrates plan §8.4: the **same** Wanderer reads differently by world-state.
 
 ---
 
+## 8b. Night ninjas — *after dark only* (`nightblade`, shipped)
+
+When the world clock turns to night (20:00–05:00 in-world, `shared/world-phase.ts`),
+about one wild sector in five gains a hostile night ninja in the reserved roster
+slot 2 (`shared/wanderer-roster.ts` `rollNightWanderer`). The same ninja holds its
+sector all night and is gone at dawn; the daytime cast never changes because of
+it. It prowls rather than charging the player, and fights like a road bandit
+(Fight / Flee, same level band and payout) with the burst AI template. It is
+not one of the bandit gang: beating or losing to it never moves the robber
+streak (the ambush gauntlet) and never makes it your road nemesis.
+
+**Names:** Sumi of the Unlit Road · Hollow-Moon Kaito · Nightjar Reiko ·
+Oboro Three-Shadows · Tsukika the Quiet Blade
+
+**Greetings:**
+> "You carried a lantern out here. That's how I found you."
+> "Nobody patrols this road after dark. Nobody but me."
+> "I've followed you since the moon came up. Turn around."
+> "The day belongs to the villages. The night is mine."
+> "Put the light out. We'll settle this the way the dark likes it."
+
+Night also changes the wild pets: eight nocturnal pets (`shared/night-pets.ts`)
+can only be met in the wild after dark, and are favored then.
+
+---
+
 ## 9. Ambient barks (no interaction — flavor as you pass)
 
 Short lines a Wanderer says when you walk near but don't engage. Keyed by biome /

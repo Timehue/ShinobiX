@@ -196,6 +196,22 @@ describe('World AI fight authority', () => {
         assert.deepEqual(applyWorldAiFightSettlement(won, context, 'win', 'win-proof'), won);
     });
 
+    it('a night ninja fight never moves the bandit streak or creates a road nemesis', () => {
+        const night: WorldAiFightContext = { kind: 'wanderer', sourceId: 'w-12-5000-2', sector: 12, stage: 0, displayName: 'Nightjar Reiko', finalStage: true };
+        const bandit: WorldAiFightContext = { ...night, sourceId: 'w-12-5000-0', displayName: 'Kano Two-Blades' };
+        const start = { level: 20, robberStreak: 3 };
+        const nightWin = applyWorldAiFightSettlement(start, night, 'win', 'night-win');
+        const nightLoss = applyWorldAiFightSettlement(start, night, 'loss', 'night-loss');
+        assert.equal(nightWin.robberStreak, 3);
+        assert.equal(nightLoss.robberStreak, 3);
+        assert.equal(nightLoss.wandererNemesis ?? null, null);
+        // Bandits keep the existing rules.
+        assert.equal(applyWorldAiFightSettlement(start, bandit, 'win', 'bandit-win').robberStreak, 4);
+        const banditLoss = applyWorldAiFightSettlement(start, bandit, 'loss', 'bandit-loss');
+        assert.equal(banditLoss.robberStreak, 0);
+        assert.equal((banditLoss.wandererNemesis as { name?: string })?.name, 'Kano Two-Blades');
+    });
+
     it('allows a hunt rematch after loss but rejects another target after the sealed win', async () => {
         const context: WorldAiFightContext = {
             kind: 'hunt-target', sourceId: 'hunt-wild-boar', missionId: 'hunt-wild-boar',

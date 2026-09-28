@@ -40,7 +40,9 @@ import {
     companionHealOnSummonPct, companionMoveDamage, companionObeys, companionOwnerLifestealPct,
     isCompanionActor, pickCompanionMove, type CompanionMove,
 } from './_companion.js';
-import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel } from '../combat-core/formulas.js';
+// statusDurationFor: towers used to keep its own copy of the duration table;
+// sharing the PvP one keeps a status lasting the same rounds in every mode.
+import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel, statusDurationFor } from '../combat-core/formulas.js';
 import { rankedCombatLevel } from '../pvp/_ranked-format.js';
 import { setSafeRecordValue } from '../_utils.js';
 import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
@@ -140,17 +142,6 @@ type PvpItemLike = {
     restoreChakra?: number; restoreStamina?: number;
 };
 
-const STATUS_DURATIONS_OVERRIDE: Record<string, number> = {
-    'Increase Damage Given': 2,
-    'Increase Damage Taken': 2,
-    'Decrease Damage Given': 2,
-    'Decrease Damage Taken': 2,
-    'Increase Generals': 2,
-    'Increase Discipline': 2,
-};
-function statusDurationFor(name: string, fallback: number = 2): number {
-    return STATUS_DURATIONS_OVERRIDE[name] ?? fallback;
-}
 function towerStatusMatches(name: string, canonicalName: string): boolean {
     return canonicalTagName(name) === canonicalName;
 }

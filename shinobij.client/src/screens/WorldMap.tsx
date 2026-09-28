@@ -65,7 +65,7 @@ import { resolveOwnAvatar } from "../lib/own-avatar";
 // it is <WorldWandererDialog>, which imports what it needs itself. The
 // <SectorWanderer> named in a comment further down is that component's, not a
 // use from this file.
-import { rollWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves, hasWandererRelocated, wanderersVisitingSector, WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
+import { useSectorWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves,WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";
 import {
@@ -810,30 +810,9 @@ function WorldMapContent({
     // bucket) ONLY — shared/wanderer-roster.ts, the roll the server runs too — so
     // everyone in the sector sees the same NPCs; rendering + movement live in
     // <SectorWanderer>. When an "attack" wanderer reaches the player it calls
-    // startWandererAttack (the canonical server-sealed Solo-PvE host).
-    const sectorWanderers = useMemo(
-        () => {
-            if (!isWanderersEnabled() || selectedSector == null) return [];
-            const now = serverNow();
-            const cd = character.wandererCooldowns;
-            const moves = character.wandererMoves;
-            const bucket = currentWandererDayBucket();
-            // Hide natural road NPCs you've already used for a few hours, AND hide
-            // ones that have since wandered off to another sector so they don't
-            // reappear here when the cooldown lifts. Legacy Sage/emissaries render
-            // from their own arrays below and stay exempt.
-            // Content the player can't act on yet (a gambler before the codex, a
-            // beast with no pet) stays ON the road like for everyone else; the verb is
-            // refused in-fiction (startWandererCardDuel / startWandererPetDuel).
-            const natives = rollWanderers(selectedSector, bucket)
-                .filter(w => !isWandererOnCooldown(cd, w.id, now) && !hasWandererRelocated(moves, w.id));
-            // Plus any wanderers that have wandered INTO this sector from elsewhere and
-            // whose cooldown has now lifted — they're findable again, just somewhere new.
-            const visitors = wanderersVisitingSector(selectedSector, bucket, moves, cd, now);
-            return [...natives, ...visitors];
-        },
-        [selectedSector, character.wandererCooldowns, character.wandererMoves],
-    );
+    // startWandererAttack (the canonical server-sealed Solo-PvE host). Used and
+    // moved-away NPCs are hidden, and night ninjas join after dark (lib/wanderers).
+    const sectorWanderers = useSectorWanderers(selectedSector, character.wandererCooldowns, character.wandererMoves);
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
         // The board feeds the global view AND the Contract Hunters on the sector
@@ -2096,8 +2075,8 @@ function WorldMapContent({
             return;
         }
         // A bandit you face while you have a rival has a chance of BEING that rival,
-        // back for more.
-        if (w.verb === "attack" && character.wandererNemesis && Math.random() < 0.45) {
+        // back for more (bandits only: a night ninja is never your road rival).
+        if (w.archetype === "bandit" && character.wandererNemesis && Math.random() < 0.45) {
             setWandererDialog({ w, nemesis: true });
             return;
         }
@@ -4323,14 +4302,14 @@ function WorldMapContent({
         })();
         const targetedHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "bountyHunter");
         const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
-        const pursuingNaturals = sectorWanderers.filter((wanderer) => wanderer.movement === "pursue");
-        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.movement !== "pursue");
+        const hostileNaturals = sectorWanderers.filter((wanderer) => wanderer.verb === "attack"); // bandits + night ninjas
+        const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.verb !== "attack");
         // Priority is danger/current objective → system unlocks → optional
         // encounters → ambient life. The Weekly Boss consumes one of the three
         // ordinary slots; hired war mercenaries are appended afterwards by design.
         const cappedSectorWanderers = capSectorWanderers([
             targetedHunters,
-            pursuingNaturals,
+            hostileNaturals,
             courierWanderers,
             trackerTrailWanderers,
             storyReckoningWanderers,

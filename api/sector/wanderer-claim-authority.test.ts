@@ -34,7 +34,11 @@ let service: Handler;
  * picking a wanderer off the wall clock out here would make the suite a race
  * with the bucket boundary. Only Date is mocked; timers are untouched.
  */
-const FIXED_NOW = Date.UTC(2026, 7, 22, 12, 0, 0);
+// 18:00 UTC is a six-hour bucket start, which is also in-world midnight: this
+// window rolls every wanderer type the tests below need (gift, quest, tracker,
+// merchant, bandit) and has night ninjas out. The 12:00 window rolled no
+// tracker or merchant.
+const FIXED_NOW = Date.UTC(2026, 7, 22, 18, 0, 0);
 
 before(async () => {
     mock.timers.enable({ apis: ['Date'], now: FIXED_NOW });
@@ -89,14 +93,27 @@ async function post(handler: Handler, playerName: string, body: Record<string, u
 }
 
 /** A wanderer the shared roll actually puts on the road in the CURRENT (frozen)
- *  window, read from the same function the server uses. The guard is
- *  verb-agnostic, so any rolled wanderer exercises it. */
-function liveWanderer() {
+ *  window, read from the same function the server uses. Each endpoint pays
+ *  only the wanderer type it serves, so callers name the verb they need. */
+function liveWanderer(verb?: string) {
     const bucket = roster.wandererDayBucketFromMs(Date.now());
     for (let sector = 1; sector <= roster.WANDERER_SECTOR_COUNT; sector++) {
-        for (const w of roster.rollWanderers(sector, bucket)) return { w, sector };
+        for (const w of roster.rollWanderers(sector, bucket)) {
+            if (!verb || w.verb === verb) return { w, sector };
+        }
     }
-    throw new Error(`no wanderer rolled in bucket ${bucket}`);
+    throw new Error(`no ${verb ?? ''} wanderer rolled in bucket ${bucket}`);
+}
+
+/** The frozen clock sits at in-world midnight, so night ninjas are out: one
+ *  that stands in a sector right now, in the reserved night slot. */
+function liveNightNinja() {
+    const bucket = roster.wandererDayBucketFromMs(Date.now());
+    for (let sector = 1; sector <= roster.WANDERER_SECTOR_COUNT; sector++) {
+        const w = roster.nightWandererAt(sector, bucket, Date.now());
+        if (w) return { w, sector };
+    }
+    throw new Error('no night ninja on the road at the frozen clock');
 }
 
 async function seedPlayer(playerName: string, sector: number, character: Record<string, unknown> = {}) {
@@ -115,7 +132,7 @@ async function seedPlayer(playerName: string, sector: number, character: Record<
 describe('sector wanderer reward endpoints verify the claimed NPC, not just the id shape', () => {
     it('wanderer-gift refuses a forged archetype/verb/level and still pays a legitimate claim', async () => {
         const player = 'claimplayergift';
-        const { w, sector } = liveWanderer();
+        const { w, sector } = liveWanderer('gift');
         await seedPlayer(player, sector);
 
         const forged = await post(gift, player, {
@@ -141,7 +158,7 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
 
     it('wanderer-quest refuses a forged claim on accept and still accepts an honest one', async () => {
         const player = 'claimplayerquest';
-        const { w, sector } = liveWanderer();
+        const { w, sector } = liveWanderer('quest');
         await seedPlayer(player, sector);
 
         const forged = await post(quest, player, {
@@ -164,7 +181,7 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
 
     it('wanderer-service refuses a forged courier name and still starts an honest favor', async () => {
         const player = 'claimplayerservice';
-        const { w, sector } = liveWanderer();
+        const { w, sector } = liveWanderer('tracker');
         await seedPlayer(player, sector);
 
         const forged = await post(service, player, {
@@ -192,6 +209,56 @@ describe('sector wanderer reward endpoints verify the claimed NPC, not just the 
         assert.equal(out.statusCode, 200);
         assert.equal(out.body?.ok, true, JSON.stringify(out.body));
         assert.equal(await kv.get(`wanderer-favor:${player}`), null);
+    });
+
+    it('a real wanderer of the WRONG type is refused even when the client sends no verb', async () => {
+        // Hostile ids that really are on the road right now: a daytime bandit
+        // (slot 0/1) and a night ninja (slot 2 — the frozen clock is night).
+        const bandit = liveWanderer('attack');
+        const ninja = liveNightNinja();
+        assert.equal(ninja.w.id.endsWith(`-${roster.WANDERER_NIGHT_INDEX}`), true);
+        const endpoints: Array<[string, Handler, Record<string, unknown>]> = [
+            ['gift', gift, {}],
+            ['quest accept', quest, { action: 'accept', questId: 'wq-cull' }],
+            ['quest claim', quest, { action: 'claim' }],
+            ['merchant', service, { action: 'merchant' }],
+            ['medic', service, { action: 'medic' }],
+            ['favor-start', service, { action: 'favor-start' }],
+            ['tracker-trail-start', service, { action: 'tracker-trail-start' }],
+        ];
+        for (const [kind, { w, sector }] of [['bandit', bandit], ['night ninja', ninja]] as const) {
+            const player = `claimplayerverb${kind === 'bandit' ? 'b' : 'n'}`;
+            await seedPlayer(player, sector);
+            for (const [name, handler, body] of endpoints) {
+                // No wandererVerb / wandererArchetype echoed: the old guard only
+                // compared fields the client chose to send, so this passed.
+                const out = await post(handler, player, { ...body, sector, wandererId: w.id });
+                assert.equal(out.statusCode, 200, `${kind} → ${name}`);
+                assert.equal(out.body?.reason, 'invalid-wanderer', `${kind} → ${name}: ${JSON.stringify(out.body)}`);
+            }
+            const save = await kv.get<{ character: Record<string, unknown> }>(`save:${player}`);
+            assert.equal(save?.character.ryo, 5_000, `${kind}: nothing was paid or charged`);
+            assert.equal(save?.character.fateShards, 0, `${kind}: no gift shards`);
+            assert.equal(await kv.get(`wanderer-quest:${player}`), null, `${kind}: no quest sealed`);
+            assert.equal(await kv.get(`wanderer-favor:${player}`), null, `${kind}: no favor sealed`);
+        }
+    });
+
+    it('each service pays only its own wanderer type', async () => {
+        // A pilgrim (gift) id cannot buy from the merchant counter, be healed
+        // as a medic, or hand out a favor; the right type still can.
+        const pilgrim = liveWanderer('gift');
+        const player = 'claimplayercross';
+        await seedPlayer(player, pilgrim.sector);
+        for (const action of ['merchant', 'medic', 'favor-start']) {
+            const out = await post(service, player, { action, sector: pilgrim.sector, wandererId: pilgrim.w.id });
+            assert.equal(out.body?.reason, 'invalid-wanderer', action);
+        }
+        const merchant = liveWanderer('merchant');
+        const buyer = 'claimplayerbuyer';
+        await seedPlayer(buyer, merchant.sector);
+        const bought = await post(service, buyer, { action: 'merchant', sector: merchant.sector, wandererId: merchant.w.id });
+        assert.equal(bought.body?.ok, true, JSON.stringify(bought.body));
     });
 
     it('an id the current roll does not contain is refused by every endpoint', async () => {

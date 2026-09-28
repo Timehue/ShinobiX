@@ -18,6 +18,7 @@ import {
 } from './_store.js';
 import { recordSoloPveLifecycle, type SoloPveTelemetryDeps } from './_telemetry.js';
 import { recordBetaFunnelStep } from '../_beta-funnel.js';
+import { recordSoloPveCombatUsage } from '../_combat-usage.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 
 export type SoloPveLock = <T>(
@@ -139,6 +140,8 @@ export async function executeSoloPveAction(
         // exists, and fire-and-forget so telemetry never delays the response.
         if (session.status === 'active' && next.status === 'done') {
             void recordSoloPveLifecycle('combat.session_completed', next, deps.telemetry);
+            // Balance telemetry (api/_combat-usage.ts): NX-gated per session.
+            recordSoloPveCombatUsage(next);
             // The same edge is also this player's FIRST completed combat, once
             // ever. Gated per player rather than per session, so it survives the
             // session TTL that the lifecycle gate above is scoped to.

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { liveServiceNotice } from "../lib/live-service-notice";
 import { useLiveCapabilities } from "../lib/live-capabilities-context";
 import { subscribeLiveCrisisFeed } from "../lib/live-crisis-feed";
+import { BoostEventBanner } from "./BoostEventBanner";
 import type { Screen } from "../types/core";
 import type { WorldCrisisProjection } from "../../../shared/world-crisis";
 import type { WorldCrisis80Projection } from "../../../shared/world-crisis-80";
@@ -31,7 +32,7 @@ export function LiveServiceNotice({ screen, onNavigate }: { screen: Screen; onNa
     const level80 = current === reckoning;
     const seenKey = level80 ? CRISIS_80_HERALD_SEEN : CRISIS_HERALD_SEEN;
     const seen = (() => { try { return localStorage.getItem(seenKey) === current?.runId; } catch { return false; } })();
-    if (!current || dismissedRun === current.runId || seen) return null;
+    if (!current || dismissedRun === current.runId || seen) return <BoostEventBanner />;
     function dismiss() {
         try { localStorage.setItem(seenKey, current!.runId); } catch { /* best effort */ }
         setDismissedRun(current!.runId);

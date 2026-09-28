@@ -1,6 +1,8 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { grantWildPet, rollWildPet } from './_encounter.js';
+import { PET_CATALOG } from './_catalog.js';
+import { NIGHT_ONLY_WILD_PET_IDS } from '../../shared/night-pets.js';
 
 describe('wild pet encounter authority', () => {
     it('uses the canonical rarity thresholds and catalog', () => {
@@ -60,6 +62,49 @@ describe('wild pet encounter authority', () => {
         const result = grantWildPet({ pets: [] }, pet!, () => 0);
         assert.equal(result.ok, true);
         if (result.ok) assert.equal(result.pet.trait, pet?.trait);
+    });
+    it('night-only pets appear only after dark, and are favored at night', () => {
+        // World day = 2 real hours; t = 0 is in-world midnight, +1h real is noon.
+        const MIDNIGHT = 0 + 1;
+        const NOON = 60 * 60 * 1000;
+        const sweep = (now: number, band: number) => {
+            const ids = new Map<string, number>();
+            for (let index = 0; index < 2000; index += 1) {
+                const values = [band, (index + 0.5) / 2000, 0.1]; let i = 0;
+                const pet = rollWildPet(() => values[i++] ?? 0, now);
+                const template = String(pet?.id).replace(/-\d+$/, '');
+                ids.set(template, (ids.get(template) ?? 0) + 1);
+            }
+            return ids;
+        };
+        for (const band of [0.02, 0.009, 0.005]) { // standard, rare, legendary
+            const day = sweep(NOON, band);
+            const night = sweep(MIDNIGHT, band);
+            const nightOnlyByDay = [...day.keys()].filter((id) => NIGHT_ONLY_WILD_PET_IDS.has(id));
+            assert.deepEqual(nightOnlyByDay, [], `band ${band}: night pets met at noon`);
+            const nightOnlyAtNight = [...night.keys()].filter((id) => NIGHT_ONLY_WILD_PET_IDS.has(id));
+            assert.ok(nightOnlyAtNight.length > 0, `band ${band}: no night pet at midnight`);
+            // Favored: a night pet outdraws the average day pet at night.
+            const perNightPet = nightOnlyAtNight.reduce((s, id) => s + night.get(id)!, 0) / nightOnlyAtNight.length;
+            const dayIds = [...night.keys()].filter((id) => !NIGHT_ONLY_WILD_PET_IDS.has(id));
+            const perDayPet = dayIds.reduce((s, id) => s + night.get(id)!, 0) / dayIds.length;
+            assert.ok(perNightPet > perDayPet * 1.5, `band ${band}: night pets are not favored at night`);
+        }
+    });
+    it('night gating never changes the hit or rarity roll', () => {
+        for (const now of [1, 60 * 60 * 1000]) {
+            for (const [chance, rarity] of [[0.001, 'mythic'], [0.007, 'legendary'], [0.01, 'rare'], [0.05, 'standard'], [0.050001, null]] as const) {
+                const values = [chance, 0.45, 0.1]; let i = 0;
+                assert.equal(rollWildPet(() => values[i++] ?? 0, now)?.rarity ?? null, rarity);
+            }
+        }
+    });
+    it('every night-only pet is a real wild template', () => {
+        for (const id of NIGHT_ONLY_WILD_PET_IDS) {
+            const pet = PET_CATALOG[id as keyof typeof PET_CATALOG] as { wildSpawnable?: boolean } | undefined;
+            assert.ok(pet, `${id} is not in the pet catalog`);
+            assert.notEqual(pet.wildSpawnable, false, `${id} never spawns wild anyway`);
+        }
     });
     it('grants a server-rolled trait without imposing a total ownership cap', () => {
         const result = grantWildPet({ pets: [] }, { id: 'rare-1-123', rarity: 'rare', attack: 100, hp: 100, defense: 100, speed: 100 }, () => 0.2);
