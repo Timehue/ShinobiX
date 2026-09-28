@@ -18,6 +18,7 @@ import { rollWanderers } from "../lib/wanderers";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { QUEST_BOOK } from "../lib/questbook";
 import { scribeIntroEvent } from "../lib/chronicle-scribe";
+import { buildGatherVn, FIND_SCENES } from "../lib/gathering-vn";
 import { hollowGateFlavorPool, hollowGateIntroPages } from "./hollow-gate-flavor";
 import { builtinFetchMissions, builtinHuntMissions } from "./missions";
 import { clanLore } from "./clan-lore";
@@ -46,6 +47,16 @@ type PageLike = {
     choices?: Array<{ text?: string; conclusion?: string }>;
 };
 
+const gatheringVariants = (Object.keys(FIND_SCENES) as Array<keyof typeof FIND_SCENES>).flatMap((biome) =>
+    [false, true].flatMap((rareTrace) => [false, true].map((repeat) => ({
+        biome,
+        rareTrace,
+        repeat,
+        event: buildGatherVn({ id: `tone-${biome}`, sector: 1, biome, rareTrace, at: 1 }, repeat),
+    }))),
+);
+const gatheringPages: PageLike[] = gatheringVariants.flatMap(({ event }) => event.vnPages ?? []);
+
 const pages: PageLike[] = [
     ...Object.values(storylines).flatMap((steps) => steps.flatMap((step) => step.pages)),
     ...storyRoadEvents.flatMap((event) => event.pages),
@@ -68,6 +79,9 @@ const pages: PageLike[] = [
         { speaker: "Narrator", dialogue: witness.choices.flatMap((choice) => [choice.label, choice.record]) },
         { speaker: "Halden", dialogue: Object.values(witness.haldenAcknowledgements) },
     ]),
+    // Gathering copy is built from runtime state. Include every biome and the
+    // common/rare, first/repeat branches in the same live-VN tone gates.
+    ...gatheringPages,
     // The mode's landing copy is authored player-facing text too (held as data
     // in ECHOES_HERO_COPY so it can be scanned). The "not their souls" subtitle
     // does the heaviest canon work in the feature, so it must be gated here and
@@ -197,6 +211,20 @@ const questbookCopy = Object.values(QUEST_BOOK).flatMap((entry) => [
         ...(stage.choice?.options.flatMap((option) => [option.label, option.blurb]) ?? []),
     ]),
 ]);
+
+test("every gathering biome and branch variant is part of the live story tone gates", () => {
+    assert.equal(gatheringVariants.length, Object.keys(FIND_SCENES).length * 4);
+    assert.equal(gatheringPages.length, Object.keys(FIND_SCENES).length * 6);
+    for (const biome of Object.keys(FIND_SCENES)) {
+        for (const rareTrace of [false, true]) {
+            for (const repeat of [false, true]) {
+                assert.ok(gatheringVariants.some((variant) => (
+                    variant.biome === biome && variant.rareTrace === rareTrace && variant.repeat === repeat
+                )), `${biome} rareTrace=${rareTrace} repeat=${repeat} must be tone-gated`);
+            }
+        }
+    }
+});
 
 test("story narration suppresses every generic Player portrait across the catalog", () => {
     let narratorPlayerSlots = 0;

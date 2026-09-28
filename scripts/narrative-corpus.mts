@@ -35,6 +35,7 @@ import { CHRONICLE_CARD_CATALOG } from '../shared/chronicle-duel.ts';
 import { rawPetPool } from '../shinobij.client/src/data/pet-pool.ts';
 import { eventItems } from '../shinobij.client/src/data/event-items.ts';
 import { starterItems } from '../shinobij.client/src/data/starter-items.ts';
+import { buildGatherVn, FIND_SCENES } from '../shinobij.client/src/lib/gathering-vn.ts';
 export type Choice = {
     text: string;
     nextPage?: number;
@@ -67,6 +68,10 @@ export type Scene = {
     level?: number;
     village?: string;
     catalog?: boolean;
+    /** A VN choice is consumed by the owning UI, which completes the scene externally. */
+    externalChoiceCompletion?: boolean;
+    /** Runtime alternatives of one logical scene count once for repetition review. */
+    variantGroup?: string;
 };
 const data = (file: string) => `shinobij.client/src/data/${file}.ts`;
 const lib = (file: string) => `shinobij.client/src/lib/${file}.ts`;
@@ -164,6 +169,18 @@ export function buildCorpus(): Scene[] {
         add('echoes', data('echoes-of-war-scenes'), `witness/${id}`, [w.prompt, ...Object.values(w.battleCallbacks), ...Object.values(w.nextEraAcknowledgements), { title: 'Record and later acknowledgements', scene: 'All alternatives; only the chosen record is played', speaker: 'Narrator', dialogue: [...w.choices.flatMap(c => [c.label, c.record]), ...Object.values(w.haldenAcknowledgements)] }], 'Includes all mutually exclusive witness choices and their later replies.');
     for (const e of [...Object.values(systemEvents).flat(), ...Object.values(defaults)])
         add('system', data(e.id.startsWith('sys-') ? 'default-vn-events' : 'vn-events'), e.id, e.vnPages ?? [], e.name, true);
+    // GatheringFind owns the choice destination: choosing the material closes
+    // this VN and opens the collection controls. Expand every biome, trace
+    // state, and first/repeat visit from the real builder so no live branch is
+    // omitted from structural review.
+    for (const biome of Object.keys(FIND_SCENES) as Array<keyof typeof FIND_SCENES>)
+        for (const rareTrace of [false, true])
+            for (const repeat of [false, true]) {
+                const event = buildGatherVn({ id: `audit-${biome}`, sector: 1, biome, rareTrace, at: 1 }, repeat);
+                add('gathering', lib('gathering-vn'), `${biome}/${rareTrace ? 'trace' : 'common'}/${repeat ? 'repeat' : 'first'}`,
+                    event.vnPages ?? [], `${biome}; ${rareTrace ? 'rare trace' : 'common find'}; ${repeat ? 'repeat' : 'first'} visit`, true,
+                    { externalChoiceCompletion: true, variantGroup: `gathering/${biome}` });
+            }
     for (const l of PET_TUTORIAL_LESSONS)
         add('tutorial', lib('pet-tutorial'), l.id, l.pages.map(p => ({ title: p.title, scene: p.kicker, speaker: 'Tutorial', dialogue: [p.body, ...p.points, ...(p.callout ? [p.callout] : [])] })), `L${l.minLevel}, ${l.minPets} pets; {pet} is personalized by the runtime.`);
     for (const vow of ACADEMY_VOWS) {

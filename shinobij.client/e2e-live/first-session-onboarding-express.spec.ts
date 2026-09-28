@@ -297,6 +297,13 @@ test(`a new player completes the full persisted Academy first session against bu
 
     await page.getByRole('button', { name: 'Go to Training Grounds' }).click();
     await expect(page.getByRole('heading', { name: 'Training Grounds' })).toBeVisible();
+    // The timer picker opens only after the player chooses a stat. Follow the
+    // same order as the Academy coach instead of trying to start a timer from
+    // the stat-selection screen.
+    const statChoice = page.getByRole('button', { name: /Click to train/ }).first();
+    await expect(statChoice).toBeVisible();
+    await statChoice.click();
+    await expect(page.getByRole('heading', { name: /^Train / })).toBeVisible();
     const trainingResponse = page.waitForResponse((response) => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/training/start');
     await page.getByRole('button', { name: /Start 15 Minutes/ }).click();
