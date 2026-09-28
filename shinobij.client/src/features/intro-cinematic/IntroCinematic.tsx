@@ -28,6 +28,7 @@ import { STARTER_PETS, type StarterPetOption } from "../../data/starter-pets";
 import { petPoseImage } from "../../lib/pet-battle-anim";
 import { villagePageImage } from "../../lib/village-page-image";
 import { isLowEndMobile, prefersReducedMotion } from "../../lib/device-tier";
+import { GameArtIcon, type GameArtIconKind } from "../../components/GameArtIcon";
 import { useBodyScrollLock } from "../../lib/useBodyScrollLock";
 import {
     FOX_NAME,
@@ -38,6 +39,10 @@ import {
     resolveCinematicLine,
     type CinematicLine,
 } from "./introCinematicScript";
+
+const CINEMATIC_ELEMENT_ART: Record<string, GameArtIconKind> = {
+    Fire: "elementFire", Water: "elementWater", Wind: "elementWind", Lightning: "elementLightning", Earth: "elementEarth",
+};
 import { ACADEMY_VOWS, isAcademyVow, type AcademyVow } from "../../lib/academy-narrative";
 import hollowGateArt from "../../assets/card-clash/loc/hollow-gate.webp";
 // Bespoke gpt-image art (see project memory: generated via the owner's
@@ -573,12 +578,12 @@ export function IntroCinematic({
                                         {art ? (
                                             <img src={art} alt={o.pet.name} onError={(e) => { e.currentTarget.style.display = "none"; }} />
                                         ) : (
-                                            <span className="icx-pet-emoji">{o.icon}</span>
+                                            <span className="icx-pet-emoji"><GameArtIcon kind={CINEMATIC_ELEMENT_ART[o.element] ?? "petTamer"} size={44} /></span>
                                         )}
                                     </span>
                                     <span>
                                         <p className="icx-pet-name">{o.pet.name}</p>
-                                        <p className="icx-pet-role">{o.icon} {o.element} · {o.role}</p>
+                                        <p className="icx-pet-role"><GameArtIcon kind={CINEMATIC_ELEMENT_ART[o.element] ?? "petTamer"} size={16} /> {o.element} · {o.role}</p>
                                     </span>
                                     <span className="icx-pet-chips">
                                         <span className="icx-chip-good">Strong vs {o.strongVs}</span>
@@ -614,7 +619,7 @@ export function IntroCinematic({
                         <p className="icx-choose-kicker">Your First Companion</p>
                         <h2>Walk with {phase.option.pet.name}?</h2>
                         <p>
-                            {phase.option.icon} {phase.option.element} · {phase.option.role}.{" "}
+                            <GameArtIcon kind={CINEMATIC_ELEMENT_ART[phase.option.element] ?? "petTamer"} size={16} /> {phase.option.element} · {phase.option.role}.{" "}
                             {phase.option.pet.description}
                         </p>
                         <div className="icx-confirm-actions">
