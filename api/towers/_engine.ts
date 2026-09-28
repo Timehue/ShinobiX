@@ -20,6 +20,7 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
+import { reconcileGroundStatuses } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
@@ -1458,6 +1459,12 @@ function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string
 function applyRoundGroundEffects(session: TowerSession): void {
     for (const effect of session.groundEffects ?? []) applyZoneToUnits(session, effect);
     session.groundEffects = tickGroundEffects(session.groundEffects);
+    reconcileTowerGroundStatuses(session);
+}
+function reconcileTowerGroundStatuses(session: TowerSession): void {
+    for (const actor of session.actors) {
+        actor.statuses = reconcileGroundStatuses(actorToFighter(actor), session.groundEffects).statuses;
+    }
 }
 // PvP-parity displacement: a Push/Pull-tagged jutsu shoves the struck target across the tower hex
 // grid — Push AWAY from the attacker, Pull TOWARD it, by `jutsu.range` tiles (mirrors api/pvp/
@@ -2194,6 +2201,7 @@ export function applyAction(session: TowerSession, floor: TowerFloor, action: To
     const vfxSeqBefore = session.vfxSeq;
     const result = applyResolvedAction(session, floor, action, rng);
     if (!result.applied) return result;
+    reconcileTowerGroundStatuses(session);
     if (cancelInvalidTowerSignature(session)) refreshHazardTelegraph(session);
     recordTowerKnockouts(session);
     const actor = session.actors.find(a => a.id === action.actorId);

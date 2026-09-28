@@ -50,6 +50,7 @@ import {
     applyGroundEffectToFighter,
     applyJutsu,
     poisonSpendDamage,
+    reconcileGroundStatuses,
     tickGroundEffects,
     tickStatuses,
 } from '../pvp/move.js';
@@ -110,8 +111,9 @@ function fighter(session: SoloPveSession, side: SoloPveSide): PvpFighter {
 }
 
 function setFighter(session: SoloPveSession, side: SoloPveSide, value: PvpFighter): void {
-    if (side === 'player') session.player = value;
-    else session.enemy = value;
+    const next = reconcileGroundStatuses(value, session.groundEffects, side === 'player' ? 'p1' : 'p2');
+    if (side === 'player') session.player = next;
+    else session.enemy = next;
 }
 
 function otherSide(side: SoloPveSide): SoloPveSide {
@@ -695,14 +697,20 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
             const choices = hexNeighbors(session.enemy.pos)
                 .filter((tile) => tile !== companion.pos && tile !== session.player.pos && !tileBlocked(session, tile))
                 .sort((a, b) => hexDistance(b, companion.pos) - hexDistance(a, companion.pos) || a - b);
-            if (choices[0] !== undefined) session.enemy.pos = choices[0];
+            if (choices[0] !== undefined) {
+                session.enemy.pos = choices[0];
+                setFighter(session, 'enemy', session.enemy);
+            }
             break;
         }
         case 'pull': {
             const choices = hexNeighbors(session.enemy.pos)
                 .filter((tile) => tile !== companion.pos && tile !== session.player.pos && !tileBlocked(session, tile))
                 .sort((a, b) => hexDistance(a, companion.pos) - hexDistance(b, companion.pos) || a - b);
-            if (choices[0] !== undefined && hexDistance(choices[0], companion.pos) < hexDistance(session.enemy.pos, companion.pos)) session.enemy.pos = choices[0];
+            if (choices[0] !== undefined && hexDistance(choices[0], companion.pos) < hexDistance(session.enemy.pos, companion.pos)) {
+                session.enemy.pos = choices[0];
+                setFighter(session, 'enemy', session.enemy);
+            }
             break;
         }
         default: break;
@@ -753,6 +761,7 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
                 const before = eventSnapshot(session);
                 const logStart = session.log.length;
                 companion.pos = tile;
+                companion.statuses = reconcileGroundStatuses(companion, session.groundEffects, 'p1').statuses;
                 session.log.push(`${companion.name} closes in on ${session.enemy.name}.`);
                 ap -= MOVE_AP;
                 actions += 1;
@@ -824,6 +833,11 @@ export function endSoloPveTurn(session: SoloPveSession): void {
     session.cooldowns[current] = tickCombatCooldowns(session.cooldowns[current]);
     if (current === 'enemy') {
         session.groundEffects = tickGroundEffects(session.groundEffects);
+        setFighter(session, 'player', session.player);
+        setFighter(session, 'enemy', session.enemy);
+        if (session.companion) {
+            session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
+        }
         if (session.weeklyBossGuard && session.round >= session.weeklyBossGuard.roundBudget) {
             session.status = 'done';
             session.winner = 'player';
@@ -1341,6 +1355,12 @@ function directAction(
                 }),
             },
         };
+    }
+
+    setFighter(session, 'player', session.player);
+    setFighter(session, 'enemy', session.enemy);
+    if (session.companion) {
+        session.companion.statuses = reconcileGroundStatuses(session.companion, session.groundEffects, 'p1').statuses;
     }
 
     const actionLog = session.log.slice(logStart);

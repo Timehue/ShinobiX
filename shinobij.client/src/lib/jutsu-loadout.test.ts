@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { deletedJutsuEntry } from "../../../shared/admin-content-tombstone";
-import { starterJutsus } from "../data/jutsu";
+import { starterJutsus, starterSavedBloodlines } from "../data/jutsu";
 import { getAllJutsus, getPvpJutsuLoadout, liveEquippedJutsuIds } from "./jutsu-loadout";
+import { canEquipElementJutsu } from "./bloodline";
 
 /*
  * Characterization tests for jutsu loadout resolution.
@@ -44,17 +45,16 @@ describe("getAllJutsus", () => {
         assert.ok(!ids.has("authored-gone"), "a tombstoned jutsu must never be fieldable");
     });
 
-    it("grants an admin account every starter bloodline kit", () => {
+    it("an admin character follows the same single-bloodline combat rule", () => {
         const plain = getAllJutsus([], [], character({ name: "tester" }));
         const admin = getAllJutsus([], [], character({ name: "Admin 1" }));
-        assert.ok(admin.length > plain.length,
-            "an admin sees all starter bloodline jutsu; a plain character sees only their own");
+        assert.deepEqual(admin.map((entry) => entry.id), plain.map((entry) => entry.id));
     });
 
     it("gives a character with no bloodline no bloodline kit", () => {
         const none = getAllJutsus([], [], character({ bloodline: undefined }));
-        const admin = getAllJutsus([], [], character({ name: "Admin 1" }));
-        assert.ok(none.length < admin.length);
+        const withBloodline = getAllJutsus([], [], character({ bloodline: "Ashen Eyes" }));
+        assert.ok(none.length < withBloodline.length);
     });
 
     it("treats the renamed Blue Blade Eyes as Ashen Eyes", () => {
@@ -70,6 +70,31 @@ describe("getAllJutsus", () => {
         const with_ = getAllJutsus([bl], [], character({ equippedBloodlineId: "bl-1" }));
         assert.ok(!without.some((j) => j.id === "bloodline-only"), "an unequipped bloodline grants nothing");
         assert.ok(with_.some((j) => j.id === "bloodline-only"), "the equipped bloodline's kit is fieldable");
+    });
+
+    it("fields only the active bloodline even when shared jutsu copies include the inactive kits", () => {
+        const first = { id: "bl-first", name: "First", rank: "A Rank", jutsus: [jutsu("first-tech", { element: "Fire" })] } as SavedBloodline;
+        const second = { id: "bl-second", name: "Second", rank: "A Rank", jutsus: [jutsu("second-tech", { element: "None" })] } as SavedBloodline;
+        const starterTechnique = starterSavedBloodlines.find((bloodline) => bloodline.name === "Ashen Eyes")!.jutsus[0]!;
+        const fighter = character({
+            bloodline: "Ashen Eyes", equippedBloodlineId: first.id,
+            equippedJutsuIds: [starterTechnique.id, first.jutsus[0]!.id, second.jutsus[0]!.id],
+        });
+        const sharedCopies = [starterTechnique, second.jutsus[0]!];
+        const catalog = getAllJutsus([first, second], sharedCopies, fighter);
+        assert.ok(catalog.some((entry) => entry.id === "first-tech"));
+        assert.ok(!catalog.some((entry) => entry.id === "second-tech"));
+        assert.ok(!catalog.some((entry) => entry.id === starterTechnique.id));
+        assert.deepEqual(getPvpJutsuLoadout([first, second], sharedCopies, fighter).map((entry) => entry.id), ["first-tech"]);
+        assert.equal(canEquipElementJutsu(fighter, second.jutsus[0]!, [first, second]), false);
+        assert.equal(canEquipElementJutsu(fighter, starterTechnique, [first, second]), false);
+
+        const returnedToStarter = character({
+            ...fighter,
+            equippedBloodlineId: starterSavedBloodlines.find((bloodline) => bloodline.name === "Ashen Eyes")!.id,
+        });
+        assert.deepEqual(getPvpJutsuLoadout([first, second], sharedCopies, returnedToStarter).map((entry) => entry.id),
+            [starterTechnique.id]);
     });
 });
 

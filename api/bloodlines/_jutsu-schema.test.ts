@@ -262,28 +262,49 @@ test('over-budget SINGLE Move keeps its structural movement tag and ground targe
     assert.ok(bloodlinePoints(output, 'B Rank') <= 7);
 });
 
-test('over-budget ground methods never seal an empty or Move-only zone', () => {
+test('shorter ground methods retain valid zones within the creator budget', () => {
     const instantZones = Array.from({ length: 4 }, (_, index) => ({
         id: `forged-instant-${index}`, name: `Forged Instant ${index}`, type: 'Ninjutsu', element: 'Fire',
-        ap: 60, range: 5, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+        ap: 60, range: 3, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
         tags: [{ name: 'Recoil', percent: 30 }],
     }));
     const spiralZones = Array.from({ length: 4 }, (_, index) => ({
         id: `forged-spiral-${index}`, name: `Forged Spiral ${index}`, type: 'Ninjutsu', element: 'Fire',
-        ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'AOE_SPIRAL',
+        ap: 60, range: 3, effectPower: 40, target: 'EMPTY_GROUND', method: 'AOE_SPIRAL',
         tags: [{ name: 'Poison', percent: 30 }],
     }));
 
     const instantOutput = normalizePlayerBloodlineJutsus(instantZones, 'B Rank');
     const spiralOutput = normalizePlayerBloodlineJutsus(spiralZones, 'B Rank');
 
-    assert.equal(instantOutput.length, 3, 'structurally over-budget draft is truncated');
+    assert.equal(instantOutput[0]?.range, 3);
+    assert.equal(spiralOutput[0]?.range, 3);
+
+    assert.equal(instantOutput.length, 4, 'the shorter ground range keeps these four zones within budget');
     assert.ok(instantOutput.every((jutsu) => jutsu.method === 'INSTANT_EFFECT'));
     assert.ok(instantOutput.every((jutsu) => jutsu.tags.length > 0));
     assert.ok(instantOutput.every((jutsu) => jutsu.target === 'EMPTY_GROUND'));
 
-    assert.equal(spiralOutput.length, 3, 'structurally over-budget draft is truncated');
+    assert.equal(spiralOutput.length, 3, 'the fourth movement zone still exceeds the creator budget');
     assert.ok(spiralOutput.every((jutsu) => jutsu.method === 'AOE_SPIRAL'));
     assert.ok(spiralOutput.every((jutsu) => jutsu.tags.some((tag) => tag.name !== 'Move')));
     assert.ok(spiralOutput.every((jutsu) => jutsu.target === 'EMPTY_GROUND'));
+});
+
+test('ground methods seal to range three or four without changing direct casts', () => {
+    const make = (method: 'INSTANT_EFFECT' | 'AOE_SPIRAL', range: number) => ({
+        id: `zone-${method}-${range}`, name: 'Zone', type: 'Ninjutsu', element: 'Fire',
+        ap: 60, range, effectPower: 40, target: 'EMPTY_GROUND', method,
+        tags: method === 'AOE_SPIRAL'
+            ? [{ name: 'Move', percent: 0 }, { name: 'Poison', percent: 30 }]
+            : [{ name: 'Poison', percent: 30 }],
+    });
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 3)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 4)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 5)], 'A Rank')[0]?.range, 4);
+    assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 3)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 5)], 'A Rank')[0]?.range, 4);
+    const authoredLong = normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 4), groundRangeVersion: 2 }], 'A Rank');
+    assert.equal(authoredLong[0]?.range, 4);
+    assert.equal(normalizePlayerBloodlineJutsus(authoredLong, 'A Rank')[0]?.range, 4, 'a migrated range is stable on later saves');
 });

@@ -5,6 +5,9 @@ import { describe, it } from "node:test";
 import { replaceCharacterBloodline } from "./bloodline-swap";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
+import { starterSavedBloodlines } from "../data/jutsu";
+
+const STARTER_TECH = starterSavedBloodlines.find((entry) => entry.name === "Ashen Eyes")!.jutsus[0]!.id;
 
 const jutsu = (id: string): Jutsu => ({
     id,
@@ -36,9 +39,9 @@ const character = (overrides: Partial<Character> = {}): Character => ({
     name: "AuditNinja",
     bloodline: "Ashen Eyes",
     equippedBloodlineId: "old-custom",
-    equippedJutsuIds: ["starter-tech", "old-tech", "universal-tech"],
+    equippedJutsuIds: [STARTER_TECH, "old-tech", "universal-tech"],
     jutsuMastery: [
-        { jutsuId: "starter-tech", level: 24, xp: 8 },
+        { jutsuId: STARTER_TECH, level: 24, xp: 8 },
         { jutsuId: "old-tech", level: 31, xp: 4 },
         { jutsuId: "universal-tech", level: 12, xp: 2 },
     ],
@@ -46,7 +49,7 @@ const character = (overrides: Partial<Character> = {}): Character => ({
 } as Character);
 
 describe("replaceCharacterBloodline", () => {
-    it("preserves starter and universal loadout/mastery while removing the outgoing custom kit", () => {
+    it("removes inactive starter and custom techniques while preserving universal slots and mastery", () => {
         const before = character();
         const result = replaceCharacterBloodline(
             before,
@@ -55,16 +58,16 @@ describe("replaceCharacterBloodline", () => {
         );
 
         assert.equal(result.equippedBloodlineId, "new-custom");
-        assert.deepEqual(result.equippedJutsuIds, ["starter-tech", "universal-tech"]);
+        assert.deepEqual(result.equippedJutsuIds, ["universal-tech"]);
         assert.deepEqual(result.jutsuMastery, before.jutsuMastery);
         assert.notEqual(result.jutsuMastery, before.jutsuMastery);
     });
 
     it("editing the equipped bloodline keeps unchanged techniques equipped and at their trained mastery", () => {
         const before = character({
-            equippedJutsuIds: ["starter-tech", "old-tech", "retired-tech"],
+            equippedJutsuIds: [STARTER_TECH, "old-tech", "retired-tech"],
             jutsuMastery: [
-                { jutsuId: "starter-tech", level: 19, xp: 1 },
+                { jutsuId: STARTER_TECH, level: 19, xp: 1 },
                 { jutsuId: "old-tech", level: 42, xp: 9 },
                 { jutsuId: "retired-tech", level: 7, xp: 0 },
             ],
@@ -75,7 +78,7 @@ describe("replaceCharacterBloodline", () => {
             [bloodline("old-custom", ["old-tech", "retired-tech"])],
         );
 
-        assert.deepEqual(result.equippedJutsuIds, ["starter-tech", "old-tech"]);
+        assert.deepEqual(result.equippedJutsuIds, ["old-tech"]);
         assert.deepEqual(result.jutsuMastery, before.jutsuMastery);
         assert.equal(result.jutsuMastery.find((row) => row.jutsuId === "old-tech")?.level, 42);
     });
@@ -89,6 +92,14 @@ describe("replaceCharacterBloodline", () => {
         );
 
         assert.equal(result.jutsuMastery.some((row) => row.jutsuId === "old-tech" && row.level === 31), true);
+    });
+
+    it("can switch back to the original starter without keeping custom jutsu equipped", () => {
+        const original = starterSavedBloodlines.find((entry) => entry.name === "Ashen Eyes")!;
+        const result = replaceCharacterBloodline(character(), original, [bloodline("old-custom", ["old-tech"])]);
+        assert.equal(result.equippedBloodlineId, original.id);
+        assert.deepEqual(result.equippedJutsuIds, [STARTER_TECH, "universal-tech"]);
+        assert.equal(result.jutsuMastery.find((row) => row.jutsuId === "old-tech")?.level, 31);
     });
 });
 

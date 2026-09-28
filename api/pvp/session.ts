@@ -55,7 +55,7 @@ import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu
 import { legacyEnabled } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
-import { characterMayUseJutsu, BUILTIN_BLOODLINES } from './_bloodline-gate.js';
+import { carriedBloodlines, characterMayUseJutsu } from './_bloodline-gate.js';
 import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
 import { safeLogValue } from '../_safe-log.js';
 import { KNOWN_TAG_NAMES, STACKABLE_STATUS, canonicalTagName, REQUIRES_DAMAGE_TAGS, jutsuHasFixedEffectPower, FIXED_EFFECT_STANDARD_EP } from './_tags.js';
@@ -1179,15 +1179,9 @@ export function resolveEquippedLoadout(
     if (save) {
         const bloodlines = save.savedBloodlines;
         if (Array.isArray(bloodlines)) {
-            // Only CARRIED bloodlines contribute jutsu definitions: the starter
-            // (character.bloodline, legacy alias remapped) and the currently
-            // equipped one — the same set the client's getCharacterBloodlines
-            // grants access from. A save can hold up to 5 forged bloodlines;
-            // folding them ALL in let a player field every kit at once while
-            // only one paid the multiplier.
-            const starterName = saveCharacter.bloodline === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(saveCharacter.bloodline ?? '');
-            const starterId = BUILTIN_BLOODLINES.find((b) => b.name === starterName)?.id;
-            const equippedBloodlineId = typeof saveCharacter.equippedBloodlineId === 'string' ? saveCharacter.equippedBloodlineId : '';
+            // Only the active bloodline contributes definitions. Stored kits and
+            // the original starter are inactive while another line is equipped.
+            const activeBloodlineId = carriedBloodlines(saveCharacter, save)[0]?.id;
             // Stamp each bloodline's rank onto its jutsu so combat reads the correct
             // per-rank Wound/amp caps (move.ts woundCapForJutsu / ampTagCapForRank).
             // The rank lives on the bloodline OBJECT, not the per-jutsu objects, and
@@ -1206,7 +1200,7 @@ export function resolveEquippedLoadout(
                 const bl = b as Record<string, unknown>;
                 const blId = typeof bl.id === 'string' ? bl.id : '';
                 if (!blId) continue;
-                if (blId !== equippedBloodlineId && blId !== starterId) continue;
+                if (blId !== activeBloodlineId) continue;
                 // Old/corrupt saves can predate ingress deduplication. Never let
                 // duplicate rows sharing one id each receive a separate schema
                 // budget and then merge into the same carried combat kit.

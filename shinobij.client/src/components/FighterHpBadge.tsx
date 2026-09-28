@@ -12,7 +12,7 @@
 // document.body — that would break the board-scale transform + coordinate
 // origin the fighters are positioned in.
 
-import { formatRatio } from "../lib/format-number";
+import { formatExact } from "../lib/format-number";
 
 // Traffic-light HP colour by fraction-of-max — identical ramp to the pet badge
 // and CombatSideHud (>50 green, >25 amber, else red) so every HP readout in the
@@ -49,7 +49,7 @@ export function FighterHpBadge({
     side: "player" | "enemy" | "pet";
     /** optional caption line under the bar (e.g. the pet's name + turns-left). */
     caption?: string;
-    /** when true (default) and no caption is given, shows `cur/max` under the bar. */
+    /** when true (default) and no caption is given, shows current HP under the bar. */
     showNumbers?: boolean;
     zIndex?: number;
 }) {
@@ -61,8 +61,7 @@ export function FighterHpBadge({
         side === "enemy" ? "rgba(239,68,68,0.9)" :
         side === "player" ? "rgba(96,165,250,0.9)" :
         "rgba(0,0,0,0.6)";
-    // Compact so a late-game five/six-digit pool cannot overflow the badge.
-    const label = caption ?? (showNumbers ? formatRatio(Math.max(0, Math.round(hp)), Math.round(maxHp)) : "");
+    const label = caption ?? (showNumbers ? formatExact(Math.max(0, Math.round(hp))) : "");
     return (
         <div style={{ position: "absolute", left, top, width, zIndex, pointerEvents: "none", transition: BADGE_GLIDE }}>
             <div style={{ height: 6, borderRadius: 3, background: "rgba(2,6,18,0.72)", overflow: "hidden", border: `1px solid ${border}`, boxShadow: "0 1px 2px rgba(0,0,0,0.75)" }}>

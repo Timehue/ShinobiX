@@ -5,7 +5,7 @@
  * jutsu via a bloodline?" + "which bloodlines is this character carrying
  * right now?" + the swap-bloodline character mutation.
  *
- *   • getCharacterBloodlines      — starter + currently-equipped, deduped
+ *   • getCharacterBloodlines      — the single active bloodline
  *   • isBloodlineSpecialElementJutsu — is `jutsu` granted by an equipped
  *                                     bloodline's special element?
  *   • isBloodlineJutsu            — is `jutsu` in any equipped bloodline?
@@ -28,10 +28,8 @@ import type { Jutsu, SavedBloodline } from "../types/combat";
 export { replaceCharacterBloodline } from "./bloodline-swap";
 
 /**
- * Return every bloodline a character is currently carrying — their
- * starter (resolved by name, with the "Blue Blade Eyes" legacy alias
- * remapped to "Ashen Eyes") plus their currently-equipped custom
- * bloodline. Dedupes if the equipped bloodline happens to BE the starter.
+ * Return the selected bloodline. The original starter is active only until a
+ * stored or built-in bloodline is explicitly equipped.
  */
 export function getCharacterBloodlines(
     character: Pick<Character, "bloodline" | "equippedBloodlineId">,
@@ -40,9 +38,8 @@ export function getCharacterBloodlines(
     const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
     const starterBloodline = starterSavedBloodlines.find((bloodline) => bloodline.name === starterBloodlineName);
     const equippedBloodline = [...savedBloodlines, ...starterSavedBloodlines].find((bloodline) => bloodline.id === character.equippedBloodlineId);
-    return [starterBloodline, equippedBloodline]
-        .filter((bloodline): bloodline is SavedBloodline => Boolean(bloodline))
-        .filter((bloodline, index, bloodlines) => bloodlines.findIndex((candidate) => candidate.id === bloodline.id) === index);
+    const active = equippedBloodline ?? starterBloodline;
+    return active ? [active] : [];
 }
 
 /**
@@ -73,6 +70,22 @@ export function isBloodlineJutsu(
     );
 }
 
+/** A stored or built-in bloodline technique outside the character's carried kits. */
+export function isUncarriedBloodlineJutsu(
+    character: Pick<Character, "bloodline" | "equippedBloodlineId">,
+    jutsu: Pick<Jutsu, "id">,
+    savedBloodlines: SavedBloodline[],
+): boolean {
+    const active = getCharacterBloodlines(character, savedBloodlines)[0];
+    const jutsuId = String(jutsu.id ?? "").trim().toLowerCase();
+    const builtinOwner = starterSavedBloodlines.find((bloodline) =>
+        bloodline.jutsus.some((entry) => String(entry.id ?? "").trim().toLowerCase() === jutsuId));
+    if (builtinOwner) return active?.id !== builtinOwner.id;
+    const owner = savedBloodlines
+        .some((bloodline) => bloodline.jutsus.some((entry) => String(entry.id ?? "").trim().toLowerCase() === jutsuId));
+    return owner && !active?.jutsus.some((entry) => String(entry.id ?? "").trim().toLowerCase() === jutsuId);
+}
+
 /**
  * Full access check: can this character equip this jutsu? Universal
  * (no element) always passes; bloodline jutsu always pass; otherwise
@@ -84,6 +97,7 @@ export function canEquipElementJutsu(
     jutsu: Jutsu,
     savedBloodlines: SavedBloodline[],
 ): boolean {
+    if (isUncarriedBloodlineJutsu(character, jutsu, savedBloodlines)) return false;
     // No element (or explicit "None") — universal jutsu, always accessible.
     if (!jutsu.element || jutsu.element === "None") return true;
     // Bloodline jutsu — accessible regardless of owned elements since the bloodline itself grants access.

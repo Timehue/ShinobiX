@@ -66,6 +66,7 @@ export function normalizeJutsu(jutsu: Partial<Jutsu> & Pick<Jutsu, "id" | "name"
         // save/import/form paths can produce, and range:0 silently turns
         // off the on-board range highlight (jutsuRangeTiles bails on <=0).
         range: Math.max(1, Number(jutsu.range) || 3),
+        ...(jutsu.groundRangeVersion === 2 ? { groundRangeVersion: 2 as const } : {}),
         effectPower,
         cooldown: jutsu.cooldown ?? 1,
         currentCooldown: jutsu.currentCooldown ?? 0,

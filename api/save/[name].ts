@@ -5,7 +5,7 @@ import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
-import { hasRejectedBloodlineForgeAttempt, hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
+import { filterActiveBloodlineJutsuIds, hasRejectedBloodlineForgeAttempt, hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
 import { sanitizeChallengeProgress } from './_sanitize-challenges.js';
 import { sanitizeCardsAndHistory } from './_sanitize-cards-history.js';
 import { sanitizeClaimsAndHospital } from './_sanitize-claims-hospital.js';
@@ -376,6 +376,11 @@ export function sanitizeCharacterSave(
         }
         finalChar.equippedJutsuIds = (finalChar.equippedJutsuIds as unknown[])
             .filter((id): id is string => typeof id === 'string' && learnedJutsuIds.has(id.trim().toLowerCase()));
+        finalChar.equippedJutsuIds = filterActiveBloodlineJutsuIds(
+            finalChar,
+            out.savedBloodlines ?? existing?.savedBloodlines,
+            finalChar.equippedJutsuIds as string[],
+        );
     }
     // Server-owned, single-use purchase ledger. Incoming copies are ignored.
     out.pendingBloodlineForges = pendingBloodlineForges.filter((entry) => !consumedBloodlineForgeIds.has(entry.id));

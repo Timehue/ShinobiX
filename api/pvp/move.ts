@@ -471,29 +471,16 @@ function capWoundStacks(f: PvpFighter, round: number): PvpFighter {
 // "a zone applies its tags exactly once per pass and Debuff Prevent blocks it".
 function addGroundStatus(fighter: PvpFighter, status: PvpStatus, effectId: string): PvpFighter {
     // A recurring zone refreshes its own pulse instead of adding a fresh stack
-    // every round. Stackable status families (notably DDG) must still preserve
-    // independent direct-cast stacks, so identify only this zone's prior pulse.
+    // every round. Keep direct casts and other zones as independent statuses.
     const sourced = { ...status, source: `ground:${effectId}` };
-    if (STACKABLE_STATUS.has(status.name)) {
-        return {
-            ...fighter,
-            statuses: [
-                ...fighter.statuses.filter((existing) => !(
-                    nameMatches(existing.name, status.name)
-                    && existing.source === sourced.source
-                )),
-                sourced,
-            ],
-        };
-    }
-    // Non-stackable Poison/Recoil keep their normal replace-by-name contract,
-    // but retain the zone-authored duration instead of the direct-jutsu override.
     return {
         ...fighter,
-        statuses: addCombatStatus(fighter.statuses, sourced, {
-            isStackable: () => false,
-            nameMatches,
-        }),
+        statuses: [
+            ...fighter.statuses.filter((existing) => !(
+                nameMatches(existing.name, status.name) && existing.source === sourced.source
+            )),
+            sourced,
+        ],
     };
 }
 export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroundEffect, round: number, includePending = false): { fighter: PvpFighter; lines: string[] } {
@@ -512,12 +499,8 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
     for (const tag of effect.tags) {
         const tagName = normalizeTagName(tag.name);
         const pct = Math.max(1, Math.floor(tag.percent ?? 30));
-        // Zone debuffs refresh to ONE turn each pass (not 2). The zone re-applies
-        // every round a fighter stands in it, and these statuses are non-stackable
-        // (addStatus replaces), so a 2-turn refresh would reset the timer each pass
-        // and leave the debuff lingering a full 2 rounds AFTER the zone expired —
-        // strictly stronger than the same tag cast directly. A 1-turn refresh keeps
-        // it active only while standing in the zone, ending when the zone does.
+        // One-turn pulses are refreshed while a fighter occupies the field.
+        // Movement and expiration also remove zone-sourced statuses immediately.
         if (tagName === 'Decrease Damage Given') {
             next = addGroundStatus(next, { name: 'Decrease Damage Given', rounds: 1, percent: pct, kind: 'negative' }, effect.id);
             lines.push(`${effect.name}: ${next.name} deals ${pct}% less damage this turn.`);
@@ -530,11 +513,10 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
             // ceiling. A zone with no stamped rank (NPC, or laid before the stamp
             // existed) takes the basic ceiling.
             const poisonPct = poisonPercentForTag(tag.percent, JUTSU_MAX_LEVEL, effect);
-            // v2: zone poison lasts 2 rounds (on-spend model — matches PvE + jutsu poison).
-            // v1: 1-round refresh tracks zone presence for the legacy per-round pool tick.
-            next = addGroundStatus(next, { name: 'Poison', rounds: COMBAT_RESOURCES_V2 ? 2 : 1, percent: poisonPct, kind: 'negative' }, effect.id);
+            // Zone poison is active only while the fighter occupies this field.
+            next = addGroundStatus(next, { name: 'Poison', rounds: 1, percent: poisonPct, kind: 'negative' }, effect.id);
             if (COMBAT_RESOURCES_V2) {
-                lines.push(`${effect.name}: ${next.name} is poisoned for 2 rounds — casting jutsu will hurt.`);
+                lines.push(`${effect.name}: ${next.name} is poisoned while standing in the field — casting jutsu will hurt.`);
             } else {
                 const dmg = Math.floor(next.maxChakra * (poisonPct / 100));
                 lines.push(`${effect.name}: ${next.name} is poisoned for ~${dmg} this turn.`);
@@ -542,6 +524,17 @@ export function applyGroundEffectToFighter(fighter: PvpFighter, effect: PvpGroun
         }
     }
     return { fighter: next, lines };
+}
+/** Remove only zone-authored statuses whose field no longer covers this fighter. */
+export function reconcileGroundStatuses(fighter: PvpFighter, effects: PvpGroundEffect[] | undefined, owner?: PvpRole): PvpFighter {
+    const statuses = fighter.statuses.filter((status) => {
+        if (!status.source?.startsWith('ground:')) return true;
+        const id = status.source.slice('ground:'.length);
+        return (effects ?? []).some((effect) => effect.id === id
+            && (owner === undefined || effect.owner !== owner)
+            && effect.tiles.includes(fighter.pos));
+    });
+    return statuses.length === fighter.statuses.length ? fighter : { ...fighter, statuses };
 }
 function applyGroundEffects(session: PvpSession, round: number, targetOnly?: PvpRole): { session: PvpSession; lines: string[] } {
     let p1 = session.p1;
@@ -1038,7 +1031,10 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         if (tagName === 'Siphon' && pct > 0 && finalDmg > 0) { const h = postDamagePercentAmount(finalDmg, pct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
     }
 
-    const recoilStatus = activeStatuses(s, round).find(st => st.name === 'Recoil');
+    const recoilStatus = activeStatuses(s, round)
+        .filter((status) => nameMatches(status.name, 'Recoil'))
+        .reduce<PvpStatus | undefined>((strongest, status) =>
+            !strongest || (status.percent ?? 30) > (strongest.percent ?? 30) ? status : strongest, undefined);
     if (recoilStatus && finalDmg > 0) { const rc = postDamagePercentAmount(finalDmg, recoilStatus.percent ?? 30); s = { ...s, hp: Math.max(0, s.hp - rc) }; lines.push(`Recoil: ${s.name} takes ${rc} recoil damage from their own attack.`); pushFx(fx, 'self', rc, 'damage'); }
 
     // Sum all active Lifesteal stacks' percents (capped at 60% by
@@ -1148,7 +1144,12 @@ function ownDotMitigation(f: PvpFighter, round: number): number {
 // fighter is not poisoned, or the cast was free.
 export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: number): number {
     if (!COMBAT_RESOURCES_V2) return 0;
-    const pct = Math.min(POISON_CAP_BY_RANK.S, sumActivePct(fighter, 'Poison', round, POISON_DEFAULT_PCT));
+    const poisons = activeStatuses(fighter, round).filter((status) => nameMatches(status.name, 'Poison'));
+    const directPct = poisons.filter((status) => !status.source?.startsWith('ground:'))
+        .reduce((sum, status) => sum + (status.percent ?? POISON_DEFAULT_PCT), 0);
+    const groundPct = poisons.filter((status) => status.source?.startsWith('ground:'))
+        .reduce((max, status) => Math.max(max, status.percent ?? POISON_DEFAULT_PCT), 0);
+    const pct = Math.min(POISON_CAP_BY_RANK.S, Math.max(directPct, groundPct));
     if (pct <= 0) return 0;
     const raw = v2PoisonOnSpend(spend, pct);
     if (raw <= 0) return 0;
@@ -1168,6 +1169,16 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
     // Compute own DR pool against incoming DoT.
     const dotMitigation = ownDotMitigation(f, round);
     const mit = (raw: number) => Math.max(0, Math.floor(raw * dotMitigation));
+    const poisons = activeStatuses(f, round).filter((status) => nameMatches(status.name, 'Poison'));
+    const directPoisons = poisons.filter((status) => !status.source?.startsWith('ground:'));
+    const directPoisonPct = directPoisons.reduce((sum, status) => sum + (status.percent ?? POISON_DEFAULT_PCT), 0);
+    const strongestGroundPoison = poisons.filter((status) => status.source?.startsWith('ground:'))
+        .reduce<PvpStatus | undefined>((strongest, status) =>
+            !strongest || (status.percent ?? POISON_DEFAULT_PCT) > (strongest.percent ?? POISON_DEFAULT_PCT)
+                ? status : strongest, undefined);
+    const poisonsToTick = new Set(strongestGroundPoison
+        && (strongestGroundPoison.percent ?? POISON_DEFAULT_PCT) > directPoisonPct
+        ? [strongestGroundPoison] : directPoisons);
 
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
@@ -1177,7 +1188,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             pushFx(fx, 'self', dmg, 'damage');
             vfx.push(vfxEvent('self', 'wound', 'target', 'minor'));
         }
-        if (s.name === 'Poison' && !COMBAT_RESOURCES_V2) {
+        if (poisonsToTick.has(s) && !COMBAT_RESOURCES_V2) {
             // Legacy poison: an HP-only DoT = a % of the victim's max chakra (does
             // NOT drain chakra — that's Drain's job, below). Under combatResourcesV2
             // poison has NO per-round tick; it triggers on-spend in the jutsu handler
@@ -1299,6 +1310,11 @@ function endTurn(session: PvpSession): PvpSession {
             groundEffects: tickGroundEffects(s.groundEffects, session.round, roundOpenerFor(session)),
         };
     }
+    s = {
+        ...s,
+        p1: reconcileGroundStatuses(s.p1, s.groundEffects, 'p1'),
+        p2: reconcileGroundStatuses(s.p2, s.groundEffects, 'p2'),
+    };
     if (current === 'p1') {
         s = { ...s, cooldowns: { ...s.cooldowns, p1: tickCooldowns(s.cooldowns.p1) } };
     } else {
@@ -1321,7 +1337,7 @@ function endTurn(session: PvpSession): PvpSession {
     lines.push(...groundApplied.lines);
     const otherFighter = next === 'p1' ? s.p2 : s.p1;
     const moved = applyQueuedMovement(nextFighter, otherFighter, newRound);
-    nextFighter = moved.fighter;
+    nextFighter = reconcileGroundStatuses(moved.fighter, s.groundEffects, next);
     lines.push(...moved.lines);
     const dots = applyDoTs(nextFighter, newRound);
     nextFighter = dots.fighter;
@@ -1911,6 +1927,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (updMe) s = role === 'p1' ? { ...s, p1: updMe } : { ...s, p2: updMe };
             if (updOpp) s = role === 'p1' ? { ...s, p2: updOpp } : { ...s, p1: updOpp };
+            s = {
+                ...s,
+                p1: reconcileGroundStatuses(s.p1, s.groundEffects, 'p1'),
+                p2: reconcileGroundStatuses(s.p2, s.groundEffects, 'p2'),
+            };
             s = { ...s, ap: { ...s.ap, [role as 'p1' | 'p2']: myAp - adjustedCost(apCost) }, actionsThisTurn: s.actionsThisTurn + 1 };
             if (cd) s = { ...s, cooldowns: { ...s.cooldowns, [role as 'p1' | 'p2']: { ...myCooldowns, ...cd } } };
             if (lines.length) s = { ...s, log: [...s.log, ...lines] };

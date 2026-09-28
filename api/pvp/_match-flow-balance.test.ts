@@ -151,6 +151,9 @@ describe('round-symmetric deferred lifecycle', () => {
                 assert.equal(current.log.filter((line) => line.startsWith('Test Zone:')).length, 2,
                     'cast pulse plus recurrence, or two recurrences, must total two applications');
                 assert.equal(current.groundEffects?.length, 0);
+                assert.equal((target === 'p1' ? current.p1 : current.p2).statuses.some(
+                    (status) => status.source === `ground:${effect.id}`,
+                ), false, 'expired zones leave no poison, recoil, or damage debuff behind');
             });
 
             test(`Barrier cast by ${caster} as ${phase} is deferred for two complete rounds`, () => {

@@ -1058,6 +1058,28 @@ test('pvp adapter converts session state without changing PvP-compatible fields'
     assert.ok(updated.log.at(-1)?.includes('adapter update'));
 });
 
+test('moving off a ground field immediately removes its poison and recoil', async () => {
+    const source = 'ground:move-away-zone';
+    seed(session('ground-exit', {
+        activePlayer: 'p2',
+        groundEffects: [{
+            id: 'move-away-zone', owner: 'p1', name: 'Field', tiles: [1], rounds: 2,
+            tags: [{ name: 'Poison', percent: 10 }, { name: 'Recoil', percent: 20 }],
+        }],
+        p2: fighter('bob', 1, { statuses: [
+            { name: 'Poison', rounds: 1, percent: 10, kind: 'negative', source },
+            { name: 'Recoil', rounds: 1, percent: 20, kind: 'negative', source },
+        ] }),
+    }));
+    const response = await postMove('bob', {
+        battleId: 'ground-exit', role: 'p2', action: 'move', tile: 2, moveToken: 'leave-field',
+    });
+    assert.equal(response.statusCode, 200);
+    const after = storedSession('ground-exit');
+    assert.equal(after.p2.pos, 2);
+    assert.equal(after.p2.statuses.some((status) => status.source === source), false);
+});
+
 test('moveToken retry returns the current session without double-applying a jutsu', async () => {
     seed(session('idem'));
     const body = { battleId: 'idem', role: 'p1', action: 'jutsu', jutsuId: 'blast', moveToken: 'same-token' };

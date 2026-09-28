@@ -15,7 +15,8 @@ import type { Jutsu, SavedBloodline } from "../types/combat";
 /**
  * Jutsu id -> the name of the bloodline that grants it, for the bloodlines the
  * character carries. Pass getCharacterBloodlines(character, savedBloodlines)
- * (starter + equipped). When two bloodlines carry the same jutsu, the first wins.
+ * (the single active bloodline). If callers pass multiple bloodlines, the first
+ * one names a shared jutsu.
  */
 export function bloodlineNamesByJutsuId(
     bloodlines: readonly Pick<SavedBloodline, "name" | "jutsus">[],

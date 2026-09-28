@@ -14,17 +14,14 @@
  *   • one of the base elements (or Yin/Yang)     → usable (element awakening is
  *     not a bloodline concern; the client's own-element check is not enforced
  *     here so legacy saves with a sparse `elements[]` keep their kits)
- *   • a BUILT-IN bloodline jutsu (by id)         → must carry that bloodline
+ *   • a bloodline jutsu (by id)                  → must carry its bloodline
  *   • any other special-element jutsu            → must own the element, or
  *     carry a bloodline that grants it (special element match, or the jutsu is
  *     in the bloodline's own list)
  *
- * "Carried" = the starter bloodline (character.bloodline, with the legacy
- * "Blue Blade Eyes" alias) plus the currently EQUIPPED bloodline
- * (character.equippedBloodlineId resolved against the save's own
- * savedBloodlines or the built-in list) — the same set the client's
- * getCharacterBloodlines produces. Stored-but-unequipped bloodlines do NOT
- * grant access, matching the client.
+ * "Carried" = the equipped bloodline (from the save or built-in list), or
+ * the original starter when no valid explicit selection exists. Stored but
+ * inactive bloodlines grant no techniques.
  *
  * BUILTIN_BLOODLINES is a hand-kept mirror of starterSavedBloodlines
  * (shinobij.client/src/data/jutsu.ts) — guarded in lock-step by
@@ -90,8 +87,7 @@ function lower(value: unknown): string {
 }
 
 // The bloodlines the character is CARRYING right now — mirrors the client's
-// getCharacterBloodlines: the starter (by name, legacy alias remapped) plus the
-// equipped bloodline (custom from the save's own savedBloodlines, or built-in).
+// getCharacterBloodlines: the equipped bloodline, falling back to the starter.
 export function carriedBloodlines(
     saveCharacter: Record<string, unknown>,
     save: Record<string, unknown> | null,
@@ -108,9 +104,6 @@ export function carriedBloodlines(
         }
         out.push({ id, specialElement: lower(specialElement), jutsuIds: ids });
     };
-    const starterName = saveCharacter.bloodline === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(saveCharacter.bloodline ?? '');
-    const starter = BUILTIN_BLOODLINES.find((b) => b.name === starterName);
-    if (starter) push(starter.id, starter.specialElement, starter.jutsuIds.map((id) => ({ id })));
     const equippedId = typeof saveCharacter.equippedBloodlineId === 'string' ? saveCharacter.equippedBloodlineId : '';
     if (equippedId) {
         const saved = Array.isArray(save?.savedBloodlines) ? save.savedBloodlines as unknown[] : [];
@@ -122,6 +115,11 @@ export function carriedBloodlines(
             const builtin = BUILTIN_BLOODLINES.find((b) => b.id === equippedId);
             if (builtin) push(builtin.id, builtin.specialElement, builtin.jutsuIds.map((id) => ({ id })));
         }
+    }
+    if (out.length === 0) {
+        const starterName = saveCharacter.bloodline === 'Blue Blade Eyes' ? 'Ashen Eyes' : String(saveCharacter.bloodline ?? '');
+        const starter = BUILTIN_BLOODLINES.find((b) => b.name === starterName);
+        if (starter) push(starter.id, starter.specialElement, starter.jutsuIds.map((id) => ({ id })));
     }
     return out;
 }
@@ -143,6 +141,13 @@ export function characterMayUseJutsu(
     if (builtinOwner) {
         return carried().some((b) => b.id === builtinOwner.id);
     }
+    const stored = Array.isArray(save?.savedBloodlines) ? save.savedBloodlines as unknown[] : [];
+    const storedBloodlineJutsu = stored.some((bloodline) =>
+        !!bloodline && typeof bloodline === 'object'
+        && Array.isArray((bloodline as Record<string, unknown>).jutsus)
+        && ((bloodline as Record<string, unknown>).jutsus as unknown[]).some((entry) =>
+            !!entry && typeof entry === 'object' && lower((entry as Record<string, unknown>).id) === jutsuId));
+    if (storedBloodlineJutsu && !carried().some((b) => b.jutsuIds.has(jutsuId))) return false;
     const element = lower(jutsu.element);
     if (OPEN_ELEMENTS.has(element)) return true;
     if (characterOwnsElement(saveCharacter, element)) return true;
