@@ -19,7 +19,7 @@ export function CardVisual({
         ["🐾", "petTamer"], ["🐉", "vanguard"], ["🏯", "clanHall"], ["🎴", "cardHall"],
         ["🔒", "key"], ["🗝", "key"], ["🏆", "crown"],
     ];
-    const mappedArt = icon && iconArt.find(([glyph]) => icon.includes(glyph))?.[1];
+    const mappedArt = icon ? iconArt.find(([glyph]) => icon.includes(glyph))?.[1] : undefined;
     const fallback = icon && /\p{Extended_Pictographic}/u.test(icon)
         ? <GameArtIcon kind={mappedArt ?? "roleAssassin"} size={30} />
         : icon || "?";

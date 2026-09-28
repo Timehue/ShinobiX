@@ -13,6 +13,7 @@
  */
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useRef, useState } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import { visiblePoll } from "../lib/poll";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import { serverNow } from "../lib/server-clock";
