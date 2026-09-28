@@ -124,11 +124,16 @@ export function createPlayerSaveCoordinator({
         return savePersistenceRef.current!.persistRequired(() => {
             const executionSnapshot = opts?.useLatestAtExecution ? latestSaveRef.current : captured;
             const effectiveCharacter = executionSnapshot?.character ?? characterToSave;
+            const executionRevision = executionSnapshot?.revision ?? savePayloadRevisionRef.current;
             return { name, payload: executionSnapshot?.payload ?? buildPlayerSavePayload(effectiveCharacter, overrides),
-                revision: executionSnapshot?.revision ?? savePayloadRevisionRef.current, echoVersion: opts?.echoVersion ?? true,
+                revision: executionRevision, echoVersion: opts?.echoVersion ?? true,
                 bloodlineEquipIntent: opts?.bloodlineEquipIntent,
                 bloodlineWriteIntent: opts?.bloodlineWriteIntent,
-                isStillCurrent: () => latestSaveRef.current?.character === effectiveCharacter,
+                // Latest-at-execution saves own this progress revision. Idle regen may
+                // replace the character object without creating new player progress.
+                isStillCurrent: () => latestSaveRef.current?.character === effectiveCharacter
+                    || (opts?.useLatestAtExecution === true && latestSaveRef.current?.revision === executionRevision
+                        && saveConflictAccountKey(latestSaveRef.current.name) === saveConflictAccountKey(name)),
                 onCommitted: () => { if (saveSoonTimerRef.current) { clearTimeout(saveSoonTimerRef.current); saveSoonTimerRef.current = null; } },
             };
         });

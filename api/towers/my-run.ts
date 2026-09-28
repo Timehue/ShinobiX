@@ -2,7 +2,7 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { readSession, getTowerInvite, clearTowerInvite, isPublicTowerRun, isSpireRun, isTowerRunLapsed } from './_tower-store.js';
+import { readSession, getTowerInvite, clearTowerInvite, isPublicTowerRun, isSpireRun, needsTowerLapseReconciliation } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { TowerSession } from './_tower-session.js';
 import { isMpvpLeaseMode } from '../_tower-battle-guard.js';
@@ -81,8 +81,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // F08: a run that lapsed is a forfeit, recorded from its own evidence
         // (leases released, nothing paid, the entry spent) — never a
         // "confirmed missing" run that refunds its entry below.
-        if (session && isTowerRunLapsed(session)) {
-            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, slug);
+        if (session && needsTowerLapseReconciliation(session)) {
+            const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, slug);
+            if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending' });
             session = await readSession(runId) ?? session;
         }
         if (!isDiscoverableTowerRun(session, slug)) {

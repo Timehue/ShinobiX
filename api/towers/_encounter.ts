@@ -1,3 +1,4 @@
+import { initializeTowerTactics } from './_combat-tactics.js';
 /*
  * Battle Towers — encounter builder (Phase 1, P1.B).
  *
@@ -18,6 +19,8 @@ import {
 import { applyPartyScaling, towerNeighbors } from './_engine.js';
 import { requireEnemyTemplate, type EnemyTemplate } from './_enemy-templates.js';
 import { hexZone, type TowerFloor, type TowerFeature } from './_floor-catalog.js';
+import { pickTowerElements, rollTowerEnvironment, placeTowerEnvironment } from '../../shared/tower-environment.js';
+export { pickTowerElements } from '../../shared/tower-environment.js';
 
 // A sealed squad member: the host's + allies' COMBAT-SANITIZED character (start.ts runs
 // the session.ts sanitizers before sealing — this builder trusts the snapshot it's given).
@@ -37,7 +40,6 @@ export type SquadMemberInput = {
 };
 
 // ── Elemental pylons (5 elements; 3 chosen per run) ──────────────────────────
-const TOWER_ELEMENTS = ['Fire', 'Water', 'Earth', 'Lightning', 'Wind'] as const;
 // Classic elemental counter cycle (Fire>Wind>Lightning>Earth>Water>Fire): a pylon boosts
 // its element and weakens the one that BEATS it (so a counter-element on the pylon
 // is punished). Drives both the engine math and the pylon's displayed label.
@@ -47,17 +49,6 @@ const ELEMENT_WEAKENS: Record<string, string> = {
 const ELEMENT_PYLON_LABEL: Record<string, string> = {
     Fire: 'Flame Pylon', Water: 'Tide Pylon', Earth: 'Stone Pylon', Lightning: 'Storm Pylon', Wind: 'Gale Pylon',
 };
-/** Deterministically pick 3 of the 5 elements from the run seed (seeded Fisher–Yates). */
-export function pickTowerElements(seed: number): string[] {
-    const arr = [...TOWER_ELEMENTS] as string[];
-    let s = (seed >>> 0) || 1;
-    const rnd = () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(rnd() * (i + 1));
-        [arr[i], arr[j]] = [arr[j]!, arr[i]!];
-    }
-    return arr.slice(0, 3);
-}
 
 // Columns reserved for the player squad (+ a protected npc) on the LEFT — feature
 // flowers never land here, so a unit never spawns inside a hazard/pylon/ward.
@@ -301,7 +292,13 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         ...(floor.closingRing ? { closingRing: { ...floor.closingRing } } : {}),
     };
 
-    // Per-run elements: assign the tower's 3 seeded elements round-robin to the pylon
+    // Story and Spire roll one pylon, one ward and one hazard. Boss attacks,
+    // summons, geysers, and player-cast fields have their own separate budgets.
+    const publicTactics = !p.embedFloor && (!p.towerId || p.towerId === 'celestial' || p.towerId === 'endless-spire') && floor.id < 9_000;
+    const useLargeEnvironment = floor.id < 9_000 && map.width >= 16;
+    if (useLargeEnvironment) map.features = rollTowerEnvironment(map.features ?? [], p.seed);
+
+    // Per-run elements: assign the tower's seeded elements round-robin to the pylon
     // flowers (the catalog elements are placeholders). Deterministic by seed, so the
     // settle recompute reproduces the same pylons.
     const towerElements = pickTowerElements(p.seed);
@@ -321,7 +318,11 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // feature tiles so no squad member, enemy, or boss ever spawns inside a flower.
     const reserved = [...map.objectiveTiles];
     if (typeof floor.npc?.pos === 'number') reserved.push(floor.npc.pos);
-    placeFeatureFlowers(map.features ?? [], W, H, p.seed, reserved);
+    if (useLargeEnvironment) {
+        map.features = placeTowerEnvironment(map.features ?? [], W, H, p.seed, reserved);
+    } else {
+        placeFeatureFlowers(map.features ?? [], W, H, p.seed, reserved);
+    }
 
     const used = new Set<number>();
     for (const f of map.features ?? []) for (const t of f.tiles) used.add(t);
@@ -380,7 +381,21 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     const blocked = new Set(map.blockedTiles);
     const spawnRnd = makeSpawnRng(p.seed);
     const spawnSquad = () => placeRandomInBand(spawnRnd, used, blocked, W, H, 0, mid - 1);
-    const spawnEnemy = () => placeRandomInBand(spawnRnd, used, blocked, W, H, mid, W - 1);
+    const formationRow = (((p.seed >>> 0) ^ 0x45d9f3b) >>> 0) % H;
+    const spawnEnemy = (role?: string) => {
+        if (!publicTactics || !useLargeEnvironment) return placeRandomInBand(spawnRnd, used, blocked, W, H, mid, W - 1);
+        const rear = role === 'artillery' || role === 'controller' || role === 'support';
+        const column = rear ? W - 3 : role === 'boss' ? Math.min(W - 2, mid + 3) : mid + 1;
+        const candidates: number[] = [];
+        for (let row = 0; row < H; row++) for (let col = mid; col < W; col++) {
+            const tile = row * W + col;
+            if (!used.has(tile) && !blocked.has(tile)) candidates.push(tile);
+        }
+        candidates.sort((a,b) => (Math.abs(a%W-column)*3 + Math.abs(Math.floor(a/W)-formationRow)) - (Math.abs(b%W-column)*3 + Math.abs(Math.floor(b/W)-formationRow)) || a-b);
+        const tile = candidates[0];
+        if (tile === undefined) return placeRandomInBand(spawnRnd, used, blocked, W, H, mid, W - 1);
+        used.add(tile); return tile;
+    };
     // Reinforcements enter from the far edge instead of materializing beside a squad that
     // advanced into the enemy half during round one. Their preferred tiles remain sealed now;
     // the engine relocates only if a living actor later occupies one.
@@ -397,7 +412,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
         const tpl = p.enemyTemplates?.[pod.aiId] ?? requireEnemyTemplate(pod.aiId);
         const spawnRound = Math.max(1, Math.floor(Number(pod.spawnRound ?? 1)));
         for (let k = 0; k < pod.count; k++) {
-            const enemy = templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnRound > 1 ? spawnEnemyWave() : spawnEnemy());
+            const enemy = templateActor(`en-${enemyIdx}`, 'enemy', tpl, spawnRound > 1 ? spawnEnemyWave() : spawnEnemy(tpl.role));
             if (spawnRound > 1) {
                 const wave = pendingEnemyWaves.get(spawnRound) ?? [];
                 wave.push(enemy);
@@ -412,7 +427,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     if (floor.boss) {
         bossId = 'boss';
         bossPhases = floor.boss.phases;
-        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? requireEnemyTemplate(floor.boss.aiId), spawnEnemy());
+        const bossActor = templateActor('boss', 'enemy', p.bossTemplate ?? requireEnemyTemplate(floor.boss.aiId), spawnEnemy('boss'));
         // Endless Spire: per-floor authored boss HP (overrides the template hp so the same boss
         // is tuned floor-by-floor, sidestepping the HP-scaled-mechanic × big-HP blow-up).
         if (typeof floor.boss.hp === 'number' && floor.boss.hp > 0) {
@@ -472,6 +487,7 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     // Endless Spire is ALWAYS full-strength (the tier is the escalation, never a party discount),
     // so skip party scaling entirely when this is an ascension run.
     if (!p.ascension) applyPartyScaling(session, floor);
+    if (publicTactics && useLargeEnvironment) initializeTowerTactics(session);
     if (p.embedFloor) session.encounterFloor = structuredClone(floor);
     return session;
 }

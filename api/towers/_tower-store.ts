@@ -169,6 +169,15 @@ export function isTowerRunLapsed(session: Pick<TowerSession, 'status' | 'expires
     return session.status === 'active' && towerRunExpiresAt(session) <= now;
 }
 
+/** Recorded forfeits also retry receipt-idempotent cleanup after partial failures. */
+export function needsTowerLapseReconciliation(
+    session: Pick<TowerSession, 'status' | 'expiresAt' | 'lastActionAt' | 'lapsedAt'>,
+    now: number = Date.now(),
+): boolean {
+    return isTowerRunLapsed(session, now)
+        || (session.status === 'done' && Number.isFinite(session.lapsedAt) && Number(session.lapsedAt) > 0);
+}
+
 // ─── Co-op invites — point an invited ally at the host's runId so they can join ──
 export const inviteKey = (slug: string) => `tower-invite:${slug}`;
 export async function setTowerInvite(allySlug: string, runId: string, deps: StoreDeps = {}): Promise<void> {
@@ -384,7 +393,8 @@ export async function settleFloorForMember(
     // a member of — only this refuses it. See isCatalogFloorRun.
     if (!isPublicTowerRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
 
-    const reward = computeFloorReward(floor);                            // sealed catalog reward
+    const reward = { ...computeFloorReward(floor) };
+    if (session.routeChoice?.id === 'elite-shortcut' && reward.ryo) reward.ryo = Math.floor(reward.ryo * 1.25);                            // sealed catalog reward
     const score = Math.round(
         computeFloorClearScore(clearMetrics(session), floor) * towerRouteScoreMultiplier(session),
     ); // server-computed, including the sealed elite-route risk bonus

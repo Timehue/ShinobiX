@@ -63,7 +63,7 @@ describe('_cafeteria', () => {
 describe('_cafeteria - Village Stores cook recipes', () => {
     const NOW = Date.UTC(2026, 7, 22, 12, 0, 0);
     it('field rations: 1 beast meat + 30 ryo -> 5 ration-pack (stacked), counter stamped', () => {
-        const r = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }] }, cookRecipe('field-rations')!, NOW);
+        const r = applyCookRecipe({ ryo: 30, itemStacks: [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 1 }] }, cookRecipe('field-rations')!, NOW);
         assert.equal(r.ok, true);
         if (!r.ok) return;
         assert.equal(r.cooked, 5);
@@ -75,7 +75,7 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         assert.equal(r.character.rationsCookedToday, 5);
     });
     it('campaign rations accept frost pelt OR ash scale (80 ryo -> 20)', () => {
-        const r = applyCookRecipe({ ryo: 80, inventory: ['hunt-ash-scale'] }, cookRecipe('campaign-rations')!, NOW);
+        const r = applyCookRecipe({ ryo: 80, inventory: ['hunt-ash-scale'], itemStacks: [{ itemId: 'gather-field-herb', count: 2 }] }, cookRecipe('campaign-rations')!, NOW);
         assert.equal(r.ok, true);
         if (!r.ok) return;
         assert.equal(r.materialUsed, 'hunt-ash-scale');
@@ -89,7 +89,7 @@ describe('_cafeteria - Village Stores cook recipes', () => {
         assert.equal(poor.ok, false);
         const bare = applyCookRecipe({ ryo: 999 }, cookRecipe('field-rations')!, NOW);
         assert.equal(bare.ok, false);
-        const newDay = applyCookRecipe({ ryo: 999, inventory: ['hunt-frost-pelt'], rationsCookedDate: '2026-08-21', rationsCookedToday: 40 }, cookRecipe('campaign-rations')!, NOW);
+        const newDay = applyCookRecipe({ ryo: 999, inventory: ['hunt-frost-pelt'], itemStacks: [{ itemId: 'gather-field-herb', count: 2 }], rationsCookedDate: '2026-08-21', rationsCookedToday: 40 }, cookRecipe('campaign-rations')!, NOW);
         assert.equal(newDay.ok, true);
         assert.equal(cookRecipe('bogus'), null);
     });

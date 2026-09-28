@@ -1,3 +1,4 @@
+import { isVillageSupplyGood } from '../../../shared/gathering.js';
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
@@ -108,6 +109,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const donation = parseDonation(body);
+        if (donation?.kind === 'item' && isVillageSupplyGood(donation.itemId) && !villageStoresEnabled())
+            return res.status(409).json({ error: 'Village Stores are unavailable. Keep this supply item and donate when the stores reopen.' });
         if (!donation) {
             return res.status(400).json({ error: 'Provide exactly one of (currency + amount) or (itemId).' });
         }

@@ -6,6 +6,11 @@ import {
 import { playerSlug } from "./utils";
 import type { Pet } from "../types/pet";
 
+/** Gathering claims live on the authoritative character, independently of this
+ * short-lived discovery outbox. A replay adopts that save; never auto-claim or
+ * prune a find when retiring its explored-tile operation. */
+// The map reads pending finds directly from shared/gathering when opened.
+
 export type WorldRewardRecoveryStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
 export type PendingWorldRewardOperation = {

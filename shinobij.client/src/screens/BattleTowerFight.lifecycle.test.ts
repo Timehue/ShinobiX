@@ -66,6 +66,14 @@ describe("Tower combat ownership and lifecycle", () => {
 });
 
 describe("Tower completed-run recovery", () => {
+    it("offers recovery-preserving exits during pending actions, settlement, and recovery failures", () => {
+        assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{isTeamPvp && busy\}/);
+        assert.equal(fightSource.match(/onLeave=\{leaveUnsettled\}/g)?.length, 2, "both result presentations need the safe escape");
+        assert.match(fightSource, /const leaveUnsettled = onLeaveActive \? async \(\) =>/);
+        assert.match(fightSource, /withTowerRequestDeadline\(\(\) => settleFn\(runId, me\)\)/);
+        assert.match(hostSource, /clearFightKey\(\);\s*writeRecoveryKey\(view\.runId\);\s*onExit\(\);\s*\}\}>Leave and recover later/);
+        assert.match(fightSource, /document\.querySelector\('\.game-alert-card\[aria-modal="true"\]'\)\) return/);
+    });
     it("reopens active or done sessions and retains the recovery id on transient failure", () => {
         assert.match(hostSource, /fetchTowerState\(checkingRunId, character\.name, controller\.signal\)[\s\S]*?\.then\(toFight\)/);
         assert.doesNotMatch(hostSource, /session\.status === "active"\) toFight\(session\); else/);

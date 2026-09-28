@@ -368,13 +368,13 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
 
 describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
     it('cooks field rations (1 meat + 30 ryo → 5 rations) and campaign rations (pelt|scale + 80 → 20), capped at 40/day', async () => {
-        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 2 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
+        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 2 }, { itemId: 'gather-field-herb', count: 8 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
         const a = await call(cafeteria, { playerName: 'cook', recipeId: 'field-rations' });
         assert.equal(a.statusCode, 200, JSON.stringify(a.body));
         assert.deepEqual({ cooked: a.body?.cooked, dailyCooked: a.body?.dailyCooked, dailyCap: a.body?.dailyCap }, { cooked: 5, dailyCooked: 5, dailyCap: 40 });
         let ch = a.body?.character as Record<string, unknown>;
         assert.equal(ch.ryo, 470);
-        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'ration-pack', count: 5 }]);
+        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'ration-pack', count: 5 }]);
         assert.equal(typeof a.body?._saveVersion, 'number');
 
         const b = await call(cafeteria, { playerName: 'cook', recipeId: 'campaign-rations' });

@@ -78,6 +78,8 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { commitNamedForgeServer, forgeServer, rollNamedForgeServer } from "../lib/craft-api";
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
+import { effectiveItemLevelReq } from "../../../shared/item-level-gate";
+import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
 import { Modal } from "../components/ui/Modal";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
@@ -692,6 +694,14 @@ export function CentralHub({
         return 800; // legendary
     }
 
+    function gatheredIngredientsReady(id: string, quantity = 1): boolean {
+        return Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).every(([material, amount]) => countItem(character, material) >= amount * quantity)
+            && character.ryo >= (VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0) * quantity;
+    }
+    function gatheredIngredientsLine(id: string, quantity = 1): string {
+        return Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).map(([material, amount]) =>
+            `${GATHER_NAMES[material] ?? "Ration Pack"}: ${countItem(character, material)}/${amount * quantity}`).join(" · ");
+    }
     async function craftExistingWeapon(item: GameItem) {
         if (!requireServerSettlement("creatorItemCraft") || !beginCraft()) return;
         try {
@@ -1412,7 +1422,8 @@ export function CentralHub({
                 ) {
                     if (!requireServerSettlement("creatorItemCraft")) return;
                     if (character.level < (recipe.levelReq ?? 1)) return alert(`Reach level ${recipe.levelReq} to craft ${recipe.name}.`);
-                    const affordable = Math.floor(totalPts / recipe.cost);
+                    const affordable = recipe.cost > 0 ? Math.floor(totalPts / recipe.cost) : 20;
+                    if (!gatheredIngredientsReady(recipe.itemId, qty)) return alert('Gather the named ingredients and ryo shown for this batch first.');
                     if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
                     let quantity = Math.min(Math.max(1, Math.floor(qty)), affordable);
                     const item = allHubItems.find((entry) => entry.id === recipe.itemId);
@@ -1434,6 +1445,7 @@ export function CentralHub({
                 }
 
                 const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number; levelReq?: number }> = [
+                    ...Object.entries(VILLAGE_SUPPLY_GOODS).map(([itemId, good]) => ({ name: good.name, itemId, cost: 0, per: 1, desc: `1× ${good.name} · donate for ${good.provisions} provisions · village only` })),
                     { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
                     { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
                     { name: "Master Beast Seal", cost: 450, desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
@@ -1683,14 +1695,14 @@ export function CentralHub({
                             <div className="cf-grid">
                                 {recipes.map((recipe) => {
                                     const batchCost = recipe.cost * craftQty;
-                                    const fillPct = Math.min(100, Math.floor((totalPts / batchCost) * 100));
+                                    const fillPct = batchCost ? Math.min(100, Math.floor((totalPts / batchCost) * 100)) : 100;
                                     // Capped consumables (thrown / combat item / potion) can't be
                                     // crafted past the shared carry cap — show the count and gate.
                                     const capItem = recipe.itemId ? allHubItems.find((i) => i.id === recipe.itemId) : undefined;
                                     const cap = capItem ? consumableHoldCap(capItem) : null;
                                     const owned = recipe.itemId ? countItem(character, recipe.itemId) : 0;
-                                    const atCap = cap != null && owned + (recipe.per ?? 1) > cap;
-                                    const canAffordOne = totalPts >= recipe.cost;
+                                    const atCap = cap != null && owned + (recipe.per ?? 1) * craftQty > cap;
+                                    const canAffordOne = totalPts >= batchCost && gatheredIngredientsReady(recipe.itemId, craftQty);
                                     const img = itemImage(recipe.itemId);
                                     return (
                                         <div key={recipe.name} className="cf-card">
@@ -1711,7 +1723,9 @@ export function CentralHub({
                                             <div className="cf-meter">
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts</small>
+                                            <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts · Output ×{(recipe.per ?? 1) * craftQty}</small>
+                                            {gatheredIngredientsLine(recipe.itemId, craftQty) && <small className="cf-cost">{gatheredIngredientsLine(recipe.itemId, craftQty)}</small>}
+                                            {VILLAGE_SUPPLY_GOODS[recipe.itemId] && <small className="cf-cost">{character.ryo}/{VILLAGE_SUPPLY_GOODS[recipe.itemId].ryo * craftQty} ryo · shared 40-provisions donation cap/day</small>}
                                             <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
                                                 {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
@@ -1736,7 +1750,7 @@ export function CentralHub({
                                         <h3 className="weapon-info-name">{weaponInfoItem.name}</h3>
                                         <div className="weapon-info-badge" data-rarity={weaponInfoItem.rarity}>{weaponInfoItem.rarity.toUpperCase()}</div>
                                         <div className="weapon-info-stats">
-                                            <div><span>Level Req</span><span>{weaponInfoItem.levelReq ?? 1}</span></div>
+                                            <div><span>Level Req</span><span>{effectiveItemLevelReq(weaponInfoItem)}</span></div>
                                             <div><span>EP</span><span>{weaponInfoItem.weaponEp ?? 0}</span></div>
                                             <div><span>Effect</span><span>{weaponInfoItem.weaponEffect ?? "—"}</span></div>
                                             {weaponInfoItem.weaponEffectValue != null && (
@@ -1756,7 +1770,7 @@ export function CentralHub({
                                 {craftableWeapons.map((item) => {
                                     const costPts = weaponCraftPoints(item);
                                     const ryo = craftRyoForRarity(item.rarity);
-                                    const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
+                                    const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && totalPts >= costPts && gatheredIngredientsReady(item.id);
                                     const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                     const img = itemImage(item.id);
                                     return (
@@ -1772,8 +1786,9 @@ export function CentralHub({
                                                         <strong>{item.name}</strong>
                                                         <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
                                                     </div>
-                                                    <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
+                                                    <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                                     <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                    {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
                                                 </div>
                                             </div>
                                             <div className="cf-meter">
@@ -1796,7 +1811,7 @@ export function CentralHub({
                                     craftableArmor.map((item) => {
                                         const costPts = armorCraftPoints(item);
                                         const ryo = craftRyoForRarity(item.rarity);
-                                        const ready = character.level >= (item.levelReq ?? 1) && character.ryo >= ryo && totalPts >= costPts;
+                                        const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && totalPts >= costPts && gatheredIngredientsReady(item.id);
                                         const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
                                         const img = itemImage(item.id);
                                         return (
@@ -1809,8 +1824,9 @@ export function CentralHub({
                                                     </div>
                                                     <div className="cf-card-head">
                                                         <strong>{item.name}</strong>
-                                                        <small>{item.rarity.toUpperCase()} | Lv {item.levelReq ?? 1} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
+                                                        <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
                                                         <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                    {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
                                                     </div>
                                                 </div>
                                                 <div className="cf-meter">

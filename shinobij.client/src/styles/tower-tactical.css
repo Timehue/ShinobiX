@@ -10,12 +10,79 @@
     margin: 0 auto;
 }
 
-/* The header already carries round/turn state and the side dossier/log carries
-   encounter detail. Keep the central column focused on the battlefield. */
-#combat.tower-tactical-combat .tower-turn-queue,
-#combat.tower-tactical-combat .tower-threat-summary,
-#combat.tower-tactical-combat .tower-mechanic-strip {
-    display: none !important;
+/* The shared inset frame crosses the compact command buttons. Keep only the
+   outer tray border and each button's own outline. */
+#combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar::before {
+    content: none;
+    display: none;
+}
+
+/* Keep the view controls compact and aligned with the battlefield. */
+.tower-field-tools { display: contents; }
+#combat.tower-tactical-combat .tower-header-cancel[hidden] { display: none !important; }
+
+@media (min-width: 980px) {
+    /* Reserve a compact cancel slot so targeting never adds a header row. */
+    #combat.tower-tactical-combat .tower-header-cancel { width: 44px; min-width: 44px; padding: 0; }
+    #combat.tower-tactical-combat .tower-header-cancel > span { display: none; }
+    #combat.tower-tactical-combat .tower-header-cancel::after { content: "×"; font-size: 20px; }
+    .tower-field-tools {
+        display: flex;
+        flex: 0 0 auto;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 6px;
+    }
+    .tower-field-tools .tower-board-toolbar {
+        align-self: flex-start; margin-left: auto; border: 0; padding: 0;
+        background: transparent; box-shadow: none; backdrop-filter: none;
+    }
+    .tower-turn-queue { gap: 4px; min-height: 28px; margin-bottom: 6px; }
+    .tower-turn-queue li { min-height: 28px; padding: 3px 8px; border-radius: 5px; font-size: .68rem; }
+}
+
+@media (min-width: 980px) and (max-width: 1279px) {
+    #combat.tower-tactical-combat .tower-fight-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 44px auto;
+        gap: 2px 8px;
+        padding: 4px 6px;
+    }
+    .tower-fight-statusbar .tower-fight-title { grid-column: 1; grid-row: 1; font-size: .8rem; line-height: 1.25; }
+    .tower-fight-statusbar .tower-objective-progress { grid-column: 1; grid-row: 2; font-size: .64rem; white-space: normal; }
+    .tower-fight-statusbar .tower-round-readout { grid-column: 2; grid-row: 1; font-size: .68rem; }
+    .tower-fight-statusbar .tower-fight-turn-pill { grid-column: 2; grid-row: 2; padding: 2px 6px; font-size: .64rem; }
+    .tower-fight-statusbar .tower-fight-leave { grid-column: 4; grid-row: 1 / 3; }
+    .tower-fight-statusbar .tower-header-resource-rail { grid-column: 1 / -1; grid-row: 3; justify-self: start; min-height: 26px; padding: 2px 6px; }
+    .tower-fight-statusbar .tower-header-action-error { grid-column: 1 / 3; grid-row: 4; }
+    .tower-fight-statusbar .tower-header-cancel { grid-column: 3; grid-row: 1 / 3; }
+}
+
+@media (min-width: 1280px) {
+    #combat.tower-tactical-combat .tower-fight-header {
+        display: grid !important;
+        grid-template-columns: minmax(150px, 1fr) auto auto auto 44px auto;
+        grid-template-rows: auto auto;
+        gap: 2px 8px !important;
+        align-items: center;
+        padding: 6px 8px;
+        border: 1px solid rgba(196, 162, 90, .24);
+        border-radius: 8px;
+        background-color: rgba(5, 11, 19, .94);
+    }
+    .tower-fight-statusbar .tower-fight-title {
+        grid-column: 1; grid-row: 1; font-size: .86rem; line-height: 1.25;
+    }
+    .tower-fight-statusbar .tower-objective-progress {
+        grid-column: 1; grid-row: 2; font-size: .66rem;
+    }
+    .tower-fight-statusbar .tower-round-readout { grid-column: 2; grid-row: 1 / 3; font-size: .74rem; }
+    .tower-fight-statusbar .tower-fight-turn-pill { grid-column: 3; grid-row: 1 / 3; }
+    .tower-fight-statusbar .tower-header-resource-rail { grid-column: 4; grid-row: 1 / 3; }
+    .tower-fight-statusbar .tower-fight-leave { grid-column: 6; grid-row: 1 / 3; }
+    .tower-fight-statusbar .tower-header-action-error { grid-column: 1 / 5; grid-row: 3; }
+    .tower-fight-statusbar .tower-header-cancel { grid-column: 5; grid-row: 1 / 3; }
 }
 
 .tower-roster-rail {
@@ -106,37 +173,84 @@
 .tower-turn-dot--enemy { background: #fb7185; }
 .tower-turn-dot--npc { background: var(--gold); }
 
-.tower-threat-summary {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    min-height: 34px;
-    margin-bottom: 6px;
-    padding: 5px 9px;
-    overflow: auto hidden;
-    border: 1px solid rgba(56, 189, 248, 0.35);
-    border-radius: 8px;
-    background: repeating-linear-gradient(135deg, rgba(14, 116, 144, 0.12) 0 8px, rgba(2, 6, 18, 0.68) 8px 16px);
-    color: #bae6fd;
-    font-size: 0.72rem;
-    scrollbar-width: thin;
+/* The environment owns the surface. Hexes are an aiming overlay, never raised
+   opaque tiles; floor art and clipped terrain travel with the same pan/zoom. */
+.tower-battlefield-ground {
+    position: absolute;
+    inset: -24px -54px;
+    background-position: center;
+    background-size: 100% 100%;
+    pointer-events: none;
+    mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent);
 }
 
-.tower-threat-summary.has-threats {
-    border-color: rgba(251, 146, 60, 0.7);
-    background: repeating-linear-gradient(135deg, rgba(194, 65, 12, 0.2) 0 8px, rgba(32, 10, 5, 0.78) 8px 16px);
-    color: #ffedd5;
+#combat.tower-tactical-combat button.tower-hex-tile {
+    z-index: 4;
+    min-width: 0;
+    min-height: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    filter: none;
+    opacity: 1;
 }
 
-.tower-threat-summary strong,
-.tower-threat-summary span {
-    flex: 0 0 auto;
+.tower-tile-outline { display: block; width: 100%; height: 100%; pointer-events: none; }
+.tower-tile-outline polygon { fill: transparent; stroke: rgba(226, 232, 220, .2); stroke-width: 1; }
+.tower-board-area[data-grid-visible="false"] .tower-tile-outline { opacity: 0; }
+#combat.tower-tactical-combat button.tower-hex-tile[data-move] polygon { fill: rgba(111, 214, 178, .12); stroke: #a0ebce; stroke-width: 1.6; }
+#combat.tower-tactical-combat button.tower-hex-tile[data-range] polygon { fill: rgba(87, 169, 224, .1); stroke: #8dcff3; stroke-width: 1.4; }
+#combat.tower-tactical-combat button.tower-hex-tile[data-blocked] polygon { stroke: rgba(218, 206, 184, .3); stroke-dasharray: 3 3; }
+#combat.tower-tactical-combat button.tower-hex-tile:focus-visible[aria-disabled="false"] polygon {
+    fill: rgba(244, 224, 161, .2); stroke: #fff1ba; stroke-width: 3;
 }
+@media (hover: hover) {
+    #combat.tower-tactical-combat button.tower-hex-tile:hover[aria-disabled="false"] polygon {
+        fill: rgba(244, 224, 161, .2); stroke: #fff1ba; stroke-width: 3;
+    }
+}
+#combat.tower-tactical-combat button.tower-hex-tile:focus-visible { filter: drop-shadow(0 0 3px #e8d5a7); }
+.tower-grid-toggle[aria-pressed="true"] { border-color: #d6c394; color: #fff0bf; background: #343b35; }
 
-.tower-threat-summary span + span::before {
-    content: "•";
-    margin-right: 7px;
-    color: #fdba74;
+.tower-terrain-zone {
+    --terrain-edge: #cfab70;
+    position: absolute;
+    z-index: 2;
+    overflow: visible;
+    pointer-events: none;
+    opacity: .94;
+}
+.tower-terrain-zone > g > svg { overflow: hidden; }
+.tower-terrain-prop { position: absolute; overflow: hidden; pointer-events: none; filter: drop-shadow(0 3px 2px #020612a6); }
+.tower-terrain-boundary { fill: transparent; stroke: var(--terrain-edge); stroke-width: 1; stroke-opacity: .26; }
+.tower-terrain-zone--fire, .tower-terrain-zone--eruption { --terrain-edge: #ff9672; }
+.tower-terrain-zone--water, .tower-terrain-zone--ward { --terrain-edge: #a9ddff; }
+.tower-terrain-zone--wind, .tower-terrain-zone--healing { --terrain-edge: #91edda; }
+.tower-terrain-zone--lightning, .tower-terrain-zone--curse, .tower-terrain-zone--strike { --terrain-edge: #d2a7ff; }
+.tower-terrain-zone--frost { --terrain-edge: #d4efff; }
+.tower-terrain-zone--poison { --terrain-edge: #b8d874; }
+.tower-terrain-zone--recoil { --terrain-edge: #f78c8c; }
+.tower-terrain-zone--collapse { --terrain-edge: #ffb467; }
+.tower-terrain-zone[data-holder="squad"] { --terrain-edge: #8df7ed; }
+.tower-terrain-zone[data-holder="enemy"] { --terrain-edge: #ff8399; }
+.tower-terrain-zone[data-holder] .tower-terrain-boundary { stroke-width: 2; stroke-opacity: .85; }
+.tower-terrain-zone.is-urgent { z-index: 3; }
+.tower-terrain-zone.is-urgent .tower-terrain-boundary {
+    stroke-width: 2; stroke-opacity: .9; stroke-dasharray: 5 3;
+    animation: towerTerrainWarning 2s ease-in-out infinite;
+}
+.tower-target-footprint { position: absolute; z-index: 4; pointer-events: none; }
+.tower-target-footprint polygon { fill: rgba(87, 197, 213, .12); stroke: #aff9ff; stroke-width: 2; }
+.tower-target-footprint--burst polygon { fill: rgba(246, 186, 82, .12); stroke: #ffdb97; stroke-dasharray: 4 2; }
+@keyframes towerTerrainWarning { 0%, 100% { stroke-opacity: .55; } 50% { stroke-opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+    .tower-terrain-zone.is-urgent .tower-terrain-boundary { animation: none; stroke-opacity: 1; }
+}
+@media (forced-colors: active) {
+    .tower-terrain-boundary { stroke: Mark; stroke-opacity: 1; }
+    .tower-tile-outline polygon { stroke: CanvasText; }
+    .tower-target-footprint polygon { stroke: Highlight; }
 }
 
 .tower-board-toolbar {
@@ -223,31 +337,8 @@
     min-height: 0 !important;
 }
 
-/* Tactical feedback stays inside the battlefield chrome so the map remains the
-   dominant surface. Both plates are deliberately compact and transient. */
-.tower-last-action {
-    position: absolute;
-    z-index: 25;
-    top: 8px;
-    left: 8px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    max-width: min(280px, calc(100% - 380px));
-    padding: 4px 5px 4px 9px;
-    border: 1px solid rgba(125, 211, 252, 0.38);
-    border-radius: 9px;
-    background: rgba(3, 8, 16, 0.9);
-    box-shadow: 0 5px 18px rgba(0, 0, 0, 0.38);
-    backdrop-filter: blur(8px);
-}
+/* Targeting feedback stays inside the battlefield chrome. */
 
-.tower-last-action > span {
-    display: grid;
-    min-width: 0;
-}
-
-.tower-last-action small,
 .tower-action-forecast small {
     color: #7dd3fc;
     font-size: 0.52rem;
@@ -255,23 +346,6 @@
     letter-spacing: 0.08em;
     line-height: 1.1;
     text-transform: uppercase;
-}
-
-.tower-last-action strong {
-    overflow: hidden;
-    color: #f8fafc;
-    font-size: 0.7rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.tower-last-action button {
-    flex: 0 0 auto;
-    min-height: 34px;
-    padding: 4px 8px;
-    border-color: rgba(125, 211, 252, 0.42);
-    color: #e0f2fe;
-    font-size: 0.66rem;
 }
 
 .tower-action-forecast {
@@ -384,6 +458,15 @@
     100% { opacity: 0; transform: translate(-50%, -150%) scale(0.94); }
 }
 
+.tower-fight-header {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    gap: 4px 8px;
+}
+
 .tower-fight-title {
     min-width: 0;
     margin: 0;
@@ -455,7 +538,30 @@
     white-space: nowrap;
 }
 
-.tower-fight-turn-pill { min-width: 0; }
+.tower-fight-turn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 5px 10px;
+    border: 1px solid #425268;
+    border-radius: 4px;
+    background: #111d2a;
+    color: #c4ceda;
+    font-size: .76rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.tower-fight-turn-pill[data-own-turn="true"] { border-color: #527c68; background: #142c24; color: #b8d8c8; }
+.tower-fight-turn-pill[data-side="enemy"] { border-color: #825453; background: #2a1c20; color: #e0b8b4; }
+.tower-header-stat { color: #d6dbe2; font-size: .7rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+.tower-header-stat small { color: #93a1b3; font-size: .58rem; font-weight: 700; letter-spacing: .03em; }
+.tower-header-stat[title="Health"] { color: #d4a4a7; }
+.tower-header-stat[title="Chakra"] { color: #a4c8d6; }
+.tower-header-stat[title="Stamina"] { color: #bbc99c; }
 .tower-fight-turn-pill > [role="timer"] {
     /* Reserve the two-digit countdown, including its separator and unit. A
        changing digit must not rewrap the header and resize the battlefield. */
@@ -824,72 +930,60 @@
     text-transform: uppercase;
 }
 
-/* Encounter-aware use of the open desktop squad rail. */
-.tower-combat-intel {
-    position: relative;
-    margin-top: 12px;
-    padding: 9px;
-    overflow: hidden;
-    border: 1px solid #475569;
-    border-radius: 10px;
-    background: linear-gradient(155deg, #0e1a2e, #020815 62%, #081823);
-    color: #94a3b8;
-    font-size: 0.58rem;
+.tower-fighter-details { width: min(440px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+.tower-fighter-details .combat-jutsu-detail-header { align-items: center; }
+.tower-fighter-details .combat-jutsu-detail-header > div { min-width: 0; flex: 1; }
+.tower-fighter-details #tower-fighter-details-title { white-space: normal; overflow-wrap: anywhere; }
+.tower-fighter-portrait { width: 56px; height: 56px; flex: 0 0 56px; object-fit: cover; border-radius: 8px; }
+.tower-fighter-state { color: #d6b779; }
+.tower-fighter-vitals { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+.tower-fighter-vitals dt { color: #9babbd; font-size: .75rem; }
+.tower-fighter-vitals dd { margin: 3px 0 0; color: #f1f5f9; font-variant-numeric: tabular-nums; }
+.tower-fighter-details h3 { margin: 16px 0 6px; font-size: .85rem; color: #d6b779; }
+.tower-fighter-details ul { padding-left: 18px; line-height: 1.7; }
+.tower-fighter-details p { font-size: .85rem; line-height: 1.5; }
+.tower-fighter-return { min-height: 44px; width: 100%; margin-top: 12px; }
+.tower-fighter-health { margin: 12px 0; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.tower-fighter-health > div:first-child { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; }
+.tower-fighter-health-track { height: 6px; margin-top: 6px; overflow: hidden; border-radius: 3px; background: #1d2a39; }
+.tower-fighter-health-track > span { display: block; height: 100%; background: #75bb9c; }
+.tower-fighter-health[data-side="enemy"] .tower-fighter-health-track > span { background: #d8797a; }
+.tower-fighter-more { margin-top: 10px; font-size: .75rem; }
+.tower-fighter-more > summary { cursor: pointer; padding: 6px 0; color: #a9bbce; }
+.tower-actor-effects .combat-effect-panel { display: block; }
+.tower-sidebar-info { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; margin-top: 6px; overflow: hidden; }
+.tower-sidebar-info > section { overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: #43536b transparent; }
+.tower-sidebar-heading { margin: 0 0 8px; font-size: .68rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--tower-hud-gold); }
+.tower-own-effects { flex: 0 0 auto; max-height: 42%; overflow-y: auto; padding: 6px 0; border-top: 1px solid #27384b; }
+.tower-fighter-placeholder { padding: 12px 0; border-top: 1px solid #27384b; }
+.tower-fighter-placeholder p { margin: 0; color: #94a6ba; font-size: .72rem; line-height: 1.5; }
+.tower-fighter-details--inline { flex: 1 1 auto; min-height: 0; width: 100%; max-height: none; overflow-y: auto; border-top: 1px solid #35485e; padding: 8px 0 4px; }
+.tower-fighter-details--inline .tower-sidebar-heading { margin: 0 0 6px; font-size: .68rem; }
+.tower-fighter-inline-heading { display: flex; align-items: center; gap: 6px; padding: 0; }
+.tower-fighter-inline-heading > div { flex: 1; min-width: 0; }
+.tower-fighter-details--inline .tower-fighter-portrait { width: 30px; height: 38px; flex-basis: 30px; border-radius: 4px; }
+.tower-fighter-inline-heading small { display: block; font-size: .58rem; color: #94a6ba; line-height: 1.4; }
+.tower-fighter-details--inline #tower-fighter-details-title { display: block; font-size: .8rem; line-height: 1.3; }
+.tower-fighter-details--inline [data-combat-detail-close] { flex: 0 0 26px; width: 26px; min-width: 26px; height: 28px; min-height: 28px; padding: 0; align-self: flex-start; }
+.tower-fighter-details--inline p { font-size: .68rem; line-height: 1.45; margin: 7px 0; }
+.tower-fighter-details--inline .tower-fighter-health { font-size: .7rem; margin: 10px 0; }
+.tower-fighter-details--inline .tower-fighter-vitals { gap: 8px; margin: 10px 0; }
+.tower-fighter-details--inline .tower-fighter-vitals dt { font-size: .6rem; }
+.tower-fighter-details--inline .tower-fighter-vitals dd { font-size: .7rem; }
+.tower-fighter-details--inline .tower-fighter-more { font-size: .65rem; }
+.tower-fighter-details--inline .tower-fighter-more ul { padding-left: 14px; overflow-wrap: anywhere; }
+.tower-sidebar-info .combat-effect-panel { padding: 7px; margin: 0 0 6px; border-radius: 5px; background: #0a1523; border: 1px solid #253749; }
+.tower-sidebar-info .combat-effect-panel h4 { margin: 0 0 5px; font-size: .66rem; color: #a7d4bd; }
+.tower-sidebar-info .combat-effect-panel.effects-debuff h4 { color: #e4aaaa; }
+.tower-sidebar-info .combat-effect-panel .empty-effects { margin: 0; font-size: .62rem; color: #8597ab; }
+.tower-sidebar-info .effect-pill { display: flex; flex-wrap: wrap; gap: 3px 6px; justify-content: space-between; padding: 5px; margin: 3px 0 0; font-size: .65rem; line-height: 1.4; }
+.tower-sidebar-info .effect-pill > span { white-space: normal; overflow-wrap: anywhere; }
+.tower-sidebar-info .effect-pill small { font-size: .6rem; white-space: nowrap; }
+.tower-sidebar-info .combat-pending-effects { margin-top: 7px; }
+@media (min-width: 1024px) {
+    .tower-squad-rail > .tower-roster-list { flex: 0 0 auto; max-height: 42%; }
 }
-
-.tower-combat-intel[data-has-encounter-art="true"]::before {
-    position: absolute;
-    inset: 0 0 auto;
-    height: 145px;
-    background: linear-gradient(#02061238, #020815), var(--tower-intel-art) center 28%/cover;
-    content: "";
-    opacity: 0.58;
-}
-
-.tower-combat-intel > * { position: relative; }
-.tower-intel-header,
-.tower-boss-dossier-heading,
-.tower-board-legend-item { display: grid; align-items: center; gap: 6px; }
-.tower-intel-header { grid-template-columns: auto 1fr auto; padding-bottom: 8px; }
-.tower-boss-dossier-heading > div:last-child { display: grid; min-width: 0; }
-.tower-intel-header strong,
-.tower-boss-dossier-heading strong { overflow: hidden; color: #f8fafc; text-overflow: ellipsis; white-space: nowrap; }
-.tower-intel-header em { padding: 2px 5px; border: 1px solid #4ade806b; border-radius: 20px; color: #86efac; font-size: 0.44rem; font-style: normal; font-weight: 900; }
-.tower-objective-dossier,
-.tower-boss-dossier,
-.tower-board-legend { padding-top: 8px; border-top: 1px solid #334155; }
-.tower-boss-dossier,
-.tower-board-legend { margin-top: 8px; }
-.tower-intel-kicker,
-.tower-boss-dossier-heading small { color: #94a3b8; font-size: 0.5rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
-.tower-intel-kicker { display: block; margin-bottom: 4px; }
-.tower-objective-dossier > strong { display: block; color: #fef3c7; font-size: 0.76rem; }
-.tower-intel-progress { display: block; margin-top: 6px; padding: 4px 6px; border: 1px solid #facc1547; border-radius: 6px; background: #713f123d; color: #fde68a; font-weight: 800; }
-.tower-boss-dossier[data-barrier-active="true"] { border-color: #7dd3fc80; }
-.tower-boss-dossier-heading { grid-template-columns: 42px 1fr; }
-.tower-boss-dossier-portrait { display: grid; place-items: center; width: 42px; height: 42px; overflow: hidden; border: 1px solid #fb7185d1; border-radius: 8px; background: radial-gradient(circle at top, #7f1d1db8, #020612); }
-.tower-boss-dossier[data-barrier-active="true"] .tower-boss-dossier-portrait { border-color: #7dd3fc; box-shadow: 0 0 12px #38bdf86b; }
-.tower-boss-dossier-portrait img,
-.tower-boss-dossier-portrait > span { width: 100%; height: 100%; object-fit: cover; }
-.tower-boss-dossier-heading small { color: #fb7185; }
-.tower-boss-dossier-heading em { color: #fda4af; font-style: normal; font-weight: 750; }
-.tower-boss-dossier[data-barrier-active="true"] :is(small, em) { color: #bae6fd; }
-.tower-boss-health-meter { height: 6px; margin-top: 7px; overflow: hidden; border-radius: 20px; background: #020617; }
-.tower-boss-health-meter > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #be123c, #fb7185); box-shadow: 0 0 8px #fb71858a; transition: width 240ms ease-out; }
-.tower-boss-phase-readout { margin: 6px 0 0; color: #c4b5fd; font-weight: 700; }
-.tower-boss-phase-readout b { color: #e2e8f0; }
-.tower-board-legend > div { display: grid; gap: 5px; }
-.tower-board-legend-item { grid-template-columns: 14px 1fr; align-items: start; }
-.tower-board-legend-item strong { color: #dbeafe; }
-.tower-legend-swatch { width: 12px; height: 12px; border: 1px solid #e2e8f09e; border-radius: 3px; background: #475569; }
-.tower-legend-swatch--strike { background: #9333ea; }
-.tower-legend-swatch--hazard { background: #dc2626; }
-.tower-legend-swatch--ring { background: #c2410c; }
-.tower-legend-swatch--pylon { background: conic-gradient(#ef4444, #38bdf8, #facc15, #4ade80, #ef4444); }
-.tower-legend-swatch--ward,
-.tower-legend-swatch--terrain { background: linear-gradient(135deg, #e2e8f0, #334155); }
-.tower-legend-swatch--font { background: #14b8a6; }
-.screen-battleTowerFight :is(.tower-legend-swatch--shrine, .tower-legend-swatch--objective) { background: #eab308; }
+#combat.tower-tactical-combat #tower-own-effects-toggle { min-width: 52px; font-size: .64rem; white-space: nowrap; }
 
 .tower-score-dossier {
     margin-top: 8px;
@@ -975,19 +1069,6 @@
     }
 }
 
-.tower-roster-intel {
-    display: grid;
-    gap: 2px;
-    margin-top: 5px;
-    padding-top: 4px;
-    border-top: 1px solid rgba(167, 139, 250, 0.3);
-    color: #c4b5fd;
-    font-size: 0.54rem;
-    line-height: 1.25;
-}
-
-.tower-roster-intel b { color: #f5f3ff; }
-
 .tower-dialog-primary {
     min-width: 150px;
     min-height: 44px;
@@ -1062,6 +1143,114 @@
     font-weight: 900;
     letter-spacing: 0.1em;
     text-transform: uppercase;
+}
+
+/* Tower results: illustrated chapter art, ink-dark metal and restrained gold. */
+.tower-completion-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: rgba(2, 6, 12, .84);
+}
+.screen-battleTowerFight .tower-completion-card {
+    --result-gold: #d9c18a;
+    --result-ink: #0a111b;
+    position: relative;
+    box-sizing: border-box;
+    width: min(100%, 580px);
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+    border: 1px solid #77623d;
+    border-radius: 7px;
+    background: var(--result-ink);
+    box-shadow: 0 24px 80px #000b, inset 0 0 0 3px #d9c18a08;
+    text-align: left;
+    color: #dedbd2;
+}
+.tower-completion-header {
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    align-items: flex-end;
+    min-height: 182px;
+    padding: 26px 24px 22px;
+    box-sizing: border-box;
+    border-bottom: 1px solid #d9c18a38;
+    background: #101b2a;
+}
+.tower-completion-art {
+    position: absolute;
+    inset: 0;
+    z-index: -2;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+}
+.tower-completion-header::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(90deg, #07101bec, #07101b3b), linear-gradient(0deg, #0a111bfa, #0a111b00 95%);
+}
+.tower-completion-kicker {
+    margin: 0 0 12px;
+    color: var(--result-gold);
+    font: 700 .64rem/1.4 var(--font-display, Georgia, serif);
+    letter-spacing: .22em;
+    text-transform: uppercase;
+}
+.screen-battleTowerFight .tower-completion-heading h1 {
+    margin: 0;
+    color: #f1e3c2;
+    font: 650 clamp(1.65rem, 3.5vw, 2.2rem)/1.18 var(--font-display, Georgia, serif);
+    letter-spacing: .025em;
+    text-shadow: 0 2px 10px #0008;
+}
+.tower-completion-encounter { margin: 9px 0 0; color: #b7c1cb; font-size: .77rem; line-height: 1.5; }
+.tower-completion-card.loss .tower-completion-art { filter: saturate(.35); }
+.tower-completion-card.loss .tower-completion-heading h1 { color: #d7ad9d; }
+.tower-completion-body { padding: 18px 24px 22px; }
+.tower-completion-card .tower-result-debrief { max-width: none; margin: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 16px; }
+.tower-completion-card .tower-result-debrief > div { border: 0; border-bottom: 1px solid #b9c4ce20; border-radius: 0; background: none; padding: 10px 0; }
+.tower-completion-card .tower-result-debrief > div:first-child { grid-column: span 2; }
+.tower-completion-card .tower-result-debrief dt { font-size: .59rem; font-weight: 600; color: #8f9da9; letter-spacing: .09em; }
+.tower-completion-card .tower-result-debrief dd { margin-top: 5px; font-size: .8rem; font-weight: 600; color: #e3dfd5; }
+.tower-completion-reward { margin: 15px 0 0; color: #cabb9b; font-size: .77rem; line-height: 1.5; }
+.tower-completion-card .tower-personal-best-receipt { margin: 16px 0 0; border-color: #d9c18a2e; border-radius: 3px; background: #d9c18a05; padding: 13px; }
+.tower-completion-card .tower-personal-best-receipt > strong { color: var(--result-gold); font-family: var(--font-display, Georgia, serif); font-size: .81rem; font-weight: 650; }
+.tower-completion-card .tower-result-milestone-receipt { color: var(--result-gold); font-size: .74rem; font-weight: 500; }
+.tower-completion-card .spire-result-sub { font-size: .77rem; margin-top: 10px; color: #b6bdc4; }
+.tower-completion-card .tower-settlement-status { margin-top: 14px; }
+.tower-completion-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.screen-battleTowerFight .tower-completion-actions button {
+    flex: 1 1 190px;
+    margin: 0;
+    min-height: 46px;
+    padding: 10px 14px;
+    border: 1px solid #bfa36a5c;
+    border-radius: 4px;
+    background: #101a26;
+    box-shadow: none;
+    color: #cbd2d8;
+    font: 650 .78rem/1.3 var(--font-display, Georgia, serif);
+    text-shadow: none;
+}
+.screen-battleTowerFight .tower-completion-actions .tower-plan-next { background: linear-gradient(#463c29, #29261f); border-color: #ac9056; color: #f0dfb8; }
+@media (hover: hover) {
+    .screen-battleTowerFight .tower-completion-actions button:hover:not(:disabled) { border-color: var(--result-gold); color: #f5e9cf; }
+}
+.screen-battleTowerFight .tower-completion-card button:focus-visible { outline: 2px solid #dcc48e; outline-offset: 3px; }
+@media (max-width: 480px) {
+    .tower-completion-header { min-height: 155px; padding: 22px 18px 18px; }
+    .tower-completion-body { padding: 12px 18px 18px; }
+    .tower-completion-card .tower-result-debrief { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+    .tower-completion-actions { margin-top: 16px; }
 }
 
 .tower-result-debrief {
@@ -1146,9 +1335,6 @@
 }
 
 @media (max-width: 1023px) {
-    .tower-combat-intel {
-        display: none;
-    }
 
     .tower-fight-grid {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -1190,8 +1376,10 @@
    bands horizontal at the same compact tiers as the containment contract. */
 @media (max-width: 979px) {
     #combat.tower-tactical-combat .tower-fight-header {
-        padding-right: 116px;
+        padding-right: 68px;
     }
+
+    #combat.tower-tactical-combat .tower-fight-header:has(.tower-header-cancel:not([hidden])) { padding-right: 116px; }
 
     #combat.tower-tactical-combat .tower-header-cancel {
         right: 68px;
@@ -1214,10 +1402,10 @@
     }
 
     .tower-action-dock {
-        flex: 0 0 144px;
+        flex: 0 0 152px;
         min-width: 0;
-        min-height: 144px;
-        max-height: 144px;
+        min-height: 152px;
+        max-height: 152px;
         margin-top: 4px;
         overflow: hidden;
     }
@@ -1350,30 +1538,39 @@
 }
 
 /* Short laptop windows and browser-zoomed tablets should remain battlefields,
-   not dashboards. The live threat stays on the map edge while secondary queue
-   and mechanic explanations yield their rows to the tactical canvas. */
+   not dashboards. The turn queue and mechanics yield their rows to the map. */
 @media (min-width: 641px) and (max-height: 700px) {
     #combat.tower-tactical-combat .tower-turn-queue,
     #combat.tower-tactical-combat .tower-mechanic-strip {
         display: none;
     }
 
-    #combat.tower-tactical-combat .tower-threat-summary {
-        position: absolute;
-        z-index: 23;
-        top: 58px;
-        right: min(520px, 55%);
-        left: 0;
-        margin: 0;
-        pointer-events: none;
-    }
 }
 
 @media (max-width: 979px) and (max-height: 500px) {
     .tower-turn-queue,
-    .tower-threat-summary:not(.has-threats),
     .tower-board-toolbar {
         display: none;
+    }
+
+    /* A short landscape window cannot fit the header, a usable board and the
+       full command/loadout deck in one viewport. Preserve a meaningful board
+       and let the contained fight column scroll to the actions below it. */
+    #combat.tower-tactical-combat .tower-fight-grid {
+        grid-template-rows: auto;
+        align-content: start;
+        overflow-y: auto;
+    }
+
+    #combat.tower-tactical-combat .tower-fight-grid > main {
+        height: auto;
+        min-height: 0;
+        overflow: visible;
+    }
+
+    #combat.tower-tactical-combat .tower-board-stage {
+        flex: 0 0 auto;
+        min-height: 0;
     }
 
     .tower-arena-loadout-note {
@@ -1389,6 +1586,21 @@
 
 }
 
+@media (max-width: 979px) and (max-height: 500px) {
+    /* Short landscape windows need one complete technique tap target in view
+       while retaining the shared minimum battlefield size. */
+    #combat.tower-tactical-combat .tower-fight-main { position: relative; }
+
+    #combat.tower-tactical-combat .tower-board-stage > .tower-board-area {
+        flex-basis: 90px !important;
+        height: 90px !important;
+        min-height: 90px !important;
+    }
+
+    #combat.tower-tactical-combat .tower-battle-tabs { margin-top: 0; }
+    .tower-action-dock { margin-top: 0; }
+}
+
 @media (max-width: 640px) {
     .tower-fight-grid {
         grid-template-columns: minmax(0, 1fr);
@@ -1402,10 +1614,6 @@
 
     .tower-board-help { display: none; }
     .tower-board-toolbar { justify-content: flex-end; }
-    .tower-last-action {
-        top: 60px;
-        max-width: min(220px, calc(100% - 16px));
-    }
     .tower-action-forecast {
         width: calc(100% - 16px);
         padding: 6px 7px;
@@ -1416,7 +1624,6 @@
     .tower-board-controls input[type="range"] { flex: 1 1 80px; min-width: 70px; }
     .tower-board-controls button:last-child { min-width: 78px; }
     .tower-fight-turn-pill { flex: 1 1 180px; }
-    .tower-threat-summary { white-space: nowrap; }
     .tower-mechanic-strip {
         flex-wrap: nowrap;
         padding-bottom: 2px;
@@ -1444,8 +1651,53 @@
     .tower-result-debrief { grid-template-columns: minmax(0, 1fr); }
 }
 
+@media (max-width: 640px) and (max-height: 500px) {
+    /* A full-width phone map has no unused side margin for the disclosure. Keep
+       it in flow and reclaim card padding so its first technique stays tappable. */
+    #combat.tower-tactical-combat .tower-action-dock > .combat-jutsu-bar { padding: 0 !important; }
+    #combat.tower-tactical-combat .tower-action-dock .combat-equipped-jutsu-grid { padding: 0 !important; }
+}
+
+/* Compact portrait header: the 44px cancel target spans both live-state rows,
+   so arming a technique cannot grow the resource row or shift the battlefield. */
+@media (max-width: 979px) and (min-height: 501px) {
+    #combat.tower-tactical-combat .tower-fight-header {
+        grid-template-columns: minmax(0, 1fr) auto 64px;
+        grid-template-rows: auto auto 20px 24px;
+        gap: 0 6px;
+        flex: 0 0 auto;
+        min-height: 0;
+        max-height: none;
+        padding-right: 0;
+    }
+    #combat.tower-tactical-combat .tower-fight-title { grid-column: 1 / 3; grid-row: 1; font-size: .8rem; }
+    #combat.tower-tactical-combat .tower-objective-progress { grid-column: 1 / 3; grid-row: 2; font-size: .65rem; white-space: normal; }
+    #combat.tower-tactical-combat .tower-fight-header:has(.tower-header-cancel:not([hidden])) { padding-right: 0; }
+    #combat.tower-tactical-combat .tower-fight-leave { position: static; grid-column: 3; grid-row: 1 / 3; align-self: start; }
+    #combat.tower-tactical-combat .tower-header-cancel { position: static; grid-column: 3; grid-row: 3 / 5; justify-self: end; align-self: start; height: 44px; }
+    #combat.tower-tactical-combat .tower-header-action-error { grid-column: 1 / -1; grid-row: 5; max-width: 100%; }
+    #combat.tower-tactical-combat .tower-header-resource-rail {
+        grid-column: 1 / -1; grid-row: 4;
+        justify-self: start;
+        min-height: 22px; height: 22px; max-width: 100%;
+        gap: 4px; padding: 2px 6px;
+    }
+    #combat.tower-tactical-combat .tower-header-resource-rail span[title="Health"] { display: inline-flex; }
+    #combat.tower-tactical-combat .tower-fight-header:has(.tower-header-cancel:not([hidden])) .tower-header-resource-rail { grid-column: 1 / 3; }
+    #combat.tower-tactical-combat .tower-fight-header:has(.tower-header-cancel:not([hidden])) .tower-header-stat[title="Health"] { display: none; }
+    #combat.tower-tactical-combat .tower-round-readout { grid-column: 1; grid-row: 3; text-align: left; font-size: .68rem; }
+    #combat.tower-tactical-combat .tower-fight-turn-pill { grid-column: 2; grid-row: 3; padding: 2px 6px; font-size: .64rem; line-height: 1.2; }
+}
+
 /* The smallest portrait tier reserves enough room for the board and one full
    technique target without reintroducing the desktop roster rails. */
+@media (max-width: 360px) {
+    /* +/- retain the same zoom range without pushing Grid off the left edge. */
+    .tower-board-controls input[type="range"] { display: none; }
+    .tower-board-controls { gap: 3px; }
+    .tower-board-controls output { min-width: 34px; }
+}
+
 @media (max-width: 360px) and (max-height: 600px) {
     .tower-fight-grid > aside {
         display: none !important;
@@ -1469,8 +1721,34 @@
         display: none;
     }
 
-    .tower-threat-summary:not(.has-threats) {
-        display: none;
+}
+
+/* A short landscape screen gives the field its own column. The action deck and
+   battle log share the other column, preserving a readable arena and full cards. */
+@media (min-width: 641px) and (max-width: 979px) and (min-height: 320px) and (max-height: 500px) {
+    #combat.tower-tactical-combat .tower-fight-grid { grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+    #combat.tower-tactical-combat .tower-fight-grid > main {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+        grid-template-rows: auto 44px auto minmax(0, 1fr);
+        gap: 4px 8px;
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+    }
+    #combat.tower-tactical-combat .tower-fight-header { grid-column: 1 / -1; grid-row: 1; margin: 0 !important; }
+    #combat.tower-tactical-combat .tower-board-stage { grid-column: 1; grid-row: 3 / 5; height: 100%; min-height: 0; }
+    #combat.tower-tactical-combat .tower-board-stage > .tower-board-area {
+        flex: 1 1 auto !important; height: 100% !important; min-height: 180px !important;
+    }
+    #combat.tower-tactical-combat .tower-battle-tabs { grid-column: 2; grid-row: 2; margin: 0; }
+    #combat.tower-tactical-combat .tower-arena-loadout-note { grid-column: 2; grid-row: 3; margin: 0; }
+    #combat.tower-tactical-combat .tower-action-dock { grid-column: 2; grid-row: 4; margin: 0; align-self: start; }
+    #combat.tower-tactical-combat .tower-fight-main.tower-battle-log .tower-mobile-battle-log {
+        /* Override the shared combat skin's named panel area, which otherwise
+           creates implicit tracks outside this two-column layout. */
+        grid-area: 4 / 2 / 5 / 3 !important;
+        height: 100% !important; min-height: 0 !important; max-height: none !important; margin: 0 !important;
     }
 }
 
@@ -1482,12 +1760,9 @@
 
 @media (prefers-reduced-motion: reduce) {
     .tower-hex-tile,
-    .tower-threat-summary,
     .tower-phase-banner,
     .tower-board-actor,
     .tower-boss-barrier,
-    .tower-intel-header em::before,
-    .tower-boss-health-meter > span,
     .tower-mechanic-chip {
         animation: none !important;
         transition: none !important;
@@ -1500,8 +1775,7 @@
 }
 
 @media (prefers-reduced-data: reduce) {
-    .tower-fight-statusbar[data-has-encounter-art="true"],
-    .tower-combat-intel[data-has-encounter-art="true"]::before {
+    .tower-fight-statusbar[data-has-encounter-art="true"] {
         background-image: none !important;
     }
 }
@@ -1516,18 +1790,11 @@
     .tower-fight-statusbar[data-has-encounter-art="true"] > * { text-shadow: none; }
 
     .tower-fight-turn-pill,
-    .tower-threat-summary,
     .tower-resource-rail,
-    .tower-combat-intel,
-    .tower-intel-progress,
     .tower-mechanic-chip {
         border: 1px solid CanvasText !important;
         background: Canvas !important;
         color: CanvasText !important;
-    }
-
-    .tower-combat-intel::before {
-        display: none;
     }
 
     .tower-turn-queue li.is-active,
@@ -1537,3 +1804,34 @@
         border-color: Highlight !important;
     }
 }
+
+/* Make room for mobile effect inspection without pushing controls off-screen. */
+@media (max-width: 640px) {
+    #combat.tower-tactical-combat .tower-board-controls { gap: 3px; }
+    #combat.tower-tactical-combat .tower-board-controls input[type="range"] { display: none; }
+    #combat.tower-tactical-combat .tower-board-controls button:last-child { min-width: 60px; padding-inline: 4px; }
+    #combat.tower-tactical-combat .tower-board-controls output { min-width: 32px; }
+}
+/* Tower combat feedback stays tied to actors and current mechanics. */
+.tower-disrupt-control { position: absolute; z-index: 27; left: 8px; bottom: 8px; min-height: 44px; padding: 6px 12px; border: 1px solid #c8b476; border-radius: 6px; background: #102331; color: #f3df9f; font-weight: 750; }
+.tower-disrupt-control small { display: block; color: #a5b8cc; font-size: .65rem; }
+.tower-signature-warning { position: absolute; pointer-events: auto; z-index: 26; top: 8px; right: 8px; max-width: calc(100% - 24px); display: flex; align-items: center; gap: 3px; padding: 5px 8px; border-left: 2px solid #db9672; border-radius: 4px; background: rgba(18,13,21,.9); color: #e7d0b2; font-size: .65rem; line-height: 1.3; }
+.tower-signature-warning strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tower-signature-warning span { flex-shrink: 0; color: #c0c8d3; }
+.tower-personal-best-receipt { margin: 12px 0; padding: 12px; border: 1px solid rgba(209,180,103,.3); border-radius: 6px; background: rgba(10,18,27,.8); text-align: left; }
+.tower-personal-best-receipt > strong { color: var(--gold, #e8ce86); }
+.tower-personal-best-context { margin: 3px 0 10px; color: #aebbc8; font-size: .7rem; }
+.tower-personal-best-receipt dl { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+.tower-personal-best-receipt dt { color: #aebbc8; font-size: .7rem; }
+.tower-personal-best-receipt dd { margin: 4px 0 0; font-weight: 700; font-size: .85rem; }
+.tower-personal-best-receipt small { display: block; margin-top: 4px; color: #b5cbbd; font-size: .65rem; font-weight: 400; }
+@media (max-width: 480px) { .tower-personal-best-receipt dl { grid-template-columns: 1fr; gap: 8px; } .tower-personal-best-receipt dl > div { display: grid; grid-template-columns: 60px 1fr; gap: 8px; } .tower-personal-best-receipt dd { margin: 0; } }
+
+.tower-signature-warning span { margin-top: 3px; color: #c0c8d3; font-size: .65rem; line-height: 1.4; }
+.tower-impact-cue { position: absolute; pointer-events: none; z-index: 90; transform: translate(-50%,-50%); padding: 4px 8px; border: 1px solid #e4c783; border-radius: 4px; background: #0c1724ed; color: #f4dd9c; font: 800 12px/1.3 Inter,sans-serif; letter-spacing: .06em; white-space: nowrap; animation: tower-impact-cue 1.25s ease-out forwards; }
+.tower-impact-cue--break { color: #b5e9ff; border-color: #80b5d6; }
+.tower-impact-cue--boss { font-size: 15px; box-shadow: 0 0 25px #e4c78355; }
+.tower-terrain-prop[data-inactive="true"], .tower-terrain-zone[data-inactive="true"] { opacity: .48; filter: grayscale(1); }
+.tower-plan-next { display: block; margin: 10px auto; min-height: 44px; border-color: #b49c5e; color: #ecd69f; }
+@keyframes tower-impact-cue { 0% { opacity: 0; transform: translate(-50%,-30%) scale(.92); } 15%,65% { opacity: 1; transform: translate(-50%,-75%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-110%); } }
+@media (prefers-reduced-motion: reduce) { .tower-impact-cue { animation: none; } }

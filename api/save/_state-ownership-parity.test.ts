@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
@@ -70,6 +71,7 @@ const FROZEN = {
         'hollowGateRun', 'hollowGateWardenKills', 'hollowGateIntroSeen', 'hollowGateAttunement', 'lastHollowGateStart', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
         'riftFirstClears', 'riftQuestBossReceipt',
         'endlessTowerRun', 'endlessTowerBestWave',
+        'battleTowerRecords', // New private Tower clear records, stripped from combat snapshots.
         'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
         'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
         'totalStatsTrained', 'totalMissionsCompleted', 'totalAiKills', 'totalVillageRaids',
@@ -190,6 +192,8 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
+        'battleTowerRecords', // Tower settlement is the only writer.
         'accountName',
         'sunscarRally', 'sunscarCaravan',
         'firstContract', // journal milestones are committed by existing authoritative actions, never generic saves

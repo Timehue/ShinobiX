@@ -1,0 +1,61 @@
+{
+  "generated": "2026-09-26",
+  "provider": "Built-in image_gen",
+  "delivery": "Battlefield grounds resized to 1024x683 and WebP quality 75; 4x4 terrain atlases resized to 1024x1024 and WebP quality 75. Cell layout and alpha retained.",
+  "assets": [
+    {
+      "file": "terrain-props-v1.webp",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Asset type: one production sprite atlas for a premium dark fantasy shinobi tactical RPG. Exactly FOUR columns by FOUR rows, 16 equal square cells, square image. True transparent background, NO checkerboard. Each cell contains one isolated freestanding environment prop, fully contained with 12 percent transparent padding on all sides, no adjacent overlap. Consistent orthographic camera viewed from above at 60 degrees, front side visible, each prop grounded at the same bottom-center baseline. Premium detailed painted realism, weathered stone and metal, crisp silhouette, rich material detail with restrained magical accents, dark natural contact shadow, same lighting from upper left. Japanese shrine ruins art direction, NO cartoon style, no outlines, no floating square bases or opaque backgrounds. Row1 left to right: 1 charred black stone fire obelisk with an amber glowing core and small flames; 2 ancient grey stone water obelisk with a flowing sapphire core; 3 rugged stone earth obelisk with a warm ochre crystal core; 4 slender aged stone wind obelisk with a pale jade wind ring. Row2: 5 split dark stone lightning obelisk with a violet electric core; 6 short protective ward monolith with silver etched seal markings and pale blue halo; 7 cluster of dangerous sharp frost crystal spikes; 8 circular shallow stone healing font filled with luminous turquoise water and two lotus petals. Row3: 9 small ancient golden battle shrine altar with restrained cyan incense; 10 dark cracked geothermal vent crater with restrained orange molten center and low steam; 11 broken mossy grey forest shrine pillar with creeping roots; 12 jagged ice-encrusted grey mountain boulder. Row4: 13 rough black volcanic basalt rock with a tiny ember fissure; 14 dark ruined shrine pillar with pale violet lichen; 15 weathered neutral grey fortress masonry rubble; 16 low rusted spike trap protruding from charred stone. Maintain identical scale among all five obelisks. Important: sculptural objects only, no ground patches beyond small grounding shadows, no text, numbers, letters, labels, grid, borders, UI or characters. Square 2048x2048."
+    },
+    {
+      "file": "terrain-effects-v1.webp",
+      "width": 1024,
+      "height": 1024,
+      "transparent": true,
+      "prompt": "Use case: stylized-concept. Asset type: production 2D tactical RPG terrain-effect sprite atlas, one square image, EXACT 4 columns by 4 rows of equal square cells, 16 isolated ground decals. Every cell has generous transparent padding, each decal fits entirely within its own cell, no overlap between cells. True transparent background throughout. Camera: overhead looking down 60 degrees, each effect is a low flat oval ground patch; NOT tall objects, NOT icons in frames. Art: premium dark fantasy shinobi game, detailed painted realism, fine material texture, grounded lighting, restrained luminous accents, crisp at small size. All cells same camera, dark irregular feathered organic edges fading to alpha; center occupied by texture, no hexagons or tile platforms. Row1 left to right: 1 smoldering scorched earth with tiny ember fissures; 2 circular swirling shallow blue water with foam; 3 weathered sandstone shards and ochre dust; 4 pale jade wind currents with a few leaves over dark earth. Row2: 5 violet electric arcs crawling over fractured stone; 6 pale ivory protective sealing circle carved into grey stone and a low translucent blue veil; 7 dangerous frost crystal shards emerging from frozen cracked soil; 8 toxic green bubbling marsh with low poisonous vapor. Row3: 9 ominous violet boss-attack sigil inscribed in black stone, broken concentric rings and a blade-like central rune; 10 collapsing black rock with deep orange magma cracks; 11 luminous turquoise healing water pool with lotus petals; 12 antique gold shrine sealing circle with etched radial ornamental markings. Row4: 13 smoky amethyst curse residue; 14 blood red thorny recoil fissures; 15 amber objective rune on ancient stone; 16 ash and ember eruption crater. Avoid any text, letters, labels, numbers, headings, UI borders, grid lines, checkerboard, extruded tile bases, square opaque backgrounds. This is one coordinated sprite sheet to be sampled by exact 25% cell coordinates in a browser game. Generate square 2048x2048."
+    },
+    {
+      "file": "forest-v1.webp",
+      "width": 1024,
+      "height": 683,
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: finished battlefield ground background for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient Japanese forest shrine courtyard reclaimed by moss: worn grey stone paving beneath thin leaf litter, subtle rain-dark seams, soft broken shafts of sunlight, fine roots and restrained emerald moss. 85 percent of the picture is open flat traversable courtyard, edge decoration limited to the outermost 8 percent: fragments of low stone masonry, small ferns and thin exposed roots. The entire central playing area is unobstructed ground, evenly readable from edge to edge, with rich small-scale material detail but gentle contrast. Mature painted realism, cinematic art direction, cool slate and deep moss with warm pale stone highlights. Natural surface, organic imperfections, carefully rendered texture. NO characters, creatures, props in the playable center, buildings, tall objects, grid, hexagons, UI, text, symbols, labels, artificial vignette, or large central decorative circle. Intended to remain visible beneath a thin hexagonal tactical overlay. Premium environment artwork rather than cartoony mobile-game grass. Fully opaque."
+    },
+    {
+      "file": "central-v1.webp",
+      "width": 1024,
+      "height": 683,
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: production background ground for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient Japanese fortress training courtyard, weathered warm grey stone paving, subtle sand in seams, finely chipped limestone, low worn masonry and sparse dry grass at the outer edges. Warm morning light and muted bronze highlights. 85 percent of image is open flat traversable courtyard. Edge decoration confined to outermost 8 percent. Entire center unobstructed readable ground with rich small-scale material detail and gentle contrast. Mature painted realism, consistent cinematic material rendering and texture. No characters, creatures, tall objects, trees, props in playable center, buildings, grid, hexagons, UI, text, symbols, labels, artificial vignette or large central circle. Every part of the ground must be walkable. Fully opaque."
+    },
+    {
+      "file": "snow-v1.webp",
+      "width": 1024,
+      "height": 683,
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: production background ground for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient Japanese mountain shrine courtyard, weathered blue grey stone slabs with fine frost and shallow wind swept snow along seams, subtle frozen puddles. Snow and low fractured masonry at the extreme outer edges. Cool silver daylight, subtle pale cyan ice. 85 percent of image is open flat traversable courtyard. Edge decoration confined to outermost 8 percent. Entire center unobstructed readable ground with rich small-scale material detail and gentle contrast. Mature painted realism, consistent cinematic material rendering and texture. No characters, creatures, tall objects, trees, props in playable center, buildings, grid, hexagons, UI, text, symbols, labels, artificial vignette or large central circle. Every part of the ground must be walkable. Fully opaque."
+    },
+    {
+      "file": "volcano-v1.webp",
+      "width": 1024,
+      "height": 683,
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: production background ground for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient Japanese volcanic fortress courtyard, black basalt paving fractured by narrow dark red ember seams, dusted ash, charred gravel. Low broken basalt masonry at extreme outer edges. Warm ember side light, dark muted bronze stone highlights. Lava confined to small hairline cracks and outside edges, NOT broad rivers. 85 percent of image is open flat traversable courtyard. Edge decoration confined to outermost 8 percent. Entire center unobstructed readable ground with rich small-scale material detail and gentle contrast. Mature painted realism, consistent cinematic material rendering and texture. No characters, creatures, tall objects, trees, props in playable center, buildings, grid, hexagons, UI, text, symbols, labels, artificial vignette or large central circle. Every part of the ground must be walkable. Fully opaque."
+    },
+    {
+      "file": "shadow-v1.webp",
+      "width": 1024,
+      "height": 683,
+      "transparent": false,
+      "prompt": "Use case: stylized-concept. Asset type: production background ground for a premium shinobi fantasy tactical RPG. Wide landscape 3:2 illustration. Camera fixed overhead angled 60 degrees downward, orthographic, NO horizon or sky. An ancient abandoned Japanese shrine courtyard at twilight, rain wet blue black stone paving, subtle ancient carvings eroded into some stones, fine charcoal cracks, small violet flowers in seams. Low dark masonry and a little purple mist at extreme outer edges. Soft moonlight, restrained indigo undertones, readable grey ground, NOT pitch black. 85 percent of image is open flat traversable courtyard. Edge decoration confined to outermost 8 percent. Entire center unobstructed readable ground with rich small-scale material detail and gentle contrast. Mature painted realism, consistent cinematic material rendering and texture. No characters, creatures, tall objects, trees, props in playable center, buildings, grid, hexagons, UI, text, symbols, labels, artificial vignette or large central circle. Every part of the ground must be walkable. Fully opaque."
+    }
+  ],
+  "deliveryOptimization": {
+    "backgrounds": "WebP quality 60, original 1024x683 dimensions",
+    "foregroundAtlases": "Original encodings and alpha retained",
+    "savedBytes": 86234
+  }
+}

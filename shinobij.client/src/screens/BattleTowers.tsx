@@ -148,6 +148,11 @@ export function BattleTowers({ character, updateCharacter, onVersionedCharacter,
                 </div>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "center" }}>
                     {!view.terminal && <button style={{ padding: "0.6rem 1rem" }} onClick={() => setView({ phase: "checking", runId: view.runId })}>Retry recovery</button>}
+                    {!view.terminal && <button style={{ padding: "0.6rem 1rem" }} onClick={() => {
+                        clearFightKey();
+                        writeRecoveryKey(view.runId);
+                        onExit();
+                    }}>Leave and recover later</button>}
                     <button style={{ padding: "0.6rem 1rem", borderColor: "var(--slate-600)", color: "var(--slate-300)" }}
                         onClick={() => { void (async () => {
                             if (view.terminal) {
@@ -177,6 +182,7 @@ export function BattleTowers({ character, updateCharacter, onVersionedCharacter,
                 initialSession={view.session}
                 onRecordBattle={onRecordBattle}
                 settleOnAnyDone
+                onContinue={() => { clearRunKeys(); setView({ phase: "lobby" }); }}
                 onLeaveActive={() => {
                     // Leaving the view is not a server abandon. Unlock navigation but
                     // preserve an independent reconnect breadcrumb for this MPvE run.

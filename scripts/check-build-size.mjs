@@ -741,7 +741,19 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // about 28 KB of measured image headroom, about 24.6 KB after #216. The initial
 // graph passes its own gate (1,408,166 B raw in that image); startup,
 // per-chunk, CSS and gzip gates stay unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_880_000;
+// 2026-09-27 BATTLE TOWERS: production-image run 36348089683 measures
+// 8,892,366 B, versus 8,872,248 B on live main 47964f89f (+20,118 B).
+// Terrain presentation, fighter inspection, boss counters, records and recovery
+// UI are intentional additions in the lazy Tower graph. Initial transfer grows
+// only 252 B raw / 47 B gzip (1,416,400 B / 387,735 B) and passes unchanged.
+// Allow 30 KB of product growth, leaving 17,634 B of measured headroom. Keep
+// every startup, per-chunk, CSS and gzip gate, and the 512 MiB artifact ceiling.
+// 2026-09-27 THE FIND: the combined tower + gathering production image
+// measures 8,918,449 B of product JS/CSS with production-length build settings.
+// Gathering adds its VN, choice UI, exact recipes and settlement/recovery code.
+// Allow 8.95 MB, leaving ~31 KB of production margin. Its recipe/biome tables
+// were drained off startup; INITIAL graph limits below are unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 8_950_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

@@ -25,6 +25,7 @@ import type { VillageUpgradeKey, Screen } from "../types/core";
 import { UPGRADE_IMAGES, HOLLOW_GATE_IMAGE } from "../data/upgrade-images";
 import { clearWarMapCache, contestVillageUnfed, fetchWarMap, upgradeWarStructure, type SectorWarContest } from "../lib/village-war-map";
 import { storesLedgerEmptyLine, storesLedgerScopeLine, storesSpendAuthorityLine, villageSupplyCall } from "../lib/village-stores-signposts";
+import { isVillageSupplyGood, provisionValue } from "../../../shared/gathering-materials";
 import { DAILY_CRAFT_POINT_DONATION_CAP, DAILY_RATION_DONATION_CAP, DEPOT_CONVERSION_POINTS_PER_WR, readStores, storesCreditNote, storesDonationBucket, storesDonationCapLine, storesDonationGate, storesLedgerRows, storesPollDisagrees, storesRowValues } from "../lib/village-stores";
 import { MAX_WILD_SECTOR } from "../../../shared/sector-geo";
 import { STRUCTURE_IMAGES } from "../data/war-ui-images";
@@ -449,12 +450,14 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
     // counters (api/_treasury-stores-donate.ts). Shown as a running total and
     // enforced before the request, the way the Noodle Den's cook cap already is.
     const villageDonateCapLine = storesDonationCapLine(character);
-    const villageDonateGate = storesDonationGate(character, villageDonateItemId);
+    const villageDonateGate = !storesOpen && isVillageSupplyGood(villageDonateItemId)
+        ? { ok: false as const, reason: 'Village Stores are unavailable. Keep this supply item until they reopen' }
+        : storesDonationGate(character, villageDonateItemId);
     // The button says what the button DOES. A refusal is a sentence, and a
     // sentence belongs in a hint under the select — not stretched across a
     // control's label.
     const villageDonateBucket = storesDonationBucket(villageDonateItemId);
-    const villageDonateLabel = villageDonateBucket === "provisions" ? "Donate to Provisions"
+    const villageDonateLabel = villageDonateBucket === "provisions" ? `Donate to Provisions · +${provisionValue(villageDonateItemId)} provisions`
         : villageDonateBucket === "materialPoints" ? "Donate to Materials"
             : "Donate Item";
     async function upgradeWarStruct(key: string) {

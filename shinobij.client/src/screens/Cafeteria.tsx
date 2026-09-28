@@ -214,7 +214,7 @@ export function Cafeteria({
 
             {storesOpen && <section className="summary-box cafe-kitchen">
                 <h3>Cook for the village</h3>
-                <p className="hint">Turn hunt spoils into ration packs, then donate them at the Town Hall — they feed your village’s sieges, mercenary bands and garrisons.</p>
+                <p className="hint">Turn hunt spoils and gathered Field Herbs into ration packs, then donate them at the Town Hall — they feed your village’s sieges, mercenary bands and garrisons.</p>
                 {kitchenClosed ? <p className="hint cafe-kitchen-empty" role="status">The kitchens are closed while the village stores are offline. Try again later.</p> : <>
                 <p className="hint cafe-cap-line">{cookRationsCapLine(character)} Resets at midnight UTC.</p>
                 <ul className="cafe-stock-grid">

@@ -1,3 +1,5 @@
+import { TOWER_SIGNATURES, towerSignatureForMechanic } from '../../../shared/tower-progression';
+import { TowerRecordsPanel } from "../components/TowerRecordsPanel";
 import { useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
 import { GameIcon } from "../components/icons/GameIcon";
@@ -117,7 +119,9 @@ function towerTargetModeLabel(mode: TowerFloorMeta["bossTargetMode"]): string | 
     return null;
 }
 
-function towerStrikeLabel(strike: TowerFloorMeta["bossStrike"]): string | null {
+function towerStrikeLabel(strike: TowerFloorMeta["bossStrike"], mechanic?: string | null): string | null {
+    const signature = towerSignatureForMechanic(mechanic);
+    if (signature !== 'commander') return `${TOWER_SIGNATURES[signature].name} · starts round 2, every 3 rounds`;
     if (!strike) return null;
     const attack = strike.kind === "volley" ? "Volley around a squad target"
         : strike.kind === "slam" ? "Boss-centered slam and knockback"
@@ -351,7 +355,7 @@ export function BattleTowersLobby({
     const selectedEntryFee = selectedFloorCleared ? 0 : entryFee;
     const selectedRewardParts = selFloor ? towerRewardParts(selFloor.firstClearReward) : [];
     const selectedTargetMode = selFloor ? towerTargetModeLabel(selFloor.bossTargetMode) : null;
-    const selectedStrike = selFloor ? towerStrikeLabel(selFloor.bossStrike) : null;
+    const selectedStrike = selFloor ? towerStrikeLabel(selFloor.bossStrike, selFloor.bossMechanic) : null;
     const selectedFloorArt = selFloor ? resolveTowerStoryArt(selFloor.artKey) : null;
     const selectedLockReason = selFloor && !selectedFloorActionable
         ? (!towerLevelEligible
@@ -400,6 +404,8 @@ export function BattleTowersLobby({
                 </div>
             )}
 
+            <TowerRecordsPanel records={character.battleTowerRecords} />
+
             {/* Stat chips */}
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                 <Stat label="Deepest floor" value={String(bestFloor)} color="var(--gold)" />
@@ -409,7 +415,36 @@ export function BattleTowersLobby({
 
             {!towerLevelEligible && <div className="tower-level-gate" role="status">Battle Towers unlock at level {TOWER_MIN_LEVEL}. Floors remain visible so you can plan the climb.</div>}
 
+            {!activeReadyRoom && (
+                <section className="tower-route-picker" aria-labelledby="tower-route-picker-title">
+                    <div className="tower-route-picker-heading">
+                        <span>Between-floor decision</span>
+                        <h2 id="tower-route-picker-title">Choose your approach</h2>
+                        <p>Choose protection, a combat boost, or extra risk before the next floor. A ready room locks its host’s choice for the whole squad.</p>
+                    </div>
+                    <div className="tower-route-options" role="radiogroup" aria-label="Tower route choice">
+                        {TOWER_ROUTE_CHOICES.map(choice => (
+                            <button
+                                key={choice.id}
+                                type="button"
+                                role="radio"
+                                aria-checked={routeChoice === choice.id}
+                                className={`tower-route-option${routeChoice === choice.id ? " is-selected" : ""}${choice.id === "elite-shortcut" ? " is-elite" : ""}`}
+                                onClick={() => setRouteChoice(choice.id)}
+                            >
+                                <span className="tower-route-option-icon" aria-hidden="true">
+                                    {choice.id === "rest-shrine" ? "✚" : choice.id === "focused-assault" ? "⚔" : "♛"}
+                                </span>
+                                <strong>{choice.label}</strong>
+                                <small>{choice.summary}</small>
+                            </button>
+                        ))}
+                    </div>
+                </section>
+            )}
+
             <TowerReadyRoomPanel
+                routeChoice={routeChoice}
                 character={character}
                 following={following}
                 storyFloor={selected}
@@ -530,7 +565,8 @@ export function BattleTowersLobby({
                         </div>
                         {selFloor.bossMechanic && <p><strong>Boss mechanic:</strong> {readableTowerSlug(selFloor.bossMechanic)}</p>}
                         {selectedTargetMode && <p><strong>🎯 Boss focus:</strong> {selectedTargetMode}</p>}
-                        {selectedStrike && <p><strong>⚠️ Telegraph:</strong> {selectedStrike}</p>}
+                        {selectedStrike && <p><strong>Telegraph:</strong> {selectedStrike}</p>}
+                        {selFloor.isBoss && <p><strong>Counter:</strong> {TOWER_SIGNATURES[towerSignatureForMechanic(selFloor.bossMechanic)].counter}</p>}
                         {selFloor.closingRing && <p><strong>🔥 Closing ring:</strong> After round {selFloor.closingRing.fromRound};
                             {` ${selFloor.closingRing.percent}% max HP outside the safe radius, shrinking to ${selFloor.closingRing.minRadius} hexes`}</p>}
                         <p><strong>Field rule:</strong> {towerFieldRuleLabel(selFloor.fieldRule)}</p>
@@ -568,33 +604,6 @@ export function BattleTowersLobby({
                 </section>
             )}
 
-            {selFloor && selectedFloorActionable && !soloStartBlocked && (
-                <section className="tower-route-picker" aria-labelledby="tower-route-picker-title">
-                    <div className="tower-route-picker-heading">
-                        <span>Between-floor decision</span>
-                        <h2 id="tower-route-picker-title">Choose your approach</h2>
-                        <p>The server seals one route when this solo Story floor begins. It lasts for this encounter only.</p>
-                    </div>
-                    <div className="tower-route-options" role="radiogroup" aria-label="Tower route choice">
-                        {TOWER_ROUTE_CHOICES.map(choice => (
-                            <button
-                                key={choice.id}
-                                type="button"
-                                role="radio"
-                                aria-checked={routeChoice === choice.id}
-                                className={`tower-route-option${routeChoice === choice.id ? " is-selected" : ""}${choice.id === "elite-shortcut" ? " is-elite" : ""}`}
-                                onClick={() => setRouteChoice(choice.id)}
-                            >
-                                <span className="tower-route-option-icon" aria-hidden="true">
-                                    {choice.id === "rest-shrine" ? "✚" : choice.id === "focused-assault" ? "⚔" : "♛"}
-                                </span>
-                                <strong>{choice.label}</strong>
-                                <small>{choice.summary}</small>
-                            </button>
-                        ))}
-                    </div>
-                </section>
-            )}
 
             {/* Enter / back */}
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
@@ -697,11 +706,11 @@ function SpireLadder({
                     <div className="spire-hero-tags">
                         <span className="spire-tag" style={{ borderColor: accent, color: accent }}>{sel.boss.mechanicLabel}</span>
                         <span className="spire-tag">🎯 {towerTargetModeLabel(sel.boss.targetMode)}</span>
-                        <span className="spire-tag">⚠ {towerStrikeLabel(sel.boss.strike)}</span>
+                        <span className="spire-tag">⚠ {towerStrikeLabel(sel.boss.strike, sel.boss.mechanic)}</span>
                         {sel.isMilestone && <span className="spire-tag milestone">★ Milestone — {sel.milestoneTitle}</span>}
                         <span className="spire-tag reward">💠 Weekly best · +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
                     </div>
-                    <p className="spire-hero-blurb">{sel.boss.blurb}</p>
+                    <p className="spire-hero-blurb">{sel.boss.blurb} {TOWER_SIGNATURES[towerSignatureForMechanic(sel.boss.mechanic)].counter}</p>
 
                     {activeKeystones.length > 0 && (
                         <div className="spire-keystones">

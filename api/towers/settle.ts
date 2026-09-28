@@ -1,3 +1,5 @@
+import type { TowerClearComparison } from '../../shared/tower-progression.js';
+import { settleTowerRecords } from './_records.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { cors, safeName, setSafeRecordValue } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -12,7 +14,7 @@ import {
     isSpireRun,
     isPublicTowerRun,
     type SettleResult,
-    type ConsumedItemsResult, isTowerRunLapsed
+    type ConsumedItemsResult, needsTowerLapseReconciliation
 } from './_tower-store.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
@@ -57,8 +59,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let session = await readSession(runId);
         if (!session) return res.status(404).json({ error: 'Run not found.' });
         // F08: a lapsed run settles as the forfeit it is (nothing to pay).
-        if (isTowerRunLapsed(session)) {
-            await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+        if (needsTowerLapseReconciliation(session)) {
+            const recovery = await reconcileLapsedBattle({ kind: 'tower', sessionId: runId }, identity.admin ? undefined : identity.name);
+            if (recovery.error) return res.status(503).json({ error: 'Tower recovery is pending. Please retry.', errorCode: 'run-recovery-pending', settled: false });
             session = await readSession(runId) ?? session;
         }
 
@@ -108,13 +111,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? await settleAssistForAlly({ session, slug })
                     : await settleFloorForMember({ session, slug }));
         }
+        const retryableReasons = new Set(['contended', 'no-save', 'unknown', 'invalid-receipt']);
+        const stable = [
+            ...Object.values(results).map(result => result.reason),
+            ...Object.values(consumables).map(result => result.reason),
+        ].every(reason => !reason || !retryableReasons.has(reason));
+        // Commit record/achievement evidence before declaring the run settled.
+        // Failure preserves recovery and the lease; monotonic retries cannot duplicate rewards.
+        const responseSlug = callerSlug ?? safeName(playerName);
+        let personalBest: TowerClearComparison | undefined;
+        if (stable) for (const member of new Set(session.actors.filter(a => a.side === 'squad' && !a.ai && a.ownerSlug).map(a => a.ownerSlug!))) {
+            const comparison = await settleTowerRecords(session, member);
+            if (member === responseSlug) personalBest = comparison;
+        }
         let authoritativeSession = session;
         if (session.status === 'done' && session.rewardSettlementState !== 'settled') {
-            const retryableReasons = new Set(['contended', 'no-save', 'unknown', 'invalid-receipt']);
-            const stable = [
-                ...Object.values(results).map(result => result.reason),
-                ...Object.values(consumables).map(result => result.reason),
-            ].every(reason => !reason || !retryableReasons.has(reason));
             try {
                 const projected = await projectTowerSettlementState(runId, stable);
                 if (!projected) return res.status(404).json({ error: 'Run not found.', settled: false });
@@ -145,7 +156,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Return only the caller's committed character. The results map may cover
         // multiple squad members, but their private save data must not be exposed.
-        const responseSlug = callerSlug ?? safeName(playerName);
         const committed = await kv.get<Record<string, unknown>>(`save:${responseSlug}`);
         return res.status(200).json({
             runId,
@@ -155,6 +165,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             settled: authoritativeSession.rewardSettlementState === 'settled',
             results,
             consumables,
+            personalBest,
             character: committed?.character ?? null,
             _saveVersion: Number(committed?._saveVersion ?? 0),
         });

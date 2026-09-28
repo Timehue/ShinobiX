@@ -28,6 +28,7 @@
 /** Character-scope fields a generic save cannot durably change. */
 export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
+    'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
     // Identity & public profile
     'accountName',
     'level', 'village', 'rank', 'specialty', 'storyProgress', 'maxHp', 'maxChakra', 'maxStamina',
@@ -62,7 +63,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'expeditionStartAllowance', 'expeditionStartReceipts', 'petExpeditionLog', 'petEscortBonusReady',
     'dailyHonorSealsEarned', 'dailyHonorSealsByTarget', 'vanguardDailyResetDate',
     'dailyDonatedSeals', 'dailyDonationDate', 'pendingCombatMissionClaims',
-    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones',
+    'battleTowerClaimedRewards', 'battleTowerAssistRewardsClaimed', 'battleTowerMilestones', 'battleTowerRecords',
     'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     // Server-mirrored redemption ledgers & counters
     'serverExploreDate', 'serverExploresToday', 'redeemedSectorExplorations',
