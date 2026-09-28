@@ -36,7 +36,7 @@ export const DASH_EXCEPTIONS: readonly { file: string; text: string; reason: str
 export function isDashException(file: string, text: string): boolean {
     return DASH_EXCEPTIONS.some(exception => exception.file === file && exception.text === text);
 }
-const authoredPageFamilies = new Set(['campaign', 'interlude', 'road', 'reckoning', 'field', 'epilogue', 'rift', 'echoes', 'system', 'chronicle', 'creator']);
+const authoredPageFamilies = new Set(['campaign', 'interlude', 'road', 'reckoning', 'field', 'epilogue', 'rift', 'echoes', 'system', 'chronicle', 'creator', 'gathering']);
 export function auditScenes(scenes: Scene[]): Finding[] {
     const findings: Finding[] = [];
     const report = (severity: Finding['severity'], code: string, scene: string, detail: string) => findings.push({ severity, code, scene, detail });
@@ -123,7 +123,7 @@ export function auditScenes(scenes: Scene[]): Finding[] {
                 const normalized = text.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
                 if (normalized.length > 75) {
                     const found = repeated.get(normalized) ?? new Set();
-                    found.add(s.id);
+                    found.add(s.variantGroup ?? s.id);
                     repeated.set(normalized, found);
                 }
             }
@@ -139,7 +139,8 @@ export function auditScenes(scenes: Scene[]): Finding[] {
                 }
                 if (c.requireTrait && c.requireTrait === c.forbidTrait)
                     report('error', 'impossible-gate', where, `Choice ${cIndex}: ${c.requireTrait} both required and forbidden`);
-                if (s.graph && (!Number.isInteger(c.nextPage) || c.nextPage! < 0 || c.nextPage! >= s.pages.length))
+                const externalEnd = s.externalChoiceCompletion === true && c.nextPage === -1;
+                if (s.graph && (!Number.isInteger(c.nextPage) || (!externalEnd && c.nextPage! < 0) || c.nextPage! >= s.pages.length))
                     report('error', 'branch-reference', where, `Choice ${cIndex} targets ${c.nextPage}; page count ${s.pages.length}`);
             }
         }
@@ -168,7 +169,7 @@ function auditGraph(s: Scene, report: (severity: Finding['severity'], code: stri
             if (alwaysFinishes.has(i))
                 continue;
             const choices = p.choices ?? [];
-            const safe = !choices.length ? (i === s.pages.length - 1 || alwaysFinishes.has(i + 1)) : choices.some(c => !c.requireTrait && !c.forbidTrait && (c.battle || c.nextPage === i || alwaysFinishes.has(c.nextPage!)));
+            const safe = !choices.length ? (i === s.pages.length - 1 || alwaysFinishes.has(i + 1)) : choices.some(c => !c.requireTrait && !c.forbidTrait && (c.battle || c.nextPage === i || (s.externalChoiceCompletion === true && c.nextPage === -1) || alwaysFinishes.has(c.nextPage!)));
             if (safe) {
                 alwaysFinishes.add(i);
                 growing = true;
@@ -223,7 +224,7 @@ function auditGraph(s: Scene, report: (severity: Finding['severity'], code: stri
                 yes.add(c.trait);
                 no.delete(c.trait);
             }
-            if (c.battle || c.nextPage === state.page)
+            if (c.battle || c.nextPage === state.page || (s.externalChoiceCompletion === true && c.nextPage === -1))
                 state.terminal = true;
             else
                 state.edges.add(add(c.nextPage!, yes, no));

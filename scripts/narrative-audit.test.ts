@@ -5,6 +5,7 @@ import { buildCorpus, supplementalSources, type Page, type Scene } from './narra
 import { auditCreatorExport, builtinNarrativeEvents } from './narrative-creator-content.mts';
 import { buildCreatorExport } from './export-creator-content.mts';
 import { defaultPetEncounterVn } from '../shinobij.client/src/data/default-vn-events.ts';
+import { FIND_SCENES } from '../shinobij.client/src/lib/gathering-vn.ts';
 import { LEGACY_DEFS } from '../api/_legacy-defs.ts';
 import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
 const page = (choices: Page['choices']): Page => ({ title: 'A door', scene: 'A locked room', speaker: 'Keeper', dialogue: ['Run!'], choices });
@@ -17,9 +18,15 @@ test('Chronicle Legacy descriptions match the authoritative deed records', () =>
 });
 test('audit rejects dangling targets, closed loops, hidden choices and orphan pages', () => {
     assert.ok(errors(scene([page([{ text: 'Leave', nextPage: 2 }])])).includes('branch-reference'));
+    assert.ok(errors(scene([page([{ text: 'Leave', nextPage: -1 }])])).includes('branch-reference'));
     assert.ok(errors(scene([page([{ text: 'Next', nextPage: 1 }]), page([{ text: 'Back', nextPage: 0 }])])).includes('closed-branch'));
     assert.ok(errors(scene([page([{ text: 'Leave', nextPage: 0, requireTrait: 'key' }])])).includes('gated-dead-end'));
     assert.ok(errors(scene([page([{ text: 'Leave', nextPage: 0 }]), page(undefined)])).includes('unreachable-page'));
+});
+test('audit accepts an explicitly declared external choice completion', () => {
+    const external = scene([page([{ text: 'Choose materials', nextPage: -1 }])]);
+    external.externalChoiceCompletion = true;
+    assert.deepEqual(errors(external), []);
 });
 test('audit follows earned traits and allows a conversation hub with an exit', () => {
     assert.deepEqual(errors(scene([page([{ text: 'Take key', nextPage: 1, trait: 'key' }]), page([{ text: 'Leave', nextPage: 1, requireTrait: 'key' }])])), []);
@@ -38,6 +45,13 @@ test('short dialogue stays advisory; unresolved variables and duplicate identiti
 test('whole corpus passes structural checks; sampling is repeatable and spans families and villages', () => {
     const corpus = buildCorpus();
     assert.deepEqual(auditScenes(corpus).filter(f => f.severity === 'error'), []);
+    const gathering = corpus.filter(s => s.family === 'gathering');
+    const expectedGatheringIds = Object.keys(FIND_SCENES).flatMap(biome =>
+        [false, true].flatMap(rareTrace => [false, true].map(repeat =>
+            `gathering/${biome}/${rareTrace ? 'trace' : 'common'}/${repeat ? 'repeat' : 'first'}`)));
+    assert.deepEqual(gathering.map(s => s.id).sort(), expectedGatheringIds.sort());
+    assert.deepEqual(auditScenes(gathering).filter(f => f.severity === 'error'), []);
+    assert.deepEqual(auditScenes(gathering).filter(f => f.code === 'repeated-line'), [], 'runtime variants of the same gathering scene should not create duplicate-copy warnings');
     const sample = sampleScenes(corpus, 26, 20260919);
     assert.deepEqual(sample.map(s => s.id), sampleScenes(corpus, 26, 20260919).map(s => s.id));
     assert.equal(new Set(sample.map(s => s.family)).size, new Set(corpus.map(s => s.family)).size);
