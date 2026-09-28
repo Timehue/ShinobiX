@@ -22,7 +22,7 @@ export function ToastStacksContent({ achievementToasts, missionToasts, onDismiss
                                     onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                 />
-                                <span className="achievement-toast-emoji" aria-hidden>{a.icon}</span>
+                                <GameArtIcon className="achievement-toast-fallback" kind="crown" size={34} />
                             </div>
                             <div className="achievement-toast-body">
                                 <span className="achievement-toast-label">

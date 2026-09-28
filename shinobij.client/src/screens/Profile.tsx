@@ -8,6 +8,7 @@ import "../styles/training-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 // Currency lines reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
 const PF_COST = { verticalAlign: "-2px", marginRight: "3px" } as const;
 import type { GameItem, Jutsu, SavedBloodline, Stats } from "../types/combat";
 import { ACHIEVEMENTS, ACHIEVEMENT_CATEGORY_ORDER, achievementReward, isAchievementUnlocked, type Achievement, type AchievementCategory } from "../constants/achievements";
@@ -949,7 +950,7 @@ export function Profile({
                                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                                             />
-                                            <span className="achievement-emoji" aria-hidden>{a.icon}</span>
+                                            <GameArtIcon className="achievement-emoji" kind="crown" size={26} />
                                         </div>
                                         <div className="achievement-meta">
                                             <strong>{a.name}</strong>
