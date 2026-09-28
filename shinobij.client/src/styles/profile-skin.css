@@ -1623,8 +1623,8 @@
     z-index: 1;
 }
 .profile-page-card .achievement-emoji {
-    font-size: 20px;
-    line-height: 1;
+    position: relative;
+    z-index: 0;
 }
 .profile-page-card .achievement-meta {
     display: flex;
