@@ -85,6 +85,9 @@ const BIOME: Record<string, { color: string; icon: GameArtIconKind }> = {
     central: { color: "var(--slate-300)", icon: "biomeCentral" },
     shadow: { color: "#a78bfa", icon: "biomeShadow" },
 };
+const SPIRE_BLESSING_ART: Record<string, GameArtIconKind> = {
+    vigor: "vitality", falter: "guard", trial: "training", waning: "biomeShadow", tailwind: "elementWind",
+};
 
 function readableTowerSlug(value: string): string {
     return value.replace(/-/g, " ").replace(/\b\w/g, character => character.toUpperCase());
@@ -684,7 +687,7 @@ function SpireLadder({
             {/* Weekly Blessing — this week's player-favourable affix, telegraphed up front */}
             {affix && (
                 <div className="spire-blessing" title={affix.blurb}>
-                    <span className="spire-blessing-icon">{affix.icon}</span>
+                    <span className="spire-blessing-icon"><GameArtIcon kind={SPIRE_BLESSING_ART[affix.id] ?? "crown"} size={24} /></span>
                     <span className="spire-blessing-body">
                         <span className="spire-blessing-label">This Week's Blessing</span>
                         <span className="spire-blessing-name">{affix.name}</span>
