@@ -101,6 +101,9 @@ for (const { action, failure } of statCases) {
         await page.evaluate(() => document.fonts.ready);
         const speed = page.getByRole('button', { name: /^Speed/ });
         await speed.click();
+        // Selecting a stat opens the timer picker. Active sessions are
+        // controlled from the screen behind it, so close the picker first.
+        if (action !== 'start') await page.getByRole('button', { name: 'Close', exact: true }).click();
         const control = page.getByRole('button', { name: action === 'start'
             ? /Start 15 Minutes/
             : action === 'collect' ? 'Collect Training' : 'Cancel (keep prorated stats)', exact: action !== 'start' });
@@ -119,6 +122,7 @@ for (const { action, failure } of statCases) {
         if (action === 'cancel') expect(requests[0].cancel).toBe(true);
         await dismissStatNotice(page, notice);
         await expect(control).toBeEnabled();
+        if (action === 'start') await page.getByRole('button', { name: 'Close', exact: true }).click();
         await expect(speed).toHaveAttribute('aria-pressed', 'true');
         await expect(page.locator('.training-feedback')).toHaveCount(0);
         if (action !== 'start') await expect(page.locator('.training-screen .summary-box')).toContainText('15 Minutes Strength');

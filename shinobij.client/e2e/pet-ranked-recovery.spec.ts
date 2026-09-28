@@ -140,10 +140,16 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
         }
         await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: showdownLoadTimeout });
         if (withoutWebGL2 && actionLine) {
-            // Spoken with its damage, and before the verdict beat replaced it.
+            // Spoken with the sealed action's effects, before the verdict beat replaces it.
             const lines = (await announcements()).map(entry => entry.text);
             const spoken = lines.findIndex(line => line.includes(actionLine));
-            expect(lines[spoken]).toContain('takes');
+            if (firstAction?.t !== 'action') throw new Error('The real ranked fixture must contain an action.');
+            for (const target of firstAction.targets) {
+                const effect = target.damage > 0 ? `takes ${target.damage}`
+                    : target.heal > 0 ? `recovers ${target.heal}`
+                        : target.applied ? `is ${target.applied}` : 'takes nothing';
+                expect(lines[spoken]).toContain(effect);
+            }
             expect(spoken).toBeLessThan(lines.findIndex(line => line.startsWith(`${verdict}.`)));
             // Warming follows the same probe as mounting: a stage that cannot
             // draw a model never waits on downloading one.
