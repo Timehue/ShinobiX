@@ -204,6 +204,9 @@ test('stable rows, scrolling, status updates and target departure', async ({page
 
 test('a failed roster update is read only and recovery does not reopen a closed panel',async({page})=>{
     await boot(page,1);
+    // Hold this failed roster state until the test explicitly restores it.
+    // A periodic heartbeat would otherwise replace it before the UI assertion.
+    await page.route('**/api/player/heartbeat', route => route.fulfill({json:{ok:true,sector:22}}));
     await page.evaluate(async()=>{const store=await import('/src/lib/presence-store.ts');store.markSectorRosterUnavailable(22);});
     await expect(page.getByRole('button',{name:'Attack Shinobi001'})).toBeDisabled();
     await expect(page.getByText('Waiting for a current sector roster.')).toBeVisible();
