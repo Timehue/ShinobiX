@@ -176,7 +176,7 @@ export function DungeonEncounter({
             right={{ name: actorName, image: actorImage, initials: actorName.split(' ').map(part => part[0]).join('').slice(0, 2),
                 speaking: speakerKey === actorName.trim().toLowerCase(), hidden: !actorImage }}
             presentation={{ ...presentation, ...(stageBackdrop ? { backgroundImage: stageBackdrop } : {}) }}
-            allowStageAdvance={!isLastLine} decisionPoint={isLastLine}
+            allowStageAdvance={!isLastLine}
             onAdvance={nextLine} onCancel={onLeave} cancelLabel="Leave"
             renderFooter={(typingDone) => <div className="cvn-dungeon-footer">
                 <p className="cvn-dungeon-reward">Level {event.levelReq} · Clear all 3 seals: {rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards)}</p>

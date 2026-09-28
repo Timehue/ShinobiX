@@ -12,10 +12,8 @@ import {
 import { createPortal } from "react-dom";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
-import { isAudioMuted } from "../lib/pet-music";
-import { playVnCue, startVnAmbience, stopVnAmbience } from "../lib/vn-cinematic-sfx";
+import { startVnAmbience, stopVnAmbience } from "../lib/vn-cinematic-sfx";
 import {
-    duckVnScore,
     resolveVnScoreKey,
     startVnScore,
     stopVnScore,
@@ -170,7 +168,6 @@ export function CinematicVisualNovelStage({
     presentation,
     surface = "immersive",
     allowStageAdvance,
-    decisionPoint = false,
     onAdvance,
     onCancel,
     cancelLabel = "Skip",
@@ -192,7 +189,6 @@ export function CinematicVisualNovelStage({
     presentation: ResolvedVnPresentation;
     surface?: "immersive" | "preview";
     allowStageAdvance: boolean;
-    decisionPoint?: boolean;
     onAdvance: () => void;
     onCancel: () => void;
     cancelLabel?: string;
@@ -208,7 +204,6 @@ export function CinematicVisualNovelStage({
     const textKey = `${eventId}:${pageIndex}:${lineIndex}:${spoken}`;
     const [typed, setTyped] = useState<VnTypedState>({ key: "", count: 0 });
     const [settingsOpenKey, setSettingsOpenKey] = useState("");
-    const cuePlayedRef = useRef("");
     const lastCompleteRef = useRef(0);
     const rootRef = useRef<HTMLDivElement>(null);
     const settingsMenuId = useId();
@@ -255,20 +250,10 @@ export function CinematicVisualNovelStage({
         return () => window.clearInterval(id);
     }, [instant, speed, spoken, textKey]);
 
-    const effectiveCue = decisionPoint && typingDone ? "decision" : presentation.cue;
-    const cueKey = `${eventId}:${pageIndex}:${lineIndex}:${effectiveCue}`;
-    const fireCue = useCallback(() => {
-        if (effectiveCue === "none" || isAudioMuted() || cuePlayedRef.current === cueKey) return;
-        cuePlayedRef.current = cueKey;
-        duckVnScore(effectiveCue);
-        playVnCue(effectiveCue);
-    }, [cueKey, effectiveCue]);
-
     useEffect(() => {
         startVnAmbience(presentation.ambience);
         startVnScore(scoreKey);
-        fireCue();
-    }, [fireCue, presentation.ambience, scoreKey]);
+    }, [presentation.ambience, scoreKey]);
 
     useEffect(() => () => {
         stopVnAmbience(700);
@@ -315,14 +300,13 @@ export function CinematicVisualNovelStage({
     const advance = useCallback(() => {
         startVnAmbience(presentation.ambience);
         startVnScore(scoreKey);
-        fireCue();
         if (!typingDone) {
             completeTyping();
             return;
         }
         if (!allowStageAdvance || Date.now() - lastCompleteRef.current < 240) return;
         onAdvance();
-    }, [allowStageAdvance, completeTyping, fireCue, onAdvance, presentation.ambience, scoreKey, typingDone]);
+    }, [allowStageAdvance, completeTyping, onAdvance, presentation.ambience, scoreKey, typingDone]);
 
     useEffect(() => {
         if (!autoRead || !typingDone || !allowStageAdvance || settingsOpen) return;

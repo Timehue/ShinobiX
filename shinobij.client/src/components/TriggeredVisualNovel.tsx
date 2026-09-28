@@ -571,7 +571,6 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             presentation={presentation}
             surface={surface}
             allowStageAdvance={!pendingChoice && !isAtChoicePoint}
-            decisionPoint={isAtChoicePoint && !pendingChoice}
             onAdvance={nextLine}
             onCancel={cancelScene}
             renderFooter={(typingDone) => {
