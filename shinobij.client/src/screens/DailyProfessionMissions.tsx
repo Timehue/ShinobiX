@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { visiblePoll } from "../lib/poll";
 import { LoadingState } from "../components/ui/LoadingState";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { readDailyMissionCache, writeDailyMissionCache } from "../lib/daily-mission-cache";
 import type { Character, Profession } from "../App";
 
@@ -140,7 +141,7 @@ export function DailyProfessionMissions({ character, headquarters = false }: { c
         <section className="card profession-daily-card" aria-labelledby="profession-daily-heading" style={{ border: `1px solid ${accent}55`, marginBottom: "1rem", "--profession-accent": accent } as CSSProperties}>
             {headquarters && <span className="ph-eyebrow">The daily commission</span>}
             <h3 id="profession-daily-heading" style={{ marginTop: 0, color: accent }}>
-                {headquarters ? "Orders for today" : isNewbie ? "📜 Daily Missions" : `📜 Daily ${label} Missions`}
+                {headquarters ? "Orders for today" : <><GameArtIcon kind="mission" size={20} /> {isNewbie ? "Daily Missions" : `Daily ${label} Missions`}</>}
             </h3>
             {loading && <LoadingState />}
             {error && <p style={{ color: "var(--red-400)" }}>{error}</p>}

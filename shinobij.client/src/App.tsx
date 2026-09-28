@@ -4558,7 +4558,7 @@ export default function App() {
         }
         // Lock: cannot leave hospital while still admitted
         if (isHospitalNavigationBlocked(!!(authoritativeCharacter ?? character)?.hospitalized, screen, nextScreen)) {
-            alert("🏥 You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
+            alert("You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
             return;
         }
         // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)
@@ -6382,7 +6382,7 @@ export default function App() {
 
                             if (projection.bounty) {
                                 requirePvpContinuation(activeContinuation);
-                                gameToast(`💰 Bounty: +${projection.bounty.amount.toLocaleString()} ryo for defeating ${projection.bounty.target}!`);
+                                gameToast(`Bounty: +${projection.bounty.amount.toLocaleString()} ryo for defeating ${projection.bounty.target}!`);
                             }
                             for (const mission of projection.missionCompletions ?? []) {
                                 requirePvpContinuation(activeContinuation);

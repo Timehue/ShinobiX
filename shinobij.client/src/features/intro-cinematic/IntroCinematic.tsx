@@ -560,7 +560,7 @@ export function IntroCinematic({
                         <h2 className="icx-choose-title">Choose Your Companion</h2>
                         <p className="icx-choose-sub">
                             One spirit for each nature. Each beats one element and is weak to
-                            another: 🔥 → 🌬️ → ⚡ → 🪨 → 💧 → 🔥
+                            another: <span style={{ display: "inline-flex", alignItems: "center", gap: 3, verticalAlign: "middle" }}><GameArtIcon kind="elementFire" size={16} /> → <GameArtIcon kind="elementWind" size={16} /> → <GameArtIcon kind="elementLightning" size={16} /> → <GameArtIcon kind="elementEarth" size={16} /> → <GameArtIcon kind="elementWater" size={16} /> → <GameArtIcon kind="elementFire" size={16} /></span>
                         </p>
                     </div>
                     <div className="icx-pet-grid">

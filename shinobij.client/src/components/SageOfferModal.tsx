@@ -132,7 +132,7 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                     legacyName: picked.name,
                     text: result.intro
                         ?? "Then walk forward. Your first trial has already begun.",
-                    hint: "Your trial is already underway. Track it anytime in Profile → 🌠 Legacy.",
+                    hint: "Your trial is already underway. Track it anytime in Profile → Legacy.",
                     ...(chronicleRecord ? { chronicleRecord } : {}),
                 });
             } else if (result?.reason === "no-offer") {

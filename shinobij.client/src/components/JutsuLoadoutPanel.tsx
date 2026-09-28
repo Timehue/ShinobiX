@@ -12,6 +12,7 @@ import { resolveLoadoutLensDiscipline } from "../lib/jutsu-loadout-lens";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
+import { GameArtIcon } from "./GameArtIcon";
 import { hasBloodlineMarker } from "../lib/bloodline-marker";
 
 type JutsuCollectionSort = "default" | "name" | "level" | "ap" | "element" | "bloodline";
@@ -399,7 +400,7 @@ export function JutsuLoadoutPanel({
                                 return (
                                     <div className="jutsu-loadout-slot is-locked" key={slotIndex}>
                                         <span className="jutsu-slot-number">{slotIndex + 1}</span>
-                                        <span className="jutsu-lock-icon">🔒</span>
+                                        <span className="jutsu-lock-icon"><GameArtIcon kind="key" size={18} /></span>
                                         <span className="jutsu-lock-crown">♛</span>
                                         <strong>Subscriber Slot</strong>
                                         <small>Unlocks with subscription</small>

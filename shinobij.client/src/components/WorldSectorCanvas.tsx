@@ -157,7 +157,7 @@ export function WorldSectorCanvas({
                                             {player.avatarImage
                                                 ? <img className="tiny-map-avatar other-player-map-avatar" src={player.avatarImage} alt={player.name} onError={(event) => { event.currentTarget.style.display = "none"; }} />
                                                 : <span className="other-player-map-emoji"><GameArtIcon kind="roleAssassin" size={20} title={`${player.name}, shinobi`} /></span>}
-                                            <span className="other-player-map-name">{player.name}{player.sleeping ? " 💤" : ""}</span>
+                                            <span className="other-player-map-name">{player.name}{player.sleeping && <> <GameArtIcon kind="biomeShadow" size={12} title="Sleeping" /></>}</span>
                                         </div>
                                     ))}
                                 </div>

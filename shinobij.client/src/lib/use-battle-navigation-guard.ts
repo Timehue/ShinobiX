@@ -111,11 +111,11 @@ export function useBattleNavigationGuard({
 
     const goBack = useCallback(() => {
         if (inBattleRef.current) {
-            alert("⚔️ You cannot leave during a battle. Finish the fight first!");
+            alert("You cannot leave during a battle. Finish the fight first!");
             return;
         }
         if (hospitalized && screen === "hospital") {
-            alert("🏥 You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
+            alert("You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
             return;
         }
         setScreenHistory(previous => {

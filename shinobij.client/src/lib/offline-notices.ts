@@ -49,19 +49,16 @@ export function parseOfflineNotices(notices: unknown): OfflineNotice[] {
     return Array.isArray(notices) ? notices.filter(isNotice) : [];
 }
 
-// ── Emoji vocabulary ────────────────────────────────────────────────────────
-// One glyph per FAMILY, not per event. `☠` (bounty collected) and `⚔️` (camp
-// ambush) used to read as two near-duplicate "you were killed" marks; the
-// bounty pair now shares the coin, and both violent camp events share the
-// blades, so four glyphs cover the whole inbox.
+// ── Game-art vocabulary ─────────────────────────────────────────────────────
+// One semantic art key per family, shared with the digest's painted icon map.
 const NOTICE_ICON: Record<OfflineNoticeKind, string> = {
-    'village-unfed': '🍚',
-    'kage-seat-lost': '👑',
-    'kage-challenge-refunded': '👑',
-    'bounty-placed': '💰',
-    'bounty-claimed': '💰',
-    'merc-raid': '⚔️',
-    'sleeper-kill': '⚔️',
+    'village-unfed': 'rations',
+    'kage-seat-lost': 'crown',
+    'kage-challenge-refunded': 'crown',
+    'bounty-placed': 'ryo',
+    'bounty-claimed': 'ryo',
+    'merc-raid': 'attack',
+    'sleeper-kill': 'attack',
 };
 
 /** The one kind that asks the player to DO something — it sorts to the top. */
@@ -122,9 +119,9 @@ export function offlineNoticeBody(n: OfflineNotice): string {
     return `While you slept in Sector ${n.sector}, ${who} ambushed your camp. You were carried to the hospital.`;
 }
 
-/** Icon + body, for any caller that still wants a single notice as one string. */
+/** Plain-text notice for alert or fallback callers; the modal paints the icon. */
 export function offlineNoticeMessage(n: OfflineNotice): string {
-    return `${NOTICE_ICON[n.kind]} ${offlineNoticeBody(n)}`;
+    return offlineNoticeBody(n);
 }
 
 // ── Digest ──────────────────────────────────────────────────────────────────
@@ -176,9 +173,9 @@ export function buildOfflineNoticeDigest(notices: unknown, now: number = Date.no
     };
 }
 
-/** One rendered line per notice: "💰 2d ago — Kenji collected the …". */
+/** One readable plain-text line per notice; the modal adds its painted icon. */
 export function offlineNoticeDigestLines(digest: OfflineNoticeDigest): string[] {
-    return digest.entries.map((e) => (e.when ? `${e.icon} ${e.when} — ${e.text}` : `${e.icon} ${e.text}`));
+    return digest.entries.map((e) => (e.when ? `${e.when} — ${e.text}` : e.text));
 }
 
 /** The whole digest as one plain-text block, for the alert() fallback path. */

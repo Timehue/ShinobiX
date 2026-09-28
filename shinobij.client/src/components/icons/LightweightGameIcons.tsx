@@ -1,5 +1,6 @@
 import React, { type CSSProperties, type ReactElement } from "react";
 import { GameIcon, type GameIconName } from "./GameIcon";
+import { GameArtIcon, type GameArtIconKind } from "../GameArtIcon";
 
 /**
  * Lightweight compatibility layer for the small fantasy-icon vocabulary used
@@ -32,6 +33,12 @@ function gameGlyph(name: GameIconName): IconType {
     };
 }
 
+function artGlyph(kind: GameArtIconKind): IconType {
+    return function LightweightGameArtIcon({ className, size = "1em", style, title }) {
+        return <GameArtIcon className={className} kind={kind} size={size} style={style} title={title} />;
+    };
+}
+
 function pathGlyph(path: string, options: { fill?: boolean; strokeWidth?: number } = {}): IconType {
     return function LightweightPathIcon({ className, color, size = "1em", style, title }) {
         const labelled = Boolean(title);
@@ -58,44 +65,45 @@ function pathGlyph(path: string, options: { fill?: boolean; strokeWidth?: number
     };
 }
 
-const attack = gameGlyph("sword");
-const bag = gameGlyph("bag");
-const bone = gameGlyph("bone");
-const chakra = gameGlyph("chakra");
+const attack = artGlyph("attack");
+const bag = artGlyph("supply");
+const bone = artGlyph("boneCharm");
+const chakra = artGlyph("auraStone");
 const clock = gameGlyph("clock");
-const crystal = gameGlyph("crystal");
-const defense = gameGlyph("shield");
-const dice = gameGlyph("dice");
-const fire = pathGlyph("M13.3 2.5c.5 3-1.7 4.3-1.7 6.2 0 1.2.8 2.1 1.9 2.1 1.8 0 2.8-1.7 2.5-3.6 2.4 2 3.8 4.6 3.8 7.1 0 3.8-3 6.7-7.1 6.7s-7.1-2.9-7.1-6.7c0-3.1 1.9-6 5.5-8.5-.2 2.6.8 4.1 2.2 4.1 1.7 0 3-2.1 3.8-5.2Z", { fill: true });
-const gift = gameGlyph("gift");
-const health = gameGlyph("hp");
+const crystal = artGlyph("auraStone");
+const defense = artGlyph("guard");
+const dice = artGlyph("dice");
+const fire = artGlyph("elementFire");
+const gift = artGlyph("reward");
+const health = artGlyph("vitality");
 // Rations and the starvation warning get their OWN glyphs. They used to alias
 // the hp heart and the ownership flag, which put three meanings on one shape on
 // the Village War Map (rations / HP / hearts) and made "marches hungry" read
 // as a planted banner on a territory-control map.
-const rations = gameGlyph("rations");
-const hazard = gameGlyph("hazard");
-const map = gameGlyph("map");
-const medal = gameGlyph("medal");
+const rations = artGlyph("rations");
+const hazard = artGlyph("warning");
+const map = artGlyph("map");
+const medal = artGlyph("crown");
 const menu = gameGlyph("menu");
-const moon = gameGlyph("moon");
-const paw = gameGlyph("paw");
-const person = gameGlyph("person");
-const ryo = gameGlyph("ryo");
-const scroll = gameGlyph("scroll");
-const sigil = gameGlyph("sigil");
-const snow = gameGlyph("snow");
-const sparkle = gameGlyph("sparkle");
-const speed = gameGlyph("bolt");
-const strength = gameGlyph("dumbbell");
-const target = gameGlyph("target");
-const tower = gameGlyph("tower");
-const travel = gameGlyph("gate");
+const moon = artGlyph("biomeShadow");
+const paw = artGlyph("petTamer");
+const person = artGlyph("roleDefender");
+const ryo = artGlyph("ryo");
+const scroll = artGlyph("scroll");
+const sigil = artGlyph("roleSage");
+const snow = artGlyph("biomeSnow");
+const sparkle = artGlyph("auraStone");
+const speed = artGlyph("speed");
+const strength = artGlyph("training");
+const target = artGlyph("roleTracker");
+const tower = artGlyph("clanHall");
+const coliseum = artGlyph("arena");
+const travel = artGlyph("gate");
 
-const book = pathGlyph("M4 5.5c2.7-.9 5.3-.4 8 1.2v13c-2.7-1.6-5.3-2.1-8-1.2v-13Zm16 0c-2.7-.9-5.3-.4-8 1.2v13c2.7-1.6 5.3-2.1 8-1.2v-13Z");
+const book = artGlyph("scroll");
 const chat = pathGlyph("M4 4.5h16v11H9l-5 4v-15Z");
 const close = pathGlyph("m6 6 12 12M18 6 6 18", { strokeWidth: 2.2 });
-const crown = pathGlyph("m3.5 7 4.5 4 4-6 4 6 4.5-4-2 11h-12l-2-11Z");
+const crown = artGlyph("crown");
 const eye = pathGlyph("M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Zm9.5-2.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5Z");
 const exit = pathGlyph("M10 4H5v16h5M13 8l4 4-4 4M8 12h9");
 const flag = pathGlyph("M5 21V4m0 1h11l-2 3 2 3H5");
@@ -104,7 +112,7 @@ const lock = pathGlyph("M7 10V7a5 5 0 0 1 10 0v3m-11 0h12v10H6V10Z");
 const speaker = pathGlyph("M4 10h4l5-4v12l-5-4H4v-4Zm12-1c1.3 1.7 1.3 4.3 0 6m2.5-8.5c2.7 3.1 2.7 7.9 0 11");
 const speakerOff = pathGlyph("M4 10h4l5-4v5m0 4v3l-5-4H4v-4Zm12-5 5 5m0-5-5 5M3 3l18 18");
 const trash = pathGlyph("M5 7h14M9 7V4h6v3m2 0-1 13H8L7 7m3 4v5m4-5v5");
-const trophy = pathGlyph("M8 4h8v4c0 3-1.6 5-4 5s-4-2-4-5V4Zm0 2H4v2c0 2 1.5 3.5 4 3.5M16 6h4v2c0 2-1.5 3.5-4 3.5M12 13v4m-4 3h8m-6-3h4");
+const trophy = artGlyph("crown");
 
 export {
     clock as GiAlarmClock,
@@ -133,7 +141,7 @@ export {
     chat as GiChatBubble,
     gift as GiChest,
     paw as GiClawSlashes,
-    tower as GiColiseum,
+    coliseum as GiColiseum,
     map as GiCompass,
     attack as GiCrossedSwords,
     crown as GiCrown,

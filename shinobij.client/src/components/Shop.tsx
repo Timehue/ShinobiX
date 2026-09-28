@@ -16,6 +16,7 @@ import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, c
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
+import { GameArtIcon } from "./GameArtIcon";
 import { CentralDestinationHeader } from "./CentralDestinationHeader";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { GameItem, EquipmentSlot } from "../types/combat";
@@ -286,7 +287,7 @@ function ShopBase({
                                             : isConsumable(item) ? "Consumable" : equipmentSlotLabel(item.slot)}</small>
 
                                         {levelLocked
-                                            ? <small style={{ color: "#ef4444", fontWeight: "bold" }}>🔒 Lv.{effectiveItemLevelReq(item)} Required</small>
+                                            ? <small style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#ef4444", fontWeight: "bold" }}><GameArtIcon kind="key" size={13} /> Lv.{effectiveItemLevelReq(item)} Required</small>
                                             : <small style={{ fontWeight: "bold" }}>{currencyIcon} {finalCost} {currencyLabel}{shopDiscountPercent > 0 ? ` (was ${item.cost})` : ""}{owned ? " — Owned" : ""}</small>
                                         }
 

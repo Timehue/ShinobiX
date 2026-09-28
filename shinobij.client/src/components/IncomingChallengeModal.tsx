@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import type { DuelChallenge } from "../App";
+import { GameArtIcon } from "./GameArtIcon";
 import "./IncomingChallengeModal.css";
 
 /**
@@ -55,7 +56,7 @@ export function IncomingChallengeModal({
     return createPortal(
         <div className="ic-backdrop" role="presentation">
             <div className="ic-card" role="alertdialog" aria-modal="true" aria-label="Incoming challenge">
-                <div className="ic-glyph" aria-hidden="true">⚔️</div>
+                <div className="ic-glyph" aria-hidden="true"><GameArtIcon kind="attack" size={42} /></div>
                 <div className="ic-kicker">{officialKage ? "Official Kage challenge" : "Challenge"}</div>
 
                 <div className="ic-body">

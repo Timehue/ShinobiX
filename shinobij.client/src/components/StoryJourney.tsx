@@ -17,9 +17,8 @@ import { GameIcon, type GameIconName } from "./icons/GameIcon";
 import "../styles/story-archive-guidance.css";
 
 /* The archive entry icons live in the LOCKED story data as each village's
-   element emoji. Rendering maps them onto the matching village glyphs from the
-   icon package (the no-emoji-icon rule); an icon the map doesn't know renders
-   as authored, so custom content keeps whatever it declared. */
+   element emoji. Rendering maps them onto the matching painted village art;
+   unexpected custom content falls back to the archive's painted scroll mark. */
 const ARCHIVE_ICON_GLYPH: Record<string, GameIconName> = {
     "⚡": "bolt",
     "❄": "snow",
@@ -29,7 +28,7 @@ const ARCHIVE_ICON_GLYPH: Record<string, GameIconName> = {
 
 function ArchiveIcon({ icon }: { icon: string }) {
     const glyph = ARCHIVE_ICON_GLYPH[icon];
-    return glyph ? <GameIcon name={glyph} size={18} /> : <>{icon}</>;
+    return <GameIcon name={glyph ?? "scroll"} size={18} />;
 }
 
 type StoryJourneyProps = { character: Character; onReturnToVillage?: () => void; onResumeStory?: () => void; sharedImages?: Record<string, string> };

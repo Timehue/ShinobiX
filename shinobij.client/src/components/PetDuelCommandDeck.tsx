@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DuelControlSnap } from "../lib/pet-duel-cinematic";
 import { DUEL_COMMAND_FULL } from "../lib/pet-duel-cinematic";
 import { BOND_FULL } from "../lib/pet-bond-meter";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 
 export type PetDuelCommandDeckProps = {
     control: DuelControlSnap | null;
@@ -16,13 +17,13 @@ export type PetDuelCommandDeckProps = {
 
 type Technique = DuelControlSnap["abilities"][number] & { idx: number };
 
-function techniqueRole(move: Technique): { label: string; glyph: string; color: string; effect: string } {
-    if (move.support) return { label: "Rally", glyph: "✦", color: "#34d399", effect: "Cleanse + Aegis" };
-    if (move.isMove) return { label: "Shift", glyph: "➜", color: "#a78bfa", effect: "Phase + Empower" };
+function techniqueRole(move: Technique): { label: string; art: GameArtIconKind; color: string; effect: string } {
+    if (move.support) return { label: "Rally", art: "reward", color: "#34d399", effect: "Cleanse + Aegis" };
+    if (move.isMove) return { label: "Shift", art: "speed", color: "#a78bfa", effect: "Phase + Empower" };
     if (["stun", "freeze", "confuse", "movelock", "slow", "debuff", "crush", "push", "pull", "mark", "taunt"].includes(move.kind)) {
-        return { label: "Counter", glyph: "◇", color: "#60a5fa", effect: "Interrupt + Stagger" };
+        return { label: "Counter", art: "guard", color: "#60a5fa", effect: "Interrupt + Stagger" };
     }
-    return { label: "Punish", glyph: "⚔", color: "#fbbf24", effect: "Critical + Armor Break" };
+    return { label: "Punish", art: "attack", color: "#fbbf24", effect: "Critical + Armor Break" };
 }
 
 export function PetDuelCommandDeck({
@@ -209,7 +210,7 @@ export function PetDuelCommandDeck({
                                     >
                                         <span aria-hidden style={{ position: "absolute", inset: 0, width: "34%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,.16),transparent)", animation: "petCommandSheen 1700ms linear infinite", animationDelay: `${slot * 180}ms` }} />
                                         <span style={{ position: "relative", display: "block", color: role.color, font: "900 8px/1 Inter,sans-serif", letterSpacing: ".13em", textTransform: "uppercase" }}>
-                                            {role.glyph} {role.label}{keyboard ? ` · ${slot + 1}` : ""}
+                                            <GameArtIcon kind={role.art} size={13} /> {role.label}{keyboard ? ` · ${slot + 1}` : ""}
                                         </span>
                                         <span style={{ position: "relative", display: "block", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", font: `900 ${compact ? 10 : 12}px/1 var(--font-display),Inter,sans-serif` }}>
                                             {move.name}

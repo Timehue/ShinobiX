@@ -21,6 +21,7 @@ import type { Character } from "../types/character";
 import { Modal } from "./ui/Modal";
 import { Button } from "./ui/Button";
 import { LATEST_PATCH_NOTE } from "../data/patch-notes";
+import { GameArtIcon } from "./GameArtIcon";
 import "./PatchNotesModal.css";
 
 const SEEN_KEY = "patchNotes.lastSeenVersion.v1";
@@ -73,7 +74,7 @@ export function PatchNotesModal({ character, storyActive }: { character: Charact
     const note = LATEST_PATCH_NOTE;
 
     return (
-        <Modal open={open && !storyActive} onClose={close} title={`📜 ${note.title}`} size="lg">
+        <Modal open={open && !storyActive} onClose={close} title={<span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><GameArtIcon kind="scroll" size={18} />{note.title}</span>} size="lg">
             <div className="patch-notes">
                 <p className="patch-notes-date">{note.date}</p>
                 {note.intro && <p className="patch-notes-intro">{note.intro}</p>}
