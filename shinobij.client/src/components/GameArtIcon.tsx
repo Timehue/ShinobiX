@@ -27,7 +27,6 @@ import facilityTownHall from "../assets/village-icons/townhall.webp";
 import facilityBank from "../assets/village-icons/bank.webp";
 import facilityTraining from "../assets/village-icons/stat-training.webp";
 import facilityHospital from "../assets/village-icons/hospital.webp";
-import facilityPetYard from "../assets/village-icons/pet-yard.webp";
 import facilityWorldMap from "../assets/village-icons/world-map.webp";
 
 export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "mission" | "ryo" | "fateShard" | "boneCharm"
@@ -36,7 +35,7 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "biomeForest" | "biomeSnow" | "biomeVolcano" | "biomeCentral" | "biomeShadow"
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
-    | "townHall" | "bank" | "training" | "hospital" | "petYard" | "worldMap"
+    | "townHall" | "bank" | "training" | "hospital" | "worldMap"
     | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event";
 
 const ART: Record<GameArtIconKind, string> = {
@@ -59,7 +58,7 @@ const ART: Record<GameArtIconKind, string> = {
     scroll: "/items/item-territory-control-scroll-v1.webp",
     clanHall: facilityClanHall, rations: facilityCafeteria,
     townHall: facilityTownHall, bank: facilityBank, training: facilityTraining,
-    hospital: facilityHospital, petYard: facilityPetYard, worldMap: facilityWorldMap,
+    hospital: facilityHospital, worldMap: facilityWorldMap,
     auraStone: "/items/shop-aura-sphere-v1.webp",
     reward: "/items/village-supply-crate-v1.webp",
     potion: "/items/shop-rejuvenation-potion-v1.webp",

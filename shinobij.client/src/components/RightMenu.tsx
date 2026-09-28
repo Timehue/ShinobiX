@@ -23,7 +23,7 @@ import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs mirror the mobile nav without a second icon library.
-import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiPremiumShop, GiSettings } from "./icons/LightweightGameIcons";
+import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiSettings, GiShop } from "./icons/LightweightGameIcons";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -110,7 +110,7 @@ export const RightMenu = memo(function RightMenu({
                             <div className="right-menu-section-grid">
                                 <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
                                 <button onClick={() => window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiDiscord size={16} /></span><span className="right-menu-action-label">Discord</span></button>
-                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiPremiumShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
+                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
                             </div>
                         </section>
                         <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">

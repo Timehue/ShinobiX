@@ -1623,9 +1623,29 @@ body.coach-banner-open .coach-guide-actions .location-button {
 }
 
 .app-shell:not(.screen-start) .right-menu-action-icon > svg {
-  width: 13px;
-  height: 13px;
-  opacity: 0.9;
+  width: 16px;
+  height: 16px;
+  opacity: 1;
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon > svg[data-game-icon="envelope"] {
+  color: #86e4ee;
+  filter: drop-shadow(0 0 3px rgba(91, 218, 231, 0.34));
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon > svg[data-game-icon="discord"] {
+  color: #a8bdff;
+  filter: drop-shadow(0 0 3px rgba(133, 154, 255, 0.36));
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon > svg[data-game-icon="admin"] {
+  color: #f0cb76;
+  filter: drop-shadow(0 0 3px rgba(240, 203, 118, 0.32));
+}
+
+.app-shell:not(.screen-start) .right-menu-action-icon > svg[data-game-icon="settings"] {
+  color: #add4df;
+  filter: drop-shadow(0 0 3px rgba(122, 192, 206, 0.34));
 }
 
 .app-shell:not(.screen-start) .right-menu-action-label {
