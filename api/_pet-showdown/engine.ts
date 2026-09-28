@@ -119,8 +119,8 @@ export interface ShowdownMove {
     /** The technique's OWN element. Kit/signature moves carry the pet's;
      *  the universal basic is "None" (no STAB, wheel-neutral both ways). */
     element: string;
-    /** Physical rides ATK vs DEF; special rides the role-derived special
-     *  axis; status deals no direct hit. Derived from `kind` at seal. */
+    /** Tackle rides ATK vs DEF; elemental attacks ride the role-derived
+     *  special axis; the tactical slot is status. */
     cls: ShowdownMoveClass;
     /** Ally element that empowers this technique (ally synergy). */
     synergyElement?: string;
@@ -607,7 +607,7 @@ export function moveHold(power: number, kind = 'damage'): number {
  *  the most efficient, so nothing else was ever worth casting. */
 export function promoteHeavy(moves: ShowdownMove[], rarity: string): ShowdownMove[] {
     let bestIdx = -1;
-    // Start at 1: the universal Swift Strike at index 0 is NEVER promoted. It is
+    // Start at 1: the universal Tackle at index 0 is NEVER promoted. It is
     // defined as the play you can always afford, and promoting it would give it
     // a round-one hold and heavy pricing. Three catalog species (the whole Water
     // starter line) carry kits of barrier + heal only, so they have no eligible
@@ -665,12 +665,36 @@ const ROLE_SPECIAL_LEAN: Record<string, { atk: number; def: number }> = {
     defender: { atk: 1.0, def: 1.02 },
 };
 
-/** Technique class from the move's KIND — the physical/special split, derived
- *  so no catalog data changes anywhere. Contact kinds ride ATK vs DEF;
- *  elemental/energetic kinds ride the role-derived special axis; anything that
- *  deals no direct hit is status. */
+/** Default technique class for moves outside the sealed four-slot kit. The
+ *  regular elemental slots explicitly use the special axis; Tackle and the
+ *  tactical slot keep their physical/status roles. */
 const PHYSICAL_KINDS = new Set(['crush', 'wound', 'push', 'pull', 'pivot', 'lifesteal']);
 const SPECIAL_KINDS = new Set(['damage', 'burn', 'dot', 'freeze']);
+/** The two regular elemental slots are the moves whose KIND_FX resolves an
+ *  immediate hit. Their combat class is sealed as special, even when the
+ *  catalog's move kind normally rides the physical axis. */
+const ELEMENTAL_ATTACK_KINDS = new Set([
+    'damage', 'crush', 'wound', 'push', 'pull', 'pivot', 'lifesteal',
+    'dot', 'burn', 'freeze', 'confuse', 'stun', 'debuff', 'mark', 'slow', 'movelock',
+]);
+/** One non-basic move slot is reserved for a tactical action. */
+const TACTICAL_KINDS = new Set([
+    'buff', 'heal', 'debuff', 'mark', 'slow', 'barrier', 'shield', 'absorb', 'weather', 'protect', 'haste', 'taunt',
+]);
+const TACTICAL_PREFERENCE: Readonly<Record<string, readonly string[]>> = Object.freeze({
+    defender: ['protect', 'barrier', 'shield', 'absorb', 'buff', 'heal', 'taunt', 'weather', 'debuff', 'haste'],
+    sage: ['weather', 'buff', 'barrier', 'shield', 'absorb', 'protect', 'heal', 'haste', 'debuff', 'taunt'],
+    assassin: ['buff', 'haste', 'mark', 'debuff', 'slow', 'weather', 'barrier', 'shield', 'protect'],
+    tracker: ['debuff', 'slow', 'mark', 'buff', 'haste', 'weather', 'barrier', 'shield', 'protect', 'heal', 'taunt'],
+});
+const ELEMENTAL_ATTACK_NAMES: Readonly<Record<string, readonly [string, string]>> = Object.freeze({
+    Fire: ['Ember Lash', 'Inferno Pulse'],
+    Water: ['Tidal Rush', 'Riptide Surge'],
+    Wind: ['Gale Cut', 'Skyward Cyclone'],
+    Earth: ['Faultline Drive', 'Stonewave Burst'],
+    Lightning: ['Arc Flash', 'Thunderclap'],
+    None: ['Spirit Strike', 'Spirit Burst'],
+});
 function moveClass(kind: string): ShowdownMoveClass {
     if (PHYSICAL_KINDS.has(kind)) return 'physical';
     if (SPECIAL_KINDS.has(kind)) return 'special';
@@ -687,7 +711,7 @@ function synergyPartnerOf(element: string, cls: ShowdownMoveClass): string | und
 
 function basicStrike(): ShowdownMove {
     return {
-        name: 'Swift Strike',
+        name: 'Tackle',
         power: 34,
         kind: 'damage',
         cost: SHOWDOWN_COST_BASIC,
@@ -695,8 +719,7 @@ function basicStrike(): ShowdownMove {
         priority: SHOWDOWN_PRIORITY_LIGHT,
         hold: 0,
         // Sealed NEUTRAL and PHYSICAL on purpose: no STAB, no wheel either
-        // way. This is the jab you keep for a resisted matchup — exactly the
-        // role a neutral move plays in the games this system studies.
+        // way. This is the cheap, always-ready physical opener.
         element: 'None',
         cls: 'physical',
     };
@@ -976,7 +999,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const maxHp = clampInt(scaled(raw.hp, 320), 1, petStatCeil(rarity, 'hp'), 320);
     const powerCeil = petJutsuPowerCeil(rarity);
 
-    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }): ShowdownMove => {
+    const sealMove = (j: { name?: unknown; power?: unknown; kind?: unknown; signature?: unknown }, forcedClass?: ShowdownMoveClass): ShowdownMove => {
         const kindRaw = KNOWN_KINDS.has(String(j.kind)) ? String(j.kind) : 'damage';
         const authored = Number(j.power) || 0;
         // A control/utility technique authored at power 0 prices at the 10-EN
@@ -988,7 +1011,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         const powerIn = authored <= 0 && kindRaw !== 'damage' ? SHOWDOWN_UTILITY_POWER_FLOOR : authored;
         const power = clampInt(Math.round(powerIn * kitNorm), 0, powerCeil, 0);
         const kind = kindRaw;
-        const cls = moveClass(kind);
+        const cls = forcedClass ?? moveClass(kind);
         // Kit techniques are the pet's own element (catalog jutsus carry
         // none of their own) — which is what makes STAB and the synergy
         // partner real properties rather than universal constants.
@@ -1014,29 +1037,50 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     // "<Element> Overdrive".
     const named = jutsuList(kitOverride, raw.jutsus);
     const sigRaw = named.find((j) => j.signature === true);
-    // The 'move' filter MUST run before the slice, or every rare/legendary
-    // loses a kit slot (and its element move) to a mobility entry.
-    // The authored kit keeps its first THREE techniques and every pet is
-    // handed one derived utility (see derivedUtilityFor) — the deck stays the
-    // size it was while every species gains a tactical option the catalog
-    // never gave it.
-    //
-    // Override kits take the utility TOO. Exempting them (they are authored
-    // deliberately, so it looked respectful) measured as a straight power
-    // bump: every other species now spends a turn on utility while the four
-    // override species kept four pure combat slots, and Armored Polar Bear
-    // and Abyssal Oni Hound promptly cleared the 85% hard band. Uniform rule,
-    // no exceptions.
-    const authoredKinds = named
-        .filter((j) => j !== sigRaw && String(j.kind) !== 'move')
-        .slice(0, 3)
-        .map((j) => String(j.kind));
-    const utility = derivedUtilityFor(String(raw.role ?? 'tracker'), rarity, element, authoredKinds);
-    const kit = named
-        .filter((j) => j !== sigRaw && String(j.kind) !== 'move')
-        .slice(0, utility ? 3 : 4)
-        .map(sealMove);
-    if (utility) kit.push(sealMove({ name: utility.name, power: utility.power, kind: utility.kind, signature: false }));
+    // Every pet's battle loadout has the same tactical grammar: a cheap
+    // physical Tackle, one support/control move, two elemental attack moves,
+    // and the separate signature ultimate. This is derived here so shared
+    // catalog moves used by other modes are not rewritten.
+    const signatureName = String(sigRaw?.name ?? '');
+    const authoredMoves = named.filter((j) => j !== sigRaw && String(j.kind) !== 'move'
+        && String(j.name) !== signatureName && String(j.name) !== 'Tackle');
+    const role = ROLE_OK.has(String(raw.role)) ? String(raw.role) : 'defender';
+    const roleUtility = derivedUtilityFor(role, rarity, element)
+        ?? { name: 'Steady Guard', power: 90, kind: 'protect' };
+    const tacticalOrder = TACTICAL_PREFERENCE[role] ?? TACTICAL_PREFERENCE.defender;
+    const tactical = [...authoredMoves]
+        .filter((j) => TACTICAL_KINDS.has(String(j.kind)))
+        .sort((a, b) => {
+            const rankA = tacticalOrder.indexOf(String(a.kind));
+            const rankB = tacticalOrder.indexOf(String(b.kind));
+            return (rankA < 0 ? 999 : rankA) - (rankB < 0 ? 999 : rankB);
+        })[0] ?? roleUtility;
+    const attackMoves = authoredMoves
+        .filter((j) => ELEMENTAL_ATTACK_KINDS.has(String(j.kind)) && j !== tactical)
+        .sort((a, b) => (Number(b.power) || 0) - (Number(a.power) || 0));
+    const pickedAttacks = attackMoves.slice(0, 2);
+    const generatedNames = ELEMENTAL_ATTACK_NAMES[element] ?? ELEMENTAL_ATTACK_NAMES.None;
+    const usedMoveNames = new Set(authoredMoves.map((j) => String(j.name)));
+    while (pickedAttacks.length < 2) {
+        const generatedIndex = pickedAttacks.length;
+        let name = generatedNames[generatedIndex];
+        let suffix = 2;
+        while (usedMoveNames.has(name)) name = `${generatedNames[generatedIndex]} ${suffix++}`;
+        usedMoveNames.add(name);
+        const attackBase = attackMoves.length
+            ? Math.min(220, (Number(attackMoves[0].power) || 0) * 0.66)
+            : powerCeil * (generatedIndex === 0 ? 0.13 : 0.18);
+        pickedAttacks.push({
+            name,
+            power: Math.max(24, Math.min(powerCeil, Math.round(attackBase))),
+            kind: 'damage',
+            signature: false,
+        });
+    }
+    const kit = [
+        sealMove(tactical),
+        ...pickedAttacks.map((move) => sealMove(move, 'special')),
+    ];
 
     const synth = synthesizedSignature({ element: raw.element, name: raw.name }, rarity);
     const signatureMove: ShowdownMove = sigRaw
@@ -1074,6 +1118,11 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
     const maxStamina = Math.round(
         Math.max(80, Math.min(125, 55 + maxHp / 16 + defense / 6)) * SHOWDOWN_STAMINA_POOL_SCALE,
     );
+    const promotedMoves = affordable(promoteHeavy([basicStrike(), ...kit], rarity), maxStamina);
+    const moves = [
+        ...promotedMoves.slice(0, 2),
+        ...promotedMoves.slice(2).sort((a, b) => (a.hold - b.hold) || (a.cost - b.cost) || (a.power - b.power)),
+    ];
 
     return {
         id: String(raw.id),
@@ -1124,7 +1173,7 @@ export function sealShowdownPet(rawInput: Pet): ShowdownPet {
         // It measured 3.7%. SHOWDOWN_COST_MAX assumed the smallest pool in the
         // catalog was 88, which the pool-scale pass made stale. Nothing in a
         // kit may cost more than SHOWDOWN_COST_POOL_FRACTION of a full pool.
-        moves: affordable(promoteHeavy([basicStrike(), ...kit], rarity), maxStamina),
+        moves,
         signatureMove: { ...signatureMove, cost: 0 },
     };
 }
@@ -1300,18 +1349,17 @@ export const WEATHER_NAME: Readonly<Record<string, string>> = Object.freeze({
 
 /*
  * ── The variety pass ────────────────────────────────────────────────────────
- * The catalog is damage-heavy by construction: across all 145 species the
- * authored kits are 159 damage moves against 25 debuffs, 10 DoTs and a single
- * absorb, and most pets field only one or two kit techniques at all. Fights
- * therefore collapsed into trading hits with an occasional shield.
+ * The catalog is damage-heavy by construction, while many individual species
+ * have incomplete battle kits. Fights therefore need one deliberate tactical
+ * option as well as two clearly elemental attacks.
  *
  * Rather than rewrite 145 catalog kits — the standing rule is DERIVE AT SEAL,
  * because those same jutsus drive the arena, Hollow Gate and the war modes —
- * every pet is handed ONE derived utility technique keyed to its role, named
- * for its element, and priced by its rarity. The authored kit keeps its first
- * three techniques, so the deck is exactly the size it was.
+ * every pet is handed ONE tactical technique keyed to its role, named
+ * for its element and priced for its rarity. Authored support moves are kept
+ * when they fit the role; missing tactical or attack slots are derived at seal.
  *
- * Role reading: defenders block, sages command the sky, assassins sharpen,
+ * Role reading: defenders block, sages command the sky, assassins prepare,
  * trackers cripple. Legendary and mythic tiers graduate to the harder version
  * of their family (mark instead of buff, slow instead of debuff), so rarity
  * shows up as a tactical upgrade rather than only a bigger number.
@@ -1331,13 +1379,13 @@ const UTILITY_NAMES: Readonly<Record<string, Readonly<Record<string, string>>>> 
 
 const HIGH_TIERS: ReadonlySet<string> = new Set(['legendary', 'mythic']);
 
-/** The derived utility for a pet: its kind, its flavour name and its power. */
+/** The derived tactical move for a pet: its kind, its flavour name and power. */
 export function derivedUtilityFor(role: string, rarity: string, element: string, authoredKinds: readonly string[] = []): { name: string; kind: string; power: number } | null {
     if (element === 'None' || !hasOwn(WEATHER_NAME, element)) return null;
     const high = HIGH_TIERS.has(rarity);
     let kind = role === 'defender' ? 'protect'
         : role === 'sage' ? 'weather'
-        : role === 'assassin' ? 'pivot'
+        : role === 'assassin' ? (high ? 'mark' : 'buff')
         : (high ? 'slow' : 'debuff');
     // Never hand a pet a second copy of something it already carries: an
     // authored mark plus a derived mark is a wasted slot (25 species did
@@ -1574,29 +1622,16 @@ const ASSASSIN_EXECUTE_MULT = 1.15;
  * trackers hit lighter per action, assassins hit far harder (plus the execute
  * below), sages swing harder and heal stronger (sageHealMult). Tuned against
  * scripts/showdown-balance.mjs until every role sits in the 40-60% band. */
-// RE-FITTED 2026-08-11 against the current regime, and no longer expressed as a
-// compression of the original table. Compressing toward neutral only exposed the
-// raw statlines underneath: trackers carried the LOWEST damage multiplier in the
-// table (0.82) and still won the most (59.4%), while assassins carried a neutral
-// 1.02 and won the least (37.1%). That is the table failing at its actual job,
-// which is to price the statline each role ships with — not a knob to soften.
-//
-// These values are fitted directly from measured win rates (mult_new =
-// mult_old * (50 / winRate)^0.5, then rounded), because three separate changes
-// this session — the signature nerf, the pool resize, and the removal of the
-// timing multiplier — all lengthened fights, and every one of them taxed the
-// glass role and paid the bulky one. Re-fit rather than nudge.
+// Re-fitted for the sealed Tackle + tactical + two elemental-attack kit. With
+// two of three regular attacks on the role-derived special axis, the previous
+// attack-only tuning left defender at 33% and pushed sage above 60%. These
+// multipliers price that fixed combat mix; do not tune them against the older
+// three-authored-attack kit.
 const ROLE_DAMAGE_MULT: Record<string, number> = {
     tracker: 0.91,
-    // Re-fitted for the three-pet bench format. The catalog gives sage the
-    // lowest attack of any role (43 against tracker's 63) and a third of its
-    // kit is healing, which is worth least in a damage race — it sat at 40.8%
-    // while everything else cleared 50. Assassin comes DOWN because the pivot
-    // it now derives (hit and withdraw) was worth more than the flat damage
-    // edge it used to need.
     assassin: 1.02,
-    sage: 1.28,
-    defender: 1.0,
+    sage: 1.14,
+    defender: 1.23,
 };
 const SAGE_HEAL_MULT = 1.15;
 

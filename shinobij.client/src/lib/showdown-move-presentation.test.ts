@@ -27,10 +27,10 @@ test("every actual sealed pet loadout has distinct primary geometry, including s
 
 test("a four-damage kit reserves the signature and gives the two elemental attacks different shapes", () => {
     const kit = [
-        { name: "Swift Strike", kind: "damage", element: "None", signature: false },
-        { name: "Wind Slash", kind: "damage", element: "Wind", signature: false },
-        { name: "Skydance Blades", kind: "damage", element: "Wind", signature: false },
-        { name: "Gale Requiem", kind: "damage", element: "Wind", signature: true },
+        { name: "Tackle", kind: "damage", element: "None", signature: false, cls: "physical" },
+        { name: "Wind Slash", kind: "damage", element: "Wind", signature: false, cls: "special" },
+        { name: "Skydance Blades", kind: "damage", element: "Wind", signature: false, cls: "special" },
+        { name: "Gale Requiem", kind: "damage", element: "Wind", signature: true, cls: "special" },
     ];
     const styles = [...buildMovePresentations(kit).values()];
     assert.equal(styles[0].hero, "storm");

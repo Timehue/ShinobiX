@@ -34,8 +34,10 @@ function cast(session: ShowdownSession, side: Side, command: ShowdownCommand, re
     return action;
 }
 
-test("all 951 real move slots reach their assigned effects through live commands on both sides in all formats", () => {
+test("all real move slots reach their assigned effects through live commands on both sides in all formats", () => {
     let actions = 0;
+    const expectedMoveCount = Object.values(PET_CATALOG).reduce((count, template) =>
+        count + showdownStateView(fixture(template.id)).player[0].moves.length, 0);
     const deliveries = new Set<string>();
     for (const template of Object.values(PET_CATALOG)) for (const format of ["1v1", "2v2", "3v3"] as const) for (const side of ["player", "enemy"] as const) {
         const base = fixture(template.id, format);
@@ -70,13 +72,17 @@ test("all 951 real move slots reach their assigned effects through live commands
             actions++;
         }
     }
-    assert.equal(actions, 951 * 6);
+    assert.equal(actions, expectedMoveCount * 6);
     assert.deepEqual([...deliveries].sort(), ["melee", "ranged", "self"]);
 });
 
 test("Guard chip keeps the elemental impact; Protect, absorption and dodge do not", () => {
     for (const defense of ["guard", "protect", "shield", "dodge"] as const) {
-        const session = fixture("standard-0");
+        const template = defense === "protect"
+            ? Object.values(PET_CATALOG).find(candidate => fixture(candidate.id).player[0].moves.some(move => move.kind === "protect"))
+            : PET_CATALOG["standard-0"];
+        assert.ok(template, "a real sealed loadout must retain at least one Protect technique");
+        const session = fixture(template.id);
         const actor = session.player[0], target = session.enemy[0];
         if (defense === "shield") target.statuses.push({ kind: defense, rounds: 3, magnitude: 100000, bornRound: session.round });
         if (defense === "dodge") target.consumable = { id: "smoke", name: "Smoke", dodge: 1, mitigate: 0, thorns: 0, endure: 0, lifeline: 0, cleanse: 0 };

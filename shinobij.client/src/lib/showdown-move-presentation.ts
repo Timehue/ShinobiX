@@ -52,7 +52,9 @@ export function buildMovePresentations(moves: readonly PresentationMove[]): Read
         || movePresentationKey(a.name, a.signature).localeCompare(movePresentationKey(b.name, b.signature), "en"));
     for (const move of ordered) {
         const key = movePresentationKey(move.name, move.signature);
-        const elementalAttack = move.element !== "None" && (move.kind === "damage" || (move.kind === "crush" && move.element === "Earth"));
+        const elementalAttack = move.element !== "None" && (move.signature || move.cls === "special"
+            || (move.cls === "physical" && move.kind === "damage")
+            || (move.cls === undefined && (move.kind === "damage" || (move.kind === "crush" && move.element === "Earth"))));
         const preferred = preferredHero(move);
         let hero: HeroTechnique | null = elementalAttack ? preferred : null;
         let grammar = hero ? `hero:${hero}` : `accent:${moveAccentFamily(move.kind) ?? move.kind}`;
