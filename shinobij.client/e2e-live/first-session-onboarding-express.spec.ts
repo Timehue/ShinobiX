@@ -548,15 +548,41 @@ test(`a new player completes the full persisted Academy first session against bu
     await expect(page.locator('.onboarding-coach-banner')).toHaveCount(0);
     // The Academy rewards now reach Ninth Rank. Finish the resulting Aura
     // Sphere story and claim its item before checking the resumed village.
+    // Ninth Rank also qualifies the first village chapters, and either may be
+    // queued ahead of the Aura Sphere. Skip other scenes; read the Aura Sphere
+    // scene through to its claim, which Skip would forfeit.
     const auraAdvance = page.getByRole('button', { name: /^(Next|Continue|Begin Battle)$/ });
-    await expect(auraAdvance.or(page.locator('.stormveil-village-screen'))).toBeVisible();
-    if (await auraAdvance.isVisible()) {
-        for (let line = 0; line < 7; line++) {
-            await expect(auraAdvance).toBeVisible();
-            await auraAdvance.click();
+    // Its pages, then the finale (titled after the event), whose claim button
+    // only appears once the closing line finishes typing.
+    const auraScene = page.getByRole('dialog', { name: /^(A Timed Issue Seal|The Sphere Awakens|The Elder's Aura Sphere)\b/ });
+    const claimAura = page.getByRole('button', { name: 'Claim Aura Sphere' });
+    const otherSceneSkip = page.getByRole('button', { name: /^(Skip|Skip visual novel scene)$/ });
+    const village = page.locator('.stormveil-village-screen');
+    let auraClaimed = false;
+    for (let beat = 0; beat < 60 && !auraClaimed; beat++) {
+        await expect(claimAura.or(auraScene).or(otherSceneSkip).or(closeBriefing).or(closePatchNotes).or(village).first()).toBeVisible();
+        if (await claimAura.isVisible()) {
+            await claimAura.click();
+            auraClaimed = true;
+        } else if (await auraScene.isVisible()) {
+            await expect(claimAura.or(auraAdvance).first()).toBeVisible();
+            if (!await claimAura.isVisible()) await auraAdvance.first().click();
+        } else if (await closePatchNotes.isVisible()) {
+            await closePatchNotes.click();
+        } else if (await closeBriefing.isVisible()) {
+            await closeBriefing.click();
+        } else if (await otherSceneSkip.isVisible()) {
+            await otherSceneSkip.first().click();
+        } else {
+            // The village can show for a render before the next queued scene.
+            await page.waitForTimeout(800);
+            if (await village.isVisible() && !await otherSceneSkip.isVisible() && !await auraScene.isVisible()) break;
         }
-        await page.getByRole('button', { name: 'Claim Aura Sphere' }).click();
     }
+    await waitForPersisted(page, playerName, (save) => (
+        save.character?.inventory?.includes('aura-sphere') === true
+        || Object.values(save.character?.equipment ?? {}).includes('aura-sphere')
+    ), 'the Ninth Rank Aura Sphere must be claimed and persisted');
     await reachAfterStory('.stormveil-village-screen');
     await expect(page.locator('.mobile-bottom-nav')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);

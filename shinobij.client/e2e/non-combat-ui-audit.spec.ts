@@ -1050,7 +1050,7 @@ test.describe("Awakening Stone cinematic", () => {
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
 
         await page.getByRole("button", { name: /^Reroll Element 1 element/ }).click();
-        await expect(page.getByText("❌ The stone rejected this reroll.")).toBeVisible();
+        await expect(page.getByText("Error: The stone rejected this reroll.")).toBeVisible();
         await expect(page.locator(".ca-cinematic")).toHaveCount(0);
         expect(
             runtimeErrors.filter((message) => !/status of 400/i.test(message)),

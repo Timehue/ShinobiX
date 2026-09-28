@@ -26,6 +26,15 @@ test("scenes owned by the screen that opened them are not on the list", () => {
     }
 });
 
+test("skipping the Aura Sphere scene defers its item instead of forfeiting it", () => {
+    // Its reward is granted only by the claim at the end, so a skip must leave
+    // it to be re-offered next session, never retire it.
+    const dismissed = new Set<string>();
+    dismissStorySceneForSession("builtin-aura-sphere-lv9", dismissed);
+    assert.deepEqual([...dismissed], ["builtin-aura-sphere-lv9"]);
+    assert.equal(isSessionDismissableStoryScene("builtin-awakening-lv2"), false);
+});
+
 test("dismissing records only what the auto-trigger would otherwise re-offer", () => {
     const dismissed = new Set<string>();
     dismissStorySceneForSession("story-interlude-stormveil-2", dismissed);

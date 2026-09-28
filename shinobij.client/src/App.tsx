@@ -3362,13 +3362,12 @@ export default function App() {
         if (!character || activeTriggeredEvent || storyFightOpen) return;
         if (hasPendingNarrativeDelivery) return;
         if (isBattleFlowScreen(screen, sealedFightOpen)) return;
-        if (character.level < 9 || triggeredEvents.includes(AURA_SPHERE_VN_ID)) return;
+        if (character.level < 9 || triggeredEvents.includes(AURA_SPHERE_VN_ID) || dismissedStoryScenesRef.current.has(AURA_SPHERE_VN_ID)) return;
         const alreadyHasAuraSphere = character.inventory.includes(AURA_SPHERE_ITEM_ID) || Object.values(character.equipment).includes(AURA_SPHERE_ITEM_ID);
         if (alreadyHasAuraSphere) {
             setTriggeredEvents((ids) => ids.includes(AURA_SPHERE_VN_ID) ? ids : [...ids, AURA_SPHERE_VN_ID]);
             return;
-        }
-        setTriggeredEvents((ids) => ids.includes(AURA_SPHERE_VN_ID) ? ids : [...ids, AURA_SPHERE_VN_ID]);
+        } // Not marked seen on open: only owning the sphere retires it (lib/vn-session-dismissal).
         setActiveTriggeredEvent(canonicalNarrativeEvent(auraSphereLv9VnEvent, creatorEvents.find(e => e.id === AURA_SPHERE_VN_ID)));
         setActiveTriggerReturnScreen(screen);
         setTriggerPage(0);
