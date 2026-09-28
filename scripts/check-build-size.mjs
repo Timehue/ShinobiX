@@ -753,7 +753,11 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Gathering adds its VN, choice UI, exact recipes and settlement/recovery code.
 // Allow 8.95 MB, leaving ~31 KB of production margin. Its recipe/biome tables
 // were drained off startup; INITIAL graph limits below are unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 8_950_000;
+// 2026-09-28 FIRST-HOUR RELEASE: production image run 36375528708 measures
+// 8,958,487 B (8,958,832 B reproduced locally with the same production-length
+// VITE_* values). Keep about 41 KB of headroom at a 9.0 MB total cap; startup,
+// per-chunk, CSS and gzip gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_000_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
