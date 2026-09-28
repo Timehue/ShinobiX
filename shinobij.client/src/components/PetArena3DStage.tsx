@@ -16,6 +16,7 @@
 import { Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
+import { GameArtIcon } from "./GameArtIcon";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import * as THREE from "three";
 import type { Pet } from "../types/pet";
@@ -296,7 +297,7 @@ function Fighter3D({ result, clock, id, pet, config }: {
                         <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>
                             <span style={{ color: team === "blue" ? "#93c5fd" : "#fca5a5", fontSize: 8, fontWeight: 800, marginRight: 3 }}>{ROLE_TAG_3D[role] ?? ""}</span>
                             {pet.name}
-                            <span ref={carryRef} style={{ opacity: 0, marginLeft: 3 }}>📜</span>
+                            <span ref={carryRef} style={{ opacity: 0, marginLeft: 3 }}><GameArtIcon kind="scroll" size={14} /></span>
                             <span ref={abilityRef} style={{ opacity: 0.18, marginLeft: 3, color: "#fde047", fontSize: 9 }}>◆</span>
                         </div>
                         <div style={{ position: "relative", width: 58, height: 5, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
@@ -358,7 +359,7 @@ function Scroll3D({ result, clock }: { result: ArenaResult; clock: ArenaClockRef
                 <Html center pointerEvents="none" zIndexRange={[30, 0]}>
                     <div style={{ position: "relative", width: 40, height: 40, display: "grid", placeItems: "center" }}>
                         <div ref={ringRef} style={{ position: "absolute", inset: -7, borderRadius: "50%", opacity: 0 }} />
-                        <div style={{ fontSize: 30, filter: "drop-shadow(0 0 12px #fde047) drop-shadow(0 0 5px #fff)" }}>📜</div>
+                        <GameArtIcon kind="scroll" size={30} />
                         <div ref={capRef} style={{ position: "absolute", top: 42, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color: "#fde047", textShadow: "0 1px 3px #000", opacity: 0, pointerEvents: "none" }}>Capturing…</div>
                     </div>
                 </Html>
@@ -529,7 +530,7 @@ function Boss3D({ result, clock }: { result: ArenaResult; clock: ArenaClockRef }
                 </group>
                 <Html position={[0, BOSS_H3D + 0.4, 0]} center pointerEvents="none" distanceFactor={11} zIndexRange={[8, 0]}>
                     <div ref={hpWrapRef} style={{ textAlign: "center", font: "800 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>
-                        <div style={{ color: "#a7f3d0", textShadow: "0 1px 3px #000", marginBottom: 2 }}>⛰ Arena Warden</div>
+                        <div style={{ color: "#a7f3d0", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Arena Warden</div>
                         <div style={{ position: "relative", width: 110, height: 6, margin: "0 auto", background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                             <div ref={hpFillRef} style={{ position: "absolute", left: 0, top: 0, height: "100%", width: "100%", background: "#34d399" }} />
                         </div>
@@ -846,7 +847,7 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
                     style={{ position: "absolute", left: 10, bottom: 10, width: pipW, height: pipH, border: `1px solid ${focusTeamColor}88`, borderRadius: 10, cursor: "pointer", zIndex: 55, overflow: "hidden", boxShadow: "0 4px 18px rgba(0,0,0,0.5)" }}
                 >
                     <div style={{ position: "absolute", left: 0, right: 0, top: 0, padding: "3px 8px", background: "linear-gradient(rgba(5,8,16,0.8), transparent)", color: focusTeamColor, font: "700 10px Inter, system-ui, sans-serif", display: "flex", justifyContent: "space-between", pointerEvents: "none" }}>
-                        <span>📷 {focusPet?.pet.name ?? focusId}<span ref={pipStatusRef} /></span>
+                        <span>Focus: {focusPet?.pet.name ?? focusId}<span ref={pipStatusRef} /></span>
                         <span style={{ color: "#94a3b8" }}>{(pipIdx % pipIds.length) + 1}/{pipIds.length}</span>
                     </div>
                     <div style={{ position: "absolute", right: 6, bottom: 4, color: "#cbd5e1", font: "700 9px Inter, system-ui, sans-serif", textShadow: "0 1px 2px #000", pointerEvents: "none" }}>tap to cycle ▸</div>

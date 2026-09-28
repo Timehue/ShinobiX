@@ -15,6 +15,7 @@
  * here touches combat.
  */
 import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import type { Biome } from "../types/core";
 import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
@@ -206,11 +207,11 @@ export function SectorWeeklyBossActor({
                         <span className="sector-wanderer-tell" style={{ ["--tell"]: "#ec5b38" } as CSSProperties} />
                         {portrait
                             ? <img src={portrait} alt={name} onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                            : <span className="sector-avatar-initials" style={{ fontSize: "1.3em" }}>👹</span>}
+                            : <img src="/portraits/hollow-warden.webp" alt="" />}
                         <span className="sector-avatar-pin" />
                     </span>
                 </span>
-                <span className="sector-wanderer-label" style={{ color: "#ffd9cc", fontWeight: 700 }}>⚔ {name}</span>
+                <span className="sector-wanderer-label" style={{ color: "#ffd9cc", fontWeight: 700 }}><GameArtIcon kind="attack" size={15} /> {name}</span>
             </div>
         </div>
     );

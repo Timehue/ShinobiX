@@ -1,3 +1,5 @@
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
+
 /*
  * Tiny presentational mark / portrait components.
  *
@@ -12,9 +14,18 @@ export function CardVisual({
     icon,
     label,
 }: { image?: string; icon?: string; label: string }) {
+    const iconArt: readonly [string, GameArtIconKind][] = [
+        ["📜", "scroll"], ["📖", "scroll"], ["⚔", "attack"], ["🛡", "roleDefender"],
+        ["🐾", "petTamer"], ["🐉", "vanguard"], ["🏯", "clanHall"], ["🎴", "cardHall"],
+        ["🔒", "key"], ["🗝", "key"], ["🏆", "crown"],
+    ];
+    const mappedArt = icon && iconArt.find(([glyph]) => icon.includes(glyph))?.[1];
+    const fallback = icon && /\p{Extended_Pictographic}/u.test(icon)
+        ? <GameArtIcon kind={mappedArt ?? "roleAssassin"} size={30} />
+        : icon || "?";
     return image
         ? <img className="card-visual-thumb" src={image} alt={label} />
-        : <span className="tile-icon">{icon || "?"}</span>;
+        : <span className="tile-icon">{fallback}</span>;
 }
 
 export function ClanImageMark({
@@ -44,3 +55,4 @@ export function LeaderPortrait({
             </div>
         );
 }
+

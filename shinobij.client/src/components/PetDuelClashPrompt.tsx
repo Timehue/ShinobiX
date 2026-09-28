@@ -16,6 +16,7 @@
 // pet-duel-cinematic.ts; this renders a ClashPrompt and emits the call.
 // ─────────────────────────────────────────────────────────────────────────────
 import { useEffect, useMemo, useRef, useState } from "react";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 
 export type PetDuelClashPromptProps = {
     /** Names for the framing line. */
@@ -37,12 +38,12 @@ export type PetDuelClashPromptProps = {
     onPick: (pick: number) => void;
 };
 
-type Call = { label: string; glyph: string; beats: string; color: string; hint: string };
+type Call = { label: string; glyph: GameArtIconKind; beats: string; color: string; hint: string };
 
 const CALLS: readonly Call[] = [
-    { label: "Strike", glyph: "⚔", beats: "beats Dodge", color: "#f87171", hint: "Power through the bind" },
-    { label: "Guard", glyph: "🛡", beats: "beats Strike", color: "#5eead4", hint: "Brace and turn it back" },
-    { label: "Dodge", glyph: "💨", beats: "beats Guard", color: "#a78bfa", hint: "Slip out and take the angle" },
+    { label: "Strike", glyph: "attack", beats: "beats Dodge", color: "#f87171", hint: "Power through the bind" },
+    { label: "Guard", glyph: "roleDefender", beats: "beats Strike", color: "#5eead4", hint: "Brace and turn it back" },
+    { label: "Dodge", glyph: "speed", beats: "beats Guard", color: "#a78bfa", hint: "Slip out and take the angle" },
 ];
 
 export function PetDuelClashPrompt({
@@ -182,7 +183,7 @@ export function PetDuelClashPrompt({
                                 animationDelay: `${i * 0.12}s`,
                             }}
                         >
-                            <span aria-hidden style={{ fontSize: compact ? 20 : 26, lineHeight: 1 }}>{call.glyph}</span>
+                            <span aria-hidden style={{ display: "grid", placeItems: "center" }}><GameArtIcon kind={call.glyph} size={compact ? 22 : 30} /></span>
                             <span style={{ fontWeight: 800, fontSize: compact ? 13 : 15, color: call.color, letterSpacing: "0.04em" }}>{call.label}</span>
                             <span style={{ fontSize: compact ? 9 : 10, opacity: 0.72, letterSpacing: "0.03em" }}>{call.beats}</span>
                             {!compact && <span style={{ fontSize: 9, opacity: 0.5, textAlign: "center", lineHeight: 1.25 }}>{call.hint}</span>}
