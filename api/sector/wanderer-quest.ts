@@ -7,7 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
-import { currentWandererCooldownUntil, naturalWandererClaimOk, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
+import { currentWandererCooldownUntil, naturalWandererOffers, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { bumpEraContributionOnce } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
@@ -44,8 +44,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // A road wanderer must survive the server's own re-roll, claimed
         // archetype/verb/level/name included — a shape check alone let a forged
         // NPC drive the cooldown/relocation and the ryo payout below. Synthetic
-        // ids (Legacy Sage / Emissary errands) never enter this path.
-        if (naturalWanderer && !naturalWandererClaimOk(wandererId, Date.now(), body)) {
+        // ids (Legacy Sage / Emissary errands) never enter this path. A road
+        // wanderer must also BE a quest-giver by the server's roll: a bandit's
+        // id with no echoed verb no longer accepts or pays a quest.
+        if (naturalWanderer && !naturalWandererOffers(wandererId, Date.now(), body, ['quest'])) {
             return res.status(200).json({ ok: false, reason: 'invalid-wanderer' });
         }
         const sector = Math.max(1, Math.min(MAX_WILD_SECTOR, Math.floor(Number(body.sector ?? 0)) || 0));

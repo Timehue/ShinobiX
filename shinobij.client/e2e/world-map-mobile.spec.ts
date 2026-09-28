@@ -925,13 +925,14 @@ test("animated zoom keeps intermediate landmark targets compact and tappable", a
     // The lifecycle check returns to Sector 40. Use the same real-character
     // cooldown fixture as adaptive-shell/story-field-work so a roaming bandit
     // cannot open an unrelated Fight/Flee modal over the global Travel action.
-    // shared/wanderer-roster.ts pins six-hour buckets and roster indices 0–1;
-    // adjacent buckets cover a clock boundary without freezing browser time.
+    // shared/wanderer-roster.ts pins six-hour buckets, roster indices 0–1 and
+    // the after-dark night ninja slot 2; adjacent buckets cover a clock
+    // boundary without freezing browser time.
     const now = Date.now();
     const bucket = Math.floor(now / (6 * 60 * 60 * 1000));
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
-        for (const index of [0, 1]) cooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 24 * 60 * 60 * 1000;
+        for (const index of [0, 1, 2]) cooldowns[`w-40-${bucket + offset}-${index}`] = now + 30 * 24 * 60 * 60 * 1000;
     }
     save.character = { ...save.character, wandererCooldowns: cooldowns };
     const errors = await bootWorldMap(page, save);

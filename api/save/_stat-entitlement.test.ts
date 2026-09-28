@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { preserveStatPointEntitlement } from './_stat-entitlement.js';
+import { preserveStatPointEntitlement, unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizeCharacterSave } from './[name].js';
 
 const stats = (strength = 20, speed = 10) => ({
@@ -54,6 +54,35 @@ describe('stat-point entitlement', () => {
         );
         assert.equal(out.accepted, 'rejected');
         assert.deepEqual(out.stats, stats(20, 10));
+    });
+
+    it('the per-minute window ignores points spent from the pool, and only those', () => {
+        // A 2,000-point allocation from the pool: nothing counts.
+        assert.deepEqual(unfundedStatGains(
+            { stats: stats(2020), unspentStats: 1000 },
+            { stats: stats(20), unspentStats: 3000 },
+        ), {});
+        // Points that did not come from the pool count in full.
+        assert.deepEqual(unfundedStatGains(
+            { stats: stats(2020), unspentStats: 3000 },
+            { stats: stats(20), unspentStats: 3000 },
+        ), { strength: 2000 });
+        // A partial "allocation" whose pool drop does not match is not an
+        // allocation at all, so the whole increase counts.
+        assert.deepEqual(unfundedStatGains(
+            { stats: stats(2020), unspentStats: 2500 },
+            { stats: stats(20), unspentStats: 3000 },
+        ), { strength: 2000 });
+        // A raw value past MAX_STAT: only the in-range part can be funded.
+        const out = unfundedStatGains(
+            { stats: { ...stats(20), strength: 9_000 }, unspentStats: 520 },
+            { stats: stats(20), unspentStats: 3000 },
+        );
+        assert.equal(out.strength, 9_000 - 20 - (2500 - 20));
+        // Legacy maps with missing keys are still counted like before.
+        assert.deepEqual(unfundedStatGains({ stats: { strength: 2010 }, unspentStats: 0 }, { stats: { strength: 10 }, unspentStats: 0 }), { strength: 2000 });
+        // Non-numeric values were never counted and still are not.
+        assert.deepEqual(unfundedStatGains({ stats: { ...stats(20), speed: 'x' as unknown as number } }, { stats: stats(20) }), {});
     });
 
     it('is enforced by the real generic save sanitizer for an existing character', () => {

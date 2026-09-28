@@ -9,6 +9,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { TRAINING_TIERS } from '../_training-config.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
+import { boostMultiplier } from '../_boost-event.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { activeTrainingBlocksStart, normalizeActiveTrainingSession, trustedTrainingRewards, TRAINING_TOKEN_TTL_SECONDS } from './_session.js';
 
@@ -177,6 +178,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const startedAt = Date.now();
         const endsAt = startedAt + tier.ms;
+        // A timed boost event (admin-started, api/_boost-event.ts) is sealed like
+        // morale below: a session started inside the window keeps it. Read once,
+        // outside the save lock; it fails neutral (1) if storage is unavailable.
+        const eventBoost = await boostMultiplier('training', startedAt);
         const expiresAt = startedAt + TOKEN_TTL_SECONDS * 1000;
         // Keep one proposal token across CAS retries so an exact readback can
         // prove that this request (and not another start) committed.
@@ -205,7 +210,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // completion. A rallying village receives its comeback multiplier,
                 // read from authoritative village-state rather than the client.
                 const morale = await moraleForCharacter(character, startedAt);
-                const sealedGain = applyMoraleToGain(trusted.sealedGain, morale.xpMult);
+                // The boost multiplies the stat gain only. sealedXp is a retired
+                // field that is never paid, and the lease-recovery parser rejects
+                // one above 750, so it must not grow. Worst case for the gain: 8h
+                // base 72 × 2.5 aggregate × 5 rookie × war-morale buff × 2 event
+                // stays under MAX_SEALED_STAT_GAIN (2,500).
+                const sealedGain = applyMoraleToGain(trusted.sealedGain, morale.xpMult * eventBoost);
                 const sealedXp = applyMoraleToGain(trusted.sealedXp, morale.xpMult);
                 const bonusPct = trusted.bonusPct;
                 const activeTraining = {

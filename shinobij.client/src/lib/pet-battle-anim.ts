@@ -73,7 +73,9 @@ const CARD_FALLBACK_POSE_FILES: Readonly<Record<string, string>> = {
     "rare-40": "rare-40-run-a.webp",
 };
 
-const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
+// Exported for the content completeness lint (scripts/content-completeness.mts),
+// which counts a borrowed pose sheet as a pet's battle art.
+export const BREEDING_MYTHIC_POSE_ALIASES: Readonly<Record<string, string>> = {
     "mythic-10": "mythic-5",
     "mythic-11": "mythic-6",
     "mythic-12": "mythic-3",

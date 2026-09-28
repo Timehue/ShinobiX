@@ -23,12 +23,62 @@ export {
     wandererDayBucketFromMs, wandererSeedFrom, wandererHash32, mulberry32, wandererPresenceGate,
     wandererLevelFor, wandererCount, rollWanderers, parseWandererId, resolveWandererById,
     wandererRelocationSector, relocateWandererInto,
+    WANDERER_NIGHT_INDEX, wandererCastAt, nightWandererAt, wandererForSlot, worldNightIndexFromMs,
     type Wanderer, type WandererVerb, type WandererArchetypeId, type WandererArchetypeMeta,
 } from "../../../shared/wanderer-roster";
 import {
-    rollWanderers, parseWandererId, relocateWandererInto, wandererDayBucketFromMs,
+    parseWandererId, relocateWandererInto, wandererCastAt, wandererDayBucketFromMs, wandererForSlot, worldNightIndexFromMs,
     type Wanderer, type WandererVerb,
 } from "../../../shared/wanderer-roster";
+import { useEffect, useMemo, useState } from "react";
+
+/** Which world night it is (null by day), re-checked every 30s, so a sector's
+ *  cast can re-roll when night falls or ends without a sector change. */
+export function useWorldNightIndex(): number | null {
+    const [night, setNight] = useState<number | null>(() => worldNightIndexFromMs(serverNow()));
+    useEffect(() => {
+        const id = window.setInterval(() => setNight(worldNightIndexFromMs(serverNow())), 30_000);
+        return () => window.clearInterval(id);
+    }, []);
+    return night;
+}
+
+/**
+ * The natural road cast the World Map shows in `sector` (moved from
+ * WorldMap.tsx unchanged, plus the night re-roll): the shared roll for this
+ * window and, after dark, the sector's night ninja.
+ */
+export function useSectorWanderers(
+    sector: number | null | undefined,
+    cooldowns: Record<string, number> | null | undefined,
+    moves: Record<string, number> | null | undefined,
+): Wanderer[] {
+    const worldNight = useWorldNightIndex(); // re-rolls the cast at dusk and dawn
+    return useMemo(
+        () => {
+            if (!isWanderersEnabled() || sector == null) return [];
+            const now = serverNow();
+            const bucket = currentWandererDayBucket();
+            // Hide natural road NPCs you've already used for a few hours, AND hide
+            // ones that have since wandered off to another sector so they don't
+            // reappear here when the cooldown lifts. Legacy Sage/emissaries render
+            // from their own arrays in WorldMap and stay exempt.
+            // Content the player can't act on yet (a gambler before the codex, a
+            // beast with no pet) stays ON the road like for everyone else; the verb is
+            // refused in-fiction (startWandererCardDuel / startWandererPetDuel).
+            const natives = wandererCastAt(sector, bucket, now)
+                .filter(w => !isWandererOnCooldown(cooldowns, w.id, now) && !hasWandererRelocated(moves, w.id));
+            // Plus any wanderers that have wandered INTO this sector from elsewhere and
+            // whose cooldown has now lifted — they're findable again, just somewhere new.
+            const visitors = wanderersVisitingSector(sector, bucket, moves, cooldowns, now);
+            return [...natives, ...visitors];
+        },
+        // worldNight is read through serverNow(); listing it re-runs the roll
+        // when night falls or ends.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [sector, cooldowns, moves, worldNight],
+    );
+}
 import { isPlayableWildSector } from "../../../shared/sector-geo";
 import { serverNow } from "./server-clock";
 
@@ -267,8 +317,9 @@ export function wanderersVisitingSector(
         if (isWandererOnCooldown(cooldowns, id, now)) continue; // still on the road
         const parsed = parseWandererId(id);
         if (!parsed || parsed.dayBucket !== dayBucket) continue; // stale window
-        // A visiting wanderer is RE-DERIVED from its id against the shared roll.
-        const w = rollWanderers(parsed.sector, dayBucket)[parsed.index];
+        // A visiting wanderer is RE-DERIVED from its id against the shared roll
+        // (a night ninja only while it is still night).
+        const w = wandererForSlot(parsed.sector, dayBucket, parsed.index, now);
         if (!w) continue;
         out.push(relocateWandererInto(w, sector));
     }

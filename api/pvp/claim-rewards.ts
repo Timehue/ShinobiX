@@ -12,6 +12,7 @@ import { recordPairWinAndDecay } from './_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { computeCombatStatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP, statGainMultiplier } from '../_stat-growth.js';
+import { boostMultiplier } from '../_boost-event.js';
 import { creditPvpJutsuMastery } from './_jutsu-mastery-reward.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import {
@@ -297,6 +298,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             || rewardEventAt > Date.now() + 60_000) {
             return res.status(409).json({ error: 'Battle terminal time is invalid.' });
         }
+        // Timed boost event (api/_boost-event.ts), judged by when the battle
+        // ENDED so a claim made just after the event still gets it. Read once,
+        // before any save lock; fails neutral (1).
+        const growthEventBoost = await boostMultiplier('growth', rewardEventAt);
         let recoveryExpiresAt: number;
         let claimTtlSeconds: number;
         try {
@@ -740,7 +745,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             cap: DAILY_COMBAT_STAT_CAP,
                         });
                         const baseEarned = statBudget.points;
-                        const boosted = Math.round(baseEarned * growthMult * statGainMultiplier());
+                        const boosted = Math.round(baseEarned * growthMult * statGainMultiplier() * growthEventBoost);
                         const g = computeCombatStatGrowth(statsNow, Number(finalChar.level) || 1, boosted, boosted);
                         combatGrowthAwarded = g.spent;
                         if (baseEarned > 0 && g.spent > 0) {

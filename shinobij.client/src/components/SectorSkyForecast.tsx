@@ -30,6 +30,8 @@ import { useEffect, useState } from "react";
 import { FORECAST_REFRESH_MS, sectorSkyLine, type SectorSkyLine } from "../lib/sector-forecast";
 import { weatherEffects } from "../data/world";
 import type { Biome, WeatherType } from "../types/core";
+import { serverNow } from "../lib/server-clock";
+import { isWorldNight } from "../../../shared/world-phase";
 
 /**
  * `kicker` — "Rainstorm · Thunderstorm in 18m" (the plate's sky line).
@@ -54,13 +56,15 @@ export function SectorSkyForecast({
     // with the place it was taken, so walking into a new sector falls back to
     // this render's own `fallback` prop rather than naming the sector just left
     // for the frame before the effect re-runs.
-    const [reading, setReading] = useState<{ place: string; line: SectorSkyLine } | null>(null);
+    const [reading, setReading] = useState<{ place: string; line: SectorSkyLine; night: boolean } | null>(null);
     const place = `${sector}:${biome}`;
 
     useEffect(() => {
         const here = `${sector}:${biome}`;
         let timer = 0;
-        const apply = () => setReading({ place: here, line: sectorSkyLine(sector, biome) });
+        // `night` is the server's night gate (shared/world-phase), the same one
+        // that lets night-only wild pets and night ninjas out.
+        const apply = () => setReading({ place: here, line: sectorSkyLine(sector, biome), night: isWorldNight(serverNow()) });
         apply();
         const start = () => { if (!timer) timer = window.setInterval(apply, FORECAST_REFRESH_MS); };
         const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };
@@ -76,7 +80,10 @@ export function SectorSkyForecast({
     const weather: WeatherType | undefined = line ? line.now : fallback;
     const entry = weather ? weatherEffects[weather] : undefined;
 
-    if (variant === "effect") return <p>{entry?.effect ?? ""}</p>;
+    if (variant === "effect") {
+        const night = reading && reading.place === place && reading.night;
+        return <p>{entry?.effect ?? ""}{night ? `${entry?.effect ? " " : ""}Night: some wild pets only come out now, and night ninjas prowl the roads.` : ""}</p>;
+    }
     if (variant === "name") return <>{entry?.name ?? ""}</>;
 
     return (

@@ -4,10 +4,8 @@ import { getAllJutsus } from "../lib/jutsu-loadout";
  * Training screens — stat training (Training), jutsu seal/paid training
  * (JutsuSealPanel, JutsuTrainingHall) and the previewSealCost helper.
  * Prop-driven, extracted verbatim from App.tsx with no behavior change
- * (training timers, costs, durations, XP/stat formulas unchanged). The
- * file-wide eslint-disable mirrors App.tsx for the verbatim-moved logic.
+ * (training timers, costs, durations, XP/stat formulas unchanged).
  */
-/* eslint-disable react-hooks/purity */
 import type React from "react";
 import { serverNow } from "../lib/server-clock";
 import { useState, useEffect, useRef } from "react";
@@ -45,6 +43,8 @@ import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
+import { loadBoostEvent } from "../lib/world-state";
+import { boostMultiplierAt } from "../../../shared/boost-event";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Jutsu, JutsuMastery, Stats, SavedBloodline, ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 
@@ -96,6 +96,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
     // The level the earned-points ledger supports, ignoring exam holds — this is
     // what the server feeds the rookie multiplier, so the preview must use it too.
     const ledgerLevel = levelForEarned(earnedStatPoints(character));
+    const trainingEventBoost = boostMultiplierAt(loadBoostEvent(), "training", serverNow());
     const showAcademyTrainingHint = normalizeOnboardingStep(character.onboardingStep) === "training" && !activeTraining;
     const selectedStatLabel = STAT_LABELS[selectedStat]?.label ?? formatStatName(selectedStat);
     // Two-axis training: the server seals the reward, debits stamina, persists
@@ -259,9 +260,12 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     // client-only multipliers). The multiplier reads the
                     // LEDGER-derived level, not character.level — they diverge
                     // under an exam hold, and the server seals from the ledger.
-                    const gain = Math.max(0, Math.round(
+                    const baseGain = Math.max(0, Math.round(
                         trainingStatGain(timer, timer.ms, trainingXpBonus) * rookieStatMultiplier(ledgerLevel),
                     ));
+                    // A running boost event is sealed at start (api/training/start.ts)
+                    // with the same rounding as applyMoraleToGain.
+                    const gain = baseGain > 0 ? Math.max(1, Math.round(baseGain * trainingEventBoost)) : 0;
                     const disabledReason = trainingBusy
                         ? "Training action is being saved."
                         : activeTraining
@@ -596,9 +600,14 @@ export function JutsuTrainingHall({
         return () => clearInterval(interval);
     }, []);
 
+    // A running jutsu-speed boost event (shared/boost-event.ts) divides lesson
+    // time on the server (api/training/jutsu-ryo.ts), so the preview does too.
+    const jutsuEventBoost = boostMultiplierAt(loadBoostEvent(), "jutsu", serverNow());
     function jutsuTrainingDuration(level: number) {
-        return level < 10 ? 10 * 60 * 1000 : 30 * 60 * 1000;
+        const base = level < 10 ? 10 * 60 * 1000 : 30 * 60 * 1000;
+        return Math.max(60_000, Math.floor(base / jutsuEventBoost));
     }
+    const lessonMinutes = (ms: number) => `${Math.round(ms / 60000)} min`;
 
     function jutsuTrainingCost(level: number) {
         return level < 10
@@ -846,9 +855,9 @@ export function JutsuTrainingHall({
                 <p><strong>Training route</strong><br />{mastery.level === 0
                     ? "Free, instant level 1 unlock"
                     : mastery.level < ryoTrainCap
-                        ? `${cost.toLocaleString()} ryo · ${duration / 60000} min · +1 level`
+                        ? `${cost.toLocaleString()} ryo · ${lessonMinutes(duration)} · +1 level`
                         : sealLessonFrom(mastery.level, character)
-                            ? `${sealLessonFrom(mastery.level, character)!.cost} Honor Seals · ${duration / 60000} min · +1 level`
+                            ? `${sealLessonFrom(mastery.level, character)!.cost} Honor Seals · ${lessonMinutes(duration)} · +1 level`
                             : "Battle-earned mastery"}</p>
                 <p><strong>Effects</strong><br />{describeJutsuEffects(jutsu, mastery.level, tagLensDiscipline)}</p>
                 <JutsuEffectCards jutsu={jutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={mastery.level} lensDiscipline={tagLensDiscipline} />
@@ -998,7 +1007,7 @@ export function JutsuTrainingHall({
                             {!selectedAtCap && (
                                 <div className="jutsu-plan-metrics">
                                     <span><small>Tuition</small><strong>{selectedMastery.level === 0 ? "Free" : selectedSealLesson ? `${selectedSealLesson.cost} Honor Seals` : `${selectedCost.toLocaleString()} ryo`}</strong></span>
-                                    <span><small>Duration</small><strong>{selectedMastery.level === 0 ? "Instant" : `${selectedDuration / 60000} min`}</strong></span>
+                                    <span><small>Duration</small><strong>{selectedMastery.level === 0 ? "Instant" : lessonMinutes(selectedDuration)}</strong></span>
                                     <span><small>Reward</small><strong>+1 level</strong></span>
                                 </div>
                             )}

@@ -373,6 +373,12 @@ token deletion for exactly-once semantics.
 - [ ] Daily cap **and** rate limit.
 - [ ] Idempotency (NX reservation or delete-token-on-use).
 - [ ] `withKvLock` (`failClosed`) around any shared-state read-modify-write.
+- [ ] If the reward comes from a world NPC (a sector wanderer), check the NPC's
+      **type from the server's own roll**, not from fields the client echoes:
+      `naturalWandererOffers(id, now, body, ['gift'])`
+      (`api/sector/_wanderer-encounter.ts`). Matching only the echoed fields let
+      any real wanderer id — a bandit, a night ninja — claim a gift when the
+      client simply left the verb out.
 - [ ] **Register the new endpoint in `server.ts`** (cPanel parity) and confirm
       the client call path matches the handler file path (Vercel parity).
 - [ ] `npm test` (repo root) + `npm run lint` (`shinobij.client/`).

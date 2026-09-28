@@ -140,6 +140,9 @@ test("a road-story content outage keeps choices closed until an explicit retry s
 // refuses). shared/wanderer-roster.test.ts pins both values on the source side.
 const WANDERER_BUCKET_MS = 6 * 60 * 60 * 1000;
 const WANDERER_MAX_INDEX = 1;
+// The after-dark night ninja slot. Seeded too, so a run that lands on in-world
+// night still finds a quiet road.
+const WANDERER_NIGHT_INDEX = WANDERER_MAX_INDEX + 1;
 
 /**
  * Keep the road empty for a field-work run.
@@ -160,7 +163,7 @@ function quietRoadCooldowns(sector: number, now = Date.now()): Record<string, nu
     const cooldowns: Record<string, number> = {};
     for (const offset of [-1, 0, 1]) {
         const bucket = Math.floor(now / WANDERER_BUCKET_MS) + offset;
-        for (let index = 0; index <= WANDERER_MAX_INDEX; index++) {
+        for (let index = 0; index <= WANDERER_NIGHT_INDEX; index++) {
             cooldowns[`w-${sector}-${bucket}-${index}`] = expiry;
         }
     }

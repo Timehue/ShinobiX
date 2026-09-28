@@ -17,6 +17,7 @@ import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-sta
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
 import { setCircuitEnabled } from './dojo-circuit/_store.js';
+import { readActiveBoostEvent } from './_boost-event.js';
 
 const LEADERSHIP_IMAGES_KEY = 'game:village-leadership-images';
 const VILLAGE_STATE_PREFIX = 'game:village-state:';
@@ -64,13 +65,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // GAME_STATE_TTL_MS, regardless of how many poll at once. Safe on the
             // single-process Railway host (see api/_realtime/online-store.ts).
             const { payload, etag } = await cachedFor('game-state:frame', GAME_STATE_TTL_MS, async () => {
-                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId, dojoCircuitEnabled] = await Promise.all([
+                const [storedVillageStateKeys, arenaTournament, arenaActiveFights, clanPetBattleKeys, weeklyBossAiId, dojoCircuitEnabled, boostEvent] = await Promise.all([
                     kv.keys(`${VILLAGE_STATE_PREFIX}*`),
                     kv.get<unknown>(ARENA_TOURNAMENT_KEY),
                     kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY),
                     kv.keys(`${CLAN_PET_BATTLE_PREFIX}*`),
                     kv.get<string>(WEEKLY_BOSS_OVERRIDE_KEY),
                     kv.get<boolean>(DOJO_CIRCUIT_ENABLED_KEY),
+                    readActiveBoostEvent(),
                 ]);
 
                 // Leadership has its own authority rows. A newly initialized
@@ -126,6 +128,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     clanPetBattles,
                     weeklyBossAiId: weeklyBossAiId ?? null,
                     dojoCircuitEnabled: dojoCircuitEnabled === true,
+                    // The running timed boost event, or null. Clients re-check
+                    // endsAt themselves, so a cached frame never shows a stale one.
+                    boostEvent,
                 };
                 const builtEtag = `W/"${createHash('sha256').update(JSON.stringify(built)).digest('base64')}"`;
                 return { payload: built, etag: builtEtag };

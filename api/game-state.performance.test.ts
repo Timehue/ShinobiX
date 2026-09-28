@@ -50,6 +50,7 @@ test('shared game-state batches both collections once, shares concurrent builds,
             villageStates: { ...defaults, leaf: { treasury: { ryo: 9 }, seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] } },
             clanPetBattles: { fox: { id: 'battle-1' } },
             arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null, dojoCircuitEnabled: false,
+            boostEvent: null,
         });
     }
     const same = response();

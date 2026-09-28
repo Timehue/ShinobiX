@@ -28,6 +28,7 @@ import {
     wandererRelocationSector as sharedRelocationSector,
     WANDERER_SECTOR_COUNT,
     type Wanderer,
+    type WandererVerb,
 } from '../../shared/wanderer-roster.js';
 
 export { rollWanderers, wandererDayBucketFromMs, WANDERER_SECTOR_COUNT };
@@ -111,6 +112,24 @@ export function naturalWandererClaimOk(id: string, nowMs: number, body: Wanderer
         ...(body.wandererLevel !== undefined ? { level: body.wandererLevel } : {}),
         ...(body.wandererName !== undefined ? { name: body.wandererName } : {}),
     });
+}
+
+/**
+ * `naturalWandererClaimOk`, plus the check that matters for payouts: the
+ * wanderer the id names must actually OFFER what this endpoint pays for. The
+ * verb comes from the server's own roll, never from the client, so omitting
+ * `wandererVerb` no longer lets a bandit's (or a night ninja's) id claim a
+ * pilgrim's gift or a merchant's trade.
+ */
+export function naturalWandererOffers(
+    id: string,
+    nowMs: number,
+    body: WandererClaimBody,
+    verbs: readonly WandererVerb[],
+): boolean {
+    if (!naturalWandererClaimOk(id, nowMs, body)) return false;
+    const w = resolveWandererById(id, nowMs);
+    return !!w && verbs.includes(w.verb);
 }
 
 export function wandererUseCooldownKey(playerName: string, wandererId: string): string {

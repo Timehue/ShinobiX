@@ -18,6 +18,7 @@ import patrolImg from "../assets/wanderers/patrol.webp";
 import trackerImg from "../assets/wanderers/tracker.webp";
 import courierImg from "../assets/wanderers/courier.webp";
 import bountyHunterImg from "../assets/wanderers/bounty-hunter.webp";
+import nightbladeImg from "../assets/village-war/merc-shadow.webp";
 import wanderingSageImg from "../assets/wanderers/legacy/wandering-sage.webp";
 // The eight Legacy Emissaries (gpt-image-1, docs/legacy-assets.md §1).
 import stormCallerRynImg from "../assets/wanderers/legacy/storm-caller-ryn.webp";
@@ -92,6 +93,8 @@ const ART: Record<WandererArchetypeId, string> = {
     bountyHunter: bountyHunterImg,
     // The Legacy offer-giver (gpt-image-1, docs/legacy-assets.md).
     wanderingSage: wanderingSageImg,
+    // Night ninjas share the hooded shadow mercenary's face (village war).
+    nightblade: nightbladeImg,
     // The eight Legacy Emissaries — bespoke faces, one per served category.
     "storm-caller-ryn": stormCallerRynImg,
     "veil-mother-suzu": veilMotherSuzuImg,
