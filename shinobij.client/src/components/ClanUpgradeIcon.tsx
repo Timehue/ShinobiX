@@ -10,6 +10,7 @@ import blacksmith from "../assets/clan-upgrades/clan-upg-blacksmith.webp";
 import treasury from "../assets/clan-upgrades/clan-upg-treasury.webp";
 import warRoom from "../assets/clan-upgrades/clan-upg-warRoom.webp";
 import scoutNetwork from "../assets/clan-upgrades/clan-upg-scoutNetwork.webp";
+import { GameArtIcon } from "./GameArtIcon";
 
 const ART: Record<ClanUpgradeKey, string> = {
     trainingGrounds, petDen, medicalWing, blacksmith, treasury, warRoom, scoutNetwork,
@@ -17,6 +18,6 @@ const ART: Record<ClanUpgradeKey, string> = {
 
 export function ClanUpgradeIcon({ upgradeKey, icon }: { upgradeKey: ClanUpgradeKey; icon: string }) {
     const src = ART[upgradeKey];
-    if (!src) return <span className="town-upgrade-icon">{icon}</span>;
+    if (!src) return <span className="town-upgrade-icon"><GameArtIcon kind="training" size={28} title={icon} /></span>;
     return <span className="town-upgrade-icon clan-upgrade-emblem"><img src={src} alt="" /></span>;
 }

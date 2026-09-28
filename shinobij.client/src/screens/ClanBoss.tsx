@@ -21,6 +21,7 @@ import {
 } from "../lib/clan-boss-api";
 import { ClanBossPartyLobby, type ClanBossPartyAction } from "../components/ClanBossPartyLobby";
 import { ClanBossOperationComms } from "../components/ClanBossOperationComms";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { BattleTowerFight } from "./BattleTowerFight";
 import {
     useCapabilityMutationAvailability,
@@ -258,7 +259,7 @@ export function ClanBoss({ character, clanmates, hostLoadout, sharedImages, onRe
     return (
         <div className="summary-box clan-raid clan-boss-operation">
             <div className="clan-raid-boss">
-                {portrait ? <img className="clan-boss-portrait" src={portrait} alt={boss?.name ?? "Clan boss"} /> : <span className="clan-raid-boss-icon">{boss?.icon ?? "Boss"}</span>}
+                {portrait ? <img className="clan-boss-portrait" src={portrait} alt={boss?.name ?? "Clan boss"} /> : <span className="clan-raid-boss-icon"><GameArtIcon kind="attack" size={38} title={boss?.name ?? "Clan boss"} /></span>}
                 <div>
                     <h3>{boss?.name ?? "Weekly Clan Boss"}</h3>
                     <p className="hint">{boss?.flavor}</p>

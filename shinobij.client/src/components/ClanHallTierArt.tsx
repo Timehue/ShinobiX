@@ -8,6 +8,7 @@ import dojo from "../assets/clan-hall/clan-hall-dojo.webp";
 import compound from "../assets/clan-hall/clan-hall-compound.webp";
 import fortress from "../assets/clan-hall/clan-hall-fortress.webp";
 import citadel from "../assets/clan-hall/clan-hall-citadel.webp";
+import { GameArtIcon } from "./GameArtIcon";
 
 const ART_BY_NAME: Record<string, string> = {
     "Empty Clan Camp": camp,
@@ -19,6 +20,6 @@ const ART_BY_NAME: Record<string, string> = {
 
 export function ClanHallTierArt({ name, icon }: { name: string; icon: string }) {
     const src = ART_BY_NAME[name];
-    if (!src) return <span className="clan-hall-tier-icon">{icon}</span>;
+    if (!src) return <span className="clan-hall-tier-icon"><GameArtIcon kind="clanHall" size={32} title={name || icon} /></span>;
     return <img src={src} alt={name} className="clan-hall-tier-art" />;
 }

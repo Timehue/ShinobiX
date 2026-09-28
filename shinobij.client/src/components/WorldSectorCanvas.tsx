@@ -15,6 +15,7 @@ import { SectorScatter } from "./SectorScatter";
 import { SectorScene } from "./SectorScene";
 import { SectorScene3D } from "./SectorScene3D";
 import { playerNameTile } from "../lib/sector-tile";
+import { GameArtIcon } from "./GameArtIcon";
 
 const GRID_SIZE = 12;
 const TILE_COUNT = GRID_SIZE * GRID_SIZE;
@@ -155,7 +156,7 @@ export function WorldSectorCanvas({
                                         <div key={player.name} className="other-player-map-dot" title={`${player.name} Lv ${player.level}`}>
                                             {player.avatarImage
                                                 ? <img className="tiny-map-avatar other-player-map-avatar" src={player.avatarImage} alt={player.name} onError={(event) => { event.currentTarget.style.display = "none"; }} />
-                                                : <span className="other-player-map-emoji">🥷</span>}
+                                                : <span className="other-player-map-emoji"><GameArtIcon kind="roleAssassin" size={20} title={`${player.name}, shinobi`} /></span>}
                                             <span className="other-player-map-name">{player.name}{player.sleeping ? " 💤" : ""}</span>
                                         </div>
                                     ))}
