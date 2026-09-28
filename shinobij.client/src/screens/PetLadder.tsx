@@ -18,6 +18,7 @@ const PetShowdownReplay = lazy(() => import("../components/PetShowdownReplay").t
 import { PetLadderQueuePanel } from "../components/PetLadderQueuePanel";
 import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../lib/pet-ladder-setup";
 import { WarfrontLadderFormation } from "../components/WarfrontLadderFormation";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { activeCarriedPets } from "../lib/entitlements";
@@ -270,7 +271,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                 ))}
             </div>
 
-            {err && <div className="pl-err">⚠ {err} <button onClick={() => void refresh()}>Retry</button></div>}
+            {err && <div className="pl-err"><GameArtIcon kind="warning" size={16} /> {err} <button onClick={() => void refresh()}>Retry</button></div>}
 
             {/* Your standing (full width) */}
             <div className="pl-panel pl-standing">
@@ -305,7 +306,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
 
             {outcome && (
                 <div className={`pl-outcome ${outcome.won ? "win" : "loss"}`}>
-                    {outcome.won ? "🎉 Victory!" : "💢 Defeated."} {outcome.rank ? `You're now rank #${outcome.rank}.` : "Keep climbing."}
+                    <GameArtIcon kind={outcome.won ? "crown" : "warning"} size={18} /> {outcome.won ? "Victory!" : "Defeated."} {outcome.rank ? `You're now rank #${outcome.rank}.` : "Keep climbing."}
                 </div>
             )}
 
@@ -359,7 +360,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                         move the same ladder. Tactical 4v4 still resolves server-side. */}
                     {mode === "tactical" && (
                     <div className="pl-panel">
-                        <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}>⚔ Challenge for rank</button>
+                        <button className="pl-btn pl-btn-gold pl-cta" onClick={openOffer} disabled={busy || !canChallenge}><GameArtIcon kind="attack" size={17} /> Challenge for rank</button>
                         {!you?.hasDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Set a defense first to enter the ladder.</p>}
                         {you?.hasDefense && !defenseReady && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Your sealed defense can still be challenged while its pets train or travel. Bring all four defense pets back before you challenge.</p>}
                         {hasUnsavedDefense && <p className="pl-sub" style={{ textAlign: "center", margin: "9px 0 0" }}>Save your changed team and formation before challenging.</p>}

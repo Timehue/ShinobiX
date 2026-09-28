@@ -45,7 +45,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
         <PetDuelReplayScreen<ClanWarPetSession>
             pets={activeCarriedPets(character)}
             config={{
-                title: "🐾 Clan War Pet Battle",
+                title: "Clan War Pet Battle",
                 intro: "Send a pet to fight for your clan. The battle is resolved by the server and replays here — no result is reported from your client.",
                 missingText: "No clan-war pet battle selected.",
                 backLabel: "← Back to Clan Hall",
@@ -61,7 +61,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                 banner: (s) => s.winner === "draw"
                     ? "The pet battle ended in a draw — no clan-war damage."
                     : mySide && s.winner === `${mySide}-wins`
-                        ? "🏆 Your pets took the battle — the enemy clan takes damage!"
+                        ? "Your pets took the battle — the enemy clan takes damage!"
                         : mySide
                             ? "Your pets were defeated."
                             : `${s.winner === "from-wins" ? "The challenging clan" : "The defending clan"} took the battle.`,
@@ -70,7 +70,7 @@ export function ClanWarPetBattle({ character, setScreen }: { character: Characte
                     const needed = s.mode === "pet2v2" ? 2 : 1;
                     if (s.status === "done" || mine.length < needed) return null;
                     return {
-                        headline: `⏳ Waiting for the opposing clan to send ${needed > 1 ? "their pets" : "their pet"}…`,
+                        headline: `Waiting for the opposing clan to send ${needed > 1 ? "their pets" : "their pet"}…`,
                         detail: `${mine.map((f) => f.pet?.name).filter(Boolean).join(" & ")} stands ready. The battle resolves on the server the moment they answer, then replays here.`,
                     };
                 },
