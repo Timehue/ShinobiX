@@ -443,7 +443,7 @@ export function OnboardingCoach({
             }
             case "academySpar": return "That spar knocked you out. Get patched up at the Hospital, wait for free checkout, then we'll step back onto the mat.";
             case "cafeteria": {
-                const awakening = "The spar brought you to Level 2, unlocking your free first-element awakening. Finish the Academy route and we'll guide you to the Awakening Stone.";
+                const awakening = "You're Level 2 now, so your free first-element awakening is unlocked. Finish the Academy route and we'll guide you to the Awakening Stone.";
                 return character.hp >= character.maxHp
                     ? `${awakening} You're already at full HP, so we can keep moving.`
                     : `${awakening} Recover in the Noodle Den before we move on.`;
