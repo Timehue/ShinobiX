@@ -60,12 +60,13 @@ export function DailyBriefingModal({
     const [dismissed, setDismissed] = useState(() => {
         try { return localStorage.getItem(SEEN_KEY) === today; } catch { return false; }
     });
-    // Held back during the Academy tutorial: a brand-new player finishing the
-    // intro cinematic shouldn't be greeted with "Welcome back" over the
-    // companion's first instruction. It shows right after the tutorial ends
-    // (same day), so no login reward is lost.
+    // Held back through the first awakening handoff too: finishing the Academy
+    // should lead straight to the Awakening Stone, not another full-screen
+    // notice board. The daily reward remains available once the player owns an
+    // element, so delaying this presentation does not discard it.
     const tutorialDone = normalizeOnboardingStep(character.onboardingStep) === "done";
-    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone && !storyActive;
+    const hasAwakenedFirstElement = Array.isArray(character.elements) && character.elements.length > 0;
+    const shouldShow = character.level >= MIN_LEVEL && !dismissed && tutorialDone && hasAwakenedFirstElement && !storyActive;
 
     // The login reward is collected by an explicit Claim button (not auto-granted).
     // `claim` holds the server result once collected this session; the save's
