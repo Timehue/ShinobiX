@@ -748,7 +748,7 @@ export function CentralHub({
     const dungeonKeyCount = countInventory(DUNGEON_KEY_ID);
     const dailyMissionCount = dailyMissionsCompleted(character);
     const weeklyBossBadge = weeklyBoss.status === "active"
-        ? `${weeklyBoss.bossIcon} Live now`
+        ? "Live now"
         : weeklyBoss.status === "defeated"
             ? "Cleared this week"
             : weeklyBoss.status === "escaped"
