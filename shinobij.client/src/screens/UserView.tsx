@@ -370,7 +370,7 @@ export function UserView({
                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
                             />
-                            <span className="achievement-detail-emoji" aria-hidden>{selectedAchievement.icon}</span>
+                            <GameArtIcon kind="crown" size={42} />
                         </div>
                         <p className="achievement-detail-category">
                             {selectedAchievement.hidden ? "Secret · " : ""}{selectedAchievement.category}

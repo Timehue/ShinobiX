@@ -1273,10 +1273,14 @@ function runAoeJutsu(
     wMult: number,
     radius: number,
     protectedBossId?: string,
+    areaCenter?: number,
+    excludeAreaCenter = false,
 ): string[] {
     const actorById = new Map(session.actors.map(entry => [entry.id, entry] as const));
     const roster = towerCombatRoster(session);
-    const area = new Set(filledDiskTiles(primary.pos, radius, session.map.width, session.map.height));
+    const center = areaCenter ?? primary.pos;
+    const area = new Set(filledDiskTiles(center, radius, session.map.width, session.map.height));
+    if (excludeAreaCenter && areaCenter !== undefined) area.delete(center);
     const footprint = session.actors
         .filter(entry => entry.hp > 0 && area.has(entry.pos) && hostileSidesFor(actor.side).includes(entry.side))
         .map(entry => actorId(entry.id));
@@ -1520,7 +1524,7 @@ function pveRelicTakenMult(target: TowerActor): number {
 
 function resolveHit(
     session: TowerSession, floor: TowerFloor, actor: TowerActor, target: TowerActor,
-    jutsu: JutsuLike, cost: number, deferWinnerCheck = false,
+    jutsu: JutsuLike, cost: number, deferWinnerCheck = false, areaCenter?: number, excludeAreaCenter = false,
 ): void {
     const selfCast = actor.id === target.id;
     // Snapshot before tags resolve: an Overclock cast cannot discount itself, and
@@ -1576,7 +1580,7 @@ function resolveHit(
     // AOE / ground / Move jutsu also strike the other hostiles in the blast radius.
     const radius = selfCast ? 0 : jutsuAreaRadius(jutsu);
     if (radius > 0) {
-        const caught = runAoeJutsu(session, actor, target, jutsu, wMult, radius, protectedBossId);
+        const caught = runAoeJutsu(session, actor, target, jutsu, wMult, radius, protectedBossId, areaCenter, excludeAreaCenter);
         if (caught.length) session.log.push(`The blast also catches ${caught.join(', ')}.`);
     } else runJutsu(session, actor, target, jutsu, wMult);
     // Push/Pull displacement resolves AFTER the hit + splash (so the blast still centred on the
@@ -2443,7 +2447,8 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
     // The Move tag is resolved BEFORE the ground-zone path (mirrors PvP move.ts):
     // a body-flicker (Flicker / Tempest Step) repositions the user. Otherwise these
     // fall through to layGroundZone and bounce as `no-ground-tags` — Move is not a
-    // ground-effect tag. AOE_SPIRAL dashes additionally erupt a ground nova on landing.
+    // ground-effect tag. AOE_CIRCLE dashes hit around the landing tile; AOE_SPIRAL
+    // dashes additionally erupt a ground nova on landing.
     if (action.type === 'jutsu' && action.tile !== undefined) {
         const jm = findJutsu(actor, action.jutsuId);
         const hasMoveTag = !!jm && Array.isArray(jm.tags)
@@ -2469,9 +2474,33 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             actor.stamina = Math.max(0, actor.stamina - st);
             spendPoison(session, actor, ck, st, session.round);
             if (Number(jm.cooldown ?? 0) > 0) setSafeRecordValue(actor.cooldowns, action.jutsuId, Number(jm.cooldown));
-            spendActionAp(session, actor, cost);
-            session.actionsThisTurn += 1;
             session.log.push(`${actor.name} uses ${jm.name ?? 'a body flicker'} — flickers to hex ${tile}.`);
+            if (String(jm.method ?? 'SINGLE').toUpperCase() === 'AOE_CIRCLE') {
+                const impactTiles = new Set(towerNeighbors(tile, w, session.map.height));
+                const primary = session.actors
+                    .filter(target => target.hp > 0
+                        && hostileSidesFor(actor.side).includes(target.side)
+                        && impactTiles.has(target.pos)
+                        && !(actor.side === 'squad' && objectiveBossDamageLocked(session, target)))
+                    .sort((a, b) => a.pos - b.pos || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+                if (primary) {
+                    session.log.push(`${jm.name ?? 'The movement jutsu'} lands in a ring impact!`);
+                    // resolveHit owns AP/action accounting for this damaging cast.
+                    resolveHit(session, floor, actor, primary, {
+                        ...jm,
+                        tags: Array.isArray(jm.tags)
+                            ? jm.tags.filter(tag => canonicalTagName(String((tag as { name?: unknown })?.name ?? '')) !== 'Move')
+                            : [],
+                    }, cost, true, tile);
+                } else {
+                    spendActionAp(session, actor, cost);
+                    session.actionsThisTurn += 1;
+                    session.log.push(`${jm.name ?? 'The movement jutsu'} lands, but catches no one in its impact ring.`);
+                }
+            } else {
+                spendActionAp(session, actor, cost);
+                session.actionsThisTurn += 1;
+            }
             // Spiral dash: erupt a ground nova on the landing tile (best-effort — a
             // pure Move jutsu carries no ground tags, so this no-ops for Flicker).
             if (String(jm.method ?? 'SINGLE') === 'AOE_SPIRAL') layGroundZone(session, actor, action.jutsuId, jm, tile);
@@ -2526,13 +2555,17 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             } else {
                 const method = String(jg.method ?? 'SINGLE');
                 const ringHit = method === 'AOE_CIRCLE' || method === 'INSTANT_EFFECT';
-                const area = new Set(ringHit ? groundZoneTiles(tile, session.map.width, session.map.height) : [tile]);
+                const circleRing = method.toUpperCase() === 'AOE_CIRCLE';
+                const area = new Set(circleRing
+                    ? towerNeighbors(tile, session.map.width, session.map.height)
+                    : ringHit ? groundZoneTiles(tile, session.map.width, session.map.height) : [tile]);
                 const primary = session.actors
                     .filter(a => a.hp > 0 && hostileSidesFor(actor.side).includes(a.side) && area.has(a.pos)
                         && !(actor.side === 'squad' && objectiveBossDamageLocked(session, a)))
                     .sort((a, b) => (a.pos === tile ? -1 : b.pos === tile ? 1 : 0) || (a.pos - b.pos) || (a.id < b.id ? -1 : 1))[0];
                 if (primary) {
-                    resolveHit(session, floor, actor, primary, jg, cost, true); // winner waits for resource-spend Poison
+                    resolveHit(session, floor, actor, primary, jg, cost, true,
+                        circleRing ? tile : undefined, circleRing); // winner waits for resource-spend Poison
                 } else {
                     session.log.push(`${actor.name} places ${jg.name ?? 'a ground jutsu'} on hex ${tile}, but it catches no one.`);
                     spendActionAp(session, actor, cost);

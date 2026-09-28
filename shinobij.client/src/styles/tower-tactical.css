@@ -847,9 +847,21 @@
 
 .tower-hex-tile:focus-visible,
 .tower-board-actor:focus-visible {
-    outline: 4px solid #fef08a !important;
-    outline-offset: 3px !important;
-    filter: brightness(1.25) drop-shadow(0 0 4px rgba(250, 204, 21, 0.9));
+    outline: none !important;
+    filter: brightness(1.25);
+}
+
+/* Actor anchors include transparent sprite margins, so rectangular outlines
+   obscure the circular ground markers. Glow the visible art silhouette instead. */
+.tower-board-actor:focus-visible .battlefield-actor,
+.battlefield-actor.tower-actor-highlight--active {
+    filter: drop-shadow(0 0 5px rgba(250, 204, 21, 0.95));
+}
+.battlefield-actor.tower-actor-highlight--target {
+    filter: drop-shadow(0 0 6px rgba(248, 113, 113, 0.95));
+}
+.battlefield-actor.tower-actor-highlight--self {
+    filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.95));
 }
 
 .tower-board-actor[data-protected="true"] {
