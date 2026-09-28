@@ -892,10 +892,14 @@
     padding: 0;
     border: 0;
     background: transparent;
+    box-shadow: none;
     color: inherit;
     font: inherit;
     text-align: inherit;
+    outline: none;
 }
+
+.tower-board-actor:focus-visible { outline: none !important; }
 
 .tower-board-actor:disabled {
     opacity: 1;

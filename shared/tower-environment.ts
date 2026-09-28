@@ -4,8 +4,8 @@ export type TowerEnvironmentFeature =
     | { kind: 'ward'; tiles: number[]; percent: number; label?: string }
     | { kind: 'hazard'; tiles: number[]; percent: number; label?: string };
 
-export const TOWER_ENVIRONMENT_RADIUS = 2; // 19 hexes, up from 7 (~3× coverage).
-export const TOWER_ENVIRONMENT_PROP_SCALE = 3;
+export const TOWER_ENVIRONMENT_RADIUS = 1; // Seven hexes keeps tactical zones readable.
+export const TOWER_ENVIRONMENT_PROP_SCALE = 1.5;
 
 function randomStream(seed: number) {
     let state = (seed >>> 0) || 1;
@@ -86,8 +86,9 @@ export function placeTowerEnvironment(
 ): TowerEnvironmentFeature[] {
     if (!features.length) return [];
     const taken = new Set(reserved);
+    const zoneSize = 1 + 3 * TOWER_ENVIRONMENT_RADIUS * (TOWER_ENVIRONMENT_RADIUS + 1);
     const candidates = shuffle(Array.from({ length: width * height }, (_, tile) => towerEnvironmentZone(tile, width, height))
-        .filter(zone => zone.length === 19 && zone.every(tile => tile % width > 3 && !taken.has(tile))), randomStream(seed ^ 0x9e3779b9));
+        .filter(zone => zone.length === zoneSize && zone.every(tile => tile % width > 3 && !taken.has(tile))), randomStream(seed ^ 0x9e3779b9));
     const chosen: number[][] = [];
     // Prefer two clear hexes between radius-two zones. Backtracking considers
     // other first placements before relaxing the gap on a constrained arena.
@@ -95,8 +96,8 @@ export function placeTowerEnvironment(
         if (chosen.length === features.length) return true;
         for (let index = from; index < candidates.length; index++) {
             const zone = candidates[index]!;
-            // The 3× prop rises roughly four rendered rows above its base.
-            if (keepArtInside && Math.floor(zone[0]! / width) < 4) continue;
+            // Keep the smaller prop art inside the top edge of the arena.
+            if (keepArtInside && Math.floor(zone[0]! / width) < 2) continue;
             if (zone.some(tile => taken.has(tile))) continue;
             if (chosen.some(other => centerDistance(zone[0]!, other[0]!, width) < minimumDistance)) continue;
             zone.forEach(tile => taken.add(tile));
@@ -107,8 +108,8 @@ export function placeTowerEnvironment(
         }
         return false;
     }
-    // Smaller boards can use one clear hex; the original collision-free
-    // spacing is the final fallback so authored objectives cannot block entry.
+    // Keep the zones apart where possible; compact layouts are the fallback so
+    // authored objectives cannot block entry.
     if (![true, false].some(keepArtInside => [7, 6, 5].some(distance => place(0, distance, keepArtInside)))) {
         throw new Error('Tower arena cannot fit its environmental zones safely.');
     }

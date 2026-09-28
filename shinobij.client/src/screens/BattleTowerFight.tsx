@@ -2112,7 +2112,7 @@ export function BattleTowerFight({
                                         // tile, no click, nothing for the accessibility tree.
                                         return (
                                             <span key={a.id} className="tower-board-actor tower-board-actor--down" aria-hidden="true"
-                                                style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, pointerEvents: "none" }}>
+                                                style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 30 + row, pointerEvents: "none" }}>
                                                 <BattlefieldActor
                                                     side={a.side === "enemy" ? "enemy" : "player"}
                                                     actorId={a.id}
@@ -2137,7 +2137,7 @@ export function BattleTowerFight({
                                             title={`${a.name} ${a.hp}/${a.maxHp}`}
                                             onMouseEnter={a.side === "enemy" ? () => setHoverEnemyPos(a.pos) : undefined}
                                             onMouseLeave={a.side === "enemy" ? () => setHoverEnemyPos(null) : undefined}
-                                            style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 10 + row, cursor: actorActionable ? "pointer" : "default" }}>
+                                            style={{ position: "absolute", left: ox, top: oy, width: size, zIndex: 30 + row, cursor: actorActionable ? "pointer" : "default" }}>
                                             <BattlefieldActor
                                                 side={a.side === "enemy" ? "enemy" : "player"}
                                                 actorId={a.id}

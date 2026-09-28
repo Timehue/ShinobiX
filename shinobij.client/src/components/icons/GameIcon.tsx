@@ -18,6 +18,7 @@
  */
 import React, { type CSSProperties, type ReactElement } from "react";
 import type { GameIconName } from "./icon-names";
+import { GameArtIcon, type GameArtIconKind } from "../GameArtIcon";
 
 export type { GameIconName } from "./icon-names";
 
@@ -231,6 +232,19 @@ const PATHS: Record<GameIconName, ReactElement> = {
     ),
 };
 
+// Game world symbols use the painted Shinobi Journey asset set. Keep tiny
+// navigation/timing glyphs crisp as vectors; the meaning-bearing icons that
+// players see on rewards, stats, locations, and combat use in-world art.
+const ART_BY_ICON: Partial<Record<GameIconName, GameArtIconKind>> = {
+    ryo: "ryo", shard: "fateShard", crystal: "auraStone", sparkle: "elementLightning",
+    medal: "crown", sigil: "crown", bone: "boneCharm", chakra: "vitality", hp: "vitality",
+    sword: "attack", shield: "guard", scroll: "scroll", map: "map", target: "attack",
+    dice: "dice", dumbbell: "training", paw: "petTamer", gift: "reward", person: "roleDefender",
+    bag: "supply", flask: "potion", bolt: "elementLightning", leaf: "biomeForest",
+    snow: "biomeSnow", moon: "biomeShadow", gate: "gate", tower: "townHall",
+    rations: "rations", hazard: "warning",
+};
+
 export function GameIcon({
     name,
     size = 18,
@@ -246,6 +260,8 @@ export function GameIcon({
     className?: string;
     style?: CSSProperties;
 }) {
+    const artKind = ART_BY_ICON[name];
+    if (artKind) return <GameArtIcon kind={artKind} size={size} title={title} className={className} style={style} />;
     return (
         <svg
             viewBox="0 0 24 24"

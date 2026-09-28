@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import roleDefender from "../assets/roles/role-defender.webp";
 import roleTracker from "../assets/roles/role-tracker.webp";
 import roleAssassin from "../assets/roles/role-assassin.webp";
@@ -34,7 +35,8 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "biomeForest" | "biomeSnow" | "biomeVolcano" | "biomeCentral" | "biomeShadow"
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
-    | "townHall" | "bank" | "training" | "hospital" | "worldMap";
+    | "townHall" | "bank" | "training" | "hospital" | "worldMap"
+    | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply";
 
 const ART: Record<GameArtIconKind, string> = {
     vitality: "/ui/game-icons/vitality.webp",
@@ -57,8 +59,14 @@ const ART: Record<GameArtIconKind, string> = {
     clanHall: facilityClanHall, rations: facilityCafeteria,
     townHall: facilityTownHall, bank: facilityBank, training: facilityTraining,
     hospital: facilityHospital, worldMap: facilityWorldMap,
+    auraStone: "/items/shop-aura-sphere-v1.webp",
+    reward: "/items/village-supply-crate-v1.webp",
+    potion: "/items/shop-rejuvenation-potion-v1.webp",
+    gate: "/landmarks/shrine-hollowgate.webp",
+    map: "/landmarks/trail-sign.webp",
+    supply: "/items/village-supply-bundle-v1.webp",
 };
 
-export function GameArtIcon({ kind, size = 20, className }: { kind: GameArtIconKind; size?: number; className?: string }) {
-    return <img className={className} src={ART[kind]} alt="" aria-hidden="true" width={size} height={size} loading="lazy" decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto" }} />;
+export function GameArtIcon({ kind, size = 20, className, title, style }: { kind: GameArtIconKind; size?: number | string; className?: string; title?: string; style?: CSSProperties }) {
+    return <img className={className} src={ART[kind]} alt={title ?? ""} aria-hidden={title ? undefined : "true"} title={title} role={title ? "img" : undefined} width={size} height={size} loading="lazy" decoding="async" style={{ width: size, height: size, objectFit: "contain", verticalAlign: "middle", flex: "0 0 auto", ...style }} />;
 }
