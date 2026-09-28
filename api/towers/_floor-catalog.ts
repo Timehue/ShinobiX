@@ -280,8 +280,8 @@ function ph(w: number, h: number): number[] {
 // tutorials, 18×12 standard encounters, and 20×14 milestone bosses. Varied objectives +
 // 4 boss floors, each boss with a DISTINCT mechanic
 // (bulwark / regen / summon / enrage). Features carry placeholder tiles (ph); the
-// encounter builder rolls one of each feature kind and scatters larger zones;
-// the single pylon rolls one of five elements. Milestones at floor 5 + floor 10.
+// encounter builder rolls one pylon plus one rotating ward/hazard and scatters
+// compact, spaced zones; the pylon rolls one of five elements. Milestones at floor 5 + floor 10.
 //
 // MECHANIC PACING (deliberate — don't stack everything on every floor): each system
 // debuts ONCE, gets a floor to breathe, and only the finale converges them all.
