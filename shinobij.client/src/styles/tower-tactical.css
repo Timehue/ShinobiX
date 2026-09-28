@@ -900,6 +900,12 @@
 }
 
 .tower-board-actor:focus-visible { outline: none !important; }
+#combat.tower-tactical-combat button.tower-board-actor:focus-visible {
+    outline: none !important;
+    outline-offset: 0;
+    border: 0;
+    box-shadow: none;
+}
 
 .tower-board-actor:disabled {
     opacity: 1;

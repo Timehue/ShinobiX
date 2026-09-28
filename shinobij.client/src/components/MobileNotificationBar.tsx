@@ -10,6 +10,12 @@
  */
 import type { Screen } from "../types/core";
 import { activateGameNotification, useNotifications } from "../lib/use-notifications";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
+
+const NOTIFICATION_ART: Record<string, GameArtIconKind> = {
+    battle: "attack", territoryBreach: "warning", clanWar: "clanHall",
+    villageWar: "roleDefender", tournament: "crown",
+};
 
 export function MobileNotificationBar({
     navigate,
@@ -37,7 +43,7 @@ export function MobileNotificationBar({
                     aria-label={n.label}
                     onClick={n.screen ? () => activateGameNotification(n, navigate) : undefined}
                 >
-                    <span className="notif-chip-icon" aria-hidden="true">{n.icon}</span>
+                    <span className="notif-chip-icon" aria-hidden="true"><GameArtIcon kind={NOTIFICATION_ART[n.id] ?? "mission"} size={18} /></span>
                     <span className="notif-chip-label">{n.label}</span>
                 </button>
             ))}
