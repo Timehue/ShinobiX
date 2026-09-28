@@ -62,7 +62,7 @@ const kageKey = 'village:kage:frostfang-village';
 async function prepare(name: string) {
     const runToken = `hg-refund-${name}`;
     const before: Character = {
-        name, village, level: 90, createdAt: Date.now() - 30 * 86_400_000,
+        name, village, level: 90, examsPassed: ['genin', 'chunin', 'jonin'], createdAt: Date.now() - 30 * 86_400_000,
         villageMerit: 500, ryo: 500_200, honorSeals: 20_200, hollowShards: 100,
         hp: 500, maxHp: 500, inventory: [], itemStacks: [],
         hollowGateRun: { runToken, currentFloor: 1 },

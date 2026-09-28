@@ -3,7 +3,7 @@ import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { countChronicleCardsWithStarter, deckLimitForCard, getChronicleCard, type ChronicleElement } from '../../shared/chronicle-duel.js';
 import { canAppendPackableChronicleCards, CARD_COLLECTION_CAP } from './_collection-cap.js';
 
-export const CARD_PACK_TYPES = ['standard', 'fire', 'water', 'earth', 'wind', 'lightning', 'epic', 'legendary'] as const;
+export const CARD_PACK_TYPES = ['standard', 'fire', 'water', 'earth', 'wind', 'lightning', 'snare', 'jutsu', 'epic', 'legendary'] as const;
 export type CardPackType = typeof CARD_PACK_TYPES[number];
 
 export type CardPackCurrency = 'ryo' | 'fateShards' | 'chroniclePoints';
@@ -18,6 +18,8 @@ type PackDefinition = {
     pool: 'shop' | 'marketplace';
     /** Elemental Basic packs contain only matching Monster cards. */
     element?: ChronicleElement;
+    /** Focused Basic packs contain only Snares or Jutsu cards. */
+    cardClass?: 'trap' | 'magic';
 };
 
 const BASIC_PACK: PackDefinition = { currency: 'chroniclePoints', baseCost: 100, count: 5, rarities: ['common', 'rare'], pool: 'shop' };
@@ -31,6 +33,8 @@ const PACKS: Record<CardPackType, PackDefinition> = {
     earth: { ...BASIC_PACK, element: 'Earth' },
     wind: { ...BASIC_PACK, element: 'Wind' },
     lightning: { ...BASIC_PACK, element: 'Lightning' },
+    snare: { ...BASIC_PACK, cardClass: 'trap' },
+    jutsu: { ...BASIC_PACK, cardClass: 'magic' },
     // Grand Marketplace (Fate Shards): the ranked premium half. The Elite pack
     // covers top Rares + Epics; the Legendary pack guarantees the top rarity.
     epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
@@ -97,9 +101,10 @@ export function applyCardPackOpen(
     const pool = Object.entries(BUILTIN_CLASH)
         .filter(([id, card]) => {
             if (!def.rarities.includes(card.rarity) || isMarketplaceCard(id) !== (def.pool === 'marketplace')) return false;
-            if (!def.element) return true;
             const source = getChronicleCard(id);
-            return source?.cardClass === 'monster' && source.element === def.element;
+            if (def.element) return source?.cardClass === 'monster' && source.element === def.element;
+            if (def.cardClass) return source?.cardClass === def.cardClass;
+            return true;
         })
         .map(([id]) => id);
     if (pool.length === 0) return { ok: false, status: 503, error: 'Card pack pool is unavailable.' };

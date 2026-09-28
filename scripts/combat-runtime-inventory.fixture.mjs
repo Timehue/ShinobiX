@@ -129,7 +129,7 @@ export const EXPECTED_RUNTIME_MODE_CONTRACTS = deepFreeze([
   C('pet-ranked-legacy-compat', [route('/player/challenge', 'lifecycle'), route('/pet/ranked-start', 'start+state'), route('/pet/ranked-watch', 'observation+state'), route('/pet/battle-result', 'settlement')]),
   C('hollow-gate-pet-showdown', [route('/hollow-gate/combat-start', 'lifecycle'), route('/pet/showdown', 'action+start+state'), route('/hollow-gate/combat-settle', 'settlement')]),
   C('dungeon-pet-cinematic', [route('/pet/battle-start', 'start+state'), route('/pet/battle-result', 'settlement'), route('/dungeon/run', 'settlement')]),
-  C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
+  C('card-clash-freeplay', [route('/card-clash/queue', 'lifecycle+start'), route('/card-clash/challenge', 'lifecycle+start'), route('/card-clash/match', 'action+settlement+state')]),
   C('card-clash-ai', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('echoes-of-war', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state')]),
   C('dungeon-card', [route('/card-clash/ai-start', 'start'), route('/card-clash/ai-move', 'action+settlement+state'), route('/dungeon/run', 'settlement')]),

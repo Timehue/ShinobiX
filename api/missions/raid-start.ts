@@ -14,7 +14,8 @@ import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { acceptedRaidFetchMissions } from './_field-raid-progress.js';
 import { cleanMissionProgressReceipt, missionProgressReceiptKey } from './_mission-progress-receipt.js';
 import { serverFieldMissionRun } from './_field-trail.js';
-import { raidGuardOpponentId } from './_generic-ai-fight-authority.js';
+import { raidVillageGuardOpponentId } from './_generic-ai-fight-authority.js';
+import type { AiFightScaling } from './_ai-fight-encounter.js';
 import { territoryIsBreached } from '../_territory-lifecycle.js';
 
 /*
@@ -75,6 +76,7 @@ type RaidStartTokenRecord = {
     authorityVersion: 2;
     status: 'minted';
     requestId: string;
+    scaling?: AiFightScaling;
 };
 
 type RaidStartReceipt = {
@@ -141,6 +143,7 @@ type RaidStartAuthority = {
     sourceId?: string;
     missionId?: string;
     missionRunId?: string;
+    scaling?: AiFightScaling;
 };
 
 function creatorRaidRows(record: Record<string, unknown> | null | undefined): Record<string, unknown>[] {
@@ -201,23 +204,29 @@ async function fieldRaidAuthority(params: {
         && Math.max(0, Number(territory.hp) || 0) <= 0) return null;
     if (!hostileTerritory) return null;
 
-    let guardLevel = Math.max(1, Math.floor(Number(params.character.level) || 1));
+    const attackLevel = Math.max(1, Math.min(100, Math.floor(Number(params.character.level) || 1)));
     if (ownerVillage) {
         const keys = await kv.keys('guard:*').catch(() => [] as string[]);
         if (keys.length > 0) {
             const guards = await kv.mget<Array<Record<string, unknown> | null>>(...keys).catch(() => []);
-            for (const guard of guards) {
-                if (guard && guard.village === ownerVillage) {
-                    guardLevel = Math.max(guardLevel, Math.floor(Number(guard.level) || 1));
-                }
-            }
+            const queued = guards.filter((guard) => guard
+                && guard.village === ownerVillage
+                && Date.now() - Number(guard.lastSeen ?? 0) < 5 * 60_000);
+            const saves = await Promise.all(queued.map(async (guard) => {
+                const name = typeof guard?.name === 'string' ? safeName(guard.name) : '';
+                return name ? kv.get<Record<string, unknown>>(`save:${name}`) : null;
+            }));
+            // A living queued defender must receive the player challenge flow.
+            // This token is strictly the no-human-defense fallback.
+            if (saves.some((save) => !!save?.character)) return null;
         }
     }
     return {
-        aiId: raidGuardOpponentId(guardLevel),
+        aiId: raidVillageGuardOpponentId(ownerVillage, attackLevel),
         sector: params.sector,
         source: 'field-raid',
         sourceId: ownerClan || ownerVillage,
+        scaling: { level: attackLevel },
     };
 }
 
@@ -396,6 +405,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sector: authority.sector,
                 source: authority.source,
                 sourceId: authority.sourceId,
+                ...(authority.scaling ? { scaling: authority.scaling } : {}),
                 ...(authority.missionId ? { missionId: authority.missionId } : {}),
                 ...(authority.missionRunId ? { missionRunId: authority.missionRunId } : {}),
                 authorityVersion: 2,

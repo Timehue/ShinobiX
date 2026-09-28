@@ -1924,6 +1924,69 @@ button.chronicle-card {
   padding: 8px 10px;
   color: #ffc0c3;
 }
+.chronicle-spar-challenge {
+  display: grid;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(130, 159, 183, 0.2);
+}
+.chronicle-spar-challenge h3,
+.chronicle-spar-inbox h4 {
+  margin: 0;
+  color: #e6d4a8;
+  font-family: var(--font-display);
+  letter-spacing: 0.045em;
+}
+.chronicle-spar-challenge p {
+  margin: 0;
+  color: #a9bacb;
+}
+.chronicle-spar-challenge form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+.chronicle-spar-challenge form label {
+  display: grid;
+  gap: 6px;
+  color: #dce8f2;
+  font-size: 0.86rem;
+}
+.chronicle-spar-challenge input {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid #46586a;
+  border-radius: 7px;
+  background: #0a121b;
+  padding: 8px 10px;
+  color: #f2f6fa;
+}
+.chronicle-spar-challenge input:focus-visible {
+  outline: 2px solid #77c8ef;
+  outline-offset: 2px;
+}
+.chronicle-spar-inbox {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(123, 177, 203, 0.3);
+  border-radius: 9px;
+  background: linear-gradient(110deg, rgba(20, 48, 61, 0.65), rgba(11, 22, 31, 0.72));
+  padding: 12px;
+}
+.chronicle-spar-invite {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  color: #e8f0f6;
+}
+.chronicle-spar-invite span { flex: 1 1 180px; }
+@media (max-width: 560px) {
+  .chronicle-spar-challenge form { grid-template-columns: minmax(0, 1fr); }
+  .chronicle-spar-challenge form button { min-height: 42px; }
+}
 .chronicle-log {
   margin-top: 12px;
   color: #9faaba;

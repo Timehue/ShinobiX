@@ -847,9 +847,10 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
 
     defineMode({
         id: 'card-clash-freeplay', label: 'Card Clash', category: 'card', authorityEngine: E.CHRONICLE,
-        clientEntries: ['screens/CardClashFreePlay.tsx', 'lib/free-play-queue-client.ts'],
+        clientEntries: ['screens/CardClashFreePlay.tsx', 'screens/CardHall.tsx', 'lib/free-play-queue-client.ts', 'lib/card-spar-challenge-client.ts'],
         routes: [
             mountedRoute('/card-clash/queue', 'card-clash/queue', ['start', 'lifecycle']),
+            mountedRoute('/card-clash/challenge', 'card-clash/challenge', ['start', 'lifecycle']),
             mountedRoute('/card-clash/match', 'card-clash/match', ['action', 'state', 'settlement']),
         ],
         participantModel: 'two-player', rewardPolicy: 'server-progression', replayKind: 'expiring-chronicle-projection', status: 'match', migrationStatus: 'keep',

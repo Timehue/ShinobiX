@@ -52,6 +52,7 @@ export function BountyBoardPanel({
     }
 
     const me = character.name.toLowerCase();
+    const canPlaceBounty = (character.examsPassed ?? []).some((exam) => exam.toLowerCase() === "jonin");
 
     return (
         <section className="summary-box">
@@ -60,6 +61,8 @@ export function BountyBoardPanel({
                 Stake ryo on a player's head; whoever beats them in a duel claims the pool.
                 Your ryo: {(character.ryo ?? 0).toLocaleString()}.
             </p>
+
+            {!canPlaceBounty && <p className="hint">Placing bounties unlocks at Jonin rank. You can still view the board.</p>}
 
             <label>Target Player</label>
             <input
@@ -82,7 +85,7 @@ export function BountyBoardPanel({
                 value={bountyAmount}
                 onChange={(e) => setBountyAmount(Math.max(0, Math.floor(Number(e.target.value) || 0)))}
             />
-            <div className="menu"><button onClick={() => void submitBounty()}>Place Bounty</button></div>
+            <div className="menu"><button onClick={() => void submitBounty()} disabled={!canPlaceBounty} title={!canPlaceBounty ? "Jonin rank is required to place a bounty." : undefined}>Place Bounty</button></div>
 
             <p className="hint" style={{ marginTop: 10 }}>
                 Active bounties — defeat the target in a duel to claim the pool.

@@ -62,7 +62,9 @@ export function formatBountyAge(updatedAt: number | undefined, now = Date.now())
 }
 
 export function bountyBackerLabel(entry: BountyEntry): string {
-    const count = Array.isArray(entry.contributors) ? entry.contributors.length : 0;
+    const count = Number.isFinite(entry.backerCount)
+        ? Math.max(0, Math.floor(Number(entry.backerCount)))
+        : Array.isArray(entry.contributors) ? entry.contributors.length : 0;
     if (count === 0) return "No listed backers";
     return count === 1 ? "1 backer" : `${count} backers`;
 }

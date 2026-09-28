@@ -7,7 +7,7 @@
 
 import { economyIntentSettled, pendingEconomyIntent, readPendingEconomyIntent } from "./economy-request-intent";
 
-export type BountyEntry = { target: string; amount: number; contributors: string[]; updatedAt: number };
+export type BountyEntry = { target: string; amount: number; backerCount?: number; /** Rolling-deploy compatibility; the server no longer returns contributor names. */ contributors?: string[]; updatedAt: number };
 export type BountyReceipt = { amount: number; target: string };
 
 export async function fetchBountyBoard(): Promise<BountyEntry[]> {

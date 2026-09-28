@@ -18,6 +18,8 @@ const BASIC_PACKS: readonly PackListing[] = [
   { type: "earth", name: "Earth Pack", note: "Earth Monsters only", count: 5, cost: 100, currency: "chroniclePoints" },
   { type: "wind", name: "Wind Pack", note: "Wind Monsters only", count: 5, cost: 100, currency: "chroniclePoints" },
   { type: "lightning", name: "Lightning Pack", note: "Lightning Monsters only", count: 5, cost: 100, currency: "chroniclePoints" },
+  { type: "snare", name: "Snare Pack", note: "Five Snares for traps, counters and combat tricks", count: 5, cost: 100, currency: "chroniclePoints" },
+  { type: "jutsu", name: "Jutsu Pack", note: "Five Jutsu cards for direct plays and setup", count: 5, cost: 100, currency: "chroniclePoints" },
 ];
 
 const PREMIUM_PACKS: readonly PackListing[] = [

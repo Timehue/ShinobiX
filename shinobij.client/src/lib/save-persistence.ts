@@ -417,7 +417,11 @@ export function createSavePersistence<TPayload extends Record<string, unknown>>(
                     console.warn(`[autosave] server rejected save (status ${response.status})`);
                     params.dirty.current = true;
                     params.failureCount.current += 1;
-                    if (response.status === 413 || params.failureCount.current >= SAVE_FAILURE_BANNER_THRESHOLD) params.setBlocked(true);
+                    // Even an oversized snapshot can be transient (e.g. a newly
+                    // added image is removed before the retry). Keep the warning
+                    // threshold consistent so one rejected POST cannot flash the
+                    // red banner before the automatic retry has a chance to land.
+                    if (params.failureCount.current >= SAVE_FAILURE_BANNER_THRESHOLD) params.setBlocked(true);
                     return;
                 }
                 const acknowledgement = await response.json().catch((error: unknown) => {

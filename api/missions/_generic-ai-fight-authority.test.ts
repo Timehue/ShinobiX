@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import { AI_PROFILE_CATALOG } from '../_ai-profile-catalog.js';
 import { apexBeastForWeek, isoWeekKey } from './_apex-contract.js';
 import {
     genericExploreOpponentId,
+    raidVillageGuardOpponentId,
     releaseRaidAiTokenReservation,
     reserveRaidAiToken,
     resolveGenericAiFightAuthority,
@@ -24,6 +26,40 @@ function memoryStore(seed: Record<string, unknown> = {}) {
 }
 
 describe('generic AI fight authority', () => {
+    it('varies explore opponents while keeping their effective level at or below the player', async () => {
+        const selected = Array.from({ length: 32 }, (_, index) => genericExploreOpponentId({
+            playerName: 'Scout',
+            level: 32,
+            sector: 61,
+            receiptId: `exploreproof${String(index).padStart(2, '0')}`,
+        }));
+        assert.ok(new Set(selected).size > 1, 'receipt seeds should spread explorers across eligible opponents');
+        for (const id of selected) assert.ok(AI_PROFILE_CATALOG[id]!.level <= 32, `${id} is within the level band`);
+
+        const lowLevel = await resolveGenericAiFightAuthority({
+            store: memoryStore() as never,
+            playerName: 'NewScout',
+            body: { battleKind: 'explore', sector: 1, worldExploreRequestId: 'explorelowlevel01' },
+            character: {
+                level: 1,
+                redeemedSectorExplorations: [{ id: 'explorelowlevel01', sector: 1, at: Date.now(), outcome: { kind: 'battle' } }],
+            },
+            tokenTtlSeconds: 1800,
+        });
+        assert.deepEqual(lowLevel.scaling, { level: 1 }, 'the fallback profile is scaled to the attacker, never above them');
+    });
+
+    it('chooses a village-themed raid guard at the nearest eligible level tier', () => {
+        assert.equal(raidVillageGuardOpponentId('Stormveil Village', 32), 'story-ai-stormveil-village-25');
+        assert.equal(raidVillageGuardOpponentId('Ashen Leaf Village', 50), 'story-ai-ashen-leaf-village-50');
+        assert.equal(raidVillageGuardOpponentId('Frostfang Village', 100), 'story-ai-frostfang-village-100');
+        for (const id of [
+            raidVillageGuardOpponentId('Stormveil Village', 32),
+            raidVillageGuardOpponentId('Ashen Leaf Village', 50),
+            raidVillageGuardOpponentId('Frostfang Village', 100),
+        ]) assert.ok(AI_PROFILE_CATALOG[id], `${id} exists in the published AI catalog`);
+    });
+
     it('derives an explore opponent from the server level band and exact sector receipt', async () => {
         const store = memoryStore();
         const character = {

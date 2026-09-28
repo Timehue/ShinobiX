@@ -32,7 +32,7 @@ before(async () => {
 beforeEach(async () => {
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
-    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Bounty Placer', ryo: 50_000 } });
+    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Bounty Placer', ryo: 50_000, examsPassed: ['genin', 'chunin', 'jonin'] } });
     await kv.set(`save:${HUNTER}`, { _saveVersion: 1, character: { name: 'Bounty Hunter', ryo: 100 } });
     await kv.set(`save:${TARGET}`, { _saveVersion: 1, character: { name: 'Bounty Target', ryo: 100 } });
 });
@@ -44,7 +44,7 @@ after(async () => {
     delete process.env.SESSION_SECRET;
 });
 
-async function call(playerName: string, body: Record<string, unknown>): Promise<Out> {
+async function call(playerName: string, body: Record<string, unknown>, method: 'GET' | 'POST' = 'POST'): Promise<Out> {
     const out: Out = { statusCode: 200 };
     const res = {
         setHeader: () => res,
@@ -53,7 +53,7 @@ async function call(playerName: string, body: Record<string, unknown>): Promise<
         end: () => res,
     };
     const req = {
-        method: 'POST',
+        method,
         body: { ...body, playerName },
         headers: { 'x-player-name': playerName, 'x-player-token': issuePlayerToken(playerName) ?? '' },
         socket: { remoteAddress: '127.0.0.1' },
@@ -61,6 +61,21 @@ async function call(playerName: string, body: Record<string, unknown>): Promise<
     await handler(req as never, res as never);
     return out;
 }
+
+test('only Jonin may place a bounty and public records never identify the backer', async () => {
+    const denied = await call(HUNTER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(denied.statusCode, 403);
+    assert.equal((await kv.get<{ character: { ryo: number } }>(`save:${HUNTER}`))?.character.ryo, 100);
+
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    const posted = await call(PLACER, {}, 'GET');
+    const entry = (posted.body?.bounties as Array<Record<string, unknown>>)?.[0];
+    assert.equal(posted.statusCode, 200);
+    assert.ok(entry);
+    assert.equal('contributors' in entry, false);
+    assert.doesNotMatch(JSON.stringify(posted.body), /Bounty Placer/);
+});
 
 async function feedOf(type: string) {
     return ((await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? []).filter((a) => a.type === type);
@@ -92,7 +107,7 @@ async function stampSharedConnection(): Promise<void> {
 test('AI hunter start rejects stale contracts and active cooldowns', async () => {
     const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
     assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
-    const board = await kv.get<{ bounties: Array<{ target: string; amount: number; updatedAt: number }> }>('pvp:bounties');
+    const board = await kv.get<{ bounties: Array<{ target: string; amount: number; updatedAt: number; contributors: string[] }> }>('pvp:bounties');
     assert.ok(board?.bounties[0]);
     const hunterId = contractHunterIdFor('Bounty Target', board.bounties[0]);
 
@@ -116,7 +131,12 @@ test('AI hunter start rejects stale contracts and active cooldowns', async () =>
     await kv.set('pvp:bounties', { ...board, bounties: [renewed] });
     const stale = await call(TARGET, { action: 'ai-hunter-start', hunterId });
     assert.equal(stale.body?.reason, 'stale-hunter');
-    assert.deepEqual(stale.body?.bounty, renewed);
+    assert.deepEqual(stale.body?.bounty, {
+        target: renewed.target,
+        amount: renewed.amount,
+        backerCount: renewed.contributors.length,
+        updatedAt: renewed.updatedAt,
+    });
     const newHunterId = contractHunterIdFor('Bounty Target', renewed);
     assert.equal((await call(TARGET, { action: 'ai-hunter-start', hunterId: newHunterId })).body?.ok, true);
 });
@@ -139,7 +159,7 @@ test('placing a bounty posts Bounty Posted exactly once per board stamp', async 
     assert.equal(posts[0].importance, 'medium');
     assert.equal(posts[0].title, 'Bounty Posted');
     // Thousands separators, en-US, so the Herald reads the same for everyone.
-    assert.equal(posts[0].message, "Bounty Placer put 1,000 ryo on Bounty Target's head (total 1,000).");
+    assert.equal(posts[0].message, "A shinobi placed 1,000 ryo on Bounty Target's head (total 1,000).");
     assert.equal(posts[0].receiptId, `bounty-placed:${TARGET}:${frozen}`);
     // Medium importance is feed-only: no herald line in the village chats.
     assert.equal(await kv.get('chat:village:stormveil-village'), null);
@@ -148,7 +168,7 @@ test('placing a bounty posts Bounty Posted exactly once per board stamp', async 
     assert.equal(notices.length, 2, JSON.stringify(notices));
     assert.deepEqual(
         notices.map((n) => [n.kind, n.by, n.sector, n.amount, n.total]),
-        [['bounty-placed', 'Bounty Placer', 0, 1_000, 1_000], ['bounty-placed', 'Bounty Placer', 0, 1_500, 2_500]],
+        [['bounty-placed', 'Anonymous shinobi', 0, 1_000, 1_000], ['bounty-placed', 'Anonymous shinobi', 0, 1_500, 2_500]],
     );
     assert.equal(await kv.get(`offline-notices:${PLACER}`), null, 'placer gets no notice');
 });

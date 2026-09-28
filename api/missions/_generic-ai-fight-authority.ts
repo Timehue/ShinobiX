@@ -32,6 +32,7 @@ export type RaidAiTokenRecord = Record<string, unknown> & {
     status?: 'minted' | 'reserved' | 'settled';
     aiFightToken?: string;
     sessionId?: string;
+    scaling?: AiFightScaling;
 };
 
 export function raidGuardOpponentId(levelRaw: unknown): string {
@@ -41,6 +42,24 @@ export function raidGuardOpponentId(levelRaw: unknown): string {
     if (level < 60) return 'builtin-ai-frost-sealer';
     if (level < 80) return 'builtin-ai-shadow-weaver';
     return 'builtin-ai-central-champion';
+}
+
+const VILLAGE_GUARD_KEYS: Record<string, string> = {
+    'Stormveil Village': 'stormveil',
+    'Ashen Leaf Village': 'ashen-leaf',
+    'Frostfang Village': 'frostfang',
+    'Moonshadow Village': 'moonshadow',
+};
+
+/** The no-human-defense fallback is themed to the territory owner. */
+export function raidVillageGuardOpponentId(villageRaw: unknown, levelRaw: unknown): string {
+    const village = typeof villageRaw === 'string' ? villageRaw.trim() : '';
+    const key = VILLAGE_GUARD_KEYS[village];
+    if (!key) return raidGuardOpponentId(levelRaw);
+    const level = Math.max(1, Math.floor(Number(levelRaw) || 1));
+    const tiers = [4, 15, 25, 35, 50, 65, 75, 85, 100];
+    const tier = [...tiers].reverse().find((candidate) => candidate <= level) ?? tiers[0];
+    return `story-ai-${key}-village-${tier}`;
 }
 
 export async function reserveRaidAiToken(params: {
@@ -170,9 +189,11 @@ export function genericExploreOpponentId(params: {
     const profiles = EXPLORE_POOL_IDS
         .map((id) => AI_PROFILE_CATALOG[id])
         .filter((profile): profile is NonNullable<typeof profile> => Boolean(profile) && profile.isBossAi !== true);
-    const distance = Math.min(...profiles.map((profile) => Math.abs(profile.level - level)));
-    const closest = profiles.filter((profile) => Math.abs(profile.level - level) === distance);
-    return closest[hash(`${params.playerName.toLowerCase()}:${params.sector}:${params.receiptId}`) % closest.length]!.id;
+    const eligible = profiles.filter((profile) => profile.level <= level);
+    const pool = eligible.length > 0
+        ? eligible
+        : profiles.filter((profile) => profile.level === Math.min(...profiles.map((entry) => entry.level)));
+    return pool[hash(`${params.playerName.toLowerCase()}:${params.sector}:${params.receiptId}`) % pool.length]!.id;
 }
 
 async function ownsExploreReceipt(
@@ -234,14 +255,20 @@ export async function resolveGenericAiFightAuthority(params: {
         if (await params.store.get(exploreReceiptKey)) {
             throw new Error('That exploration encounter was already started.');
         }
+        const opponentId = genericExploreOpponentId({
+            playerName: params.playerName,
+            level: Number(params.character.level),
+            sector,
+            receiptId,
+        });
+        const opponentProfile = AI_PROFILE_CATALOG[opponentId];
+        const playerLevel = Math.max(1, Math.floor(Number(params.character.level) || 1));
         return {
             battleKind,
-            opponentId: genericExploreOpponentId({
-                playerName: params.playerName,
-                level: Number(params.character.level),
-                sector,
-                receiptId,
-            }),
+            opponentId,
+            ...(opponentProfile && opponentProfile.level !== playerLevel
+                ? { scaling: { level: playerLevel } }
+                : {}),
             sector,
             exploreReceiptKey,
             worldExploreRequestId: receiptId,
@@ -276,6 +303,7 @@ export async function resolveGenericAiFightAuthority(params: {
         return {
             battleKind,
             opponentId: authority.aiId,
+            ...(authority.scaling ? { scaling: authority.scaling } : {}),
             sector,
             raidTokenId: raidToken,
             ...(authority.source === 'field-mission-raid' && typeof authority.missionId === 'string'

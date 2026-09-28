@@ -175,6 +175,7 @@ import clanWarTilecardsHandler from './api/clan/war/tilecards.js';
 import clanWarPetHandler from './api/clan/war/pet.js';
 // Card Clash — free-play PvP (open matchmaking + server-authoritative match)
 import cardClashQueueHandler   from './api/card-clash/queue.js';
+import cardClashChallengeHandler from './api/card-clash/challenge.js';
 import cardClashMatchHandler   from './api/card-clash/match.js';
 import cardClashAiStartHandler from './api/card-clash/ai-start.js';
 import cardClashAiMoveHandler  from './api/card-clash/ai-move.js';
@@ -605,6 +606,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // ─── Card Clash: free-play PvP ─────────────────────────────────────────────────
     route('/card-clash/queue', cardClashQueueHandler);
+    route('/card-clash/challenge', cardClashChallengeHandler);
     route('/card-clash/match', cardClashMatchHandler);
     route('/card-clash/ai-start', cardClashAiStartHandler);
     route('/card-clash/ai-move', cardClashAiMoveHandler);

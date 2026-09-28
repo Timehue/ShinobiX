@@ -2566,10 +2566,11 @@ test("Smoke Bomb is hidden, cannot activate on its set turn, then negates one at
     temporaryAttack: 0,
     temporaryDefense: 0,
   };
+  placeMonster(state, defenderSide, 0, "tc-01", { instanceId: "smoke-protected-pet" });
   const declared = declareAttack(
     state,
     attackerSide,
-    { action: "attack", attackerZoneIndex: 0, targetZoneIndex: null },
+    { action: "attack", attackerZoneIndex: 0, targetZoneIndex: 0 },
     5_000,
   );
   assert.equal(declared.ok, true);
@@ -2585,6 +2586,12 @@ test("Smoke Bomb is hidden, cannot activate on its set turn, then negates one at
       activated.state[defenderSide].lifePoints,
       STARTING_LIFE_POINTS,
     );
+    assert.equal(
+      activated.state[defenderSide].monsterZones[0]?.instanceId,
+      "smoke-protected-pet",
+      "Smoke Bomb cancels the attack before it can damage or destroy the defending pet",
+    );
+    assert.equal(activated.state[attackerSide].monsterZones[0]?.lastAttackTurn, 0);
     assert.equal(activated.state.responseWindow, null);
     assert.equal(
       activated.state[defenderSide].graveyard.includes("chronicle-smoke-bomb"),
