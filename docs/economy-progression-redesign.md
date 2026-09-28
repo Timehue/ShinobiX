@@ -12,7 +12,6 @@
 > **Live players:** re-pace **forward**, keep current level/stats (no wipe).
 > **Monetization:** Patreon/premium left as-is; design as if it doesn't exist.
 > **Companion docs:** [`early-progression.md`](./early-progression.md),
-> [`competitor-early-game.md`](./competitor-early-game.md),
 > [`economy-telemetry-plan.md`](./economy-telemetry-plan.md),
 > [`professions.md`](./professions.md).
 

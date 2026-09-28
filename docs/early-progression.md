@@ -18,8 +18,7 @@ account creation through the Genin gate (the first session and the path to
 > is the consolidated master layout (the banded journey + the "no new systems"
 > guarantee). This doc holds the underlying rationale + numbers.
 > **See also:** [`onboarding-tutorial.md`](./onboarding-tutorial.md) (detailed
-> FTUE/tutorial plan) and [`competitor-early-game.md`](./competitor-early-game.md)
-> (how comparable games handle early progression).
+> FTUE/tutorial plan).
 
 ---
 
