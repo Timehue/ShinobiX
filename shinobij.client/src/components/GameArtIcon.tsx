@@ -36,7 +36,7 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
     | "townHall" | "bank" | "training" | "hospital" | "worldMap"
-    | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply";
+    | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event";
 
 const ART: Record<GameArtIconKind, string> = {
     vitality: "/ui/game-icons/vitality.webp",
@@ -65,6 +65,7 @@ const ART: Record<GameArtIconKind, string> = {
     gate: "/landmarks/shrine-hollowgate.webp",
     map: "/landmarks/trail-sign.webp",
     supply: "/items/village-supply-bundle-v1.webp",
+    event: "/ui/clan-missions/clan-mission-raid.webp",
 };
 
 export function GameArtIcon({ kind, size = 20, className, title, style }: { kind: GameArtIconKind; size?: number | string; className?: string; title?: string; style?: CSSProperties }) {

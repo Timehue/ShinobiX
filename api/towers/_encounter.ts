@@ -339,7 +339,10 @@ export function buildTowerEncounter(p: BuildEncounterParams): TowerSession {
     const terrainReserved = new Set<number>(used);
     for (const t of map.objectiveTiles) { terrainReserved.add(t); for (const nb of towerNeighbors(t, W, H)) terrainReserved.add(nb); }
     if (npcTile !== undefined) for (const nb of towerNeighbors(npcTile, W, H)) terrainReserved.add(nb);
-    scatterTerrain(map, W, H, p.seed, terrainReserved, floor.terrainPillars ?? 0);
+    // Keep static cover sparse around the smaller authored tactical zones.
+    // Catalog values remain the encounter's upper target; 70% reads cleanly
+    // without turning the board into an obstacle course.
+    scatterTerrain(map, W, H, p.seed, terrainReserved, Math.floor((floor.terrainPillars ?? 0) * 0.7));
     for (const t of map.blockedTiles) used.add(t);
 
     // Board objects (fonts / shrines): place AFTER terrain (pillars reserved) and BEFORE

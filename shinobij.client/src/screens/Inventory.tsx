@@ -4,7 +4,7 @@ import { getAllItems, getItemById } from "../lib/items";
 import { weaponTagCombatPercent } from "../lib/tags";
 import { petFeedXpForItem } from "../data/pet-config";
 import { useEffect, useRef, useState } from "react";
-import { FiGrid, FiPackage } from "../components/icons/LightweightGameIcons";
+import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 import "../styles/profile-skin.css";
 import "../styles/inventory-aaa.css";
 import "../styles/index/17-shop-inventory-loadout.css";
@@ -57,6 +57,10 @@ import { storesItemSignpost } from "../lib/village-stores-signposts";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
+
+const ITEM_CATEGORY_ART: Record<ItemCategory, GameArtIconKind> = {
+    gear: "attack", consumable: "potion", pet: "petTamer", material: "boneCharm", event: "reward",
+};
 
 function chronicleInventorySummary(id: string): string {
     const card = getChronicleCard(id);
@@ -759,7 +763,7 @@ export function Inventory({
                                 onKeyDown={handleHorizontalTabKeyDown}
                                 onClick={() => setInventoryTab("items")}
                             >
-                                <FiPackage aria-hidden="true" /> Items
+                                <GameArtIcon kind="supply" size={19} /> Items
                             </button>
 
                             <button
@@ -773,7 +777,7 @@ export function Inventory({
                                 onKeyDown={handleHorizontalTabKeyDown}
                                 onClick={() => setInventoryTab("tileCards")}
                             >
-                                <FiGrid aria-hidden="true" /> Chronicle Showdown
+                                <GameArtIcon kind="cardHall" size={19} /> Chronicle Showdown
                             </button>
                         </div>
                     </div>
@@ -815,7 +819,7 @@ export function Inventory({
                                             onClick={() => { setCategoryFilter(category); setSlotFilter(null); }}
                                             title={meta.label}
                                         >
-                                            <span className="cat-icon" aria-hidden="true">{meta.icon}</span>
+                                            <span className="cat-icon" aria-hidden="true"><GameArtIcon kind={ITEM_CATEGORY_ART[category]} size={19} /></span>
                                             {meta.label}
                                             <span className="cat-count">{count}</span>
                                         </button>

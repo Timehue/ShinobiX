@@ -26,6 +26,12 @@
 import { useEffect, useRef } from "react";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { OfflineNoticeDigest } from "../lib/offline-notices";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
+
+const OFFLINE_NOTICE_ART: Record<OfflineNoticeDigest["entries"][number]["kind"], GameArtIconKind> = {
+    "village-unfed": "rations", "kage-seat-lost": "crown", "kage-challenge-refunded": "crown",
+    "bounty-placed": "ryo", "bounty-claimed": "ryo", "merc-raid": "attack", "sleeper-kill": "attack",
+};
 
 export function OfflineNoticeDigestCard({ digest, onClose }: { digest: OfflineNoticeDigest; onClose: () => void }) {
     const cardRef = useRef<HTMLDivElement>(null);
@@ -73,7 +79,7 @@ export function OfflineNoticeDigestCard({ digest, onClose }: { digest: OfflineNo
                 <ul className="away-digest-list">
                     {digest.entries.map((e, i) => (
                         <li className={`away-notice away-notice-${e.tone}`} key={`${e.kind}-${e.at}-${i}`}>
-                            <span className="away-notice-icon" aria-hidden="true">{e.icon}</span>
+                            <span className="away-notice-icon" aria-hidden="true"><GameArtIcon kind={OFFLINE_NOTICE_ART[e.kind]} size={20} /></span>
                             <span className="away-notice-body">
                                 <span className="away-notice-meta">
                                     {e.when && <span className="away-notice-when">{e.when}</span>}

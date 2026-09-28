@@ -113,12 +113,12 @@ export const ITEM_CATEGORY_ORDER: readonly ItemCategory[] = [
     "gear", "consumable", "pet", "material", "event",
 ];
 
-export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; icon: string; empty: string }> = {
-    gear:       { label: "Gear",        icon: "⚔️", empty: "No weapons or armor in your backpack." },
-    consumable: { label: "Consumables", icon: "🧪", empty: "No consumables. Buy potions and combat items from the Shop." },
-    pet:        { label: "Pet",         icon: "🐾", empty: "No pet items. Buy treats and gear from the Shop or Grand Marketplace." },
-    material:   { label: "Materials",   icon: "🔨", empty: "No crafting materials. Hunt beasts and gather drops to fill the Crafter." },
-    event:      { label: "Event",       icon: "🎟️", empty: "No event items yet. Earn them from weekly bosses, clan wars, and dungeon runs." },
+export const ITEM_CATEGORY_META: Record<ItemCategory, { label: string; empty: string }> = {
+    gear:       { label: "Gear",        empty: "No weapons or armor in your backpack." },
+    consumable: { label: "Consumables", empty: "No consumables. Buy potions and combat items from the Shop." },
+    pet:        { label: "Pet",         empty: "No pet items. Buy treats and gear from the Shop or Grand Marketplace." },
+    material:   { label: "Materials",   empty: "No crafting materials. Hunt beasts and gather drops to fill the Crafter." },
+    event:      { label: "Event",       empty: "No event items yet. Earn them from weekly bosses, clan wars, and dungeon runs." },
 };
 
 // Rarity sort weight — higher sorts first, so the grid leads with the rarest

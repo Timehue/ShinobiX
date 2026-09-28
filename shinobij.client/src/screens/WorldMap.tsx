@@ -3881,7 +3881,7 @@ function WorldMapContent({
         const leveled = gainXp(character, 0); // XP retired — legacy xpReward ignored
         const rewarded = applyCurrencyRewards(leveled, event.currencyRewards);
         updateCharacter({ ...rewarded, ryo: rewarded.ryo + event.ryoReward, stamina: Math.min(rewarded.maxStamina, rewarded.stamina + event.staminaReward) });
-        alert(event.icon + " " + event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
+        alert(event.name + "\n\n" + event.dialogue.join("\n") + "\n\n" + rewardSummary(event.ryoReward, event.staminaReward, event.currencyRewards, character));
     }
     function completeCreatorEvent(event: CreatorEvent) {
         if (event.id.startsWith(FIELD_STORY_PREFIX)) { setSelectedCreatorEvent(null); return; }
@@ -4687,7 +4687,7 @@ function WorldMapContent({
                                             onClick={() => triggerCreatorEvent(event)}
                                             title={`${event.name} | Lvl ${event.levelReq}`}
                                         >
-                                            <strong style={{ color: "var(--gold)", fontSize: 16 }}>{event.icon}</strong>
+                                            <GameArtIcon kind="event" size={22} />
                                             <span>{event.name}</span>
                                         </button>
                                     );
@@ -4735,7 +4735,7 @@ function WorldMapContent({
                                             }}
                                             title={`${raid.name} | ${raid.waves} waves | Lvl ${raid.levelReq}`}
                                         >
-                                            <strong style={{ color: "var(--red-300)", fontSize: 16 }}>{raid.icon}</strong>
+                                            <GameArtIcon kind="attack" size={22} />
                                             <span>{raidStartCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(raidStartCooldownMs / 1000))}s` : raid.name}</span>
                                         </button>
                                     );
