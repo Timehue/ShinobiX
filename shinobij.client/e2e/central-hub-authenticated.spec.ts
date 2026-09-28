@@ -382,7 +382,10 @@ for (const contract of bloodlineAwakeningContracts) {
         expect(savedTags[0]).toMatchObject({ name: "Decrease Damage Given", percent: Number(contract.percentChoices.at(-1)!.replace("%", "")) });
         const savedCharacter = api.getSave()?.character as Record<string, unknown>;
         expect(savedCharacter.equippedBloodlineId).toBe(savedBloodline.id);
-        expect(savedCharacter.equippedJutsuIds).toEqual(preAwakeningEquipped);
+        // Awakening equips the new bloodline. The prior bloodline's techniques
+        // leave the loadout while their mastery remains in the archive.
+        expect(preAwakeningEquipped.length).toBeGreaterThan(0);
+        expect(savedCharacter.equippedJutsuIds).toEqual([]);
         const savedMastery = savedCharacter.jutsuMastery as Array<{ jutsuId: string; level: number }>;
         for (const previous of preAwakeningMastery) {
             expect(savedMastery).toContainEqual(expect.objectContaining(previous));
