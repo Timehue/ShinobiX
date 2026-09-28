@@ -80,8 +80,10 @@ test('allocating a large banked pool into one stat is accepted, not rate-limited
     assert.equal((first.stored?.character.stats as Record<string, number>).strength, 2010);
     assert.equal(first.stored?.character.unspentStats, 1000);
     // And again within the same minute: allocations never fill the window.
-    // (Wait out the separate save-burst limiter, ~2s; the stat window is 60s.)
-    await new Promise((resolve) => setTimeout(resolve, 2500));
+    // Wait for the accepted save's actual aligned burst window to roll over.
+    const nextSaveInMs = first.body?.nextSaveInMs;
+    assert.ok(typeof nextSaveInMs === 'number' && nextSaveInMs > 0 && nextSaveInMs <= 3000);
+    await new Promise((resolve) => setTimeout(resolve, nextSaveInMs + 25));
     const second = await postSave(name, { stats: baseStats({ strength: 2010, speed: 1010 }), unspentStats: 0 });
     assert.equal(second.status, 200, JSON.stringify(second.body));
     assert.equal((second.stored?.character.stats as Record<string, number>).speed, 1010);

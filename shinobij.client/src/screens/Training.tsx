@@ -234,7 +234,8 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                                 return (
                                     <button
                                         key={stat}
-                                        className={`location-button${selectedStat === stat ? " selected" : ""}`}
+                                        className={`location-button${selectedStat === stat ? " selected" : ""}${showAcademyTrainingHint && !timerPickerOpen && selectedStat === stat ? " academy-click-target" : ""}`}
+                                        data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && selectedStat === stat ? "true" : undefined}
                                         onClick={() => {
                                             setSelectedStat(stat);
                                             setTimerPickerOpen(true);
@@ -286,9 +287,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     return (
                         <button
                             key={timer.label}
-                            className={`location-button${showAcademyTrainingHint ? " academy-timer-target academy-click-target" : ""}`}
-                            data-academy-hint={showAcademyTrainingHint ? "Next · start a timer" : undefined}
-                            data-academy-autoscroll={showAcademyTrainingHint && timer === timers[0] ? "true" : undefined}
+                            className={`location-button${showAcademyTrainingHint && timerPickerOpen ? " academy-timer-target academy-click-target" : ""}`}
+                            data-academy-hint={showAcademyTrainingHint && timerPickerOpen ? "Next · start a timer" : undefined}
+                            data-academy-autoscroll={showAcademyTrainingHint && timerPickerOpen && timer === timers[0] ? "true" : undefined}
                             onClick={() => startTraining(timer)}
                             disabled={!!disabledReason}
                             title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}
