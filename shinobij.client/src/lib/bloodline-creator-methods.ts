@@ -42,6 +42,7 @@ export function bloodlineCreatorTargetForMethod(
 /** Player bloodline range projection mirrored by api/bloodlines/_jutsu-schema.ts. */
 export function bloodlineCreatorRangeForTarget(target: JutsuTarget, range: number, method?: JutsuMethod): number {
     if (target === "SELF") return 0;
-    if (method === "INSTANT_EFFECT" || method === "AOE_SPIRAL") return Number(range) >= 4 ? 4 : 3;
+    if (method === "INSTANT_EFFECT") return Number(range) === 5 ? 5 : 4;
+    if (method === "AOE_SPIRAL") return Number(range) >= 4 ? 4 : 3;
     return Number(range) === 5 ? 5 : 4;
 }

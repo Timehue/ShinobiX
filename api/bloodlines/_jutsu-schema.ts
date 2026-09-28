@@ -167,7 +167,12 @@ function normalizeOne(
     const affectsOpponent = ap !== 40 || tags.some((tag) => OPPONENT_AFFECTING_TAGS.has(tag.name));
     const target = groundTarget ? 'EMPTY_GROUND' : method === 'AOE_BURST' || affectsOpponent ? 'OPPONENT' : 'SELF';
     const groundZone = method === 'INSTANT_EFFECT' || method === 'AOE_SPIRAL';
-    const range = target === 'SELF' ? 0 : groundZone ? (Number(raw.range) >= 4 ? 4 : 3) : Number(raw.range) === 5 ? 5 : 4;
+    // Earlier creator saves reduced a range-four instant field to three and stamped
+    // groundRangeVersion: 2. Restore the authored fourth ring on every load.
+    const range = target === 'SELF' ? 0
+        : method === 'INSTANT_EFFECT' ? (Number(raw.range) === 5 ? 5 : 4)
+        : method === 'AOE_SPIRAL' ? (Number(raw.range) >= 4 ? 4 : 3)
+        : Number(raw.range) === 5 ? 5 : 4;
 
     let usedNuke = false;
     let effectPower = 0;

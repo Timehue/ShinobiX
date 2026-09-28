@@ -35,7 +35,13 @@ export function getAllJutsus(savedBloodlines: SavedBloodline[], creatorJutsus: J
     creatorJutsus = creatorJutsus.filter((j) => !isDeletedJutsuEntry(j));
     const activeBloodline = character ? getCharacterBloodlines(character, savedBloodlines)[0] : undefined;
     const merged = new Map<string, Jutsu>();
-    const markRank = (jutsus: Jutsu[], rank: Rank) => jutsus.map(j => ({ ...j, bloodlineRank: rank }));
+    const markRank = (jutsus: Jutsu[], rank: Rank) => jutsus.map(j => ({
+        ...j,
+        // Older creator saves already persisted the shortened three-ring field.
+        // Project its restored reach in the loadout before the next save seals it.
+        range: j.method === "INSTANT_EFFECT" && j.groundRangeVersion === 2 ? Math.max(4, j.range) : j.range,
+        bloodlineRank: rank,
+    }));
     const includeAllStarterBloodlines = !character;
     [
         ...starterJutsus,

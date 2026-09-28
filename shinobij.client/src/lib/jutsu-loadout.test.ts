@@ -72,6 +72,17 @@ describe("getAllJutsus", () => {
         assert.ok(with_.some((j) => j.id === "bloodline-only"), "the equipped bloodline's kit is fieldable");
     });
 
+    it("shows the restored fourth ring for a shortened active bloodline field", () => {
+        const field = jutsu("field", {
+            method: "INSTANT_EFFECT", target: "EMPTY_GROUND", range: 3,
+            groundRangeVersion: 2, tags: [{ name: "Poison", percent: 30 }],
+        });
+        const bloodline = { id: "bl-field", name: "Field", rank: "A Rank", jutsus: [field] } as SavedBloodline;
+        const catalog = getAllJutsus([bloodline], [], character({ equippedBloodlineId: bloodline.id }));
+        assert.equal(catalog.find((entry) => entry.id === field.id)?.range, 4);
+        assert.equal(field.range, 3, "the stored definition is not mutated");
+    });
+
     it("fields only the active bloodline even when shared jutsu copies include the inactive kits", () => {
         const first = { id: "bl-first", name: "First", rank: "A Rank", jutsus: [jutsu("first-tech", { element: "Fire" })] } as SavedBloodline;
         const second = { id: "bl-second", name: "Second", rank: "A Rank", jutsus: [jutsu("second-tech", { element: "None" })] } as SavedBloodline;

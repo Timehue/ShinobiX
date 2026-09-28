@@ -44,11 +44,12 @@ describe("player bloodline method/tag reachability", () => {
         }
     });
 
-    it("offers ground fields one less range than direct casts", () => {
-        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 0, "INSTANT_EFFECT"), 3);
+    it("restores instant fields to four while keeping movement zones at three or four", () => {
+        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 0, "INSTANT_EFFECT"), 4);
+        assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 3, "INSTANT_EFFECT"), 4);
         assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 4, "INSTANT_EFFECT"), 4);
         assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 4, "INSTANT_EFFECT"), 4, "switching methods keeps an authored range of four");
-        assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 5, "INSTANT_EFFECT"), 4);
+        assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 5, "INSTANT_EFFECT"), 5);
         assert.equal(bloodlineCreatorRangeForTarget("EMPTY_GROUND", 3, "AOE_SPIRAL"), 3);
         assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 3, "SINGLE"), 4);
         assert.equal(bloodlineCreatorRangeForTarget("OPPONENT", 5, "SINGLE"), 5);

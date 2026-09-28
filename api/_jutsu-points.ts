@@ -86,7 +86,7 @@ export function jutsuPoints(jutsu: RawJutsu, rank: string | null | undefined): n
     const effectPower = Number(jutsu?.effectPower) || 0;
     const cooldown = Number(jutsu?.cooldown) || 0;
     if (ap === 40) sum += 1;                                   // 40-AP utility
-    if (range >= (jutsu?.method === 'INSTANT_EFFECT' || jutsu?.method === 'AOE_SPIRAL' ? 4 : 5)) sum += 0.5; // long range
+    if (range >= (jutsu?.method === 'AOE_SPIRAL' ? 4 : 5)) sum += 0.5; // long range
     if (jutsu?.target === 'EMPTY_GROUND') {                    // ground methods
         if (jutsu.method === 'AOE_CIRCLE') sum += 0.5;
         else if (jutsu.method === 'INSTANT_EFFECT') sum += 1;
