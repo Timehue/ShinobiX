@@ -10,8 +10,7 @@ The consolidated, refined plan for the new-player journey (creation â†’ Genin â†
 toward Chunin), built to **work within the systems already in the game**. This is
 the overview; detail lives in:
 [`early-progression.md`](./early-progression.md) (rationale + numbers),
-[`onboarding-tutorial.md`](./onboarding-tutorial.md) (FTUE detail + auto-learn),
-[`competitor-early-game.md`](./competitor-early-game.md) (evidence).
+[`onboarding-tutorial.md`](./onboarding-tutorial.md) (FTUE detail + auto-learn).
 
 ---
 

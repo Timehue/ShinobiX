@@ -4,7 +4,7 @@ A whole-game audit of every major gameplay system, scoring how *deep* each one
 is today and laying out an incremental plan to fill the shallow spots. Researched
 across the codebase plus genre peers (shinobi browser RPGs, PBBGs, ARPGs,
 guild-war & monster-taming games). **Companion to** the existing design docs
-(`professions.md`, `early-progression.md`, `competitor-early-game.md`).
+(`professions.md`, `early-progression.md`).
 
 > **Constraint reminder (from CLAUDE.md):** the game is **live with real player
 > saves**. Everything below is framed as **additive** content/systems. Do **not**
