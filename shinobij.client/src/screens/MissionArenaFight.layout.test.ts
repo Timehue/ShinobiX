@@ -422,9 +422,9 @@ test("Solo and Tower submit highlighted movement-jutsu tiles through the jutsu p
     }
 });
 
-test("Tower keeps target guidance non-visual and disables off-turn actions semantically", () => {
-    assert.match(towerSource, /id="tower-action-guidance" className="tower-sr-only"/, "Tower must announce target guidance without reserving a visible row");
-    assert.match(towerSource, /: "Choose an action\."/, "the idle guidance announcement must remain mounted");
+test("Tower removes the action guidance strip and disables off-turn actions semantically", () => {
+    assert.doesNotMatch(towerSource, /tower-action-guidance|Choose an action\./, "the removed guidance panel must not occupy the controls area");
+    assert.doesNotMatch(towerTacticalCss, /\.tower-action-guidance\s*\{/);
     assert.doesNotMatch(towerTacticalCss, /\.tower-action-state\s*\{/,
         "the removed guidance panel must not retain layout geometry");
     assert.ok(towerSource.indexOf('className="tower-resource-rail tower-header-resource-rail"') < towerSource.indexOf('className="tower-action-dock"'),

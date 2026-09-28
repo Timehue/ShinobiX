@@ -1,4 +1,5 @@
 import { createPortal } from "react-dom";
+import { GameArtIcon } from "./GameArtIcon";
 import type { HuntChoice, HuntOpening, HuntSign } from "../lib/hunt-encounter";
 import "./HuntEncounterCard.css";
 
@@ -22,7 +23,6 @@ export function HuntEncounterCard({
     beastName,
     beastRank,
     portrait,
-    icon,
     sector,
     regionName,
     trailStep,
@@ -35,9 +35,8 @@ export function HuntEncounterCard({
     view: HuntEncounterView;
     beastName: string;
     beastRank: string;
-    /** Bundled beast art. Falls back to the AI's emoji when absent. */
+    /** Bundled beast art. Falls back to the painted shinobi crest. */
     portrait?: string;
-    icon: string;
     sector: number;
     regionName: string;
     trailStep: number;
@@ -62,7 +61,7 @@ export function HuntEncounterCard({
                     <div className="he-portrait" aria-hidden="true">
                         {portrait
                             ? <img src={portrait} alt="" />
-                            : <span className="he-portrait-icon">{icon}</span>}
+                            : <span className="he-portrait-icon"><GameArtIcon kind="roleAssassin" size={56} /></span>}
                     </div>
                     <div className="he-ident">
                         <div className="he-kicker">

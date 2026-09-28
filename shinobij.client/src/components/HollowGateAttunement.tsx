@@ -11,6 +11,7 @@ import { buyHollowGateAttunementServer } from "../lib/hollow-gate-attunement-api
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { gameConfirm } from "./GameAlert";
 import { Modal } from "./ui/Modal";
+import { GameArtIcon } from "./GameArtIcon";
 
 type Props = { character: Character; onClose: () => void; onVersionedCharacter: VersionedCharacterCommit };
 
@@ -92,9 +93,9 @@ export function HollowGateAttunement({ character, onClose, onVersionedCharacter 
     const close = useCallback(() => { onClose(); }, [onClose]);
 
     return (
-        <Modal open onClose={close} title="⛩ Shrine Attunement" size="md" disableBackdropClose={forgeBusy || attuneBusy}>
+        <Modal open onClose={close} title="Shrine Attunement" size="md" disableBackdropClose={forgeBusy || attuneBusy}>
             <div style={{ color: "#e9d5ff" }}>
-                <p style={{ margin: "0 0 6px", color: "#c4b5fd", fontSize: 14 }}>💎 Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong> · spend on permanent shrine boons</p>
+                <p style={{ display: "flex", alignItems: "center", gap: 5, margin: "0 0 6px", color: "#c4b5fd", fontSize: 14 }}><GameArtIcon kind="fateShard" size={18} /> Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong> · spend on permanent shrine boons</p>
                 {status && <p role="status" aria-live="polite" style={{ color: status.ok ? "#86efac" : "#fca5a5", fontSize: 13, margin: "0 0 6px" }}>{status.text}</p>}
                 {ATTUNEMENT_NODES.map((n) => {
                     const rank = attunementRank(character, n.id);
@@ -106,8 +107,8 @@ export function HollowGateAttunement({ character, onClose, onVersionedCharacter 
                         : maxed
                             ? "Maxed"
                             : cost != null && shards < cost
-                                ? `Need ${cost}💎`
-                                : `Attune · ${cost}💎`;
+                                ? `Need ${cost} Shards`
+                                : `Attune · ${cost} Shards`;
                     return (
                         <div key={n.id} style={{ border: "1px solid #332b4e", borderRadius: 8, padding: "8px 10px", marginBottom: 8, opacity: n.comingSoon ? 0.55 : 1, background: "rgba(46,16,84,0.25)" }}>
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -145,7 +146,7 @@ export function HollowGateAttunement({ character, onClose, onVersionedCharacter 
                             color: shards >= KEY_FORGE_COST ? "#fde68a" : "#6b6486",
                         }}
                     >
-                        {forgeBusy ? "Forging key…" : `🗝 Forge 1 Hollow Gate Key · ${KEY_FORGE_COST}💎`}
+                        {forgeBusy ? "Forging key…" : <><GameArtIcon kind="key" size={18} /> Forge 1 Hollow Gate Key · {KEY_FORGE_COST} Shards</>}
                     </button>
                 )}
             </div>

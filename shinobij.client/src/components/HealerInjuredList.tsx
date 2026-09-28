@@ -102,7 +102,7 @@ export function HealerInjuredList({
     async function healPlayer(targetName: string) {
         if (healing.has(targetName)) return;
         setHealing(s => new Set(s).add(targetName));
-        setHealMsg(m => ({ ...m, [targetName]: "💚 Healing…" }));
+        setHealMsg(m => ({ ...m, [targetName]: "Healing…" }));
         const requestId = pendingRequestIds.current[targetName]
             ?? `heal_${crypto.randomUUID().replaceAll('-', '')}`;
         pendingRequestIds.current[targetName] = requestId;
@@ -124,12 +124,12 @@ export function HealerInjuredList({
             const data = await res.json().catch(() => ({}));
             if (!res.ok) {
                 if (res.status < 500) delete pendingRequestIds.current[targetName];
-                setHealMsg(m => ({ ...m, [targetName]: `❌ ${data.error ?? 'Failed'}` }));
+                setHealMsg(m => ({ ...m, [targetName]: `Error: ${data.error ?? 'Failed'}` }));
                 return;
             }
             delete pendingRequestIds.current[targetName];
             if (!onServerVersion(data._saveVersion)) {
-                setHealMsg(m => ({ ...m, [targetName]: "A newer save is already active. Reopen the ward to refresh." }));
+                setHealMsg(m => ({ ...m, [targetName]: "Error: A newer save is already active. Reopen the ward to refresh." }));
                 return;
             }
             const xpGained = Number(data.xpGained ?? 0);
@@ -145,7 +145,7 @@ export function HealerInjuredList({
             // notices the +50% bonus when it triggers.
             if (raidAssist && xpGained > 0) {
                 window.dispatchEvent(new CustomEvent('profession-mission-complete', {
-                    detail: { name: '⚔ Raid Assist!', xp: xpGained, profession: 'healer' },
+                    detail: { name: 'Raid Assist', xp: xpGained, profession: 'healer' },
                 }));
             }
             const prevRank = character.professionRank ?? 1;
@@ -164,8 +164,8 @@ export function HealerInjuredList({
             }) : prev);
             const rankedUp = finalRank > prevRank;
             const totalXp = xpGained + missionXp;
-            let msg = `✅ Healed! +${totalXp} XP`;
-            if (raidAssist) msg += ` ⚔ Raid Assist +50%`;
+            let msg = `Success: Healed! +${totalXp} XP`;
+            if (raidAssist) msg += ` · Raid Assist +50%`;
             if (missionsCompleted.length > 0) msg += ` (mission complete!)`;
             if (rankedUp) msg += ` — Rank ${finalRank}!`;
             setHealMsg(m => ({ ...m, [targetName]: msg }));
@@ -173,7 +173,7 @@ export function HealerInjuredList({
             setHealed(s => new Set(s).add(targetName));
             setTreatedAt(t => ({ ...t, [targetName.toLowerCase()]: serverNow() }));
         } catch {
-            setHealMsg(m => ({ ...m, [targetName]: "❌ Network error" }));
+            setHealMsg(m => ({ ...m, [targetName]: "Error: Network error" }));
         } finally {
             setHealing(s => { const next = new Set(s); next.delete(targetName); return next; });
         }
@@ -200,10 +200,10 @@ export function HealerInjuredList({
     return (
         <>
             {headquarters && hospitalizedPlayers.length === 0 && <div className="ph-empty ph-ward-empty" role="status"><span className="ph-eyebrow">Ward status</span><strong>No admitted allies need treatment.</strong><p>The ward is quiet. Wounded allies will appear here when they are admitted.</p></div>}
-            {headquarters && Object.entries(healMsg).filter(([name]) => healed.has(name)).map(([name, message]) => <p className="ph-heal-receipt" role="status" key={name}>{name}: {message.replace(/[✅⚔]/gu, "").trim()}</p>)}
+            {headquarters && Object.entries(healMsg).filter(([name]) => healed.has(name)).map(([name, message]) => <p className="ph-heal-receipt" role="status" key={name}><GameArtIcon kind="healer" size={16} /> {name}: {message.replace(/^(Success|Error):\s*/, "")}</p>)}
             {hospitalizedPlayers.length > 0 && (
                 <section className="healer-patient-list" aria-labelledby="healer-admitted-heading" style={{ marginTop: "1.5rem" }}>
-                    <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>{headquarters ? "Admitted allies" : "🛏️ Admitted Players"}{isHealer ? ` — ${character.village}` : ""}</h4>
+                    <h4 id="healer-admitted-heading" style={{ marginBottom: "0.5rem" }}>{headquarters ? "Admitted allies" : <><GameArtIcon kind="healer" size={20} /> Admitted Players</>}{isHealer ? ` — ${character.village}` : ""}</h4>
                     {hospitalizedPlayers.map(p => (
                         <div key={p.name} className="summary-box healer-patient-row" style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
                             <div style={{ flex: 1 }}>
@@ -215,7 +215,7 @@ export function HealerInjuredList({
                             </div>
                             {isHealer ? (
                                 <button onClick={() => healPlayer(p.name)} disabled={healing.has(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                    {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : "✚ Heal"}
+                                    {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : <><GameArtIcon kind="healer" size={17} /> Heal</>}
                                 </button>
                             ) : (
                                 <span className="hint" style={{ color: "var(--text-muted)", fontSize: "0.78rem" }}>
@@ -223,8 +223,8 @@ export function HealerInjuredList({
                                 </span>
                             )}
                             {healMsg[p.name] && (
-                                <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
-                                    {headquarters ? healMsg[p.name].replace(/[✅❌💚⚔]/gu, "").trim() : healMsg[p.name]}
+                                <span className="hint" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: healMsg[p.name].startsWith("Success:") ? "#22d3ee" : "var(--red-400)" }}>
+                                    <GameArtIcon kind={healMsg[p.name].startsWith("Success:") ? "healer" : "warning"} size={15} /> {healMsg[p.name].replace(/^(Success|Error):\s*/, "")}
                                 </span>
                             )}
                         </div>
@@ -234,7 +234,7 @@ export function HealerInjuredList({
             {hasWorldwideVision && (
                 <section className="healer-patient-list" aria-labelledby="healer-worldwide-heading" style={{ marginTop: "1.5rem" }}>
                     <h4 id="healer-worldwide-heading" style={{ marginBottom: "0.5rem", color: "#22d3ee" }}>
-                        {headquarters ? "Worldwide care · Rank 10" : "🌍 Injured Villagers — World-Wide (Rank 10)"}
+                        {headquarters ? "Worldwide care · Rank 10" : <><GameArtIcon kind="missionHall" size={20} /> Injured Villagers — World-Wide (Rank 10)</>}
                     </h4>
                     <p className="hint" style={{ marginTop: 0 }}>
                         Same-village shinobi anywhere in the world with HP below max. Sorted lowest HP first.
@@ -249,7 +249,7 @@ export function HealerInjuredList({
                                     <div style={{ flex: 1 }}>
                                         <strong>{p.name}</strong>
                                         <span className="hint" style={{ marginLeft: 6 }}>Lv {p.level}</span>
-                                        {p.hospitalized && <span style={{ marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}>{headquarters ? "Admitted" : "🛏️ Admitted"}</span>}
+                                        {p.hospitalized && <span style={{ display: "inline-flex", alignItems: "center", gap: 3, marginLeft: 8, color: "var(--gold)", fontSize: "0.75rem" }}><GameArtIcon kind="healer" size={14} /> Admitted</span>}
                                         <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
                                             <div style={{ flex: 1, maxWidth: 200, height: 6, background: "rgba(148,163,184,0.2)", borderRadius: 3, overflow: "hidden" }}>
                                                 <div style={{ width: `${hpPct}%`, height: "100%", background: hpPct < 30 ? "var(--red-400)" : hpPct < 60 ? "var(--gold)" : "#84cc16" }} />
@@ -260,11 +260,11 @@ export function HealerInjuredList({
                                         </div>
                                     </div>
                                     <button onClick={() => healPlayer(p.name)} disabled={healing.has(p.name)} style={{ background: "linear-gradient(#0e7490,#155e75)", borderColor: "#22d3ee" }}>
-                                        {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : "✚ Heal"}
+                                        {healing.has(p.name) ? "Healing…" : headquarters ? "Heal ally" : <><GameArtIcon kind="healer" size={17} /> Heal</>}
                                     </button>
                                     {healMsg[p.name] && (
-                                        <span className="hint" style={{ color: healMsg[p.name].startsWith("✅") ? "#22d3ee" : "var(--red-400)" }}>
-                                            {headquarters ? healMsg[p.name].replace(/[✅❌💚⚔]/gu, "").trim() : healMsg[p.name]}
+                                        <span className="hint" style={{ display: "inline-flex", alignItems: "center", gap: 4, color: healMsg[p.name].startsWith("Success:") ? "#22d3ee" : "var(--red-400)" }}>
+                                            <GameArtIcon kind={healMsg[p.name].startsWith("Success:") ? "healer" : "warning"} size={15} /> {healMsg[p.name].replace(/^(Success|Error):\s*/, "")}
                                         </span>
                                     )}
                                 </div>

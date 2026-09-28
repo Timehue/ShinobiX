@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { PvpSession } from './session.js';
-import { PVP_CASUAL_STAT_POINTS_PER_WIN, statGainMultiplier } from '../_stat-growth.js';
+import { PVP_CASUAL_STAT_POINTS_PER_WIN } from '../_stat-growth.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -94,7 +94,7 @@ for (const [suffix, inside, sector, multiplier] of [['inside', true, 99, 4], ['o
         const paid = await post(claim, one, { battleId, outcome: 'win', completionVersion: 1 });
         assert.equal(paid.status, 200, JSON.stringify(paid.body));
         assert.equal(paid.body.base.reward.ryo, 75 * multiplier);
-        assert.equal(paid.body.base.reward.combatGrowth, Math.round(PVP_CASUAL_STAT_POINTS_PER_WIN * statGainMultiplier() * multiplier));
+        assert.equal(paid.body.base.reward.combatGrowth, PVP_CASUAL_STAT_POINTS_PER_WIN);
         assert.equal(paid.body.base.reward.jutsuXp, 10 * multiplier);
         assert.equal(paid.body.base.reward.auraDust, 6, 'unrelated rewards do not multiply');
         const save = (await kv.get<Record<string, any>>(`save:${one}`))!;

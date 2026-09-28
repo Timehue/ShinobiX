@@ -1,4 +1,5 @@
 import type { ToastStacksProps } from "./ToastStacks";
+import { GameArtIcon } from "./GameArtIcon";
 import "./ToastStacks.css";
 
 export function ToastStacksContent({ achievementToasts, missionToasts, onDismissAchievement, onDismissMission }: ToastStacksProps) {
@@ -48,7 +49,7 @@ export function ToastStacksContent({ achievementToasts, missionToasts, onDismiss
                                 onClick={() => onDismissMission(t.id)}
                             >
                                 <div className="achievement-toast-icon">
-                                    <span className="achievement-toast-emoji" aria-hidden style={{ color: accent }}>📜</span>
+                                    <GameArtIcon kind="mission" size={44} className="toast-mission-art" />
                                 </div>
                                 <div className="achievement-toast-body">
                                     <span className="achievement-toast-label" style={{ color: accent }}>

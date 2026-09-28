@@ -70,6 +70,7 @@ function commit(
         ryo: paysReward ? 75 : 0,
         capped: false,
         dailyCount: inspected.dailyCount,
+        statPoints: 0,
     };
     return commitAiFightRedemptionAuthority(character, inspected, redemption);
 }
@@ -98,6 +99,7 @@ describe('AI-fight redemption authority', () => {
                 ryo: 75,
                 capped: false,
                 dailyCount: 1,
+                statPoints: 0,
             });
         }
     });
@@ -115,6 +117,7 @@ describe('AI-fight redemption authority', () => {
                 ryo: 75,
                 capped: false,
                 dailyCount: inspected.dailyCount,
+                statPoints: 0,
             };
             const next = commitAiFightRedemptionAuthority(
                 { ...character, ryo: Number(character.ryo ?? 0) + redemption.ryo },

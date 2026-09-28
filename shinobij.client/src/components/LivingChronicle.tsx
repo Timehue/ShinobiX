@@ -8,10 +8,11 @@ import {
 } from "../lib/world-state";
 import "../styles/living-chronicle-spine.css";
 import "../styles/story-living-chronicle.css";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 
 type PersonalChronicleRecord = {
     id: string;
-    icon: string;
+    icon: GameArtIconKind;
     title: string;
     detail: string;
 };
@@ -38,7 +39,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (chapters > 0) {
         records.push({
             id: "story",
-            icon: "📖",
+            icon: "scroll",
             title: `${chapters.toLocaleString()} story chapter${chapters === 1 ? "" : "s"} completed`,
             detail: `${village} remembers the road you took and the decisions you left behind.`,
         });
@@ -51,7 +52,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (pressedRecords > 0) {
         records.push({
             id: "pressed-records",
-            icon: "🎴",
+            icon: "cardHall",
             title: `${pressedRecords.toLocaleString()} earned record${pressedRecords === 1 ? "" : "s"} pressed`,
             detail: `${storyCards} story · ${witnessCards} living witness · ${legacyCards} Legacy`,
         });
@@ -61,7 +62,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
         const stage = LEGACY_STAGE_LABELS[character.legacy.stage] || "recognized";
         records.push({
             id: "legacy",
-            icon: "✦",
+            icon: "fateShard",
             title: `${titleFromId(character.legacy.legacyId)} ${stage}`,
             detail: "The Sage recognized a pattern you freely chose to repeat.",
         });
@@ -71,7 +72,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (showdownWins > 0) {
         records.push({
             id: "showdown",
-            icon: "⚔️",
+            icon: "attack",
             title: `${showdownWins.toLocaleString()} Chronicle Showdown ${showdownWins === 1 ? "victory" : "victories"}`,
             detail: "You defended the record at the card table.",
         });
@@ -81,7 +82,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (petWins > 0) {
         records.push({
             id: "companions",
-            icon: "🐾",
+            icon: "petTamer",
             title: `${petWins.toLocaleString()} companion ${petWins === 1 ? "victory" : "victories"}`,
             detail: "The arena remembers the beasts that carried your banner.",
         });
@@ -93,7 +94,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (warWins > 0 || warMvps > 0 || warDamage > 0) {
         records.push({
             id: "war-service",
-            icon: "🏯",
+            icon: "clanHall",
             title: `${warWins.toLocaleString()} war ${warWins === 1 ? "victory" : "victories"} claimed`,
             detail: `${warMvps.toLocaleString()} MVP honors · ${warDamage.toLocaleString()} lifetime war damage`,
         });
@@ -103,7 +104,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (missions > 0) {
         records.push({
             id: "missions",
-            icon: "📜",
+            icon: "mission",
             title: `${missions.toLocaleString()} missions completed`,
             detail: "Contracts carried from the village board into the world.",
         });
@@ -113,7 +114,7 @@ function personalChronicleRecords(character: Character): PersonalChronicleRecord
     if (explored > 0) {
         records.push({
             id: "exploration",
-            icon: "🧭",
+            icon: "biomeForest",
             title: `${explored.toLocaleString()} exploration actions completed`,
             detail: "Lifetime exploration total, including return visits.",
         });
@@ -208,7 +209,7 @@ export function LivingChronicle({ character }: { character: Character }) {
                     <div className="chronicle-record-grid">
                         {personalRecords.map((record) => (
                             <article key={record.id} className="chronicle-record-card">
-                                <span className="chronicle-record-icon" aria-hidden="true">{record.icon}</span>
+                                <span className="chronicle-record-icon" aria-hidden="true"><GameArtIcon kind={record.icon} size={28} /></span>
                                 <div>
                                     <h4>{record.title}</h4>
                                     <p>{record.detail}</p>

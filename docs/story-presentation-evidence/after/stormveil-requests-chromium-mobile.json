@@ -1,0 +1,13 @@
+{
+  "village": "Stormveil Village",
+  "viewport": "chromium-mobile",
+  "combat": "seeded completed server session; real settlement handler tested separately",
+  "starts": 1,
+  "settlements": 5,
+  "canonicalVillagePayloadResponses": 1,
+  "canonicalVillagePayloads": [
+    "http://127.0.0.1:15183/assets/stormveil-a44651b8ffbd-CO-K3v9w.json"
+  ],
+  "replayExtraStarts": 0,
+  "replayExtraSettlements": 0
+}

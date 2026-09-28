@@ -28,5 +28,5 @@ test('stronghold doubles Death’s Gate base rewards only for the exact sector a
     assert.equal(computePvpWinGains({}, 99, 'deathsgate').ryoGain, 300);
     assert.equal(computePvpWinGains({}, 99).ryoGain, 150);
     assert.equal(computePvpWinGains({}, 12, 'deathsgate').ryoGain, 75);
-    assert.equal(computePvpWinGains({ activePetId: 'p', pets: [{ id: 'p', trait: 'Swift' }] }, 99, 'deathsgate').growthMult, 5);
+    assert.equal(computePvpWinGains({ activePetId: 'p', pets: [{ id: 'p', trait: 'Swift' }] }, 99, 'deathsgate').ryoGain, 300);
 });

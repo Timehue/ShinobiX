@@ -4,11 +4,11 @@
  * of stat points: a share auto-distributed into the stats the player has invested
  * in (a server-computable proxy for "how they fight"), the remainder into the
  * unspent-points pool. Bounded by a hard per-day cap so combat stays ~20% of the
- * training faucet and can't break the ~90-day-to-cap anchor. Ranked PvP grants
- * ZERO (skill-pure) — the caller simply doesn't invoke this for ranked wins.
+ * training faucet and can't break the long-term level anchors. PvE and eligible
+ * player PvP wins share the same hard daily budget.
  *
- * Pure so it unit-tests cleanly and is shared by the AI-fight and (later)
- * PvP-win reward endpoints. Rank cap lookup comes from combat-core so
+ * Pure so it unit-tests cleanly and is shared by the AI-fight and PvP-win
+ * reward endpoints. Rank cap lookup comes from combat-core so
  * progression rewards cannot drift from the combat resolver's caps.
  */
 
@@ -23,19 +23,20 @@ export const STAT_GROWTH_KEYS = [
 ] as const;
 export type StatKey = typeof STAT_GROWTH_KEYS[number];
 
-// Small per-win base; the daily slice is the real bound.
-export const PVP_CASUAL_STAT_POINTS_PER_WIN = 6;
-// The PvP SLICE of the daily growth budget (docs/leveling-without-xp-map.md §4):
-// three serious wins' worth. The daily-checklist slice (~50) lives on the
-// once-per-day mission claims and needs no shared counter; this key bounds only
-// combat growth so dailies stay the bulk of a day's growth. The counter charges
-// BASE points — trait/era boosts multiply the payout after slice accounting.
+// Small per-win rewards; PvE and PvP stat wins share the actual 18-point cap.
+export const PVP_STAT_POINTS_PER_WIN = 6;
+export const AI_PVE_STAT_POINTS_PER_WIN = 3;
+// Shared PvP/PvE daily stat-growth cap (three PvP wins or six PvE wins).
+// Combat-win stat rewards do not receive trait, encounter, or era multipliers.
 export const DAILY_COMBAT_STAT_CAP = 18;
+// Compatibility for older imports; new callers use the generic PvP name.
+export const PVP_CASUAL_STAT_POINTS_PER_WIN = PVP_STAT_POINTS_PER_WIN;
 // 60% auto-grows the stats you use; 40% drops into the pool to hand-allocate.
 export const COMBAT_USED_STAT_RATIO = 0.6;
 
 // ── Growth boosts (docs/leveling-without-xp-map.md §4.1) ────────────────────
-// Every retired XP-boost is now a stat-gain boost. STAT_GAIN_MULTIPLIER is the
+// Retired XP boosts apply to training and other eligible non-combat grants.
+// PvE/PvP wins use their direct per-win stat award and are excluded. STAT_GAIN_MULTIPLIER is the
 // server-env ERA DIAL (default 1): flip it on Railway so a later generation of
 // players caps far sooner — no client constant, no rebuild, surfaced to the UI
 // via grant responses. MAX_AGGREGATE_STAT_BOOST bounds the COMBINED multiplier
@@ -48,10 +49,15 @@ export function statGainMultiplier(): number {
     return Math.min(MAX_AGGREGATE_STAT_BOOST, raw);
 }
 
+/** Combine any source boost with the era dial under the shared aggregate cap. */
+export function combinedStatMultiplier(sourceMultiplier: number): number {
+    const source = Number.isFinite(sourceMultiplier) && sourceMultiplier >= 0 ? sourceMultiplier : 1;
+    return Math.min(MAX_AGGREGATE_STAT_BOOST, source * statGainMultiplier());
+}
+
 /** Combined grant multiplier: (1 + bonusPct/100) × era dial, aggregate-capped. */
 export function combinedStatBoost(bonusPct: number): number {
-    const bonus = 1 + Math.max(0, bonusPct) / 100;
-    return Math.min(MAX_AGGREGATE_STAT_BOOST, bonus * statGainMultiplier());
+    return combinedStatMultiplier(1 + Math.max(0, bonusPct) / 100);
 }
 
 const STAT_BASE = 10;

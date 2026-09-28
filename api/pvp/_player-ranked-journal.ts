@@ -15,6 +15,9 @@ import {
 import { isPlayerRankedV2Session, pvpSessionMayReward, type PvpSession } from './session.js';
 import { embedPvpSettlementReceipt, pvpSettlementId } from './_reward-settlement.js';
 import { isValidRankedFormatItemLedger, RANKED_FORMAT_VERSION } from './_ranked-format.js';
+import { applyDerivedLevel } from '../_xp-engine.js';
+import { DAILY_COMBAT_STAT_CAP, PVP_STAT_POINTS_PER_WIN, computeCombatStatGrowth } from '../_stat-growth.js';
+import { reserveCombatStatBudget } from './_combat-stat-budget.js';
 
 export const PLAYER_RANKED_JOURNAL_VERSION = 'player-ranked-journal-v1' as const;
 export const PLAYER_RANKED_SETTLEMENT_STAMP_FIELD = 'playerRankedSettlementStamp' as const;
@@ -608,6 +611,7 @@ type SettlementStamp = {
     role: 'winner' | 'loser' | 'draw' | 'ineligible';
     settledAt: number;
     ratingAfter: number;
+    combatStatPoints?: number;
 };
 
 function readStamps(character: Record<string, unknown>): Record<string, SettlementStamp> {
@@ -615,10 +619,11 @@ function readStamps(character: Record<string, unknown>): Record<string, Settleme
     if (raw === undefined) return {};
     if (!isRecord(raw)) throw new Error('player-ranked-settlement-stamp-invalid');
     const out: Record<string, SettlementStamp> = {};
+    const stampKeys = ['fingerprint', 'seasonId', 'role', 'settledAt', 'ratingAfter'] as const;
     for (const [matchId, value] of Object.entries(raw)) {
         if (!/^player-ranked-[0-9a-f-]{36}$/.test(matchId)
             || !isRecord(value)
-            || !exactKeys(value, ['fingerprint', 'seasonId', 'role', 'settledAt', 'ratingAfter'])
+            || !(exactKeys(value, stampKeys) || exactKeys(value, [...stampKeys, 'combatStatPoints']))
             || typeof value.fingerprint !== 'string'
             || !/^[a-f0-9]{64}$/.test(value.fingerprint)
             || !Number.isSafeInteger(value.seasonId)
@@ -627,7 +632,11 @@ function readStamps(character: Record<string, unknown>): Record<string, Settleme
             || !Number.isSafeInteger(value.settledAt)
             || Number(value.settledAt) <= 0
             || !Number.isFinite(value.ratingAfter)
-            || Number(value.ratingAfter) < 0) throw new Error('player-ranked-settlement-stamp-invalid');
+            || Number(value.ratingAfter) < 0
+            || (value.combatStatPoints !== undefined
+                && (!Number.isSafeInteger(value.combatStatPoints) || Number(value.combatStatPoints) < 0))) {
+            throw new Error('player-ranked-settlement-stamp-invalid');
+        }
         out[matchId] = value as SettlementStamp;
     }
     return out;
@@ -780,12 +789,41 @@ async function settleSide(
         } else if (existing) {
             ratingAfter = existing.ratingAfter;
         }
-        const stamp: SettlementStamp = existing ?? {
+        const growthPending = role === 'winner' && existing?.combatStatPoints === undefined;
+        let combatStatPoints = existing?.combatStatPoints;
+        if (growthPending) {
+            const statBudget = await reserveCombatStatBudget(store, {
+                playerName: slug,
+                battleId: `ranked:${terminal.matchId}`,
+                eventAt: terminal.terminalAt,
+                requested: PVP_STAT_POINTS_PER_WIN,
+                cap: DAILY_COMBAT_STAT_CAP,
+            });
+            const statsNow = (credited.stats ?? {}) as Record<string, number>;
+            const earnedStatPoints = statBudget.points;
+            const growth = computeCombatStatGrowth(statsNow, Number(credited.level) || 1, earnedStatPoints, earnedStatPoints);
+            combatStatPoints = growth.spent;
+            if (growth.spent > 0) {
+                const stats: Record<string, number> = { ...statsNow };
+                for (const [key, value] of Object.entries(growth.allocated)) {
+                    stats[key] = (Number(stats[key]) || 0) + (value ?? 0);
+                }
+                credited = applyDerivedLevel({
+                    ...credited,
+                    stats,
+                    unspentStats: Math.max(0, Math.floor(Number(credited.unspentStats) || 0)) + growth.unspentGain,
+                });
+            }
+        }
+        const stamp: SettlementStamp = existing
+            ? { ...existing, ...(growthPending ? { combatStatPoints: combatStatPoints ?? 0 } : {}) }
+            : {
             fingerprint: terminal.fingerprint,
             seasonId: terminal.seasonId,
             role,
             settledAt: now,
             ratingAfter,
+            ...(role === 'winner' ? { combatStatPoints: combatStatPoints ?? 0 } : {}),
         };
         let nextCharacter: Record<string, unknown> = {
             ...credited,
@@ -805,6 +843,7 @@ async function settleSide(
             );
         }
         const needsWrite = !existing
+            || growthPending
             || legacyInspection?.status === 'fresh'
             || Object.keys(stamps).length > PLAYER_RANKED_SETTLEMENT_STAMP_LIMIT;
         if (!needsWrite) {

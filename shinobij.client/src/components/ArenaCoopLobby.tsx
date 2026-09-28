@@ -17,6 +17,7 @@ import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import coopHero from "../assets/coliseum/coop-hero.webp";
+import { GameArtIcon } from "./GameArtIcon";
 import { activeCarriedPets } from "../lib/entitlements";
 import { normalizeCoopWarfrontMatch } from "../lib/pet-coop-warfront";
 
@@ -132,7 +133,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                     {/* Never disabled: Close is the only way out of this full-screen
                         portal, so it must work even while a request is in flight. */}
                     <button onClick={leave} style={{ position: "absolute", top: 8, right: 8, zIndex: 1, background: "rgba(15,23,42,0.85)" }}>✕ Close</button>
-                    <strong style={{ position: "absolute", left: 14, bottom: 10, zIndex: 1, fontSize: "1.2rem", letterSpacing: "0.04em", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}>🤝 Co-op Arena</strong>
+                    <strong style={{ position: "absolute", left: 14, bottom: 10, zIndex: 1, fontSize: "1.2rem", letterSpacing: "0.04em", textShadow: "0 2px 6px rgba(0,0,0,0.95)" }}><GameArtIcon kind="petTamer" size={24} /> Co-op Arena</strong>
                 </div>
 
                 {!lobby && (
@@ -142,7 +143,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             Each player brings 2 pets; empty seats are filled by AI.
                         </p>
                         <div style={PANEL}>
-                            <button onClick={create} disabled={busy} style={{ background: "#0e7490", width: "100%" }}>➕ Create a lobby</button>
+                            <button onClick={create} disabled={busy} style={{ background: "#0e7490", width: "100%" }}><GameArtIcon kind="arena" size={17} /> Create a lobby</button>
                         </div>
                         <div style={{ ...PANEL, display: "flex", gap: "0.5rem", alignItems: "center" }}>
                             <input
@@ -162,7 +163,7 @@ export function ArenaCoopLobby({ character, sharedImages, onExit }: {
                             <div style={{ color: "var(--text-dim)", fontSize: "0.75rem" }}>Lobby code — share with friends</div>
                             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
                                 <span style={{ fontSize: "1.8rem", fontWeight: 800, letterSpacing: "0.25em" }}>{lobby.code}</span>
-                                <button onClick={() => navigator.clipboard?.writeText(lobby.code)} title="Copy code" style={{ background: "var(--slate-700)" }}>📋</button>
+                                <button onClick={() => navigator.clipboard?.writeText(lobby.code)} title="Copy code" style={{ background: "var(--slate-700)" }}>Copy</button>
                             </div>
                         </div>
 

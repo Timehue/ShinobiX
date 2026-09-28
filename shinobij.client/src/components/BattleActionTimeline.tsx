@@ -16,18 +16,19 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import type { ActionReceiptCategory, DurableActionReceipt } from "../types/battle-log";
 import { actionCategory, actionLabel, BASIC_CATEGORIES } from "../types/battle-log";
 import { isFollowingEnd, scrollLeftAfterPrepend } from "../lib/timeline-scroll";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 
 export type TimelineActorFilter = "all" | "self" | "opponent";
 
-/** Text glyph per category — the fallback when a receipt carries no image. */
-const CATEGORY_GLYPH: Record<ActionReceiptCategory, string> = {
-    jutsu: "✦",
-    basic: "⚔",
-    weapon: "🗡",
-    item: "◈",
-    movement: "⇢",
-    turn: "⏳",
-    system: "⚙",
+/** Painted game art per category — the fallback when a receipt carries no image. */
+const CATEGORY_ART: Record<ActionReceiptCategory, GameArtIconKind> = {
+    jutsu: "elementFire",
+    basic: "attack",
+    weapon: "attack",
+    item: "vitality",
+    movement: "speed",
+    turn: "mission",
+    system: "warning",
 };
 
 /** Short category word — never rely on colour alone to convey the type. */
@@ -78,7 +79,7 @@ function TimelineNode({
                 <span className="bt-node-art" aria-hidden="true">
                     {entry.display?.imageRef
                         ? <img src={entry.display.imageRef} alt="" loading="lazy" />
-                        : <span className={`bt-node-glyph bt-cat-${category}`}>{CATEGORY_GLYPH[category]}</span>}
+                        : <span className={`bt-node-glyph bt-cat-${category}`}><GameArtIcon kind={CATEGORY_ART[category]} size={24} /></span>}
                 </span>
                 <span className="bt-node-label">{label}</span>
                 <span className="bt-node-meta">

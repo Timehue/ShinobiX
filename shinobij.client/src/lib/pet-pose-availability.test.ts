@@ -9,8 +9,12 @@ test("lightweight pose availability matches the generated production manifest", 
         "standard-50",
         "rare-50",
         "legendary-30",
-        "mythic-10",
+        "mythic-16",
         "starter-fire-xl",
         "generic-ai-pet-unknown",
     ]) assert.equal(hasPetPose(id), false, `unexpected pose id ${id}`);
+
+    for (const id of ["mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14", "mythic-15"]) {
+        assert.equal(hasPetPose(id), true, `missing breeding mythic idle pose ${id}`);
+    }
 });

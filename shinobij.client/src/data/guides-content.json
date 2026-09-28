@@ -212,7 +212,7 @@
         "blocks": [
           {
             "type": "p",
-            "text": "Training grows the selected stat while you are away. At level 1 the rookie boost is five times the base gain, then it eases down until level 35. Use those early gains to establish the core of your build."
+            "text": "Training grows the selected stat while you are away. At level 1 the rookie boost is six times the base gain, then it eases down until level 35. Use those early gains to establish the core of your build."
           },
           {
             "type": "table",

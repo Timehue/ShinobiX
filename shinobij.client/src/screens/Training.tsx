@@ -110,11 +110,14 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         setTrainingNotice(null);
         try {
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
-            const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; _saveVersion?: number; error?: string };
+            const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; academyStatPoints?: number; _saveVersion?: number; error?: string };
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) return alert(trainingResponseError(res.status, data?.error, 'Training could not be started.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
             setActiveTraining(data.activeTraining as ActiveTraining);
-            setTrainingNotice(`${data.activeTraining.label} started. You can keep playing while it runs.`);
+            const academyStatPoints = Math.max(0, Math.floor(Number(data.academyStatPoints) || 0));
+            setTrainingNotice(academyStatPoints > 0
+                ? `Level 2 reached! The Academy granted +${academyStatPoints} bonus stat points. ${data.activeTraining.label} started; you can keep playing while it runs.`
+                : `${data.activeTraining.label} started. You can keep playing while it runs.`);
         } catch {
             alert(AMBIGUOUS_ACTION_MESSAGE);
         } finally {
@@ -369,7 +372,7 @@ function JutsuSealPanel({
         const now = Date.now();
         setClock(now);
         setSpeedUpReadyAt(now + ms);
-        return `⏳ Your Seals need a moment to settle. Try again in ${Math.ceil(ms / 1000)}s.`;
+        return `Your Seals need a moment to settle. Try again in ${Math.ceil(ms / 1000)}s.`;
     };
 
     const hasDiscount = character.profession === "vanguard" && (character.professionRank ?? 0) >= 8;
@@ -443,14 +446,14 @@ function JutsuSealPanel({
             if (!res.ok) {
                 if (res.status === 409) setFreeSpeedup((prev) => prev ? { ...prev, available: false } : prev);
                 if (res.status === 403 || res.status === 409) setFreeCheck((n) => n + 1);
-                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `❌ ${data.error ?? 'Failed'}`);
+                setMsg(res.status === 429 ? throttledMessage(data.retryAfterMs) : `Error: ${data.error ?? 'Failed'}`);
                 return;
             }
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
             setFreeSpeedup((prev) => ({ available: false, resetsAt: Number(data.freeResetsAt) || prev?.resetsAt || 0 }));
-            setMsg(`✅ Logistician: lesson finished for free. Your next free speedup comes back next week.`);
+            setMsg(`Success: Logistician lesson finished for free. Your next free speedup comes back next week.`);
         } catch {
-            setMsg(`❌ ${AMBIGUOUS_ACTION_MESSAGE}`);
+            setMsg(`Error: ${AMBIGUOUS_ACTION_MESSAGE}`);
         } finally {
             busyRef.current = false;
             setBusy(false);
@@ -475,16 +478,16 @@ function JutsuSealPanel({
                 return;
             }
             if (!res.ok) {
-                setMsg(`❌ ${data.error ?? 'Failed'}`);
+                setMsg(`Error: ${data.error ?? 'Failed'}`);
                 return;
             }
             const minutesReduced: number = Number(data.minutesReduced ?? 0);
             // The server's own new end time, applied to the lesson as it is now.
             patchLessonEndsAt(lessonToken, Number(data.newEndsAt));
             updateCharacter(prev => prev ? ({ ...prev, honorSeals: Number(data.honorSealsRemaining) }) : prev);
-            setMsg(`✅ -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
+            setMsg(`Success: -${minutesReduced} min (spent ${data.sealsSpent} Seals)`);
         } catch {
-            setMsg(`❌ ${AMBIGUOUS_ACTION_MESSAGE}`);
+            setMsg(`Error: ${AMBIGUOUS_ACTION_MESSAGE}`);
         } finally {
             busyRef.current = false;
             setBusy(false);
@@ -532,7 +535,7 @@ function JutsuSealPanel({
                     </>
                 )}
             </div>
-            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("✅") ? "#facc15" : "#f87171" }}>{msg}</p>}
+            {msg && <p className="hint" style={{ margin: "8px 0 0", color: msg.startsWith("Success:") ? "#facc15" : "#f87171" }}>{msg}</p>}
         </div>
     );
 }

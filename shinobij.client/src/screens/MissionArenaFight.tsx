@@ -330,11 +330,11 @@ export function MissionArenaFight({
     const stingRef = useRef({ opened: false, finalPhase: false, victory: false });
 
     const me = character.name;
-    // Server sessions store ownerSlug through api/_utils.ts safeName().
-    // Normalize both values the same way so display names with spaces or
-    // punctuation still match the player's canonical account key.
+    // Server sessions store ownerSlug through api/_utils.ts safeName(), which
+    // strips spaces and punctuation. Compare using the identical client helper
+    // so display names containing spaces still own their active turn.
     const meSlug = playerSlug(me);
-    const ownedByMe = (slug: string | null) => !!slug && playerSlug(slug) === meSlug;
+    const ownedByMe = (slug: string | null) => !!slug && slug.toLowerCase() === meSlug;
 
     const w = session.map.width, h = session.map.height;
     const layer = useMemo(() => towerLayerSize(w, h), [w, h]);

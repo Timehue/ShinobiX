@@ -9,6 +9,7 @@ import type { CreatorAi } from "../types/creator-ai";
 import type { CreatorMission, CreatorRaid } from "../types/missions";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { CardVisual } from "../components/Marks";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
@@ -406,7 +407,7 @@ export function Logbook({
             {ceremony && createPortal(
                 <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000000, padding: 16 }}>
                     <div className="card" style={{ maxWidth: 420, width: "100%", textAlign: "center" }}>
-                        <div style={{ fontSize: 48, marginBottom: 4 }}>🎉</div>
+                        <div style={{ marginBottom: 4 }}><GameArtIcon kind="crown" size={48} /></div>
                         <h2 style={{ marginTop: 0 }}>{ceremony.prestige ? `${ceremony.title} Recorded` : `${ceremony.title} Passed!`}</h2>
                         <p>{ceremonyBody}</p>
                         <button className="start-primary-btn" style={{ width: "100%" }} onClick={() => setCeremony(null)}>Continue →</button>

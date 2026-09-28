@@ -98,18 +98,19 @@ describe('pacing guardrail — the standard player fully caps in ~90 days (stat-
 });
 
 describe('stat-derived level curve — earnedForLevel / levelForEarned', () => {
-    it('matches the fitted anchors', () => {
+    it('matches the calibrated progressive thresholds', () => {
         assert.equal(earnedForLevel(1), 0);
-        assert.equal(earnedForLevel(15), 2800);
-        assert.equal(earnedForLevel(20), 3933);
-        assert.equal(earnedForLevel(30), 6200);
-        assert.equal(earnedForLevel(39), 8630);
-        assert.equal(earnedForLevel(50), 11600);
-        assert.equal(earnedForLevel(80), 19600);
-        assert.equal(earnedForLevel(90), 23550);
-        assert.equal(earnedForLevel(100), 27500);
+        assert.equal(earnedForLevel(10), 1800);
+        assert.equal(earnedForLevel(15), 2848);
+        assert.equal(earnedForLevel(20), 3917);
+        assert.equal(earnedForLevel(30), 6100);
+        assert.equal(earnedForLevel(39), 8112);
+        assert.equal(earnedForLevel(50), 10679);
+        assert.equal(earnedForLevel(80), 19500);
+        assert.equal(earnedForLevel(90), 23704);
+        assert.equal(earnedForLevel(100), 29000);
         assert.equal(earnedForLevel(0), 0);   // clamps low
-        assert.equal(earnedForLevel(999), 27500); // clamps high
+        assert.equal(earnedForLevel(999), 29000); // clamps high
     });
     it('is strictly increasing and roundtrips through levelForEarned', () => {
         for (let L = 1; L < 100; L++) assert.ok(earnedForLevel(L) < earnedForLevel(L + 1), `increasing at L${L}`);
@@ -130,7 +131,7 @@ describe('stat-derived level curve — earnedForLevel / levelForEarned', () => {
             assert.ok(earnedForLevel(b) <= 0.8 * capacity, `L${b}: ${earnedForLevel(b)} within 80% of ${capacity}`);
         }
         const fullCapacity = 20 + 12 * (2500 - 10);
-        assert.ok(earnedForLevel(100) <= 0.93 * fullCapacity, `L100 within 93% of ${fullCapacity}`);
+        assert.ok(earnedForLevel(100) <= 0.98 * fullCapacity, `L100 within 98% of ${fullCapacity}`);
     });
 });
 

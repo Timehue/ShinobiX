@@ -15,6 +15,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { GameArtIcon } from "./GameArtIcon";
 import { SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
 import { parseScars, pruneScars, scarAgeLabel, scarLine } from "../../../shared/sector-scars";
 import {
@@ -81,7 +82,7 @@ export function SectorTraceMarkers({ signs, onOpen }: {
                         <img src="/landmarks/trail-sign.webp" alt="" draggable={false}
                             onLoad={(e) => { (e.currentTarget.nextElementSibling as HTMLElement | null)?.classList.remove("is-visible"); }}
                             onError={(e) => { e.currentTarget.style.display = "none"; (e.currentTarget.nextElementSibling as HTMLElement | null)?.classList.add("is-visible"); }} />
-                        <span className="sector-trace-sign-fallback">🪧</span>
+                        <span className="sector-trace-sign-fallback"><GameArtIcon kind="scroll" size={20} /></span>
                         {tileSigns.length > 1 && <b className="sector-trace-sign-count">{tileSigns.length}</b>}
                     </button>
                 );
@@ -143,7 +144,7 @@ export function SectorTracesCard({ traces, onOpenSigns, onOpenShrine }: {
                 <ul className="sector-scar-list" aria-label="Duels fought here recently">
                     {scars.map((scar) => (
                         <li key={`${scar.victor}:${scar.at}`}>
-                            <span aria-hidden="true">⚔</span>
+                            <GameArtIcon kind="attack" size={15} />
                             <strong>{scarLine(scar)}</strong>
                             <small>{scarAgeLabel(scar)}</small>
                         </li>
@@ -151,12 +152,12 @@ export function SectorTracesCard({ traces, onOpenSigns, onOpenShrine }: {
                 </ul>
             )}
             <button type="button" className="sector-action-btn sector-trace-btn" onClick={onOpenSigns}>
-                <span aria-hidden="true">🪧</span>
+                <GameArtIcon kind="scroll" size={16} />
                 <span>{traces.signs.length > 0 ? `Trail signs (${traces.signs.length})` : "Leave a trail sign"}</span>
             </button>
             {traces.shrine && (
                 <button type="button" className="sector-action-btn sector-trace-btn" onClick={onOpenShrine}>
-                    <span aria-hidden="true">⛩️</span>
+                    <img src="/landmarks/forgotten-shrine.webp" alt="" width={17} height={17} />
                     <span>{traces.shrine.name} · {tierName(traces.shrine.tier)}{top ? ` · ${top.name} leads` : ""}</span>
                 </button>
             )}
@@ -273,7 +274,7 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
                                 ? <p className="sector-empty-note">No offerings yet this week — be the first.</p>
                                 : shrine.topWeek.map((o, i) => (
                                     <p key={o.name} className="sector-traces-board-row">
-                                        <span>{i === 0 ? "🏆" : i === 1 ? "🥈" : i === 2 ? "🥉" : "·"} {o.name}</span>
+                                        <span>{i < 3 ? <GameArtIcon kind="crown" size={16} /> : "·"} {o.name}</span>
                                         <b>{o.amount.toLocaleString()}</b>
                                     </p>
                                 ))}
@@ -327,7 +328,7 @@ export function SectorTracesModal({ state, traces, playerName, playerRyo, sector
                                                 title={mine ? "Your own sign" : sparked ? "You appreciated this" : "Appreciate this sign"}
                                                 onClick={() => spark(sign)}
                                             >
-                                                ✨ {sign.sparks}
+                                                <GameArtIcon kind="fateShard" size={15} /> {sign.sparks}
                                             </button>
                                         </p>
                                     </div>

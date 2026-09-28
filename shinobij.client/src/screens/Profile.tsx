@@ -277,7 +277,7 @@ export function Profile({
         if (!requireServerSettlement("profileStatRespec")) return;
         const RESPEC_COST = 50;
         if ((character.fateShards ?? 0) < RESPEC_COST) {
-            setStatWarning(`Respec costs ${RESPEC_COST} 🔮 Fate Shards — you have ${character.fateShards ?? 0}.`);
+            setStatWarning(`Respec costs ${RESPEC_COST} Fate Shards — you have ${character.fateShards ?? 0}.`);
             setTimeout(() => setStatWarning(""), 4000);
             return;
         }
@@ -288,7 +288,7 @@ export function Profile({
             return;
         }
         await runProfileMutation(async () => {
-            if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} 🔮 Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return false;
+            if (!(await gameConfirm(`Reset all 12 stats to base and refund every earned point (${refund}) into your allocatable pool for ${RESPEC_COST} Fate Shards? Nothing is lost — you re-allocate as you wish.`))) return false;
             setStatWarning("");
             return runPaidProfileAction({ type: 'respec-stats' });
         });
@@ -310,9 +310,9 @@ export function Profile({
         if (!requireServerSettlement("profileFateShardTitle")) return;
         const trimmed = titleInput.trim().slice(0, 15);
         if (!trimmed) return alert("Enter a title first.");
-        if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} 🔮 Fate Shards.`);
+        if ((character.fateShards ?? 0) < TITLE_COST) return alert(`You need ${TITLE_COST} Fate Shards.`);
         await runProfileMutation(async () => {
-            if (!(await gameConfirm(`Set your custom title to “${trimmed}” for ${TITLE_COST} 🔮 Fate Shards?`, { title: "Custom Title", confirmLabel: "Set Title" }))) return false;
+            if (!(await gameConfirm(`Set your custom title to “${trimmed}” for ${TITLE_COST} Fate Shards?`, { title: "Custom Title", confirmLabel: "Set Title" }))) return false;
             return runPaidProfileAction({ type: 'purchase-title', title: trimmed });
         });
     }
@@ -333,11 +333,11 @@ export function Profile({
         if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleStyle ?? "") === styleId) return;
         if (styleId !== "" && (character.fateShards ?? 0) < TITLE_STYLE_COST) {
-            return alert(`Title styles cost ${TITLE_STYLE_COST} 🔮 Fate Shards.`);
+            return alert(`Title styles cost ${TITLE_STYLE_COST} Fate Shards.`);
         }
         const cost = styleId === "" ? 0 : TITLE_STYLE_COST;
         await runProfileMutation(async () => {
-            if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} 🔮 Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return false;
+        if (cost > 0 && !(await gameConfirm(`Restyle your title for ${cost} Fate Shards?`, { title: "Title Style", confirmLabel: "Restyle" }))) return false;
             if (!capabilityAdmissionAllowed(mutationAvailability("legacy"))) return false;
             return styleId === ''
                 ? mutateProfileTitle('style', styleId)
@@ -349,11 +349,11 @@ export function Profile({
         if (!requireServerSettlement("profileFateShardTitle")) return;
         if ((character.customTitleIcon ?? "") === icon) return;
         if (icon !== "" && (character.fateShards ?? 0) < TITLE_ICON_COST) {
-            return alert(`Title icons cost ${TITLE_ICON_COST} 🔮 Fate Shards.`);
+            return alert(`Title icons cost ${TITLE_ICON_COST} Fate Shards.`);
         }
         const cost = icon === "" ? 0 : TITLE_ICON_COST;
         await runProfileMutation(async () => {
-            if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} 🔮 Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return false;
+        if (cost > 0 && !(await gameConfirm(`Add ${icon} to your title for ${cost} Fate Shards?`, { title: "Title Icon", confirmLabel: "Add Icon" }))) return false;
             if (!capabilityAdmissionAllowed(mutationAvailability("legacy"))) return false;
             return icon === ''
                 ? mutateProfileTitle('icon', icon)

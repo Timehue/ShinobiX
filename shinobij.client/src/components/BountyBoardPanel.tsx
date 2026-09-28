@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import type { Character } from "../types/character";
 import { fetchBountyBoard, hasPendingBountyPlacement, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
@@ -54,7 +55,7 @@ export function BountyBoardPanel({
 
     return (
         <section className="summary-box">
-            <h3>💰 Bounty Board</h3>
+            <h3><GameArtIcon kind="ryo" size={19} /> Bounty Board</h3>
             <p className="hint">
                 Stake ryo on a player's head; whoever beats them in a duel claims the pool.
                 Your ryo: {(character.ryo ?? 0).toLocaleString()}.

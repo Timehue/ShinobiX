@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import type { Character } from "../types/character";
 import {
     QUEST_BOSSES,
@@ -128,7 +129,7 @@ export function WorldWandererDialog({
                 style={{ width: 96, height: 96, objectFit: "cover", borderRadius: "50%", border: `2px solid ${wandererDialog.w.tellTint}`, margin: "0 auto 8px" }}
             />
             <h3 style={{ margin: "0 0 2px" }}>{wandererDialog.nemesis && character.wandererNemesis ? character.wandererNemesis.name : wandererDialog.w.name}</h3>
-            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? `⚔ Your rival · Lv ${Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}` : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
+            <p style={{ fontSize: ".75rem", color: "#9aa3b2", margin: "0 0 10px" }}>{wandererDialog.nemesis ? <><GameArtIcon kind="attack" size={15} /> Your rival · Lv {Math.min(100, character.level + (character.wandererNemesis?.tier ?? 1))}</> : wandererDialog.w.verb === "trackerTrail" ? "On the trail" : `${wandererDialog.w.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"} · Lv ${wandererDialog.w.level}`}</p>
             <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time. You won't this time."` : wandererDialog.w.greeting)}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
             {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
@@ -222,10 +223,10 @@ export function WorldWandererDialog({
                         const expired = left === "0:00";
                         return (
                             <>
-                                <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}>📖 {entry.title}</p>
+                                <p style={{ fontSize: ".82rem", margin: "0 0 2px", fontWeight: 700, color: "#c4b5fd" }}><GameArtIcon kind="scroll" size={16} /> {entry.title}</p>
                                 <p style={{ fontSize: ".7rem", color: "#9aa3b2", margin: "0 0 6px" }}>Stage {epic.stage + 1} of {entry.stages.length}</p>
                                 <p style={{ fontSize: ".8rem", margin: "0 0 8px" }}>{questbookStageText(stage, epic.choices)}</p>
-                                {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}>{expired ? "⏳ The bell rang. Your next attempt restarts this stage." : `⏳ ${left} before the bell rings`}</p>}
+                                {left && <p style={{ fontSize: ".78rem", margin: "0 0 8px", fontWeight: 700, color: expired ? "var(--red-400)" : "#fbbf24" }}><GameArtIcon kind="mission" size={15} /> {expired ? "The bell rang. Your next attempt restarts this stage." : `${left} before the bell rings`}</p>}
                                 {stage.choice ? (
                                     <>
                                         <p style={{ fontSize: ".76rem", fontStyle: "italic", color: "var(--slate-300)", margin: "0 0 10px" }}>{stage.choice.prompt}</p>
@@ -241,7 +242,7 @@ export function WorldWandererDialog({
                                     </>
                                 ) : (
                                     <>
-                                        {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}>⚔ He has beaten you {rivalTier}×, and each win has made him stronger{rivalTier >= 4 ? ". He has risen in rank" : ""}.</p>}
+                                        {scalesRivalry && <p style={{ fontSize: ".75rem", color: "var(--red-300)", margin: "0 0 8px", fontWeight: 600 }}><GameArtIcon kind="attack" size={15} /> He has beaten you {rivalTier}×, and each win has made him stronger{rivalTier >= 4 ? ". He has risen in rank" : ""}.</p>}
                                         <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 10px" }}>Progress: {Math.min(got, stage.count)} / {stage.count} {metricLabel(stage.metric)}</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                                             {done && isFinal ? (
@@ -249,7 +250,7 @@ export function WorldWandererDialog({
                                             ) : done ? (
                                                 <button disabled={wandererDialog.busy} onClick={() => advanceEpic(false)}>{wandererDialog.busy ? "…" : "Continue"}</button>
                                             ) : bossArena ? (
-                                                <button onClick={() => fightEpicBoss(wandererDialog.w)}>⚔ Fight {bossName}</button>
+                                                <button onClick={() => fightEpicBoss(wandererDialog.w)}><GameArtIcon kind="attack" size={17} /> Fight {bossName}</button>
                                             ) : null}
                                             <button onClick={() => abandonEpic(wandererDialog.w)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Abandon</button>
                                             <button onClick={closeWandererDialog}>Leave</button>
@@ -284,7 +285,7 @@ export function WorldWandererDialog({
                 return (
                     <>
                         <p style={{ fontSize: ".8rem", margin: "0 0 10px" }}>Task: {def.label}</p>
-                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}>📖 {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}”. It is a long, hard quest in several stages.</p>}
+                        {offer && <p style={{ fontSize: ".74rem", color: "#c4b5fd", margin: "0 0 10px" }}><GameArtIcon kind="scroll" size={15} /> {wandererDialog.w.name} carries {offer.giver}'s sealed request: “{offer.title}”. It is a long, hard quest in several stages.</p>}
                         <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                             <button disabled={wandererDialog.busy} onClick={() => acceptWandererQuest(wandererDialog.w)}>{wandererDialog.busy ? "…" : "Accept task"}</button>
                             {offer && <button disabled={wandererDialog.busy} onClick={() => acceptEpic(wandererDialog.w, offer.id)} style={{ background: "linear-gradient(#3b2f6b,#1e1b3a)", borderColor: "#a78bfa" }}>{wandererDialog.busy ? "…" : "Begin epic"}</button>}

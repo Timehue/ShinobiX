@@ -11,11 +11,12 @@ function action(character: Record<string, unknown>, next: Parameters<typeof appl
     return result;
 }
 
-test('graduation and the selected route commit atomically without changing economics', () => {
+test('graduation and the selected route commit atomically with the Academy level floor', () => {
     const { character } = action(rookie, 'complete', 'combat');
     assert.equal(character.onboardingStep, 'done');
     assert.equal(readFirstContract(character.firstContract)?.route, 'combat');
-    assert.equal(character.hp, 72);
+    assert.equal(character.level, 10);
+    assert.equal(character.hp, character.maxHp);
     assert.equal(character.ryo, 500);
     assert.equal(action(character, 'complete', 'discovery').changed, false);
     assert.equal(applyAcademyNarrativeAction(rookie, {}, 'complete', undefined, 'money').ok, false);

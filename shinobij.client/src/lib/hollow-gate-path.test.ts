@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { findHollowGatePath, hollowGateKnownSet } from "./hollow-gate-path";
+import { findHollowGatePath, hollowGateKnownSet, projectHollowGateMove } from "./hollow-gate-path";
 import type { HollowGateShrineRun, HollowGateTile } from "../types/character";
 
 // Tiny hand-built floor: one 5×5 room split by a wall spur, so paths must
@@ -91,4 +91,16 @@ test("knownSet = visible ∪ revealed; diviner knows the whole floor", () => {
     run.diviner = true;
     const divinerKnown = hollowGateKnownSet(run);
     assert.ok(divinerKnown.has(at(5, 3)), "Diviner's Eye knows everything");
+});
+
+test("rapid projected steps chain from the latest tile and retain each seal identity", () => {
+    const initial = makeRun();
+    initial.tiles[at(2, 1)].resolved = false;
+    const first = projectHollowGateMove(initial, 2, 1, { blocked: false }, "step-one");
+    const second = projectHollowGateMove(first.run, 3, 1, { blocked: false }, "step-two");
+    assert.deepEqual(first.effect.step, { requestId: "step-one", fromX: 1, fromY: 1, toX: 2, toY: 1 });
+    assert.deepEqual(second.effect.step, { requestId: "step-two", fromX: 2, fromY: 1, toX: 3, toY: 1 });
+    assert.equal(first.effect.justResolved?.tile.kind, "empty");
+    assert.equal(second.effect.justResolved, null);
+    assert.deepEqual([initial.playerX, first.run.playerX, second.run.playerX], [1, 2, 3]);
 });

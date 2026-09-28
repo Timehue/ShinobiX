@@ -2,7 +2,7 @@ import { TOWER_SIGNATURES, towerSignatureForMechanic } from '../../../shared/tow
 import { TowerRecordsPanel } from "../components/TowerRecordsPanel";
 import { useEffect, useMemo, useState } from "react";
 import { visiblePoll } from "../lib/poll";
-import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";
 import type { Character } from "../types/character";
 import { fetchTowerFloors, startTowerRun, fetchMyRunStatus, fetchSpireLeaderboard, towerPlayerSlug, SPIRE_MAX_TIER, TOWER_ROUTE_CHOICES, type TowerFloorMeta, type TowerSession, type TowerHostLoadout, type TowerPartyView, type SpireLeaderboardRow, type SpireWeeklyAffix, type TowerRouteChoiceId } from "../lib/towers-api";
 import {
@@ -78,12 +78,12 @@ const OBJECTIVE_LABEL: Record<string, string> = {
     "survive": "Survive",
     "kill-adds-first": "Kill the adds first",
 };
-const BIOME: Record<string, { color: string; icon: string }> = {
-    forest: { color: "var(--green-400)", icon: "🌲" },
-    snow: { color: "var(--blue-300)", icon: "❄️" },
-    volcano: { color: "#fb7185", icon: "🌋" },
-    central: { color: "var(--slate-300)", icon: "🏛️" },
-    shadow: { color: "#a78bfa", icon: "🌑" },
+const BIOME: Record<string, { color: string; icon: GameArtIconKind }> = {
+    forest: { color: "var(--green-400)", icon: "biomeForest" },
+    snow: { color: "var(--blue-300)", icon: "biomeSnow" },
+    volcano: { color: "#fb7185", icon: "biomeVolcano" },
+    central: { color: "var(--slate-300)", icon: "biomeCentral" },
+    shadow: { color: "#a78bfa", icon: "biomeShadow" },
 };
 
 function readableTowerSlug(value: string): string {
@@ -151,7 +151,7 @@ function StoryFloorCard({
     levelEligible: boolean;
     onSelect: (floor: number) => void;
 }) {
-    const biome = BIOME[floor.biome] ?? { color: "var(--text-dim)", icon: "🗺️" };
+    const biome = BIOME[floor.biome] ?? { color: "var(--text-dim)", icon: "biomeCentral" as const };
     const floorArt = resolveTowerStoryArt(floor.artKey);
     const status = cleared ? "First clear complete"
         : locked ? (levelEligible ? `Locked; clear through Floor ${Math.max(1, floor.id - 1)} first` : `Locked until level ${TOWER_MIN_LEVEL}`)
@@ -174,21 +174,21 @@ function StoryFloorCard({
                     {/* Icon-sized art only: the 1536x1024 masters stay reserved for the
                         chapter header and the selected-floor briefing hero. */}
                     {floorArt.kind === "authored"
-                        ? <><img src={floorArt.thumb} alt="" width={240} height={160} loading="lazy" decoding="async" /><span className="tower-story-floor-art-fallback">{floor.isBoss ? "👑" : biome.icon}</span></>
-                        : floor.isBoss ? "👑" : biome.icon}
+                        ? <><img src={floorArt.thumb} alt="" width={240} height={160} loading="lazy" decoding="async" /><span className="tower-story-floor-art-fallback"><GameArtIcon kind={floor.isBoss ? "crown" : biome.icon} size={60} /></span></>
+                        : <GameArtIcon kind={floor.isBoss ? "crown" : biome.icon} size={60} />}
                 </span>
                 <span className="tower-story-floor-copy">
                     <span className="tower-story-floor-name">
                         <strong>F{floor.id}</strong>
                         <b>{floor.name}</b>
-                        {floor.milestone ? <span title="Milestone" aria-label="Milestone floor">⭐</span> : null}
+                        {floor.milestone ? <span title="Milestone" aria-label="Milestone floor" className="tower-story-milestone">MILESTONE</span> : null}
                     </span>
                     <span id={detailsId} className="tower-story-floor-details">
                         {OBJECTIVE_LABEL[floor.objective] ?? readableTowerSlug(floor.objective)} · {readableTowerSlug(floor.biome)}{floor.isBoss ? " · Boss" : ""}
                     </span>
                 </span>
                 <span className={`tower-story-floor-state${cleared ? " is-cleared" : locked ? " is-locked" : recommended ? " is-next" : ""}`} aria-label={status}>
-                    {cleared ? "✓" : locked ? "🔒" : recommended ? "Next" : "Open"}
+                    {cleared ? "Cleared" : locked ? <><GameArtIcon kind="key" size={15} /> Locked</> : recommended ? "Next" : "Open"}
                 </span>
             </button>
         </div>
@@ -433,7 +433,7 @@ export function BattleTowersLobby({
                                 onClick={() => setRouteChoice(choice.id)}
                             >
                                 <span className="tower-route-option-icon" aria-hidden="true">
-                                    {choice.id === "rest-shrine" ? "✚" : choice.id === "focused-assault" ? "⚔" : "♛"}
+                                    <GameArtIcon kind={choice.id === "rest-shrine" ? "healer" : choice.id === "focused-assault" ? "attack" : "crown"} size={24} />
                                 </span>
                                 <strong>{choice.label}</strong>
                                 <small>{choice.summary}</small>
@@ -555,26 +555,26 @@ export function BattleTowersLobby({
                         <h2 id="tower-floor-briefing-title">Floor {selFloor.id} · {selFloor.name}</h2>
                         {selFloor.briefing?.situation ? <p className="tower-floor-situation">{selFloor.briefing.situation}</p> : null}
                         <div className="tower-floor-briefing-tags">
-                            <span>🎯 {selFloor.objective === "protect-npc"
+                            <span><GameArtIcon kind="attack" size={16} /> {selFloor.objective === "protect-npc"
                                 ? "Protect the ally"
                                 : OBJECTIVE_LABEL[selFloor.objective] ?? readableTowerSlug(selFloor.objective)}</span>
-                            <span>⏱ {towerRoundPaceLabel(selFloor.objective, selFloor.roundBudget)}</span>
-                            <span>👹 {selFloor.phaseReinforcementCount
+                            <span><GameArtIcon kind="speed" size={16} /> {towerRoundPaceLabel(selFloor.objective, selFloor.roundBudget)}</span>
+                            <span><GameArtIcon kind="roleDefender" size={16} /> {selFloor.phaseReinforcementCount
                                 ? `${selFloor.enemyCount} starting + ${selFloor.phaseReinforcementCount} phase reinforcements`
                                 : <>{selFloor.enemyCount} starting combatant{selFloor.enemyCount === 1 ? "" : "s"}</>}</span>
                         </div>
                         {selFloor.bossMechanic && <p><strong>Boss mechanic:</strong> {readableTowerSlug(selFloor.bossMechanic)}</p>}
-                        {selectedTargetMode && <p><strong>🎯 Boss focus:</strong> {selectedTargetMode}</p>}
+                        {selectedTargetMode && <p><strong><GameArtIcon kind="attack" size={16} /> Boss focus:</strong> {selectedTargetMode}</p>}
                         {selectedStrike && <p><strong>Telegraph:</strong> {selectedStrike}</p>}
                         {selFloor.isBoss && <p><strong>Counter:</strong> {TOWER_SIGNATURES[towerSignatureForMechanic(selFloor.bossMechanic)].counter}</p>}
-                        {selFloor.closingRing && <p><strong>🔥 Closing ring:</strong> After round {selFloor.closingRing.fromRound};
+                        {selFloor.closingRing && <p><strong><GameArtIcon kind="elementFire" size={16} /> Closing ring:</strong> After round {selFloor.closingRing.fromRound};
                             {` ${selFloor.closingRing.percent}% max HP outside the safe radius, shrinking to ${selFloor.closingRing.minRadius} hexes`}</p>}
                         <p><strong>Field rule:</strong> {towerFieldRuleLabel(selFloor.fieldRule)}</p>
                         <p><strong>Reinforcements:</strong> {selFloor.reinforcementWaves.length > 0
                             ? `Rounds ${selFloor.reinforcementWaves.join(", ")}`
                             : "None scheduled"}</p>
                         {selFloor.dynamicHazards.map((hazard, index) => (
-                            <p key={`${hazard.kind}-${index}`}><strong>♨️ Field hazard:</strong> {towerDynamicHazardLabel(hazard)}</p>
+                            <p key={`${hazard.kind}-${index}`}><strong><GameArtIcon kind="warning" size={16} /> Field hazard:</strong> {towerDynamicHazardLabel(hazard)}</p>
                         ))}
                         {selFloor.briefing && (selFloor.briefing.tactics.length > 0 || selFloor.briefing.warnings.length > 0) ? (
                             <div className="tower-floor-intel">
@@ -617,7 +617,7 @@ export function BattleTowersLobby({
                     onClick={enterSoloFloor}
                     disabled={selected == null || starting || loading || !selectedFloorActionable || soloStartBlocked}
                 >
-                    {starting ? "Entering solo run…" : soloStartBlocked ? "Finish current Tower activity to start solo" : selFloor ? !selectedFloorActionable ? `🔒 Floor ${selFloor.id} locked` : `▶ Enter Floor ${selFloor.id} solo${selectedEntryFee > 0 ? ` · ${selectedEntryFee.toLocaleString()} ryo` : selectedFloorCleared ? " · free cleared replay" : ""}` : "Select a floor"}
+                    {starting ? "Entering solo run…" : soloStartBlocked ? "Finish current Tower activity to start solo" : selFloor ? !selectedFloorActionable ? <><GameArtIcon kind="key" size={17} /> Floor {selFloor.id} locked</> : <>▶ Enter Floor {selFloor.id} solo{selectedEntryFee > 0 ? ` · ${selectedEntryFee.toLocaleString()} ryo` : selectedFloorCleared ? " · free cleared replay" : ""}</> : "Select a floor"}
                 </button>
                 <button className="back-btn tower-lobby-back" onClick={onBack} disabled={starting}
                     title={activeReadyRoom ? "Your Ready Room remains open until you leave it or it expires." : undefined}>
@@ -662,13 +662,13 @@ function SpireLadder({
             {/* Cinematic banner header — bespoke Endless Spire key art */}
             <div className="spire-banner" style={{ backgroundImage: `url(${spireKeyArt})` }}>
                 <div className="spire-banner-overlay">
-                    <span className="spire-title"><GameIcon name="tower" size={15} style={{ verticalAlign: "-2px" }} /> The Endless Spire</span>
+                    <span className="spire-title"><img src={spireKeyArt} width={20} height={20} alt="" aria-hidden="true" style={{ objectFit: "cover", borderRadius: 3, verticalAlign: "-5px" }} /> The Endless Spire</span>
                     <span className="spire-head-stats">
                         <b style={{ color: "#f4c48a" }}>{spireUnlocked}</b><span>/{SPIRE_MAX_TIER} cleared</span>
                         <span className="spire-head-dot">·</span>
                         <span>this week</span> <b style={{ color: "#f4c48a" }}>{weeklyBest}</b>
                         {myRank && <><span className="spire-head-dot">·</span><span>rank</span> <b style={{ color: "var(--gold)" }}>#{myRank.rank}</b></>}
-                        {isAdmin && <><span className="spire-head-dot">·</span><b style={{ color: "#5eead4" }} title="Admin: every floor unlocked for testing (you don't need to win — enter to view)">🔓 all floors</b></>}
+                        {isAdmin && <><span className="spire-head-dot">·</span><b style={{ display: "inline-flex", alignItems: "center", gap: 3, color: "#5eead4" }} title="Admin: every floor unlocked for testing (you don't need to win — enter to view)"><GameArtIcon kind="key" size={15} /> all floors</b></>}
                     </span>
                 </div>
             </div>
@@ -698,17 +698,17 @@ function SpireLadder({
                 <div className="spire-hero-portrait">
                     <img src={TOWER_SPIRE_PORTRAITS[sel.boss.key]} alt={sel.boss.name} loading="lazy" />
                     <span className="spire-hero-floornum">{sel.tier}</span>
-                    {sel.isMilestone && <span className="spire-hero-milestone" title={`Clears grant the “${sel.milestoneTitle}” title`}>★</span>}
+                    {sel.isMilestone && <span className="spire-hero-milestone" title={`Clears grant the “${sel.milestoneTitle}” title`}><GameArtIcon kind="crown" size={22} /></span>}
                 </div>
                 <div className="spire-hero-body">
                     <div className="spire-hero-band" style={{ color: sel.band.color }}>{sel.band.label} · Floor {sel.tier}</div>
                     <div className="spire-hero-name" style={{ color: accent }}>{sel.boss.name}</div>
                     <div className="spire-hero-tags">
                         <span className="spire-tag" style={{ borderColor: accent, color: accent }}>{sel.boss.mechanicLabel}</span>
-                        <span className="spire-tag">🎯 {towerTargetModeLabel(sel.boss.targetMode)}</span>
-                        <span className="spire-tag">⚠ {towerStrikeLabel(sel.boss.strike, sel.boss.mechanic)}</span>
-                        {sel.isMilestone && <span className="spire-tag milestone">★ Milestone — {sel.milestoneTitle}</span>}
-                        <span className="spire-tag reward">💠 Weekly best · +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
+                        <span className="spire-tag"><GameArtIcon kind="attack" size={16} /> {towerTargetModeLabel(sel.boss.targetMode)}</span>
+                        <span className="spire-tag"><GameArtIcon kind="warning" size={16} /> {towerStrikeLabel(sel.boss.strike, sel.boss.mechanic)}</span>
+                        {sel.isMilestone && <span className="spire-tag milestone"><GameArtIcon kind="crown" size={16} /> Milestone — {sel.milestoneTitle}</span>}
+                        <span className="spire-tag reward"><GameArtIcon kind="fateShard" size={16} /> Weekly best · +{SPIRE_SHARDS_PER_TIER} Fate Shards</span>
                     </div>
                     <p className="spire-hero-blurb">{sel.boss.blurb} {TOWER_SIGNATURES[towerSignatureForMechanic(sel.boss.mechanic)].counter}</p>
 
@@ -733,10 +733,10 @@ function SpireLadder({
                             <button onClick={() => setSpireTier(Math.min(spireMaxSelectable, spireTier + 1))} disabled={spireTier >= spireMaxSelectable} aria-label="Higher floor">+</button>
                         </div>
                         {!towerUnlocked ? (
-                            <button className="spire-ascend locked" disabled>🔒 Unlocks at level {TOWER_MIN_LEVEL}</button>
+                            <button className="spire-ascend locked" disabled><GameArtIcon kind="key" size={17} /> Unlocks at level {TOWER_MIN_LEVEL}</button>
                         ) : locked ? (
                             <button className="spire-ascend locked" disabled title={`Clear floor ${spireMaxSelectable} to unlock this`}>
-                                🔒 Clear Floor {spireMaxSelectable} first
+                                <GameArtIcon kind="key" size={17} /> Clear Floor {spireMaxSelectable} first
                             </button>
                         ) : (
                             <button className="spire-ascend" type="button" onClick={onPrepareRoom}
@@ -765,14 +765,14 @@ function SpireLadder({
                             <span className="spire-rung-num">{f.tier}</span>
                             <span className="spire-rung-portrait">
                                 {rungLocked
-                                    ? <span className="spire-rung-lock">🔒</span>
+                                    ? <span className="spire-rung-lock"><GameArtIcon kind="key" size={16} /></span>
                                     : <img src={TOWER_SPIRE_PORTRAITS[f.boss.key]} alt={f.boss.name} loading="lazy" />}
                             </span>
                             <span className="spire-rung-info">
                                 <span className="spire-rung-boss">{f.boss.name}</span>
                                 <span className="spire-rung-mech">{f.boss.mechanicLabel}</span>
                             </span>
-                            {f.isMilestone && <span className="spire-rung-star" title={f.milestoneTitle}>★</span>}
+                            {f.isMilestone && <span className="spire-rung-star" title={f.milestoneTitle}><GameArtIcon kind="crown" size={16} /></span>}
                             {cleared && <span className="spire-rung-check">✓</span>}
                             {next && <span className="spire-rung-next">▶</span>}
                         </button>
@@ -783,7 +783,7 @@ function SpireLadder({
             {/* Weekly leaderboard */}
             {board.length > 0 && (
                 <div className="spire-board">
-                    <div className="spire-board-head">🏆 This Week's Ascendants</div>
+                    <div className="spire-board-head"><GameArtIcon kind="crown" size={22} /> This Week's Ascendants</div>
                     <ol className="spire-board-list">
                         {board.slice(0, 5).map(r => (
                             <li key={r.rank} className={towerPlayerSlug(r.name) === towerPlayerSlug(me) ? "me" : ""}>

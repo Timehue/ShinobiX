@@ -27,6 +27,7 @@ import {
 import type { IconType } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon, ShinobiCurrencyIcon, type GameIconName } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { ElementSigil } from "../components/icons/ElementSigil";
 import centralCommandHero from "../assets/central-command-v2.webp";
 import arenaDistrictArt from "../assets/facilities/battle-arena.webp";
@@ -248,12 +249,13 @@ export function CentralHub({
     );
     const [showArchives, setShowArchives] = useState(false);
     const publicPlayerBloodlines = usePublicBloodlines(showArchives, character.name);
-    const [showAwakening, setShowAwakening] = useState(openAwakeningOnMount);
+    const [showAwakening, setShowAwakening] = useState(false);
     const [awakeningMsg, setAwakeningMsg] = useState("");
-    useEffect(() => {
-        if (!openAwakeningOnMount) return;
+    const awakeningOpen = showAwakening || openAwakeningOnMount;
+    const closeAwakening = () => {
+        setShowAwakening(false);
         onAwakeningRequestHandled?.();
-    }, [openAwakeningOnMount, onAwakeningRequestHandled]);
+    };
     const [awakeningCinematic, setAwakeningCinematic] = useState<{
         elements: string[];
         mode: "awakening" | "reroll";
@@ -547,12 +549,12 @@ export function CentralHub({
                 mode: isPaidSingle || isPaidBoth ? "reroll" : "awakening",
             });
             setAwakeningMsg(isPaidSingle
-                ? `✨ The stone swirls and reveals ${next[0]}! Your other element was preserved (-10 Fate Shards).`
+                ? `Awakened: The stone swirls and reveals ${next[0]}! Your other element was preserved (-10 Fate Shards).`
                 : isPaidBoth
-                    ? `✨ The stone surges and reveals: ${next.slice(0, 2).join(" / ")}! Both elements were rerolled (-15 Fate Shards).`
-                    : `✨ The stone pulses${revealed ? ` with ${revealed} chakra` : ""}! Your awakened elements: ${next.join(" / ")}.`);
+                    ? `Awakened: The stone surges and reveals: ${next.slice(0, 2).join(" / ")}! Both elements were rerolled (-15 Fate Shards).`
+                    : `Awakened: The stone pulses${revealed ? ` with ${revealed} chakra` : ""}! Your awakened elements: ${next.join(" / ")}.`);
         } catch (error) {
-            setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "Elemental awakening failed."}`);
+            setAwakeningMsg(`Error: ${error instanceof Error ? error.message : "Elemental awakening failed."}`);
         } finally {
             setAwakeningBusy(false);
         }
@@ -564,7 +566,7 @@ export function CentralHub({
 
     function awakeningPaidRoll() {
         if (character.fateShards < 10) {
-            setAwakeningMsg("❌ Not enough Fate Shards — you need 10 to reroll your element.");
+            setAwakeningMsg("Error: Not enough Fate Shards — you need 10 to reroll your element.");
             return;
         }
         void rollAwakening(AWAKENING_PAID_SINGLE_ID);
@@ -572,11 +574,11 @@ export function CentralHub({
 
     function awakeningPaidBothRoll() {
         if (getCharacterElements(character).length < 2) {
-            setAwakeningMsg("❌ Awaken your second element before rerolling both elements.");
+            setAwakeningMsg("Error: Awaken your second element before rerolling both elements.");
             return;
         }
         if (character.fateShards < 15) {
-            setAwakeningMsg("❌ Not enough Fate Shards — you need 15 to reroll both elements.");
+            setAwakeningMsg("Error: Not enough Fate Shards — you need 15 to reroll both elements.");
             return;
         }
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
@@ -586,7 +588,7 @@ export function CentralHub({
         if (bloodlineForgeBusy) return;
         if (!resumeOnly && (character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
-            setAwakeningMsg(`❌ Not enough ${label} — you need ${cost}.`);
+            setAwakeningMsg(`Error: Not enough ${label} — you need ${cost}.`);
             return;
         }
         setBloodlineForgeBusy(true);
@@ -595,11 +597,11 @@ export function CentralHub({
             if (!result.ok || !result.character) throw new Error(result.error || "The Bloodline Awakening ritual rejected this purchase.");
             if (result.rank !== rank) throw new Error("The Bloodline Awakening ritual returned a mismatched grade. No builder was opened.");
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
-            setShowAwakening(false);
+            closeAwakening();
             setCentralLog(`${rank} Bloodline Awakening ${result.resumed ? "resumed" : "attuned"}. Finish shaping your legacy in Bloodline Awakening.`);
             onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
         } catch (error) {
-            setAwakeningMsg(`❌ ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
+            setAwakeningMsg(`Error: ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
         } finally {
             setBloodlineForgeBusy(false);
         }
@@ -987,14 +989,14 @@ export function CentralHub({
                         <div className="central-war-copy">
                             {isPending ? (
                                 <>
-                                    <strong>⏳ {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
+                                    <strong><GameArtIcon kind="warning" size={17} /> {character.village} vs {enemy} — War starts in {minsToWar} min</strong>
                                     <div className="central-war-summary">
                                         Pre-war window. Rally your village, queue guards, gather pre-fight buffs. No HP can drop until the timer expires.
                                     </div>
                                 </>
                             ) : (
                                 <>
-                                    <strong>⚔ {character.village} is at War with {enemy}</strong>
+                                    <strong><GameArtIcon kind="attack" size={17} /> {character.village} is at War with {enemy}</strong>
                                     <div className="central-war-metrics">
                                         <span>Day {ageDays + 1}</span>
                                         <span>{myVillage}: <strong>{myHp.toLocaleString()}</strong> HP</span>
@@ -1190,7 +1192,7 @@ export function CentralHub({
                                         <div className="archives-card-img-wrap">
                                             {bl.image
                                                 ? <img src={bl.image} alt={bl.name} className="archives-card-img" />
-                                                : <div className="archives-card-no-img">🖼️</div>
+                                                : <div className="archives-card-no-img"><GameArtIcon kind="cardHall" size={48} /></div>
                                             }
                                         </div>
                                         <div className="archives-card-body">
@@ -1202,7 +1204,7 @@ export function CentralHub({
                                                 <span className="archives-element-tag">Created by {(bl as ReviewBloodline).ownerName}</span>
                                             )}
                                             {bl.specialElement && (
-                                                <span className="archives-element-tag">🌀 {bl.specialElement} Release</span>
+                                                <span className="archives-element-tag"><ElementSigil element={bl.specialElement} size={15} /> {bl.specialElement} Release</span>
                                             )}
                                             {bl.lore
                                                 ? <p className="archives-lore">{bl.lore}</p>
@@ -1229,11 +1231,11 @@ export function CentralHub({
                 );
             })()}
 
-            {showAwakening && (
-                <Modal open={showAwakening} onClose={() => setShowAwakening(false)} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell dlg-aw">
+            {awakeningOpen && (
+                <Modal open={awakeningOpen} onClose={closeAwakening} bare ariaLabel="Awakening Stone" size="lg" className="central-dialog-shell dlg-aw">
                     <div className="aw-panel aw-command-panel">
                         <header className="aw-command-header">
-                            <button type="button" className="aw-command-close" onClick={() => setShowAwakening(false)} aria-label="Return to Central">← <span>Central</span></button>
+                            <button type="button" className="aw-command-close" onClick={closeAwakening} aria-label="Return to Central">← <span>Central</span></button>
                             <div className="aw-command-title">
                                 <span><GiCrystalBall /> Legacy district · elemental sanctum</span>
                                 <h2>Awakening Stone</h2>
@@ -1265,7 +1267,7 @@ export function CentralHub({
                         </div>
 
                         {awakeningMsg && (
-                            <div className={`aw-msg ${awakeningMsg.startsWith("❌") ? "aw-msg-error" : "aw-msg-success"}`}>
+                            <div className={`aw-msg ${awakeningMsg.startsWith("Error:") ? "aw-msg-error" : "aw-msg-success"}`}>
                                 {awakeningMsg}
                             </div>
                         )}
@@ -1784,7 +1786,7 @@ export function CentralHub({
                                                 <div className="cf-card-head">
                                                     <div className="cf-card-title">
                                                         <strong>{item.name}</strong>
-                                                        <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">ℹ️</button>
+                                                        <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">i</button>
                                                     </div>
                                                     <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
                                                     <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
@@ -1881,7 +1883,7 @@ export function CentralHub({
                                             )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
-                                                    🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
+                                                    <GameArtIcon kind="key" size={15} /> Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
                                                 </div>
                                             )}
                                         </div>
@@ -1935,11 +1937,11 @@ export function CentralHub({
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>🛡 Absorb</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span>🔰 Shield</span><span className="no-pct">+75 to +150 HP</span></div>
-                                                        <div className="no-row"><span>↩️ Reflect</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span>🩸 Life Steal</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span>💥 Increase Damage</span><span className="no-pct">0.75–1.50%</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="guard" size={15} /> Absorb</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">+75 to +150 HP</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="guard" size={15} /> Reflect</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Life Steal</span><span className="no-pct">0.08–2%</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> Increase Damage</span><span className="no-pct">0.75–1.50%</span></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2074,7 +2076,7 @@ export function CentralHub({
                                             )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
-                                                    🔒 Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
+                                                    <GameArtIcon kind="key" size={15} /> Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
                                                 </div>
                                             )}
                                         </div>
@@ -2132,12 +2134,12 @@ export function CentralHub({
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>🔰 Shield</span><span className="no-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
-                                                        <div className="no-row"><span>💚 Heal</span><span className="no-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
-                                                        <div className="no-row"><span>🩸 Siphon</span><span className="no-pct">Restores HP = rolled% × weapon hit damage</span></div>
-                                                        <div className="no-row"><span>🔥 Afterburn</span><span className="no-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
-                                                        <div className="no-row"><span>☠️ Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
-                                                        <div className="no-row"><span>💥 Damage / IDG / DDT / Reflect / Absorb</span><span className="no-pct">Flat % modifier for 2 rounds</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores HP = rolled% × weapon hit damage</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Afterburn</span><span className="no-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> Damage / IDG / DDT / Reflect / Absorb</span><span className="no-pct">Flat % modifier for 2 rounds</span></div>
                                                     </div>
                                                 </div>
                                             </div>

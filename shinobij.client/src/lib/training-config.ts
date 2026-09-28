@@ -76,7 +76,7 @@ export function trainingStatGain(tier: TrainingTier, elapsedMs: number, bonusPct
 // MIRROR: api/_training-config.ts — the server seals the gain, this copy only
 // renders the same number on the Training screen. Parity-pinned by
 // api/_training-parity.test.ts; the full rationale lives in the server copy.
-export const ROOKIE_STAT_PEAK_MULTIPLIER = 5;
+export const ROOKIE_STAT_PEAK_MULTIPLIER = 6;
 export const ROOKIE_TAPER_END_LEVEL = 35;
 
 /** Early-game stat-gain multiplier for `level`. PEAK at L1 → 1.0 at L35+. */

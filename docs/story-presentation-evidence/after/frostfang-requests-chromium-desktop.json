@@ -1,0 +1,13 @@
+{
+  "village": "Frostfang Village",
+  "viewport": "chromium-desktop",
+  "combat": "seeded completed server session; real settlement handler tested separately",
+  "starts": 1,
+  "settlements": 5,
+  "canonicalVillagePayloadResponses": 1,
+  "canonicalVillagePayloads": [
+    "http://127.0.0.1:15183/assets/frostfang-ce15946b44e3-B8czeXcJ.json"
+  ],
+  "replayExtraStarts": 0,
+  "replayExtraSettlements": 0
+}

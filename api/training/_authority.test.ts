@@ -36,9 +36,9 @@ test('training rewards ignore forged client modifiers and only one live lease ca
     try {
         delete process.env.STAT_GAIN_MULTIPLIER;
         // No character → no bonus, and an absent level reads as level 1, so the
-        // rookie curve is at its peak (×5 on the 15m tier's base 3 → 15).
+        // rookie curve is at its configured peak (×6 on the 15m tier's base 3 → 18).
         // Character XP is retired so sealedXp is 0.
-        assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 15, sealedXp: 0, bonusPct: 0, rookieMult: 5 });
+        assert.deepEqual(trustedTrainingRewards(tier), { sealedGain: 18, sealedXp: 0, bonusPct: 0, rookieMult: 6 });
         // Server-derived bonus, isolated from the rookie curve by carrying the
         // LEDGER for the taper end (earnedForLevel(35) = 7,550 points): village
         // Training 50 (×0.25 = 12.5%) + elder training focus (+10%) → ×1.225 on
@@ -56,8 +56,8 @@ test('training rewards ignore forged client modifiers and only one live lease ca
         const rookieBoosted = trustedTrainingRewards(tier, {
             villageUpgrades: { training: 50 }, elderFocus: 'training', unspentStats: 0,
         });
-        assert.equal(rookieBoosted.rookieMult, 5);
-        assert.equal(rookieBoosted.sealedGain, 18); // 3 × 1.225 × 5 = 18.375
+        assert.equal(rookieBoosted.rookieMult, 6);
+        assert.equal(rookieBoosted.sealedGain, 22); // 3 × 1.225 × 6 = 22.05
         // The curve reads the SERVER-derived level off the locked character, and
         // it only ever falls with level — so a forged higher level cannot buy a
         // bigger grant, and a genuinely low level is the only way to a big one.

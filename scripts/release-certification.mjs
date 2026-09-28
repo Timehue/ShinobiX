@@ -443,7 +443,13 @@ async function certify() {
                 });
                 if (check(paid.status === 200 && paid.body.ok === true, `the won spar settles → ${paid.status}`)) {
                     const won = paid.body.character ?? {};
-                    check(Number(paid.body.statPoints ?? 0) === 20, `the teaching reward is +20 stat points (got ${paid.body.statPoints})`);
+                    // This untouched fresh account has 20 starter points and no
+                    // earlier Academy checkpoint. The spar's +20 base grant plus
+                    // its Level 2 shortfall awards 173 points in the current curve.
+                    check(Number(paid.body.statPoints ?? 0) === 173, `the teaching reward reaches the Level 2 point floor (+173, got ${paid.body.statPoints})`);
+                    check(Number(won.unspentStats ?? 0) === Number(sparBase.unspentStats ?? 0) + 173,
+                        `the reported point grant survives in the character (+173, got ${Number(won.unspentStats ?? 0) - Number(sparBase.unspentStats ?? 0)})`);
+                    check(Number(won.level ?? 0) === 2, `the Academy spar leaves this fresh character at Level 2 (got ${won.level})`);
                     check(Number(won.ryo ?? 0) === Number(sparBase.ryo ?? 0) + 30, `+30 ryo (got ${won.ryo} from ${sparBase.ryo})`);
                     check(won.onboardingStep === 'cafeteria', `onboarding advances past the spar (got ${won.onboardingStep})`);
                     check(won.academySparClaimed === true, 'the one-time claim is latched');

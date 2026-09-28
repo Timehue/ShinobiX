@@ -67,25 +67,22 @@ export function trainingStatGain(tier: TrainingTier, elapsedMs: number, bonusPct
 // Early levels arrive far too slowly relative to how long the whole climb takes:
 // on the reference "engaged" activity profile (one 8h + one 4h session/day plus
 // most dailies) L10 took 7 days and L30 took 22, against ~106 days to fully cap
-// a 12-stat build. This multiplier moves that time to the front WITHOUT touching
-// LEVEL_EARNED_ANCHORS.
+// a 12-stat build. This multiplier moves that time to the front while the
+// stat-derived level curve independently sets the gradually rising thresholds.
 //
-// WHY THE INCOME AND NOT THE PRICE. Level is derived from earned stat points
-// (api/_xp-engine.ts), and the AI opponent curve is a SEPARATE linear ramp in
-// level (api/_ai-level-curves.ts aiStatBudgetForLevel) which every PvE system
-// re-levels to the player. Cheapening the anchors would therefore hand the AI a
-// free power lead at every level — at a front-loaded L10 the AI budget/player
-// points ratio goes from 1.52x to 6.8x, a game-wide PvE regression. Raising the
-// early INCOME instead leaves points-at-level exactly as they were, so the AI
-// ratio, the per-rank stat caps, the HP/chakra/stamina pools and every PvP
-// relationship are unchanged by construction.
+// Level is derived from earned stat points (api/_xp-engine.ts), while the AI
+// opponent stat curve is a separate frozen linear ramp. The progressive curve
+// keeps the first-session Level 10 threshold at 1,800 and stays close to the
+// prior rank checkpoints, so the tutorial can accelerate new players without
+// changing the shipped AI stat blocks or stat caps.
 //
 // Shape: linear taper from PEAK at L1 to exactly 1.0 at ROOKIE_TAPER_END_LEVEL,
 // and 1.0 forever after — it never drops below 1.0, so no existing player is
 // slowed. Continuous, so no level-up ever makes training feel worse.
 //
-// Measured on the reference profile: L10 ~2 days, L30 ~8 days, full 12-stat cap
-// ~90 days (was 7 / 22 / 106).
+// With PEAK 6, the reference profile reaches L30 in ~7 days and the full
+// 12-stat cap in ~87 days. PEAK 5 was ~8 / 90; this pass moves early growth
+// forward while the higher L100 threshold makes the final levels take longer.
 //
 // SAFE BY CONSTRUCTION: the input is the SERVER-derived level, which is a pure
 // function of the entitlement-conserved stat ledger (applyDerivedLevel). A
@@ -96,7 +93,7 @@ export function trainingStatGain(tier: TrainingTier, elapsedMs: number, bonusPct
 // TUNABLE: PEAK is the dial. 4 → L30 in ~11 days and cap ~94; 6 → ~7 and ~87.
 // MIRROR: shinobij.client/src/lib/training-config.ts (parity-pinned by
 // api/_training-parity.test.ts).
-export const ROOKIE_STAT_PEAK_MULTIPLIER = 5;
+export const ROOKIE_STAT_PEAK_MULTIPLIER = 6;
 export const ROOKIE_TAPER_END_LEVEL = 35;
 
 /** Early-game stat-gain multiplier for `level`. PEAK at L1 → 1.0 at L35+. */

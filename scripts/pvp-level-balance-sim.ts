@@ -2395,7 +2395,7 @@ export function main(): void {
     printLevel(catalogCap);
 
     console.log(`\n${'='.repeat(84)}`);
-    console.log('Human-PvP entitlement seal (pre-seal 12 vs 15 techniques; both projected to 12)');
+    console.log('Human-PvP entitlement comparison (12 regular techniques for base accounts; 15 for active Supporters)');
     const entitlements = TEST_LEVELS.map((level) => runEntitlementComparison(level));
     for (const entitlement of entitlements) printEntitlement(entitlement);
 

@@ -1,15 +1,34 @@
 # Leveling Without XP — Design & Migration Map
 
-**Status:** MAP ONLY — no code written. This is the "focused balancing pass" flagged in
-`docs/leveling-training-redesign-plan.md`: remove character XP entirely and derive
-**level from total stat points earned**. All file:line references verified against
-commit `72c40db78` (branch `claude/leveling-without-xp-b0043a`).
+**Status:** Implementation reference. The live progression policy is summarized below;
+the migration audit farther down retains historical snapshots and is not the source
+for current numeric values. Runtime code owns those values.
 
 **One-sentence version:** `character.level` stays as a field, but instead of being
 driven by `gainXp`, it becomes a pure function of the server-conserved stat ledger
 (`allocatedStatPoints(stats) + unspentStats`), clamped by the existing exam holds —
 so every one of the ~30 systems that *reads* level keeps working untouched, and the
 work is confined to the ~30 sites that *write* XP.
+
+## Current progression policy (live code)
+
+- **First-session target:** completing the Academy path guarantees at least Level 10.
+  One-time catch-up grants are floors, not fixed payouts: the spar brings earned
+  points to Level 2 (193), the Academy Trial to Level 6 (983), and graduation to
+  Level 10 (1,800). A player who has already earned more gets no extra points at
+  that checkpoint. The ordinary +20 spar and +5 Trial rewards remain included.
+- **PvE and player PvP wins:** eligible server-settled PvE wins grant 3 base stat
+  points; eligible player PvP wins grant 6. They share the 18-point daily combat
+  budget. Growth follows the invested-stat/pool split and rank caps in
+  `api/_stat-growth.ts`; the reservation is replay-safe.
+- **Progressive curve:** thresholds rise smoothly from 193 points at Level 2 to
+  29,000 at Level 100. Level 30 is 6,100; Level 80 is 19,500, so Levels 80–100
+  require another 9,500 points. The Academy floors guarantee the Level 10
+  first-session target while PvE and PvP wins provide repeatable growth.
+- **Evidence and revisit:** thresholds and awards are code-level configuration
+  (runtime-semantics evidence); the one-session timing still needs a guided
+  new-player playthrough. Revisit the catch-up floors if first-session completion
+  exceeds one session or graduates too far above Level 10.
 
 ---
 
@@ -24,9 +43,9 @@ server-authoritative rails:
   short timers out-earns long ones (96× 15m = 288/day … 3× 8h = 216/day); the
   reference 24h regimen (12× 1h + 4h + 8h = 230/day) caps a 12-stat build in ~89
   days. Early sessions are additionally multiplied by `rookieStatMultiplier`
-  (×5 at L1 → 1.0 at L35, keyed off the earned-points ledger, not stored level).
-- **Combat growth** is serious non-ranked PvP only (`api/pvp/claim-rewards.ts:332-340`
-  → `api/_stat-growth.ts:65-100`), 6 pts/win, 60/day cap, ranked pays 0.
+  (×6 at L1 → 1.0 at L35, keyed off the earned-points ledger, not stored level).
+- **Combat growth** is earned from eligible PvE and player PvP wins; see the live
+  policy above for the 3/6 per-win awards and shared 18/day cap.
 - **The ledger is already conserved and server-enforced.** The save sanitizer's
   `preserveStatPointEntitlement` (`api/save/_stat-entitlement.ts:52-55`) computes
   `allocated(stats) + unspentStats` and **rejects any client save that changes the
@@ -57,7 +76,7 @@ level becomes forge-proof (recomputed server-side from the conserved ledger), an
 flowchart LR
     subgraph EARN [Earning — server-authoritative, unchanged]
         T[Idle training\nsealed token, 20-23/hr] --> S
-        P[Serious PvP wins\n6/win, 60/day, ranked=0] --> S
+        P[Eligible PvE + player PvP wins\n3 or 6 per win, shared 18/day] --> S
         M[Content grants — story/tower\none-times + budgeted\nmission/boss/festival claims] --> S
     end
     S[("Stat ledger\nearned = allocated + unspentStats\n(conserved by save sanitizer)")]
@@ -73,7 +92,7 @@ The loop `caps → earning → level → caps` is a **ratchet, not a circularity
 earning raises level, level raises caps, caps make room for more earning. The one
 place it can deadlock is if a level threshold exceeds what the previous band's caps
 allow you to earn — which is exactly what a naive inversion does (§3), and what the
-fitted threshold table prevents.
+calibrated progressive curve prevents.
 
 **Core identity (new canonical helper, both mirrors):**
 
@@ -92,94 +111,52 @@ level(char)            = min( levelForEarned(earnedStatPoints(char)), examLevelC
 
 ---
 
-## 3. The threshold table (the balance heart of the change)
+## 3. The progressive threshold curve
 
-### Why the existing curve cannot be reused
+The curve is cumulative and smooth: each level has a different total earned-stat
+threshold, and the next-level cost generally rises as players advance. Runtime
+code mirrors this polynomial in `api/_xp-engine.ts` and
+`shinobij.client/src/lib/stats.ts`, rounded to whole stat points:
 
-`statBudgetAtLevel(L) = 20 + round((L−1)/99 × 29,860)` (`lib/stats.ts:147-159`)
-inverted as a level curve **walls**:
+```text
+n = level - 1
+E(level) = round(191.67876990268087·n
+              + 1.1074354304268461·n²
+              − 0.02226330146888855·n³
+              + 0.00021623956441357866·n⁴)
+```
 
-| Boundary | Naive inverse needs | Band can produce (12 stats to cap + 20) | Verdict |
-|---|---|---|---|
-| L15 (leave Academy, caps 350) | 4,243 | **4,100** | ❌ unreachable |
-| L30 (leave Genin, caps 700) | 8,767 | **8,300** | ❌ unreachable |
-| L50 (leave Chunin, caps 1300) | 14,800 | 15,500 | ⚠ 95% completion required |
-| L80 (leave Jonin, caps 2100) | 23,848 | 25,100 | ⚠ 95% |
-| L100 | 29,880 | 29,900 | ⚠ 100% of every stat |
+The curve preserves the Level 10 first-session target, eases the Level 30
+threshold, and makes later levels more expensive. These are total earned points,
+including allocated stats above base plus the unspent pool:
 
-Worse, a cap-blocked player is a dead account: training past the rank cap grants 0
-(`api/training/_grant.ts:14-15` truncates), so the wall is not "slow," it is
-"stopped."
+| Level | Total earned points | Increase from previous listed level |
+|---:|---:|---:|
+| 1 | 0 | — |
+| 2 | 193 | 193 |
+| 6 | 983 | 790 |
+| 10 | 1,800 | 817 |
+| 15 | 2,848 | 1,048 |
+| 20 (Genin exam hold) | 3,917 | 1,069 |
+| 30 | 6,100 | 2,183 |
+| 39 (Chunin exam hold) | 8,112 | 2,012 |
+| 50 | 10,679 | 2,567 |
+| 80 | 19,500 | 8,821 |
+| 90 | 23,704 | 4,204 |
+| 100 | 29,000 | 5,296 |
 
-### Proposed `LEVEL_EARNED_THRESHOLDS` (fitted to band capacity)
+The complete Level 1–10 climb needs 1,800 points; Level 1–30 needs 6,100. The
+Level 80–100 climb needs 9,500 points, and each individual threshold is strictly
+higher than the one before it. The Academy's spar, Trial, and graduation floors
+bring players to Levels 2, 6, and 10 respectively, awarding only the shortfall
+at each checkpoint. The exact time to finish the Academy still needs a guided
+playthrough; its level outcome is guaranteed by the server-side floors.
 
-Piecewise-linear between anchors, rounded; single exported table, client + server
-mirrored and parity-pinned like the cap tables:
-
-| Anchor | Earned required | % of band capacity | Rationale |
-|---|---|---|---|
-| L1 | 0 | — | creation baseline (earned 20) is comfortably level 1 |
-| L15 → Genin | **2,800** | 68% of 4,100 | reachable with ~8 of 12 stats worked; focused 6-stat builds top off with modest spillover |
-| L30 → Chunin | **6,200** | 75% of 8,300 | |
-| L50 → Jonin | **11,600** | 75% of 15,500 | |
-| L80 → Sp. Jonin | **19,600** | 78% of 25,100 | |
-| L100 | **27,500** | 92% of 29,900 | endgame near-completion, but not literal perfection |
-
-Derived exam-hold points: **L20 ≈ 3,935 earned**, **L39 ≈ 8,630 earned**.
-
-`levelForEarned(S)` = largest L with `earnedForLevel(L) ≤ S` (interpolated table
-walk; O(bands)). `earnedForLevel` replaces `statBudgetAtLevel` in spirit — see §7
-for what happens to the old function.
-
-### Pacing (anchored by owner directive: standard player fully caps in ~90 days)
-
-The anchor cohort is defined, per the owner: **"play the game, do your dailies,
-and a little extra."** Concretely: an 8 h overnight training collect plus one
-~4 h daytime session (~244 pts), the full daily checklist (45, §4), two or
-three serious PvP wins (~15), and the one-time spine (~1,000 pts across
-story/tower first-clears) amortizing to ~11/day — **≈ 315 pts/day → full
-29,880-point cap in ~93 days.** These are **base rates** (generation 1, no
-boosts active); the growth-boost layer (§4.1) is what makes later generations
-"way shorter." Milestones for that player, with dedicated/casual around them:
-
-| Milestone | Standard (~320/day) | Dedicated (~400/day) | Casual (~210/day) | Today's XP pace |
-|---|---|---|---|---|
-| L15 | ~day 9 | ~day 7 | ~day 13 | — |
-| L20 (Genin exam) | ~day 12 | ~day 10 | ~day 19 | — |
-| L39 (Chunin exam) | ~day 27 | ~day 22 | ~day 41 | — |
-| L50 | ~day 36 | ~day 29 | ~day 55 | — |
-| L80 | ~day 61 | ~day 49 | ~day 93 | — |
-| L90 | ~day 74 | ~day 59 | ~day 112 | **~151 days** |
-| L100 | ~day 86 | ~day 69 | ~day 131 | longer |
-| **Full 12-stat cap** | **~day 93** | ~day 75 | ~day 142 | — |
-
-Cohort spread stays under ~2× and everyone converges on the same universal
-ceiling — faster play buys *sooner*, never *more*. Tuning knobs if the anchor
-drifts, in order: checklist size (§4), PvP slice, threshold anchors, and only
-last `RATE_PER_HOUR` (it drags everything, and its tiers are already shipped
-and parity-pinned). The mid-table (L15–L50) must stay fitted to band capacity
-regardless, or walls come back.
-
-The daily-growth structure (§4) is the **second, independent pacing dial**:
-active-play growth is a fixed daily checklist (45) plus a PvP slice (18) —
-63/day base, on par with the old 60/day PvP-only allowance, and now fillable
-by normal play. Folding growth into the dailies deliberately narrows the
-casual/dedicated spread, since the checklist is the same size for everyone.
-The two dials cleanly separate **idle pace** (training rates) from
-**active-play pace** (slice sizes). This replaces XP's old "independent pacing"
-role — same knob count, one currency.
-
-### Exam holds carry over cleanly — with one behavior change
-
-Today the XP overflow at a hold is **destroyed** (clamped to `xpNeeded−1`,
-`api/_xp-engine.ts:237-239`). Stats can't be destroyed, so under the new model a
-held player keeps earning (toward the *held* rank's caps + bankable pool) and
-**leaps forward on exam pass** (`level = levelForEarned(earned)`, possibly several
-levels, potentially straight into the next hold). This is strictly friendlier than
-today and needs no new mechanics — but worth a patch note.
+`levelForEarned(S)` remains the largest level where `earnedForLevel(L) ≤ S`.
+Exam holds still cap display and derived level at 20 and 39; earned points remain
+banked and can advance the character across a hold after the exam is passed.
 
 ---
-
 ## 4. Faucet disposition table (every XP grant site)
 
 Policy (v3, owner direction 2026-07-27): **growth folds into the daily loop.**
@@ -206,41 +183,40 @@ on top.* Three grant classes:
   the fully-unlocked sum, and early bands lean on training anyway. Values are
   pinned by a test: full-clear sum ∈ target ±10% — **base values; growth
   boosts (§4.1) multiply after.**
-- **The PvP slice (18 pts = 3 serious wins × 6):** mechanics unchanged
-  (`computeCombatStatGrowth`, auto+pool split, ranked 0, own
-  `combat-stat-count` key) — but its daily cap re-cuts **60 → 18** so dailies
-  are the bulk, per the directive. Heavy-PvP players lose ~42/day of growth vs
-  today; flagged in §11.
+- **The combat slice (18 stat points/day shared by PvE and player PvP):** each
+  eligible PvE win awards 3 points and each eligible player PvP win awards 6.
+  Both use `computeCombatStatGrowth`, the auto+pool split, and the replay-safe
+  `combat-stat-count` reservation. These are direct awards: pet traits, encounter
+  bonuses, and the era dial do not multiply them. The cap keeps repeatable wins
+  a supplement to daily missions and training.
 
-**Unlimited-repeat content pays ryo only** — repeatable combat-mission slots,
-arena AI wins, Endless Tower, tower assists, explore/chests, Hollow Gate
-(their old XP lines fold into ryo at ~0.75:1). That is the farm-bound: growth
-lives only on things you can do once (per day, or ever). Spars and plain
-practice stay at zero (standing owner directive). Daily base maximum = 45 + 18
-= 63 (on par with the old 60/day allowance), plus whatever one-times you
-unlocked that day, all multiplied by active growth boosts (§4.1). Surface it
+**Unlimited-repeat mission claims pay ryo only** — repeatable combat-mission
+slots, tower assists and similar turn-ins. Eligible server-settled PvE wins use
+the shared combat budget; spars and plain practice stay at zero. Daily base
+maximum = 45 + 18
+= 63 direct budgeted stat points (on par with the old 60/day allowance), plus
+eligible one-time grants. Growth boosts apply only to eligible non-combat grants
+such as training and checklist rewards (§4.1). Surface it
 as a split meter — **"Daily Growth 33/45 · Combat 12/18"** — so progress reads
 as bars you fill. Non-combat claims grant **pool-only** (`unspentStats +=`);
 the auto-grow-used-stats split stays PvP-only.
 
-### 4.1 Growth boosts — every XP-bonus in the game becomes a stat-gain bonus
+### 4.1 Growth boosts — eligible XP bonuses become stat-gain bonuses
 
-Owner directive: convert all "XP increase" mechanics into stat-growth
-multipliers, so players in a developed world ("generation 2") cap **much**
-faster than the founders did. Boosts multiply **on top of** slice accounting —
-the ledger counts base points, payout = base × boost — so they compress
-calendar time without distorting the checklist's structure, and they never
-raise the 2500 ceiling, only how fast you reach it (the same
-convenience-not-power rule the original training-bonus design used).
+Growth boosts apply to eligible non-combat stat grants, so developed worlds can
+progress faster through training and checklist rewards. PvE/PvP wins award the
+exact points reserved from the shared 18-point daily combat budget; boosts do
+not change either the award or the amount charged to that budget. Boosts never
+raise the 2500 ceiling, only how quickly eligible non-combat grants reach it.
 
 | XP-boost today | Becomes |
 |---|---|
 | Town Hall training XP bonus (`getTrainingXpBonus()` — village upgrades + clan/elder sources), currently displayed but **not actually granted** (`api/training/_session.ts:77` seals `bonusPct = 0` while `Training.tsx:238` shows the boosted figure) | **Training stat-rate bonus, actually sealed:** `training/start` computes `bonusPct` server-side from server-readable village/clan/elder state and seals it into the token. Fixes the pre-existing display/grant mismatch. |
 | Elder focus `training` +10% XP (`api/_xp-engine.ts:159-166`) | +10% training stat rate, folded into the sealed `bonusPct`. |
 | Mission XP boosts — `boostAmount(xp, townHallBonus + huntRankBonus)` (`api/missions/claim-mission.ts:391`) | Same `boostAmount`, applied to the **checklist grants** (base +4 → boosted). |
-| Swift trait +25% PvP XP (`computePvpWinGains`) | +25% PvP stat growth per win (base 6 → 7–8), trait read server-side as today. |
-| Death's Gate sector 99 ×2 XP | ×2 PvP stat growth for wins in sector 99. |
-| `CHARACTER_XP_GAIN_MULTIPLIER` (client+server constant, parity-pinned = 1) | **Retired.** Successor: **`STAT_GAIN_MULTIPLIER` — a server-env era dial** (default 1) applied at every server grant site (training, checklist, PvP). Server-only: all grants are server-side now, so no client constant, no cross-build pin, flippable on Railway without a rebuild. UI shows a **"Growth Surge ×N"** badge when the server reports it active — the designed successor of the old "Testing XP" badge. |
+| Swift trait +25% PvP XP (`computePvpWinGains`) | No stat-growth multiplier. Win-based PvP points remain the direct 6-point award before the shared daily cap. |
+| Death's Gate sector 99 ×2 XP | No stat-growth multiplier. It continues to affect the separate ryo reward. |
+| `CHARACTER_XP_GAIN_MULTIPLIER` (client+server constant, parity-pinned = 1) | **Retired.** Successor: **`STAT_GAIN_MULTIPLIER` — a server-env era dial** (default 1) applied to eligible non-combat grants such as training and checklist rewards. PvE/PvP win awards are excluded. Server-only: no client constant or cross-build pin, and it can be changed without a rebuild. UI shows a **"Growth Surge ×N"** badge when the server reports it active. |
 | Aura "Jutsu XP +N%", pet/profession/clan XP boosts | Untouched — different XP namespaces. |
 
 **The two-generation effect, quantified (full cap, standard profile):**
@@ -260,7 +236,7 @@ applied multiplier into the training/claim audit trail.
 | Site | Today | Disposition |
 |---|---|---|
 | `api/training/complete.ts:107` (sealed tier XP 20/70/220/375) | training XP trickle | **Delete.** Training already grants the stat; the trickle's only job was leveling. Remove `xp` from tier config + `_training-parity.test.ts:18` pin. |
-| `api/pvp/claim-rewards.ts:313` + `api/player/sleeper-kill.ts:246-250` (`creditPvpWinBase`, 100/125×2) | PvP win XP | **Delete XP; keep ryo.** Stat growth (the real reward) already flows; its daily cap re-cuts **60 → 18** (the PvP slice, §4), and the Swift/Death's-Gate XP multipliers move onto it (§4.1). `PvpWinBaseSummary` drops `xp/level` fields → client mirror `applyServerBaseReward` (`lib/progression.ts:83-101`) follows. |
+| `api/pvp/claim-rewards.ts:313` + `api/player/sleeper-kill.ts:246-250` (`creditPvpWinBase`, 100/125×2) | PvP win XP | **Delete XP; keep ryo.** PvP stat growth uses the direct win award and shared 18-point daily cap (§4); growth boosts do not multiply it. `PvpWinBaseSummary` drops `xp/level` fields → client mirror `applyServerBaseReward` (`lib/progression.ts:83-101`) follows. |
 | `api/missions/claim-mission.ts:391` (catalog 15–700; apex 3000) | mission XP | **Once-per-day claims join the daily checklist:** field/hunt dailies (already once-each/day) **+4 each**, profession dailies **+2–3 each**, tuned so a full clear ≈ 50 base — then multiplied by the same `boostAmount` town-hall/hunt-rank bonuses that used to boost mission XP (§4.1). **Repeatable combat-mission slots → ryo only** (they are the unlimited-repeat channel). Apex first-completion: one-time **+25**, outside. |
 | `api/missions/report-ai-fight.ts:108` (sealed ≤150, 50/day full, 100/day hard) | AI-fight XP | **Delete XP; keep ryo + stamina** (retires the flat-100 double-dip oddity + the `_ai-fight-reward.ts` XP-decay machinery). Resolved by the v3 rule: raw AI wins are unlimited-repeat → **ryo only**; the once-per-day hunt/field *claim* is where that playtime's growth lands. Plain practice stays zero. |
 | `api/story/_settle.ts:44` (tutorial spar 60) | teaching reward | **Convert to +20 pool points** (one-time, non-farmable, already gated) — teaches the USER STATS panel, replacing the "XP bar moved" teach. |
@@ -344,7 +320,7 @@ gates that read `xp`**. The nine that do read XP:
   `MobileNav.tsx:75-77,154-155`, `ProgressionPanel.tsx:30-70`, `Profile.tsx:389-405`
   switch from `xp / xpNeeded(level)` to
   `(earned − earnedForLevel(level)) / (earnedForLevel(level+1) − earnedForLevel(level))`
-  with copy "N pts to Level L+1 — earn by training and serious PvP." ProgressionPanel's
+  with copy "N pts to Level L+1 — earn by training, daily missions, PvE wins, and PvP wins." ProgressionPanel's
   false "Each level grants ~301 stat points" line (`:41,92`) becomes the honest
   inverse: "Level L unlocks at N total points earned." The panel's
   `earned = spent + unspent` arithmetic is *already* the new model.
@@ -416,7 +392,7 @@ usual "ship ON with kill switch" pattern deliberately — flagging it.
 | Guard | Action |
 |---|---|
 | `api/_cross-build-parity.test.ts:145-154` source-text pins (`6 * level * level`, budget formula) | Replace with pins on the `LEVEL_EARNED_THRESHOLDS` table + `earnedForLevel` source text (both mirrors). |
-| `api/_xp-engine.test.ts` (3,000-case `gainXp` sweep + golden anchors) | Rewrite as an `earned→level` sweep: all levels × earned values × exam flags, server vs client replica `deepEqual`; new golden anchors (earned 20→L1; 2,800→L15; 3,934→L19 vs 3,935→L20-held; exam-pass leap case; 27,500→L100). |
+| `api/_xp-engine.test.ts` (3,000-case `gainXp` sweep + golden anchors) | Rewrite as an `earned→level` sweep: all levels × earned values × exam flags, server vs client replica `deepEqual`; new golden anchors (earned 20→L1; 2,800→L15; 3,934→L19 vs 3,935→L20-held; exam-pass leap case; 29,000→L100). |
 | `lib/stats.test.ts:17-65` (xpNeeded/budget/progress anchors) | Replace with threshold anchors + monotonicity + `levelForEarned(earnedForLevel(L)) === L`. **Add the reachability invariant:** `earnedForLevel(bandBoundary) ≤ 0.8 × bandCapacity` for every band — the anti-wall guard. |
 | `lib/stats.test.ts` pacing bound | Rewrite: dedicated 340/day → L90 within [55, 90] days (or owner's chosen window). |
 | New ledger tests | earned conservation under spend/respec/growth/training-overflow; overflow-rolls-into-pool; migration top-up (no de-level, exam clamp holds); `applyDerivedLevel` full-heal parity. Plus the **daily-checklist invariant**: sum of all once-per-day grants over the live daily catalog ∈ `DAILY_PVE_GROWTH_TARGET` ±10% — fails the build if someone adds a daily without re-tuning the slice (pins **base** sums; boosts multiply after). Boost tests: sealed `bonusPct` is server-derived, the aggregate-boost ceiling holds, and `STAT_GAIN_MULTIPLIER` defaults to 1. |
@@ -538,11 +514,11 @@ Accepted, not fixed (documented deliberately):
 5. **AI curve freeze** (recommended) vs re-point at the new curve? (§7)
 6. **No runtime kill switch** (single cutover + revert path) — confirm the
    deviation from ship-ON-with-kill-switch. (§8)
-7. **Growth boosts: RESOLVED by owner directive** — every XP-boost converts to
-   a stat-gain boost (§4.1: Town Hall + elder focus fold into the sealed
-   training `bonusPct`; mission boosts onto the checklist; Swift/Death's Gate
-   onto PvP growth; the retired global multiplier succeeded by the server-env
-   `STAT_GAIN_MULTIPLIER` era dial). Remaining calls: the aggregate-boost
+7. **Growth boosts: RESOLVED by owner directive** — eligible XP boosts convert
+   to stat-gain boosts (§4.1: Town Hall + elder focus fold into the sealed
+   training `bonusPct`; mission boosts apply to checklist rewards; PvE/PvP win
+   awards stay direct and unboosted; the retired global multiplier is succeeded
+   by the server-env `STAT_GAIN_MULTIPLIER` era dial). Remaining calls: the aggregate-boost
    ceiling (×2.5 proposed) and the era dial's launch default (1).
 8. **Tutorial spar reward:** +20 pool points (recommended) or ryo?
 

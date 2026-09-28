@@ -29,6 +29,8 @@ import {
 } from "../components/icons/LightweightGameIcons";
 // Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
+import festivalMarkerArt from "../assets/festival/sunscar-queen-v1.webp";
 import { firstContractVisible, openFirstContract } from "../lib/first-contract";
 import type { Biome, Screen, WeatherType } from "../types/core";
 import type { Character, HollowGateEventConfig, PlayerRecord, VersionedCharacterCommit } from "../types/character";
@@ -4173,7 +4175,6 @@ function WorldMapContent({
             beastName={huntEncounter.ai.name}
             beastRank={huntEncounter.trail.mission.rank}
             portrait={huntEncounter.ai.image || beastPortrait(huntEncounter.ai.id)}
-            icon={huntEncounter.ai.icon}
             sector={huntEncounter.sector}
             regionName={sectorRegionName(huntEncounter.sector)}
             trailStep={Math.min(huntEncounter.trail.progress + 1, Math.max(1, huntEncounter.trail.requiredTracks - 1))}
@@ -4544,8 +4545,8 @@ function WorldMapContent({
                                     <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
                                             ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
-                                            : <div style={{ fontSize: 60, lineHeight: 1, margin: "0 0 6px" }}>👹</div>}
-                                        <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}>⚔ {bossDialog.name}</h3>
+                                            : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
+                                        <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}><GameArtIcon kind="attack" size={17} /> {bossDialog.name}</h3>
                                         <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee (free, no attempt spent).</p>
                                         <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
@@ -4793,7 +4794,7 @@ function WorldMapContent({
 
                     <aside className="instance-actions">
                         <h3>{loc.name}</h3>
-                        <p className="territory-hostile-tag">⚠️ Hostile Territory</p>
+                        <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>Explore Territory</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
@@ -4802,7 +4803,7 @@ function WorldMapContent({
                         <div className="territory-guard-section">
                             {territoryGuards.length > 0 ? (
                                 <>
-                                    <p className="territory-guard-label">🛡️ Village Guarded</p>
+                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guarded</p>
                                     {territoryGuards.map(g => (
                                         <p key={g.name} className="territory-guard-name">
                                             {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
@@ -4901,7 +4902,7 @@ function WorldMapContent({
                                             })(); });
                                         }}
                                     >
-                                        🛡️ Challenge Guard
+                                        <GameArtIcon kind="roleDefender" size={17} /> Challenge Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
                                         Guard online? Real PvP. Guard offline? AI fight.
@@ -5089,7 +5090,7 @@ function WorldMapContent({
                             aria-label="Open Sunscar Festival"
                         >
                             {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                            ☀️
+                            <img src={festivalMarkerArt} alt="" style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%" }} />
                         </button>
                     );
                     const huntTrail = huntTrailForSector(sector.id);
@@ -5133,12 +5134,12 @@ function WorldMapContent({
                             : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? "💀" : sector.id}
+                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}
                                 title={scoutDotTitle(scoutedSectors.get(sector.id)!, (scoutInfo.tier || 1) as 1 | 2 | 3)}
-                            >🔴{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
+                            ><span aria-hidden="true" style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#ef4444", boxShadow: "0 0 5px #ef4444" }} />{scoutedSectors.get(sector.id)!.length > 1 ? scoutedSectors.get(sector.id)!.length : ""}</span>
                         )}
                         {legacyAvailable && sageOffer?.status === "spawned" && sageOffer.sector === sector.id && (
                             <img
@@ -5152,7 +5153,7 @@ function WorldMapContent({
                             <span
                                 className="atlas-boss-flag"
                                 title={`${roamingBoss?.bossName ?? "Weekly Boss"} is rampaging here. Travel in to challenge it`}
-                            >👹</span>
+                            ><img src="/portraits/hollow-warden.webp" alt="" style={{ width: 19, height: 19, borderRadius: "50%", objectFit: "cover" }} /></span>
                         )}
                         {huntTrail && (
                             <span

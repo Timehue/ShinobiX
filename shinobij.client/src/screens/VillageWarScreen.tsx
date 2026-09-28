@@ -9,6 +9,7 @@ import type { Character, PlayerRecord, VersionedCharacterCommit } from "../types
 import { TERRITORY_HP_MAX } from "../constants/game";
 import { VILLAGE_WAR_HP_MAX, type TerritoryRecord, type VillageWarRecord } from "../lib/world-state";
 import { gameConfirm } from "../components/GameAlert";
+import { GameArtIcon } from "../components/GameArtIcon";
 
 // ─── Village War Screen ───────────────────────────────────────────────────────
 // Lets a village member view the active war (if any), raid enemy sectors, and
@@ -200,7 +201,7 @@ export function VillageWarScreen({
                     title="How does Village War work?"
                     style={{ padding: "0.2rem 0.55rem", fontSize: "0.85rem", borderRadius: 4, border: "1px solid #60a5fa", background: "#1e293b", color: "#60a5fa", cursor: "pointer" }}
                 >
-                    ℹ How it works
+                    How it works
                 </button>
             </div>
             {showWarManual && (
@@ -236,7 +237,7 @@ export function VillageWarScreen({
                         Both columns stack on the same fight. Examples: a regular villager defeating a Kage = <strong style={{ color: "#4ade80" }}>+5 enemy HP</strong> (their win) AND <strong style={{ color: "#f87171" }}>−50 to the Kage's village</strong> (kill penalty) = <strong>55 total damage</strong>. Kage beats Elder = +30 +20 = 50. Regular vs regular = +5. PvP wins on the war-ground sector drain the sector AND the enemy village HP simultaneously.
                     </p>
                     <p style={{ margin: "0 0 0.5rem", fontSize: "0.78rem", color: "#fbbf24" }}>
-                        ⚠ <strong>Clan-leadership gate:</strong> Clan Head / Clan Elder / Clan Founder only get the <strong>+20</strong> tier when their clan has <strong>at least 8 total members</strong> (you + 7 others). Smaller clans drop to the regular <strong>+5/−0</strong> tier. Village Elder seats and ANBU are unaffected.
+                        <GameArtIcon kind="warning" size={16} /> <strong>Clan-leadership gate:</strong> Clan Head / Clan Elder / Clan Founder only get the <strong>+20</strong> tier when their clan has <strong>at least 8 total members</strong> (you + 7 others). Smaller clans drop to the regular <strong>+5/−0</strong> tier. Village Elder seats and ANBU are unaffected.
                     </p>
                     <p style={{ margin: "0 0 0.5rem" }}>
                         <strong style={{ color: "#60a5fa" }}>Home defender bonus.</strong> When you win a PvP fight in a sector your own village owns, you get <strong>+15%</strong> war HP credit. This only scales the war ledger — the actual fight is unchanged.
@@ -263,7 +264,7 @@ export function VillageWarScreen({
                     </p>
                 </div>
             )}
-            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}>⚠ {error}</div>}
+            {error && <div style={{ color: "#f87171", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {claimable.length > 0 && (
                 <div style={{ background: "linear-gradient(#1a3a1a,#0a2010)", border: "1px solid #4ade80", borderRadius: 8, padding: "0.8rem", marginBottom: "1rem" }}>
                     <strong style={{ color: "#4ade80" }}><GiTrophy style={VW_ICON} />Victory rewards available</strong>
@@ -284,7 +285,7 @@ export function VillageWarScreen({
                         <div style={{ color: "#94a3b8", fontSize: "0.85rem" }}>Started {new Date(activeWar.startedAt).toLocaleDateString()}</div>
                         {activeWar.pendingUntil && activeWar.pendingUntil > serverNow() && (
                             <div style={{ marginTop: 8, padding: "0.5rem 0.7rem", background: "linear-gradient(#3b2a05, #1f1402)", border: "1px solid #fbbf24", borderRadius: 6 }}>
-                                <strong style={{ color: "#fde047" }}>⏳ War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - serverNow()) / 60_000))} min</strong>
+                                <strong style={{ color: "#fde047" }}><GameArtIcon kind="mission" size={16} /> War starts in {Math.max(1, Math.ceil((activeWar.pendingUntil - serverNow()) / 60_000))} min</strong>
                                 <p style={{ fontSize: "0.78rem", color: "#fcd34d", margin: "4px 0 0" }}>
                                     Pre-war window. No HP can drop, no PvP raid will count yet. Use this time to rally your village, queue guards, and gather pre-fight buffs.
                                 </p>
@@ -378,7 +379,7 @@ export function VillageWarScreen({
                                 style={{ padding: "0.5rem 1rem", background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "#f87171" }}
                                 title={(character.honorSeals ?? 0) < 500 ? "Need 500 Honor Seals" : undefined}
                             >
-                                {declaring ? "Declaring…" : (character.honorSeals ?? 0) < 500 ? `⚔ Declare War (need 500 Seals — have ${(character.honorSeals ?? 0)})` : "⚔ Declare War — 500 Honor Seals"}
+                                {declaring ? "Declaring…" : (character.honorSeals ?? 0) < 500 ? <> <GameArtIcon kind="attack" size={17} /> Declare War (need 500 Seals — have {(character.honorSeals ?? 0)})</> : <><GameArtIcon kind="attack" size={17} /> Declare War — 500 Honor Seals</>}
                             </button>
                         </div>
                     ) : (

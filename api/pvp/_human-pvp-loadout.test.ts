@@ -46,6 +46,15 @@ describe('human PvP loadout normalization', () => {
         );
     });
 
+    it('uses the base capacity after a supporter entitlement expires', () => {
+        const legacy = Object.values(LEGACY_JUTSU_CATALOG)[0]!;
+        const normalized = normalizeHumanPvpLoadout({
+            patreon: { active: true, expiresAt: Date.now() - 1 },
+            jutsu: [...techniques(15), legacy],
+        });
+        assert.deepEqual(normalized.jutsu, [...techniques(LOADOUT_CAP_BASE), legacy]);
+    });
+
     it('preserves the separately earned Legacy signature after the subscriber slots', () => {
         const signature = Object.values(LEGACY_JUTSU_CATALOG)[0]!;
         const regular = techniques(15);
@@ -57,5 +66,13 @@ describe('human PvP loadout normalization', () => {
         const source = readFileSync(resolve(process.cwd(), 'api/pvp/session.ts'), 'utf8');
         assert.match(source, /const humanPvp = realFighters\.p1 && realFighters\.p2/);
         assert.match(source, /if \(humanPvp\)[\s\S]{0,300}normalizeHumanPvpLoadout\(finalP1Character\)[\s\S]{0,200}normalizeHumanPvpLoadout\(finalP2Character\)/);
+    });
+
+    it('keeps ranked 2v2 fighter hydration on the server entitlement path', () => {
+        const store = readFileSync(resolve(process.cwd(), 'api/towers/_pvp-store.ts'), 'utf8');
+        assert.match(store, /projectRankedFormatCharacter\(character,[\s\S]{0,220}: character/);
+        assert.match(store, /sealTowerFighter\(sealCharacter, save, \{\}, admin\)/);
+        const rankedDuo = readFileSync(resolve(process.cwd(), 'api/pvp/_ranked-2v2.ts'), 'utf8');
+        assert.match(rankedDuo, /loadTowerPvpFighter\(slug, \{ consumables: true, rankedFormat: true \}\)/);
     });
 });

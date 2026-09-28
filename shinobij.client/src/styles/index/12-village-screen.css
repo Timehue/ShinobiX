@@ -85,6 +85,9 @@
 .mh-section { padding: 18px 20px; border-bottom: 1px solid rgba(71,85,105,.3); }
 .mh-section:last-child { border-bottom: none; }
 .mh-section-title {
+    display: flex;
+    align-items: center;
+    gap: 7px;
     margin: 0 0 6px;
     font-size: 1rem;
     font-weight: 700;
@@ -238,6 +241,7 @@
     border-radius: 6px;
     border: 1px solid rgba(71,85,105,.3);
 }
+.mh-fetch-rewards span { display: inline-flex; align-items: center; gap: 4px; }
 
 .mh-fetch-progress-wrap { display: flex; flex-direction: column; gap: 4px; }
 .mh-fetch-progress-label {

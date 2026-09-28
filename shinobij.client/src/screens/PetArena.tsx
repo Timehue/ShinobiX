@@ -39,6 +39,7 @@ import { PetArenaCard } from "../components/PetBattleAvatar";
 import { PetHomeTabs } from "../components/PetHomeTabs";
 import { CompanionIdentity } from "../components/CompanionIdentity";
 import { GameIcon } from "../components/icons/GameIcon";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { PetChronicleCeremony } from "../components/PetChronicleCeremony";
 import { PetChronicleProgress } from "../components/PetChronicleProgress";
 import { PetDuelLiveHost, type PetDuelLiveHandle } from "../components/PetDuelLiveHost";
@@ -187,7 +188,7 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
         : "Balanced squad — all four roles covered. Strong all-round comp!";
     return (
         <div className="pet-pick-panel pet-battle-plan">
-            <h4 className="bp-title">🧭 Battle Plan</h4>
+            <h4 className="bp-title"><GameArtIcon kind="mission" size={18} /> Battle Plan</h4>
             <div className="bp-roles">
                 {ROLE_ORDER.map((r) => {
                     const m = ROLE_META[r];
@@ -208,8 +209,8 @@ function BattlePlan({ pets, size }: { pets: Pet[]; size: number }) {
                 <span>Elements <strong>{elements.size ? [...elements].map((e) => <ElIcon key={e} el={e} size={15} />) : "—"}</strong></span>
             </div>
             <div className="bp-tips">
-                <div>🏁 All eight pets fight at once, four a side. Win two clashes to take the Rite.</div>
-                <div>🧠 Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
+                <div><GameArtIcon kind="crown" size={16} /> All eight pets fight at once, four a side. Win two clashes to take the Rite.</div>
+                <div><GameArtIcon kind="roleSage" size={16} /> Pets auto-fight by role — defenders tank, sages heal, trackers poke, assassins dive.</div>
                 <div>♜ The opening clash reveals all four of their positions. Use that read when you re-form.</div>
             </div>
         </div>
@@ -1066,16 +1067,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             });
             if (!res.ok) {
                 const data = await res.json().catch(() => ({} as { error?: string }));
-                setArenaChallengeMsg(`❌ ${data?.error ?? `Could not reach ${name}. Check the name and try again.`}`);
+                setArenaChallengeMsg(`Error: ${data?.error ?? `Could not reach ${name}. Check the name and try again.`}`);
                 return;
             }
             setDuelChallenges([
                 ...duelChallenges.filter((c: DuelChallenge) => !(c.fromName === character.name && !c.accepted && !c.declined && !c.battleId)),
                 challenge,
             ]);
-            setArenaChallengeMsg(`✅ 4v4 challenge sent to ${name}! Waiting for them to accept and pick their team…`);
+            setArenaChallengeMsg(`Success: 4v4 challenge sent to ${name}! Waiting for them to accept and pick their team…`);
         } catch {
-            setArenaChallengeMsg("❌ Network error sending challenge.");
+            setArenaChallengeMsg("Error: Network error sending challenge.");
         }
     }
 
@@ -1119,7 +1120,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             });
             const payload = await response.json().catch(() => null) as { error?: unknown; warfrontMatch?: unknown } | null;
             if (!response.ok) {
-                setArenaChallengeMsg(`❌ ${typeof payload?.error === "string" ? payload.error : "The Warfront invitation could not be accepted."}`);
+                setArenaChallengeMsg(`Error: ${typeof payload?.error === "string" ? payload.error : "The Warfront invitation could not be accepted."}`);
                 return;
             }
             acceptedMatch = parseAcceptedWarfrontMatch(payload?.warfrontMatch);
@@ -1128,7 +1129,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 return;
             }
         } catch {
-            setArenaChallengeMsg("❌ Network error accepting the Warfront challenge. Nothing was started.");
+            setArenaChallengeMsg("Error: Network error accepting the Warfront challenge. Nothing was started.");
             return;
         }
         onArenaResponseHandled?.();
@@ -1508,7 +1509,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             if (myResult === "win") {
                 const gain = rankedDelta(myRating, oppRating);
                 reportRankedPet("win");
-                setBattleLog([`🏆 Ranked pet victory! Arena settlement requested (projected +${gain} Elo).`]);
+                setBattleLog([`Ranked pet victory! Arena settlement requested (projected +${gain} Elo).`]);
             } else {
                 const drop = rankedDelta(oppRating, myRating);
                 reportRankedPet("loss");
@@ -2031,7 +2032,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                                         <button type="button" onClick={() => sendDirectPetChallenge(p.name)}><GameIcon name="sword" size={15} /> Challenge</button>
                                                     </div>
                                                 ))}
-                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                                             </>
                                         );
                                     }
@@ -2039,7 +2040,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         <>
                                             <p className="hint">No account found for "{opponentSearch.trim()}".</p>
                                             <button type="button" onClick={() => sendDirectPetChallenge(opponentSearch.trim())}><GameIcon name="sword" size={15} /> Challenge "{opponentSearch.trim()}"</button>
-                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                            {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                                         </>
                                     );
                                 })()}
@@ -2048,12 +2049,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             <div>
                                 <p className="hint" style={{ marginTop: 4 }}>Type a player's name above to find and challenge them.</p>
                                 <div className="pet-arena-tips">
-                                    <div>⚔️ Win pet duels to earn ryo (daily cap).</div>
-                                    <div>🐾🐾 Toggle 2v2 below to bring two pets into the challenge.</div>
-                                    <div>🛡 Roles &amp; element edge decide close fights — check the matchup hint.</div>
-                                    <div>🏛 Want a fight right now? The Colosseum matches you against the arena.</div>
+                                    <div><GameArtIcon kind="attack" size={17} /> Win pet duels to earn ryo (daily cap).</div>
+                                    <div><GameArtIcon kind="petTamer" size={17} /> Toggle 2v2 below to bring two pets into the challenge.</div>
+                                    <div><GameArtIcon kind="roleDefender" size={17} /> Roles &amp; element edge decide close fights — check the matchup hint.</div>
+                                    <div><GameArtIcon kind="arena" size={17} /> Want a fight right now? The Colosseum matches you against the arena.</div>
                                 </div>
-                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
+                                {petChallengeMsg && <p className="hint" style={{ color: petChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)", marginTop: 6 }}>{petChallengeMsg}</p>}
                             </div>
                         )
                     )}
@@ -2077,7 +2078,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                         className={`pet-pick pet-pick-auto${reservePetId === "" ? " selected" : ""}`}
                                         aria-pressed={reservePetId === ""}
                                         onClick={() => setReservePetId("")}>
-                                        <span className="pet-pick-auto-glyph">🎲</span>
+                                        <GameArtIcon kind="dice" size={18} className="pet-pick-auto-glyph" />
                                         <span className="pet-pick-name">Auto-pick</span>
                                         <span className="pet-pick-meta">best counter</span>
                                     </button>
@@ -2133,10 +2134,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             <PetDuelLiveHost
                 ref={liveDuelRef}
                 myPets={liveDuelPets}
-                onError={(message) => setPetChallengeMsg(`❌ ${message}`)}
+                onError={(message) => setPetChallengeMsg(`Error: ${message}`)}
                 onOutcome={(outcome, opponent) => {
                     setResult(outcome === "win" ? "Victory" : outcome === "draw" ? "Draw" : "Defeat");
-                    setPetChallengeMsg(outcome === "win" ? `✅ You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
+                    setPetChallengeMsg(outcome === "win" ? `Success: You beat ${opponent}!` : outcome === "draw" ? `Draw with ${opponent}.` : `${opponent} won that one.`);
                     // Clan-war pet battles still record through the existing helper;
                     // it no-ops when this fight was not part of one.
                     onClanWarBattleEnd?.(outcome === "draw" ? "draw" : outcome === "win", opponent);
@@ -2262,7 +2263,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                             const size = arenaSizeOf(pendingArenaResponse);
                             return (
                                 <div style={{ display: "grid", gap: "0.6rem" }}>
-                                    <strong>⚔️ {pendingArenaResponse.fromName} challenged you to a 4v4!</strong>
+                                        <strong><GameArtIcon kind="attack" size={18} /> {pendingArenaResponse.fromName} challenged you to a 4v4!</strong>
                                     <p className="hint" style={{ margin: 0 }}>Pick up to {size} pets, then accept — the match begins after a short countdown.</p>
                                     {available.length < size
                                         ? <p className="hint" style={{ color: "var(--gold-2)" }}>You need {size} available pets to accept this {size}v{size} challenge. You currently have {available.length}.</p>
@@ -2345,7 +2346,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "0.7rem" }}>
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                                        <strong>🤖 Fight AI</strong>
+                                        <strong><GameArtIcon kind="roleAssassin" size={18} /> Fight AI</strong>
                                         <p className="hint" style={{ margin: 0 }}>The rival leads with its most durable pets. Both bands are sealed before the first clash.</p>
                                         <button
                                             disabled={!canStart || warfrontSetupPending}
@@ -2364,7 +2365,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                     </div>
 
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                                        <strong>⚔️ Challenge a Player</strong>
+                                        <strong><GameArtIcon kind="attack" size={18} /> Challenge a Player</strong>
                                         <input
                                             aria-label="Player name to challenge"
                                             value={arenaChallengeName}
@@ -2376,11 +2377,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             onClick={() => void sendArenaChallenge(arenaChallengeName, tacticalSize, tacticalPicks)}>
                                             Send Challenge
                                         </button>
-                                        {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("✅") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg}</p>}
+                                        {arenaChallengeMsg && <p className="hint" style={{ margin: 0, color: arenaChallengeMsg.startsWith("Success:") ? "var(--green-400)" : "var(--red-400)" }}>{arenaChallengeMsg}</p>}
                                     </div>
 
                                     <div className="summary-box" style={{ display: "grid", gap: "0.5rem", alignContent: "start" }}>
-                                        <strong>🤝 Co-op with Friends</strong>
+                                        <strong><GameArtIcon kind="petTamer" size={18} /> Co-op with Friends</strong>
                                         <button style={{ background: "#6d28d9" }} onClick={() => setShowCoop(true)}>Open Co-op Lobby</button>
                                     </div>
                                 </div>

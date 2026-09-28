@@ -61,7 +61,7 @@ describe('level-aware PvP balance harness integrity', () => {
         }
         assert.deepEqual(
             TEST_LEVELS.slice(0, -1).map((level) => upperEarnedForExactLevel(level)),
-            [1999, 5292, 11866, 19994],
+            [2006, 5220, 10920, 19879],
         );
     });
 

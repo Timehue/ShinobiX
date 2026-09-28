@@ -212,7 +212,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                                 className="left-xp-label"
                                 title={progress.heldBy
                                     ? `Level ${character.level + 1} is held until you pass the ${progress.heldBy}. Points you earn now are banked.`
-                                    : "Stat points earned toward your next level — from training, your daily missions, and serious PvP."}
+                                    : "Stat points earned toward your next level — from training, daily missions, PvE wins, and PvP wins."}
                             >
                                 Lv {character.level} &nbsp;·&nbsp; {progress.label}
                             </div>

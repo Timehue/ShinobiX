@@ -82,7 +82,7 @@ function parseBudget(raw: unknown, day: string, cap: number): CombatStatBudget |
  * this CAS but before the character CAS reuses the same allocation; a lost CAS
  * acknowledgement is accepted only after an exact canonical readback.
  */
-export async function reservePvpCombatStatBudget(
+export async function reserveCombatStatBudget(
     store: BudgetStore,
     params: { playerName: string; battleId: string; eventAt: number; requested: number; cap: number },
 ): Promise<{ points: number; replayed: boolean; day: string }> {
@@ -130,3 +130,5 @@ export async function reservePvpCombatStatBudget(
     }
     throw new Error('pvp-combat-stat-budget-contended');
 }
+
+export const reservePvpCombatStatBudget = reserveCombatStatBudget;

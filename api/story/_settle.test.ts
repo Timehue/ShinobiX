@@ -93,15 +93,15 @@ test('generic saves cannot skip story progress or forge the redemption ledger', 
 });
 
 test('Academy spar is a one-step canonical grant bound to its server-owned opponent', () => {
-    const c = character({ level: 1, onboardingStep: 'academySpar', maxHp: 100, hp: 100 });
+    const c = character({ level: 1, unspentStats: 20, onboardingStep: 'academySpar', maxHp: 100, hp: 100 });
     const settled = applyAcademySparSettlement(c, token(ACADEMY_SPAR_OPPONENT_ID));
     assert.equal(settled.ok, true);
     if (!settled.ok) return;
-    // The teaching reward is now +20 pool points (was a one-time 60 XP) — it
-    // teaches the USER STATS panel the way the XP-bar move used to.
+    // The spar grant plus its fallback Level 2 floor leaves 193 earned points.
     assert.equal(settled.xp, 0);
-    assert.equal(settled.statPoints, 20);
-    assert.equal(settled.character.unspentStats, 20);
+    assert.equal(settled.statPoints, 173);
+    assert.equal(settled.character.unspentStats, 193);
+    assert.equal(settled.character.level, 2);
     assert.equal(settled.ryo, 30);
     assert.equal(settled.character.onboardingStep, 'cafeteria');
     assert.equal(settled.character.academySparClaimed, true);

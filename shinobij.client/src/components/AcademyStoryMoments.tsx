@@ -106,7 +106,7 @@ export function AcademyReturnCeremony(props: SharedProps & {
     const rite = academyCeremony(props.character.village);
     const vow = academyVowDefinition(props.character.academyVow);
     const handoff = buildAcademyHandoff({ ...props.character, onboardingStep: "done" });
-    const saveAction = async (action: "seal" | "complete", route?: FirstContractRoute) => {
+    const saveAction = async (action: "seal" | "complete", route?: FirstContractRoute): Promise<boolean> => {
         if (saveLock.current) return false;
         saveLock.current = true;
         setSaveError('');

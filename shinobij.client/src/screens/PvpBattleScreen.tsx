@@ -18,6 +18,8 @@ import { CombatRoundTimer } from "../components/CombatRoundTimer";
 import { PVP_PREFIGHT_COUNTDOWN_SECONDS, pvpTurnDeadlineAt } from "../../../shared/pvp-turn";
 import { serverNow } from "../lib/server-clock";
 import { CombatSideHud } from "../components/CombatSideHud";
+import { GameArtIcon } from "../components/GameArtIcon";
+import roleAssassinPortrait from "../assets/roles/role-assassin.webp";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
@@ -334,7 +336,7 @@ export function PvpBattleScreen({
     const [moveFeedback, setMoveFeedback] = useState("");
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
     const battleLogLines = session && moveFeedback
-        ? [...session.log, `⚠️ ${moveFeedback}`]
+        ? [...session.log, `Warning: ${moveFeedback}`]
         : (session?.log ?? []);
     const battleTabs = useBattleTabs(battleLogLines.length);
     const [inspectedWeaponId, setInspectedWeaponId] = useState("");
@@ -2052,7 +2054,7 @@ export function PvpBattleScreen({
     }
 
     const fallbackIcon = (j: Jutsu) =>
-        j.type === "Taijutsu" ? "👊" : j.type === "Bukijutsu" ? "⚔" : j.type === "Genjutsu" ? "👁" : "🌀";
+        <GameArtIcon kind={j.type === "Genjutsu" ? "warning" : "attack"} size={26} />;
     const combatVfxCenters = (fx: PvpCombatVfx) => {
         const footprint = (fx.spec.tiles ?? []).filter(tile => tile >= 0 && tile < gridWidth * gridHeight);
         const tiles = fx.spec.persistent ? footprint : footprint.slice(0, liteFx ? 7 : 14);
@@ -2143,7 +2145,7 @@ export function PvpBattleScreen({
                 {/* In-grid player HUD — visible on non-xl, hidden on xl via CSS */}
                 <CombatSideHud
                     name={amSpectator ? me.name : `${me.name} (You)`}
-                    avatar={myAvatar || "🥷"}
+                    avatar={myAvatar || roleAssassinPortrait}
                     hp={me.hp} maxHp={me.maxHp}
                     chakra={me.chakra} maxChakra={me.maxChakra}
                     stamina={me.stamina} maxStamina={me.maxStamina}
@@ -2169,16 +2171,16 @@ export function PvpBattleScreen({
                         <span className="twp-strip-label">Terrain</span>
                         <span className="twp-strip-value">{terrainEffects[arenaBiome].description}</span>
                         {terrainEffects[arenaBiome].playerBuff && (
-                            <span className="twp-buff twp-positive">🔺 {terrainEffects[arenaBiome].playerBuff}</span>
+                            <span className="twp-buff twp-positive">↑ {terrainEffects[arenaBiome].playerBuff}</span>
                         )}
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Weather</span>
                         <span className="twp-strip-value">{weatherName}</span>
                         {weatherPosEl && (
-                            <span className="twp-buff twp-positive">🔺 {weatherPosEl} +5%</span>
+                            <span className="twp-buff twp-positive">↑ {weatherPosEl} +5%</span>
                         )}
                         {weatherNegEl && (
-                            <span className="twp-buff twp-negative">🔻 {weatherNegEl} -2%</span>
+                            <span className="twp-buff twp-negative">↓ {weatherNegEl} -2%</span>
                         )}
                     </CombatEnvironmentStrip>
 
@@ -2598,7 +2600,7 @@ export function PvpBattleScreen({
                                                             onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || submitting || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
-                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🗡</strong>
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
@@ -2649,7 +2651,7 @@ export function PvpBattleScreen({
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
-                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🎯</strong>
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
@@ -2696,7 +2698,7 @@ export function PvpBattleScreen({
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
-                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true">🧪</strong>
+                                                                <strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="vitality" size={25} /></strong>
                                                                 {item.image && <img src={item.image} alt="" draggable={false} />}
                                                             </span>
                                                             <span className="combat-jutsu-name">{item.name}</span>
@@ -2763,7 +2765,7 @@ export function PvpBattleScreen({
                                                     <span><strong>Chakra Cost:</strong> {Math.max(0, Number(inspectedJutsu.chakraCost) || 0)}</span>
                                                     <span><strong>Stamina Cost:</strong> {Math.max(0, Number(inspectedJutsu.staminaCost) || 0)}</span>
                                                 </div>
-                                                {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}>🎯 {t.short}:</strong> {t.detail}</p>; })()}
+                                                {(() => { const t = jutsuTargetingLabel(inspectedJutsu); return <p className="combat-jutsu-detail-desc"><strong style={{ color: "var(--purple-400)" }}><GameArtIcon kind="attack" size={15} /> {t.short}:</strong> {t.detail}</p>; })()}
                                                 {detailDescription && <p className="combat-jutsu-detail-desc">{detailDescription}</p>}
                                                 <div className="combat-jutsu-effects-list">
                                                     <JutsuEffectCards jutsu={inspectedJutsu} scaledEffectPower={scaled.scaledEffectPower} masteryLevel={combatMasteryLevel} lensDiscipline={playerLensDiscipline(character)} />
@@ -2801,7 +2803,7 @@ export function PvpBattleScreen({
                     aria-label="Battle chat"
                 >
                     <div className="battle-side-header">
-                        <span>Chat{spectatorList.length > 0 ? ` · 👁 ${spectatorList.length}` : ""}</span>
+                        <span>Chat{spectatorList.length > 0 ? ` · ${spectatorList.length} spectators` : ""}</span>
                         <button
                             type="button"
                             className="battle-chat-toggle"

@@ -8,6 +8,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { TRAINING_TIERS } from '../_training-config.js';
+import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
@@ -201,6 +202,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const stamina = Math.max(0, Number(character.stamina) || 0);
                 if (stamina < tier.staminaCost) return { ok: false as const, status: 409, error: 'Not enough stamina.' };
 
+                // Give new players an early, visible level-up when they begin
+                // their first Academy training action. The spar keeps its own
+                // idempotent level-2 floor for older or incomplete tutorial saves.
+                const academyFloor = character.onboardingStep === 'training'
+                    ? grantAcademyLevelFloor(character, ACADEMY_LEVEL_FLOORS.training)
+                    : { character, statPoints: 0 };
+
                 // Seal inside the lock, from the LOCKED save: the growth bonus
                 // (village/elder/clan) and the era dial are server-derived — the
                 // client body contributes nothing to the amount.
@@ -222,7 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     label: `${tier.label} ${stat} Training`, stat, xp: sealedXp, statGain: sealedGain,
                     staminaCost: tier.staminaCost, startedAt, endsAt, expiresAt, durationMs: tier.ms, token: tokenId,
                 };
-                const nextCharacter = { ...character, stamina: stamina - tier.staminaCost };
+                const nextCharacter = { ...academyFloor.character, stamina: stamina - tier.staminaCost };
                 try {
                     // `record` is the exact predecessor. activeTraining belongs in
                     // the next-record patch; adding it to the predecessor makes a
@@ -235,7 +243,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         playerName, tokenId, stat, tierId: tier.id, startedAt, endsAt,
                         sealedGain, sealedXp, activeTraining,
                     });
-                    return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion, sealedGain, sealedXp, bonusPct, morale: morale.morale };
+                    return { ok: true as const, tokenId, activeTraining, character: nextCharacter, _saveVersion: written._saveVersion, sealedGain, sealedXp, bonusPct, morale: morale.morale, academyStatPoints: academyFloor.statPoints };
                 } catch (error) {
                     // writeVersionedPlayerSave already recovers an ambiguous CAS
                     // acknowledgement. The token readback also covers a failure in
@@ -275,6 +283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             sealedXp,
                             bonusPct,
                             morale: morale.morale,
+                            academyStatPoints: academyFloor.statPoints,
                         };
                     }
                     if (isPlayerSaveVersionConflict(error)) {
@@ -310,6 +319,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sealedGain: result.sealedGain, sealedXp: result.sealedXp, bonusPct: result.bonusPct,
             activeTraining: result.activeTraining,
             character: result.character, _saveVersion: result._saveVersion,
+            ...(result.academyStatPoints > 0 ? { academyStatPoints: result.academyStatPoints } : {}),
         });
     } catch (err) {
         try {

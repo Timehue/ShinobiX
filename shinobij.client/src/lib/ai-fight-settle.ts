@@ -38,6 +38,7 @@ export type AiFightSettleResult = {
     outcome: AiFightOutcome | null;
     /** What the server actually granted — never a client-side prediction. */
     ryo: number;
+    statPoints: number;
     capped: boolean;
     replayed: boolean;
     /** The post-settle character returned by the server. */
@@ -145,6 +146,7 @@ export async function settleAiFight(params: {
         settled: true,
         outcome,
         ryo: Number(reported.ryo) || 0,
+        statPoints: Math.max(0, Math.floor(Number(reported.statPoints) || 0)),
         capped: reported.capped === true,
         replayed: reported.replayed === true,
         character: settledCharacter,

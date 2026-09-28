@@ -22,6 +22,7 @@ import { WORLD_STATE_API } from "../constants/game";
 import { fetchGauntletLeaderboard, type GauntletLbRow } from "../lib/pet-gauntlet-api";
 import { RankBadge } from "../components/RankBadge";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { WorldCrisisNewsEntry } from "../components/WorldCrisisNewsEntry";
 import { WorldCrisis80NewsEntry } from "../components/WorldCrisis80NewsEntry";
 import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
@@ -205,7 +206,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
         const isMe = name === me;
         return (
             <div className={`hol-row ${isMe ? "hol-row-me" : ""}`}>
-                <span className="hol-rank-num">{rank <= 3 ? ["🥇","🥈","🥉"][rank-1] : `#${rank}`}</span>
+                <span className="hol-rank-num">{rank <= 3 ? <GameArtIcon kind="crown" size={18} /> : `#${rank}`}</span>
                 <span className="hol-name">{name}{village ? <span className="hol-village"> · {village}</span> : null}{tier && typeof value === "number" ? <> <RankBadge rating={value} size="xs" /></> : null}</span>
                 <span className="hol-value">{typeof value === "number" ? value.toLocaleString() : value}{suffix}</span>
             </div>
@@ -347,7 +348,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
-                        <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}>🪜 Warfront is an offline ladder: set a defense and challenge nearby ranks. Standings persist across seasons.</p>
+                        <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}><GameArtIcon kind="roleDefender" size={16} /> Warfront is an offline ladder: set a defense and challenge nearby ranks. Standings persist across seasons.</p>
                         <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
@@ -393,7 +394,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             ? <p className="hol-empty">No clan data available yet.</p>
                             : topClans.map(([clan, data], i) => (
                                 <div key={clan} className={`hol-row ${character.clan === clan ? "hol-row-me" : ""}`}>
-                                    <span className="hol-rank-num">{i <= 2 ? ["🥇","🥈","🥉"][i] : `#${i+1}`}</span>
+                                    <span className="hol-rank-num">{i <= 2 ? <GameArtIcon kind="crown" size={18} /> : `#${i+1}`}</span>
                                     <span className="hol-name">{clan}<span className="hol-village"> · {data.members} member{data.members !== 1 ? "s" : ""}</span></span>
                                     <span className="hol-value">{data.score.toLocaleString()} pts</span>
                                 </div>
@@ -527,10 +528,10 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                             // village suffix never rendered. Lowercase both sides.
                                             const playerChar = all.find(c => c.name.toLowerCase() === name.toLowerCase());
                                             const tierSuffix = i === 0
-                                                ? " dmg · 👑 MVP"
+                                                ? " dmg · MVP"
                                                 : i < 10
-                                                    ? " dmg · 💠 core"
-                                                    : " dmg · 🗝 key";
+                                                    ? " dmg · core"
+                                                    : " dmg · key";
                                             return (
                                                 <Row key={name} rank={i + 1} name={playerChar?.name ?? name} value={dmg as number} suffix={tierSuffix} village={playerChar?.village} />
                                             );
@@ -683,7 +684,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                         return (
                                             <div style={{ marginTop: 8, borderTop: "1px solid rgba(148,163,184,.15)", paddingTop: 8 }}>
                                                 <p style={{ margin: "0 0 2px", fontSize: ".66rem", letterSpacing: ".08em", textTransform: "uppercase", color: "var(--purple-400)" }}>
-                                                    ⚜ Legends of this Age <span style={{ color: "#9aa3b2" }}>· {legends.length}</span>
+                                                    Legends of this Age <span style={{ color: "#9aa3b2" }}>· {legends.length}</span>
                                                 </p>
                                                 {oldest && (
                                                     <p style={{ margin: "0 0 5px", fontSize: ".68rem", color: "#9aa3b2", fontStyle: "italic" }}>

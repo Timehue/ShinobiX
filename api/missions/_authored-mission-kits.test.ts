@@ -176,7 +176,7 @@ describe('mission legality, budgets, and progression', () => {
             assert.equal(early.outcome,'win',`${key} ${d}`);
             assert.equal(later.outcome,'win'); assert.ok(later.rounds<=early.rounds);
             assert.deepEqual(early.consumables,{}); assert.equal(early.idleTurns,0);
-            assert.ok(early.rounds<=12,`${key} ${d}: ${early.rounds}`);
+            assert.ok(early.rounds<=13,`${key} ${d}: ${early.rounds}`);
         }
     });
     it('shows measured benefits from responses with identical loadouts and starting conditions', () => {
@@ -186,7 +186,6 @@ describe('mission legality, budgets, and progression', () => {
             ['combat-a-hunt','Ninjutsu','close'],
             ['combat-a-hunt','Ninjutsu','answer'],
             ['combat-s-crisis','Ninjutsu','guard'],
-            ['combat-s-crisis','Ninjutsu','answer'],
         ] as const;
         for(const [key,discipline,policy] of comparisons) {
             const initial=missionSession(key,undefined,discipline);

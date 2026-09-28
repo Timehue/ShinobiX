@@ -8,6 +8,7 @@
 import type { Character, HollowGateShrineRun, VersionedCharacterCommit } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
 import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
+import { GameArtIcon } from "./GameArtIcon";
 
 type Props = {
     run: HollowGateShrineRun;
@@ -60,7 +61,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
     return (
         <div style={{ marginTop: 10, padding: "8px 10px", borderRadius: 8, background: "rgba(46,16,84,0.35)", border: "1px solid rgba(124,58,237,0.35)" }}>
             <div style={{ fontSize: 12, color: "#c4b5fd", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 14 }}>💎</span>
+                <GameArtIcon kind="fateShard" size={18} />
                 <span>Hollow Shards: <strong style={{ color: "#e9d5ff" }}>{shards}</strong></span>
                 <span style={{ opacity: 0.6 }}>· spend on shrine relics</span>
             </div>
@@ -80,7 +81,7 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
                                 color: avail ? "#e9d5ff" : "#6b6486", opacity: avail ? 1 : 0.55,
                             }}
                         >
-                            {c.label} · {c.cost}💎
+                            {c.label} · {c.cost} Shards
                         </button>
                     );
                 })}

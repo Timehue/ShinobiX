@@ -224,10 +224,18 @@ for (const relative of proceduralFiles) {
 // play() promise or an ambience crossfade cannot leak audio after mute.
 const battleMusic = await fs.readFile(battleMusicPath, "utf8");
 const vnScore = await fs.readFile(vnScorePath, "utf8");
-if (!/audioEl\.muted = muted/.test(battleMusic) || !/if \(muted\) audioEl\.pause\(\)/.test(battleMusic)) {
+const battlePlaybackStart = battleMusic.indexOf("function syncBattlePlayback");
+const battlePlaybackEnd = battleMusic.indexOf("// Audio defaults", battlePlaybackStart);
+const battlePlayback = battlePlaybackStart >= 0 && battlePlaybackEnd > battlePlaybackStart
+  ? battleMusic.slice(battlePlaybackStart, battlePlaybackEnd) : "";
+if (
+  !/const blocked = isAudioMuted\(\) \|\| isAudioBackgrounded\(\)/.test(battlePlayback)
+  || !/audioEl\.muted = blocked/.test(battlePlayback)
+  || !/if \(blocked\) \{[\s\S]*?audioEl\.pause\(\)/.test(battlePlayback)
+) {
   failures.push("pet-music.ts: battle music is not hard-muted and paused by the master switch");
 }
-if (!/currentTheme !== null && audioEl\.src/.test(battleMusic)) {
+if (!/currentTheme !== null && audioEl\.src/.test(battlePlayback)) {
   failures.push("pet-music.ts: unmute can revive a stopped/stale battle track");
 }
 if (!/deck\.muted = muted/.test(vnScore) || !/decks\.forEach\(\(deck\) => deck\.pause\(\)\)/.test(vnScore)) {

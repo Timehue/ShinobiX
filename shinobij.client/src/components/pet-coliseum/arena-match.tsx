@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "../RendererRetirement";
+import { GameArtIcon } from "../GameArtIcon";
 import { Html, Sparkles } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
 import { elementVfxKey } from "../../lib/pet-battle-anim";
@@ -212,7 +213,7 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
                 <Html position={[0, L.contentWorldH + 0.4, 0]} center pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none", transform: "scale(0.78)" }}>
                         <div style={{ display: "flex", gap: 3, alignItems: "center", justifyContent: "center", marginBottom: 2 }}>
-                            <span ref={carryMark} style={{ display: "none", filter: "drop-shadow(0 0 3px #fde047)" }}>📜</span>
+                            <span ref={carryMark} style={{ display: "none", filter: "drop-shadow(0 0 3px #fde047)" }}><GameArtIcon kind="scroll" size={14} /></span>
                             <span style={{ color: ROLE_COLOR[role], border: `1px solid ${ROLE_COLOR[role]}`, borderRadius: 3, padding: "0 2px", fontSize: 8 }}>{ROLE_TAG[role]}</span>
                             <span ref={abilityPipRef} title="ability charged" style={{ width: 5, height: 5, borderRadius: 5, background: ROLE_COLOR[role], boxShadow: `0 0 5px ${ROLE_COLOR[role]}`, opacity: 0 }} />
                             <span style={{ color: "#fff", textShadow: "0 1px 2px #000" }}>{pet.name}</span>
@@ -268,7 +269,7 @@ function ArenaScroll({ result, clock }: { result: ArenaResult; clock: { current:
                 <Html center pointerEvents="none" zIndexRange={[30, 0]}>
                     <div style={{ position: "relative", width: 42, height: 42, display: "grid", placeItems: "center" }}>
                         <div ref={ringRef} style={{ position: "absolute", inset: -7, borderRadius: "50%", opacity: 0 }} />
-                        <div style={{ fontSize: 34, filter: "drop-shadow(0 0 12px #fde047) drop-shadow(0 0 5px #fff)" }}>📜</div>
+                        <GameArtIcon kind="scroll" size={34} className="pet-arena-scroll-art" />
                         <div ref={capRef} style={{ position: "absolute", top: 44, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap", font: "800 9px Inter, system-ui, sans-serif", color: "#fde047", textShadow: "0 1px 3px #000", opacity: 0, pointerEvents: "none" }}>Capturing…</div>
                     </div>
                 </Html>
@@ -502,7 +503,7 @@ function ArenaBoss({ result, clock }: { result: ArenaResult; clock: { current: D
                 <Sparkles count={18} scale={[H * 0.8, H * 0.9, 1.5]} position={[0, 0, 0.1]} size={3} speed={0.3} opacity={0.5} color="#7df0c0" noise={1.5} />
                 <Html center position={[0, H * 0.62, 0]} pointerEvents="none" zIndexRange={[34, 0]}>
                     <div ref={wrap} style={{ width: 132, textAlign: "center", transition: "opacity 0.3s" }}>
-                        <div style={{ font: "800 11px Inter, system-ui, sans-serif", color: "#d6f5e6", textShadow: "0 1px 3px #000", marginBottom: 2, letterSpacing: 0.5 }}>⛰ ARENA WARDEN</div>
+                        <div style={{ font: "800 11px Inter, system-ui, sans-serif", color: "#d6f5e6", textShadow: "0 1px 3px #000", marginBottom: 2, letterSpacing: 0.5 }}>ARENA WARDEN</div>
                         <div style={{ height: 8, borderRadius: 4, background: "rgba(8,12,12,0.8)", border: "1px solid #14532d", overflow: "hidden" }}>
                             <div ref={hpFill} style={{ height: "100%", width: "100%", background: "linear-gradient(90deg,#34d399,#10b981)" }} />
                         </div>
@@ -609,7 +610,7 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                 } else if (e.type === "kill") {
                     const a = findArenaActor(snapAt, e.targetId);
                     if (a) { spawnFx({ x: a.x, z: a.y, key: arenaKillFxKey(a.element), scale: 3.0, dur: 560 }); spawnFx({ x: a.x, z: a.y, key: "spark", scale: 2.4, dur: 360 }); spawnDecal(a.x, a.y); }
-                    pushFeed(`☠ ${nameOf(e.targetId)}`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushFeed(`${nameOf(e.targetId)} defeated`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerHitstop(70); triggerSlowmo(220, 0.42); triggerShake(1.1);   // freeze the contact frame, then ease through the kill in slow-mo
                     const w = ARENA_TPS * 3.5;
                     if (e.t - streak.current.lastT > w) { streak.current.blue = 0; streak.current.red = 0; }
@@ -620,12 +621,12 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     const c = e.actorId ? findArenaActor(snapAt, e.actorId) : null;
                     if (c) spawnFx({ x: c.x, z: c.y, key: "power", scale: 4.0, dur: 720 });   // the apex burst at the scoring base
                     const matchPoint = (e.team === "blue" ? snapAt.scoreBlue : snapAt.scoreRed) >= result.winScore;
-                    pushFeed(`📜 ${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171");
-                    pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS! 📜` : `${e.team === "blue" ? "BLUE" : "RED"} SCORES! 📜`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushFeed(`${e.team === "blue" ? "Blue" : "Red"} captured the scroll!`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(matchPoint ? `${e.team === "blue" ? "BLUE" : "RED"} WINS!` : `${e.team === "blue" ? "BLUE" : "RED"} SCORES!`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
                     triggerHitstop(90); triggerSlowmo(matchPoint ? 460 : 280, 0.38); triggerShake(1.4);
                 } else if (e.type === "pickup" && e.actorId) {
-                    pushFeed(`📜 ${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                    pushFeed(`${nameOf(e.actorId)} took the scroll`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 } else if (e.type === "shrinespawn") {
                     const sh = snapAt.shrine; const isHeal = sh.kind === "mend" || sh.kind === "favor"; const c = isHeal ? "#34d399" : "#fb923c";
                     spawnFx({ x: sh.x, z: sh.y, key: RELIC_FX[sh.kind] ?? "spark", scale: 2.2, dur: 540 });
@@ -641,8 +642,8 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     triggerShake(0.55);
                 } else if (e.type === "bossspawn") {
                     const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 4.6, dur: 820 });
-                    pushFeed("⛰ The Arena Warden awakens!", "#34d399");
-                    pushBanner("⛰ THE WARDEN AWAKENS", "#34d399");
+                    pushFeed("The Arena Warden awakens!", "#34d399");
+                    pushBanner("THE WARDEN AWAKENS", "#34d399");
                     triggerHitstop(90); triggerShake(1.6);
                 } else if (e.type === "bossswipe") {
                     // The Warden's fast melee swipe — a quick claw-spark + a small jolt. (Damage
@@ -667,19 +668,19 @@ function ArenaDirector({ result, clock, advanceClock, onEnd, spawnFx, spawnShot,
                     triggerHitstop(70); triggerSlowmo(150, 0.5); triggerShake(1.4);
                 } else if (e.type === "bosskill" && e.team) {
                     const b = snapAt.boss; spawnFx({ x: b.x, z: b.y, key: "power", scale: 5.2, dur: 900 }); spawnFx({ x: b.x, z: b.y, key: "spark", scale: 3.0, dur: 460 });
-                    pushFeed(`⛰ ${e.team === "blue" ? "Blue" : "Red"} slew the Warden! (+buff)`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushFeed(`${e.team === "blue" ? "Blue" : "Red"} slew the Warden! (+buff)`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} SLAYS THE WARDEN!`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.5)" : "rgba(239,68,68,0.5)");
                     triggerHitstop(110); triggerSlowmo(420, 0.4); triggerShake(1.8);
                 } else if (e.type === "overdrive") {
-                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} OVERDRIVE! ⚡`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
-                    pushFeed(`⚡ ${e.team === "blue" ? "Blue" : "Red"} hit Overdrive`, e.team === "blue" ? "#60a5fa" : "#f87171");
+                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} OVERDRIVE!`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                    pushFeed(`${e.team === "blue" ? "Blue" : "Red"} hit Overdrive`, e.team === "blue" ? "#60a5fa" : "#f87171");
                     triggerFlash(e.team === "blue" ? "rgba(59,130,246,0.32)" : "rgba(239,68,68,0.32)"); triggerShake(0.8);
                 } else if (e.type === "rampage") {
-                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} RAMPAGE! 🔥`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
+                    pushBanner(`${e.team === "blue" ? "BLUE" : "RED"} RAMPAGE!`, e.team === "blue" ? "#93c5fd" : "#fca5a5");
                 } else if (e.type === "bossenrage") {
-                    pushFeed(`⛰ The Warden enrages (tier ${e.stage})`, "#fb923c"); triggerShake(0.8);
-                    if (e.stage >= 2) pushBanner("⛰ WARDEN ENRAGED", "#fb923c");
+                    pushFeed(`The Warden enrages (tier ${e.stage})`, "#fb923c"); triggerShake(0.8);
+                    if (e.stage >= 2) pushBanner("WARDEN ENRAGED", "#fb923c");
                 } else if (e.type === "ringclose") {
                     pushFeed("◈ The arena is closing in!", "#a78bfa"); pushBanner("◈ CLOSING RING", "#a78bfa"); triggerShake(0.9);
                 } else if (e.type === "executewindow") {
@@ -790,10 +791,10 @@ function ArenaObjectiveHud({ result, clock, textRef, barWrapRef, barRef }: {
         const snaps = result.snapshots;
         const i = Math.max(0, Math.min(snaps.length - 1, Math.floor(clock.current.t)));
         const sc = snaps[i].scroll;
-        let text = "📜 Capture the scroll to score — defeating pets only buys time";
+        let text = "Capture the scroll to score — defeating pets only buys time";
         let showBar = false, frac = 0, color = "#94a3b8";
         if (sc.state === "inactive" && sc.spawnSecs > 0) {
-            text = `📜 Scroll in ${sc.spawnSecs}s`;
+            text = `Scroll in ${sc.spawnSecs}s`;
         } else if (sc.state === "carried" && sc.carrierId) {
             const carrier = snaps[i].actors.find((a) => a.id === sc.carrierId);
             if (carrier) {
@@ -825,7 +826,7 @@ const MODIFIER_LABEL: Record<string, string> = { standard: "Standard Bout", "war
 
 const RELIC_LABEL: Record<string, string> = { power: "Chakra Font", mend: "Mending Spring", berserk: "Berserker's Brand", bulwark: "Bulwark Ward", edge: "Executioner's Edge", favor: "Warden's Favor" };
 
-const RELIC_ICON: Record<string, string> = { power: "⚡", mend: "✚", berserk: "🗡", bulwark: "🛡", edge: "☠", favor: "⛰" };
+const RELIC_ICON: Record<string, string> = { power: "Power", mend: "Mend", berserk: "Berserk", bulwark: "Ward", edge: "Edge", favor: "Favor" };
 
 const RELIC_FX: Record<string, string> = { power: "spark", mend: "heal", berserk: "spark", bulwark: "eshield", edge: "shadow", favor: "power" };
 
@@ -1015,17 +1016,17 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             <div className="pet-arena-scoreboard" style={{ position: "absolute", top: 10, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: "6px 18px", background: "rgba(8,12,24,0.82)", border: "1px solid rgba(148,163,184,0.4)", borderRadius: arenaV2 ? 14 : 999, font: "800 20px Inter, system-ui, sans-serif" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <span style={{ color: "#60a5fa" }}>BLUE {score[0]}</span>
-                    <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}>📜 first to {result.winScore}</span>
+                    <span style={{ color: "#64748b", fontSize: 12, fontWeight: 600 }}><GameArtIcon kind="scroll" size={15} /> first to {result.winScore}</span>
                     <span style={{ color: "#f87171" }}>{score[1]} RED</span>
                 </div>
                 {/* V2 Overdrive meters — combat charges them; a full bar fires a spike (captures stay the only score). Both grow toward the centre label. */}
                 {arenaV2 && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, width: 240 }}>
-                        <span ref={odBlueRef} style={{ opacity: 0, color: "#fde047", font: "900 10px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>⚡</span>
+                        <span ref={odBlueRef} style={{ opacity: 0, color: "#fde047", font: "900 8px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>OD</span>
                         <div style={{ flex: 1, height: 6, background: "#0b1020", border: "1px solid #000", borderRadius: 4, overflow: "hidden", transform: "scaleX(-1)" }}><div ref={momBlueRef} style={{ width: "0%", height: "100%", background: "linear-gradient(90deg,#1d4ed8,#60a5fa)", transition: "width .12s linear" }} /></div>
                         <span style={{ color: "#64748b", font: "800 8px Inter, system-ui, sans-serif", letterSpacing: 0.5 }}>OVERDRIVE</span>
                         <div style={{ flex: 1, height: 6, background: "#0b1020", border: "1px solid #000", borderRadius: 4, overflow: "hidden" }}><div ref={momRedRef} style={{ width: "0%", height: "100%", background: "linear-gradient(90deg,#dc2626,#f87171)", transition: "width .12s linear" }} /></div>
-                        <span ref={odRedRef} style={{ opacity: 0, color: "#fde047", font: "900 10px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>⚡</span>
+                        <span ref={odRedRef} style={{ opacity: 0, color: "#fde047", font: "900 8px Inter, system-ui, sans-serif", transition: "opacity .15s", width: 12, textAlign: "center" }}>OD</span>
                     </div>
                 )}
             </div>
@@ -1033,7 +1034,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
             {/* Dynamic objective line — scroll-spawn countdown / carrier return-progress,
                 updated per-frame via refs by <ArenaObjectiveHud> (no HUD re-render). */}
             <div className="pet-arena-objective" style={{ position: "absolute", top: 50, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 3, pointerEvents: "none" }}>
-                <span ref={objTextRef} style={{ padding: "2px 10px", background: "rgba(8,12,24,0.6)", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>📜 Capture the scroll to score — defeating pets only buys time</span>
+                <span ref={objTextRef} style={{ padding: "2px 10px", background: "rgba(8,12,24,0.6)", borderRadius: 999, color: "#94a3b8", font: "700 10px Inter, system-ui, sans-serif", whiteSpace: "nowrap" }}>Capture the scroll to score — defeating pets only buys time</span>
                 <div ref={objBarWrapRef} style={{ display: "none", width: 150, height: 5, background: "#0b1020", borderRadius: 4, border: "1px solid #000", overflow: "hidden" }}>
                     <div ref={objBarRef} style={{ width: "0%", height: "100%", background: "#60a5fa" }} />
                 </div>
@@ -1043,7 +1044,7 @@ export function PetArenaMatch({ blue, red, seed, applyItems = false, sharedImage
                 <button onClick={onExit} style={duelBtn}>✕ Exit</button>
                 <button onClick={replay} style={duelBtn}>⟲ Replay</button>
             </div>
-            <div className="pet-arena-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>🏟️ Arena{arenaV2 ? " V2" : ""}{use3d ? " · 3D" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
+            <div className="pet-arena-mode-badge" style={{ position: "absolute", top: 12, right: 12, padding: "4px 10px", background: "rgba(15,23,42,0.85)", border: "1px solid rgba(168,85,247,0.6)", borderRadius: 999, color: "#d8b4fe", font: "700 11px Inter, system-ui, sans-serif" }}>Arena{arenaV2 ? " V2" : ""}{use3d ? " · 3D" : ""}{arenaV2 && result.modifier !== "standard" ? ` · ${MODIFIER_LABEL[result.modifier] ?? result.modifier}` : ""} (beta)</div>
 
             {ended && (
                 <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", background: "rgba(3,7,18,0.55)" }}>

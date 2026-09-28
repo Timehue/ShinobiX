@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import type { Character } from "../types/character";
 import { fetchWeeklyBoard, claimWeeklyMission, rewardText, weeklyClaimErrorText, type WeeklyBoard as Board } from "../lib/weekly-board";
 import { readScreenCache, writeScreenCache } from "../lib/screen-cache";
+import { GameArtIcon } from "./GameArtIcon";
 
 const CACHE_TTL_MS = 60_000;
 
@@ -80,7 +81,7 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
 
     return (
         <section className="mh-section">
-            <h3 className="mh-section-title">🗓️ Weekly Board</h3>
+            <h3 className="mh-section-title"><GameArtIcon kind="mission" size={25} /> Weekly Board</h3>
             <p className="hint">A rotating set of cross-system goals, the same for everyone. Resets every Monday{board ? ` · ${days}d ${hours}h left` : ""}. Progress counts from when you first open the board each week.</p>
             {loading
                 ? <p className="hint">Loading weekly board…</p>
@@ -97,9 +98,9 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
                                             <span className="mh-fetch-meta">{m.desc}</span>
                                         </div>
                                         <div className="mh-fetch-rewards">
-                                            {m.reward.ryo ? <span>💰 {m.reward.ryo.toLocaleString()} ryo</span> : null}
-                                            {m.reward.fateShards ? <span>🔮 {m.reward.fateShards} Fate Shards</span> : null}
-                                            {m.reward.boneCharms ? <span>🦴 {m.reward.boneCharms} Bone Charms</span> : null}
+                                            {m.reward.ryo ? <span><GameArtIcon kind="ryo" /> {m.reward.ryo.toLocaleString()} ryo</span> : null}
+                                            {m.reward.fateShards ? <span><GameArtIcon kind="fateShard" /> {m.reward.fateShards} Fate Shards</span> : null}
+                                            {m.reward.boneCharms ? <span><GameArtIcon kind="boneCharm" /> {m.reward.boneCharms} Bone Charms</span> : null}
                                         </div>
                                         <div className="mh-fetch-progress-wrap">
                                             <div className="mh-fetch-progress-label">
@@ -109,9 +110,9 @@ export function WeeklyBoard({ character, updateCharacter }: { character: Charact
                                         </div>
                                         <div className="mh-fetch-actions">
                                             {m.claimed
-                                                ? <button disabled>✅ Claimed</button>
+                                                ? <button disabled>✓ Claimed</button>
                                                 : m.complete
-                                                    ? <button className="mh-claim-btn" disabled={busy === m.id} onClick={() => { void claim(m.id); }}>{busy === m.id ? "Claiming…" : "✅ Claim Reward"}</button>
+                                                    ? <button className="mh-claim-btn" disabled={busy === m.id} onClick={() => { void claim(m.id); }}>{busy === m.id ? "Claiming…" : <><GameArtIcon kind="ryo" size={16} /> Claim Reward</>}</button>
                                                     : <button disabled>In Progress</button>}
                                         </div>
                                     </div>

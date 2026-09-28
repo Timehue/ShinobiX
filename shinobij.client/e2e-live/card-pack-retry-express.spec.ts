@@ -8,7 +8,7 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
  * Uses playwright.live.config.ts's real Express + disposable memory store.
  * Run against a rebuilt artifact with --trace off: fixture authentication must
  * not be exported in traces. Entry is source-assisted: install the existing
- * authenticated session format and navigate directly to the known Shop route.
+ * authenticated session format and navigate directly to the Card Hall pack tab.
  * The attached summary contains only economic state and one timing observation
  * per navigation/request phase per project, with no performance thresholds.
  */
@@ -72,6 +72,9 @@ async function seedPackAccount(request: APIRequestContext, info: TestInfo, initi
 
 async function installSession(page: Page, account: Awaited<ReturnType<typeof seedPackAccount>>) {
     await page.addInitScript(({ name, token, canonical, patch }) => {
+        // Card Hall consumes this request after each mount, so restore it on
+        // every reload in this recovery journey.
+        sessionStorage.setItem('cardHall.initialTab', 'packs');
         if (localStorage.getItem('pack-retry-qa-installed') === name) return;
         localStorage.setItem('ninjav-admin-build-v1', JSON.stringify({ currentAccountName: name }));
         localStorage.setItem('ninjav-player-accounts-v1', JSON.stringify({ [name]: { token } }));
@@ -85,9 +88,14 @@ async function installSession(page: Page, account: Awaited<ReturnType<typeof see
     }, { name: account.name, token: account.token, canonical: account.canonical, patch: LATEST_PATCH_NOTE.version });
 }
 
-async function expectShopReady(page: Page, purchaseEnabled = true, pendingControlScreenshot?: string) {
-    await expect(page.getByRole('button', { name: /Basic Card Pack/ })).toBeVisible();
+const randomPackButton = (page: Page) => page.getByRole('button', { name: /Random Pack/ });
+const pointsBalance = (page: Page) => page.locator('.chronicle-pack-gallery__balances span')
+    .filter({ hasText: 'Chronicle Points' }).locator('strong');
+
+async function expectPackArchiveReady(page: Page, purchaseEnabled = true, pendingControlScreenshot?: string) {
+    await expect(page.getByRole('button', { name: 'Enter the Card Hall' }).or(randomPackButton(page))).toBeVisible();
     const closers = [
+        page.getByRole('button', { name: 'Enter the Card Hall' }),
         page.getByRole('button', { name: 'Skip visual novel scene' }),
         page.getByRole('button', { name: /Close briefing/ }),
         page.getByRole('button', { name: /^Got it/ }),
@@ -102,10 +110,11 @@ async function expectShopReady(page: Page, purchaseEnabled = true, pendingContro
         }
         if (!closed) break;
     }
-    await page.getByRole('button', { name: /Basic Card Pack/ }).scrollIntoViewIfNeeded();
+    await expect(randomPackButton(page)).toBeVisible();
+    await randomPackButton(page).scrollIntoViewIfNeeded();
     if (pendingControlScreenshot) await page.screenshot({ path: pendingControlScreenshot });
-    if (purchaseEnabled) await expect(page.getByRole('button', { name: /Basic Card Pack/ })).toBeEnabled();
-    else await expect(page.getByRole('button', { name: /Basic Card Pack/ })).toBeDisabled();
+    if (purchaseEnabled) await expect(randomPackButton(page)).toBeEnabled();
+    else await expect(randomPackButton(page)).toBeDisabled();
 }
 
 for (const initialChroniclePoints of [1000, 100]) {
@@ -142,15 +151,15 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
 
     try {
         const coldNavigationStartedAt = performance.now();
-        await page.goto('/#/shop', { waitUntil: 'domcontentloaded' });
-        await expectShopReady(page);
+        await page.goto('/#/shinobiTiles', { waitUntil: 'domcontentloaded' });
+        await expectPackArchiveReady(page);
         recordTiming('cold-seeded-shop-navigation-to-ready', coldNavigationStartedAt);
         const opening = economicState(await account.readSave());
         expect(opening.chroniclePoints).toBe(initialChroniclePoints);
         evidence.push({ phase: 'opening-seeded-account', ...opening });
         await page.route(`**${PACK_PATH}`, interceptPack);
 
-        await page.getByRole('button', { name: /Basic Card Pack/ }).click();
+        await randomPackButton(page).click();
         // GameAlertHost replaces window.alert with the themed DOM Notice.
         const notice = page.getByRole('alertdialog', { name: 'Notice', exact: true });
         await expect(notice).toContainText(/Pack opening unconfirmed/i);
@@ -172,22 +181,22 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
 
         const recoveryReloadStartedAt = performance.now();
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await expect(page.locator('.chronicle-points-balance strong')).toHaveText(String(committed.chroniclePoints));
-        await expectShopReady(page, true, info.outputPath('pending-pack-control.png'));
+        await expect(pointsBalance(page)).toHaveText(String(committed.chroniclePoints));
+        await expectPackArchiveReady(page, true, info.outputPath('pending-pack-control.png'));
         recordTiming('warm-recovery-reload-to-ready', recoveryReloadStartedAt);
         expect(await page.evaluate((key) => sessionStorage.getItem(key), pendingKey)).toBe(observed[0].requestId);
         const replayResponse = page.waitForResponse((response) =>
             new URL(response.url()).pathname === PACK_PATH && response.request().method() === 'POST');
-        await page.getByRole('button', { name: /Basic Card Pack/ }).click();
+        await randomPackButton(page).click();
         expect((await replayResponse).status()).toBe(200);
-        const reveal = page.getByRole('dialog', { name: 'Standard Pack opening', exact: true });
+        const reveal = page.getByRole('dialog', { name: 'Random Pack opening', exact: true });
         await expect(reveal).toBeVisible();
         expect(observed).toHaveLength(2);
         expect(observed[1].requestId).toBe(observed[0].requestId);
         expect(observed[1].body.replayed).toBe(true);
         expect(observed[1].body.cards).toEqual(observed[0].body.cards);
         expect(economicState(await account.readSave())).toEqual(committed);
-        await expect(page.locator('.chronicle-points-balance strong')).toHaveText(String(committed.chroniclePoints));
+        await expect(pointsBalance(page)).toHaveText(String(committed.chroniclePoints));
         expect(await page.evaluate((key) => sessionStorage.getItem(key), pendingKey)).toBeNull();
         evidence.push({ phase: 'reloaded-same-purchase-recovered', requestId: observed[1].requestId, ...committed });
 
@@ -196,7 +205,7 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
         if (initialChroniclePoints === 1000) {
         const nextResponse = page.waitForResponse((response) =>
             new URL(response.url()).pathname === PACK_PATH && response.request().method() === 'POST');
-        await reveal.getByRole('button', { name: /Open Another/ }).click();
+        await reveal.getByRole('button', { name: /Open another/i }).click();
         expect((await nextResponse).status()).toBe(200);
         expect(observed).toHaveLength(3);
         expect(observed[2].requestId).not.toBe(observed[0].requestId);
@@ -207,13 +216,13 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
             ...opening, chroniclePoints: opening.chroniclePoints - 200,
             cards: [...committed.cards, ...observed[2].body.cards!].sort(),
         });
-        await expect(page.locator('.chronicle-points-balance strong')).toHaveText(String(closing.chroniclePoints));
+        await expect(pointsBalance(page)).toHaveText(String(closing.chroniclePoints));
         expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 2 * 100);
         evidence.push({ phase: 'distinct-purchase-confirmed', requestId: observed[2].requestId, ...closing });
         } else {
             expect(closing.chroniclePoints).toBe(0);
             expect(opening.chroniclePoints).toBe(closing.chroniclePoints + 100);
-            await expect(reveal.getByRole('button', { name: /Open Another/ })).toBeDisabled();
+            await expect(reveal.getByRole('button', { name: /Open another/i })).toBeDisabled();
             expect(economicState(await account.readSave())).toEqual(closing);
             expect(observed).toHaveLength(2);
             evidence.push({ phase: 'exhausted-wallet-recovery-confirmed', ...closing });
@@ -221,9 +230,9 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
 
         const settledReloadStartedAt = performance.now();
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await expectShopReady(page, initialChroniclePoints === 1000);
+        await expectPackArchiveReady(page, initialChroniclePoints === 1000);
         recordTiming('warm-settled-reload-to-ready', settledReloadStartedAt);
-        await expect(page.locator('.chronicle-points-balance strong')).toHaveText(String(closing.chroniclePoints));
+        await expect(pointsBalance(page)).toHaveText(String(closing.chroniclePoints));
         expect(economicState(await account.readSave())).toEqual(closing);
         expect(observed).toHaveLength(initialChroniclePoints === 1000 ? 3 : 2);
         await page.screenshot({ path: info.outputPath('card-pack-recovered.png'), fullPage: true });
@@ -236,7 +245,7 @@ test(`seeded Chronicle pack with ${initialChroniclePoints} CP: lost committed re
             project: info.project.name,
             viewport: page.viewportSize(),
             initialChroniclePoints,
-            entryMethod: 'source-assisted seeded session and direct Shop route; not an organic Chronicle unlock',
+            entryMethod: 'source-assisted seeded session and direct Card Hall pack tab; not an organic Chronicle unlock',
             timingScope: 'one observation per navigation/request phase per project; no performance thresholds',
             states: evidence, timings,
         }, null, 2));

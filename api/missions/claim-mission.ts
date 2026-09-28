@@ -7,6 +7,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
+import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { combinedStatBoost } from '../_stat-growth.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
@@ -1167,6 +1168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let next: SaveChar = { ...char };
             if (statPointsGranted > 0) {
                 next = { ...next, unspentStats: Math.max(0, Math.floor(Number(next.unspentStats) || 0)) + statPointsGranted };
+            }
+            if (academyTrialClaimed) {
+                const floor = grantAcademyLevelFloor(next, ACADEMY_LEVEL_FLOORS.trial);
+                next = floor.character as SaveChar;
+                statPointsGranted += floor.statPoints;
             }
             next = applyDerivedLevel(next) as SaveChar;
             next = { ...next, ryo: Number(next.ryo ?? 0) + ryoBoosted };

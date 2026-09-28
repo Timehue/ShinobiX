@@ -17,6 +17,7 @@
  * mobile regardless of the host's CSS — without touching App.tsx's line budget.
  */
 import { useEffect, useRef, useState } from "react";
+import { GameArtIcon } from "./GameArtIcon";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { currentDateKey } from "../lib/utils";
@@ -181,7 +182,7 @@ export function DailyBriefingModal({
                                 <div className="db-reward-main">
                                     {claim && (claim.granted.ryo || claim.granted.fateShards) ? (
                                         <>
-                                            <span className="db-reward-amt">🎁 +{claim.granted.ryo.toLocaleString()} ryo</span>
+                                            <span className="db-reward-amt"><GameArtIcon kind="ryo" size={17} /> +{claim.granted.ryo.toLocaleString()} ryo</span>
                                             {claim.granted.fateShards > 0 && (
                                                 <span className="db-reward-shards">+{claim.granted.fateShards} Fate Shards!</span>
                                             )}
@@ -191,12 +192,12 @@ export function DailyBriefingModal({
                                         <span className="db-reward-sub">✓ Today's login reward already collected</span>
                                     ) : (
                                         <button type="button" className="db-claim-btn" onClick={claimReward} disabled={claiming}>
-                                            {claiming ? "Claiming…" : `🎁 Claim +${previewRyo.toLocaleString()} ryo`}
+                                            {claiming ? "Claiming…" : <><GameArtIcon kind="ryo" size={17} /> Claim +{previewRyo.toLocaleString()} ryo</>}
                                         </button>
                                     )}
                                 </div>
                                 <div className="db-streak">
-                                    <span className="db-streak-flame">{streak > 0 ? `🔥 ${streak}-day streak` : "🔥 Start your streak"}</span>
+                                    <span className="db-streak-flame"><GameArtIcon kind="elementFire" size={17} /> {streak > 0 ? `${streak}-day streak` : "Start your streak"}</span>
                                     <span className="db-streak-next">
                                         {claim && shardCountdown === 0
                                             ? `+${STREAK_SHARD_REWARD} Fate Shards today!`
