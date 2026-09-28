@@ -15,6 +15,7 @@ import { visiblePoll } from "../lib/poll";
 import { CW_DAMAGE } from "../constants/clan";
 import { CentralDestinationHeader } from "../components/CentralDestinationHeader";
 import councilHallHero from "../assets/council-hall-command-v2.webp";
+import { GameArtIcon } from "../components/GameArtIcon";
 
 function CouncilHpBar({ current, max, color }: { current: number; max: number; color: string }) {
     const pct = Math.max(0, Math.min(100, (current / max) * 100));
@@ -162,7 +163,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
             const data = await res.json().catch(() => ({})) as ServerKageState & { error?: string };
             if (!res.ok) return alert(data.error || "Could not claim the Kage seat.");
             setKageStates(prev => ({ ...prev, [character.village]: data }));
-            alert(`👑 The council rises.\n\n${character.name} of ${character.village} takes the Kage seat. The village answers to you now. Hold the seat against every challenger, and be seen in your own streets. If you are absent for ten days, the council opens the seat again.`);
+            alert(`The council rises.\n\n${character.name} of ${character.village} takes the Kage seat. The village answers to you now. Hold the seat against every challenger, and be seen in your own streets. If you are absent for ten days, the council opens the seat again.`);
         } catch {
             // Without this the rejection was unhandled and the player saw
             // NOTHING — no success, no failure, on the most valuable action in
@@ -353,7 +354,7 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                 </div>
                                 <div className="council-kage-tenure">
                                     {isActive
-                                        ? <span className="council-kage-current">⭐ Current Kage</span>
+                                        ? <span className="council-kage-current"><GameArtIcon kind="crown" size={15} /> Current Kage</span>
                                         : <span className="council-kage-former">Former</span>
                                     }
                                     <span className="council-kage-time">
@@ -365,9 +366,9 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                             : `${new Date(entry.seatedAt).toLocaleDateString()} – ${new Date(entry.endedAt!).toLocaleDateString()}`
                                         }
                                     </span>
-                                    {typeof entry.defenseCount === "number" && entry.defenseCount > 0 && <span className="council-kage-date">🛡️ {entry.defenseCount} successful defense{entry.defenseCount === 1 ? "" : "s"}</span>}
+                                    {typeof entry.defenseCount === "number" && entry.defenseCount > 0 && <span className="council-kage-date"><GameArtIcon kind="roleDefender" size={14} /> {entry.defenseCount} successful defense{entry.defenseCount === 1 ? "" : "s"}</span>}
                                     {activity && <span className="council-kage-date">{activity.lastActive}</span>}
-                                    {activity?.warning && <span className="council-kage-date council-kage-warning">⚠️ {activity.warning}</span>}
+                                    {activity?.warning && <span className="council-kage-date council-kage-warning"><GameArtIcon kind="warning" size={14} /> {activity.warning}</span>}
                                     {!isActive && entry.endedReason && <span className="council-kage-date">{KAGE_END_REASON_LABEL[entry.endedReason]}{entry.wonBy ? ` by ${entry.wonBy}` : ""}</span>}
                                 </div>
                             </div>

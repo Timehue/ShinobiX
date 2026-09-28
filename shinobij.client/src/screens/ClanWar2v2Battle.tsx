@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { BattleTowerFight } from "./BattleTowerFight";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { fetchTowerPvpSession, submitTowerPvpActionWithLostResponseRetry, type TowerPvpMatch } from "../lib/tower-pvp-api";
 import { readClanWar2v2Stash, settleClanWar2v2, startClanWar2v2 } from "../lib/clan-war-2v2-api";
 
@@ -50,7 +51,7 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
     if (error || missingDuel) {
         return (
             <div className="clan-war-2v2-gate" role="alert" style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
-                <h2>⚔ Clan War 2v2</h2>
+                <h2><GameArtIcon kind="attack" size={20} /> Clan War 2v2</h2>
                 <p>{error ?? "No Clan War duel is selected."}</p>
                 <button type="button" onClick={back}>← Back to Clan Hall</button>
             </div>
@@ -60,7 +61,7 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
     if (!match) {
         return (
             <div className="clan-war-2v2-gate" role="status" style={{ maxWidth: 640, margin: "2rem auto", padding: "0 1rem" }}>
-                <h2>⚔ Clan War 2v2</h2>
+                <h2><GameArtIcon kind="attack" size={20} /> Clan War 2v2</h2>
                 <p>Assembling both pairs on the battlefield…</p>
             </div>
         );
