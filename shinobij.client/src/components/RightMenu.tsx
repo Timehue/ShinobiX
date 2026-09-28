@@ -23,7 +23,7 @@ import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs mirror the mobile nav without a second icon library.
-import { GiChatBubble, GiExitDoor, GiGears, GiOpenBook, GiShop } from "./icons/LightweightGameIcons";
+import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiPremiumShop, GiSettings } from "./icons/LightweightGameIcons";
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -109,15 +109,15 @@ export const RightMenu = memo(function RightMenu({
                             <h4 id="right-menu-support"><span>Support</span><small aria-hidden="true">03</small></h4>
                             <div className="right-menu-section-grid">
                                 <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
-                                <button onClick={() => window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiChatBubble size={16} /></span><span className="right-menu-action-label">Discord</span></button>
-                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
+                                <button onClick={() => window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiDiscord size={16} /></span><span className="right-menu-action-label">Discord</span></button>
+                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiPremiumShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
                             </div>
                         </section>
                         <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">
                             <h4 id="right-menu-system"><span>System</span><small aria-hidden="true">{isAdminAccount || adminLoggedIn ? "03" : "02"}</small></h4>
                             <div className="right-menu-section-grid">
-                                {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><span className="right-menu-action-icon"><GiGears size={16} /></span><span className="right-menu-action-label">Admin</span></button>}
-                                <button aria-current={screen === "settings" ? "page" : undefined} onClick={() => guardedNavigate("settings")} onPointerDown={() => preloadScreen("settings")}><span className="right-menu-action-icon"><GiGears size={16} /></span><span className="right-menu-action-label">Settings</span></button>
+                                {(isAdminAccount || adminLoggedIn) && <button onClick={() => guardedNavigate(adminLoggedIn ? "adminPanel" : "adminLogin")} onPointerDown={() => preloadScreen(adminLoggedIn ? "adminPanel" : "adminLogin")}><span className="right-menu-action-icon"><GiAdmin size={16} /></span><span className="right-menu-action-label">Admin</span></button>}
+                                <button aria-current={screen === "settings" ? "page" : undefined} onClick={() => guardedNavigate("settings")} onPointerDown={() => preloadScreen("settings")}><span className="right-menu-action-icon"><GiSettings size={16} /></span><span className="right-menu-action-label">Settings</span></button>
                                 <button className="right-menu-logout" onClick={logoutPlayer} title="Save progress and return to sign in"><span className="right-menu-action-icon"><GiExitDoor size={16} /></span><span className="right-menu-action-label">Logout</span></button>
                             </div>
                         </section>

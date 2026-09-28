@@ -258,6 +258,20 @@ export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}
     return petCardImage(pet, sharedImages);
 }
 
+/**
+ * Ordered image sources for Warfront's small roster portraits. Uploaded or
+ * published art stays first, with the reviewed local species pose ready when a
+ * saved image URL has expired or its file cannot load.
+ */
+export function petWarfrontPortraitSources(
+    pet: Pet,
+    sharedImages: Record<string, string> = {},
+    placementArt = false,
+): string[] {
+    const primary = placementArt ? petCardImage(pet, sharedImages) : petBattleSprite(pet, sharedImages).src;
+    return [...new Set([primary, petPoseImage(pet, sharedImages)].filter(Boolean))];
+}
+
 // ── Animation-event builder ─────────────────────────────────────────────────
 
 /** The subset of a simulator frame the builder reads (structural, so the real

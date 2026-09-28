@@ -2,6 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { rawPetPool } from "../data/pet-pool";
+import { STARTER_PETS } from "../data/starter-pets";
+import { petWarfrontPortraitSources } from "./pet-battle-anim";
 
 const WARFRONT_MODELS = [
     "../../public/pet-models/roster/rare-24.glb",
@@ -23,4 +26,22 @@ test("Warfront runtime models exist and stay within the audited GLB budget", asy
         assert.ok(info.size < 1024 * 1024, `${relative} exceeds the 1 MB per-rig budget`);
     }
     assert.ok(total < 8 * 1024 * 1024, `Warfront preload set is ${(total / 1024 / 1024).toFixed(2)} MB`);
+});
+
+test("every built-in and evolved starter pet has a local Warfront portrait fallback", async () => {
+    const starterPets = STARTER_PETS.map(({ pet }) => pet);
+    const evolvedStarters = STARTER_PETS.flatMap(({ pet }) => [1, 2].map((evolutionStage) => ({
+        ...pet,
+        evolutionStage: evolutionStage as 1 | 2,
+    })));
+    const allPets = [...rawPetPool, ...starterPets, ...evolvedStarters];
+
+    for (const pet of allPets) {
+        const sources = petWarfrontPortraitSources(pet, {}, true);
+        const fallback = sources.at(-1);
+        assert.ok(fallback?.startsWith("/pet-poses/"), `${pet.name} (${pet.id}) has no static pose fallback`);
+        const path = fileURLToPath(new URL(`../../public${fallback.split("?")[0]}`, import.meta.url));
+        const info = await stat(path);
+        assert.ok(info.size > 0, `${pet.name} (${pet.id}) fallback image is empty`);
+    }
 });
