@@ -17,13 +17,9 @@ import { JutsuDropdownList } from "../components/JutsuDropdownList";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { BackToVillageButton } from "../components/BackToVillageButton";
 import { Modal } from "../components/ui/Modal";
+import { GameArtIcon } from "../components/GameArtIcon";
 // Compact local stat and duration glyphs shared with the rest of the game.
-import {
-    GiBiceps, GiSprint, GiBrain, GiBrainstorm, GiSwirlString, GiWaterSplash,
-    GiPunchBlast, GiBlackBelt, GiEyeball, GiMoon, GiCrossedSwords, GiShield,
-    GiStopwatch, GiAlarmClock, GiSandsOfTime, GiNightSleep,
-    GiRibbonMedal, GiFastForwardButton,
-} from "../components/icons/LightweightGameIcons";
+import { GiFastForwardButton } from "../components/icons/LightweightGameIcons";
 import { getJutsuMastery, jutsuXpNeeded, scaleJutsuByLevel, jutsuResourceDisplay } from "../lib/jutsu-scaling";
 import { jutsuRyoTrainCap } from "../lib/jutsu-training-queue";
 import { describeJutsuEffects, jutsuDetailDescription, jutsuDisplayAtLevel, jutsuTargetingLabel } from "../lib/jutsu-effects";
@@ -70,18 +66,18 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
         return () => clearInterval(id);
     }, []);
     const STAT_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
-        strength:         { label: "Strength",      icon: <GiBiceps /> },
-        speed:            { label: "Speed",          icon: <GiSprint /> },
-        intelligence:     { label: "Intelligence",   icon: <GiBrain /> },
-        willpower:        { label: "Willpower",      icon: <GiBrainstorm /> },
-        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: <GiSwirlString /> },
-        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: <GiWaterSplash /> },
-        taijutsuOffense:  { label: "Taijutsu Off.",  icon: <GiPunchBlast /> },
-        taijutsuDefense:  { label: "Taijutsu Def.",  icon: <GiBlackBelt /> },
-        genjutsuOffense:  { label: "Genjutsu Off.",  icon: <GiEyeball /> },
-        genjutsuDefense:  { label: "Genjutsu Def.",  icon: <GiMoon /> },
-        bukijutsuOffense: { label: "Bukijutsu Off.", icon: <GiCrossedSwords /> },
-        bukijutsuDefense: { label: "Bukijutsu Def.", icon: <GiShield /> },
+        strength:         { label: "Strength",      icon: <GameArtIcon kind="attack" size={18} /> },
+        speed:            { label: "Speed",          icon: <GameArtIcon kind="speed" size={18} /> },
+        intelligence:     { label: "Intelligence",   icon: <GameArtIcon kind="elementLightning" size={18} /> },
+        willpower:        { label: "Willpower",      icon: <GameArtIcon kind="roleSage" size={18} /> },
+        ninjutsuOffense:  { label: "Ninjutsu Off.",  icon: <GameArtIcon kind="elementFire" size={18} /> },
+        ninjutsuDefense:  { label: "Ninjutsu Def.",  icon: <GameArtIcon kind="elementWater" size={18} /> },
+        taijutsuOffense:  { label: "Taijutsu Off.",  icon: <GameArtIcon kind="attack" size={18} /> },
+        taijutsuDefense:  { label: "Taijutsu Def.",  icon: <GameArtIcon kind="roleDefender" size={18} /> },
+        genjutsuOffense:  { label: "Genjutsu Off.",  icon: <GameArtIcon kind="biomeShadow" size={18} /> },
+        genjutsuDefense:  { label: "Genjutsu Def.",  icon: <GameArtIcon kind="roleSage" size={18} /> },
+        bukijutsuOffense: { label: "Bukijutsu Off.", icon: <GameArtIcon kind="attack" size={18} /> },
+        bukijutsuDefense: { label: "Bukijutsu Def.", icon: <GameArtIcon kind="roleDefender" size={18} /> },
     };
     const statGroups = [
         { title: "General", description: "Core stats used across combat and progression.", stats: ["strength", "speed", "intelligence", "willpower"] as (keyof Stats)[] },
@@ -90,8 +86,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
     ];
     // Timer tiers come from lib/training-config (per-hour rates + XP trickle +
     // stamina), decorated with the duration glyph for display.
-    const TIMER_ICONS: Record<string, React.ReactNode> = { "15m": <GiStopwatch />, "1h": <GiAlarmClock />, "4h": <GiSandsOfTime />, "8h": <GiNightSleep /> };
-    const timers = TRAINING_TIERS.map((tier) => ({ ...tier, icon: TIMER_ICONS[tier.id] }));
+    const timers = TRAINING_TIERS;
     const trainingXpBonus = getTrainingXpBonus(character);
     // The level the earned-points ledger supports, ignoring exam holds — this is
     // what the server feeds the rookie multiplier, so the preview must use it too.
@@ -496,7 +491,7 @@ function JutsuSealPanel({
 
     return (
         <div className="summary-box" style={{ background: "linear-gradient(180deg, rgba(250,204,21,0.10), rgba(8,10,22,0.4))", border: "1px solid rgba(250,204,21,0.45)", marginBottom: "0.75rem" }}>
-            <strong style={{ color: "#facc15" }}><GiRibbonMedal style={{ verticalAlign: "-0.12em", marginRight: "0.3rem" }} />Honor Seal Training</strong>
+            <strong style={{ color: "#facc15" }}><GameArtIcon kind="crown" size={18} /> Honor Seal Training</strong>
             <span className="hint" style={{ marginLeft: 10 }}>
                 Balance: <strong style={{ color: "#facc15" }}>{balance.toLocaleString()}</strong>
                 {hasDiscount && <span style={{ marginLeft: 8, color: "#f97316" }}> · Vanguard 10% off</span>}

@@ -328,22 +328,22 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             const h = Math.floor((ms % 86_400_000) / 3_600_000);
                             return (
                                 <div style={{ padding: "10px 14px", marginBottom: "0.8rem", borderRadius: 10, background: "rgba(120,53,15,0.35)", border: "1px solid rgba(250,204,21,0.5)" }}>
-                                    <strong style={{ color: "var(--gold)" }}><GiTrophy style={HOL_ICON} />Ranked Season {season.current.id}</strong>
+                                    <strong style={{ color: "var(--gold)" }}><GameArtIcon kind="crown" size={18} />Ranked Season {season.current.id}</strong>
                                     <span style={{ color: "#e7d9b0" }}> · {ms > 0 ? `ends in ${d}d ${h}h` : "ending soon"}</span>
                                     <p className="hint" style={{ margin: "4px 0 0", fontSize: "0.76rem" }}>At season end the top 3 of each ladder are rewarded (champion: Warforged Relic + aura stones) and ratings soft-reset toward 1000.</p>
                                 </div>
                             );
                         })()}
-                        <p className="hol-board-label"><GiCrossedSwords style={HOL_ICON} />Ranked Battle Rating (Elo)</p>
+                        <p className="hol-board-label"><GameArtIcon kind="attack" size={18} />Ranked Battle Rating (Elo)</p>
                         {sortedTop(c => c.rankedRating ?? 1000).map((c, i) => (
                             <Row key={c.name} rank={i+1} name={c.accountName || c.name} value={c.rankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPawPrint style={HOL_ICON} />Pet Colosseum Rating (Elo)</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="petTamer" size={18} />Pet Colosseum Rating (Elo)</p>
                         {sortedTop(c => c.petRankedRating ?? 1000).map((c, i) => (
                             <Row key={`pet-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.petRankedRating ?? 1000} suffix=" Elo" village={c.village} tier />
                         ))}
                         <p className="hint" style={{ marginTop: "1rem", marginBottom: "0.2rem", opacity: 0.75 }}><GameArtIcon kind="roleDefender" size={16} /> Warfront is an offline ladder: set a defense and challenge nearby ranks. Standings persist across seasons.</p>
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiShield style={HOL_ICON} />Beastbound Warfront Ladder — Top 10</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="roleDefender" size={18} />Beastbound Warfront Ladder — Top 10</p>
                         {petLadders?.tactical.length
                             ? petLadders.tactical.map((e) => <Row key={`plt-${e.rank}`} rank={e.rank} name={e.name} value={`${e.record.wins}W ${e.record.losses}L`} village={e.village} />)
                             : <p className="hol-empty">No squads ranked yet.</p>}
@@ -354,7 +354,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             ].filter(Boolean) as (SeasonArchiveRow & { mode: string })[];
                             return (
                                 <>
-                                    <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrown style={HOL_ICON} />Season {season.lastSeason.id} Champions</p>
+                                    <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="crown" size={18} />Season {season.lastSeason.id} Champions</p>
                                     {champs.length === 0
                                         ? <p className="hol-empty">No champions crowned last season.</p>
                                         : champs.map((ch) => (
@@ -406,8 +406,8 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                 )}
                 {tab === "gauntlet" && (
                     <>
-                        <p className="hint" style={{ margin: "0 0 0.5rem" }}><GiGauntlet style={HOL_ICON} />Pet Gauntlet — this week's best runs. Each run is a randomized draft + enemy gauntlet; ranked by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
-                        <p className="hol-board-label"><GiTrophy style={HOL_ICON} />Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
+                        <p className="hint" style={{ margin: "0 0 0.5rem" }}><GameArtIcon kind="attack" size={18} />Pet Gauntlet — this week's best runs. Each run is a randomized draft + enemy gauntlet; ranked by rounds cleared, then hearts left. Rewards pay Ryo (server-validated).</p>
+                        <p className="hol-board-label"><GameArtIcon kind="crown" size={18} />Weekly Gauntlet — Top 25{gauntletLb?.weekKey ? ` · ${gauntletLb.weekKey}` : ""}</p>
                         {!gauntletLb
                             ? <p className="hol-empty">Loading this week's board…</p>
                             : gauntletLb.rows.length === 0
@@ -431,7 +431,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                             lifetime damage, raid count. All four read from
                             character fields populated by the server war-reward claim
                             at war-end time. */}
-                        <p className="hol-board-label"><GiTrophy style={HOL_ICON} />Wars Won</p>
+                        <p className="hol-board-label"><GameArtIcon kind="crown" size={18} />Wars Won</p>
                         {(() => {
                             const top = sortedTop(c => c.warsWon ?? 0).filter(c => (c.warsWon ?? 0) > 0);
                             return top.length === 0
@@ -440,7 +440,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                     <Row key={`won-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warsWon ?? 0} suffix={` win${(c.warsWon ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrown style={HOL_ICON} />MVP Wall</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="crown" size={18} />MVP Wall</p>
                         {(() => {
                             const top = sortedTop(c => c.warMvpCount ?? 0).filter(c => (c.warMvpCount ?? 0) > 0);
                             return top.length === 0
@@ -449,7 +449,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                     <Row key={`mvp-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.warMvpCount ?? 0} suffix={` MVP${(c.warMvpCount ?? 0) === 1 ? "" : "s"}`} village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiPunchBlast style={HOL_ICON} />All-Time War Damage</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="attack" size={18} />All-Time War Damage</p>
                         {(() => {
                             const top = sortedTop(c => c.lifetimeWarDamage ?? 0).filter(c => (c.lifetimeWarDamage ?? 0) > 0);
                             return top.length === 0
@@ -458,13 +458,13 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                     <Row key={`dmg-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.lifetimeWarDamage ?? 0} suffix=" HP" village={c.village} />
                                 ));
                         })()}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCrossedSwords style={HOL_ICON} />Raids Completed</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="attack" size={18} />Raids Completed</p>
                         {sortedTop(c => c.totalVillageRaids ?? 0).map((c, i) => (
                             <Row key={`raid-${c.name}`} rank={i+1} name={c.accountName || c.name} value={c.totalVillageRaids ?? 0} suffix=" raids" village={c.village} />
                         ))}
                         {/* Per-village W/L record from the server (api/world-state
                             standings). Ranked by win differential, then wins. */}
-                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GiCastle style={HOL_ICON} />Village War Records</p>
+                        <p className="hol-board-label" style={{ marginTop: "1rem" }}><GameArtIcon kind="clanHall" size={18} />Village War Records</p>
                         {(() => {
                             const rows = [...warStandings]
                                 .filter(s => s && s.village && ((s.wins ?? 0) + (s.losses ?? 0)) > 0)
