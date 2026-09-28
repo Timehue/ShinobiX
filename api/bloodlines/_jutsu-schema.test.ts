@@ -277,10 +277,10 @@ test('shorter ground methods retain valid zones within the creator budget', () =
     const instantOutput = normalizePlayerBloodlineJutsus(instantZones, 'B Rank');
     const spiralOutput = normalizePlayerBloodlineJutsus(spiralZones, 'B Rank');
 
-    assert.equal(instantOutput[0]?.range, 3);
+    assert.equal(instantOutput[0]?.range, 4);
     assert.equal(spiralOutput[0]?.range, 3);
 
-    assert.equal(instantOutput.length, 4, 'the shorter ground range keeps these four zones within budget');
+    assert.equal(instantOutput.length, 4, 'the restored range-four field keeps these four zones within budget');
     assert.ok(instantOutput.every((jutsu) => jutsu.method === 'INSTANT_EFFECT'));
     assert.ok(instantOutput.every((jutsu) => jutsu.tags.length > 0));
     assert.ok(instantOutput.every((jutsu) => jutsu.target === 'EMPTY_GROUND'));
@@ -291,7 +291,7 @@ test('shorter ground methods retain valid zones within the creator budget', () =
     assert.ok(spiralOutput.every((jutsu) => jutsu.target === 'EMPTY_GROUND'));
 });
 
-test('ground methods seal to range three or four without changing direct casts', () => {
+test('instant fields restore range four while movement zones keep their separate range', () => {
     const make = (method: 'INSTANT_EFFECT' | 'AOE_SPIRAL', range: number) => ({
         id: `zone-${method}-${range}`, name: 'Zone', type: 'Ninjutsu', element: 'Fire',
         ap: 60, range, effectPower: 40, target: 'EMPTY_GROUND', method,
@@ -299,22 +299,22 @@ test('ground methods seal to range three or four without changing direct casts',
             ? [{ name: 'Move', percent: 0 }, { name: 'Poison', percent: 30 }]
             : [{ name: 'Poison', percent: 30 }],
     });
-    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 3)], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 3)], 'A Rank')[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 4)], 'A Rank')[0]?.range, 4);
-    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 5)], 'A Rank')[0]?.range, 4);
+    assert.equal(normalizePlayerBloodlineJutsus([make('INSTANT_EFFECT', 5)], 'A Rank')[0]?.range, 5);
     assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 3)], 'A Rank')[0]?.range, 3);
     assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 4)], 'A Rank')[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus([make('AOE_SPIRAL', 5)], 'A Rank')[0]?.range, 4);
     const authoredLong = normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 4), groundRangeVersion: 2 }], 'A Rank');
     assert.equal(authoredLong[0]?.range, 4);
     assert.equal(normalizePlayerBloodlineJutsus(authoredLong, 'A Rank')[0]?.range, 4, 'a migrated range is stable on later saves');
-    assert.equal(normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 3), groundRangeVersion: 2 }], 'A Rank')[0]?.range, 3);
+    assert.equal(normalizePlayerBloodlineJutsus([{ ...make('INSTANT_EFFECT', 3), groundRangeVersion: 2 }], 'A Rank')[0]?.range, 4);
 });
 
-test('an unversioned range-four instant field reaches its fourth hex ring', () => {
+test('a previously shortened instant field reaches its fourth hex ring', () => {
     const [jutsu] = normalizePlayerBloodlineJutsus([{
         id: 'field', name: 'Field', type: 'Ninjutsu', element: 'Fire',
-        ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+        ap: 60, range: 3, groundRangeVersion: 2, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
         tags: [{ name: 'Poison', percent: 30 }],
     }], 'A Rank');
     assert.ok(jutsu);

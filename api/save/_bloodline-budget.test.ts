@@ -88,12 +88,12 @@ test('a maker write may refine an owned bloodline definition', () => {
     assert.equal((out.savedBloodlines as Array<Record<string, unknown>>)[0].name, 'Refined');
 });
 
-test('a saved range-four ground zone keeps its range on later saves', () => {
+test('a saved range-three instant field regains its fourth ring on later saves', () => {
     const legacy = {
         id: 'bl-ground', name: 'Ground', rank: 'A Rank',
         jutsus: [{
             id: 'ground-poison', name: 'Poison Field', type: 'Ninjutsu', element: 'Fire',
-            ap: 60, range: 4, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
+            ap: 60, range: 3, groundRangeVersion: 2, effectPower: 40, target: 'EMPTY_GROUND', method: 'INSTANT_EFFECT',
             tags: [{ name: 'Poison', percent: 30 }],
         }],
     };

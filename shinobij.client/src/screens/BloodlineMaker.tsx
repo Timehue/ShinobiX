@@ -167,10 +167,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             // AOE_BURST is a direct-target nuke (not a ground zone): lock it to OPPONENT
             // so switching from a ground method doesn't strand it on EMPTY_GROUND.
             if (next.method === "AOE_BURST") next.target = "OPPONENT";
-            if (next.target === "SELF") next.range = 0;
-            else if ((next.method === "INSTANT_EFFECT" || next.method === "AOE_SPIRAL") ? ![3, 4].includes(next.range) : ![4, 5].includes(next.range)) {
-                next.range = next.method === "INSTANT_EFFECT" || next.method === "AOE_SPIRAL" ? 3 : 4;
-            }
+            next.range = bloodlineCreatorRangeForTarget(next.target, next.range, next.method);
             next.cooldown = 7;
             if (next.ap === 40) next.effectPower = 0;
             // Fixed-effect (control/movement) jutsu deal STANDARD 60-AP damage (40)
@@ -532,7 +529,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
                     <label>Range</label>
                     {jutsu.target !== "SELF" ? (
                         <select value={jutsu.range} onChange={(e) => updateJutsu(jutsuIndex, { range: Number(e.target.value) })}>
-                            {(jutsu.method === "INSTANT_EFFECT" || jutsu.method === "AOE_SPIRAL") ? <>
+                            {jutsu.method === "AOE_SPIRAL" ? <>
                                 <option value={3}>Range 3</option>
                                 <option value={4}>Range 4 (+0.5 points)</option>
                             </> : <>
