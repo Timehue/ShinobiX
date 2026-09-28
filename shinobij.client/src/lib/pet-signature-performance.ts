@@ -145,7 +145,7 @@ export function petSignaturePerformance({
     const family = petCombatFamily({ name, profile });
     const celestialLion = id.replace(/-\d{10,}$/u, "") === "mythic-15";
     const direction = celestialLion
-        ? { ...FAMILY_DIRECTION[family], entrance: "descent" as const, victory: "roar" as const, motif: "feather" as const }
+        ? { ...FAMILY_DIRECTION[family], entrance: "stalk" as const, victory: "roar" as const, motif: "feather" as const }
         : FAMILY_DIRECTION[family];
     const tier = rarityPower(rarity);
     const elemental = elementTuning(element);
@@ -180,7 +180,9 @@ export function petSignaturePerformance({
         dodgeLift: rounded(clamp(elemental.air * (0.84 + unit(key, "dodge-lift") * 0.34), 0.72, 1.42)),
         dodgeRoll: rounded(centered(key, "dodge-roll") * 0.11 + asymmetry * 0.12),
         recoil: rounded(clamp((1.35 - direction.weight * 0.28) * (0.9 + unit(key, "recoil") * 0.18), 0.62, 1.24)),
-        entranceLift: rounded(clamp(elemental.air * (0.88 + unit(key, "entrance-lift") * 0.3 + tier * 0.08), 0.76, 1.42)),
+        entranceLift: celestialLion
+            ? 0.12
+            : rounded(clamp(elemental.air * (0.88 + unit(key, "entrance-lift") * 0.3 + tier * 0.08), 0.76, 1.42)),
         entranceTwist: rounded((0.055 + unit(key, "entrance-twist") * 0.12) * asymmetry),
         landingWeight: rounded(clamp(direction.weight * (0.86 + unit(key, "landing") * 0.24), 0.62, 1.5)),
         victoryLift: rounded(clamp(elemental.air * (0.86 + unit(key, "victory-lift") * 0.3 + tier * 0.12), 0.76, 1.5)),
