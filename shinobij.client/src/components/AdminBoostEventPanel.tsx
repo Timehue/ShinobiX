@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { setSharedBoostEvent } from "../lib/world-state";
+import { setSharedBoostEvent } from "../lib/boost-event-state";
 import { serverNow } from "../lib/server-clock";
 import {
     BOOST_MAX_HOURS,

@@ -25,7 +25,6 @@ import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { resolveSectorWeather } from "../../../shared/sector-weather";
-import { isBoostEventActive, sanitizeBoostEvent, type BoostEvent } from "../../../shared/boost-event";
 import { clampNumber, currentDateKey } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
 import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
@@ -102,17 +101,16 @@ export function setSharedDojoCircuitEnabled(enabled: boolean): void {
     sharedDojoCircuitEnabledCache = enabled === true;
 }
 
-/** The running timed boost event (admin-started, see shared/boost-event.ts),
- *  or null once it has ended. The server applies the boost; this copy only
- *  drives the banner and previews, and re-checks endsAt against the server
- *  clock so a cached frame never shows an event that already ended. */
-let sharedBoostEventCache: BoostEvent | null = null;
-export function loadBoostEvent(nowMs: number = serverNow()): BoostEvent | null {
-    return isBoostEventActive(sharedBoostEventCache, nowMs) ? sharedBoostEventCache : null;
+/** The timed boost event exactly as the last game-state frame carried it
+ *  (admin-started, see shared/boost-event.ts). It is kept raw on purpose:
+ *  lib/boost-event-state.ts sanitizes it on read, which keeps the boost-event
+ *  module out of the startup bundle this file ships in. */
+let sharedBoostEventPayloadCache: unknown = null;
+export function sharedBoostEventPayload(): unknown {
+    return sharedBoostEventPayloadCache;
 }
-/** Adopt the event an admin just started or stopped, ahead of the next poll. */
-export function setSharedBoostEvent(event: unknown): void {
-    sharedBoostEventCache = sanitizeBoostEvent(event);
+export function setSharedBoostEventPayload(event: unknown): void {
+    sharedBoostEventPayloadCache = event ?? null;
 }
 
 export function saveArenaTournament(tournament: ArenaTournament | null) {
@@ -245,14 +243,14 @@ export function hydrateSharedGameState(data: {
         : null;
     sharedWeeklyBossAiIdCache = data.weeklyBossAiId ?? "";
     sharedDojoCircuitEnabledCache = data.dojoCircuitEnabled === true;
-    sharedBoostEventCache = sanitizeBoostEvent(data.boostEvent);
+    sharedBoostEventPayloadCache = data.boostEvent ?? null;
     // See hydrateSharedWorldState: report change so the 5s poller skips the
     // wasted full-app re-render when the server payload is unchanged.
     const snapshot = JSON.stringify([
         sharedVillageStateCache,
         sharedArenaTournamentCache, sharedArenaActiveFightsCache,
         sharedPendingClanPetBattleCache, sharedWeeklyBossAiIdCache,
-        sharedDojoCircuitEnabledCache, sharedBoostEventCache,
+        sharedDojoCircuitEnabledCache, sharedBoostEventPayloadCache,
     ]);
     const changed = snapshot !== lastSharedGameStateSnapshot;
     lastSharedGameStateSnapshot = snapshot;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { loadBoostEvent } from "../lib/world-state";
+import { loadBoostEvent } from "../lib/boost-event-state";
 import { serverNow } from "../lib/server-clock";
 import { BOOST_TARGET_INFO, defaultBoostTitle, formatBoostMultiplier, formatBoostTimeLeft, type BoostEvent } from "../../../shared/boost-event";
 
