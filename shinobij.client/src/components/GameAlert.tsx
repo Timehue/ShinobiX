@@ -183,6 +183,15 @@ export function GameAlertHost() {
                 aria-label="Notice"
                 tabIndex={-1}
                 onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => {
+                    // Handle Escape before an owning screen can stop its
+                    // bubbled key event on the way to the window listener.
+                    if (e.key === "Escape") {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        dismiss();
+                    }
+                }}
             >
                 <div className="game-alert-header">
                     <span className="game-alert-badge">忍</span>
@@ -206,8 +215,8 @@ export function GameAlertHost() {
                             // Enter on the focused button dismissed TWO queued
                             // alerts (one from the button's native click, one
                             // from the window listener firing dismiss too).
-                            // Escape intentionally bubbles to the dialog-level
-                            // handler so keyboard dismissal works while OK is focused.
+                            // Escape reaches the alert card above, including
+                            // while OK is focused.
                             if (e.key === "Enter" || e.key === " ") {
                                 e.stopPropagation();
                             }
