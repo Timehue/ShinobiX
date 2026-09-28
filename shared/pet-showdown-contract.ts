@@ -130,7 +130,7 @@ export const SHOWDOWN_COST_MIN = 10;
  *  a full pool rather than being a permanent overdraft. Sized against the
  *  SMALLEST pool in the catalog (88): 78 is 89% of it — brutal, but payable. */
 export const SHOWDOWN_COST_MAX = 78;
-/** The universal Swift Strike. Deliberately the cheapest thing in the game:
+/** The universal Tackle. Deliberately the cheapest thing in the game:
  *  its whole job is to be the play you can always afford. */
 export const SHOWDOWN_COST_BASIC = 12;
 /** Control and sustain are priced like haymakers whatever their listed power —
@@ -276,15 +276,13 @@ export const SHOWDOWN_PVP_TURN_SECONDS = 45;
  */
 
 /** Technique class — the physical/special split. Derived at SEAL from the
- *  move's kind (contact kinds are physical, elemental/energetic kinds are
- *  special, everything that deals no direct hit is status); pets derive
- *  matching offense/defense leans from their ROLE, so no catalog or storage
- *  changes anywhere. */
+ *  class: Tackle is physical, the two elemental attack slots are special, and
+ *  the tactical slot is status; pets derive matching axes from their ROLE. */
 export type ShowdownMoveClass = "physical" | "special" | "status";
 
 /** Same-type attack bonus. Kit and signature techniques carry the pet's own
- *  element and earn this; the universal basic strike is sealed NEUTRAL — it
- *  skips STAB and the wheel both ways, which is exactly its job: the safe jab
+ *  element and earn this; the universal Tackle is sealed NEUTRAL — it
+ *  skips STAB and the wheel both ways, which is exactly its job: the safe opener
  *  you keep for a bad matchup. The reference figure is 1.5, but our wheel already
  *  swings 1.5/0.75 and stacking both at full strength would decide fights on
  *  typing alone — 1.2 measured well. */
@@ -497,10 +495,10 @@ export interface ShowdownPetView {
         hold: number;
         /** The technique's OWN element. Kit and signature moves carry the
          *  pet's element (STAB + the wheel apply); the universal basic strike
-         *  is "None" — no STAB, no wheel either way, the safe jab. */
+         *  is "None" — no STAB, no wheel either way, the safe Tackle. */
         element: string;
-        /** Physical hits roll ATK vs DEF, special rolls the role-derived
-         *  special axis, status deals no direct hit. */
+        /** Tackle uses ATK vs DEF, elemental attacks use the role-derived
+         *  special axis, and the tactical move uses the status class. */
         cls: ShowdownMoveClass;
         /** Partner element that empowers this technique (ally synergy) —
          *  thematically the element this move's element BEATS (wind fans the

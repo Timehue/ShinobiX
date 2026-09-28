@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { showdownMatchupElement } from "./showdown-hud";
 
-test("neutral Swift Strike never inherits its Fire user's resisted matchup", () => {
+test("neutral Tackle never inherits its Fire user's resisted matchup", () => {
     assert.equal(showdownMatchupElement({ element: "None", kind: "damage", power: 34 }, "Fire"), undefined);
 });
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createShowdownSession, resolveShowdownRound } from "../../../api/_pet-showdown/engine";
+import { createShowdownSession, resolveShowdownRound, sealShowdownPet } from "../../../api/_pet-showdown/engine";
 import { PET_CATALOG } from "../../../api/pet/_catalog";
 import type { Pet } from "../../../api/_pet-sim/pet-types";
 import { showdownContactEffectKind, showdownContactOutcome, showdownProjectilePath, showdownProjectileSample } from "./showdown-contact-vfx";
@@ -43,12 +43,15 @@ test("blocked attacks cannot show successful damage or status paint in sibling V
 });
 
 test("live engine verdicts agree with contact paint for Protect, absorption and dodge", () => {
+    const protector = Object.values(PET_CATALOG)
+        .map(template => ({ ...template, id: "defender", role: "defender", level: 30 } as unknown as Pet))
+        .find(template => sealShowdownPet(template).moves.some(move => move.kind === "protect"));
+    assert.ok(protector, "at least one real defender loadout retains Protect");
     for (const defense of ["protect", "shield", "dodge"] as const) {
         const player = { ...PET_CATALOG["standard-0"], id: "attacker", level: 30 } as unknown as Pet;
-        const enemy = { ...PET_CATALOG["standard-8"], id: "defender", role: "defender", level: 30 } as unknown as Pet;
         const session = createShowdownSession({
             sessionId: "contact-test", playerName: "Tester", format: "1v1", tier: "warrior", seed: 12345,
-            playerPets: [player], enemyPets: [enemy], enemyTeamName: "Foes", rewardEligible: false,
+            playerPets: [player], enemyPets: [protector], enemyTeamName: "Foes", rewardEligible: false,
         });
         const defender = session.enemy[0];
         if (defense === "dodge") {
@@ -57,7 +60,7 @@ test("live engine verdicts agree with contact paint for Protect, absorption and 
             defender.statuses.push({ kind: defense, rounds: 3, magnitude: 100000, bornRound: session.round });
         }
         const protectIndex = defender.moves.findIndex((move) => move.kind === "protect");
-        assert.ok(protectIndex >= 0);
+        assert.ok(protectIndex >= 0, "the selected defender's real kit includes Protect");
         const events = resolveShowdownRound(session,
             [{ kind: "move", petId: "attacker", moveIndex: 0, targetId: "defender" }],
             defense === "protect"

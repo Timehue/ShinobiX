@@ -130,16 +130,55 @@ function legacyMockKit(pet: Pet): ShowdownPetView["moves"] {
         : kind === "barrier" ? "Absorbs incoming damage"
         : kind === "burn" ? "Burns for 2 more rounds · 82% hit"
         : `${kind} · reduced hit`;
-    const moves: ShowdownPetView["moves"] = [
-        // Sealed neutral/physical exactly like the engine's basicStrike — no
-        // STAB, wheel-neutral both ways.
-        { name: "Swift Strike", power: 34, kind: "damage", cost: SHOWDOWN_COST_BASIC, signature: false, priority: SHOWDOWN_PRIORITY_LIGHT, hold: 0, effect: "Straight damage", element: "None", cls: "physical" as const },
-        // Mirror the engine's kit rule (engine.ts sealShowdownPet): mobility
-        // jutsus are stripped BEFORE the slice — there is no board to dash
-        // across in this mode, so a `kind: "move"` entry must never reach the
-        // list. Without this the harness offered "Red Fox Dash", a technique
-        // the real engine refuses to seal.
-        ...(pet.jutsus ?? []).filter((j) => j.kind !== "move").slice(0, 3).map((j) => ({
+    const role = String(pet.role ?? "defender");
+    const el = pet.element ?? "None";
+    const high = pet.rarity === "legendary" || pet.rarity === "mythic";
+    const derivedKind = role === "defender" ? "protect"
+        : role === "sage" ? "weather"
+        : role === "assassin" ? (high ? "mark" : "buff")
+        : (high ? "slow" : "debuff");
+    const derivedName = derivedKind === "weather"
+        ? (({ Fire: "Heat Haze", Water: "Downpour", Wind: "Gale Front", Earth: "Duststorm", Lightning: "Thunderhead" } as Record<string, string>)[el] ?? "Front")
+        : ({ protect: "Bulwark", buff: "Kindle", mark: "Mark", slow: "Mire", debuff: "Glare" }[derivedKind] ?? "Focus");
+    const authored = (pet.jutsus ?? []).filter((j) => j.kind !== "move" && !j.signature);
+    const tacticalKinds = new Set(["buff", "heal", "debuff", "mark", "slow", "barrier", "shield", "absorb", "weather", "protect", "haste", "taunt"]);
+    const attackKinds = new Set(["damage", "crush", "wound", "push", "pull", "pivot", "lifesteal", "dot", "burn", "freeze", "confuse", "stun", "debuff", "mark", "slow", "movelock"]);
+    const tacticalPreference: Record<string, string[]> = {
+        defender: ["protect", "barrier", "shield", "absorb", "buff", "heal", "taunt", "weather", "debuff", "haste"],
+        sage: ["weather", "buff", "barrier", "shield", "absorb", "protect", "heal", "haste", "debuff", "taunt"],
+        assassin: ["buff", "haste", "mark", "debuff", "slow", "weather", "barrier", "shield", "protect"],
+        tracker: ["debuff", "slow", "mark", "buff", "haste", "weather", "barrier", "shield", "protect", "heal", "taunt"],
+    };
+    const tactical = [...authored].filter((j) => tacticalKinds.has(j.kind))
+        .sort((a, b) => {
+            const order = tacticalPreference[role] ?? tacticalPreference.defender;
+            const rankA = order.indexOf(a.kind), rankB = order.indexOf(b.kind);
+            return (rankA < 0 ? 999 : rankA) - (rankB < 0 ? 999 : rankB);
+        })[0]
+        ?? { name: derivedName, power: derivedKind === "protect" ? 90 : derivedKind === "weather" ? 70
+            : derivedKind === "mark" ? 95 : derivedKind === "slow" ? 105 : derivedKind === "buff" ? 120 : 110, kind: derivedKind };
+    const attacks = authored.filter((j) => attackKinds.has(j.kind) && j !== tactical)
+        .sort((a, b) => b.power - a.power).slice(0, 2);
+    const fallbacks: Record<string, [string, string]> = {
+        Fire: ["Ember Lash", "Inferno Pulse"], Water: ["Tidal Rush", "Riptide Surge"],
+        Wind: ["Gale Cut", "Skyward Cyclone"], Earth: ["Faultline Drive", "Stonewave Burst"],
+        Lightning: ["Arc Flash", "Thunderclap"], None: ["Spirit Strike", "Spirit Burst"],
+    };
+    const fallbackNames = fallbacks[el] ?? fallbacks.None;
+    const attackBase = attacks[0]?.power ?? 0;
+    const usedNames = new Set(authored.map((j) => j.name));
+    while (attacks.length < 2) {
+        const slot = attacks.length;
+        let name = fallbackNames[slot], suffix = 2;
+        while (usedNames.has(name)) name = `${fallbackNames[slot]} ${suffix++}`;
+        usedNames.add(name);
+        attacks.push({ name, kind: "damage", signature: false, cooldown: 0, currentCooldown: 0,
+            power: Math.max(24, Math.round(attackBase ? Math.min(220, attackBase * 0.66) : 320 * (slot === 0 ? 0.13 : 0.18))) });
+    }
+    const mockMove = (j: { name: string; power: number; kind: string }, forcedClass?: "physical" | "special" | "status") => {
+        const cls = forcedClass ?? (["crush", "wound", "push", "pull", "lifesteal"].includes(j.kind) ? "physical"
+            : ["damage", "burn", "dot", "freeze"].includes(j.kind) ? "special" : "status") as "physical" | "special" | "status";
+        return ({
             name: j.name,
             power: j.power,
             kind: j.kind,
@@ -148,21 +187,27 @@ function legacyMockKit(pet: Pet): ShowdownPetView["moves"] {
             priority: j.power <= 80 ? SHOWDOWN_PRIORITY_LIGHT : SHOWDOWN_PRIORITY_NORMAL,
             hold: 0,
             effect: effectFor(j.kind),
-            // Mirror the seal: kit techniques carry the pet's element; the
-            // class comes from the kind (contact physical, casts special).
-            element: pet.element ?? "None",
-            cls: (["crush", "wound", "push", "pull", "lifesteal"].includes(j.kind) ? "physical"
-                : ["damage", "burn", "dot", "freeze"].includes(j.kind) ? "special" : "status") as ShowdownPetView["moves"][number]["cls"],
-            ...(pet.element && SHOWDOWN_ELEMENT_BEATS[pet.element] ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[pet.element] } : {}),
-        })),
+            element: el,
+            cls,
+            ...(cls === "special" && el !== "None" ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[el] } : {}),
+        });
+    };
+    const moves: ShowdownPetView["moves"] = [
+        // Sealed neutral/physical exactly like the engine's basic Tackle — no
+        // STAB, wheel-neutral both ways.
+        { name: "Tackle", power: 34, kind: "damage", cost: SHOWDOWN_COST_BASIC, signature: false, priority: SHOWDOWN_PRIORITY_LIGHT, hold: 0, effect: "Straight damage", element: "None", cls: "physical" as const },
+        mockMove(tactical),
+        ...attacks.map((move) => mockMove(move, "special")),
     ];
     // Mirror promoteHeavy: the kit's biggest damage move becomes the haymaker.
     let best = -1;
-    for (let i = 1; i < moves.length; i++) {
+    let eligible = 0;
+    for (let i = 2; i < moves.length; i++) {
         if (moves[i].kind !== "damage" || moves[i].power <= 0) continue;
+        eligible += 1;
         if (best < 0 || moves[i].power > moves[best].power) best = i;
     }
-    if (best > 0) {
+    if (best > 0 && eligible >= 2) {
         const power = Math.round(moves[best].power * SHOWDOWN_HEAVY_PROMOTE_MULT);
         moves[best] = {
             ...moves[best],
@@ -172,6 +217,7 @@ function legacyMockKit(pet: Pet): ShowdownPetView["moves"] {
             hold: SHOWDOWN_HOLD_HEAVY,
         };
     }
+    moves.splice(2, 2, ...moves.slice(2).sort((a, b) => (a.hold - b.hold) || (a.cost - b.cost) || (a.power - b.power)));
     moves.push({
         name: `${pet.element ?? "Spirit"} Overdrive`,
         power: 96, kind: "damage", cost: 0, signature: true,
@@ -179,28 +225,6 @@ function legacyMockKit(pet: Pet): ShowdownPetView["moves"] {
         element: pet.element ?? "None", cls: "special" as const,
         ...(pet.element && SHOWDOWN_ELEMENT_BEATS[pet.element] ? { synergyElement: SHOWDOWN_ELEMENT_BEATS[pet.element] } : {}),
     });
-    // Mirror the seal's VARIETY PASS: every pet fields one derived utility
-    // keyed to its role (engine.ts derivedUtilityFor). Without this the bench
-    // deck would show a kit the real engine never builds.
-    const role = String(pet.role ?? "tracker");
-    const el = pet.element ?? "None";
-    const high = pet.rarity === "legendary" || pet.rarity === "mythic";
-    const utilKind = role === "defender" ? "protect"
-        : role === "sage" ? "weather"
-        : role === "assassin" ? (high ? "mark" : "buff")
-        : (high ? "slow" : "debuff");
-    const utilName = utilKind === "weather"
-        ? (({ Fire: "Heat Haze", Water: "Downpour", Wind: "Gale Front", Earth: "Duststorm", Lightning: "Thunderhead" } as Record<string, string>)[el] ?? "Front")
-        : ({ protect: "Bulwark", buff: "Kindle", mark: "Mark", slow: "Mire", debuff: "Glare" }[utilKind] ?? "Focus");
-    if (el !== "None") {
-        moves.splice(3, 0, {
-            name: utilName, power: utilKind === "protect" ? 90 : utilKind === "weather" ? 70 : 110,
-            kind: utilKind, cost: 34, signature: false,
-            priority: utilKind === "protect" ? SHOWDOWN_PRIORITY_LIGHT : SHOWDOWN_PRIORITY_NORMAL,
-            hold: 0, effect: utilKind === "weather" ? "Turns the arena to your element" : "Utility",
-            element: el, cls: "special" as const,
-        });
-    }
     return moves;
 }
 

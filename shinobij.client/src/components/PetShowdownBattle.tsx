@@ -1742,7 +1742,7 @@ function moveInspector(move: ShowdownMoveView, fallbackElement: string, staminaN
     // The technique's OWN element — the neutral basic reads Neutral, never the
     // pet's colour, because dodging the wheel is its whole identity.
     const element = move.element ?? fallbackElement;
-    const clsLabel = move.cls === "physical" ? "Physical" : move.cls === "special" ? "Special" : "Status";
+    const clsLabel = move.cls === "physical" ? "Physical" : move.cls === "special" ? "Elemental" : "Status";
     return {
         title: move.name,
         glyph: move.signature ? "signature" : kindGlyph(move.kind, move.element),
@@ -2846,8 +2846,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         const frac = target.damage / Math.max(1, stateMaxHp(stateView, target.id));
                         const weightMul = event.super ? 1.5 : event.weight === "heavy" ? 1.25 : event.weight === "light" ? 0.78 : 1;
                         const burst = Math.min(4.2, (1.5 + Math.min(1, frac * 2.4) * 1.9) * weightMul) * (target.splash ? 0.7 : 1);
-                        const physicalBasic = event.moveName === "Swift Strike" && event.element === "None";
-                        const elementalTechnique = !physicalBasic && event.element !== "None"
+                        const physicalBasic = (event.moveName === "Tackle" || event.moveName === "Swift Strike") && event.element === "None";
+                        const elementalTechnique = !physicalBasic && Boolean(presentation?.hero) && event.element !== "None"
                             && event.delivery !== "self" && target.damage > 0;
                         // The casts that EARNED a spectacle stage their element
                         // as an arena event — a tsunami that travels the lane,
@@ -2870,9 +2870,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             // choreography) needs more air than the old flipbook
                             // pieces did to land its silhouettes.
                             // Every elemental attack gets its own element set-piece.
-                            // The universal neutral Swift Strike stays a quick,
-                            // physical lunge; regular jutsu sit just below the
-                            // 2100ms signature showcase.
+                            // The universal neutral Tackle stays a quick,
+                            // physical lunge; elemental techniques sit just
+                            // below the 2100ms signature showcase.
                             spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 2100 : elementalTechnique ? 1550 : 1150) / speed, event.super);
                         }
                         // The arena keeps the receipts: signatures and killing
