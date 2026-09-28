@@ -107,7 +107,7 @@ export function offlineNoticeBody(n: OfflineNotice): string {
     if (n.kind === 'bounty-placed') {
         const amount = Math.max(0, Math.floor(Number(n.amount) || 0));
         const total = Math.max(amount, Math.floor(Number(n.total) || 0));
-        return `${who} put ${amount.toLocaleString()} ryo on your head (total ${total.toLocaleString()}). You're on the bounty board.`;
+        return `A shinobi placed ${amount.toLocaleString()} ryo on your head (total ${total.toLocaleString()}). You're on the bounty board.`;
     }
     if (n.kind === 'bounty-claimed') {
         const amount = Math.max(0, Math.floor(Number(n.amount) || 0));

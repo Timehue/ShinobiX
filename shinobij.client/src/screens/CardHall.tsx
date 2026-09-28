@@ -41,6 +41,11 @@ import {
   requestFreePlayQueue,
   type FreePlayQueueAuthority,
 } from "../lib/free-play-queue-client";
+import {
+  CardSparChallengeError,
+  requestCardSparChallenge,
+  type CardSparChallenge,
+} from "../lib/card-spar-challenge-client";
 import { syncChronicleProgression } from "../lib/chronicle-progression-sync";
 import { chronicleResponseAuthority } from "../lib/chronicle-response-authority";
 import { chronicleReplayDelay } from "../lib/chronicle-presentation";
@@ -760,6 +765,12 @@ function FreePlayQueue({
   const [pageVisible, setPageVisible] = useState(
     () => typeof document === "undefined" || document.visibilityState === "visible",
   );
+  const [challengeName, setChallengeName] = useState("");
+  const [challengeBusy, setChallengeBusy] = useState(false);
+  const [challengeError, setChallengeError] = useState("");
+  const [incomingChallenges, setIncomingChallenges] = useState<CardSparChallenge[]>([]);
+  const [outgoingChallenge, setOutgoingChallenge] = useState<{ id: string; toName: string } | null>(null);
+  const challengePollBusy = useRef(false);
 
   const leaseIsCurrent = useCallback((lease: FreePlayQueueLease): boolean => mountedRef.current
     && leaseRef.current === lease
@@ -823,6 +834,7 @@ function FreePlayQueue({
       try {
         const body = await requestFreePlayQueue(lease.authority.accountKey, "poll", { signal: controller.signal });
         if (!alive || !leaseIsCurrent(lease)) return;
+        if (lease.matched) return;
         const outcome = freePlayPollOutcome(body);
         if (outcome.kind === "matched") {
           if (!onStart) {
@@ -864,6 +876,93 @@ function FreePlayQueue({
       stop();
     };
   }, [searching, pageVisible, activeAuthority, onStart, leaseIsCurrent]);
+
+  const enterSparMatch = useCallback((matchId: string) => {
+    const lease = leaseRef.current;
+    if (lease?.matched) return;
+    if (lease) {
+      lease.owned = false;
+      lease.matched = true;
+    }
+    setSearching(false);
+    setOutgoingChallenge(null);
+    setIncomingChallenges([]);
+    setChallengeError("");
+    if (onStart) onStart(matchId);
+    else setChallengeError("The spar was accepted, but this screen cannot open a card match.");
+  }, [onStart]);
+
+  useEffect(() => {
+    if (!pageVisible) return;
+    let alive = true;
+    const syncChallenges = async () => {
+      if (challengePollBusy.current) return;
+      challengePollBusy.current = true;
+      try {
+        const inbox = await requestCardSparChallenge(character.name, "inbox");
+        if (!alive) return;
+        setIncomingChallenges(Array.isArray(inbox.challenges) ? inbox.challenges : []);
+        if (outgoingChallenge) {
+          const status = await requestCardSparChallenge(character.name, "status", { challengeId: outgoingChallenge.id });
+          if (!alive) return;
+          if (status.status === "accepted" && status.matchId) enterSparMatch(status.matchId);
+          else if (status.status === "declined" || status.status === "expired") {
+            setChallengeError(status.status === "declined"
+              ? `${outgoingChallenge.toName} declined the spar challenge.`
+              : `The challenge to ${outgoingChallenge.toName} expired.`);
+            setOutgoingChallenge(null);
+          }
+        }
+      } catch (error) {
+        if (!alive) return;
+        const message = error instanceof CardSparChallengeError
+          ? error.message
+          : "Card Hall could not refresh spar challenges.";
+        setChallengeError(message);
+      } finally {
+        challengePollBusy.current = false;
+      }
+    };
+    const stop = visiblePoll(() => void syncChallenges(), 4000);
+    void syncChallenges();
+    return () => {
+      alive = false;
+      stop();
+    };
+  }, [pageVisible, character.name, outgoingChallenge, enterSparMatch]);
+
+  async function sendChallenge(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (challengeBusy || !challengeName.trim()) return;
+    setChallengeBusy(true);
+    setChallengeError("");
+    try {
+      const response = await requestCardSparChallenge(character.name, "request", { targetName: challengeName.trim() });
+      if (response.challenge) {
+        setOutgoingChallenge({ id: response.challenge.id, toName: response.challenge.toName });
+        setChallengeName("");
+      }
+    } catch (error) {
+      setChallengeError(error instanceof CardSparChallengeError ? error.message : "Could not send the spar challenge.");
+    } finally {
+      setChallengeBusy(false);
+    }
+  }
+
+  async function answerChallenge(challenge: CardSparChallenge, decision: "accept" | "decline") {
+    if (challengeBusy) return;
+    setChallengeBusy(true);
+    setChallengeError("");
+    try {
+      const response = await requestCardSparChallenge(character.name, "respond", { challengeId: challenge.id, decision });
+      setIncomingChallenges(current => current.filter(item => item.id !== challenge.id));
+      if (response.status === "accepted" && response.matchId) enterSparMatch(response.matchId);
+    } catch (error) {
+      setChallengeError(error instanceof CardSparChallengeError ? error.message : "Could not answer the spar challenge.");
+    } finally {
+      setChallengeBusy(false);
+    }
+  }
 
   async function join() {
     if (joining || leaving || searching) return;
@@ -953,6 +1052,40 @@ function FreePlayQueue({
           {leaving ? "Canceling…" : "Cancel Search"}
         </button>
       ) : null}
+      <div className="chronicle-spar-challenge">
+        <h3>Challenge a Shinobi</h3>
+        <p>Enter their name to send a private spar invitation. They must accept before the duel begins.</p>
+        <form onSubmit={event => void sendChallenge(event)}>
+          <label>
+            Player name
+            <input
+              value={challengeName}
+              onChange={event => setChallengeName(event.target.value)}
+              autoComplete="off"
+              maxLength={40}
+              placeholder="Enter a shinobi name"
+              disabled={challengeBusy}
+            />
+          </label>
+          <button type="submit" disabled={challengeBusy || !challengeName.trim()}>
+            {challengeBusy ? "Working…" : "Send Spar Challenge"}
+          </button>
+        </form>
+        {outgoingChallenge ? <p role="status">Challenge sent to {outgoingChallenge.toName}. Waiting for their answer…</p> : null}
+        {challengeError ? <div className="chronicle-error" role="alert">{challengeError}</div> : null}
+        {incomingChallenges.length > 0 ? (
+          <div className="chronicle-spar-inbox" aria-label="Incoming spar challenges">
+            <h4>Incoming Challenges</h4>
+            {incomingChallenges.map(challenge => (
+              <div className="chronicle-spar-invite" key={challenge.id}>
+                <span>{challenge.fromName} wants to spar.</span>
+                <button onClick={() => void answerChallenge(challenge, "accept")} disabled={challengeBusy}>Accept</button>
+                <button onClick={() => void answerChallenge(challenge, "decline")} disabled={challengeBusy}>Decline</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

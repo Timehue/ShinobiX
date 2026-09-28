@@ -76,6 +76,8 @@ export function packTheme(packType: CardPackType): PackTheme {
         case "earth": return { label: "Earth Pack", accent: "#9ac879", foilA: "#2c4124", foilB: "#0c160d" };
         case "wind": return { label: "Wind Pack", accent: "#b8e5c0", foilA: "#254a41", foilB: "#0b1b1c" };
         case "lightning": return { label: "Lightning Pack", accent: "#c6a5ff", foilA: "#352550", foilB: "#100b1e" };
+        case "snare": return { label: "Snare Pack", accent: "#fb7185", foilA: "#4b1422", foilB: "#17070d" };
+        case "jutsu": return { label: "Jutsu Pack", accent: "#67e8f9", foilA: "#12364b", foilB: "#06121b" };
         case "legendary":
             return { label: "Legendary Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
         case "epic":

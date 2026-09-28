@@ -2846,6 +2846,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         const frac = target.damage / Math.max(1, stateMaxHp(stateView, target.id));
                         const weightMul = event.super ? 1.5 : event.weight === "heavy" ? 1.25 : event.weight === "light" ? 0.78 : 1;
                         const burst = Math.min(4.2, (1.5 + Math.min(1, frac * 2.4) * 1.9) * weightMul) * (target.splash ? 0.7 : 1);
+                        const physicalBasic = event.moveName === "Swift Strike" && event.element === "None";
+                        const elementalTechnique = !physicalBasic && event.element !== "None"
+                            && event.delivery !== "self" && target.damage > 0;
                         // The casts that EARNED a spectacle stage their element
                         // as an arena event — a tsunami that travels the lane,
                         // a tornado that spins up, fire that catches the ground
@@ -2853,7 +2856,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // Reduced-motion keeps the readable burst and skips the
                         // traveling/spinning layer, same policy as the flash.
                         const authoredTechnique = authoredTargets.has(target.id);
-                        const staged = authoredTechnique || (!reducedMotion && event.moveKind === "damage" && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId);
+                        const staged = authoredTechnique || (!reducedMotion && elementalTechnique && !target.splash && target.id !== event.actorId)
+                            || (!reducedMotion && event.moveKind === "damage" && (event.super || event.weight === "heavy") && !target.splash && target.id !== event.actorId);
                         // Contact punctuation stays compact when a hero set
                         // piece owns the frame. Previously the full-size white
                         // spark, generic explosion and KO smoke all landed on
@@ -2865,7 +2869,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             // The painted hero art (floor takeover + multi-crest
                             // choreography) needs more air than the old flipbook
                             // pieces did to land its silhouettes.
-                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 2100 : 1150) / speed, event.super);
+                            // Every elemental attack gets its own element set-piece.
+                            // The universal neutral Swift Strike stays a quick,
+                            // physical lunge; regular jutsu sit just below the
+                            // 2100ms signature showcase.
+                            spawnSetPiece(event.element, event.actorId, target.id, (event.super ? 2100 : elementalTechnique ? 1550 : 1150) / speed, event.super);
                         }
                         // The arena keeps the receipts: signatures and killing
                         // blows scar the boards where they land, and a
@@ -2898,12 +2906,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         // its own small burst at contact beside the painting.
                         if (!authoredTechnique) later(() => spawnFlipbook(
                             target.id,
-                            impactFlipbookKey(event.element, event.moveKind, event.super),
+                            physicalBasic ? "slash" : impactFlipbookKey(event.element, event.moveKind, event.super),
                             staged ? burst * 1.05 : burst,
                             ((staged ? 620 : 440) + Math.min(1, frac * 2.4) * 380) / speed,
                             1.0,
                             1,
-                            elementVfxTint(event.element),
+                            physicalBasic ? "#f0dfc2" : elementVfxTint(event.element),
                         ), (staged ? (event.super ? 840 : 460) : 60) / speed);
                         // A heavy or lethal blow gets a second, larger shell over
                         // the first — `explosion` and `bighit` ship in the bundle

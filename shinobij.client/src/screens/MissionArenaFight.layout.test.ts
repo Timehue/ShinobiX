@@ -423,10 +423,13 @@ test("Solo and Tower submit highlighted movement-jutsu tiles through the jutsu p
 });
 
 test("Tower removes the action guidance strip and disables off-turn actions semantically", () => {
-    // The guidance text survives only as a screen-reader live region (see
-    // BattleTowerFight.layout.test.ts); no visible strip may come back.
     assert.doesNotMatch(towerSource, /className="[^"]*tower-action-guidance/, "the removed guidance panel must not occupy the controls area");
-    assert.match(towerSource, /id="tower-action-guidance" className="tower-sr-only"/);
+    assert.match(towerSource, /id="tower-action-guidance" className="tower-sr-only"/, "guidance remains available to screen readers without adding a visible strip");
+    assert.ok(towerSource.includes('id="tower-action-guidance" className="tower-sr-only"')
+        && towerSource.includes('Choose an action.'),
+        "the action hint remains accessible without returning as a visible strip");
+    assert.match(towerTacticalCss, /\.tower-sr-only \{[^}]*clip: rect\(0, 0, 0, 0\)/s,
+        "the guidance remains visually hidden while available to assistive technology");
     assert.doesNotMatch(towerTacticalCss, /\.tower-action-guidance\s*\{/);
     assert.doesNotMatch(towerTacticalCss, /\.tower-action-state\s*\{/,
         "the removed guidance panel must not retain layout geometry");

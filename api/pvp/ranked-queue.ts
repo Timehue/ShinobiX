@@ -60,6 +60,20 @@ function queueEntryIsActive(entry: QueueEntry, now: number): boolean {
     return now - (entry.lastPolledAt ?? entry.joinedAt) < STALE_MS;
 }
 
+/** Include players in a durable match handoff until the gate moves that pair
+ * into an active battle. Pairing removes them from the waiting blob at once;
+ * counting only that blob made a busy queue appear to drop by two per match. */
+export function rankedQueuePopulation(queue: QueueEntry[], gate: PetRankedSeasonGate | null): number {
+    const players = new Set(queue.map(entry => entry.name));
+    const handoffCutoff = Date.now() - PLAYER_RANKED_ADMISSION_TTL_MS;
+    for (const admission of gate?.playerAdmissions ?? []) {
+        if (admission.phase !== 'queued' || admission.createdAt < handoffCutoff) continue;
+        players.add(admission.a);
+        players.add(admission.b);
+    }
+    return players.size;
+}
+
 /**
  * A player whose previous match still holds its season-gate admission cannot
  * be matched: the gate admits one match per player, so a mint for them can
@@ -107,7 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             && gate.state === 'open'
             && gate.seasonId === Number(season?.id)
             && !(await rankedSeasonAdmissionsPaused(kv, gate.seasonId));
-        return res.status(200).json({ enabled, inQueue: enabled && inQueue, queueSize: enabled ? active.length : 0 });
+        return res.status(200).json({ enabled, inQueue: enabled && inQueue, queueSize: enabled ? rankedQueuePopulation(active, gate) : 0 });
     }
 
     if (req.method === 'POST') {
@@ -259,7 +273,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // One match per player. A held gate admission is never put
                     // back into the pairing pool, where every opponent's mint
                     // for this player could only fail.
-                    const held = admissionsByPlayer(await readPetRankedSeasonGateFresh(kv)).get(player);
+                    const admissionGate = await readPetRankedSeasonGateFresh(kv);
+                    const held = admissionsByPlayer(admissionGate).get(player);
                     if (held) {
                         if (filtered.length !== active.length) {
                             await kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS });
@@ -269,7 +284,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 status: 409,
                                 body: {
                                     inQueue: false,
-                                    queueSize: filtered.length,
+                                    queueSize: rankedQueuePopulation(filtered, admissionGate),
                                     match: null,
                                     errorCode: 'ranked-settlement-pending',
                                     error: RANKED_SETTLEMENT_PENDING_ERROR,
@@ -281,7 +296,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // the gate, exactly as for a lost match mirror.
                         return {
                             status: 200,
-                            body: { inQueue: true, queueSize: filtered.length, match: null, resumingMatch: true },
+                            body: { inQueue: true, queueSize: rankedQueuePopulation(filtered, admissionGate), match: null, resumingMatch: true },
                         };
                     }
                     const entry: QueueEntry = {
@@ -296,7 +311,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(QUEUE_KEY, filtered, { ex: KV_TTL_SECONDS }),
                         kv.del(matchKey(safeName(name))),  // clear any stale prior match
                     ]);
-                    return { status: 200, body: { inQueue: true, queueSize: filtered.length, match: null } };
+                    return { status: 200, body: { inQueue: true, queueSize: rankedQueuePopulation(filtered, admissionGate), match: null } };
                 }
 
                 if (action === 'poll') {
@@ -315,13 +330,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             status: 200,
                             body: {
                                 inQueue: false,
-                                queueSize: active.length,
+                                queueSize: rankedQueuePopulation(active, gate),
                                 match: { ...myMatch, battleId: matchAdmission.battleId },
                             },
                         };
                     }
                     if (myMatch && matchAdmission?.phase === 'queued') {
-                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: myMatch } };
+                        return { status: 200, body: { inQueue: false, queueSize: rankedQueuePopulation(active, gate), match: myMatch } };
                     }
 
                     // A queue response may have been lost after the season-gate
@@ -330,7 +345,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const admitted = await findPlayerRankedAdmissionForPlayer(kv, player);
                     if (admitted && (admitted.phase === 'queued' || (admitted.phase === 'active' && admitted.battleId))) {
                         const token = await restorePlayerRankedMatchTokenWithStore(kv, admitted.matchId);
-                        if (!token) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
+                        if (!token) return { status: 200, body: { inQueue: false, queueSize: rankedQueuePopulation(active, gate), match: null } };
                         const opponentName = player === admitted.a ? admitted.b : admitted.a;
                         const playerIsA = player === admitted.a;
                         const recoveredMatch = {
@@ -345,7 +360,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             ...(admitted.phase === 'active' ? { battleId: admitted.battleId } : {}),
                         };
                         await kv.set(matchKey(player), recoveredMatch, { ex: MATCH_TTL_SECONDS });
-                        return { status: 200, body: { inQueue: false, queueSize: active.length, match: recoveredMatch } };
+                        return { status: 200, body: { inQueue: false, queueSize: rankedQueuePopulation(active, gate), match: recoveredMatch } };
                     }
                     if (isSettlingAdmission(admitted ?? undefined)) {
                         // This player's last match still holds the gate. Leave
@@ -358,7 +373,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             status: 409,
                             body: {
                                 inQueue: false,
-                                queueSize: remaining.length,
+                                queueSize: rankedQueuePopulation(remaining, gate),
                                 match: null,
                                 errorCode: 'ranked-settlement-pending',
                                 error: RANKED_SETTLEMENT_PENDING_ERROR,
@@ -367,7 +382,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
 
                     const me = active.find(e => e.name === player);
-                    if (!me) return { status: 200, body: { inQueue: false, queueSize: active.length, match: null } };
+                    if (!me) return { status: 200, body: { inQueue: false, queueSize: rankedQueuePopulation(active, gate), match: null } };
 
                     // Never offer an opponent whose gate admission is still held
                     // (settling, or a player back in the queue mid-match): the
@@ -380,7 +395,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const keepSearching = async () => {
                         const refreshed = active.map(e => e.name === me.name ? { ...e, lastPolledAt: now } : e);
                         await kv.set(QUEUE_KEY, refreshed, { ex: KV_TTL_SECONDS });
-                        return { status: 200, body: { inQueue: true, queueSize: active.length, match: null } };
+                        return { status: 200, body: { inQueue: true, queueSize: rankedQueuePopulation(active, gate), match: null } };
                     };
                     if (!opponent) return keepSearching();
                     const remaining = active.filter(e => e.name !== me.name && e.name !== opponent.name);
@@ -427,7 +442,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         kv.set(matchKey(opponent.name), matchForOpp, { ex: MATCH_TTL_SECONDS }),
                     ]);
 
-                    return { status: 200, body: { inQueue: false, queueSize: remaining.length, match: matchForMe } };
+                    const updatedGate = await readPetRankedSeasonGateFresh(kv);
+                    return { status: 200, body: { inQueue: false, queueSize: rankedQueuePopulation(remaining, updatedGate), match: matchForMe } };
                 }
 
                 return { status: 400, body: { error: 'Invalid action.' } };

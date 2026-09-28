@@ -34,18 +34,16 @@ test('offlineNoticeMessage names the attacker and the sector', () => {
     );
 });
 
-test('the icon vocabulary has no near-duplicates', () => {
-    // Bounty collected and camp ambush used to be two different marks for
-    // "you were killed". One painted art key per family now; the plain-text
-    // message carries no icon at all.
-    const icon = (n: Parameters<typeof offlineNoticeMessage>[0]) => buildOfflineNoticeDigest([n], NOW).entries[0].icon;
-    assert.equal(icon({ kind: 'sleeper-kill', by: 'A', sector: 1, at: 1 }), 'attack');
-    assert.equal(icon({ kind: 'merc-raid', by: 'A', sector: 1, at: 1 }), 'attack');
-    assert.equal(icon({ kind: 'bounty-placed', by: 'A', sector: 0, at: 1, amount: 1 }), 'ryo');
-    assert.equal(icon({ kind: 'bounty-claimed', by: 'A', sector: 0, at: 1, amount: 1 }), 'ryo');
-    assert.equal(icon({ kind: 'kage-seat-lost', by: 'inactivity', sector: 0, at: 1 }), 'crown');
-    assert.equal(icon({ kind: 'kage-challenge-refunded', by: 'x', sector: 0, at: 1 }), 'crown');
-    assert.equal(icon({ kind: 'village-unfed', by: 'V', sector: 3, at: 1 }), 'rations');
+test('notice icon art shares one semantic key per family', () => {
+    const icon = (kind: OfflineNoticeDigest['entries'][number]['kind'], by: string) =>
+        buildOfflineNoticeDigest([{ kind, by, sector: 1, at: 1, amount: 1 }], NOW).entries[0]?.icon;
+    assert.equal(icon('sleeper-kill', 'A'), 'attack');
+    assert.equal(icon('merc-raid', 'A'), 'attack');
+    assert.equal(icon('bounty-placed', 'A'), 'ryo');
+    assert.equal(icon('bounty-claimed', 'A'), 'ryo');
+    assert.equal(icon('kage-seat-lost', 'inactivity'), 'crown');
+    assert.equal(icon('kage-challenge-refunded', 'x'), 'crown');
+    assert.equal(icon('village-unfed', 'V'), 'rations');
 });
 
 test('applyOfflineNotices shows ONE digest for the whole inbox', () => {
@@ -137,7 +135,7 @@ test('every digest line is stamped with a relative time', () => {
         { kind: 'merc-raid', by: 'Frostfang mercenaries', sector: 9, at: NOW - 45 * MIN },
         { kind: 'bounty-placed', by: 'Rill', sector: 0, at: NOW - 20_000, amount: 5000, total: 12000 },
     ], NOW));
-    assert.equal(lines[0], 'just now — Rill put 5,000 ryo on your head (total 12,000). You\'re on the bounty board.');
+    assert.equal(lines[0], 'just now — A shinobi placed 5,000 ryo on your head (total 12,000). You\'re on the bounty board.');
     assert.equal(lines[1], '45m ago — Frostfang mercenaries raided your camp in Sector 9 while you were away. You were carried to the hospital.');
     assert.equal(lines[2], '3h ago — Kenji collected the 12,000-ryo bounty on you.');
     assert.equal(lines[3], '2d ago — While you slept in Sector 12, Raiden ambushed your camp. You were carried to the hospital.');
@@ -159,14 +157,16 @@ test('a single notice reads as one report, not "1 reports"', () => {
 test('bounty notices: placed + claimed copy', () => {
     assert.equal(
         offlineNoticeMessage({ kind: 'bounty-placed', by: 'Rill', sector: 0, at: 1, amount: 5000, total: 12000 }),
-        "Rill put 5,000 ryo on your head (total 12,000). You're on the bounty board.",
+        "A shinobi placed 5,000 ryo on your head (total 12,000). You're on the bounty board.",
     );
     assert.equal(
         offlineNoticeMessage({ kind: 'bounty-claimed', by: 'Kenji', sector: 0, at: 1, amount: 12000 }),
         'Kenji collected the 12,000-ryo bounty on you.',
     );
     // total never reads below the stake itself
-    assert.match(offlineNoticeMessage({ kind: 'bounty-placed', by: 'Rill', sector: 0, at: 1, amount: 5000 }), /total 5,000/);
+    const placedCopy = offlineNoticeMessage({ kind: 'bounty-placed', by: 'Rill', sector: 0, at: 1, amount: 5000 });
+    assert.match(placedCopy, /total 5,000/);
+    assert.doesNotMatch(placedCopy, /Rill/);
     assert.equal(parseOfflineNotices([{ kind: 'bounty-placed', by: 'Rill', sector: 0, at: 1, amount: 5000 }]).length, 1);
 });
 
@@ -202,5 +202,5 @@ test('village-unfed notice names the village, the sector, and where to fix it', 
         'Moonshadow Village marched hungry: the siege of Sector 12 went unfed. Cook rations at the Noodle Den and donate them at the Town Hall.',
     );
     // `village` missing → falls back to `by` (the server stamps the village name there)
-    assert.match(offlineNoticeMessage({ kind: 'village-unfed', by: 'Frostfang Village', sector: 3, at: 1 }), /Frostfang Village marched hungry: the siege of Sector 3/);
+    assert.match(offlineNoticeMessage({ kind: 'village-unfed', by: 'Frostfang Village', sector: 3, at: 1 }), /^Frostfang Village marched hungry: the siege of Sector 3/);
 });

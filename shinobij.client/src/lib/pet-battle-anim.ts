@@ -61,6 +61,7 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
 
 const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";
 const SNOW_RABBIT_CARD_PORTRAIT = "/pet-portraits/standard-1-card-v2.webp";
+const PEBBLE_TORTOISE_CARD_PORTRAIT = "/pet-portraits/pebble-tortoise-chibi-v2.webp";
 
 // Reviewed single-character alternatives for cards whose idle art contains
 // stacked figures or a baked checkerboard. Only the final static-card fallback
@@ -214,6 +215,9 @@ export function petCardImage(
     sharedImages: Record<string, string> = {},
 ): string {
     const artIds = petArtIds(pet);
+    // Replace the damaged base-stage shell art in every card/battle fallback.
+    // Evolved forms keep their separately reviewed stage portraits.
+    if (petVisualId(pet) === "starter-earth") return PEBBLE_TORTOISE_CARD_PORTRAIT;
     if (artIds.includes("standard-17")) {
         const variant = petPaletteVariant(pet);
         return (variant && firstSharedImage(sharedImages, artIds.flatMap((id) => [

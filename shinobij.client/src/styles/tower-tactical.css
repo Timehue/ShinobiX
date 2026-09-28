@@ -1857,3 +1857,51 @@
 .tower-plan-next { display: block; margin: 10px auto; min-height: 44px; border-color: #b49c5e; color: #ecd69f; }
 @keyframes tower-impact-cue { 0% { opacity: 0; transform: translate(-50%,-30%) scale(.92); } 15%,65% { opacity: 1; transform: translate(-50%,-75%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-110%); } }
 @media (prefers-reduced-motion: reduce) { .tower-impact-cue { animation: none; } }
+
+/* Phones keep both rosters accessible below the battlefield. Compact rules
+   used to hide them on short screens and turned each list into a sideways strip. */
+@media (max-width: 640px) {
+    #combat.tower-tactical-combat .tower-fight-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: auto auto auto !important;
+        grid-auto-rows: auto;
+        align-content: start;
+        overflow: auto;
+        touch-action: pan-y;
+    }
+    #combat.tower-tactical-combat .tower-fight-grid > main { grid-row: 1; }
+    #combat.tower-tactical-combat .tower-squad-rail { grid-column: 1; grid-row: 2; }
+    #combat.tower-tactical-combat .tower-enemy-rail { grid-column: 1; grid-row: 3; }
+    #combat.tower-tactical-combat .tower-fight-grid > aside {
+        display: flex !important;
+        min-height: 0;
+        max-height: 178px;
+        overflow: hidden;
+    }
+    #combat.tower-tactical-combat .tower-roster-list {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        min-height: 0;
+        max-height: 124px;
+        overflow-x: hidden;
+        overflow-y: auto;
+        overscroll-behavior-y: contain;
+        touch-action: pan-y;
+        scrollbar-width: thin;
+    }
+    #combat.tower-tactical-combat .tower-roster-list > * {
+        flex: 0 0 auto !important;
+        width: 100%;
+        margin-bottom: 0 !important;
+    }
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar {
+        touch-action: pan-x;
+        overscroll-behavior-x: contain;
+        scroll-snap-type: x proximity;
+        scrollbar-width: thin;
+    }
+    #combat.tower-tactical-combat .tower-action-dock > .shinobi-command-bar > button {
+        scroll-snap-align: start;
+    }
+}

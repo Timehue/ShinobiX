@@ -55,6 +55,7 @@ function formatTrainingRemaining(ms: number): string {
 
 export function Training({ character, onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
     const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
+    const [timerPickerOpen, setTimerPickerOpen] = useState(false);
     const [trainingBusy, setTrainingBusy] = useState(false);
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
     const trainingBusyRef = useRef(false);
@@ -109,6 +110,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) return alert(trainingResponseError(res.status, data?.error, 'Training could not be started.'));
             if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
             setActiveTraining(data.activeTraining as ActiveTraining);
+            setTimerPickerOpen(false);
             const academyStatPoints = Math.max(0, Math.floor(Number(data.academyStatPoints) || 0));
             setTrainingNotice(academyStatPoints > 0
                 ? `Level 2 reached! The Academy granted +${academyStatPoints} bonus stat points. ${data.activeTraining.label} started; you can keep playing while it runs.`
@@ -233,13 +235,16 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                                     <button
                                         key={stat}
                                         className={`location-button${selectedStat === stat ? " selected" : ""}`}
-                                        onClick={() => setSelectedStat(stat)}
+                                        onClick={() => {
+                                            setSelectedStat(stat);
+                                            setTimerPickerOpen(true);
+                                        }}
                                         aria-pressed={selectedStat === stat}
                                         title={`${info?.label ?? stat}: train this stat next.`}
                                     >
                                         <span className="tile-icon">{info?.icon ?? "?"}</span>
                                         <span>{info?.label ?? stat}</span>
-                                        <small>{selectedStat === stat ? "Selected" : "Click to select"}</small>
+                                            <small>{selectedStat === stat ? "Choose a timer" : "Click to train"}</small>
                                     </button>
                                 );
                             })}
@@ -248,8 +253,15 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                 ))}
             </div>
 
-            <h3>Choose Timer</h3>
-            <div className="location-grid">
+            <Modal
+                open={timerPickerOpen}
+                onClose={() => setTimerPickerOpen(false)}
+                title={`Train ${selectedStatLabel}`}
+                size="md"
+                className="training-timer-modal"
+            >
+                <p className="training-timer-intro">Choose a session length for {selectedStatLabel}. The gain and stamina cost are shown before you start.</p>
+                <div className="location-grid training-timer-grid">
                 {timers.map((timer) => {
                     // XP retired — the growth bonus now boosts the STAT gain
                     // itself. Mirror the server seal exactly (trainingStatGain
@@ -288,7 +300,8 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                         </button>
                     );
                 })}
-            </div>
+                </div>
+            </Modal>
         </div>
     );
 }

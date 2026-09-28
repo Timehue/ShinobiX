@@ -2026,3 +2026,18 @@ textarea {
     opacity: 0.35;
     cursor: not-allowed;
 }
+
+/* Give the builder a fixed dark canvas and readable text tokens even when a
+   global form or panel theme changes around it. */
+.bloodline-maker-screen {
+    color: #e5eaf1 !important;
+    background: linear-gradient(160deg, rgba(13, 23, 38, 0.98), rgba(5, 10, 19, 0.98)) !important;
+    font-family: Inter, system-ui, sans-serif;
+}
+.bloodline-maker-screen :is(h2, h3, h4) { color: #f5e7bc; }
+.bloodline-maker-screen :is(p, li, label, small, .hint) { color: #c8d2df; }
+.bloodline-maker-screen :is(input, select, textarea) {
+    color: #f1f5f9 !important;
+    background: #081321 !important;
+    border-color: #526174 !important;
+}

@@ -49,7 +49,7 @@ beforeEach(async () => {
     resetRateLimits();
     const keys = await kv.keys('*');
     if (keys.length) await kv.del(...keys);
-    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Retry Placer', ryo: 50_000 } });
+    await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Retry Placer', ryo: 50_000, examsPassed: ['genin', 'chunin', 'jonin'] } });
     await kv.set(`save:${HUNTER}`, { _saveVersion: 1, character: { name: 'Retry Hunter', ryo: 100 } });
     await kv.set(`save:${RIVAL}`, { _saveVersion: 1, character: { name: 'Retry Rival', ryo: 100 } });
     await kv.set(`save:${TARGET}`, { _saveVersion: 1, character: { name: 'Retry Target', ryo: 100 } });
@@ -200,7 +200,7 @@ describe('bounty placement is retry-safe (#179)', () => {
     });
 
     test('short balances, forged identities, reused ids and invalid targets move nothing', async () => {
-        await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Retry Placer', ryo: 3_000 } });
+        await kv.set(`save:${PLACER}`, { _saveVersion: 1, character: { name: 'Retry Placer', ryo: 3_000, examsPassed: ['genin', 'chunin', 'jonin'] } });
         const poor = await postBounty(5_000, 'bounty-place-too-poor-01');
         assert.equal(poor.statusCode, 400, JSON.stringify(poor.body));
         const forged = await callAs(RIVAL, PLACER, { action: 'place', target: 'Retry Target', amount: 1_000, requestId: 'bounty-place-forged-0001' });

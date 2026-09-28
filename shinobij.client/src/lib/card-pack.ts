@@ -1,6 +1,6 @@
 import type { Character } from '../types/character';
 
-export type CardPackType = 'standard' | 'fire' | 'water' | 'earth' | 'wind' | 'lightning' | 'epic' | 'legendary';
+export type CardPackType = 'standard' | 'fire' | 'water' | 'earth' | 'wind' | 'lightning' | 'snare' | 'jutsu' | 'epic' | 'legendary';
 
 export interface CardPackResult {
     ok: boolean;

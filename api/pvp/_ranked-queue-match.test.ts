@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { selectRankedOpponent, type QueueEntry } from './ranked-queue.js';
+import { rankedQueuePopulation, selectRankedOpponent, type QueueEntry } from './ranked-queue.js';
 
 const NOW = 1_000_000;
 
@@ -21,5 +21,20 @@ describe('ranked queue equalized matchmaking', () => {
             queued('cara', 100, 1180, 0),
         ], NOW);
         assert.equal(result?.name, 'cara');
+    });
+});
+
+describe('ranked queue population', () => {
+    it('counts players in the handoff admission along with those still waiting', () => {
+        const gate = {
+            playerAdmissions: [{
+                phase: 'queued',
+                createdAt: Date.now(),
+                a: 'alice',
+                b: 'bravo',
+            }],
+        } as never;
+        const stillWaiting = [queued('cara', 30, 1100, 0), queued('dana', 34, 1200, 0)];
+        assert.equal(rankedQueuePopulation(stillWaiting, gate), 4);
     });
 });

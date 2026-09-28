@@ -8,6 +8,18 @@ const tacticalCss = readFileSync(new URL("../styles/tower-tactical.css", import.
 const combatCoreCss = readFileSync(new URL("../styles/index/06-combat-core.css", import.meta.url), "utf8");
 
 describe("Tower narrow combat composition", () => {
+    it("keeps phone basic actions and both team rosters independently scrollable", () => {
+        assert.match(
+            tacticalCss,
+            /@media \(max-width: 640px\) \{[\s\S]*?#combat\.tower-tactical-combat \.tower-fight-grid \{[\s\S]*?grid-template-columns: minmax\(0, 1fr\) !important/,
+            "phone grid must override the older important two-column layout",
+        );
+        assert.match(tacticalCss, /#combat\.tower-tactical-combat \.tower-roster-list \{[\s\S]*?overflow-y: auto;[\s\S]*?touch-action: pan-y/);
+        assert.match(tacticalCss, /#combat\.tower-tactical-combat \.tower-action-dock > \.shinobi-command-bar \{[\s\S]*?touch-action: pan-x/);
+        assert.match(source, /className="tower-roster-rail tower-squad-rail"/);
+        assert.match(source, /className="tower-roster-rail tower-enemy-rail"/);
+    });
+
     it("reserves a usable portrait board and contains both action bands", () => {
         assert.match(css, /@media \(max-width: 979px\) \{/,
             "portrait tablets through 979px must keep the same explicit board/rail containment as phones");

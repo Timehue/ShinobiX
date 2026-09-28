@@ -66,6 +66,16 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0;
 }
 
+/** Public bounty records expose only an aggregate count, never contributor identities. */
+function publicBounty(entry: BountyBoard['bounties'][number]) {
+    return {
+        target: entry.target,
+        amount: entry.amount,
+        backerCount: Array.isArray(entry.contributors) ? entry.contributors.length : 0,
+        updatedAt: entry.updatedAt,
+    };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -74,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'GET') {
         const board = normalizeBoard(await kv.get<BountyBoard>(BOUNTY_KEY));
         res.setHeader('Cache-Control', 's-maxage=15, stale-while-revalidate=15');
-        return res.status(200).json({ bounties: board.bounties });
+        return res.status(200).json({ bounties: board.bounties.map(publicBounty) });
     }
 
     if (req.method !== 'POST') return res.status(405).end();
@@ -141,6 +151,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 amount,
                 meta: { target: targetSlug },
                 decide: ({ character, shared }) => {
+                    const passedExams = Array.isArray(character.examsPassed)
+                        ? character.examsPassed.map((exam) => String(exam).toLowerCase())
+                        : [];
+                    if (!passedExams.includes('jonin')) {
+                        return { ok: false, status: 403, error: 'Only Jonin rank and above may place bounties.' };
+                    }
                     const placer = identity.admin ? playerName : (character.name as string ?? playerName);
                     const board = shared ?? normalizeBoard(null);
                     const result = placeBounty({ placerName: placer, targetName: targetDisplay, amount, placerRyo: num(character.ryo), targetExists, board }, now);
@@ -164,7 +180,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 status: 200,
                 body: {
                     ok: true,
-                    bounties: settled.shared.bounties,
+                    bounties: settled.shared.bounties.map(publicBounty),
                     balances: { ryo: num(settled.character.ryo) },
                     _saveVersion: settled._saveVersion,
                     ...(settled.replayed ? { replayed: true } : {}),
@@ -188,8 +204,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // the host's locale. The client-side "while you were
                         // away" copy has always formatted these; the Herald was
                         // still shipping a bare `250000`.
-                        message: `${out.placed.placer} put ${out.placed.amount.toLocaleString('en-US')} ryo on ${targetDisplay}'s head (total ${(head?.amount ?? out.placed.amount).toLocaleString('en-US')}).`,
-                        player: out.placed.placer,
+                        message: `A shinobi placed ${out.placed.amount.toLocaleString('en-US')} ryo on ${targetDisplay}'s head (total ${(head?.amount ?? out.placed.amount).toLocaleString('en-US')}).`,
                         meta: { target: targetSlug, amount: out.placed.amount, total: head?.amount ?? out.placed.amount },
                     }, { receiptId: `bounty-placed:${targetSlug}:${head?.updatedAt ?? now}` });
                 } catch { /* best-effort */ }
@@ -197,7 +212,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // their next heartbeat (best-effort; the escrow is already durable).
                 if (targetExists) {
                     try {
-                        await pushOfflineNotice(targetSlug, { kind: 'bounty-placed', by: out.placed.placer, sector: 0, amount: out.placed.amount, total: head?.amount ?? out.placed.amount, at: now });
+                        await pushOfflineNotice(targetSlug, { kind: 'bounty-placed', by: 'Anonymous shinobi', sector: 0, amount: out.placed.amount, total: head?.amount ?? out.placed.amount, at: now });
                     } catch { /* best-effort */ }
                 }
             }
@@ -222,7 +237,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The displayed hunter may come from an older board poll. Confirm
             // the exact contract before opening the combat overlay.
             if (hunterId !== contractHunterIdFor(bounty.target, bounty)) {
-                return res.status(200).json({ ok: false, reason: 'stale-hunter', bounty });
+                return res.status(200).json({ ok: false, reason: 'stale-hunter', bounty: publicBounty(bounty) });
             }
             const cooldown = await kv.get<{ until?: unknown }>(contractHunterCooldownKey(playerName, hunterId));
             const cooldownUntil = Number(cooldown?.until) || 0;
@@ -231,7 +246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             return res.status(200).json({
                 ok: true,
-                bounty: { target: bounty.target, amount: bounty.amount, contributors: bounty.contributors, updatedAt: bounty.updatedAt },
+                bounty: publicBounty(bounty),
             });
         }
 

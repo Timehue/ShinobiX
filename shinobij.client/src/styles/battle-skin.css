@@ -14,6 +14,26 @@
     --bsv2-player:      #4ea8ff;
     --bsv2-enemy:       #e04444;
 }
+/* The archive is shown outside the live combat shell, so give its readable
+   category colors their own dark surface and explicit contrast. */
+.battle-log-screen {
+    color: #e9eef6;
+    background: linear-gradient(155deg, rgba(12, 23, 36, 0.98), rgba(5, 11, 20, 0.98));
+    border: 1px solid rgba(196, 162, 90, 0.28);
+    border-radius: 14px;
+    font-family: Inter, system-ui, sans-serif;
+}
+.battle-log-screen .timeline-fx.battle-log-line {
+    margin: 4px 0;
+    padding: 5px 8px;
+    border-left: 2px solid rgba(var(--battle-log-rgb, 203, 213, 225), 0.82);
+    border-radius: 0 4px 4px 0;
+    background: rgba(var(--battle-log-rgb, 203, 213, 225), 0.08);
+    color: rgb(var(--battle-log-rgb, 226, 232, 240));
+    font: 500 13px/1.5 Inter, system-ui, sans-serif;
+}
+.battle-log-screen .timeline-fx.battle-log-line > span { color: inherit; }
+.battle-log-screen .battle-log-line .bl-num { color: #fff4ce; font-weight: 800; }
 
 .arena-fullscreen .arena-title-panel,
 .arena-fullscreen .arena-title-panel h1,

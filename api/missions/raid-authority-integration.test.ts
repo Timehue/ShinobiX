@@ -139,6 +139,26 @@ describe('sealed raid authority', () => {
         assert.equal(out.body?.error, 'Invalid raid sector.');
     });
 
+    it('seals a village-themed, attacker-level AI when no defender is queued', async () => {
+        const player = 'raidauthvillagefallback';
+        await seed(player, { level: 31, village: 'Stormveil Village', clan: 'Stormveil Clan' });
+        await onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
+        await kv.set('world:territory:18', {
+            sector: 18,
+            ownerVillage: 'Ashen Leaf Village',
+            ownerClan: 'Ashen Leaf Clan',
+            hp: 20_000,
+        });
+
+        const started = await post(raidStart, player, { requestId: 'raidvillagefallback01', sector: 18 });
+        assert.equal(started.statusCode, 200);
+        assert.equal(started.body?.source, 'field-raid');
+        assert.equal(started.body?.opponentId, 'story-ai-ashen-leaf-village-25');
+        const token = await kv.get<Record<string, unknown>>(`raid-token:${player}:${started.body?.token}`);
+        assert.equal(token?.aiId, 'story-ai-ashen-leaf-village-25');
+        assert.deepEqual(token?.scaling, { level: 31 });
+    });
+
     it('seals an introductory outpost for each village without sweep ordering or guard scaling', async () => {
         const { loadAiFightProfile } = await import('./_ai-fight-encounter.js');
         const { FIELD_MISSIONS } = await import('./_mission-catalog.js');
