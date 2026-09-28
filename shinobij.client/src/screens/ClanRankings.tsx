@@ -18,6 +18,7 @@ import { cwListWars } from "../lib/clan-war-api";
 import { doctrineName } from "../lib/clan-doctrines";
 import { DoctrineCrest } from "../components/DoctrineCrest";
 import { ClanImageMark } from "../components/Marks";
+import { GameArtIcon } from "../components/GameArtIcon";
 
 type RankRow = {
     clan: EnhancedClanData;
@@ -91,7 +92,7 @@ export function ClanRankings({ character }: { character: Character }) {
                             <span className="clan-member-pos">#{idx + 1}</span>
                             <ClanImageMark image={row.clan.image} name={row.clan.name} village={row.clan.village} />
                             <div className="clan-member-info">
-                                <span className="clan-member-name">{row.clan.name}{isMine ? " ⭐" : ""}{row.inWar ? " 🔥" : ""}</span>
+                                <span className="clan-member-name">{row.clan.name}{isMine ? " · YOUR CLAN" : ""}{row.inWar ? " · AT WAR" : ""}</span>
                                 <span className="clan-member-sub">Lv.{row.clan.level} · {row.clan.members.length} member{row.clan.members.length === 1 ? "" : "s"} · {row.clan.village}</span>
                             </div>
                             <span
@@ -106,7 +107,7 @@ export function ClanRankings({ character }: { character: Character }) {
                     );
                 })}
             </div>
-            <p className="hint" style={{ marginTop: 10, fontSize: "0.72rem" }}>🔥 = currently at war · ⭐ = your clan. The board updates as clan wars finish.</p>
+            <p className="hint" style={{ marginTop: 10, fontSize: "0.72rem" }}><GameArtIcon kind="attack" size={14} /> At-war clans are marked. The board updates as clan wars finish.</p>
         </div>
     );
 }

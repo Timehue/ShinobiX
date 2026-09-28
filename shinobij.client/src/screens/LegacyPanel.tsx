@@ -12,6 +12,7 @@ import {
     type LegacyStatusView, type LegacyDefView, type CharacterLegacy,
 } from "../lib/legacy";
 import { PlayerNameplate } from "../components/PlayerNameplate";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { LegacyMoment, type LegacyMomentData } from "../components/LegacyMoment";
 import { rollEmissarySpawn, emissaryForCategory } from "../lib/legacy-emissaries";
 import { rumorLog } from "../lib/legacy-rumors";
@@ -312,7 +313,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         // The world era this legacy was taken up in — pins the
                         // accomplishment to the timeline (server-stamped at accept).
                         <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
-                            📜 Taken up in <b style={{ color: "#e2e8f0" }}>{eraAgeName(status.legacy.eraBorn)}</b>.
+                            <GameArtIcon kind="scroll" size={15} /> Taken up in <b style={{ color: "#e2e8f0" }}>{eraAgeName(status.legacy.eraBorn)}</b>.
                         </p>
                     )}
                     {(() => {
@@ -371,7 +372,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                             <div style={{ marginTop: 8, border: "1px dashed rgba(148,163,184,.32)", borderRadius: 10, padding: 10, display: "flex", gap: 10, opacity: 0.75 }}>
                                 {sig.image && <img src={sig.image} alt="" style={{ width: 46, height: 46, borderRadius: 8, flexShrink: 0, filter: "grayscale(1) brightness(.7)" }} onError={hideImg} />}
                                 <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}>🔒 Sealed until the {TRIAL_NAMES.bind}</div>
+                                    <div style={{ fontSize: ".58rem", letterSpacing: ".1em", textTransform: "uppercase", color: "#9aa3b2" }}><GameArtIcon kind="key" size={14} /> Sealed until the {TRIAL_NAMES.bind}</div>
                                     <b style={{ fontSize: ".86rem", color: "#cbd5e1" }}>{sig.name}</b>
                                     <p style={{ margin: "2px 0 0", fontSize: ".67rem", color: "#94a3b8" }}>{shape} · reach Stage III (Bound) and it becomes your 16th slot, a technique only your Legacy can use.</p>
                                 </div>
@@ -386,7 +387,7 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                         const spawn = rollEmissarySpawn(character.name, status.level, status.legacyCategory ?? def.category, currentWandererDayBucket());
                         return spawn ? (
                             <p style={{ margin: "6px 0 0", fontSize: ".72rem", color: "#c4b5fd" }}>
-                                🏮 {spawn.def.name}, keeper of your path, was last seen in <b>{sectorRegionName(spawn.sector)}</b> (sector {spawn.sector}).
+                                <GameArtIcon kind="mission" size={15} /> {spawn.def.name}, keeper of your path, was last seen in <b>{sectorRegionName(spawn.sector)}</b> (sector {spawn.sector}).
                             </p>
                         ) : null;
                     })()}

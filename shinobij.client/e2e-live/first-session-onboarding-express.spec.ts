@@ -46,6 +46,7 @@ type JsonResponse = { status: number; body: Record<string, unknown> };
 const GRID_W = 12;
 const GRID_H = 10;
 const FLICKER_ID = 'starter-universal-flicker';
+const stopAfterAwakening = process.env.JOURNEY_STOP_AFTER_AWAKENING === '1';
 
 function neighbors(pos: number): number[] {
     const x = pos % GRID_W;
@@ -184,7 +185,7 @@ async function createCharacter(page: Page, playerName: string, password: string)
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 
 for (const grantDelayMs of [0, 500]) {
-test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms)`, async ({ page }, testInfo) => {
+test(`a new player completes the full persisted Academy first session against built Express (starter response delay ${grantDelayMs}ms${stopAfterAwakening ? ', stop after awakening' : ''})`, async ({ page }, testInfo) => {
     const completeRealTraining = process.env.JOURNEY_COMPLETE_REAL_TRAINING === '1';
     // Optional local certification waits for the unchanged 15-minute server timer.
     test.setTimeout(completeRealTraining ? 20 * 60_000 : 12 * 60_000);
@@ -536,6 +537,7 @@ test(`a new player completes the full persisted Academy first session against bu
         (save.character?.elements?.length ?? 0) > 0
         && save.character?.claimedAwakenings?.includes('awakening-free-lv2') === true
     ), 'the Level 2 free awakening and its one-time claim must persist');
+    if (stopAfterAwakening) return;
     await awakeningDialog.getByRole('button', { name: 'Return to Central' }).click();
     if (await closeBriefing.isVisible().catch(() => false)) await closeBriefing.click();
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();

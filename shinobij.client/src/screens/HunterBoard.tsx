@@ -7,6 +7,7 @@ import type { CreatorMission } from "../types/missions";
 import type { Screen } from "../types/core";
 import { HUNTER_RANKUP, HUNTER_RANK_COLORS, HUNTER_RANK_LABELS, HUNT_MATERIAL_NAMES, HUNT_MIN_RANK, type MissionRank } from "../constants/hunter";
 import { FIELD_MISSION_STAT_POINTS } from "../constants/game";
+import { GameArtIcon } from "../components/GameArtIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
@@ -451,7 +452,7 @@ export function HunterBoard({
                     <section key={rank} className={`hunt-rank-section ${locked ? "hunt-rank-locked" : ""}`}>
                         <h3 className="hunt-rank-heading">
                             <span className="hunter-rank-badge" style={{ background: HUNTER_RANK_COLORS[minRank] }}>{rank}</span>
-                            {locked && <span className="hunt-lock-label">🔒 Requires {HUNTER_RANK_LABELS[minRank]}</span>}
+                            {locked && <span className="hunt-lock-label"><GameArtIcon kind="key" size={14} /> Requires {HUNTER_RANK_LABELS[minRank]}</span>}
                         </h3>
                         {!locked && (
                             <div className="hunt-contract-grid">
@@ -476,7 +477,7 @@ export function HunterBoard({
                                             <div className="hunt-contract-top">
                                                 {beastPortrait(mission.aiProfileId)
                                                     ? <img className="hunt-beast-portrait" src={beastPortrait(mission.aiProfileId)} alt={beastAi?.name ?? mission.name} style={{ width: 76, height: 76, objectFit: "cover", borderRadius: 10, flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,.4)" }} />
-                                                    : <span className="hunt-beast-icon">{beastAi?.icon ?? "🐾"}</span>}
+                                                    : <span className="hunt-beast-icon"><GameArtIcon kind="petTamer" size={30} /></span>}
                                                 <div className="hunt-contract-info">
                                                     <strong>{mission.name}</strong>
                                                     <small>Sector {mission.targetSector} · Lvl {mission.levelReq}+</small>
