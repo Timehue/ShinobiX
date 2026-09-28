@@ -29,14 +29,23 @@ import { teamStatTotals, elementalEdge, type TeamStatTotals } from "../lib/pet-g
 import { petCardImage } from "../lib/pet-battle-anim";
 import { ROLE_META, derivePetRole, type PetRole } from "../lib/pet-roles";
 import { PetBoardArena } from "./PetBoardArena";
-import { GameArtIcon } from "./GameArtIcon";
+import { GameArtIcon, type GameArtIconKind } from "./GameArtIcon";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 
 // Relic icon art (gpt-image-1, transparent). Auto-resolved by filename
-// (`<relicId>.webp`); falls back to the relic def's emoji when an image is absent.
+// (`<relicId>.webp`); unknown / missing files use matching Shinobi art.
 const RELIC_ART = import.meta.glob<{ default: string }>("../assets/coliseum/relics/*.webp", { eager: true });
 const relicArt = (id: string): string | null => RELIC_ART[`../assets/coliseum/relics/${id}.webp`]?.default ?? null;
+const RELIC_FALLBACK_ART: Record<string, GameArtIconKind> = {
+    titan_heart: "vitality", razor_fang: "attack", aegis_plating: "guard", swift_wind: "elementWind",
+    merchant_charm: "ryo", lucky_coin: "dice", beast_bond: "petTamer", stoneward: "biomeCentral",
+    phoenix_plume: "elementFire", bramble_mail: "biomeForest", chain_charm: "elementLightning", vampiric_fang: "attack",
+};
+const ITEM_ART: Record<string, GameArtIconKind> = {
+    mend: "vitality", whetstone: "attack", bulwark: "guard", vigor: "vitality",
+};
+const relicFallback = (id: string) => RELIC_FALLBACK_ART[id] ?? "reward";
 // Shopkeeper banner art (gpt-image-1). Optional — the shop still renders without it.
 const SHOP_ART = import.meta.glob<{ default: string }>("../assets/coliseum/gauntlet-shop.webp", { eager: true });
 const gauntletShop = SHOP_ART["../assets/coliseum/gauntlet-shop.webp"]?.default ?? null;
@@ -486,7 +495,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                                                             {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
                                                                 <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 3, alignItems: "center", padding: "1px 6px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.62rem" }}>
-                                                                    {art ? <img src={art} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
+                                                                    {art ? <img src={art} alt="" style={{ width: 12, height: 12, objectFit: "contain" }} /> : <GameArtIcon kind={relicFallback(id)} size={12} />}{d.name}
                                                                 </span>
                                                             ); })}
                                                         </div>
@@ -580,7 +589,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 return (
                                     <div key={def.id} style={{ border: "1px solid #334155", borderRadius: 10, background: "rgba(15,23,42,0.6)", padding: "8px 10px", width: 150 }}>
                                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                            <strong style={{ fontSize: "0.84rem", color: "#e2e8f0" }}>{def.icon} {def.name}</strong>
+                                            <strong style={{ display: "flex", alignItems: "center", gap: 5, fontSize: "0.84rem", color: "#e2e8f0" }}><GameArtIcon kind={ITEM_ART[def.id] ?? "reward"} size={18} /> {def.name}</strong>
                                             {def.max > 1 && <span style={{ fontSize: "0.64rem", color: "#64748b" }}>{owned}/{def.max}</span>}
                                         </div>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{def.blurb}</p>
@@ -598,7 +607,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                                 {run.relics.map((id) => { const d = relicDef(id); const art = relicArt(id); return (
                                     <span key={id} title={d.blurb} style={{ display: "inline-flex", gap: 5, alignItems: "center", padding: "3px 9px", borderRadius: 999, background: "rgba(168,85,247,0.16)", border: "1px solid #a855f7", color: "#d8b4fe", fontWeight: 700, fontSize: "0.74rem" }}>
-                                        {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <span>{d.icon}</span>}{d.name}
+                                        {art ? <img src={art} alt="" style={{ width: 16, height: 16, objectFit: "contain" }} /> : <GameArtIcon kind={relicFallback(id)} size={16} />}{d.name}
                                     </span>
                                 ); })}
                             </div>
@@ -609,7 +618,7 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
                                 : run.relicShop.map((id) => { const d = relicDef(id); const blocked = run.valor < d.cost; const art = relicArt(id); return (
                                     <div key={id} style={{ border: "1px solid #6d28d9", borderRadius: 10, background: "rgba(30,18,52,0.6)", padding: "8px 10px", width: 170 }}>
                                         <strong style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "0.84rem", color: "#e9d5ff" }}>
-                                            {art ? <img src={art} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.5))" }} /> : <span>{d.icon}</span>}
+                                            {art ? <img src={art} alt="" style={{ width: 28, height: 28, objectFit: "contain", filter: "drop-shadow(0 2px 3px rgba(0,0,0,0.5))" }} /> : <GameArtIcon kind={relicFallback(id)} size={28} />}
                                             {d.name}
                                         </strong>
                                         <p className="hint" style={{ margin: "3px 0 6px", fontSize: "0.7rem", minHeight: 28 }}>{d.blurb}</p>
