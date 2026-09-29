@@ -541,7 +541,8 @@ jobs:
     # Run 35326317976 reached only 824/875 tests on shard 2 before the 29m
     # ceiling, including 6m of required Stronghold audits. Split the expanded
     # suite three ways so those audits and every browser check retain headroom
-    # without raising the timeout or dropping coverage.
+    # without raising the timeout or dropping coverage. Run sector/spectator
+    # integration on shard 3, which finishes its responsive tests before shard 1.
     timeout-minutes: 29
     strategy:
       fail-fast: false
@@ -619,7 +620,7 @@ jobs:
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/playwright.log
       - name: Sector controls and spectator integration
-        if: ${{ matrix.shard == 1 }}
+        if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/sector-hud.log
       - name: Retain responsive browser evidence
