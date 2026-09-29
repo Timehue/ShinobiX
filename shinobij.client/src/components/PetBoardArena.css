@@ -191,6 +191,24 @@
     text-transform: uppercase;
 }
 
+.gauntlet-board-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 8;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    color: #f8e8bd;
+    background: #080c19;
+}
+
+.gauntlet-board-loading strong { font-size: 24px; }
+.gauntlet-board-loading span { max-width: 380px; color: #aab7cd; }
+
 .gauntlet-board-recovery {
     position: absolute;
     inset: 0;

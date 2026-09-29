@@ -1,6 +1,6 @@
 import { surface, fissures, boltGeometry } from '../lib/showdown-technique-geometry';
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VfxBeat, VfxPositions } from "./PetShowdownVfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -56,7 +56,6 @@ function createResources(count: number) {
     particles.frustumCulled = false;
     root.add(particles);
     const lamp = new THREE.PointLight("#ffffff", 0, 8, 2);
-    impact.add(lamp);
     root.visible = false;
     return { root, lane, impact, jet, tongues, orb, rock, blades, wake, funnel, column, cracks, seams, rim, bolts, boltHalos, shards, rubble, particles, lamp,
         flow, shell, ribbon, mist, electric, stone, ice, light, dark, seamMaterial, pointsMaterial, dummy: new THREE.Object3D(), count };
@@ -71,6 +70,12 @@ export function PetShowdownTechniques({ beatRef, posRef, radii, quality, reduced
 }) {
     const resources = useMemo(() => createResources(Math.min(36, quality.setPieceParticles)), [quality.setPieceParticles]);
     const refs = useRef(resources);
+    const { gl, camera, scene } = useThree();
+    useEffect(() => {
+        // Submit the bounded, reusable effects before their first attack. compile
+        // has no asynchronous polling that could outlive renderer retirement.
+        gl.compile(resources.root, camera, scene);
+    }, [gl, camera, scene, resources]);
     useEffect(() => { refs.current = resources; return () => {
         const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
         resources.root.traverse(object => {
@@ -86,6 +91,7 @@ export function PetShowdownTechniques({ beatRef, posRef, radii, quality, reduced
     useFrame(() => {
         const r = refs.current, beat = beatRef.current, ev = beat.event, hero = beat.presentation?.hero;
         r.root.visible = false;
+        r.lamp.intensity = 0;
         if (!hero || beat.presentation?.area || ev?.t !== "action") return;
         const targetId = showdownActionTargetId(ev);
         const actor = posRef.current.get(ev.actorId), target = targetId ? posRef.current.get(targetId) : undefined;
@@ -234,8 +240,11 @@ export function PetShowdownTechniques({ beatRef, posRef, radii, quality, reduced
         r.pointsMaterial.uniforms.uTint.value.set(snow ? "#d9f4ff" : tint);
         r.pointsMaterial.uniforms.uOpacity.value = hit ? impactFade * .7 : fade * .65;
         r.lamp.color.set(tint);
-        r.lamp.position.y = 1.4;
+        r.lamp.position.set(a.targetX, .05 + 1.4 * strength, a.targetZ);
         r.lamp.intensity = quality.dynamicPetLight && !reducedMotion ? impactFade * (ev.super ? 9 : 4) : 0;
     });
-    return <primitive object={resources.root} dispose={null} />;
+    // Keep the light count stable across attacks. A light inside the hidden
+    // effect group forced every lit pet to switch shader variants on first use.
+    return <><primitive object={resources.root} dispose={null} />
+        {quality.dynamicPetLight && !reducedMotion && <primitive object={resources.lamp} />}</>;
 }

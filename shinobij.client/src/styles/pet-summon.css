@@ -1,0 +1,17 @@
+.pet-summon-entrance { display: inline-grid; position: relative; width: 100%; height: 100%; transform-origin: 50% 100%; }
+.pet-summon-entrance > * { grid-area: 1 / 1; }
+.pet-summon-body { display: block; position: relative; width: 100%; height: 100%; transform-origin: 50% 100%; }
+.pet-summon-entrance.is-summoning > .pet-summon-body { animation: pet-summon-rise 1400ms ease-out both; }
+.pet-summon-entrance > .pet-summon-card { position: absolute; bottom: 95%; left: 20%; width: 60%; height: 60%; object-fit: contain; pointer-events: none; animation: pet-summon-card 1400ms ease-out both; }
+.pet-summon-entrance.is-summoning::before,
+.pet-summon-entrance.is-summoning::after { content: ''; position: absolute; pointer-events: none; }
+.pet-summon-entrance.is-summoning::before { bottom: -4%; left: -10%; width: 120%; height: 30%; border: 2px solid var(--pet-summon-color); border-radius: 50%; animation: pet-summon-ring 700ms 600ms ease-out both; }
+.pet-summon-entrance.is-summoning::after { bottom: 0; left: 27%; width: 46%; height: 155%; background: linear-gradient(to top, var(--pet-summon-color), transparent 78%); transform-origin: bottom; animation: pet-summon-pillar 640ms 600ms ease-out both; }
+@keyframes pet-summon-rise { 0%, 48% { opacity: 0; transform: translateY(-18px) scale(.02); } 68%, 100% { opacity: 1; transform: none; } }
+@keyframes pet-summon-card { 0%, 17% { opacity: 0; transform: translate(-160%, -30%) rotate(-25deg) scale(.7); } 45%, 69% { opacity: 1; transform: none; } 98%, 100% { opacity: 0; transform: translateY(-15%) scale(.8); } }
+@keyframes pet-summon-ring { 0% { opacity: .95; transform: scale(.35); } 60% { opacity: .75; transform: scale(1.22); } 100% { opacity: 0; transform: scale(1); } }
+@keyframes pet-summon-pillar { from { opacity: .6; transform: scaleY(1.25); } to { opacity: 0; transform: scaleY(.9); } }
+@media (prefers-reduced-motion: reduce) {
+    .pet-summon-entrance.is-summoning > .pet-summon-body { animation: none; }
+    .pet-summon-entrance.is-summoning::before, .pet-summon-entrance.is-summoning::after, .pet-summon-card { display: none; }
+}

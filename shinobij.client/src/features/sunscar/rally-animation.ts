@@ -1,6 +1,20 @@
 import * as THREE from 'three';
 import type { RallyMotion } from '../../../../shared/sunscar/rally-types';
 
+/** Small secondary motion on the rig's parent; physics and collision stay exact. */
+export function rallyBodyPose(motion: RallyMotion, steering: number, verticalSpeed: number, recoilTicks: number, reducedMotion: boolean) {
+    if (reducedMotion || motion === 'ready' || motion === 'victory' || motion === 'defeat') return { bank: 0, pitch: 0, squash: 1 };
+    return {
+        bank: Math.max(-.16, Math.min(.16, -steering * .18)),
+        pitch: motion === 'jump' || motion === 'airborne' ? Math.max(-.12, Math.min(.12, verticalSpeed * .025)) : recoilTicks > 0 ? -.09 * recoilTicks / 27 : 0,
+        squash: motion === 'land' ? .9 : motion === 'jump' ? 1.04 : 1,
+    };
+}
+
+export function rallyAnimationDelta(delta: number, moving: boolean, ready: boolean, finished: boolean) {
+    return moving || ready || finished ? Math.max(0, Math.min(delta, .05)) : 0;
+}
+
 export const RALLY_CLIP_MAP: Record<RallyMotion, string> = {
     ready: 'guard', start: 'gallop', run: 'gallop', sprint: 'gallop', jump: 'gallop_jump',
     airborne: 'gallop_jump', land: 'gallop_jump', stagger: 'idle_hitreact1', technique: 'gallop', victory: 'victory', defeat: 'rest',

@@ -2147,6 +2147,7 @@ export function BattleTowerFight({
                                                 side={a.side === "enemy" ? "enemy" : "player"}
                                                 actorId={a.id}
                                                 label={a.name}
+                                                summon={a.side !== "enemy" && (a.character as Record<string, unknown> | undefined)?.companion === true}
                                                 portrait={img}
                                                 sprite={battleSprite}
                                                 facing={spriteFacing}

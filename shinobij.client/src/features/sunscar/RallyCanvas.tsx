@@ -19,6 +19,15 @@ function RaceClock({ advance }: { advance: (delta: number) => void }) {
     useFrame((_, delta) => advance(Math.min(delta, .1)), -2);
     return null;
 }
+function RallyShaderPreparation() {
+    const { gl, scene, camera } = useThree();
+    useEffect(() => {
+        // Include scenery beyond the starting camera and inactive pooled FX.
+        // Compile during preparation, before Ready to race can start the clock.
+        gl.compile(scene, camera);
+    }, [gl, scene, camera]);
+    return null;
+}
 function RallyAdaptiveQuality({ state, onLight }: { state: RefObject<RallyState>; onLight: () => void }) {
     const sample = useRef(newRallyQualitySample()), lastTick = useRef(0);
     useFrame((_, delta) => {
@@ -105,8 +114,8 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
  * the race from the ref each frame). That was about half of the race's
  * JavaScript. Devices on the shared lite gate (weak touch hardware, reduced
  * motion, or the liteFx.v1 override) draw at 1x without MSAA. */
-export default memo(function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop }: {
-    state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand';
+export default memo(function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop, moving }: {
+    state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand'; moving: RefObject<boolean>;
 }) {
     const track = rallyTrack(state.current.trackId);
     const [lite] = useState(() => {
@@ -116,7 +125,7 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
     const [light, setLight] = useState(lite);
     const lowerQuality = useCallback(() => setLight(true), []);
     return <Canvas shadows={light ? false : 'percentage'} dpr={light ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: light ? 150 : 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
-        onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
+        onCreated={({ gl }) => { gl.debug.checkShaderErrors = import.meta.env.DEV; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
         <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />
@@ -131,7 +140,8 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
         <RallyAimGuide state={state}/>
         {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} light={light || reducedMotion} reducedMotion={reducedMotion} color={index === 0 ? '#ffe6a0' : '#fff0d5'}/>)}
         {state.current.racers.map((racer, index) => <PetModelBoundary key={racer.id} onFail={onFail}><Suspense fallback={null}>
-            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} />
+            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} moving={moving} />
         </Suspense></PetModelBoundary>)}
+        <RallyShaderPreparation />
     </Canvas>;
 });

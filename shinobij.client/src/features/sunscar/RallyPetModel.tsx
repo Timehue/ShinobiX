@@ -10,21 +10,26 @@ import { petCombatModel } from '../../lib/pet-3d-models';
 import { warfrontPetModelConfig } from '../../lib/pet-warfront-model-lod';
 import { stablePetModelPresentationBounds } from '../../lib/pet-model-bounds';
 import { bindPetAtlasTexture, copyPetAtlasSampling } from '../../lib/pet-atlas-material';
-import { readPetGlbAtlas } from '../../lib/pet-glb-atlas';
+import { preloadPetGlbAtlas, readPetGlbAtlas } from '../../lib/pet-glb-atlas';
 import { disposePetModelResources } from '../../lib/pet-model-resources';
-import { prepareRallyClips, RALLY_CLIP_MAP, rallyClipSpeed } from './rally-animation';
+import { prepareRallyClips, RALLY_CLIP_MAP, rallyClipSpeed, rallyBodyPose, rallyAnimationDelta } from './rally-animation';
 import { rallyPetPosition } from './rally-presentation';
 
-export function RallyPetModel({ state, index, onReady, reducedMotion }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void; reducedMotion: boolean }) {
+export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: { state: RefObject<RallyState>; index: number; onReady: (id: string) => void; reducedMotion: boolean; moving: RefObject<boolean> }) {
     const pet = state.current.racers[index].pet;
     const config = useMemo(() => {
         const selected = warfrontPetModelConfig(petCombatModel(pet as unknown as Pet));
         if (!selected) throw new Error('No approved 3D model exists for this pet.');
         return selected;
     }, [pet]);
+    // Start both resource readers before either suspends. FileLoader then
+    // shares one in-flight GLB; reading the atlas after useGLTF alone downloaded
+    // the same model again when HTTP caching was unavailable.
+    void preloadPetGlbAtlas(config.url);
     const gltf = useGLTF(config.url);
     const atlas = readPetGlbAtlas(config.url);
     const actor = useRef<THREE.Group>(null);
+    const body = useRef<THREE.Group>(null);
     const finishTarget = useMemo(() => new THREE.Vector3(), []);
     const prepared = useMemo(() => {
         const scene = clone(gltf.scene) as THREE.Group;
@@ -70,23 +75,30 @@ export function RallyPetModel({ state, index, onReady, reducedMotion }: { state:
         };
     }, [prepared]);
     const ready = useRef(false);
-    const lastTick = useRef(-1);
     useFrame((_, delta) => {
         const race = state.current;
         const racer = race.racers[index];
         if (!actor.current) return;
         const gap = racer.distance - race.racers[0].distance;
         actor.current.visible = race.finished || index === 0 || gap > -24 && gap < 175;
-        if (!actor.current.visible && ready.current) { lastTick.current = race.tick; return; }
+        if (!actor.current.visible && ready.current) return;
         const path = rallyPath(rallyTrack(race.trackId), racer.distance);
         const position = rallyPetPosition(race, index);
         // Reduced motion jumps straight to the podium pose instead of gliding.
         const settle = reducedMotion ? 1 : 1 - Math.exp(-Math.min(delta, .1) * 5);
-        if (race.finished) actor.current.position.lerp(finishTarget.set(position.x, position.y, position.z), settle);
-        else actor.current.position.set(position.x, position.y + racer.jump, position.z);
+        finishTarget.set(position.x, position.y + (race.finished ? 0 : racer.jump), position.z);
+        if (!ready.current || reducedMotion || actor.current.position.distanceToSquared(finishTarget) > 100) actor.current.position.copy(finishTarget);
+        else actor.current.position.lerp(finishTarget, race.finished ? settle : 1 - Math.exp(-Math.min(delta, .1) * 35));
         const ahead = rallyPath(rallyTrack(race.trackId), racer.distance + .5);
         const facing = race.finished ? config.yawOffset : Math.PI + config.yawOffset - Math.atan2(ahead.x - path.x, .5);
         actor.current.rotation.y = race.finished ? THREE.MathUtils.lerp(actor.current.rotation.y, facing, settle) : facing;
+        if (body.current) {
+            const pose = rallyBodyPose(racer.motion, racer.targetLane - racer.lane, racer.verticalSpeed, racer.recoilTicks, reducedMotion);
+            const blend = 1 - Math.exp(-Math.min(delta, .1) * 18);
+            body.current.rotation.z = THREE.MathUtils.lerp(body.current.rotation.z, pose.bank, blend);
+            body.current.rotation.x = THREE.MathUtils.lerp(body.current.rotation.x, pose.pitch, blend);
+            body.current.scale.y = THREE.MathUtils.lerp(body.current.scale.y, pose.squash, blend);
+        }
         const name = RALLY_CLIP_MAP[racer.motion];
         const current = animation.current;
         if (current.name !== name) {
@@ -107,11 +119,10 @@ export function RallyPetModel({ state, index, onReady, reducedMotion }: { state:
             } else if (racer.motion === 'land' && current.phase !== 'land') current.action.time = current.action.getClip().duration * .74;
             current.phase = racer.motion;
         }
-        prepared.mixer.update(lastTick.current !== race.tick || racer.motion === 'ready' || race.finished ? Math.min(delta, .05) : 0);
-        lastTick.current = race.tick;
+        prepared.mixer.update(rallyAnimationDelta(delta, moving.current, racer.motion === 'ready', race.finished));
         if (!ready.current) { ready.current = true; onReady(racer.id); }
     });
     return <group ref={actor}>
-        <group scale={prepared.scale}><primitive object={prepared.scene} position={prepared.offset} dispose={null} /></group>
+        <group ref={body}><group scale={prepared.scale}><primitive object={prepared.scene} position={prepared.offset} dispose={null} /></group></group>
     </group>;
 }

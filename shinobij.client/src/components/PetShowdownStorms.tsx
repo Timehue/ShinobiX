@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { VfxBeat, VfxPositions } from "./PetShowdownVfx";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -75,7 +75,7 @@ function resources(count: number) {
         fragmentShader: `uniform float opacity;uniform vec3 tint;void main(){vec2 p=gl_PointCoord-.5;float a=1.-smoothstep(.1,.5,length(p));gl_FragColor=vec4(tint,a*opacity);}`,
         transparent: true, depthWrite: false, toneMapped: false });
     const flakes = new THREE.Points(flakeGeometry, flakeMaterial); flakes.frustumCulled = false; root.add(flakes);
-    const lamp = new THREE.PointLight("#8ddcff", 0, 18, 2); root.add(lamp);
+    const lamp = new THREE.PointLight("#8ddcff", 0, 18, 2);
     root.visible = false;
     return { root, stations, gust, shards, debris, flakes, lamp, mist, halo, gustMaterial, flame, wind, funnelMaterial, stone, fault, ice, core, frost, flakeMaterial, dummy: new THREE.Object3D(), count };
 }
@@ -88,6 +88,11 @@ export function PetShowdownStorms({ beatRef, posRef, quality, reducedMotion }: {
 }) {
     const pool = useMemo(() => resources(Math.min(108, quality.setPieceParticles * 3)), [quality.setPieceParticles]);
     const refs = useRef(pool);
+    const { gl, camera, scene } = useThree();
+    useEffect(() => {
+        // Warm the existing pool without a timer or a second resource copy.
+        gl.compile(pool.root, camera, scene);
+    }, [gl, camera, scene, pool]);
     useEffect(() => { refs.current = pool; return () => {
         const geometries = new Set<THREE.BufferGeometry>(), materials = new Set<THREE.Material>();
         pool.root.traverse(object => {
@@ -103,6 +108,7 @@ export function PetShowdownStorms({ beatRef, posRef, quality, reducedMotion }: {
     useFrame(() => {
         const r = refs.current;
         r.root.visible = false;
+        r.lamp.intensity = 0;
         const beat = beatRef.current, ev = beat.event;
         if (!beat.presentation?.area || ev?.t !== "action") return;
         const snow = ev.element === "Water";
@@ -244,5 +250,7 @@ export function PetShowdownStorms({ beatRef, posRef, quality, reducedMotion }: {
         r.lamp.color.set(snow || thunder ? "#8ddcff" : tint);
         r.lamp.intensity = quality.dynamicPetLight && !reducedMotion ? impact * (snow ? 11 : thunder ? 24 : fire ? 18 : 6) : 0;
     });
-    return <primitive object={pool.root} dispose={null} />;
+    // Hiding the storm must not change the light count and recompile pet shaders.
+    return <><primitive object={pool.root} dispose={null} />
+        {quality.dynamicPetLight && !reducedMotion && <primitive object={pool.lamp} />}</>;
 }
