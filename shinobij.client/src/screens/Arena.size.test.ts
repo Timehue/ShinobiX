@@ -76,11 +76,14 @@ test("Arena keeps controller ordering for pet acceptance, spectating, and ladder
 
     const spectate = sliceBetween(arenaSource, "const spectateFight", "<ArenaDistrictLobby");
     assertOrdered(spectate, [
-        "fetch(`/api/pvp/spectate",
+        "await verifyPvpSpectatorBattle(fight.battleId, character.name)",
+        "setPvpBattleContext?.({ spectatingFromScreen: lobbyMode })",
         "setPvpBattleId(fight.battleId)",
         "setPvpRole(\"p1\")",
         "setScreen(\"pvpBattle\")",
-    ], "spectate join order");
+    ], "spectate admission order");
+    assert.doesNotMatch(spectate, /\/api\/pvp\/spectate/,
+        "Arena must let the battle screen join the spectator stream after admission");
 
     const ladderStart = arenaSource.indexOf("onOpenPetLadder={(mode) => {");
     assert.ok(ladderStart >= 0, "Arena must wire pet-ladder navigation");
