@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { RallyState, RallyTrack } from '../../../../shared/sunscar/rally-types';
-import { rallyPath, rallySection } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyPath, rallyPathFrame, rallySection } from '../../../../shared/sunscar/rally-tracks';
 import { sunscarRandom } from '../../../../shared/sunscar/random';
 import { createSandTexture } from './rally-scenery';
 import { RALLY_CROWD_BAND, rallyCrowdSpots, rallyRoadHalfWidth } from './rally-layout';
@@ -22,7 +22,8 @@ function dunes(track: RallyTrack, light: boolean) {
             const outside = Math.max(0, Math.abs(x) - width / 2 - 2);
             const waves = Math.sin(d * .031 + x * .044) * 2.7 + Math.cos(x * .032 - d * .027) * 2.4;
             const y = p.y - .1 + Math.min(1, outside / 16) * (waves + Math.min(11, outside * .07));
-            positions.push(p.x + x, y, p.z); uv.push(x / 8, d / 8);
+            const point = rallyLanePosition(track, d, x);
+            positions.push(point.x, y, point.z); uv.push(x / 8, d / 8);
             const color = base.clone().lerp(shade, Math.max(0, .18 + Math.sin(d * .08 + x * .06) * .12));
             colors.push(color.r, color.g, color.b);
             if (row < steps && col < cross) { const a = row * (cross + 1) + col, b = a + cross + 1; indices.push(a, a + 1, b, a + 1, b + 1, b); }
@@ -57,12 +58,14 @@ export function RallyCrowd({ track }: { track: RallyTrack }) {
         const body: THREE.Matrix4[] = [], head: THREE.Matrix4[] = [], pennants: THREE.Matrix4[] = [], colors: THREE.Color[] = [];
         const { inner, depth, count, spacing } = RALLY_CROWD_BAND;
         for (const d of rallyCrowdSpots(track)) for (const side of [-1, 1]) for (let i = 0; i < count; i++) {
-            const p = rallyPath(track, d + i * spacing), x = p.x + side * (rallyRoadHalfWidth(track, d + i * spacing) + inner + random() * depth);
+            const distance = d + i * spacing;
+            const offset = side * (rallyRoadHalfWidth(track, distance) + inner + random() * depth);
+            const p = rallyLanePosition(track, distance, offset), yaw = rallyPathFrame(track, distance).yaw;
             const tall = .85 + random() * .35;
-            dummy.position.set(x, p.y + tall * .6, p.z); dummy.scale.set(.32, tall, .3); dummy.rotation.set(0, side * Math.PI / 2, 0); dummy.updateMatrix(); body.push(dummy.matrix.clone());
+            dummy.position.set(p.x, p.y + tall * .6, p.z); dummy.scale.set(.32, tall, .3); dummy.rotation.set(0, yaw + side * Math.PI / 2, 0); dummy.updateMatrix(); body.push(dummy.matrix.clone());
             dummy.position.y = p.y + tall * 1.35; dummy.scale.setScalar(.23); dummy.updateMatrix(); head.push(dummy.matrix.clone());
             colors.push(new THREE.Color(['#697d79', '#c29d65', '#985b49', '#434c57', '#9f8167'][i % 5]));
-            if (i % 3 === 0) { dummy.position.set(x, p.y + tall * 1.9, p.z); dummy.rotation.set(0, Math.PI / 2, -.12); dummy.scale.set(.55, .32, 1); dummy.updateMatrix(); pennants.push(dummy.matrix.clone()); }
+            if (i % 3 === 0) { dummy.position.set(p.x, p.y + tall * 1.9, p.z); dummy.rotation.set(0, yaw + Math.PI / 2, -.12); dummy.scale.set(.55, .32, 1); dummy.updateMatrix(); pennants.push(dummy.matrix.clone()); }
         }
         return { body, head, pennants, colors };
     }, [track]);

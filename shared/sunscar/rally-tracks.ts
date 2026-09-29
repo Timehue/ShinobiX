@@ -73,3 +73,40 @@ export function rallyPath(track: RallyTrack, distance: number): { x: number; y: 
     }
     return { x, y, z: -distance };
 }
+
+/** Local frame for a racer or course marking at this distance. The path's
+ * lateral axis follows its tangent, so lanes stay parallel through bends. */
+export function rallyPathFrame(track: RallyTrack, distance: number) {
+    const before = rallyPath(track, distance - .5);
+    const after = rallyPath(track, distance + .5);
+    const dx = after.x - before.x, dz = after.z - before.z;
+    const length = Math.hypot(dx, dz) || 1;
+    const forwardX = dx / length, forwardZ = dz / length;
+    return {
+        rightX: -forwardZ,
+        rightZ: forwardX,
+        yaw: Math.atan2(-forwardX, -forwardZ),
+    };
+}
+
+/** Position an object by signed meters from the course centerline. */
+export function rallyLanePosition(track: RallyTrack, distance: number, lateral: number) {
+    const path = rallyPath(track, distance);
+    const frame = rallyPathFrame(track, distance);
+    return { x: path.x + frame.rightX * lateral, y: path.y, z: path.z + frame.rightZ * lateral };
+}
+
+/** Project a world point back onto the course's local forward/right axes. */
+export function rallyTrackCoordinates(track: RallyTrack, x: number, z: number, distanceGuess = -z) {
+    let distance = clamp(distanceGuess, -50, track.length + 50);
+    for (let i = 0; i < 3; i++) {
+        const path = rallyPath(track, distance), frame = rallyPathFrame(track, distance);
+        const dx = x - path.x, dz = z - path.z;
+        const forwardX = frame.rightZ, forwardZ = -frame.rightX;
+        const correction = dx * forwardX + dz * forwardZ;
+        distance = clamp(distance + correction, -50, track.length + 50);
+        if (Math.abs(correction) < .001) break;
+    }
+    const path = rallyPath(track, distance), frame = rallyPathFrame(track, distance);
+    return { distance, lateral: (x - path.x) * frame.rightX + (z - path.z) * frame.rightZ };
+}
