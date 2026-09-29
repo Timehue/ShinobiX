@@ -1,8 +1,11 @@
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
-import { installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
+import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { returnToWorldAtlas } from "./helpers/sector-navigation";
+
+// Map journeys start in the field; the shared town fixture stays in town.
+const uiAuditSave = (): UiAuditSave => ({ ...townUiAuditSave(), currentSector: 40 });
 
 const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
 // The focused source runner and the standard responsive CI use different names
@@ -13,7 +16,7 @@ type Footprint = { left: number; top: number; right: number; bottom: number };
 async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () => Promise<void>) {
     const runtimeErrors: string[] = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await installUiAuditRuntime(page, initialSave);
+    await installUiAuditRuntime(page, initialSave ?? uiAuditSave());
     // This established roaming character has already heard its level-up
     // rumors; their timed narrative popup would obscure unrelated map targets.
     await page.addInitScript(() => {

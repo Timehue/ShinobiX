@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { installUiAuditRuntime, uiAuditSave, expectUiAuditBoot } from './helpers/ui-audit-runtime';
 
 test('saved find survives dismissal and refresh; exact choice claims once', async ({page}, testInfo) => {
-    const save=uiAuditSave();
+    const save={...uiAuditSave(),currentSector:40};
     const find={id:'gather-browser-001',sector:33,biome:'volcano',rareTrace:true,at:Date.now()};
     save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[find]};
     const runtime=await installUiAuditRuntime(page,save);
@@ -44,7 +44,7 @@ test('saved find survives dismissal and refresh; exact choice claims once', asyn
     await expect(page.getByRole('button',{name:'Resume find',exact:true})).toHaveCount(0);
 });
 test('first find uses the VN renderer and skipping leaves an explicit unclaimed choice',async({page},testInfo)=>{
-    const save=uiAuditSave();save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:false,
+    const save={...uiAuditSave(),currentSector:40};save.character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:false,
         pendingGatherFinds:[{id:'gather-browser-first',sector:12,biome:'forest',rareTrace:false,at:Date.now()}]};
     const runtime=await installUiAuditRuntime(page,save);
     let claims=0;page.on('request',r=>{if(r.url().includes('/world/claim-gather'))claims++;});
@@ -62,7 +62,7 @@ test('first find uses the VN renderer and skipping leaves an explicit unclaimed 
 });
 
 test('Explore Tile reaches The Find after discovery probes and a lost claim reply retries safely',async({page})=>{
-    const save=uiAuditSave();
+    const save={...uiAuditSave(),currentSector:40};
     let character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[]} as Record<string,unknown>;
     save.character=character;
     const runtime=await installUiAuditRuntime(page,save);
