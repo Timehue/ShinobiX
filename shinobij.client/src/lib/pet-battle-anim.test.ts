@@ -9,6 +9,7 @@ import {
     extractPetMoveName,
     petBattleSprite,
     petCardImage,
+    petPortraitImage,
     petBattleLayers,
     petBattleSheet,
     petPoseImage,
@@ -69,6 +70,44 @@ test("Raijin's saved portrait and pose paths resolve to the current art", () => 
     assert.deepEqual(petBattleSprite(raijin), { mode: "circleFallback", src: portrait });
     assert.equal(petPoseImage(raijin), idle);
     assert.equal(petCardImage({ ...raijin, image: "" }), idle);
+});
+
+test("base Pebble Tortoise ignores old saved and shared art on cards, tokens, and sprites", () => {
+    const old = "/pet-poses/starter-earth-idle.webp?v=5";
+    const portrait = "/pet-portraits/pebble-tortoise-chibi-v2.webp";
+    const cutout = "/pet-portraits/pebble-tortoise-chibi-v2-cutout.webp";
+    const shared = {
+        "pet:starter-earth": old,
+        "petbody:starter-earth": old,
+        "petsheet:starter-earth": old,
+        "petlayers:starter-earth:far": old,
+        "petlayers:starter-earth:mid": old,
+        "petlayers:starter-earth:near": old,
+    };
+    for (const pet of [
+        mkPet({ id: "starter-earth", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:550e8400-e29b-41d4-a716-446655440000", templateId: "starter-earth", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:550e8400-e29b-41d4-a716-446655440000", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:legacy-instance", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth-1700000000000", image: old, bodyImage: old }),
+    ]) {
+        assert.equal(petCardImage(pet, shared), portrait);
+        assert.equal(petPortraitImage(pet, shared), portrait);
+        assert.equal(petPoseImage(pet, shared), cutout);
+        assert.deepEqual(petBattleSprite(pet, shared), { mode: "fullBodySprite", src: cutout });
+        assert.equal(petBattleSheet(pet, shared), null);
+        assert.equal(petBattleLayers(pet, shared), null);
+    }
+    const evolved = mkPet({ id: "starter-earth", rarity: "rare", evolutionStage: 1, image: "/pet-evos/starter-earth-r.webp" });
+    assert.equal(petCardImage(evolved), "/pet-evos/starter-earth-r.webp");
+    assert.deepEqual(petBattleSprite(evolved), { mode: "circleFallback", src: "/pet-evos/starter-earth-r.webp" });
+    assert.equal(petPoseImage(evolved), "/pet-poses/starter-earth-r-idle.webp?v=5");
+});
+
+test("circular pet tokens prefer shared portraits over body sprites", () => {
+    const pet = mkPet({ id: "starter-fire", image: "inline.png", bodyImage: "body.png" });
+    assert.equal(petPortraitImage(pet, { "pet:starter-fire": "shared.png" }), "shared.png");
+    assert.equal(petPortraitImage(pet), "inline.png");
 });
 
 test("petCardImage: Snow Rabbit uses clean card art for wild and owned instances", () => {

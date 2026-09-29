@@ -26,6 +26,7 @@ import { NindoCard } from "../components/NindoCard";
 import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailability, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { petCardImage } from "../lib/pet-battle-anim";
 import { GameArtIcon } from "../components/GameArtIcon";
 
 const ELEMENT_COLORS: Record<string, string> = {
@@ -274,7 +275,7 @@ export function UserView({
                         <h3 style={{ margin: "0 0 10px" }}>Pets</h3>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                             {pets.slice(0, 8).map((p) => {
-                                const petImg = sharedImages['pet:' + String(p.id).toLowerCase()] || p.image || "";
+                                const petImg = petCardImage(p, sharedImages);
                                 return (
                                     <div key={String(p.id)} className={petVisualVariantClass(p)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
                                         <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
