@@ -113,10 +113,10 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             // Discovery publishes a newer server character during boot, so the
             // generic helper's "last POST is still current" invariant does not
             // apply. The recovery path must adopt that newer GET snapshot.
-            // The forced variant waits on its stage rather than networkidle,
+            // Wait on the actual stage rather than background network idleness,
             // so the rest of boot lands inside that wait; the recorder above
             // keeps the transient action beat observable however late it plays.
-            await page.goto('/#/petLadder', { waitUntil: withoutWebGL2 ? 'domcontentloaded' : 'networkidle' });
+            await page.goto('/#/petLadder', { waitUntil: 'domcontentloaded' });
             await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'petLadder');
         } else {
             await expectUiAuditBoot(page, runtime, 'petLadder');
