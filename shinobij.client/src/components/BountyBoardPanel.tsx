@@ -3,6 +3,7 @@ import { GameArtIcon } from "./GameArtIcon";
 import type { Character } from "../types/character";
 import { fetchBountyBoard, hasPendingBountyPlacement, placeBounty, type BountyEntry } from "../lib/pvp-bounty";
 import { bountyBackerLabel, formatBountyAge, formatReputationNumber, sortBountiesByAmount } from "../lib/reputation-profile";
+import { rankFromLevel } from "../lib/stats";
 
 /**
  * Self-contained PvP bounty board — view active contracts + stake ryo on a
@@ -52,7 +53,9 @@ export function BountyBoardPanel({
     }
 
     const me = character.name.toLowerCase();
-    const canPlaceBounty = (character.examsPassed ?? []).some((exam) => exam.toLowerCase() === "jonin");
+    const rank = rankFromLevel(character.level);
+    const canPlaceBounty = rank === "Jonin" || rank === "Special Jonin"
+        || (character.examsPassed ?? []).some((exam) => exam.toLowerCase() === "jonin");
 
     return (
         <section className="summary-box">
