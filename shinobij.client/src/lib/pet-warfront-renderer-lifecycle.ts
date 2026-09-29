@@ -8,10 +8,28 @@ export function createWarfrontRendererResources(renderer: WebGLRenderer) {
     const textures = new Set<Texture>();
     const geometries = new Set<BufferGeometry>();
     let disposed = false;
+    const trackTexture = (texture: Texture) => {
+        if (textures.has(texture)) return;
+        textures.add(texture);
+        const release = () => {
+            textures.delete(texture);
+            texture.removeEventListener("dispose", release);
+        };
+        texture.addEventListener("dispose", release);
+    };
+    const trackGeometry = (geometry: BufferGeometry) => {
+        if (geometries.has(geometry)) return;
+        geometries.add(geometry);
+        const release = () => {
+            geometries.delete(geometry);
+            geometry.removeEventListener("dispose", release);
+        };
+        geometry.addEventListener("dispose", release);
+    };
     const track = (value: unknown) => {
-        if (value && typeof value === "object" && (value as Texture).isTexture) textures.add(value as Texture);
+        if (value && typeof value === "object" && (value as Texture).isTexture) trackTexture(value as Texture);
         else if (Array.isArray(value)) for (const item of value) {
-            if (item && typeof item === "object" && (item as Texture).isTexture) textures.add(item as Texture);
+            if (item && typeof item === "object" && (item as Texture).isTexture) trackTexture(item as Texture);
         }
     };
     const trackUniforms = (uniforms: Record<string, { value?: unknown }> | undefined) => {
@@ -24,7 +42,7 @@ export function createWarfrontRendererResources(renderer: WebGLRenderer) {
             track((scene as Object3D & { environment?: unknown }).environment);
             scene.traverse((object) => {
                 const geometry = (object as Object3D & { geometry?: BufferGeometry }).geometry;
-                if (geometry?.isBufferGeometry) geometries.add(geometry);
+                if (geometry?.isBufferGeometry) trackGeometry(geometry);
                 const material = (object as Object3D & { material?: Material | Material[] }).material;
                 if (!material) return;
                 for (const item of Array.isArray(material) ? material : [material]) {
