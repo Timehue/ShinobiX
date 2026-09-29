@@ -46,6 +46,17 @@ export function pvpBattleIdForPresence(battleId: string | null, context: PvpReco
     return context?.spectatingFromSector != null || context?.spectatingFromScreen != null ? null : battleId;
 }
 
+/** Back can be pressed before the lazy battle view mounts, so shell exits
+ * cannot rely exclusively on that view's unmount cleanup. */
+export function leavePvpSpectator(battleId: string | null, context: PvpRecoveryContext | null, name?: string): void {
+    if (!battleId || !name || (context?.spectatingFromScreen == null && context?.spectatingFromSector == null)) return;
+    void fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, action: 'leave' }),
+    }).catch(() => {});
+}
+
 /*
  * Where a finished PvP fight sends this player, and what the button promises.
  *
@@ -62,13 +73,15 @@ export function pvpBattleIdForPresence(battleId: string | null, context: PvpReco
 export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number, hospitalized = false): { returnTarget: Screen; returnLabel: string } {
     if (hospitalized && context?.spectatingFromSector == null && context?.spectatingFromScreen == null)
         return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
-    const returnTarget: Screen = (context?.sectorAttack || context?.spectatingFromSector != null) ? "worldMap"
-        : context?.spectatingFromScreen ?? (context?.mode?.startsWith("clanWar") ? "clan" : "battleArena");
+    const returnTarget: Screen = context?.spectatingFromSector != null ? "worldMap"
+        : context?.spectatingFromScreen ?? (context?.kageChallengeId ? "townHall" : context?.sectorAttack ? "worldMap"
+            : context?.mode?.startsWith("clanWar") ? "clan" : context?.mode === "ranked" ? "arenaDistrict" : "battleArena");
     return {
         returnTarget,
         returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.spectatingFromSector ?? context?.sector ?? currentSector}`
             : returnTarget === "clan" ? "Return to Clan War"
-                : returnTarget === "arenaDistrict" ? "Return to Spectator Board" : "Return to Arena",
+                : returnTarget === "townHall" ? "Return to Town Hall"
+                    : returnTarget === "arenaDistrict" ? (context?.spectatingFromScreen ? "Return to Spectator Board" : "Return to Ranked Arena") : "Return to Arena",
     };
 }
 
@@ -166,4 +179,24 @@ export async function fetchPlayerCombatSave(name: string): Promise<PlayerCombatS
     } catch {
         return null;
     }
+}
+// Strip image data URLs from anywhere in the serialized resume payload
+// before writing to localStorage. The opponent + party objects carry full
+// Pet records, and a 2MB data URL × N pets will blow the ~5MB quota — the
+// try/catch around setItem swallowed the failure silently so the player
+// had no idea their other localStorage writes were also failing. Images
+// are recoverable from sharedImages on remount anyway.
+export function stripDataUrlImages(value: unknown): unknown {
+    if (typeof value === "string") {
+        return value.startsWith("data:image") ? "" : value;
+    }
+    if (Array.isArray(value)) return value.map(stripDataUrlImages);
+    if (value && typeof value === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+            out[k] = stripDataUrlImages(v);
+        }
+        return out;
+    }
+    return value;
 }

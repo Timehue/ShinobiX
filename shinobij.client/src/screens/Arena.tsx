@@ -12,6 +12,7 @@ import { BattleArenaLobby } from "../features/arena/components/BattleArenaLobby"
 import { ArenaDistrictLobby } from "../features/arena/components/ArenaDistrictLobby";
 import type { ArenaDistrictTab, BattleArenaLobbyTab } from "../features/arena/types";
 import { hasActiveTeamArenaMatch } from "../lib/screen-guards";
+import { readArenaTab, rememberArenaTab } from "../lib/arena-navigation";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
@@ -122,7 +123,7 @@ export function Arena({
     const [sparSearch, setSparSearch] = useState("");
     const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>(() => {
         try { if (sessionStorage.getItem('tournament-resume')) return 'tournaments'; } catch { /* optional recovery marker */ }
-        return returnToSpectateTab ? 'spectate' : 'ranked';
+        return returnToSpectateTab ? 'spectate' : readArenaTab(character.name, 'district');
     });
     useEffect(() => {
         if (!returnToSpectateTab) return;
@@ -134,8 +135,10 @@ export function Arena({
     // match itself is re-entered from authoritative presence, not this key —
     // the key only decides which tab to show first.
     const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>(
-        () => (hasActiveTeamArenaMatch() ? "teamArena" : "spar"),
+        () => (hasActiveTeamArenaMatch() ? "teamArena" : readArenaTab(character.name, 'battle')),
     );
+    useEffect(() => { rememberArenaTab(character.name, 'district', activeArenaTab); }, [character.name, activeArenaTab]);
+    useEffect(() => { rememberArenaTab(character.name, 'battle', battleArenaTab); }, [character.name, battleArenaTab]);
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [dojoCircuitEnabled, setDojoCircuitEnabled] = useState(() => loadDojoCircuitEnabled());
     const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);

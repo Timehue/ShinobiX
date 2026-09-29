@@ -1,37 +1,6 @@
-/*
- * URL hash + browser history for the app shell.
- *
- * Owns two related things that both write window.history, kept together so they
- * cannot fight each other:
- *
- *  1. The shareable URL hash (`#/village`) — BOTH surfaces, unchanged behaviour,
- *     moved verbatim out of App.tsx.
- *  2. The Android hardware back button — PLAY APP ONLY.
- *
- * WHY BACK IS APP-ONLY. In an installed app, back means "up one screen" and
- * Android users expect it; on a website, back is the browser's own affordance
- * and intercepting it is the classic back-button trap. So on the web this module
- * pushes no history entries and installs no popstate listener — byte-for-byte
- * the behaviour that shipped before it existed.
- *
- * ⛔ THE LANDMINE. App.tsx used replaceState deliberately: "no new history
- * entries and no popstate — so it never conflicts with the localStorage restore
- * or the mobile back-stack". Directly above it, lastScreen.v1 exists because
- * routing a refresh to the village "was the bug that let players refresh-flee a
- * fight". A back stack re-opens exactly that hole: back out of a fight, refresh,
- * and the restore would honour the screen you backed into. So back is REFUSED
- * while a battle is unresolved — the entry is pushed straight back and the
- * player stays put, with Forfeit remaining the only exit. Back must never become
- * a flee route.
- *
- * Back is also refused toward any screen that is not deep-linkable, reusing
- * screen-guards' own definition of "renders correctly from the loaded save
- * alone". Landing on a stale battle screen with no sealed session is the other
- * half of the same failure.
- */
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { Screen } from '../types/core';
-import { DEEP_LINKABLE_SCREENS } from './screen-guards';
+import { RETURN_SCREENS } from './navigation-trail';
 import { isPlayApp } from './surface';
 
 export type BackDecision =
@@ -78,82 +47,99 @@ export function decideBack(opts: {
     // COMMON case, not the rare one — finishing any fight leaves one behind, so
     // village → petArena → village is an ordinary stack. Refusing there would
     // make back silently do nothing, which reads as a broken button.
-    if (!DEEP_LINKABLE_SCREENS.has(target as Screen)) {
+    if (!RETURN_SCREENS.has(target as Screen)) {
         return { action: 'navigate', screen: opts.fallbackScreen ?? BACK_FALLBACK_SCREEN, fellBack: true };
     }
     return { action: 'navigate', screen: target as Screen };
 }
 
-/**
- * Reflect `screen` in the URL, and on the Play app only, make the hardware back
- * button walk the screen stack.
- *
- * `isBattleUnresolved` is read at press time rather than captured, so the answer
- * reflects the fight state at the moment of the press. App.tsx passes its
- * existing isPresenceBattleActive — the same guard the global nav bar uses, so
- * back and the nav bar can never disagree about whether a fight is live.
- */
+/** Browser and Android Back follow the same guarded screen journey. Browser
+ * entries contain navigation only, never combat state or authority. */
 export function useAppHistory(
     screen: Screen,
-    navigate: (next: Screen) => void,
-    isBattleUnresolved: () => boolean,
-    /** Where the player is right now — read at press time, like the battle check. */
+    navigate: (next: Screen) => boolean | void,
+    isNavigationBlocked: () => boolean,
     fallbackScreen?: () => Screen,
+    account = '',
 ): void {
-    // Refs so the popstate listener is installed once and still sees fresh
-    // values; re-subscribing per screen change would drop in-flight presses.
-    const screenRef = useRef(screen);
-    const battleRef = useRef(isBattleUnresolved);
-    const navigateRef = useRef(navigate);
-    const fallbackRef = useRef(fallbackScreen);
-    // Written in an effect, never during render: a ref mutated mid-render is
-    // torn by StrictMode's double invoke and by concurrent rendering. No dep
-    // array, so every commit refreshes them — and a back press can only arrive
-    // from a user gesture, which is always after the commit.
-    useEffect(() => {
-        screenRef.current = screen;
-        battleRef.current = isBattleUnresolved;
-        navigateRef.current = navigate;
-        fallbackRef.current = fallbackScreen;
-    });
+    const latest = useRef({ screen, navigate, isNavigationBlocked, fallbackScreen, account });
+    useLayoutEffect(() => { latest.current = { screen, navigate, isNavigationBlocked, fallbackScreen, account }; });
+    const stack = useRef<Screen[]>([]);
+    const owner = useRef(account);
+    const restoringEntry = useRef(false);
+    const popped = useRef(false);
 
-    // ── Shareable URL hash ──────────────────────────────────────────────
-    // Reflect the active screen in the URL (e.g. #/village) so links are
-    // visible, bookmarkable, and shareable. We deliberately skip the "start"
-    // (login) screen so a bookmarked deep-link hash isn't wiped before the
-    // post-login restore can read it.
-    //
-    // Web uses replaceState — no history entries, no popstate, exactly as
-    // before. The Play app pushes instead, and that push IS the back stack.
     useEffect(() => {
+        if (screen === 'start' || owner.current !== account) {
+            stack.current = [];
+            owner.current = account;
+        }
+        // Preserve a bookmark while the account is loading.
         if (screen === 'start') return;
         try {
-            const want = hashForScreen(screen);
-            if (window.location.hash === want) return;
-            if (isPlayApp()) window.history.pushState(null, '', want);
-            else window.history.replaceState(null, '', want);
-        } catch { /* sandboxed / SSR */ }
-    }, [screen]);
-
-    // ── Android hardware back (Play app only) ───────────────────────────
-    useEffect(() => {
-        if (!isPlayApp()) return;
-        const onPopState = () => {
-            const decision = decideBack({
-                targetHash: window.location.hash,
-                battleUnresolved: battleRef.current(),
-                fallbackScreen: fallbackRef.current?.(),
-            });
-            if (decision.action === 'navigate') {
-                navigateRef.current(decision.screen);
+            const write = (method: 'pushState' | 'replaceState') => window.history[method](
+                { shinobiNavigation: { account, stack: stack.current } }, '', hashForScreen(screen));
+            if (popped.current) {
+                popped.current = false;
+                write('replaceState');
                 return;
             }
-            // Refused: put the entry back so the app stays where it is instead
-            // of falling through to Android's "exit the app" default. Pressing
-            // back again simply refuses again.
-            try {
-                window.history.pushState(null, '', hashForScreen(screenRef.current));
-            } catch { /* sandboxed */ }
+            if (!stack.current.length) {
+                const saved = window.history.state?.shinobiNavigation;
+                stack.current = saved?.account === account && Array.isArray(saved.stack)
+                    && saved.stack.at(-1) === screen ? saved.stack : [screen];
+                write('replaceState');
+                return;
+            }
+            const index = stack.current.lastIndexOf(screen);
+            if (index === stack.current.length - 1) return;
+            if (index >= 0) {
+                const distance = index - stack.current.length + 1;
+                stack.current = stack.current.slice(0, index + 1);
+                restoringEntry.current = true;
+                window.history.go(distance);
+                return;
+            }
+            // Retire a one-use encounter entry as soon as it is left. Forward
+            // must not resurrect a completed fight or a profile with no id.
+            const replace = !RETURN_SCREENS.has(stack.current.at(-1)!);
+            stack.current = [...(replace ? stack.current.slice(0, -1) : stack.current), screen];
+            write(replace ? 'replaceState' : 'pushState');
+        } catch { /* storage/history restricted */ }
+    }, [screen, account]);
+
+    useEffect(() => {
+        const onPopState = () => {
+            const current = latest.current;
+            const entry = window.history.state?.shinobiNavigation;
+            const writeCurrent = () => window.history.replaceState(
+                { shinobiNavigation: { account: current.account, stack: stack.current } }, '', hashForScreen(current.screen));
+            if (restoringEntry.current) {
+                restoringEntry.current = false;
+                writeCurrent();
+                return;
+            }
+            // A normal website must let Back leave the app's own history.
+            if (!entry && !isPlayApp()) return;
+            const decision = decideBack({
+                targetHash: entry?.account === current.account ? window.location.hash : '',
+                battleUnresolved: current.isNavigationBlocked(),
+                fallbackScreen: current.fallbackScreen?.(),
+            });
+            if (decision.action === 'navigate') {
+                if (current.navigate(decision.screen) !== false) {
+                    const entries: Screen[] = Array.isArray(entry?.stack) ? entry.stack : [decision.screen];
+                    stack.current = [...entries.slice(0, -1), decision.screen];
+                    popped.current = decision.screen !== current.screen;
+                    window.history.replaceState({ shinobiNavigation: { account: current.account, stack: stack.current } }, '', hashForScreen(decision.screen));
+                    return;
+                }
+            }
+            const distance = stack.current.length - (Array.isArray(entry?.stack) ? entry.stack.length : 0);
+            if (distance) {
+                restoringEntry.current = true;
+                window.history.go(distance);
+            } else writeCurrent();
         };
         window.addEventListener('popstate', onPopState);
         return () => window.removeEventListener('popstate', onPopState);

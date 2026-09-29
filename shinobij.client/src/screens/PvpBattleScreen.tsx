@@ -1598,6 +1598,18 @@ export function PvpBattleScreen({
         const iv = setInterval(beat, 20_000);
         return () => clearInterval(iv);
     }, [battleId, amSpectatorLive, character.name]);
+    // All navigation exits retire presence, including Back while the session
+    // is still loading. Keep this separate from heartbeat restarts on load.
+    useEffect(() => {
+        if (!battleId || !spectatorOrigin) return;
+        return () => {
+            void fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+                method: "POST", keepalive: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action: "leave" }),
+            }).catch(() => {});
+        };
+    }, [battleId, spectatorOrigin, character.name]);
 
     // Avatar travel tween — must run unconditionally (above the early return) to
     // keep hook order stable. -1 while the session is still loading.

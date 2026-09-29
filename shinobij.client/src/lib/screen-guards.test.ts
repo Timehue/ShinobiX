@@ -156,6 +156,8 @@ describe("screen navigation guards", () => {
 
     it("never teleports a wild-sector player to the village on refresh", () => {
         assert.equal(restoreScreenForSave("village", false, false, false, true), "worldMap");
+        assert.equal(restoreScreenForSave("centralHub", false, false, false, true), "worldMap");
+        assert.equal(restoreScreenForSave("hospital", false, false, false, true), "worldMap");
         // Where you are is where you are: no restorable screen → back to the world.
         assert.equal(restoreScreenForSave(null, false, false, false, true), "worldMap");
         assert.equal(safeFallbackScreen(true), "worldMap");
@@ -166,7 +168,7 @@ describe("screen navigation guards", () => {
         }
         // Ephemeral-state screens return to their parent, never the village.
         assert.equal(restoreScreenForSave("userView", false), "userHub");
-        assert.equal(restoreScreenForSave("battleLog", false), "arena");
+        assert.equal(restoreScreenForSave("battleLog", false), "profile");
         assert.equal(restoreScreenForSave("eventPetBattle", false, false, false, true), "worldMap");
         assert.equal(restoreScreenForSave("pvpBattle", false, false, false, true), "worldMap");
     });
