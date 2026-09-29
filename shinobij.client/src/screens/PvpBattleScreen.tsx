@@ -1,5 +1,6 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
@@ -2617,7 +2618,7 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                            title={combatItemTooltip(item, { action: "Weapon", apCost, range: wRange, cooldown: wCd })}
                                                             onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || submitting || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
@@ -2668,7 +2669,14 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                            title={combatItemTooltip(item, {
+                                                                action: "Throwable",
+                                                                apCost,
+                                                                range: wRange,
+                                                                charges: chargesLeft,
+                                                                cooldown: wCd,
+                                                                unavailable: realPvpItemsDisabled ? "Disabled for this fight" : depleted ? "No uses left this battle" : undefined,
+                                                            })}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
@@ -2715,7 +2723,13 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                            title={combatItemTooltip(item, {
+                                                                action: "Consumable",
+                                                                apCost,
+                                                                charges: chargesLeft,
+                                                                cooldown: wCd,
+                                                                unavailable: realPvpItemsDisabled ? "Disabled for this fight" : depleted ? "No uses left this battle" : undefined,
+                                                            })}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>

@@ -8,6 +8,7 @@ import "../styles/tower-tactical.css";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import {
     submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS, withTowerRequestDeadline,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput, type TowerActionResponse,
@@ -351,6 +352,7 @@ type ItemLike = {
     image?: string;
     rarity?: string;
     slot?: string;
+    description?: string;
     weaponEp?: number;
     weaponElement?: string;
     weaponEffect?: string;
@@ -2307,7 +2309,14 @@ export function BattleTowerFight({
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
                                                 <button type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${wp.rarity ?? "common"}${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
-                                                    title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    title={combatItemTooltip(wp, {
+                                                        action: thrown ? "Throwable" : "Weapon",
+                                                        apCost: ap,
+                                                        range,
+                                                        charges: thrown ? left : undefined,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     aria-pressed={armed} onClick={() => armWeaponCard(wp.id ?? "")}
                                                     disabled={!myTurn || busy || out || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
@@ -2335,7 +2344,7 @@ export function BattleTowerFight({
                                             <div key={cs.id} className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
                                                 <button type="button" className={`combat-jutsu-button combat-item-button rarity-${cs.rarity ?? "common"}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
-                                                    title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    title={combatItemTooltip(cs, { action: "Consumable", apCost: ap, charges: left, cooldown: cd })}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
                                                     disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="vitality" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>

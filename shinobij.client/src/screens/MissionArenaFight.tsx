@@ -1,5 +1,6 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { getAllJutsus } from "../lib/jutsu-loadout";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import "../styles/battle-skin.css";
@@ -127,7 +128,7 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; description?: string; battleDescription?: string; tags?: Array<{ name?: string; percent?: number }> };
-type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
+type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; description?: string; weaponRange?: number; apCost?: number };
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
 type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
 /** A floating hit number / status label over a fighter's tile (cosmetic). */
@@ -1631,7 +1632,14 @@ export function MissionArenaFight({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
+                                                    title={combatItemTooltip(item, {
+                                                        action: thrown ? "Throwable" : "Weapon",
+                                                        apCost: ap,
+                                                        range,
+                                                        charges: thrown && left !== Infinity ? left : undefined,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     onClick={() => armWeapon(item.id ?? "")}
                                                 >
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
@@ -1657,7 +1665,13 @@ export function MissionArenaFight({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
+                                                    title={combatItemTooltip(item, {
+                                                        action: "Consumable",
+                                                        apCost: ap,
+                                                        charges: left,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
                                                 >
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
