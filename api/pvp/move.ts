@@ -10,7 +10,9 @@ import { GRID_H, GRID_W, MAX_ACTIONS, MAX_ROUNDS, SESSION_TTL } from '../combat-
 import { isPvpSessionLapsed } from './_lapse-rules.js';
 import { terminalizeLapsedPvpSession } from './_lapse.js';
 import { hexDistance as distance, hexNeighbors, nextStepToward } from '../combat-core/grid.js';
+import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
+import { expireShield, timeShieldGain } from '../combat-core/shields.js';
 import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
@@ -1111,7 +1113,12 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
         // Undefined for every PvP caller — see ResolveJutsuArgs.damageCap. Only
         // the tower engine's sealed PvE guard supplies one.
         damageCap,
-        phases: pvpResolveJutsuPhases,
+        phases: {
+            ...pvpResolveJutsuPhases,
+            applyShield: (fighter, amount) => timeShieldGain(
+                pvpResolveJutsuPhases.applyShield(fighter, amount), fighter.shield, round,
+            ),
+        },
     });
 
     // `metadata` is additive: existing callers destructure {self, opponent,
@@ -1304,10 +1311,14 @@ function endTurn(session: PvpSession): PvpSession {
     // fighter's own turn as before.
     let s = { ...session };
     if (roundAdvanced) {
+        const p1 = expireShield(tickStatuses(s.p1, session.round), newRound);
+        const p2 = expireShield(tickStatuses(s.p2, session.round), newRound);
+        if (s.p1.shield > 0 && p1.shield === 0) lines.push(`${s.p1.name}'s shield expires.`);
+        if (s.p2.shield > 0 && p2.shield === 0) lines.push(`${s.p2.name}'s shield expires.`);
         s = {
             ...s,
-            p1: tickStatuses(s.p1, session.round),
-            p2: tickStatuses(s.p2, session.round),
+            p1,
+            p2,
             groundEffects: tickGroundEffects(s.groundEffects, session.round, roundOpenerFor(session)),
         };
     }
@@ -2139,6 +2150,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             case 'clear': {
                 if (!canAct(60) || (myCooldowns.clear ?? 0) > 0) return finish(withRejected(session, 'Clear isn\'t ready — out of AP/actions, or on cooldown.'));
+                if (distance(me.pos, opp.pos) > BASIC_CLEAR_RANGE) return finish(withRejected(session, `Clear is out of range (R${BASIC_CLEAR_RANGE}).`));
                 if (hasStatus(opp, 'Clear Prevent', session.round)) {
                     lines.push(`${opp.name}'s Clear Prevent blocks the clear.`);
                     result = commit(null, null, 60, { clear: 10 }, undefined, undefined, [vfxEvent('opp', 'shield', 'target', 'minor')]);

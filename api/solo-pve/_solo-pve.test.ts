@@ -287,6 +287,19 @@ describe('Weekly Boss score-attack rules on the solo runtime', () => {
 });
 
 describe('solo-PvE engine', () => {
+    it('expires an unbroken shield after its second round', () => {
+        const session = makeSession();
+        session.player.shield = 300;
+        session.player.shieldExpiresAtRound = 3;
+        endSoloPveTurn(session); // player -> enemy, round 1
+        endSoloPveTurn(session); // enemy -> player, round 2
+        assert.equal(session.player.shield, 300);
+        endSoloPveTurn(session); // player -> enemy, round 2
+        endSoloPveTurn(session); // enemy -> player, round 3
+        assert.equal(session.player.shield, 0);
+        assert.ok(session.log.some(line => line.includes("Alice's shield expires")));
+    });
+
     it('clears field poison and recoil as soon as the player steps off the zone', () => {
         const source = 'ground:enemy-field';
         const standing = makeSession();
@@ -534,6 +547,27 @@ describe('solo-PvE engine', () => {
         const protectedResult = applySoloPveAction(protectedSession, { type: 'clear' });
         assert.equal(protectedResult.applied, true);
         assert.equal(protectedResult.session.enemy.shield, 400, 'active Clear Prevent preserves the shield');
+    });
+
+    it('Clear reaches four hexes and rejects a target five hexes away without spending AP', () => {
+        const inRange = makeSession();
+        inRange.enemy.pos = 66;
+        inRange.enemy.shield = 400;
+        assert.equal(hexDistance(inRange.player.pos, inRange.enemy.pos), 4);
+        const cleared = applySoloPveAction(inRange, { type: 'clear' });
+        assert.equal(cleared.applied, true);
+        assert.equal(cleared.session.enemy.shield, 0);
+
+        const tooFar = makeSession();
+        tooFar.enemy.pos = 67;
+        tooFar.enemy.shield = 400;
+        assert.equal(hexDistance(tooFar.player.pos, tooFar.enemy.pos), 5);
+        const ap = tooFar.ap.player;
+        const rejected = applySoloPveAction(tooFar, { type: 'clear' });
+        assert.equal(rejected.applied, false);
+        assert.equal(rejected.reason, 'out-of-range');
+        assert.equal(rejected.session.ap.player, ap);
+        assert.equal(rejected.session.enemy.shield, 400);
     });
 
     it('consuming an active Stun preserves a deferred refresh for the next round', () => {

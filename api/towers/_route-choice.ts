@@ -1,4 +1,5 @@
 import type { TowerSession } from './_tower-session.js';
+import { shieldExpiryForGrant } from '../combat-core/shields.js';
 
 export type TowerRouteChoiceId = 'rest-shrine' | 'focused-assault' | 'elite-shortcut';
 
@@ -47,6 +48,7 @@ export function applyTowerRouteChoice(session: TowerSession, requested: unknown)
         for (const actor of squad) {
             const barrier = Math.max(1, Math.floor(actor.maxHp * 0.12));
             actor.shield += barrier;
+            actor.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
             actor.hp = Math.min(actor.maxHp, actor.hp + Math.floor(actor.maxHp * .2));
         }
     } else if (choice.id === 'focused-assault') {

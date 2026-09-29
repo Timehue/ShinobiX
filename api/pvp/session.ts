@@ -7,6 +7,7 @@ import { kv } from '../_storage.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
+import { shieldExpiryForGrant } from '../combat-core/shields.js';
 import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -150,6 +151,8 @@ export type PvpFighter = {
     stamina: number;
     maxStamina: number;
     shield: number;
+    /** Round at whose start the remaining shield disappears. */
+    shieldExpiresAtRound?: number;
     statuses: PvpStatus[];
     character: Record<string, unknown>;
     pos: number; // hex grid position (0–119 for 12×10 grid)
@@ -1738,6 +1741,7 @@ export function makePvpFighter(
         stamina: startStamina,
         maxStamina,
         shield: startingShield,
+        ...(startingShield > 0 ? { shieldExpiresAtRound: shieldExpiryForGrant(1) } : {}),
         statuses: [],
         character: char,
         pos,

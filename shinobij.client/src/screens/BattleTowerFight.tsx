@@ -62,6 +62,7 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import towerWardenFallback from "../assets/towers/enemies/warden.webp";
 import roleDefenderFallback from "../assets/roles/role-defender.webp";
 import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
@@ -1243,8 +1244,8 @@ export function BattleTowerFight({
     const enemiesInRange = useMemo(() => {
         if (!myActor) return new Set<string>();
         const out = new Set<string>();
-        // Clear has no range (strips buffs from any foe); jutsu/weapon use their reach; else melee.
-        const range = mode === "clear" ? Infinity : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
+        // Clear and jutsu/weapon use their reach; other attacks are melee.
+        const range = mode === "clear" ? BASIC_CLEAR_RANGE : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== "enemy") continue;
             if (a.id === lockedBossId) continue;
@@ -2231,7 +2232,7 @@ export function BattleTowerFight({
                             <button className={mode === "clear" ? "selected-action" : ""}
                                 aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
                                 disabled={!myTurn || busy || clearCd > 0 || session.activeAp < utilityAp}>
-                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP{clearCd > 0 ? ` · CD${clearCd}` : " · Ready"}</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP · R{BASIC_CLEAR_RANGE}{clearCd > 0 ? ` · CD${clearCd}` : ""}</small>
                             </button>
                             <button className={mode === "cleanse" ? "selected-action" : ""}
                                 aria-pressed={mode === "cleanse"} onClick={() => toggleMode("cleanse")}
@@ -2268,8 +2269,8 @@ export function BattleTowerFight({
                                         const afford = session.activeAp >= effectiveAp && myChakra >= ck && myStamina >= st && cd <= 0 && !sealed;
                                         const art = jutsuArt(j);
                                         return (
-                                            <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}`}>
-                                                {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
+                                            <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-cooling" : ""}`}>
+                                                {cd > 0 && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
                                                 <button type="button"
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${j.name ?? j.id} | ${effectiveAp} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${st ? ` | ${st} SP` : ""}${sealed ? " | Elementally sealed" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}

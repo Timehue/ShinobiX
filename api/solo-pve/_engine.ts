@@ -23,8 +23,10 @@ import {
     type CompanionMove,
 } from '../combat-core/companion.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
+import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
 import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
+import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
 import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName } from '../combat-core/statuses.js';
@@ -437,7 +439,8 @@ function playerHasLegalAction(session: SoloPveSession): boolean {
     if (canAct(session, 'player', BASIC_HEAL_AP)
         && (session.cooldowns.player.basicHeal ?? 0) <= 0
         && self.chakra >= BASIC_HEAL_CHAKRA) return true;
-    if (canAct(session, 'player', CLEAR_AP) && (session.cooldowns.player.clear ?? 0) <= 0) return true;
+    if (canAct(session, 'player', CLEAR_AP) && (session.cooldowns.player.clear ?? 0) <= 0
+        && hexDistance(self.pos, opponent.pos) <= BASIC_CLEAR_RANGE) return true;
     if (canAct(session, 'player', CLEANSE_AP) && (session.cooldowns.player.cleanse ?? 0) <= 0) return true;
 
     for (const jutsu of jutsuList(self)) {
@@ -665,6 +668,7 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     if (kind === 'shield' || kind === 'barrier') {
         const amount = Math.max(1, Math.floor(companion.maxHp * 0.2));
         companion.shield += amount;
+        companion.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
         session.log.push(`${companion.name}${label} and raises a ${amount} HP shield.`);
         return { shielding: amount };
     }
@@ -847,6 +851,21 @@ export function endSoloPveTurn(session: SoloPveSession): void {
         }
         session.round += 1;
         session.log.push(`--- Round ${session.round} ---`);
+        for (const side of ['player', 'enemy'] as const) {
+            const currentShield = fighter(session, side);
+            const aged = expireShield(currentShield, session.round);
+            if (aged !== currentShield) {
+                setFighter(session, side, aged);
+                session.log.push(`${currentShield.name}'s shield expires.`);
+            }
+        }
+        if (session.companion) {
+            const aged = expireShield(session.companion, session.round);
+            if (aged !== session.companion) {
+                session.companion = aged;
+                session.log.push(`${aged.name}'s shield expires.`);
+            }
+        }
         if (session.round > MAX_ROUNDS) {
             session.status = 'done';
             session.winner = 'enemy';
@@ -1155,6 +1174,7 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
     }
     if (action.type === 'clear') {
         if (!canAct(session, side, CLEAR_AP) || (session.cooldowns[side].clear ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
+        if (hexDistance(self.pos, opponent.pos) > BASIC_CLEAR_RANGE) return { applied: false, reason: 'out-of-range' };
         const blocked = activeStatuses(opponent, session.round).some((status) => status.name === 'Clear Prevent');
         if (!blocked) {
             const cleared = removeActiveCombatStatusesByKind(opponent.statuses, 'positive', session.round);
@@ -1526,6 +1546,7 @@ function aiTacticalAction(session: SoloPveSession): SoloPveAction | null {
     if (Number.isFinite(competence.clearBuffThreshold)
         && canAct(session, 'enemy', CLEAR_AP)
         && (session.cooldowns.enemy.clear ?? 0) <= 0
+        && hexDistance(session.enemy.pos, session.player.pos) <= BASIC_CLEAR_RANGE
         && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) >= competence.clearBuffThreshold) {
         return { type: 'clear' };
     }
@@ -1657,6 +1678,7 @@ function authoredAiRuleAction(session: SoloPveSession, rule: ServerAiRule, candi
     if (rule.action === 'clear_player_buffs') {
         return canAct(session, 'enemy', CLEAR_AP)
             && (session.cooldowns.enemy.clear ?? 0) <= 0
+            && hexDistance(session.enemy.pos, session.player.pos) <= BASIC_CLEAR_RANGE
             && pveMeaningfulBuffCount(activeStatuses(session.player, session.round)) > 0
             ? { type: 'clear' }
             : null;
@@ -1821,7 +1843,8 @@ function enemyActionLegal(session: SoloPveSession, action: SoloPveAction): boole
                 && (session.cooldowns.enemy.basicHeal ?? 0) <= 0
                 && enemy.chakra >= BASIC_HEAL_CHAKRA;
         case 'clear':
-            return canAct(session, 'enemy', CLEAR_AP) && (session.cooldowns.enemy.clear ?? 0) <= 0;
+            return canAct(session, 'enemy', CLEAR_AP) && (session.cooldowns.enemy.clear ?? 0) <= 0
+                && hexDistance(enemy.pos, session.player.pos) <= BASIC_CLEAR_RANGE;
         case 'cleanse':
             return canAct(session, 'enemy', CLEANSE_AP) && (session.cooldowns.enemy.cleanse ?? 0) <= 0;
         case 'wait':

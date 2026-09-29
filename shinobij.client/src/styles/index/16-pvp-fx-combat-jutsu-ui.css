@@ -343,6 +343,22 @@
     pointer-events: none !important;
     z-index: 5 !important;
 }
+
+/* Keep an active jutsu cooldown visible even when the cast button is disabled. */
+.combat-jutsu-card-wrap.jutsu-cooling {
+    outline: 2px solid #fb923c !important;
+    outline-offset: -2px;
+}
+
+.combat-jutsu-card-wrap .combat-jutsu-cd-badge {
+    min-width: 35px !important;
+    border: 2px solid #fff2c3 !important;
+    border-radius: 5px !important;
+    background: #b91c1c !important;
+    color: #fff !important;
+    box-shadow: 0 1px 7px #000, 0 0 0 1px #7f1d1d !important;
+    white-space: nowrap;
+}
 /* ===== Make combat jutsu menu fit 3 rows ===== */
 
 .combat-jutsu-bar {

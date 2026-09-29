@@ -2658,6 +2658,14 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     font: 800 10px/1 Inter, sans-serif !important;
 }
 
+.arena-fullscreen.pvp-battle-layout .combat-jutsu-card-wrap .combat-jutsu-cd-badge {
+    min-width: 35px !important;
+    border: 2px solid #fff2c3 !important;
+    background: #b91c1c !important;
+    color: #fff !important;
+    font: 900 12px/1 Inter, sans-serif !important;
+}
+
 /* Details "?" sits in the top-LEFT corner, out of the way of a thumb reaching
    for the middle of the card to cast; the cooldown pip took the other corner. */
 .arena-fullscreen.pvp-battle-layout .combat-jutsu-help {
@@ -5809,6 +5817,11 @@ html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .battle-tab-badge {
         height: 14px !important;
         padding: 0 3px !important;
         font-size: 9px !important;
+    }
+
+    /* A 44px card needs the compact count; the warm outline still marks it as cooling. */
+    html[data-vp] body > .arena-fullscreen.shinobi-combat-shell .combat-jutsu-cd-badge .combat-cd-prefix {
+        display: none !important;
     }
 
     /* The shared nameplate is sized for a square card: at this tier it resolved

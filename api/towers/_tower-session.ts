@@ -18,6 +18,7 @@ import type { TowerFeature, TowerBoardObject, TowerFieldRule } from './_floor-ca
 import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 import type { ClanBossContribution } from '../../shared/clan-boss-operation.js';
+import { timeStartingShield } from '../combat-core/shields.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -37,6 +38,8 @@ export type TowerActor = {
     stamina: number;
     maxStamina: number;
     shield: number;
+    /** Round at whose start the remaining shield disappears. */
+    shieldExpiresAtRound?: number;
     statuses: PvpStatus[];
     cooldowns: Record<string, number>;
     /** hex tile index on the floor's map */
@@ -368,6 +371,7 @@ export type CreateTowerSessionParams = {
 };
 
 export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
+    for (const actor of p.actors) Object.assign(actor, timeStartingShield(actor));
     const hasNpc = p.actors.some(a => a.side === 'npc');
     // Wave 3: a sealed 'extraPhase' modifier injects a DESPERATION gate into the boss's
     // HP-phase ladder. Merge it into the authored phases (deduped) so tickBossPhases fires it

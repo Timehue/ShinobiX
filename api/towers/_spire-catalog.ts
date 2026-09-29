@@ -23,7 +23,7 @@ import { hexZone, towerArenaMap } from './_floor-catalog.js';
 import { SPIRE_MAX_TIER } from './_modifiers.js';
 
 /** Increment only when generated Spire floor rules change. Active runs seal this value. */
-export const SPIRE_CATALOG_VERSION = 'endless-spire-v7' as const;
+export const SPIRE_CATALOG_VERSION = 'endless-spire-v8' as const;
 
 export type SpireBossKey =
     | 'warden' | 'revenant' | 'ravager' | 'sovereign'
@@ -135,13 +135,12 @@ const BOSS_BY_FLOOR: SpireBossKey[] = [
 // would also perturb the already-shipped story tower.
 // Calibrated for signature counters, pylon disruption, and hazard-aware squad movement.
 // The existing release bands remain fixed across all five weekly blessings.
-// v7 (2026-09-28): re-measured after tower environment zones shrank to radius 1
-// with a single rotating ward/hazard. Fewer hazards made F8-F17 near-free clears,
-// so those bosses gained HP; F18/F19 eased slightly back inside their band.
+// v8 (2026-09-29): re-measured after shields gained a two-round lifetime.
+// Small per-floor adjustments preserve the released difficulty bands across blessings.
 const HP_BY_FLOOR: number[] = [
     17600, 13800, 25000, 21000, 36300,   // 1-5
-    19300, 33300, 49500, 25800, 59500,   // 6-10
-    39600, 31600, 35600, 44200, 61300,   // 11-15
+    19300, 33300, 48500, 25800, 60700,   // 6-10
+    42000, 34100, 34900, 45100, 62500,   // 11-15
     30900, 27300, 30500, 27100, 40300,   // 16-20
 ];
 
