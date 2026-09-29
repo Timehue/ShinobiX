@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { rankFromLevel } from '../_xp-engine.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -154,7 +155,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const passedExams = Array.isArray(character.examsPassed)
                         ? character.examsPassed.map((exam) => String(exam).toLowerCase())
                         : [];
-                    if (!passedExams.includes('jonin')) {
+                    const rank = rankFromLevel(num(character.level));
+                    if (rank !== 'Jonin' && rank !== 'Special Jonin' && !passedExams.includes('jonin')) {
                         return { ok: false, status: 403, error: 'Only Jonin rank and above may place bounties.' };
                     }
                     const placer = identity.admin ? playerName : (character.name as string ?? playerName);
