@@ -1,3 +1,4 @@
+import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
 /* eslint-disable react-hooks/immutability --
  * READ THIS BEFORE REMOVING.
  *
@@ -67,7 +68,6 @@ import {
     sampleActor,
     sampleActorByIdInto,
     sampleActorInto,
-    sampleProjectilesInto,
     squadFocusAt,
 } from "../lib/pet-warfront-rite-presentation";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -631,8 +631,10 @@ function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRe
             }, 0);
         };
     }, [resources]);
+    const qaFrames = useMemo(() => new URLSearchParams(window.location.search).get("riteqa") === "1", []);
     const restoredFrames = useRef(-1);
     useFrame(() => {
+        if (qaFrames) gl.domElement.dataset.riteRenderFrame = String(gl.info.render.frame);
         // Capture after allocations change, not on every frame. The previous
         // render has compiled built-in uniforms by the time this runs.
         if (lastTextureCount.current !== gl.info.memory.textures || lastGeometryCount.current !== gl.info.memory.geometries) {
@@ -2908,8 +2910,8 @@ const PROJECTILE_GLYPH_INDEX: Readonly<Record<(typeof PROJECTILE_GLYPHS)[number]
 };
 
 /** Each element has a readable silhouette at phone scale. The flat shapes face
- *  the elevated arena camera and point down local -Y, which becomes forward
- *  (+Z) after rotation onto the court. Detached fragments share one draw call. */
+ *  the arena camera and point down local -Y; the pool rotates that direction
+ *  toward each target on screen. Detached fragments share one draw call. */
 function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THREE.ShapeGeometry {
     const head = new THREE.Shape();
     const fragments: THREE.Shape[] = [];
@@ -2963,111 +2965,82 @@ function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THR
         head.lineTo(0, -0.48);
     }
     const geometry = new THREE.ShapeGeometry([head, ...fragments], 8);
-    geometry.rotateX(-Math.PI / 2);
     return geometry;
 }
 
-/** Snapshot-native projectiles use one fixed instanced pool per silhouette.
- *  The simulation still decides position and element; no per-frame meshes or
- *  particles are created as several ranged attacks overlap. */
-function ProjectileLayer({ result, clockRef, quality }: {
+/** Every pet action gets an element silhouette. Fixed pools and a tick index
+ * keep work bounded by eight actors, with no post-hit duplicate projectiles. */
+function ProjectileLayer({ result, fighters, clockRef }: {
     result: DuelResult;
+    fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
-    quality: PetVisualQualityConfig;
 }) {
-    const capacity = quality.setPieceParticles <= 28 ? 10 : 18;
+    const camera = useThree((state) => state.camera);
+    const viewport = useThree((state) => state.size);
+    const canvas = useThree((state) => state.gl.domElement);
+    const capacity = fighters.length;
     const meshes = useRef<Array<THREE.InstancedMesh | null>>(Array(PROJECTILE_GLYPHS.length).fill(null));
     const geometries = useMemo(() => PROJECTILE_GLYPHS.map(projectileGlyphGeometry), []);
     const transform = useMemo(() => new THREE.Object3D(), []);
-    const projectilePool = useMemo(
-        () => Array.from({ length: capacity }, () => ({ id: -1, x: 0, y: 0, team: "player" as const, kind: "damage" as const, element: null })),
-        [capacity],
-    );
-    const previousIds = useMemo(() => new Int32Array(capacity).fill(-1), [capacity]);
-    const previousX = useMemo(() => new Float32Array(capacity), [capacity]);
-    const previousZ = useMemo(() => new Float32Array(capacity), [capacity]);
-    const nextIds = useMemo(() => new Int32Array(capacity).fill(-1), [capacity]);
-    const nextX = useMemo(() => new Float32Array(capacity), [capacity]);
-    const nextZ = useMemo(() => new Float32Array(capacity), [capacity]);
-
-    // These geometries enter InstancedMesh through args rather than as R3F
-    // children, so R3F cannot dispose them when sceneKey starts a new clash.
+    const projectedOrigin = useMemo(() => new THREE.Vector3(), []);
+    const projectedTarget = useMemo(() => new THREE.Vector3(), []);
+    const cameraSpace = useMemo(() => new THREE.Vector3(), []);
+    const timeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
+        [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
+    const seenActors = useRef(new Set<string>());
+    const qaEnabled = useMemo(() => new URLSearchParams(window.location.search).get("ritemotionqa") === "1", []);
     useEffect(() => () => { for (const geometry of geometries) geometry.dispose(); }, [geometries]);
-
     useLayoutEffect(() => {
-        for (const mesh of meshes.current) {
-            if (!mesh) continue;
+        for (const mesh of meshes.current) if (mesh) {
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             mesh.count = 0;
         }
     }, [capacity]);
-
     useFrame(() => {
-        const glyphMeshes = meshes.current;
-        for (const mesh of glyphMeshes) {
-            if (!mesh) return;
-            mesh.count = 0;
-        }
-        const count = sampleProjectilesInto(result, clockRef.current, projectilePool, capacity);
-        nextIds.fill(-1);
-        for (let i = 0; i < count; i++) {
-            const projectile = projectilePool[i];
-            const x = projectile.x * WORLD_SCALE;
-            const z = projectile.y * WORLD_SCALE;
-            let oldIndex = -1;
-            for (let candidate = 0; candidate < capacity; candidate++) {
-                if (previousIds[candidate] === projectile.id) { oldIndex = candidate; break; }
-            }
-            let yaw = projectile.team === "player" ? Math.PI / 2 : -Math.PI / 2;
-            if (oldIndex >= 0) {
-                const dx = x - previousX[oldIndex];
-                const dz = z - previousZ[oldIndex];
-                if (Math.hypot(dx, dz) > 0.0001) yaw = Math.atan2(dx, dz);
-            }
-            nextIds[i] = projectile.id;
-            nextX[i] = x;
-            nextZ[i] = z;
-            transform.position.set(x, 0.82, z);
-            transform.rotation.set(0, yaw, 0);
-            transform.scale.setScalar(1);
+        for (const mesh of meshes.current) if (mesh) mesh.count = 0;
+        const tick = clockRef.current;
+        const actions = timeline[Math.floor(tick)] ?? [];
+        for (const action of actions) {
+            const progress = warfrontActionProgress(action, tick);
+            const x = (action.ox + (action.tx - action.ox) * progress) * WORLD_SCALE;
+            const z = (action.oz + (action.tz - action.oz) * progress) * WORLD_SCALE;
+            transform.position.set(x, 0.95, z);
+            projectedOrigin.set(action.ox * WORLD_SCALE, 0.95, action.oz * WORLD_SCALE).project(camera);
+            projectedTarget.set(action.tx * WORLD_SCALE, 0.95, action.tz * WORLD_SCALE).project(camera);
+            const angle = Math.atan2((projectedTarget.y - projectedOrigin.y) * viewport.height,
+                (projectedTarget.x - projectedOrigin.x) * viewport.width);
+            transform.quaternion.copy(camera.quaternion);
+            transform.rotateZ(angle + Math.PI / 2);
+            const worldPerPixel = worldUnitsPerScreenPixel(camera, transform.position, viewport.height, cameraSpace);
+            const fade = tick <= action.contact ? 1 : Math.max(0, 1 - (tick - action.contact) / 3);
+            const size = Math.max(0.55, worldPerPixel * (action.kind === "support" ? 20 : 26)) * fade;
+            transform.scale.setScalar(size);
             transform.updateMatrix();
-            const glyph = warfrontElementSignature(projectile.element).shape;
-            const mesh = glyphMeshes[PROJECTILE_GLYPH_INDEX[glyph]]!;
-            mesh.setMatrixAt(mesh.count++, transform.matrix);
+            const glyph = warfrontElementSignature(action.element).shape;
+            const mesh = meshes.current[PROJECTILE_GLYPH_INDEX[glyph]];
+            if (mesh && mesh.count < capacity) mesh.setMatrixAt(mesh.count++, transform.matrix);
+            if (qaEnabled) seenActors.current.add(action.actorId);
         }
-        previousIds.set(nextIds);
-        previousX.set(nextX);
-        previousZ.set(nextZ);
-        for (const mesh of glyphMeshes) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
+        for (const mesh of meshes.current) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
+        if (qaEnabled) {
+            canvas.dataset.riteElementalActorsSeen = [...seenActors.current].join(",");
+            canvas.dataset.riteElementalActionsActive = String(actions.length);
+                canvas.dataset.riteElementalActorsActive = actions.map((action) => action.actorId).join(",");
+        }
     });
-
-    return (
-        <group name="wfr-batched-projectile-layer">
-            {PROJECTILE_GLYPHS.map((glyph, index) => (
-                <instancedMesh
-                    key={glyph}
-                    name={`wfr-projectile-${glyph}`}
-                    ref={(mesh) => { meshes.current[index] = mesh; }}
-                    args={[geometries[index], undefined, capacity]}
-                    frustumCulled={false}
-                >
-                    <meshBasicMaterial
-                        color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
-                        side={THREE.DoubleSide}
-                        transparent
-                        opacity={0.94}
-                        depthWrite={false}
-                        blending={THREE.AdditiveBlending}
-                    />
-                </instancedMesh>
-            ))}
-        </group>
-    );
+    return <group name="wfr-batched-projectile-layer">
+        {PROJECTILE_GLYPHS.map((glyph, index) => (
+            <instancedMesh key={glyph} name={`wfr-projectile-${glyph}`}
+                ref={(mesh) => { meshes.current[index] = mesh; }}
+                args={[geometries[index], undefined, capacity]} frustumCulled={false} renderOrder={12}>
+                <meshBasicMaterial color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
+                    side={THREE.DoubleSide} transparent opacity={0.95} toneMapped={false}
+                    depthWrite={false} depthTest={false} />
+            </instancedMesh>
+        ))}
+    </group>;
 }
 
-// ── Camera ──────────────────────────────────────────────────────────────────
-
-/** Fit the complete board below the HUD, preserving blue-left/red-right. */
 function ClashCamera() {
     const camera = useThree((state) => state.camera);
     const viewport = useThree((state) => state.size);
@@ -4001,7 +3974,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
             ) : null) : null}
             {hydrationPhase >= 3 ? (
                 <>
-                    <ProjectileLayer result={result} clockRef={routedClockRef} quality={quality} />
+                    <ProjectileLayer result={result} fighters={fighters} clockRef={routedClockRef} />
                     <ImpactLayer result={result} clockRef={routedClockRef} quality={quality} batched={batchedBattle} />
                 </>
             ) : null}
@@ -4018,6 +3991,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
 export type PetWarfrontRiteStage3DProps = {
     /** Remount combat-owned scene resources without replacing the WebGL context. */
     sceneKey: number;
+    paused?: boolean;
     result: DuelResult;
     /** Every active rig on the field — four a side. */
     fighters: StageFighter[];
@@ -4122,7 +4096,7 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                 <Canvas
                     key={canvasGeneration}
                     className="wfr-canvas"
-                    frameloop={pageVisible ? "always" : "never"}
+                    frameloop={!pageVisible ? "never" : props.paused ? "demand" : "always"}
                     dpr={renderQuality.dpr}
                     shadows={renderQuality.modelShadows ? "percentage" : false}
                     camera={{ fov: 44, position: [0, 9, 13], near: 0.1, far: 100 }}

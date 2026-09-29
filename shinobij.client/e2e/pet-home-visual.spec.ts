@@ -1214,3 +1214,64 @@ test("refined integration festival navigation, crate, and market retry", async (
     expect(state.character.ryo).toBe(929_900);
     await expect(page.getByRole('dialog')).toHaveCount(0);
 });
+
+
+test("Warfront failed settlement allows Leave and recovers the exact report after navigation", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const state = await installPetHomeApi(page);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const bodies: Record<string, unknown>[] = [];
+    let recovered = false;
+    await page.route("**/api/pet/warfront-start", async (route) => {
+        const body = route.request().postDataJSON();
+        if (body.resumeOnly) return route.fulfill({ status: 204 });
+        return json(route, {
+            token: "qa-warfront-exact-seal", seed: 23, reportKey: "23:tactical", theme: "central",
+            stance: body.stance, doctrine: body.doctrine, buyPolicy: body.buyPolicy,
+            opponentBuyPolicy: "balanced", opponentStance: "balanced", opponentDoctrine: "vanguard",
+            bluePets: body.playerPetIds.map((id: string) => state.character.pets.find((p) => p.id === id)),
+            redPets: state.character.pets.map((p, i) => ({ ...p, id: `rival-${i}`, hp: 1, attack: 1, defense: 1 })),
+            expiresAt: Date.now() + 3_600_000, settleAfter: Date.now() - 1000,
+            matchDurationMs: 120_000, safePlaybackForMs: 3_000_000,
+        });
+    });
+    await page.route("**/api/pet/battle-result", async (route) => {
+        bodies.push(route.request().postDataJSON());
+        if (!recovered) return json(route, { error: "QA temporary settlement outage" }, 503);
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion });
+    });
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
+    await page.getByRole("button", { name: /Beastbound Warfront/ }).click();
+    await page.getByRole("button", { name: "Start vs AI", exact: true }).click();
+    await page.getByRole("button", { name: "Lock formation", exact: true }).click({ timeout: 30_000 });
+    const report = page.getByRole("dialog", { name: "Tactical report and re-form" });
+    for (let clash = 0; clash < 5; clash++) {
+        await expect.poll(async () => await page.locator(".wfr-result").isVisible() || await report.isVisible(), { timeout: 90_000 }).toBe(true);
+        if (await page.locator(".wfr-result").isVisible()) break;
+        const acknowledge = page.getByRole("button", { name: "Report read, re-form band" });
+        if (await acknowledge.isVisible()) await acknowledge.click();
+        await report.getByRole("button", { name: "Lock & rematch" }).click();
+        await expect(report).toBeHidden();
+    }
+    await expect(page.locator(".wfr-result")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
+    await expect(leave).toBeEnabled();
+    await page.screenshot({ path: testInfo.outputPath("failed-report-leave-enabled.png") });
+    await leave.click();
+    await expect(page.locator(".wfr-result")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Pet Yard", exact: true }).click();
+    recovered = true;
+    await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
+    await expect.poll(() => bodies.length).toBe(2);
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toHaveCount(0);
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(bodies[0].battleToken).toBe("qa-warfront-exact-seal");
+    expect(bodies[0].warfrontPlan).toBeTruthy();
+    const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+    expect(storage).not.toContain("qa-warfront-exact-seal");
+    expect(errors).toEqual([]);
+});
