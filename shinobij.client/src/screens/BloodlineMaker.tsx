@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import bloodlineForgeHero from "../assets/facilities/bloodline-forge-hero.webp";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { gameToast } from "../components/GameToast";
 import type { Character } from "../types/character";
 import type { Jutsu, JutsuTag, SavedBloodline } from "../types/combat";
 import type { JutsuElement, JutsuMethod, JutsuTarget, JutsuType, Rank } from "../types/core";
@@ -62,7 +63,7 @@ function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
     return target === "SELF" ? { ...normalized, range: 0 } : normalized;
 }
 
-export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void }) {
+export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening, onAwakenComplete }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void; onAwakenComplete?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
     const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
@@ -366,7 +367,14 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         }
         setSavedBloodlines(nextBloodlines);
         updateCharacter(nextCharacter);
-        alert(imageSaveFailed ? `${bloodlineName} saved, but one or more images did not upload to shared storage.` : `${bloodlineName} saved.`);
+        if (!editingBloodline && onAwakenComplete) {
+            gameToast(imageSaveFailed
+                ? `${bloodlineName} awakened and saved. One or more images did not upload to shared storage.`
+                : `${bloodlineName} awakened and saved.`);
+            onAwakenComplete();
+        } else {
+            alert(imageSaveFailed ? `${bloodlineName} saved, but one or more images did not upload to shared storage.` : `${bloodlineName} saved.`);
+        }
     }
     // Switch the single active bloodline. Stored kits keep their jutsu mastery,
     // but only the selected kit can occupy loadout slots.

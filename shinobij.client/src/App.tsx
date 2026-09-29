@@ -6447,6 +6447,7 @@ export default function App() {
                         }}
                         onClose={() => bloodlineMaker.close(isAdminAccountName(character.name) ? "adminPanel" : "centralHub")}
                         onOpenAwakening={isAdminAccountName(character.name) ? undefined : bloodlineMaker.openAwakening}
+                        onAwakenComplete={bloodlineMaker.rankLocked && !isAdminAccountName(character.name) ? () => setScreen("profile") : undefined}
                     />
                 )}
                 {!introCinematicActive && <ScreenReadyProbe screen={screen} />}
