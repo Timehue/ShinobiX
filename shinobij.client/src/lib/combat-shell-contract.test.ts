@@ -69,7 +69,7 @@ test("wide desktop shares one command center and gives unused mode space to the 
     assert.match(desktopCommandCenter, /#combat \.combat-mode-panel,\s*#combat \.battle-chat-col[\s\S]*?grid-area: mode !important/);
     assert.match(desktopCommandCenter, /#combat\.mission-arena-fight \.shinobi-command-bar\s*\{[^}]*grid-template-columns: repeat\(8, minmax\(0, 1fr\)\) !important/);
     assert.match(desktopCommandCenter, /#combat \.combat-layout\.combat-log-wide \.combat-text-log\s*\{[^}]*grid-column: 3 \/ 6 !important/);
-    assert.match(solo, /<CombatHudLayout className="combat-log-wide" hasActionNotice>/);
+    assert.match(solo, /<CombatHudLayout className="combat-log-wide" hasActionNotice=\{!mobileCombat\}>/);
     assert.doesNotMatch(solo, /CombatModePanel|combat-companion-summon/);
     assert.match(pvp, /className=\{`battle-chat-panel battle-chat-col/);
     assert.match(pvp, /className=\{battleChatVisible \? undefined : "combat-log-wide combat-chat-collapsed"\}/);
