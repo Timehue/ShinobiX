@@ -507,6 +507,7 @@ export function AiFightHost({
                     <button onClick={() => {
                         const screen = activeStartFailure.request.returnScreen;
                         setStartFailure((current) => current?.requestId === activeStartFailure.requestId ? null : current);
+                        onFightOpenChange?.(false);
                         onClose?.(screen);
                     }}>Return</button>
                 </div>
@@ -587,7 +588,12 @@ export function AiFightHost({
         activeRef.current = false;
         if (active) forgetCircuitCombatSession(active.originatingPlayerName, active.sessionId);
         setFight((current) => current?.requestId === active?.requestId ? null : current);
-        if (activePlayerKeyRef.current === originatingPlayerKey) onClose?.(returnScreen);
+        // Release the synchronous shell guard before requesting the return route.
+        // The effect cleanup runs after onClose and would otherwise block it.
+        if (activePlayerKeyRef.current === originatingPlayerKey) {
+            onFightOpenChange?.(false);
+            onClose?.(returnScreen);
+        }
         const queued = queuedWorldRequestRef.current;
         queuedWorldRequestRef.current = null;
         if (queued && activePlayerKeyRef.current === originatingPlayerKey) {

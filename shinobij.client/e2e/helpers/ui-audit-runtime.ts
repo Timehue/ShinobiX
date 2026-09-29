@@ -82,7 +82,8 @@ export function uiAuditSave(): UiAuditSave {
             messages: [],
         },
         currentBiome: "central",
-        currentSector: 40,
+        // Town UI fixtures must be in town; field tests set their own sector.
+        currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
         acceptedMissionIds: [],

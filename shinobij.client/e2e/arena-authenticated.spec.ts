@@ -206,6 +206,7 @@ async function installArenaApi(page: Page, options: {
                 saveVersion += 1;
                 save = {
                     ...incoming,
+                    currentSector: 0,
                     creatorEvents: [],
                     triggeredEvents: [],
                     character: {

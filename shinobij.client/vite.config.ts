@@ -1328,6 +1328,11 @@ export default defineConfig({
                 // Keep content hashes and the service worker's name-hash shape;
                 // the manifest still maps source modules to their emitted files.
                 // Vendor names remain visible to the independent size gates.
+                // Frame order comes from the source glob. Keep only the content
+                // hash with a short prefix in FX URLs, preserving immutable caching.
+                assetFileNames: (asset) => asset.originalFileNames.some((name) => /\/assets\/fx\/[^/]+\/[^/]+\.png$/.test(name.replace(/\\/g, '/')))
+                    ? 'assets/f-[hash][extname]'
+                    : 'assets/[name]-[hash][extname]',
                 chunkFileNames: (chunk) => chunk.name.endsWith('-vendor')
                     ? 'assets/[name]-[hash].js'
                     : 'assets/c-[hash].js',

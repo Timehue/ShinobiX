@@ -102,9 +102,9 @@ for (const profession of ['vanguard', 'petTamer', 'healer']) {
             await openProfessionFromMenu(page, profession === 'petTamer' ? 'Pet Tamer' : profession === 'healer' ? 'Healer' : 'Vanguard');
             await expect(page.locator('.ph-hero h2')).toBeVisible();
         }
-        // The hero uses the same navigation history as the rest of the game.
+        // Revisiting the hub prunes its excursions; Back returns to the town origin.
         await page.locator('.ph-hero').getByRole('button', { name: '← Back', exact: true }).click();
-        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', destinations[profession as keyof typeof destinations].at(-1)![1]);
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
         expect(errors).toEqual([]);
     });
 }

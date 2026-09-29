@@ -6181,6 +6181,18 @@ button.chronicle-card {
 }
 .chronicle-effect-links .effect-link-halo { stroke-width: 8px; opacity: .35; filter: blur(2px); }
 .chronicle-effect-links .effect-link-core { stroke: #fff3e2; stroke-width: 1.6px; }
+/* Occupied slots yield to the card/figure instead of drawing colored boxes
+   around it. Keep empty placement sockets and keyboard focus discoverable. */
+.chronicle-shell--duel-active .chronicle-table .chronicle-playmat .chronicle-zone:has(> .chronicle-card) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+.chronicle-table .chronicle-playmat .chronicle-zone:has(> .chronicle-card):not(:focus-visible) {
+  outline: none;
+}
+
 .chronicle-effect-source, .chronicle-effect-target {
   position: absolute;
   display: grid;

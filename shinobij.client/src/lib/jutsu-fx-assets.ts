@@ -19,7 +19,8 @@
  */
 
 // eager: resolve URLs at build time; import the default (the asset URL string).
-const modules = import.meta.glob("../assets/fx/*/*.png", {
+const modules = import.meta.glob("./*/*.png", {
+    base: "../assets/fx",
     eager: true,
     import: "default",
 }) as Record<string, string>;
@@ -29,7 +30,7 @@ const modules = import.meta.glob("../assets/fx/*/*.png", {
 const framesByElement: Record<string, string[]> = (() => {
     const byKey: Record<string, Array<{ path: string; url: string }>> = {};
     for (const [path, url] of Object.entries(modules)) {
-        const m = /\/fx\/([^/]+)\/[^/]+\.png$/.exec(path);
+        const m = /^\.\/([^/]+)\/[^/]+\.png$/.exec(path);
         if (!m) continue;
         (byKey[m[1]] ||= []).push({ path, url });
     }

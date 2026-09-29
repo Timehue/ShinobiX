@@ -398,7 +398,7 @@ function subscriberSaveFixture(jutsuIds: string[], creatorJutsus: ReturnType<typ
             },
         },
         currentBiome: "central",
-        currentSector: 40,
+        currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
         acceptedMissionIds: [],
@@ -676,7 +676,7 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await installPersistedAdaptiveSession(page, maximumAccountName);
     await page.goto("/?adaptive-fixture=maximum#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api);
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });
@@ -753,7 +753,7 @@ test("subscriber capacity and expanded mobile drawers reflow safely", async ({ p
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api);
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
     await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");
