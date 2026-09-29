@@ -87,6 +87,8 @@ import {
 import { pushLiveSectorPlayers, markSectorRosterUnavailable, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
+import { useHomeVillageTravel } from "./lib/use-home-village-travel";
+import { villageBiomeMap } from "./data/village-biomes";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
 import { presenceCharacter } from "./lib/presence-character";
 import { noteServerTime } from "./lib/server-clock";
@@ -1876,6 +1878,26 @@ export default function App() {
         try { localStorage.removeItem(PENDING_PET_PVP_KEY); } catch { /* ignore */ }
     }, [screen]);
     const isTraveling = travelingUntil > travelNow;
+    function arriveHomeFromTravel() {
+        const biome = villageBiomeMap[characterRef.current?.village ?? ""] ?? "forest";
+        setCurrentSector(0);
+        setCurrentBiome(biome);
+        setCurrentWeather(weatherForBiome(biome));
+        setPendingTravel(null);
+        setTravelingUntil(0);
+        setScreen("village");
+    }
+    const homeVillageTravel = useHomeVillageTravel({
+        name: character?.name,
+        onStart: (arrivalAt) => {
+            setPendingTravel({ destinationSector: 0, arrivalAt });
+            setTravelingUntil(arrivalAt);
+            setWorldMapKey((key) => key + 1);
+            setScreen("worldMap");
+        },
+        onArrival: arriveHomeFromTravel,
+        onError: (message) => alert(message),
+    });
 
     // Wake ONCE, when travel actually ends — not four times a second.
     //
@@ -1902,6 +1924,10 @@ export default function App() {
     // the deadline so the next heartbeat can reconcile the server's arrival.
     useEffect(() => {
         if (pendingTravel && pendingTravel.arrivalAt <= travelNow) {
+            if (pendingTravel.destinationSector === 0) {
+                arriveHomeFromTravel();
+                return;
+            }
             setPendingTravel(null);
             setTravelingUntil(0);
         }
@@ -4521,6 +4547,8 @@ export default function App() {
 
     const { canGoBack, goBack, inBattleRef } = useBattleNavigationGuard({
         screen, screenRef, setScreen, hospitalized: !!character?.hospitalized, fallbackScreen: () => safeFallbackScreen(isWildSector(currentSectorRef.current)),
+        navigationBlocked: () => isTraveling || homeVillageTravel.isBusy(),
+        navigateBack: (target) => target === "village" ? navigate(target) : setScreen(target),
         raidBattleKind, pvpBattleId, pvpBattleResolved: pvpCompletionConfirmed, endlessBattleActive,
         pendingArenaStoryBattle: !!pendingArenaStoryBattle,
         pendingEventEncounter: !!pendingEventEncounter,
@@ -4559,6 +4587,11 @@ export default function App() {
         // Lock: cannot leave hospital while still admitted
         if (isHospitalNavigationBlocked(!!(authoritativeCharacter ?? character)?.hospitalized, screen, nextScreen)) {
             alert("You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
+            return;
+        }
+        if (isTraveling || homeVillageTravel.isBusy()) return;
+        if (nextScreen === "village" && currentSectorRef.current !== 0 && character) {
+            void homeVillageTravel.start();
             return;
         }
         // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)

@@ -19,6 +19,9 @@ interface BattleNavigationGuardOptions extends Omit<BattleGuardSignals, "screen"
     setScreen: Dispatch<SetStateAction<Screen>>;
     /** Where "back" lands with no history (e.g. right after a refresh). Defaults to the village. */
     fallbackScreen?: () => Screen;
+    /** A journey cannot be bypassed by returning to an earlier town screen. */
+    navigationBlocked?: () => boolean;
+    navigateBack?: (screen: Screen) => void;
 }
 
 /**
@@ -32,6 +35,8 @@ export function useBattleNavigationGuard({
     hospitalized,
     setScreen,
     fallbackScreen,
+    navigationBlocked,
+    navigateBack,
     raidBattleKind,
     pvpBattleId,
     pvpBattleResolved,
@@ -110,6 +115,7 @@ export function useBattleNavigationGuard({
     }, [hospitalized, screen, raidBattleKind, pvpBattleId, pvpBattleResolved, endlessBattleActive, pendingArenaStoryBattle, pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattle, arenaBattleActive, petBattleActive, missionBattleActive, setScreen]);
 
     const goBack = useCallback(() => {
+        if (navigationBlocked?.()) return;
         if (inBattleRef.current) {
             alert("You cannot leave during a battle. Finish the fight first!");
             return;
@@ -122,14 +128,14 @@ export function useBattleNavigationGuard({
             if (previous.length <= 1) {
                 // No history (fresh reload): land where the player IS. A wild-sector
                 // player goes back to the world, never teleported to the village.
-                setScreen(fallbackScreen ? fallbackScreen() : "village");
+                (navigateBack ?? setScreen)(fallbackScreen ? fallbackScreen() : "village");
                 return previous;
             }
             isGoingBackRef.current = true;
-            setScreen(previous[previous.length - 2]);
+            (navigateBack ?? setScreen)(previous[previous.length - 2]);
             return previous.slice(0, -1);
         });
-    }, [hospitalized, screen, setScreen, fallbackScreen]);
+    }, [hospitalized, screen, setScreen, fallbackScreen, navigationBlocked, navigateBack]);
 
     return { canGoBack: screenHistory.length > 1, goBack, inBattleRef };
 }

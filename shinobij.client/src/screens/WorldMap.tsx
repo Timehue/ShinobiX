@@ -2736,6 +2736,22 @@ function WorldMapContent({
     }
 
     function enterLandmark(location: typeof locations[number]) {
+        if (location.type === "village") {
+            const home = location.name === character.village;
+            // Home uses the safe-zone sector; foreign villages use the same
+            // territory sector as their exploration and battle view.
+            const destination = home ? 0 : villageOutskirtsSector(location.name) + 4;
+            beginSectorTravel(destination, (arrivalTile) => {
+                setCurrentBiome(location.biome);
+                setCurrentWeather(weatherForBiome(location.biome));
+                setCurrentSector(destination);
+                setSelectedSector(null);
+                setSectorPlayerPos(arrivalTile ?? SECTOR_CENTRE_TILE);
+                setSelectedVillageTerritory(home ? null : location);
+                setSelectedLandmark(home ? location : null);
+            });
+            return;
+        }
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
         // Hollow Gate is a forbidden shrine. Entry is gated by either the Kage's
@@ -2749,12 +2765,7 @@ function WorldMapContent({
             setScreen("centralHub");
             return;
         }
-        // Enemy villages open territory exploration; your own village opens its landmark.
-        if (location.type === "village" && location.name !== character.village) {
-            setSelectedVillageTerritory(location);
-        } else {
-            setSelectedLandmark(location);
-        }
+        setSelectedLandmark(location);
     }
     // Warm the destination's assets DURING the 3s travel window so arrival paints
     // instantly instead of flashing an unloaded scene. Purely best-effort browser
@@ -2790,7 +2801,7 @@ function WorldMapContent({
             arrive();
             return;
         }
-        prefetchTravelDestination(sector); // warm the destination during the 3s window
+        if (sector !== 0) prefetchTravelDestination(sector); // warm the destination during the 3s window
         travelRequestInFlight.current = true;
         const presentation = travelPresentation.current;
         void (async () => {
