@@ -113,8 +113,10 @@ const validPet = (value: unknown): value is Pet => {
 export function parseSealedPetSnapshots(
     value: unknown,
     expectedIds: readonly string[],
+    options: { allowRepeatedOpponentIds?: boolean } = {},
 ): Pet[] | null {
-    if (expectedIds.length < 1 || expectedIds.length > 4 || new Set(expectedIds).size !== expectedIds.length) return null;
+    if (expectedIds.length < 1 || expectedIds.length > 4
+        || (!options.allowRepeatedOpponentIds && new Set(expectedIds).size !== expectedIds.length)) return null;
     if (!Array.isArray(value) || value.length !== expectedIds.length || !value.every(validPet)) return null;
     const pets = value as Pet[];
     return pets.every((pet, index) => pet.id === expectedIds[index]) ? pets : null;

@@ -387,7 +387,9 @@ test('Warfront settlement follows the commanded formation replay and its authori
         const { image: _image, bodyImage: _bodyImage, ...pet } = warfrontPet(index + 1);
         return {
             ...pet,
-            id: `settlement-rival-${index + 1}`,
+            // Warfront AI cycles three templates into four slots. The sealed
+            // rival band can repeat a template id and must still replay commands.
+            id: `settlement-rival-${index === 3 ? 1 : index + 1}`,
             name: `Settlement Rival ${index + 1}`,
             nickname: `Settlement Rival ${index + 1}`,
             role,

@@ -791,7 +791,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rivalIds = Array.isArray(tokenData.redPets)
                     ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
                     : [];
-                const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
+                // The server cycles three AI templates into four slots. Their ids
+                // may repeat; ordered sealed slots still bind the exact replay.
+                const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds, { allowRepeatedOpponentIds: true });
                 const rawPlan = (body as Record<string, unknown>).warfrontPlan;
                 const plan = parseWarfrontRitePlan(rawPlan);
                 if (rawPlan !== undefined && !plan) {
