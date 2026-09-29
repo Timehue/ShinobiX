@@ -1802,6 +1802,69 @@ function isElementallySealed(session: TowerSession, actor: TowerActor, jutsu: Ju
         && activeCombatStatuses(actor.statuses, session.round)
             .some(status => canonicalTagName(status.name) === 'Elemental Seal');
 }
+
+/** Keep a human turn open while an available command can still be used. */
+export function humanHasTowerAction(session: TowerSession, actor: TowerActor, mode: 'pve' | 'pvp' = 'pve'): boolean {
+    if (session.status !== 'active' || activeActor(session)?.id !== actor.id || actor.hp <= 0) return false;
+    const { width: w, height: h } = session.map;
+    const openNeighbor = towerNeighbors(actor.pos, w, h).some(tile => !isTileBlocked(session, tile));
+    if (mode === 'pve' && session.pendingCompanion
+        && !session.actors.some(a => a.id === COMPANION_ACTOR_ID) && openNeighbor) return true;
+    if (session.actionsThisTurn >= MAX_ACTIONS) return false;
+
+    const hostiles = session.actors.filter(target => target.hp > 0
+        && hostileSidesFor(actor.side).includes(target.side)
+        && !(actor.side === 'squad' && objectiveBossDamageLocked(session, target)));
+    const inRange = (range: number) => hostiles.some(target => hexDistance(actor.pos, target.pos, w) <= range);
+    if (canAct(session, MOVE_AP, actor) && openNeighbor) return true;
+    if (canAct(session, DASH_AP, actor) && filledDiskTiles(actor.pos, DASH_RANGE, w, h)
+        .some(tile => tile !== actor.pos && !isTileBlocked(session, tile))) return true;
+    if (canAct(session, BASIC_ATTACK_AP, actor) && inRange(1)) return true;
+    if (canAct(session, HEAL_AP, actor) && actor.chakra >= HEAL_CHAKRA && (actor.cooldowns.basicHeal ?? 0) <= 0) return true;
+    if (canAct(session, CLEANSE_AP, actor) && (actor.cooldowns.cleanse ?? 0) <= 0) return true;
+    if (canAct(session, CLEAR_AP, actor) && (actor.cooldowns.clear ?? 0) <= 0 && hostiles.length > 0) return true;
+    if (mode === 'pve' && session.towerTactics && canAct(session, TOWER_DISRUPT_AP, actor)
+        && session.map.features?.some(feature => feature.kind === 'pylon' && feature.tiles[0] != null
+            && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0])
+            && hexDistance(actor.pos, feature.tiles[0], w) <= 1)) return true;
+
+    const jutsus = Array.isArray(actor.character.jutsu) ? actor.character.jutsu as JutsuLike[] : [];
+    for (const jutsu of jutsus) {
+        if (!jutsu?.id || isElementallySealed(session, actor, jutsu)
+            || (actor.cooldowns[jutsu.id] ?? 0) > 0
+            || actor.chakra < Math.max(0, Number(jutsu.chakraCost ?? 0))
+            || actor.stamina < Math.max(0, Number(jutsu.staminaCost ?? 0))) continue;
+        const moves = jutsuHasTag(jutsu, 'Move');
+        if (!canAct(session, Number(jutsu.ap ?? (moves ? 20 : 40)), actor)) continue;
+        if (towerJutsuTargetsSelf(jutsu)) return true;
+        const range = Math.max(1, Number(jutsu.range ?? (moves ? 5 : 1)));
+        if (moves && filledDiskTiles(actor.pos, range, w, h)
+            .some(tile => tile !== actor.pos && !isTileBlocked(session, tile))) return true;
+        if (!moves && jutsu.target === 'EMPTY_GROUND' && filledDiskTiles(actor.pos, range, w, h)
+            .some(tile => !session.map.blockedTiles.includes(tile) && !towerBarrierTiles(session).has(tile)
+                && !session.actors.some(target => target.hp > 0 && target.pos === tile
+                    && hostileSidesFor(actor.side).includes(target.side)
+                    && actor.side === 'squad' && objectiveBossDamageLocked(session, target)))) return true;
+        if (!moves && jutsu.target !== 'EMPTY_GROUND' && inRange(range)) return true;
+    }
+
+    const items = Array.isArray(actor.character.pvpItems) ? actor.character.pvpItems as PvpItemLike[] : [];
+    const equipment = actor.character.equipment && typeof actor.character.equipment === 'object'
+        ? actor.character.equipment as Record<string, string | undefined> : {};
+    const equippedIds = new Set(Object.values(equipment));
+    for (const item of items) {
+        if (!item?.id || !equippedIds.has(item.id)) continue;
+        const slot = normalizeSlot(item.slot);
+        const weapon = slot === 'hand' || slot === 'thrown';
+        if (mode === 'pvp' && slot !== 'hand') continue;
+        const cost = Math.max(0, Number(item.apCost ?? (weapon ? BASIC_ATTACK_AP : 35)));
+        const cdKey = `${weapon ? 'weapon' : 'item'}:${item.id}`;
+        if (!canAct(session, cost, actor) || (actor.cooldowns[cdKey] ?? 0) > 0) continue;
+        if ((slot === 'thrown' || !weapon) && (actor.itemCharges?.[item.id] ?? 0) <= 0) continue;
+        if (!weapon || inRange(Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1))))) return true;
+    }
+    return false;
+}
 function rejectElementallySealed(session: TowerSession, actor: TowerActor, jutsu: JutsuLike): boolean {
     if (!isElementallySealed(session, actor, jutsu)) return false;
     session.log.push(`${actor.name} is Elementally Sealed — cannot use ${jutsu.name ?? 'that jutsu'} (${jutsu.element}).`);
