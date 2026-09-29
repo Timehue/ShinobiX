@@ -1326,6 +1326,9 @@
         border-radius: 9px;
         transform: none;
     }
+    .mission-hall .mh-field-card.mh-field-explore {
+        grid-template-columns: 48px 68px minmax(0, 1fr);
+    }
     .mission-hall .mh-field-card:hover { transform: none; }
     .mission-hall .mh-field-art { display: contents; }
     .mission-hall .mh-field-art::after { content: none; }
@@ -1364,6 +1367,10 @@
         min-width: 0;
         padding: 8px 53px 8px 9px;
         gap: 2px;
+    }
+    .mission-hall .mh-field-card.mh-field-explore .mh-field-body {
+        grid-column: 3;
+        padding-right: 9px;
     }
     .mission-hall .mh-field-mobile-sector {
         display: block;
@@ -1492,6 +1499,9 @@
         width: 64px;
         min-height: 44px;
         flex: none;
+    }
+    .mission-hall .mh-field-card.mh-field-explore .mh-fetch-actions .mh-field-secondary-action {
+        right: 8px;
     }
     .mission-hall .mh-field-card .mh-field-next-step-desktop { display: none; }
     .mission-hall .mh-field-card .mh-field-next-step-mobile {

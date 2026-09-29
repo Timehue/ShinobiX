@@ -22,7 +22,6 @@ import { builtinHuntMissions } from "../data/missions";
 import { beastPortrait, huntMaterialIcon, hunterRankBadge, HUNTER_GUILD_BACKDROP, APEX_CONTRACT_BANNER } from "../data/hunter-art";
 import { huntTrailSector } from "../lib/hunt-trail";
 import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
-import { setSectorReopen } from "../lib/sector-return";
 import {
     APEX_FATE_SHARDS,
     APEX_RYO,
@@ -82,8 +81,8 @@ export function HunterBoard({
 
     // The Guild can be opened directly after a refresh, including while a pack
     // is pending at the sign's decision sector. Reconcile the same durable state
-    // the World Map uses so Go To Sector and Claim never depend on a stale local
-    // progress hash.
+    // the World Map uses so the displayed lead and Claim never depend on a stale
+    // local progress hash.
     // App passes fresh onVersionedCharacter/onServerVersion functions every
     // render; read them through a ref so a re-render doesn't re-sync every
     // accepted hunt (spending the rate limit) and cancel the sync in flight.
@@ -466,10 +465,9 @@ export function HunterBoard({
                                         || authoritative?.targetDefeated === true
                                         || progress >= mission.exploreCount;
                                     // The trail roams inward toward the beast, so the current lead is
-                                    // NOT the final targetSector until the last track. Point "Go To
-                                    // Sector" at the same sector the world-map paw marker sits on
-                                    // (huntTrailSector), not the destination — otherwise the button
-                                    // sends the player to an empty sector with no active trail.
+                                    // NOT the final targetSector until the last track. Direct the
+                                    // player to the current lead shown by the world-map paw marker,
+                                    // not the final destination where the trail is not yet active.
                                     const leadSector = authoritative?.sector ?? huntTrailSector(mission, progress, playerSlug(character.name));
                                     const beastAi = creatorAis.find((a) => a.id === mission.aiProfileId);
                                     return (
@@ -503,6 +501,7 @@ export function HunterBoard({
                                                         <div className="hunt-progress-fill" style={{ width: `${Math.min(100, (progress / mission.exploreCount) * 100)}%` }} />
                                                     </div>
                                                     <span className="hunt-progress-label">Hunted {progress}/{mission.exploreCount}</span>
+                                                    {!complete && <p className="hunt-sector-guidance">World Map → Sector {leadSector} → Hunt Trail marker.</p>}
                                                 </>
                                             )}
                                             <div className="menu">
@@ -511,7 +510,7 @@ export function HunterBoard({
                                                     : <>
                                                         {complete
                                                             ? <button disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
-                                                            : <button onClick={() => { setSectorReopen(leadSector); setScreen("worldMap"); }}>Go To Sector {leadSector}</button>
+                                                            : null
                                                         }
                                                         <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>
                                                     </>

@@ -70,9 +70,7 @@ export function fieldMissionNextAction(
     if (objective === "claim") return { objective, instruction: "All objectives complete. Claim your reward.", label: "Claim Reward" };
     if (objective === "explore") return {
         objective,
-        instruction: mission.id === "fetch-d-supply-trail"
-            ? "Explore the supply trail in Sector 18."
-            : `Explore the trail in Sector ${mission.targetSector}.`,
+        instruction: `World Map → Sector ${mission.targetSector} → Explore.`,
         label: `Explore Sector ${mission.targetSector}`,
     };
     return currentSector === mission.targetSector

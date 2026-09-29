@@ -841,12 +841,16 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
     await capture(page, testInfo, "missions-field");
 });
 
-test("Mission Hall accepted Field cards keep their compact mobile action layout", async ({ page }) => {
-    test.skip((page.viewportSize()?.width ?? 0) > 700, "mobile Field-card regression");
+test("Mission Hall accepted Field cards show directions without an Explore action", async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);
     const initialSave = uiAuditSave();
-    initialSave.acceptedMissionIds = ["fetch-d-supply-trail"];
-    initialSave.missionProgress = { "fetch-d-supply-trail": 1, "fetch-d-supply-trail:raids": 0 };
+    initialSave.acceptedMissionIds = ["fetch-d-supply-trail", "fetch-c-border-scout"];
+    initialSave.missionProgress = {
+        "fetch-d-supply-trail": 1,
+        "fetch-d-supply-trail:raids": 0,
+        "fetch-c-border-scout": 0,
+        "fetch-c-border-scout:raids": 0,
+    };
     const runtime = await installUiAuditRuntime(page, initialSave);
     await expectUiAuditBoot(page, runtime, "missions");
     await page.locator('button[data-tab="field"]').click();
@@ -854,31 +858,36 @@ test("Mission Hall accepted Field cards keep their compact mobile action layout"
     const card = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "D Rank Supply Trail Sweep" });
     await expect(card).toBeVisible();
     await expect(card.locator(".mh-fetch-progress-wrap")).toBeVisible();
-    await expect(card.getByRole("button", { name: "Explore Sector 18" })).toBeVisible();
+    await expect(card).toContainText("World Map → Sector 18 → Explore.");
+    await expect(card.getByRole("button", { name: "Explore Sector 18" })).toHaveCount(0);
     await expect(card.getByRole("button", { name: "Abandon" })).toBeVisible();
+    const borderCard = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "C Rank Border Scout Run" });
+    await expect(borderCard).toContainText("World Map → Sector 32 → Explore.");
+    await expect(borderCard.getByRole("button", { name: "Explore Sector 32" })).toHaveCount(0);
 
-    const metrics = await card.evaluate((element) => {
-        const cardRect = element.getBoundingClientRect();
-        const primaryRect = element.querySelector(".mh-field-primary-action")?.getBoundingClientRect();
-        const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
-        const nextRect = element.querySelector(".mh-field-next-step-mobile")?.getBoundingClientRect();
-        return {
-            cardHeight: cardRect.height,
-            primaryTarget: Math.min(primaryRect?.width ?? 0, primaryRect?.height ?? 0),
-            secondaryWidth: secondaryRect?.width ?? 0,
-            secondaryHeight: secondaryRect?.height ?? 0,
-            nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
-        };
-    });
-    // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
-    // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
-    // font rendering). The budget is set from CI, which gates merges; one more
-    // wrapped line anywhere in the card still fails it.
-    expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
-    expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
-    expect(metrics.primaryTarget, "travel/claim rail should retain its 44px touch target").toBeGreaterThanOrEqual(44);
-    expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
-    expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);
+    if ((page.viewportSize()?.width ?? 0) <= 700) {
+        const metrics = await card.evaluate((element) => {
+            const cardRect = element.getBoundingClientRect();
+            const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
+            const nextRect = element.querySelector(".mh-field-next-step-mobile")?.getBoundingClientRect();
+            return {
+                cardHeight: cardRect.height,
+                hasPrimaryAction: Boolean(element.querySelector(".mh-field-primary-action")),
+                secondaryWidth: secondaryRect?.width ?? 0,
+                secondaryHeight: secondaryRect?.height ?? 0,
+                nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
+            };
+        });
+        // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
+        // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
+        // font rendering). The budget is set from CI, which gates merges; one more
+        // wrapped line anywhere in the card still fails it.
+        expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
+        expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
+        expect(metrics.hasPrimaryAction, "exploration directions must not render as an action rail").toBe(false);
+        expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
+        expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);
+    }
     await expectViewportSafe(page, { horizontalScrollers: [".expanded-tabs"] });
     expect(runtimeErrors, "the accepted Field card emitted runtime errors").toEqual([]);
 });
