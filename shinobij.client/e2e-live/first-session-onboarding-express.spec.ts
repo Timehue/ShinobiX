@@ -642,7 +642,10 @@ test(`a new player completes the full persisted Academy first session against bu
     const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
     await expect(journal).toContainText('You took time to care for one of your companions.');
     await page.screenshot({ path: testInfo.outputPath('first-contract-live-recap.png') });
-    await journal.getByRole('button', { name: 'Choose your next goal' }).click();
+    // The completed journal now names the action for the player's next milestone.
+    await expect(journal).toContainText('Next goal:');
+    await expect(journal.locator('.fc-actions .fc-primary')).toBeEnabled();
+    await journal.locator('.fc-actions .fc-primary').click();
     await waitForPersisted(page, playerName, (save) => Boolean(save.character?.firstContract?.completedAt && save.character.firstContract.acknowledgedAt), 'completion and its acknowledgement must persist');
     await reachAfterStory('.mobile-bottom-nav');
     await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();

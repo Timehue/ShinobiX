@@ -78,7 +78,8 @@ async function installRuntime(page: Page) {
     let save: RuntimeSavePayload = {
         character: { ...baseCharacter },
         currentBiome: "central",
-        currentSector: 40,
+        // Central and village UI require a town save, not a wilderness sector.
+        currentSector: 0,
         acceptedMissionIds: [],
         missionProgress: {},
         triggeredEvents: ["builtin-aura-sphere-lv9"],
@@ -178,6 +179,13 @@ async function installRuntime(page: Page) {
 type RuntimeFixture = Awaited<ReturnType<typeof installRuntime>>;
 
 async function expectRuntimeSaveCommitted(page: Page, runtime: RuntimeFixture) {
+    // Loading a clean server snapshot does not require an autosave. If boot
+    // normalizes and posts it, still verify the exact commit and acknowledgement.
+    await expect(page.locator('.app-shell[data-screen="centralHub"]')).toBeVisible();
+    if (!runtime.lastCommit()) {
+        await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
+        return;
+    }
     await expect.poll(() => {
         const commit = runtime.lastCommit();
         return Boolean(
