@@ -135,6 +135,7 @@ describe("screen navigation guards", () => {
     });
 
     it("never teleports a wild-sector player to the village on refresh", () => {
+        assert.equal(restoreScreenForSave("village", false, false, false, true), "worldMap");
         // Where you are is where you are: no restorable screen → back to the world.
         assert.equal(restoreScreenForSave(null, false, false, false, true), "worldMap");
         assert.equal(safeFallbackScreen(true), "worldMap");

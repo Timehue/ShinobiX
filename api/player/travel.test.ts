@@ -104,6 +104,76 @@ after(async () => {
 });
 
 describe('player travel — authoritative origin and durable-first admission', { concurrency: false }, () => {
+    it('returning home uses the same three-second map travel lease and only settles at arrival', async () => {
+        await place(exit.sector, exit.tile);
+        const out = await post(travelHandler, { destinationSector: 0 });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.travelMs, 3_000);
+        const minted = await lease.getTravelLease(PLAYER);
+        assert.ok(minted);
+        assert.equal(minted.originSector, exit.sector);
+        assert.equal(minted.destinationSector, 0);
+        assert.equal(onlineStore.get(PLAYER)?.sector, exit.sector, 'home entry waits for arrival');
+        assert.equal(await lease.settleTravelLease(PLAYER, minted, minted.arrivalAt - 1), false);
+        assert.equal((await post(travelHandler, { destinationSector: 0 })).statusCode, 409, 'another click cannot restart the journey');
+        assert.equal(await lease.settleTravelLease(PLAYER, minted, minted.arrivalAt), true);
+        assert.equal((await kv.get<Json>(`save:${PLAYER}`))?.currentSector, 0);
+    });
+
+    it('opening home while already there needs no travel timer', async () => {
+        await place(0, undefined);
+        const out = await post(travelHandler, { destinationSector: 0 });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.travelMs, 0);
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+    });
+
+    it('missing or malformed destinations cannot be coerced into home travel', async () => {
+        await place(exit.sector, exit.tile);
+        for (const destinationSector of [undefined, null, '', false]) {
+            assert.equal((await post(travelHandler, { destinationSector })).statusCode, 400);
+        }
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+    });
+
+    it('home travel remains blocked during battle and cannot use an instant road crossing', async () => {
+        await place(exit.sector, exit.tile);
+        onlineStore.setInBattle(PLAYER, true);
+        assert.equal((await post(travelHandler, { destinationSector: 0 })).statusCode, 409);
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+        await place(exit.sector, exit.tile);
+        assert.equal((await post(travelHandler, edgeBody({ destinationSector: 0 }))).statusCode, 409);
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+    });
+
+    it('a queued attacker or reserved world duel prevents home travel before the battle flag arrives', async () => {
+        await place(exit.sector, exit.tile);
+        onlineStore.setPendingAttacker(PLAYER, { name: 'incomingraider' });
+        assert.equal((await post(travelHandler, { destinationSector: 0 })).statusCode, 409);
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+        await place(exit.sector, exit.tile);
+        const pointerKey = `pvp:pending-session:${PLAYER}`;
+        await kv.set(pointerKey, JSON.stringify({ version: 1, playerName: PLAYER, battleId: 'home-travel-duel',
+            role: 'p2', createdAt: Date.now(), phase: 'reserving', reservedUntil: Date.now() + 30_000 }));
+        try {
+            assert.equal((await post(travelHandler, { destinationSector: 0 })).statusCode, 409);
+            assert.equal(await lease.getTravelLease(PLAYER), null);
+        } finally { await kv.del(pointerKey); }
+    });
+
+    it('an incoming attack during lease storage cannot be escaped by home travel', async (t) => {
+        await place(exit.sector, exit.tile);
+        const originalSet = kv.set.bind(kv);
+        t.mock.method(kv, 'set', async (...args: Parameters<typeof kv.set>) => {
+            const result = await originalSet(...args);
+            if (args[0] === lease.travelLeaseKey(PLAYER)) onlineStore.setPendingAttacker(PLAYER, { name: 'incomingraider' });
+            return result;
+        });
+        assert.equal((await post(travelHandler, { destinationSector: 0 })).statusCode, 409);
+        assert.equal(onlineStore.get(PLAYER)?.sector, exit.sector);
+        assert.equal(await lease.getTravelLease(PLAYER), null);
+    });
+
     it('F11: a road crossing is refused when the body names a sector the server does not hold the player in', async () => {
         const elsewhere = exit.sector === 1 ? 2 : 1;
         await place(elsewhere, exit.tile);

@@ -164,9 +164,8 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             // straight back out of their destination (on the arrival beat) — either
             // way stranding them at 0, invisible to their real sector and everyone
             // in it (the outage this guards). So keep prev.sector: the origin while
-            // travelling, the settled destination once matured. Destination-0
-            // leases never exist (/player/travel rejects them), so this can only
-            // ever suppress a stale origin, never a legitimate move.
+            // travelling, the settled destination once matured. This also keeps
+            // a village-bound trip in the field until its safe-zone arrival.
             const travelingOut = travelDestinationSector !== undefined
                 && travelingUntil !== undefined
                 && now < travelingUntil;
