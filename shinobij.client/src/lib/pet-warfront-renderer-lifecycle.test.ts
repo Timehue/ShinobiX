@@ -30,3 +30,24 @@ test("renderer retirement releases shared texture bindings and the built-in DFG 
     assert.equal(atlas.image, sourceImage, "shared decoded model sources remain available for the next battle");
     assert.equal(geometry.attributes.position.array, sourcePositions, "shared CPU geometry remains available for the next battle");
 });
+
+test("resources retired by a clash leave the renderer tracker before canvas retirement", () => {
+    const geometry = new THREE.ShapeGeometry(new THREE.Shape().moveTo(0, 0).lineTo(1, 0).lineTo(0, 1));
+    const texture = new THREE.Texture();
+    const scene = new THREE.Scene();
+    scene.add(new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ map: texture })));
+    const releases: string[] = [];
+    geometry.addEventListener("dispose", () => releases.push("geometry"));
+    texture.addEventListener("dispose", () => releases.push("texture"));
+    const renderer = {
+        properties: { get: () => ({ uniforms: {} }) },
+        dispose: () => releases.push("renderer"),
+    } as unknown as THREE.WebGLRenderer;
+    const resources = createWarfrontRendererResources(renderer);
+    resources.capture(scene);
+    scene.clear();
+    geometry.dispose();
+    texture.dispose();
+    resources.dispose();
+    assert.deepEqual(releases, ["geometry", "texture", "renderer"]);
+});

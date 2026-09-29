@@ -2901,18 +2901,84 @@ function ImpactLayer({ result, clockRef, quality, batched = false }: {
         : <>{slots.map((slot, i) => <CombatPulse key={i} slot={slot} clockRef={clockRef} sparkCount={sparkCount} />)}</>;
 }
 
-/** Snapshot-native projectile bolts. A small fixed pool keeps the phone path
- *  allocation-free while making ranged attacks physically travel to targets. */
+const PROJECTILE_GLYPHS = ["flare", "ripple", "crescent", "fault", "bolt", "impact"] as const;
+const PROJECTILE_GLYPH_ELEMENTS = ["Fire", "Water", "Wind", "Earth", "Lightning", "None"] as const;
+const PROJECTILE_GLYPH_INDEX: Readonly<Record<(typeof PROJECTILE_GLYPHS)[number], number>> = {
+    flare: 0, ripple: 1, crescent: 2, fault: 3, bolt: 4, impact: 5,
+};
+
+/** Each element has a readable silhouette at phone scale. The flat shapes face
+ *  the elevated arena camera and point down local -Y, which becomes forward
+ *  (+Z) after rotation onto the court. Detached fragments share one draw call. */
+function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THREE.ShapeGeometry {
+    const head = new THREE.Shape();
+    const fragments: THREE.Shape[] = [];
+    if (shape === "flare") {
+        head.moveTo(0, -0.64);
+        head.bezierCurveTo(0.18, -0.27, 0.34, -0.18, 0.22, 0.1);
+        head.lineTo(0.34, 0.36);
+        head.lineTo(0.04, 0.19);
+        head.lineTo(-0.16, 0.48);
+        head.lineTo(-0.14, 0.12);
+        head.bezierCurveTo(-0.35, -0.06, -0.2, -0.35, 0, -0.64);
+    } else if (shape === "ripple") {
+        head.moveTo(0, -0.52);
+        head.bezierCurveTo(0.32, -0.19, 0.28, 0.12, 0, 0.27);
+        head.bezierCurveTo(-0.28, 0.12, -0.32, -0.19, 0, -0.52);
+        for (const x of [-0.28, 0.28]) {
+            const drop = new THREE.Shape();
+            drop.absellipse(x, 0.34, 0.075, 0.115, 0, Math.PI * 2, false, 0);
+            fragments.push(drop);
+        }
+    } else if (shape === "crescent") {
+        head.moveTo(-0.3, 0.28);
+        head.bezierCurveTo(-0.52, -0.23, -0.09, -0.52, 0.36, -0.37);
+        head.bezierCurveTo(0.1, -0.29, -0.12, -0.15, -0.03, 0.12);
+        head.bezierCurveTo(0.03, 0.3, 0.16, 0.34, 0.3, 0.37);
+        head.bezierCurveTo(0.06, 0.45, -0.13, 0.43, -0.3, 0.28);
+    } else if (shape === "fault") {
+        head.moveTo(0, -0.53);
+        head.lineTo(0.29, -0.12);
+        head.lineTo(0.19, 0.27);
+        head.lineTo(-0.08, 0.46);
+        head.lineTo(-0.32, 0.14);
+        head.lineTo(-0.22, -0.27);
+        head.lineTo(0, -0.53);
+    } else if (shape === "bolt") {
+        head.moveTo(-0.04, -0.62);
+        head.lineTo(0.22, -0.19);
+        head.lineTo(0.04, -0.16);
+        head.lineTo(0.28, 0.43);
+        head.lineTo(-0.19, -0.05);
+        head.lineTo(-0.02, -0.09);
+        head.lineTo(-0.26, -0.42);
+        head.lineTo(-0.04, -0.62);
+    } else {
+        head.moveTo(0, -0.48);
+        head.lineTo(0.2, 0.15);
+        head.lineTo(0.06, 0.07);
+        head.lineTo(0, 0.36);
+        head.lineTo(-0.06, 0.07);
+        head.lineTo(-0.2, 0.15);
+        head.lineTo(0, -0.48);
+    }
+    const geometry = new THREE.ShapeGeometry([head, ...fragments], 8);
+    geometry.rotateX(-Math.PI / 2);
+    return geometry;
+}
+
+/** Snapshot-native projectiles use one fixed instanced pool per silhouette.
+ *  The simulation still decides position and element; no per-frame meshes or
+ *  particles are created as several ranged attacks overlap. */
 function ProjectileLayer({ result, clockRef, quality }: {
     result: DuelResult;
     clockRef: MutableRefObject<number>;
     quality: PetVisualQualityConfig;
 }) {
     const capacity = quality.setPieceParticles <= 28 ? 10 : 18;
-    const cores = useRef<THREE.InstancedMesh>(null);
-    const trails = useRef<THREE.InstancedMesh>(null);
+    const meshes = useRef<Array<THREE.InstancedMesh | null>>(Array(PROJECTILE_GLYPHS.length).fill(null));
+    const geometries = useMemo(() => PROJECTILE_GLYPHS.map(projectileGlyphGeometry), []);
     const transform = useMemo(() => new THREE.Object3D(), []);
-    const tint = useMemo(() => new THREE.Color(), []);
     const projectilePool = useMemo(
         () => Array.from({ length: capacity }, () => ({ id: -1, x: 0, y: 0, team: "player" as const, kind: "damage" as const, element: null })),
         [capacity],
@@ -2924,37 +2990,28 @@ function ProjectileLayer({ result, clockRef, quality }: {
     const nextX = useMemo(() => new Float32Array(capacity), [capacity]);
     const nextZ = useMemo(() => new Float32Array(capacity), [capacity]);
 
+    // These geometries enter InstancedMesh through args rather than as R3F
+    // children, so R3F cannot dispose them when sceneKey starts a new clash.
+    useEffect(() => () => { for (const geometry of geometries) geometry.dispose(); }, [geometries]);
+
     useLayoutEffect(() => {
-        transform.position.set(0, -100, 0);
-        transform.rotation.set(0, 0, 0);
-        transform.scale.setScalar(0);
-        transform.updateMatrix();
-        for (const mesh of [cores.current, trails.current]) {
+        for (const mesh of meshes.current) {
             if (!mesh) continue;
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-            for (let index = 0; index < capacity; index++) mesh.setMatrixAt(index, transform.matrix);
-            mesh.instanceMatrix.needsUpdate = true;
-            mesh.computeBoundingSphere();
+            mesh.count = 0;
         }
-    }, [capacity, transform]);
+    }, [capacity]);
 
     useFrame(() => {
-        const coreMesh = cores.current;
-        const trailMesh = trails.current;
-        if (!coreMesh || !trailMesh) return;
+        const glyphMeshes = meshes.current;
+        for (const mesh of glyphMeshes) {
+            if (!mesh) return;
+            mesh.count = 0;
+        }
         const count = sampleProjectilesInto(result, clockRef.current, projectilePool, capacity);
         nextIds.fill(-1);
-        for (let i = 0; i < capacity; i++) {
-            const projectile = i < count ? projectilePool[i] : null;
-            if (!projectile) {
-                transform.position.set(0, -100, 0);
-                transform.rotation.set(0, 0, 0);
-                transform.scale.setScalar(0);
-                transform.updateMatrix();
-                coreMesh.setMatrixAt(i, transform.matrix);
-                trailMesh.setMatrixAt(i, transform.matrix);
-                continue;
-            }
+        for (let i = 0; i < count; i++) {
+            const projectile = projectilePool[i];
             const x = projectile.x * WORLD_SCALE;
             const z = projectile.y * WORLD_SCALE;
             let oldIndex = -1;
@@ -2970,41 +3027,40 @@ function ProjectileLayer({ result, clockRef, quality }: {
             nextIds[i] = projectile.id;
             nextX[i] = x;
             nextZ[i] = z;
-            tint.set(elementColor(projectile.element));
-
             transform.position.set(x, 0.82, z);
             transform.rotation.set(0, yaw, 0);
             transform.scale.setScalar(1);
             transform.updateMatrix();
-            coreMesh.setMatrixAt(i, transform.matrix);
-            coreMesh.setColorAt(i, tint);
-
-            transform.position.set(x - Math.sin(yaw) * 0.46, 0.82, z - Math.cos(yaw) * 0.46);
-            transform.rotation.set(0, yaw, 0);
-            transform.scale.set(1, 1, 2.8);
-            transform.updateMatrix();
-            trailMesh.setMatrixAt(i, transform.matrix);
-            trailMesh.setColorAt(i, tint);
+            const glyph = warfrontElementSignature(projectile.element).shape;
+            const mesh = glyphMeshes[PROJECTILE_GLYPH_INDEX[glyph]]!;
+            mesh.setMatrixAt(mesh.count++, transform.matrix);
         }
         previousIds.set(nextIds);
         previousX.set(nextX);
         previousZ.set(nextZ);
-        for (const mesh of [coreMesh, trailMesh]) {
-            mesh.instanceMatrix.needsUpdate = true;
-            if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-        }
+        for (const mesh of glyphMeshes) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
     });
 
     return (
         <group name="wfr-batched-projectile-layer">
-            <instancedMesh ref={cores} args={[undefined, undefined, capacity]} frustumCulled={false}>
-                <sphereGeometry args={[0.2, 10, 8]} />
-                <meshBasicMaterial vertexColors color="#fff" depthWrite={false} blending={THREE.AdditiveBlending} />
-            </instancedMesh>
-            <instancedMesh ref={trails} args={[undefined, undefined, capacity]} frustumCulled={false}>
-                <sphereGeometry args={[0.13, 8, 6]} />
-                <meshBasicMaterial vertexColors color="#fff" transparent opacity={0.42} depthWrite={false} blending={THREE.AdditiveBlending} />
-            </instancedMesh>
+            {PROJECTILE_GLYPHS.map((glyph, index) => (
+                <instancedMesh
+                    key={glyph}
+                    name={`wfr-projectile-${glyph}`}
+                    ref={(mesh) => { meshes.current[index] = mesh; }}
+                    args={[geometries[index], undefined, capacity]}
+                    frustumCulled={false}
+                >
+                    <meshBasicMaterial
+                        color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
+                        side={THREE.DoubleSide}
+                        transparent
+                        opacity={0.94}
+                        depthWrite={false}
+                        blending={THREE.AdditiveBlending}
+                    />
+                </instancedMesh>
+            ))}
         </group>
     );
 }
