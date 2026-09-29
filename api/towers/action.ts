@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { floorForSession } from './_session-floor.js';
 import { activeActor } from './_tower-session.js';
-import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
+import { applyAction, endTurn, humanHasTowerAction, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
 import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliation, writeSession } from './_tower-store.js';
@@ -241,7 +241,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { applied: false, reason: result.reason, session, currentVersion: towerActionVersion(session) } };
             }
             recordClanBossContribution(session, actor.id, contributionBefore);
-            if (action.type === 'wait') {
+            if (action.type === 'wait' || (session.status === 'active' && !humanHasTowerAction(session, actor))) {
                 endTurn(session, floor);
                 runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
             }
