@@ -341,16 +341,28 @@ export function OnboardingCoach({
         let observedTarget: HTMLElement | undefined;
         const layoutObserver = new ResizeObserver(() => { revealTarget(); });
         const revealTarget = () => {
-            const target = Array.from(document.querySelectorAll<HTMLElement>(
+            const targets = Array.from(document.querySelectorAll<HTMLElement>(
                 ".academy-click-target[data-academy-autoscroll='true']",
-            )).find((candidate) => candidate.offsetParent !== null);
+            )).filter((candidate) => candidate.offsetParent !== null);
+            const target = targets[0];
             if (!target) return false;
             if (target !== observedTarget) {
                 if (observedTarget) layoutObserver.unobserve(observedTarget);
-                layoutObserver.observe(target);
                 observedTarget = target;
             }
-            const rect = target.getBoundingClientRect();
+            for (const candidate of targets) layoutObserver.observe(candidate);
+            // Some lessons require more than one action (the two starter gear
+            // pieces, for example). Keep the whole highlighted group clear of
+            // the guide instead of revealing only its first member and leaving
+            // a later action trapped beneath the banner.
+            const rects = targets.map((candidate) => candidate.getBoundingClientRect());
+            const rect = {
+                top: Math.min(...rects.map((bounds) => bounds.top)),
+                bottom: Math.max(...rects.map((bounds) => bounds.bottom)),
+                left: Math.min(...rects.map((bounds) => bounds.left)),
+                right: Math.max(...rects.map((bounds) => bounds.right)),
+                get height() { return this.bottom - this.top; },
+            };
             // Measure the banner rather than assume it. Its height follows the
             // length of the current coaching line — 148px to 218px at 390x844 —
             // and on a phone it floats ~80px above the viewport bottom, so it
@@ -381,11 +393,15 @@ export function OnboardingCoach({
                     // The document still scrolls when its computed overflow is
                     // visible, unlike an ordinary nested container.
                     if (parent.scrollHeight <= parent.clientHeight || (parent !== document.scrollingElement && !/(auto|scroll)/.test(getComputedStyle(parent).overflowY))) continue;
-                    const bounds = target.getBoundingClientRect();
-                    const desiredTop = Math.max(clearTop, (clearTop + clearOfBanner - bounds.height) / 2);
-                    parent.scrollTop += bounds.top - desiredTop;
-                    const moved = target.getBoundingClientRect();
-                    if (moved.top >= clearTop && moved.bottom <= clearOfBanner) break;
+                    const bounds = targets.map((candidate) => candidate.getBoundingClientRect());
+                    const groupTop = Math.min(...bounds.map((item) => item.top));
+                    const groupBottom = Math.max(...bounds.map((item) => item.bottom));
+                    const groupHeight = groupBottom - groupTop;
+                    const desiredTop = Math.max(clearTop, (clearTop + clearOfBanner - groupHeight) / 2);
+                    parent.scrollTop += groupTop - desiredTop;
+                    const moved = targets.map((candidate) => candidate.getBoundingClientRect());
+                    if (Math.min(...moved.map((item) => item.top)) >= clearTop
+                        && Math.max(...moved.map((item) => item.bottom)) <= clearOfBanner) break;
                 }
             }
             return true;

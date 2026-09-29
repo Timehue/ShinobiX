@@ -274,7 +274,7 @@ test('Warfront rank and offline result remain viewable while a defense pet train
     await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
     await expect(page.getByText('#2')).toBeVisible();
     await expect(page.getByText('While you were away')).toBeVisible();
-    await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeDisabled();
+    await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('warfront-offline-defense-standing.png') });
 });

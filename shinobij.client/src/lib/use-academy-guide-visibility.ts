@@ -1,8 +1,8 @@
-import { useLayoutEffect } from "react";
+import { useEffect } from "react";
 
 /** Keep guidance from painting over the next action, without fighting user scroll. */
 export function useAcademyGuideVisibility(active: boolean, screen: string, step: string) {
-    useLayoutEffect(() => {
+    useEffect(() => {
         if (!active) return;
         const guide = document.querySelector<HTMLElement>(".onboarding-coach-banner");
         if (!guide) return;
@@ -33,7 +33,11 @@ export function useAcademyGuideVisibility(active: boolean, screen: string, step:
         window.addEventListener("resize", check);
         window.visualViewport?.addEventListener("resize", check);
         window.visualViewport?.addEventListener("scroll", check);
-        check();
+        // OnboardingCoach's layout and target-reveal effects run in the same
+        // commit. Check after they have reserved banner space and moved the
+        // highlighted control, so an initial overlap does not hide the guide
+        // before its own layout can settle.
+        const initialFrame = window.requestAnimationFrame(check);
         return () => {
             resize.disconnect();
             mutations.disconnect();
@@ -43,6 +47,7 @@ export function useAcademyGuideVisibility(active: boolean, screen: string, step:
             window.removeEventListener("resize", check);
             window.visualViewport?.removeEventListener("resize", check);
             window.visualViewport?.removeEventListener("scroll", check);
+            window.cancelAnimationFrame(initialFrame);
             guide.classList.remove("coach-guide-yielding");
         };
     }, [active, screen, step]);
