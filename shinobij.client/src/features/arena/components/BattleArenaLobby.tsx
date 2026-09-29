@@ -1,5 +1,6 @@
 import { GiBoxingGlove, GiColiseum, GiCrossedSwords, GiPawPrint, GiRollingDices, GiTwoCoins } from "../../../components/icons/LightweightGameIcons";
 import { BackToVillageButton } from "../../../components/BackToVillageButton";
+import { GrowthRewardGuide } from "../../../components/GrowthRewardGuide";
 import { BountyBoardPanel } from "../../../components/BountyBoardPanel";
 import { TeamArenaSection } from "../../../components/TeamArenaSection";
 import { MAX_LEVEL } from "../../../constants/game";
@@ -64,6 +65,7 @@ export function BattleArenaLobby({
         <div className="card arena-lobby">
             <BackToVillageButton onClick={onBack} />
             <h2><GiCrossedSwords style={ARENA_ICON} />Battle Arena</h2>
+            <GrowthRewardGuide />
             <p>Your hub for casual sparring — combat, pets, and cards — plus the bounty board.</p>
 
             <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>

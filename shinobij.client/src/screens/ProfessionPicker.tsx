@@ -1,6 +1,7 @@
 // Verbatim-moved from App.tsx (which disables this rule file-wide); effect behavior unchanged.
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from "react";
+import { PROFESSION_CHANGE_APPROVAL_COST } from "../../../shared/profession-change";
 import { createPortal } from "react-dom";
 import type { Character, Profession } from "../App";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
@@ -260,7 +261,7 @@ export function ProfessionPicker({
                         <div className="pp-warn-band">
                             <p className="pp-warn">
                                 <span className="pp-warn-mark" aria-hidden="true" />
-                                Later changes require a Grand Marketplace profession approval
+                                Changing later consumes a Grand Marketplace approval (base {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards) and resets profession rank, XP, and mastery.
                             </p>
                         </div>
                     </header>
@@ -350,7 +351,7 @@ export function ProfessionPicker({
                     <h2 className="pp-confirm-title">Become a {info.name}?</h2>
                     <p className="pp-confirm-copy">
                         This becomes your profession now. Future changes require a Profession change approval from the Grand Marketplace;
-                        each change consumes the approval and resets profession rank, XP, and mastery.
+                        its base price is {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards, with any discount shown in the Marketplace. Each change consumes the approval and resets profession rank, XP, and mastery.
                     </p>
                     {error && (
                         <p className="pp-error" role="alert">

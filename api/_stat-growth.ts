@@ -13,6 +13,8 @@
  */
 
 import { statCapForLevel } from './combat-core/formulas.js';
+import { PVP_STAT_POINTS_PER_WIN } from '../shared/combat-growth-rules.js';
+export { PVP_STAT_POINTS_PER_WIN, AI_PVE_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../shared/combat-growth-rules.js';
 
 export { statCapForLevel };
 
@@ -23,12 +25,8 @@ export const STAT_GROWTH_KEYS = [
 ] as const;
 export type StatKey = typeof STAT_GROWTH_KEYS[number];
 
-// Small per-win rewards; PvE and PvP stat wins share the actual 18-point cap.
-export const PVP_STAT_POINTS_PER_WIN = 6;
-export const AI_PVE_STAT_POINTS_PER_WIN = 3;
-// Shared PvP/PvE daily stat-growth cap (three PvP wins or six PvE wins).
+// Per-win awards and the shared daily cap live in shared/combat-growth-rules.
 // Combat-win stat rewards do not receive trait, encounter, or era multipliers.
-export const DAILY_COMBAT_STAT_CAP = 18;
 // Compatibility for older imports; new callers use the generic PvP name.
 export const PVP_CASUAL_STAT_POINTS_PER_WIN = PVP_STAT_POINTS_PER_WIN;
 // 60% auto-grows the stats you use; 40% drops into the pool to hand-allocate.

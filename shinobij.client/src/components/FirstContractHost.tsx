@@ -12,6 +12,7 @@ import { captureProductEvent } from '../lib/analytics';
 import { useBodyScrollLock } from '../lib/useBodyScrollLock';
 import { useSharedNow } from '../lib/use-shared-now';
 import { FirstContractRoutes } from './FirstContractRoutes';
+import { firstContractNextGoal } from '../lib/first-contract-next-goal';
 import './first-contract.css';
 
 const SAFE_SCREENS: Screen[] = ['village', 'centralHub', 'logbook', 'missions', 'pets', 'profile', 'inventory', 'jutsuTraining', 'training', 'hospital', 'cafeteria'];
@@ -69,6 +70,7 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
     const route = state.route;
     const copy = route ? FIRST_CONTRACT_COPY[route] : null;
     const complete = Boolean(state.completedAt);
+    const nextGoal = firstContractNextGoal(character, Boolean(activeTraining && activeTraining.endsAt > now));
     const preparation = route ? firstContractPreparation(character, route) : null;
     const journalTitle = laterDay ? 'Welcome back to the road.' : complete ? 'Your first assignment, recorded.' : route && !choosing ? copy!.title : 'Your legend starts here.';
     const execute = async (action: AcademyNarrativeAction, destination?: Screen, activity?: FirstContractRoute) => {
@@ -105,13 +107,15 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         <div className="fc-journal-body">
             {laterDay ? <>
                 <p>Your first assignment is behind you. Decide what you want to improve today.</p><p className="fc-note">{trainingNote}</p>
-                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-return', 'training'); }}>Check your training</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-return', 'missions'); }}>Take a mission</button></div>
+                <p><strong>Next goal: {nextGoal.title}</strong><br />{nextGoal.detail}</p>
+                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-return', nextGoal.screen, nextGoal.screen === 'missions' ? 'combat' : undefined); }}>{nextGoal.action}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-return', nextGoal.screen === 'training' ? 'missions' : 'training', nextGoal.screen === 'training' ? 'combat' : undefined); }}>{nextGoal.screen === 'training' ? 'Take a mission' : 'Check your training'}</button></div>
             </> : complete ? <>
                 <p className="fc-success"><span aria-hidden="true">✓</span> {copy?.success}</p>
                 {state.evidence?.sector && <p>Field record: Sector {state.evidence.sector}.</p>}
                 {character.academyVow && <blockquote>“{academyVowDefinition(character.academyVow).quote}”<cite>Your answer to Shiranui</cite></blockquote>}
                 <p className="fc-note">{trainingNote}</p>
-                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-acknowledge', undefined, route ?? 'combat'); }}>{copy?.next ?? 'Take another assignment'}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-acknowledge', 'logbook'); }}>Choose your next goal</button></div>
+                <p><strong>Next goal: {nextGoal.title}</strong><br />{nextGoal.detail}</p>
+                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-acknowledge', nextGoal.screen, nextGoal.screen === 'missions' ? 'combat' : undefined); }}>{nextGoal.action}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-acknowledge', undefined, route ?? 'combat'); }}>{copy?.next ?? 'Take another assignment'}</button></div>
             </> : !route || choosing ? <>
                 <p className="fc-intro">{state.source === 'skip' ? 'Three paths beyond the Academy. Choose your first assignment; the refresher is here whenever you need it.' : 'The Academy opened the gate. Now take your first assignment into the world.'}</p>
                 <FirstContractRoutes onChoose={choose} busy={busy} hasCompanion={character.pets.length > 0} selected={route} />

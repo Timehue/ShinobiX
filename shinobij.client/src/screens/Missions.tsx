@@ -19,6 +19,7 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
+import { GrowthRewardGuide } from "../components/GrowthRewardGuide";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
@@ -304,7 +305,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason));
         }
         if (!applySuccessfulMissionClaim(result)) return;
-        setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
+        setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}${result.reward.statPoints === 0 ? ". No stat points from this mission claim; train stats or claim field/hunt dailies to grow" : ""}` });
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -572,6 +573,8 @@ export function Missions({
             <section className="mh-section">
                 <h3 className="mh-section-title">Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.</p>
+                <p className="hint">Mission claims pay ryo for gear and jutsu lessons. For stat points and levels, use training and field/hunt dailies.</p>
+                <GrowthRewardGuide />
                 {pendingCombatClaims > 0 && (
                     <p className="mh-claim-banner" role="status">
                         {pendingCombatClaims === 1 ? "1 mission is" : `${pendingCombatClaims} missions are`} cleared and waiting — tap the highlighted card{pendingCombatClaims === 1 ? "" : "s"} below to collect the reward.

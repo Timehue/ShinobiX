@@ -12,7 +12,11 @@ export function passRankExam(character: Record<string, unknown>, examRaw: unknow
     if (passed.includes(exam)) return { ok: true as const, alreadyPassed: true, character };
     const index = EXAMS.indexOf(exam);
     if (index > 0 && !passed.includes(EXAMS[index - 1])) return { ok: false as const, reason: 'previous-rank-exam-required' as const };
-    const elements = new Set([...list(character.elements), ...(typeof character.element === 'string' ? [character.element] : [])]);
+    const elements = new Set(
+        [...list(character.elements), ...(typeof character.element === 'string' ? [character.element] : [])]
+            .map((element) => element.trim().toLowerCase())
+            .filter(Boolean),
+    );
     const defeated = new Set(list(character.defeatedAiIds));
     const mastery = Array.isArray(character.jutsuMastery) ? character.jutsuMastery as Array<Record<string, unknown>> : [];
     const highestMastery = mastery.reduce((max, row) => Math.max(max, n(row?.level)), 0);
