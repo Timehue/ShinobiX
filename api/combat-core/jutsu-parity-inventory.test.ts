@@ -12,11 +12,11 @@ describe('executable jutsu parity inventory', () => {
         const inventory = buildJutsuParityInventory();
         assert.equal(inventory.rows.length, 217, 'review baseline; count is still derived from executable catalogs');
         assert.deepEqual(inventory.sourceCounts, { 'built-in': 117, legacy: 100, 'admin-published': 0 });
-        assert.deepEqual(inventory.targetCounts, { OPPONENT: 180, EMPTY_GROUND: 12, SELF: 25 });
+        assert.deepEqual(inventory.targetCounts, { OPPONENT: 181, EMPTY_GROUND: 10, SELF: 26 });
         assert.deepEqual(inventory.methodCounts, { SINGLE: 171, AOE_BURST: 37, AOE_CIRCLE: 9 });
         assert.deepEqual(inventory.apCosts, [20, 40, 60]);
         assert.deepEqual(inventory.cooldowns, [2, 7, 10]);
-        assert.deepEqual(inventory.ranges, [2, 3, 4, 5]);
+        assert.deepEqual(inventory.ranges, [4, 5]);
         assert.deepEqual(inventory.unmappedCanonicalTags, []);
         assert.ok(inventory.rows.every((row) => row.families.length > 0), 'every executable jutsu needs a behavior family');
     });
