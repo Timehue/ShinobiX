@@ -669,7 +669,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .filter(Boolean) as unknown as Pet[];
             if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your carried roster.' });
             // Busy gating is deliberately ONE-directional for v1: a pet that is
-            // breeding/training/on expedition cannot ENTER a Showdown, but an
+            // breeding/on expedition cannot ENTER a Showdown, but an
             // in-flight Showdown session does not stamp the pet as busy for
             // other systems — the sealed snapshot is independent, the session
             // pays a flat level-based reward, and a 45-min KV lease is not a
@@ -738,8 +738,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 .filter(Boolean) as unknown as Pet[];
             if (chosen.length !== petIds.length) return res.status(409).json({ error: 'A chosen pet is not in your carried roster.' });
 
-            // Same busy gating as the practice entry: a pet that is breeding,
-            // training or away cannot be fielded.
+            // Same busy gating as the practice entry: a pet that is breeding
+            // or away cannot be fielded. Training can continue during combat.
             const busyIssue = showdownBusyIssue(myChar, chosen);
             if (busyIssue) return res.status(409).json({ error: busyIssue });
 

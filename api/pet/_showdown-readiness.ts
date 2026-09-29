@@ -11,7 +11,6 @@ export function showdownBusyIssue(
     for (const pet of pets) {
         if (breedingParents.has(String(pet.id))) return `${pet.name} is in the Shinobi Hatchery.`;
         if (pet.expedition && Number(pet.expedition.endsAt ?? 0) > now) return `${pet.name} is away on an expedition.`;
-        if (pet.training && Number(pet.training.endsAt ?? 0) > now) return `${pet.name} is mid-training.`;
     }
     return null;
 }

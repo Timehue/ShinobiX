@@ -30,7 +30,7 @@ export function isLivePetDuelAvailable(
     breedingSession: PetBreedingSession | null | undefined = null,
     now = serverNow(),
 ): boolean {
-    if (pet.training || pet.expedition) return false;
+    if (pet.expedition) return false;
     const isBreedingParent = breedingSession?.state === "breeding"
         && now < Number(breedingSession.readyAt)
         && breedingSession.parentIds.includes(pet.id);

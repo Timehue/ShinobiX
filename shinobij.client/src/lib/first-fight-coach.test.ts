@@ -36,16 +36,19 @@ const opening: FirstFightCoachState = {
 const line = (overrides: Partial<FirstFightCoachState>, seen: Set<string> = new Set()) =>
     firstFightCoachLine({ ...opening, ...overrides, history: { ...opening.history, ...(overrides.history ?? {}) } }, seen);
 
-test("spar: a distant novice learns Move first, then the actual Attack control", () => {
-    assert.match(line({})?.text ?? "", /^Move → tap a lit tile/);
-    assert.match(line({ enemyInMelee: true, canAttack: true })?.text ?? "", /Tap Attack.*40 of your 100 AP/);
+test("spar: introduces a ready jutsu before a basic attack can finish the dummy", () => {
+    assert.match(line({})?.text ?? "", /Choose a lit jutsu/);
+    assert.match(line({ enemyInMelee: true, canAttack: true })?.text ?? "", /Choose a lit jutsu/);
+    assert.match(line({ canCastJutsu: false })?.text ?? "", /^Move → tap a lit tile/);
+    assert.match(line({ canCastJutsu: false, enemyInMelee: true, canAttack: true, myAp: 70, attackAp: 50 })?.text ?? "", /Attack costs 50 AP. You have 70 AP/);
 });
 
-test("spar: after the first Attack the band names the 60 AP commitment, then AP running out", () => {
+test("spar: teaches each card's actual cost, and only suggests usable follow-ups", () => {
     const after = line({ enemyInMelee: true, canAttack: true, myAp: 60, history: { ...EMPTY_FIRST_FIGHT_HISTORY, attacked: true } });
-    assert.match(after?.text ?? "", /Attack cost 40\. A jutsu costs 60/);
-    const spent = line({ enemyInMelee: true, canAttack: false, canCastJutsu: false, myAp: 20, history: { ...EMPTY_FIRST_FIGHT_HISTORY, attacked: true } });
-    assert.match(spent?.text ?? "", /20 AP left.*Tap Wait/);
+    assert.match(after?.text ?? "", /Read its power and cost/);
+    const spent = line({ enemyInMelee: true, canMove: false, canAttack: false, canCastJutsu: false, myAp: 20, history: { ...EMPTY_FIRST_FIGHT_HISTORY, attacked: true } });
+    assert.match(spent?.text ?? "", /Tap Wait/);
+    assert.match(line({ canAttack: false, canMove: false, canCastJutsu: true, history: { ...EMPTY_FIRST_FIGHT_HISTORY, casted: true } })?.text ?? "", /Choose another lit jutsu/);
 });
 
 test("every line fits its surface: one 10px phone band line, a three-line bubble", () => {

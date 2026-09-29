@@ -2531,6 +2531,10 @@
             "line": 76
           },
           {
+            "source": "shinobij.client/src/styles/academy-jutsu-guide.css",
+            "line": 61
+          },
+          {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
             "line": 424
           },
@@ -2581,6 +2585,10 @@
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
             "line": 1868
+          },
+          {
+            "source": "shinobij.client/src/styles/training-skin.css",
+            "line": 280
           }
         ]
       },

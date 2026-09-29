@@ -269,3 +269,19 @@
     color: var(--slate-200, #e2e8f0);
     line-height: 1.5;
 }
+.training-screen .stat-grid .training-recommended {
+    border-color: #e8d496 !important;
+    box-shadow: inset 0 0 0 1px #e8d496, 0 0 12px #c4a25a40 !important;
+}
+.training-screen .stat-grid .training-recommended small {
+    color: #ffe5a4 !important;
+    font-weight: 700;
+}
+@media (max-width: 480px) {
+    .training-screen .stat-grid .training-stat-name {
+        max-width: 100%;
+        font-size: clamp(11px, 3.4vw, 14px) !important;
+        letter-spacing: 0.03em !important;
+        overflow-wrap: anywhere;
+    }
+}

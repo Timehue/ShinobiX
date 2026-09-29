@@ -123,7 +123,7 @@ function stripInlineArt(pet: Record<string, unknown>): Record<string, unknown> {
  * Seal exactly the pets a player agreed to field — no roster fill.
  *
  * Returns null if any named pet is missing from the owner's carried roster or is
- * busy (breeding, training, an expedition, another battle), which is the same
+ * busy (breeding, an expedition, another battle), which is the same
  * refusal the single-pet sealers made rather than quietly fielding a substitute.
  */
 export function sealChallengedPets(

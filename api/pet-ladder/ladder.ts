@@ -160,7 +160,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!pets) return res.status(400).json({ error: count === 1 ? 'Pick a pet you own.' : TACTICAL_ROSTER_COPY });
             const chosenIds = new Set(pets.map((pet) => String(pet.id ?? '')));
             if (owned.some((pet) => chosenIds.has(String(pet.id ?? '')) && petCombatBusyReason(character, pet))) {
-                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+                return res.status(409).json({ error: 'A selected pet is busy with breeding or an expedition.' });
             }
             const displayName = String(save?.character?.name ?? me).slice(0, 40);
             const village = typeof save?.character?.village === 'string' ? save!.character!.village : undefined;

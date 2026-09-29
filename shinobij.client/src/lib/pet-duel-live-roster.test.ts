@@ -23,11 +23,11 @@ describe('live Pet Arena roster selection', () => {
         } as PetBreedingSession;
 
         const candidates = [lead, training, unclaimedExpedition, breeding, reserve];
-        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, '', breedingSession, 1_000), [lead, reserve]);
-        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'training', breedingSession, 1_000), [lead, reserve]);
-        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'expedition', breedingSession, 1_000), [lead, reserve]);
-        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'breeding', breedingSession, 1_000), [lead, reserve]);
-        assert.deepEqual(buildPetArenaLiveRoster(candidates, training, '', breedingSession, 1_000), []);
+        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, '', breedingSession, 1_000), [lead, training]);
+        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'training', breedingSession, 1_000), [lead, training]);
+        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'expedition', breedingSession, 1_000), [lead, training]);
+        assert.deepEqual(buildPetArenaLiveRoster(candidates, lead, 'breeding', breedingSession, 1_000), [lead, training]);
+        assert.deepEqual(buildPetArenaLiveRoster(candidates, training, '', breedingSession, 1_000), [training, lead]);
         assert.deepEqual(buildPetArenaLiveRoster(candidates, unclaimedExpedition, '', breedingSession, 1_000), []);
         assert.deepEqual(buildPetArenaLiveRoster(candidates, breeding, '', breedingSession, 1_000), []);
     });

@@ -171,12 +171,12 @@ test('a lapse still allows an originally selected pet that remains inside the ba
     );
 });
 
-test('acceptance rejects a challenger pet that became busy after the invitation was sent', async () => {
-    const challenger = 'challengecapbusyone';
-    const responder = 'challengecapbusytwo';
+for (const activity of ['training', 'expedition'] as const) test(`acceptance permits training but rejects expeditions started after the invitation: ${activity}`, async () => {
+    const challenger = `challengecapbusyone${activity}`;
+    const responder = `challengecapbusytwo${activity}`;
     const challengerPets = await seedPlayer(challenger);
     const responderPets = await seedPlayer(responder);
-    const id = 'challenge-cap-busy-001';
+    const id = `challenge-cap-busy-${activity}`;
 
     const sent = await sendPetChallenge(challenger, responder, id, challengerPets[2].id, '127.0.0.73');
     assert.equal(sent.statusCode, 200);
@@ -185,13 +185,14 @@ test('acceptance rejects a challenger pet that became busy after the invitation 
     const character = stored?.character as Record<string, unknown>;
     const pets = (character.pets as Array<Record<string, unknown>>).map((value) =>
         value.id === challengerPets[2].id
-            ? { ...value, training: { type: 'strength', endsAt: Date.now() + 60_000 } }
+            ? { ...value, [activity]: { endsAt: Date.now() + 60_000 } }
             : value,
     );
     await kv.set(`save:${challenger}`, { ...stored, character: { ...character, pets } });
 
     const accepted = await acceptPetChallenge(challenger, responder, id, responderPets[0].id, '127.0.0.74');
-    assert.equal(accepted.statusCode, 409);
+    assert.equal(accepted.statusCode, activity === 'training' ? 200 : 409);
+    if (activity === 'training') return;
     assert.match(String(accepted.body?.error), /reselect eligible, combat-ready carried pets/i);
     assert.equal((await kv.get<Record<string, unknown>>(`challenges:record:${id}`))?.status, 'pending');
 });
