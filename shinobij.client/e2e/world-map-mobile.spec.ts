@@ -1,6 +1,6 @@
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
-import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
+import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditRuntime, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { returnToWorldAtlas } from "./helpers/sector-navigation";
 
@@ -13,10 +13,11 @@ const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
 const phoneProjects = ["chromium-390x844", "webkit-390x844", "chromium-mobile", "webkit-mobile"];
 type Footprint = { left: number; top: number; right: number; bottom: number };
 
-async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () => Promise<void>) {
+async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () => Promise<void>, onRuntime?: (runtime: UiAuditRuntime) => void) {
     const runtimeErrors: string[] = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
-    await installUiAuditRuntime(page, initialSave ?? uiAuditSave());
+    const runtime = await installUiAuditRuntime(page, initialSave ?? uiAuditSave());
+    onRuntime?.(runtime);
     // This established roaming character has already heard its level-up
     // rumors; their timed narrative popup would obscure unrelated map targets.
     await page.addInitScript(() => {
@@ -149,7 +150,7 @@ test("village travel shortcut handles rejection and allows a retry", async ({ pa
 
 test("village travel bookmark preserves a field character's location", async ({ page }) => {
     test.setTimeout(120_000);
-    await installUiAuditRuntime(page);
+    await installUiAuditRuntime(page, uiAuditSave());
     await page.goto("/#/village", { waitUntil: "domcontentloaded" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap", { timeout: 45_000 });
 });
@@ -168,7 +169,8 @@ test("village travel resumes its remaining countdown after a reconnect", async (
 
 test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
-    const runtimeErrors = await bootWorldMap(page);
+    let runtime: UiAuditRuntime | undefined;
+    const runtimeErrors = await bootWorldMap(page, undefined, undefined, (installed) => { runtime = installed; });
     if (testInfo.project.use.isMobile) await chooseRegion(page, "central");
     await expect(page.locator(".wpk-gates .world-poi-plate-name")).toHaveText("Central");
     await page.getByRole("button", { name: "Enter Central", exact: true }).click();
@@ -194,6 +196,12 @@ test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
     await page.locator(".pet-arena-return").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
 
+    // Refresh only after the town arrival is acknowledged by the save stub;
+    // otherwise a still-pending autosave makes the field location authoritative.
+    await expect.poll(() => {
+        const postedState = runtime?.lastCommit()?.postedState;
+        return postedState ? (JSON.parse(postedState) as UiAuditSave).currentSector : null;
+    }).toBe(0);
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
     await returnToWorldAtlas(page);

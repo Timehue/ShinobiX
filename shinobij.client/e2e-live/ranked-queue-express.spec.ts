@@ -27,7 +27,9 @@ async function seedFighter(request: APIRequestContext, info: TestInfo, side: str
     };
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': ADMIN },
-        data: { character, currentSector: 1, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
+        // This scenario enters a town lobby directly; a field-sector save must
+        // instead restore to the world map before any town navigation.
+        data: { character, currentSector: 0, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
     });
     expect(seeded.status(), await seeded.text()).toBe(200);
     const headers = { 'x-player-name': name, 'x-player-token': token };
