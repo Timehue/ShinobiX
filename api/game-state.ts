@@ -48,6 +48,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === 'GET') {
         try {
+            if (req.query.activeFights === '1') {
+                const fights = await kv.get<Array<{ startedAt?: number }>>(ARENA_ACTIVE_FIGHTS_KEY) ?? [];
+                res.setHeader('Cache-Control', 'no-store');
+                return res.status(200).json({ arenaActiveFights: fights.filter(f =>
+                    f && Number.isFinite(f.startedAt) && Date.now() - Number(f.startedAt) < 2 * 60 * 60 * 1000),
+                });
+            }
             // Village leadership portraits are large base64 images that change
             // rarely. They used to ride this frame — which clients poll every 5s
             // — at ~355KB per response. They're now served only on an explicit
@@ -333,51 +340,82 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const { fights } = body as { fights?: unknown[] };
                 if (!Array.isArray(fights)) return res.status(400).json({ error: 'Missing fights array.' });
 
-                // Non-admin actor must have been in the OLD list OR be in the
-                // NEW list. Without the "old list" check, the legitimate
-                // cleanup case 403'd: when a player's own fight ends they
-                // POST the list minus their fight, and the new list no
-                // longer contains them. Comparing against the prior KV
-                // value lets that cleanup through while still rejecting
-                // strangers who try to wipe or pollute the list.
-                if (!identity.admin) {
-                    const me = identity.name;
-                    function fighterNames(f: unknown): string[] {
-                        if (!f || typeof f !== 'object') return [];
-                        const rec = f as Record<string, unknown>;
-                        const names: string[] = [];
-                        if (typeof rec.p1Name === 'string') names.push(rec.p1Name);
-                        if (typeof rec.p2Name === 'string') names.push(rec.p2Name);
-                        const fighters = rec.fighters as unknown[] | undefined;
-                        if (Array.isArray(fighters)) {
-                            for (const ff of fighters) {
-                                // ArenaSpectatorFight.fighters is string[] in the
-                                // client type; accept that plus the legacy
-                                // { name: string } shape for safety.
-                                if (typeof ff === 'string') {
-                                    names.push(ff);
-                                } else if (ff && typeof ff === 'object' && typeof (ff as Record<string, unknown>).name === 'string') {
-                                    names.push(String((ff as Record<string, unknown>).name));
-                                }
-                            }
+                function fighterNames(f: unknown): string[] {
+                    if (!f || typeof f !== 'object') return [];
+                    const rec = f as Record<string, unknown>;
+                    const names = [rec.p1Name, rec.p2Name].filter((n): n is string => typeof n === 'string');
+                    if (Array.isArray(rec.fighters)) {
+                        for (const ff of rec.fighters) {
+                            if (typeof ff === 'string') names.push(ff);
+                            else if (ff && typeof ff === 'object' && typeof ff.name === 'string') names.push(ff.name);
                         }
-                        return names;
                     }
-                    function listIncludesMe(list: unknown[]): boolean {
-                        return list.some((f) => fighterNames(f).some((n) => safeName(n) === me));
-                    }
-                    const inNewList = listIncludesMe(fights);
-                    let inOldList = false;
-                    if (!inNewList) {
-                        const oldFights = await kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY);
-                        inOldList = Array.isArray(oldFights) ? listIncludesMe(oldFights) : false;
-                    }
-                    if (!inNewList && !inOldList) {
-                        return res.status(403).json({ error: 'Actor must be one of the fighters to update the arena fight list.' });
-                    }
+                    return names;
                 }
+                const me = identity.admin ? '' : identity.name;
+                const includesMe = (f: unknown) => fighterNames(f).some(n => safeName(n) === me);
+                const updated = await withKvLock(ARENA_ACTIVE_FIGHTS_KEY, async () => {
+                    const oldFights = await kv.get<unknown[]>(ARENA_ACTIVE_FIGHTS_KEY) ?? [];
+                    if (!identity.admin && !fights.some(includesMe) && !oldFights.some(includesMe)) return false;
+                    // Older clients send a whole cached list. Apply only this
+                    // fighter's entries so their stale copy cannot erase another
+                    // ranked match registered by a different player.
+                    const next = identity.admin ? fights : [
+                        ...oldFights.filter(f => !includesMe(f)),
+                        ...fights.filter(includesMe),
+                    ];
+                    await kv.set(ARENA_ACTIVE_FIGHTS_KEY, next.slice(0, 20));
+                    return true;
+                }, { failClosed: true });
+                if (!updated) return res.status(403).json({ error: 'Actor must be one of the fighters to update the arena fight list.' });
+                return res.status(200).json({ ok: true });
+            }
 
-                await kv.set(ARENA_ACTIVE_FIGHTS_KEY, fights.slice(0, 20));
+            if (kind === 'arenaActiveFight') {
+                const { action, fight, fightId } = body as {
+                    action?: 'register' | 'remove';
+                    fight?: { id?: string; battleId?: string; title?: string; mode?: string; startedAt?: number; fighters?: string[]; biome?: string };
+                    fightId?: string;
+                };
+                const id = action === 'register' ? fight?.id : fightId;
+                const battleId = action === 'register' ? fight?.battleId : id?.startsWith('pvp-') ? id.slice(4) : '';
+                if (!id || !battleId || id !== `pvp-${battleId}` || (action !== 'register' && action !== 'remove')) {
+                    return res.status(400).json({ error: 'Invalid arena fight.' });
+                }
+                const raw = await kv.get<unknown>(`pvp:${battleId}`);
+                const session = raw && typeof raw === 'object' && !Array.isArray(raw)
+                    ? raw as { battleId?: string; status?: string; p1?: { name?: string }; p2?: { name?: string }; createdAt?: number; rankedCloseFence?: unknown }
+                    : null;
+                const sessionOwned = session?.battleId === battleId && (identity.admin
+                    || [session.p1?.name, session.p2?.name].some(n => safeName(n ?? '') === identity.name));
+                if (action === 'register' && !sessionOwned) {
+                    return res.status(403).json({ error: 'Only a fighter can publish this battle.' });
+                }
+                if (action === 'register' && (session?.status !== 'active' || session.rankedCloseFence)) {
+                    return res.status(409).json({ error: 'This battle has ended.' });
+                }
+                const entry = action === 'register' ? {
+                    id, battleId,
+                    title: `${session!.p1!.name} vs ${session!.p2!.name}`,
+                    mode: (raw as { ranked?: boolean; playerRankedAuthorityVersion?: number }).ranked === true
+                        || (raw as { playerRankedAuthorityVersion?: number }).playerRankedAuthorityVersion === 2
+                        ? 'Ranked' : typeof fight?.mode === 'string' ? fight.mode.slice(0, 40) : 'PvP',
+                    startedAt: Number(session!.createdAt) || Date.now(),
+                    fighters: [session!.p1!.name!, session!.p2!.name!],
+                    ...(typeof fight?.biome === 'string' ? { biome: fight.biome.slice(0, 40) } : {}),
+                } : null;
+                const updated = await withKvLock(ARENA_ACTIVE_FIGHTS_KEY, async () => {
+                    const current = await kv.get<Array<{ id?: string; startedAt?: number; fighters?: string[] }>>(ARENA_ACTIVE_FIGHTS_KEY) ?? [];
+                    const existing = current.find(f => f.id === id);
+                    if (action === 'remove' && !existing) return true;
+                    if (action === 'remove' && !sessionOwned && !identity.admin
+                        && !existing?.fighters?.some(n => safeName(n) === identity.name)) return false;
+                    const remaining = current.filter(f => f.id !== id && Date.now() - Number(f.startedAt) < 2 * 60 * 60 * 1000);
+                    if (entry) remaining.unshift(entry);
+                    await kv.set(ARENA_ACTIVE_FIGHTS_KEY, remaining.slice(0, 20));
+                    return true;
+                }, { failClosed: true });
+                if (!updated) return res.status(403).json({ error: 'Only a fighter can remove this battle.' });
                 return res.status(200).json({ ok: true });
             }
 

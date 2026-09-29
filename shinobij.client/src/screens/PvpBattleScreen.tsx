@@ -65,7 +65,7 @@ import {
     type PvpGroundEffectState,
     type PvpSessionState
 } from "../App";
-import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
+import { registerArenaFight, removeArenaFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
 import {
     beginPvpRewardCompletion,
@@ -229,6 +229,7 @@ export function PvpBattleScreen({
     seedSession,
     isSpar = false,
     battleMode = "standard",
+    spectatorOrigin = false,
     onWin,
     onLoss,
     onCompletionConfirmed,
@@ -260,6 +261,8 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
+    /** The viewer deliberately opened this session from a spectator entry point. */
+    spectatorOrigin?: boolean;
     onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => BountyReceipt | null | void | Promise<BountyReceipt | null | void>;
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
     /** Adopt the claim's versioned snapshot/progression on both first response and replay. */
@@ -285,6 +288,9 @@ export function PvpBattleScreen({
         const parsed = parsePvpSessionProjection(seedSession, battleId);
         return parsed.kind === "session" ? parsed.session : null;
     });
+    const wasFighterRef = useRef(!!session && [session.p1.name, session.p2.name]
+        .some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase()));
+    const terminalFightRemovedRef = useRef(false);
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
     // Items are live for real fighters in casual PvP (consumable authority v2:
     // the server seals the budget from the save and deducts at settlement).
@@ -459,6 +465,11 @@ export function PvpBattleScreen({
 
     function markSessionUnavailable(message: string, isCurrent: () => boolean): void {
         if (!isCurrent()) return;
+        if (message === "This ranked battle ended as a no-contest."
+            && wasFighterRef.current && !terminalFightRemovedRef.current) {
+            terminalFightRemovedRef.current = true;
+            removeArenaFight(`pvp-${battleId}`);
+        }
         setSession(null);
         setSessionLoadFailure(message);
         setConnectionState("reconnecting");
@@ -485,6 +496,8 @@ export function PvpBattleScreen({
             return parsed;
         }
         if (parsed.kind === "session") {
+            if ([parsed.session.p1.name, parsed.session.p2.name]
+                .some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) wasFighterRef.current = true;
             setSession(current => acceptRevision(current, parsed.session));
         }
         return parsed;
@@ -531,6 +544,15 @@ export function PvpBattleScreen({
     }
 
     const exitBattle = (target: Screen) => {
+        const watching = spectatorOrigin || (!!session
+            && ![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase()));
+        if (watching) {
+            void fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action: "leave" }),
+            }).catch(() => {});
+        }
         if (onExit) onExit(target);
         else setScreen(target);
     };
@@ -1424,25 +1446,24 @@ export function PvpBattleScreen({
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
-        if (!session) return;
+        if (!session || session.status !== "active") return;
         if (![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) return;
         const fight: ArenaSpectatorFight = {
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
             mode: effectiveBattleMode === "ranked" ? "Ranked" : effectiveBattleMode === "clanWar1v1" ? "Clan War" : effectiveIsSpar ? "Spar" : "PvP",
-            startedAt: Date.now(),
+            startedAt: Number(session.createdAt) || Date.now(),
             fighters: [session.p1.name, session.p2.name],
             battleId,
             biome: currentBiome,
         };
-        const next = [fight, ...loadArenaActiveFights().filter(f => f.id !== fight.id)];
-        saveArenaActiveFights(next);
-        return () => {
-            unregisterLocalFight(fight.id);
-            const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
-            saveArenaActiveFights(remaining);
-        };
-    }, [!!session, battleId]);  
+        registerArenaFight(fight);
+    }, [session?.status, battleId]);
+    useEffect(() => {
+        if (session?.status !== "done") return;
+        if (![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) return;
+        removeArenaFight(`pvp-${battleId}`);
+    }, [session?.status, battleId]);
 
     /* ── Battle chat state ── */
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
@@ -1555,10 +1576,9 @@ export function PvpBattleScreen({
     /* Spectator presence heartbeat. The server prunes any spectator whose last
        ping is older than 30s (STALE_MS), so without a re-ping the "Watching:"
        list silently empties mid-fight and refresh-restored spectators never
-       appear at all (the Arena board POSTs 'join' only once, on entry). Re-POST
-       'join' on mount + every 20s WHILE watching, paused while hidden so a
-       backgrounded tab doesn't keep a phantom watcher alive. Mirrors the Arena
-       join exactly; if the POST isn't authed it's a harmless swallowed no-op. */
+       appear at all. POST 'join' on mount + every 20s WHILE watching, paused
+       while hidden so a backgrounded tab doesn't keep a phantom watcher alive.
+       If the POST isn't authed it's a harmless swallowed no-op. */
     const amSpectatorLive = !!session
         && character.name.trim().toLowerCase() !== session.p1.name.trim().toLowerCase()
         && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
@@ -1645,13 +1665,14 @@ export function PvpBattleScreen({
                     <p style={{ color: sessionLoadFailure ? "#fca5a5" : "var(--text-dim)" }}>
                         {sessionLoadFailure || "Connecting to battle session..."}
                     </p>
+                    {spectatorOrigin && <button type="button" onClick={() => exitBattle(returnTarget)}>Stop watching</button>}
                     {sessionLoadFailure && (
                         <div className="menu">
                             <button type="button" onClick={() => {
                                 setSessionLoadFailure("");
                                 setSessionRetryKey(value => value + 1);
                             }}>Retry Connection</button>
-                            {sessionExitCheck === "safe" ? (
+                            {spectatorOrigin ? null : sessionExitCheck === "safe" ? (
                                 <button type="button" onClick={() => exitBattle(returnTarget)}>Return Safely</button>
                             ) : (
                                 <button type="button" disabled={sessionExitCheck === "checking"} onClick={() => void verifyPendingSessionBeforeExit()}>

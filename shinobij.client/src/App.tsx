@@ -194,7 +194,7 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "", presentationEventId?: string) =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token, presentationEventId));
 const loadDungeonPresentation = () => retryDynamicImport(() => import('./lib/dungeon-presentation'));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, pvpBattleIdForPresence, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -1277,6 +1277,7 @@ export default function App() {
         pvpBattleContext, setPvpBattleContext, pvpSeedSession, setPvpSeedSession,
         pvpCompletionConfirmed, setPvpCompletionConfirmed, installPvpRecovery, installPvpBreadcrumb, clearPvpBattleState,
     } = usePvpSessionController({ characterName: character?.name, accountSessionEpoch: saveSessionEpochRef.current, restoringSession, storageKey: PVP_SESSION_KEY });
+    const [returnToSpectateTab, setReturnToSpectateTab] = useState(false);
     const pvpContinuationResultRef = useRef(new Map<string, {
         bounty: Awaited<ReturnType<typeof claimBountyOnWin>> | undefined;
         missionCompletions: Array<{ id: string; name: string; xpReward: number }> | undefined;
@@ -1906,12 +1907,12 @@ export default function App() {
         }
     }, [pendingTravel, travelNow]);
 
-    function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
+    function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current, forWorldPresence = false): boolean {
         if (storyFightOpen || sealedFightEngagedRef.current) return true;
         return isUnresolvedBattle({
             screen: screenSnapshot,
             raidBattleKind,
-            pvpBattleId,
+            pvpBattleId: forWorldPresence ? pvpBattleIdForPresence(pvpBattleId, pvpBattleContext) : pvpBattleId,
             pvpBattleResolved: pvpCompletionConfirmed,
             endlessBattleActive,
             pendingArenaStoryBattle: !!pendingArenaStoryBattle,
@@ -1949,7 +1950,7 @@ export default function App() {
             // reject double-battle requests and healers can't heal active fighters.
             // The shared guard keeps opponent-search hubs free while still lifting
             // active arena/pet flags whose state lives inside those screens.
-            const inBattleNow = isPresenceBattleActive();
+            const inBattleNow = isPresenceBattleActive(undefined, true);
             // Upload only the display fields the roster surfaces, not the full
             // character blob — see presenceCharacter(). Gameplay/PvP paths read the
             // presence row's sector/inBattle/travel flags, not this character; combat
@@ -2133,7 +2134,7 @@ export default function App() {
         return () => { retireHeartbeat(); stopHeartbeat(); };
     }, [
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, pendingTravel, screen, tabVisible, socketConnected,
-        raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
+        raidBattleKind, pvpBattleId, pvpBattleContext, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
         petBattleActive,
     ]);
@@ -2143,7 +2144,7 @@ export default function App() {
         characterRef,
         currentSectorRef,
         heartbeatRef,
-        getPresenceBattleActive: isPresenceBattleActive,
+        getPresenceBattleActive: () => isPresenceBattleActive(undefined, true),
         setSocketConnected,
     });
 
@@ -6199,6 +6200,9 @@ export default function App() {
                         setScreen={navigate}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
+                        setPvpBattleContext={setPvpBattleContext}
+                        returnToSpectateTab={returnToSpectateTab}
+                        onSpectateReturnConsumed={() => setReturnToSpectateTab(false)}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                         onAcceptChallenge={(challenge) => { void acceptChallengeGlobal(challenge); }}
                         onDeclineChallenge={declineChallengeGlobal}
@@ -6393,11 +6397,13 @@ export default function App() {
                             seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
+                            spectatorOrigin={pvpBattleContext?.spectatingFromScreen != null || pvpBattleContext?.spectatingFromSector != null}
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
                             onExit={(target) => {
                                 markPvpSectorReturn(target, pvpBattleContext, currentSector);
+                                if (pvpBattleContext?.spectatingFromScreen === "arenaDistrict") setReturnToSpectateTab(true);
                                 clearPvpBattleState();
                                 setRaidBattleKind("none");
                                 setScreen(target);

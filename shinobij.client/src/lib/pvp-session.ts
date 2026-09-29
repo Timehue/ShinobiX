@@ -41,6 +41,11 @@ export function hasVersionedPvpClaimSnapshot(claim: { character?: unknown; _save
     return !!claim?.character && Number.isSafeInteger(claim._saveVersion) && Number(claim._saveVersion) > 0;
 }
 
+/** Spectators watch a PvP session without being combatants in world presence. */
+export function pvpBattleIdForPresence(battleId: string | null, context: PvpRecoveryContext | null): string | null {
+    return context?.spectatingFromSector != null || context?.spectatingFromScreen != null ? null : battleId;
+}
+
 /*
  * Where a finished PvP fight sends this player, and what the button promises.
  *
@@ -55,12 +60,15 @@ export function hasVersionedPvpClaimSnapshot(claim: { character?: unknown; _save
  * mode) keeps the original destination.
  */
 export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number, hospitalized = false): { returnTarget: Screen; returnLabel: string } {
-    if (hospitalized) return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
-    const returnTarget: Screen = (context?.sectorAttack || context?.spectatingFromSector != null) ? "worldMap" : context?.mode?.startsWith("clanWar") ? "clan" : "battleArena";
+    if (hospitalized && context?.spectatingFromSector == null && context?.spectatingFromScreen == null)
+        return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
+    const returnTarget: Screen = (context?.sectorAttack || context?.spectatingFromSector != null) ? "worldMap"
+        : context?.spectatingFromScreen ?? (context?.mode?.startsWith("clanWar") ? "clan" : "battleArena");
     return {
         returnTarget,
         returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.spectatingFromSector ?? context?.sector ?? currentSector}`
-            : returnTarget === "clan" ? "Return to Clan War" : "Return to Arena",
+            : returnTarget === "clan" ? "Return to Clan War"
+                : returnTarget === "arenaDistrict" ? "Return to Spectator Board" : "Return to Arena",
     };
 }
 
