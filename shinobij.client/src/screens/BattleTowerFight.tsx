@@ -442,6 +442,7 @@ export function BattleTowerFight({
     stateFn = fetchTowerState,
     storyTheme,
     variant = "tower",
+    pvpContextLabel = 'Team Arena',
 }: {
     character: Character;
     onVersionedCharacter?: VersionedCharacterCommit;
@@ -476,6 +477,7 @@ export function BattleTowerFight({
     // start and as the boss's HP falls. See lib/story-fight-theme.ts.
     storyTheme?: StoryFightTheme;
     variant?: "tower" | "team-pvp";
+    pvpContextLabel?: string;
 }) {
     const isTeamPvp = variant === "team-pvp";
     const [session, setSession] = useState<TowerSession>(initialSession);
@@ -1839,7 +1841,7 @@ export function BattleTowerFight({
                     <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
-                        <h1 className="tower-fight-title">{isTeamPvp ? "2v2 Team Arena · eliminate the rival team" : storyEncounterTitle}</h1>
+                        <h1 className="tower-fight-title">{isTeamPvp ? `${session.actors.filter(a => a.side === 'squad').length}v${session.actors.filter(a => a.side === 'enemy').length} ${pvpContextLabel} · eliminate the rival team` : storyEncounterTitle}</h1>
                         <span className="tower-objective-progress" role="status" aria-label={`Objective progress: ${objectiveProgress}`}>{objectiveDirective} · {objectiveProgress}</span>
                         <span className="tower-round-readout" title={roundPresentation.hudTitle} aria-label={roundPresentation.hudTitle} style={{
                             color: roundPresentation.hardLimit && session.round >= roundPresentation.hardLimit - 2 ? "var(--red-400)"
@@ -1879,7 +1881,7 @@ export function BattleTowerFight({
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
                                     if (isTeamPvp) {
-                                        if (await gameConfirm("Forfeit your fighter from this 2v2 match? This is immediate and your teammate may have to continue alone.")) void send({ type: "forfeit" });
+                                        if (await gameConfirm(`Forfeit your fighter from this match? This is immediate.${session.actors.filter(a => a.side === 'squad').length > 1 ? ' Your teammate may have to continue alone.' : ''}`)) void send({ type: "forfeit" });
                                     } else if (await gameConfirm("Leave the battle view? The server run will continue and may auto-pass your turns. Reopen Battle Towers to recover it.")) {
                                         (onLeaveActive ?? onExit)();
                                     }
@@ -2502,7 +2504,7 @@ export function BattleTowerFight({
                             title={isTeamPvp
                                 ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
                                 : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
-                            chapter={isTeamPvp ? "Team Arena" : sealedStoryFloor?.chapterTitle || "Battle Towers"}
+                            chapter={isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
                             encounter={!isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
                             art={storyTheme?.backdropImage} />
                         <div className="tower-completion-body">
@@ -2525,7 +2527,7 @@ export function BattleTowerFight({
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}
                             title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
-                            {isTeamPvp ? "Return to Team Arena" : "Return to the Tower"}
+                            {isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"}
                         </button>
                         </div>
                         </div>

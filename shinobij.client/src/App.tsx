@@ -1738,7 +1738,7 @@ export default function App() {
         const blocksBattleScreen = BATTLE_SCREENS.has(screen)
             && (!mixedPetScreen || petBattleActive || !!pendingPetBattleOpponent)
             && (screen !== "battleTowers" || hasActiveTowerFight());
-        if (blocksBattleScreen) return;
+        if (blocksBattleScreen || (screen === 'arenaDistrict' && hasActiveTowerFight())) return;
 
         const me = character.name.toLowerCase();
         for (const war of Object.values(sharedClanWarCache)) {
@@ -2786,7 +2786,12 @@ export default function App() {
                         if (runId && runId.length <= 128) {
                             if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }
-                        setScreen(arena2v2 ? "battleArena" : "battleTowers");
+                        if (bootLock.meta?.mode === 'tournament') {
+                            try { sessionStorage.setItem('tournament-resume', '1'); } catch { /* optional recovery marker */ }
+                            // An optimistic hub preview may have opened a story before the server lease arrived.
+                            setActiveTriggeredEvent(null);
+                            setScreen('arenaDistrict');
+                        } else setScreen(arena2v2 ? "battleArena" : "battleTowers");
                         return;
                     }
                     if (recovery === "resolved") {
@@ -3454,7 +3459,7 @@ export default function App() {
             const forcedId = forcedStoryChapterRef.current;
             const resolved = await resolveStoryContinuation(() => forcedId ? currentStoryChapterTrigger(character) : nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "", () => stale);
             const next = resolved.current ? resolved.value : null;
-            if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current) return;
+            if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current || isBattleFlowScreen()) return;
             if (forcedId === next.eventId) forcedStoryChapterRef.current = null;
             vnTriggerClaimRef.current = true;
             // Keep current story text and branches; saved copies supply art only.

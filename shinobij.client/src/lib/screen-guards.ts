@@ -222,7 +222,7 @@ export function hasActiveTowerFight(): boolean {
 export const SCREEN_FIGHT_STATE_EVENT = "shinobix:screen-fight-state";
 /** Screens that host a fight in their own state: the Weekly Boss tracker and the
  * Card Hall, whose live AI showdown forfeits when left. */
-export const SCREEN_FIGHT_HOSTS: ReadonlySet<Screen> = new Set<Screen>(["weeklyBoss", "shinobiTiles"]);
+export const SCREEN_FIGHT_HOSTS: ReadonlySet<Screen> = new Set<Screen>(["weeklyBoss", "shinobiTiles", "arenaDistrict"]);
 const screensWithLiveFight = new Set<Screen>();
 
 export function setScreenFightActive(screen: Screen, active: boolean): void {
@@ -279,10 +279,10 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "arena":
         case "battleArena":
         case "arenaDistrict":
-            // These screens are lobbies after the local Arena retirement. The
-            // false compatibility flag and legacy signals remain only to fence
-            // rolling-upgrade breadcrumbs while boot routes sealed sessions.
-            return s.arenaBattleActive || hasActiveBattleLock()
+            // Arena District also hosts sealed tournament fights. Its recovered
+            // lease blocks interruptions before the battle panel has mounted.
+            // Other Arena modes retain their rolling-upgrade compatibility signals.
+            return s.arenaBattleActive || hasActiveBattleLock() || (s.screen === 'arenaDistrict' && (hasLiveScreenFight('arenaDistrict') || hasActiveTowerFight()))
                 || s.endlessBattleActive || s.pendingArenaStoryBattle;
         case "pvpBattle":
             return !!s.pvpBattleId && !s.pvpBattleResolved;

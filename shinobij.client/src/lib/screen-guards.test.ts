@@ -26,6 +26,26 @@ function signals(overrides: Partial<BattleGuardSignals>): BattleGuardSignals {
 }
 
 describe("screen navigation guards", () => {
+    it('guards a recovered tournament before its battle component mounts', () => {
+        const previous = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+        Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: { getItem: (key: string) => key === 'shinobix:towerRunId' ? 'pvp:tpvp-0123456789abcdef0123456789abcdef' : null } });
+        try {
+            assert.equal(isUnresolvedBattle(signals({ screen: 'arenaDistrict' })), true);
+            assert.equal(isUnresolvedBattle(signals({ screen: 'village' })), false);
+        } finally {
+            if (previous) Object.defineProperty(globalThis, 'localStorage', previous);
+            else Reflect.deleteProperty(globalThis, 'localStorage');
+        }
+    });
+    it('locks a hosted tournament fight without trapping an idle Arena or another screen', () => {
+        assert.equal(isUnresolvedBattle(signals({ screen: 'arenaDistrict' })), false);
+        setScreenFightActive('arenaDistrict', true);
+        try {
+            assert.equal(isUnresolvedBattle(signals({ screen: 'arenaDistrict' })), true);
+            assert.equal(isUnresolvedBattle(signals({ screen: 'village' })), false);
+        } finally { setScreenFightActive('arenaDistrict', false); }
+        assert.equal(isUnresolvedBattle(signals({ screen: 'arenaDistrict' })), false);
+    });
     it("blocks leaving an unresolved PvP battle", () => {
         assert.equal(isUnresolvedBattle(signals({
             screen: "pvpBattle",

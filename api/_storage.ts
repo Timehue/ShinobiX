@@ -109,6 +109,7 @@ const _noCachePrefixes = [
     'game:weekly-boss-state',
     // Circuit join/seal/pause writes share a distributed event lock.
     'game:dojo-circuit:',
+    'game:tournaments:',
     // Direct-message inboxes, threads, and per-player deletion cutoffs are all
     // lock-coordinated live state. A worker-local snapshot can resurrect a
     // deleted row or lose a concurrently delivered message.
