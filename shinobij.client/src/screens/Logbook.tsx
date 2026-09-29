@@ -500,6 +500,7 @@ export function Logbook({
                         const raidReq = missionRaidRequirement(mission);
                         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
                         const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
                         const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
                         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -511,8 +512,9 @@ export function Logbook({
                                 <small>Lvl {mission.levelReq} | +{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
+                                {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
                                 </div>
                             </div>
                         );
@@ -579,7 +581,7 @@ export function Logbook({
                                 <p><strong>Next:</strong> {nextAction.instruction}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => {
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
                                         writeFieldMissionNavigationIntent(character.name, {
                                             missionId: mission.id,
                                             targetSector: mission.targetSector,

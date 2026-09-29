@@ -667,7 +667,7 @@ export function Missions({
                             return (
                                 <article
                                     key={mission.id}
-                                    className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
+                                    className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${accepted && nextAction.objective === "explore" ? " mh-field-explore" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">
@@ -728,6 +728,8 @@ export function Missions({
                                                             glyph carries the difference between "collect" and "go". */}
                                                         <span className="mh-field-primary-arrow" aria-hidden="true">✓</span>
                                                     </button>
+                                                    : nextAction.objective === "explore"
+                                                    ? null
                                                     : <button className="mh-field-primary-action" onClick={() => {
                                                         writeFieldMissionNavigationIntent(character.name, {
                                                             missionId: mission.id,
