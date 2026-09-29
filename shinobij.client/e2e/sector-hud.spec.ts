@@ -466,8 +466,11 @@ for (const width of [390,1366]) test(`Spectate opens live fight and chat and ret
     await page.getByRole('button',{name:'Spectate Shinobi002'}).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','pvpBattle');
     await expect(page.getByRole('button',{name:'Stop watching'})).toBeVisible();
-    if(await page.getByRole('button',{name:'Show battle chat'}).isVisible()) await page.getByRole('button',{name:'Show battle chat'}).click();
-    await expect(page.getByText('Fixture battle chat is live.',{exact:true})).toBeVisible();
+    const showChat=page.getByRole('button',{name:'Show battle chat'});
+    const liveChat=page.getByText('Fixture battle chat is live.',{exact:true});
+    await expect.poll(async()=>await showChat.isVisible() || await liveChat.isVisible()).toBe(true);
+    if(await showChat.isVisible()) await showChat.click();
+    await expect(liveChat).toBeVisible();
     const compose=page.getByPlaceholder('Chat as spectator…');
     await expect(compose).toBeEnabled();
     await compose.fill('Local spectator test message');
