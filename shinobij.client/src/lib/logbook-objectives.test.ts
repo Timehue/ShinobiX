@@ -94,6 +94,22 @@ test("Ready for Genin includes the level-13 profession checkpoint", () => {
     assert.equal(withProfession?.requirements.find((r) => r.label === "Choose a profession")?.progress, 1);
 });
 
+test("upcoming advancement previews preserve unlocks and the current objective", () => {
+    for (const [level, exam, unlock] of [[10, 'genin', 20], [30, 'chunin', 39]] as const) {
+        const character = makeCharacter({ level, academyChecklistClaimed: true, examsPassed: level === 30 ? ['genin'] : [] });
+        const preview = buildLogbookObjectives(character, { previewAdvancement: true }).find((o) => o.examKey === exam);
+        assert.ok(preview);
+        assert.equal(preview.unlockLevel, unlock);
+        assert.equal(objectiveComplete(preview), false);
+        assert.deepEqual(currentLogbookObjective(character, { previewAdvancement: true }), currentLogbookObjective(character));
+        assert.ok(!buildLogbookObjectives(character).some((o) => o.examKey === exam));
+    }
+    const early = makeCharacter({ level: 9 });
+    assert.ok(!buildLogbookObjectives(early, { previewAdvancement: true }).some((o) => o.kind === 'exam'));
+    const chunin = buildLogbookObjectives(makeCharacter({ level: 30 }), { previewAdvancement: true }).find((o) => o.examKey === 'chunin');
+    assert.equal(chunin?.requirements.find((r) => r.label === 'Join or found a clan')?.goScreen, 'clan');
+});
+
 test("profession CTA stays hidden until the level-13 picker can render", () => {
     const ready = buildLogbookObjectives(makeCharacter({
         level: 10,
@@ -211,6 +227,22 @@ test("requirement progress reads the save's counters", () => {
     const chunin = currentLogbookObjective(c);
     assert.equal(chunin?.examKey, "chunin");
     assert.ok(objectiveComplete(chunin!), "all Chunin requirements satisfied");
+});
+
+test("clan mission contributions remain visible when the personal counter is zero", () => {
+    const c = makeCharacter({
+        level: 39,
+        examsPassed: ["genin"],
+        elements: ["Fire", "Water"],
+        totalMissionsCompleted: 0,
+        clanMissionContrib: 50,
+        totalTilesExplored: 100,
+        clan: "Emberfall",
+        defeatedAiIds: ["builtin-ai-exam-proctor"],
+    });
+    const chunin = currentLogbookObjective(c);
+    assert.equal(chunin?.requirements.find((r) => r.label === "Complete 50 missions")?.progress, 50);
+    assert.ok(objectiveComplete(chunin!), "the displayed exam is ready when the server's mission rule is met");
 });
 
 test("Genin and Chunin exam objectives match the real XP hold levels", () => {

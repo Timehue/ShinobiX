@@ -1,0 +1,5705 @@
+{
+  "node": "v24.15.0",
+  "platform": "win32",
+  "assumptions": "Start at Academy floor L10; default era, no bonuses/events; all earned points available; exams pass instantly; no missed starts, travel, recovery, stamina or ryo constraints; daily grants credited after training. Not a time-to-level forecast. Full dailies means all level-eligible built-in hunt/fetch claims plus shared combat cap. Other grants excluded.",
+  "tiers": [
+    {
+      "id": "15m",
+      "gain": 3,
+      "hourly": 12
+    },
+    {
+      "id": "1h",
+      "gain": 10,
+      "hourly": 10
+    },
+    {
+      "id": "4h",
+      "gain": 38,
+      "hourly": 9.5
+    },
+    {
+      "id": "8h",
+      "gain": 72,
+      "hourly": 9
+    }
+  ],
+  "thresholds": {
+    "10": 1800,
+    "13": 2426,
+    "15": 2848,
+    "20": 3917,
+    "30": 6100,
+    "35": 7211,
+    "39": 8112,
+    "50": 10679,
+    "70": 16086,
+    "80": 19500,
+    "100": 29000
+  },
+  "firstPaidJutsuLessonRyo": 3000,
+  "pacing": [
+    {
+      "schedule": "one_8h",
+      "fullAvailableDailyChecklistAndCombatCap": false,
+      "milestonesInCompletedDays": {
+        "13": 2,
+        "15": 4,
+        "20": 8,
+        "30": 20,
+        "35": 30,
+        "39": 43,
+        "50": 79,
+        "70": 154,
+        "80": 201,
+        "100": 333
+      }
+    },
+    {
+      "schedule": "one_8h",
+      "fullAvailableDailyChecklistAndCombatCap": true,
+      "milestonesInCompletedDays": {
+        "13": 2,
+        "15": 3,
+        "20": 7,
+        "30": 17,
+        "35": 24,
+        "39": 32,
+        "50": 54,
+        "70": 97,
+        "80": 122,
+        "100": 192
+      }
+    },
+    {
+      "schedule": "two_8h",
+      "fullAvailableDailyChecklistAndCombatCap": false,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 4,
+        "30": 10,
+        "35": 15,
+        "39": 22,
+        "50": 40,
+        "70": 77,
+        "80": 101,
+        "100": 167
+      }
+    },
+    {
+      "schedule": "two_8h",
+      "fullAvailableDailyChecklistAndCombatCap": true,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 4,
+        "30": 9,
+        "35": 14,
+        "39": 18,
+        "50": 32,
+        "70": 59,
+        "80": 76,
+        "100": 122
+      }
+    },
+    {
+      "schedule": "three_8h",
+      "fullAvailableDailyChecklistAndCombatCap": false,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 3,
+        "30": 7,
+        "35": 10,
+        "39": 15,
+        "50": 27,
+        "70": 52,
+        "80": 67,
+        "100": 111
+      }
+    },
+    {
+      "schedule": "three_8h",
+      "fullAvailableDailyChecklistAndCombatCap": true,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 3,
+        "30": 7,
+        "35": 10,
+        "39": 13,
+        "50": 23,
+        "70": 43,
+        "80": 55,
+        "100": 89
+      }
+    },
+    {
+      "schedule": "reference_24h",
+      "fullAvailableDailyChecklistAndCombatCap": false,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 3,
+        "30": 7,
+        "35": 10,
+        "39": 14,
+        "50": 25,
+        "70": 49,
+        "80": 63,
+        "100": 105
+      }
+    },
+    {
+      "schedule": "reference_24h",
+      "fullAvailableDailyChecklistAndCombatCap": true,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 2,
+        "20": 3,
+        "30": 6,
+        "35": 9,
+        "39": 12,
+        "50": 22,
+        "70": 41,
+        "80": 52,
+        "100": 85
+      }
+    },
+    {
+      "schedule": "theoretical_96_short",
+      "fullAvailableDailyChecklistAndCombatCap": false,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 1,
+        "20": 2,
+        "30": 5,
+        "35": 8,
+        "39": 11,
+        "50": 20,
+        "70": 39,
+        "80": 51,
+        "100": 84
+      }
+    },
+    {
+      "schedule": "theoretical_96_short",
+      "fullAvailableDailyChecklistAndCombatCap": true,
+      "milestonesInCompletedDays": {
+        "13": 1,
+        "15": 1,
+        "20": 2,
+        "30": 5,
+        "35": 8,
+        "39": 10,
+        "50": 18,
+        "70": 34,
+        "80": 44,
+        "100": 71
+      }
+    }
+  ],
+  "fightSummary": [
+    {
+      "key": "combat-c-patrol",
+      "count": 12,
+      "wins": 12,
+      "outcomes": [
+        "win"
+      ],
+      "rounds": [
+        2,
+        2
+      ]
+    },
+    {
+      "key": "combat-b-escort",
+      "count": 12,
+      "wins": 12,
+      "outcomes": [
+        "win"
+      ],
+      "rounds": [
+        3,
+        5
+      ]
+    },
+    {
+      "key": "combat-a-hunt",
+      "count": 12,
+      "wins": 12,
+      "outcomes": [
+        "win"
+      ],
+      "rounds": [
+        3,
+        5
+      ]
+    },
+    {
+      "key": "combat-s-crisis",
+      "count": 12,
+      "wins": 12,
+      "outcomes": [
+        "win"
+      ],
+      "rounds": [
+        5,
+        12
+      ]
+    }
+  ],
+  "fights": [
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6299,
+      "finalBytes": 25374
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6299,
+      "finalBytes": 29739
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 1279,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6299,
+      "finalBytes": 34789
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6299,
+      "finalBytes": 23428
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1826,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6284,
+      "finalBytes": 24715
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1867,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6284,
+      "finalBytes": 28716
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 1412,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6284,
+      "finalBytes": 34469
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1826,
+      "chakra": 2272,
+      "stamina": 2180,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6284,
+      "finalBytes": 22769
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6289,
+      "finalBytes": 25033
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6289,
+      "finalBytes": 29034
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 1279,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6289,
+      "finalBytes": 34787
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6289,
+      "finalBytes": 23087
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6294,
+      "finalBytes": 25088
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6294,
+      "finalBytes": 29089
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 1279,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6294,
+      "finalBytes": 34842
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 15,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 1693,
+      "chakra": 2180,
+      "stamina": 2272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6294,
+      "finalBytes": 23142
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6301,
+      "finalBytes": 25378
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6301,
+      "finalBytes": 29743
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2127,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6301,
+      "finalBytes": 34793
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6301,
+      "finalBytes": 23432
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2652,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6286,
+      "finalBytes": 24719
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2695,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6286,
+      "finalBytes": 28720
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2270,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6286,
+      "finalBytes": 34473
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2652,
+      "chakra": 3000,
+      "stamina": 2883,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6286,
+      "finalBytes": 22773
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6291,
+      "finalBytes": 25037
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6291,
+      "finalBytes": 29038
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2127,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6291,
+      "finalBytes": 34791
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6291,
+      "finalBytes": 23091
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6296,
+      "finalBytes": 25092
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6296,
+      "finalBytes": 29093
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2127,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6296,
+      "finalBytes": 34846
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 23,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 2509,
+      "chakra": 2883,
+      "stamina": 3000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6296,
+      "finalBytes": 23146
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6302,
+      "finalBytes": 25379
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6302,
+      "finalBytes": 29749
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3929,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6302,
+      "finalBytes": 34794
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6302,
+      "finalBytes": 23433
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6287,
+      "finalBytes": 24720
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6287,
+      "finalBytes": 28726
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4125,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6287,
+      "finalBytes": 34474
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4400,
+      "chakra": 4545,
+      "stamina": 4377,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6287,
+      "finalBytes": 22774
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6292,
+      "finalBytes": 25038
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6292,
+      "finalBytes": 29044
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3929,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6292,
+      "finalBytes": 34792
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Ignition",
+        "Increase Damage Taken",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6292,
+      "finalBytes": 23092
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 12,
+      "initialBytes": 6297,
+      "finalBytes": 25093
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Ignition",
+        "Increase Damage Given",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 10,
+      "initialBytes": 6297,
+      "finalBytes": 29099
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3929,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-universal-flicker": 1,
+        "starter-tai-earth-1": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6297,
+      "finalBytes": 34847
+    },
+    {
+      "key": "combat-c-patrol",
+      "level": 40,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 4,
+      "hp": 4243,
+      "chakra": 4377,
+      "stamina": 4545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-earth-1": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Ignition",
+        "Increase Damage Taken"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 2,
+      "initialBytes": 6297,
+      "finalBytes": 23147
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1186,
+      "chakra": 3636,
+      "stamina": 3478,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 6365,
+      "finalBytes": 59787
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2705,
+      "chakra": 3636,
+      "stamina": 3429,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 3,
+        "starter-gen-lightning-2": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6365,
+      "finalBytes": 47567
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 818,
+      "chakra": 3636,
+      "stamina": 3419,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 23,
+      "initialBytes": 6365,
+      "finalBytes": 61928
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 818,
+      "chakra": 3636,
+      "stamina": 3458,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 6365,
+      "finalBytes": 54682
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1413,
+      "chakra": 3636,
+      "stamina": 3478,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 6350,
+      "finalBytes": 55351
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 3400,
+      "chakra": 3636,
+      "stamina": 3498,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6350,
+      "finalBytes": 32348
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1412,
+      "chakra": 3636,
+      "stamina": 3488,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6350,
+      "finalBytes": 52010
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1027,
+      "chakra": 3636,
+      "stamina": 3458,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 6350,
+      "finalBytes": 50749
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1186,
+      "chakra": 3498,
+      "stamina": 3616,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 6355,
+      "finalBytes": 59736
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2705,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 3,
+        "starter-gen-lightning-2": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6355,
+      "finalBytes": 46766
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 818,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 23,
+      "initialBytes": 6355,
+      "finalBytes": 61647
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 818,
+      "chakra": 3498,
+      "stamina": 3616,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 6355,
+      "finalBytes": 54370
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 992,
+      "chakra": 3567,
+      "stamina": 3626,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 30,
+      "initialBytes": 6360,
+      "finalBytes": 71871
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 2705,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 3,
+        "starter-gen-lightning-2": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6360,
+      "finalBytes": 47026
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 818,
+      "chakra": 3429,
+      "stamina": 3636,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 23,
+      "initialBytes": 6360,
+      "finalBytes": 61907
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 30,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 682,
+      "chakra": 3567,
+      "stamina": 3626,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 5
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "initialBytes": 6360,
+      "finalBytes": 65959
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 2161,
+      "chakra": 4363,
+      "stamina": 4191,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6365,
+      "finalBytes": 56611
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4363,
+      "stamina": 4201,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6365,
+      "finalBytes": 33429
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2161,
+      "chakra": 4363,
+      "stamina": 4191,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6365,
+      "finalBytes": 52698
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 1823,
+      "chakra": 4363,
+      "stamina": 4171,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 9,
+      "initialBytes": 6365,
+      "finalBytes": 51751
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 2402,
+      "chakra": 4363,
+      "stamina": 4191,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6350,
+      "finalBytes": 52507
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4363,
+      "stamina": 4201,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6350,
+      "finalBytes": 32348
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2401,
+      "chakra": 4363,
+      "stamina": 4191,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6350,
+      "finalBytes": 52003
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 2045,
+      "chakra": 4363,
+      "stamina": 4171,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 9,
+      "initialBytes": 6350,
+      "finalBytes": 48137
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 2161,
+      "chakra": 4201,
+      "stamina": 4353,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6355,
+      "finalBytes": 56593
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 4200,
+      "chakra": 4201,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6355,
+      "finalBytes": 33251
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2161,
+      "chakra": 4201,
+      "stamina": 4353,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 6355,
+      "finalBytes": 52505
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 1823,
+      "chakra": 4201,
+      "stamina": 4343,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 6355,
+      "finalBytes": 54376
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2215,
+      "chakra": 4201,
+      "stamina": 4343,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 6360,
+      "finalBytes": 60221
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3560,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 3,
+        "starter-gen-lightning-2": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 6360,
+      "finalBytes": 47011
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 1823,
+      "chakra": 4120,
+      "stamina": 4363,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 23,
+      "initialBytes": 6360,
+      "finalBytes": 61885
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 38,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 1701,
+      "chakra": 4282,
+      "stamina": 4353,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 5
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "initialBytes": 6360,
+      "finalBytes": 65968
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4392,
+      "chakra": 5909,
+      "stamina": 5588,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 6378,
+      "finalBytes": 39630
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5900,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6378,
+      "finalBytes": 33451
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 4256,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 6378,
+      "finalBytes": 49707
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4256,
+      "chakra": 5909,
+      "stamina": 5578,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "initialBytes": 6378,
+      "finalBytes": 38681
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4773,
+      "chakra": 5909,
+      "stamina": 5588,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 6363,
+      "finalBytes": 37414
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5900,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6363,
+      "finalBytes": 32370
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 4635,
+      "chakra": 5909,
+      "stamina": 5695,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 6363,
+      "finalBytes": 49204
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4607,
+      "chakra": 5909,
+      "stamina": 5578,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "initialBytes": 6363,
+      "finalBytes": 36805
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4392,
+      "chakra": 5588,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 6368,
+      "finalBytes": 39529
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5900,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6368,
+      "finalBytes": 33273
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 4256,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 6368,
+      "finalBytes": 49520
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4256,
+      "chakra": 5588,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "initialBytes": 6368,
+      "finalBytes": 38916
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4392,
+      "chakra": 5588,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 6373,
+      "finalBytes": 39774
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 2,
+      "playerActions": 5,
+      "hp": 5900,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "move": 2
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 13,
+      "initialBytes": 6373,
+      "finalBytes": 33360
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 4256,
+      "chakra": 5695,
+      "stamina": 5909,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Heal"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 6373,
+      "finalBytes": 49575
+    },
+    {
+      "key": "combat-b-escort",
+      "level": 55,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 4256,
+      "chakra": 5588,
+      "stamina": 5899,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-fire-1": 1,
+        "starter-gen-lightning-2": 1,
+        "starter-gen-earth-2": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Heal",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 7,
+      "initialBytes": 6373,
+      "finalBytes": 42609
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 2192,
+      "chakra": 5454,
+      "stamina": 5315,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 32,
+      "initialBytes": 5964,
+      "finalBytes": 68934
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3174,
+      "chakra": 5454,
+      "stamina": 5157,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5964,
+      "finalBytes": 42300
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 2668,
+      "chakra": 5454,
+      "stamina": 5226,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 26,
+      "initialBytes": 5964,
+      "finalBytes": 62997
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 3960,
+      "chakra": 5454,
+      "stamina": 5295,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 8
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "initialBytes": 5964,
+      "finalBytes": 60087
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 2728,
+      "chakra": 5454,
+      "stamina": 5325,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 30,
+      "initialBytes": 5949,
+      "finalBytes": 60328
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3855,
+      "chakra": 5454,
+      "stamina": 5157,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5949,
+      "finalBytes": 39191
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 3247,
+      "chakra": 5454,
+      "stamina": 5236,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 5949,
+      "finalBytes": 56277
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 4456,
+      "chakra": 5454,
+      "stamina": 5305,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 8
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 17,
+      "initialBytes": 5949,
+      "finalBytes": 52599
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2552,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 5954,
+      "finalBytes": 53406
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3174,
+      "chakra": 5157,
+      "stamina": 5454,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5954,
+      "finalBytes": 40819
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 3028,
+      "chakra": 5157,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5954,
+      "finalBytes": 50252
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4320,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 5954,
+      "finalBytes": 45981
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 2612,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 5959,
+      "finalBytes": 53807
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 3174,
+      "chakra": 5157,
+      "stamina": 5454,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5959,
+      "finalBytes": 41064
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 3028,
+      "chakra": 5157,
+      "stamina": 5444,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5959,
+      "finalBytes": 50671
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 50,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4440,
+      "chakra": 5256,
+      "stamina": 5434,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 5959,
+      "finalBytes": 46357
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 3256,
+      "chakra": 6181,
+      "stamina": 6038,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 30,
+      "initialBytes": 5977,
+      "finalBytes": 66143
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4152,
+      "chakra": 6181,
+      "stamina": 5846,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5977,
+      "finalBytes": 42298
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 10,
+      "hp": 3792,
+      "chakra": 6181,
+      "stamina": 5937,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 5977,
+      "finalBytes": 60046
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 4896,
+      "chakra": 6181,
+      "stamina": 6008,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 8
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 19,
+      "initialBytes": 5977,
+      "finalBytes": 60082
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4154,
+      "chakra": 6181,
+      "stamina": 5937,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 24,
+      "initialBytes": 5962,
+      "finalBytes": 49922
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4877,
+      "chakra": 6181,
+      "stamina": 5846,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5962,
+      "finalBytes": 39200
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4735,
+      "chakra": 6181,
+      "stamina": 5836,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5962,
+      "finalBytes": 48464
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 5751,
+      "chakra": 6181,
+      "stamina": 5917,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 5962,
+      "finalBytes": 43038
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 3582,
+      "chakra": 5957,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5967,
+      "finalBytes": 50321
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4152,
+      "chakra": 5846,
+      "stamina": 6181,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5967,
+      "finalBytes": 40828
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 4118,
+      "chakra": 5846,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5967,
+      "finalBytes": 50361
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 5222,
+      "chakra": 5957,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 9,
+      "initialBytes": 5967,
+      "finalBytes": 43250
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 3637,
+      "chakra": 5957,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5972,
+      "finalBytes": 50684
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 4152,
+      "chakra": 5846,
+      "stamina": 6181,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5972,
+      "finalBytes": 41073
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 4118,
+      "chakra": 5846,
+      "stamina": 6181,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 5972,
+      "finalBytes": 47542
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 58,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 5332,
+      "chakra": 5957,
+      "stamina": 6171,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 9,
+      "initialBytes": 5972,
+      "finalBytes": 43587
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 5886,
+      "chakra": 7727,
+      "stamina": 7443,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 22,
+      "initialBytes": 5977,
+      "finalBytes": 51398
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6322,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5977,
+      "finalBytes": 42298
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6544,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 5977,
+      "finalBytes": 47737
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 7168,
+      "chakra": 7727,
+      "stamina": 7413,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 6
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 11,
+      "initialBytes": 5977,
+      "finalBytes": 46605
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6667,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 5962,
+      "finalBytes": 33770
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7157,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5962,
+      "finalBytes": 39200
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 7255,
+      "chakra": 7727,
+      "stamina": 7316,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 5962,
+      "finalBytes": 45686
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 7900,
+      "chakra": 7727,
+      "stamina": 7296,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 4
+      },
+      "statuses": [],
+      "idleTurns": 0,
+      "proposalsRejected": 7,
+      "initialBytes": 5962,
+      "finalBytes": 33190
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6008,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 5967,
+      "finalBytes": 35341
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6322,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5967,
+      "finalBytes": 40828
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6544,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Poison",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 5967,
+      "finalBytes": 47242
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 7,
+      "hp": 7412,
+      "chakra": 7316,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 4
+      },
+      "statuses": [
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 7,
+      "initialBytes": 5967,
+      "finalBytes": 34941
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6008,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 16,
+      "initialBytes": 5972,
+      "finalBytes": 35575
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 6322,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "move": 1,
+        "starter-gen-water-2": 1,
+        "starter-gen-earth-2": 1,
+        "wait": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 14,
+      "initialBytes": 5972,
+      "finalBytes": 41069
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 8,
+      "hp": 6544,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "starter-gen-water-2": 1,
+        "wait": 2,
+        "starter-gen-earth-2": 1,
+        "move": 2,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 20,
+      "initialBytes": 5972,
+      "finalBytes": 47519
+    },
+    {
+      "key": "combat-a-hunt",
+      "level": 75,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 3,
+      "playerActions": 6,
+      "hp": 7412,
+      "chakra": 7316,
+      "stamina": 7727,
+      "consumables": {},
+      "enemyActions": {
+        "basicAttack": 4
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Poison"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 5,
+      "initialBytes": 5972,
+      "finalBytes": 32438
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 1930,
+      "chakra": 7272,
+      "stamina": 6874,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "initialBytes": 6343,
+      "finalBytes": 135196
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 3553,
+      "chakra": 7272,
+      "stamina": 7003,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 10
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "initialBytes": 6343,
+      "finalBytes": 133287
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 21,
+      "hp": 2290,
+      "chakra": 7272,
+      "stamina": 7003,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "initialBytes": 6343,
+      "finalBytes": 131262
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 0,
+      "chakra": 7272,
+      "stamina": 7003,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "initialBytes": 6343,
+      "finalBytes": 123996
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 12,
+      "playerActions": 24,
+      "hp": 1246,
+      "chakra": 7272,
+      "stamina": 7094,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 2,
+        "basicAttack": 14
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 73,
+      "initialBytes": 6328,
+      "finalBytes": 152400
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 3146,
+      "chakra": 7272,
+      "stamina": 6864,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 73,
+      "initialBytes": 6328,
+      "finalBytes": 138766
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 12,
+      "playerActions": 24,
+      "hp": 1637,
+      "chakra": 7272,
+      "stamina": 6984,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 2,
+        "basicAttack": 14
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 74,
+      "initialBytes": 6328,
+      "finalBytes": 148130
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 10,
+      "playerActions": 21,
+      "hp": 0,
+      "chakra": 7272,
+      "stamina": 6864,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 14
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 52,
+      "initialBytes": 6328,
+      "finalBytes": 131856
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 2446,
+      "chakra": 7013,
+      "stamina": 7262,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 60,
+      "initialBytes": 6333,
+      "finalBytes": 124672
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 4110,
+      "chakra": 7272,
+      "stamina": 7252,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 57,
+      "initialBytes": 6333,
+      "finalBytes": 104361
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 2290,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "initialBytes": 6333,
+      "finalBytes": 128097
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 0,
+      "chakra": 7013,
+      "stamina": 7262,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "initialBytes": 6333,
+      "finalBytes": 123397
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 2414,
+      "chakra": 6884,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "initialBytes": 6338,
+      "finalBytes": 134417
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 4037,
+      "chakra": 7013,
+      "stamina": 7272,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 10
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "initialBytes": 6338,
+      "finalBytes": 131456
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 11,
+      "playerActions": 23,
+      "hp": 1470,
+      "chakra": 7143,
+      "stamina": 7252,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 2,
+        "basicAttack": 12
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 67,
+      "initialBytes": 6338,
+      "finalBytes": 143645
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 70,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "loss",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 0,
+      "chakra": 7013,
+      "stamina": 7262,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 12
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "initialBytes": 6338,
+      "finalBytes": 126666
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 4916,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "initialBytes": 6343,
+      "finalBytes": 111290
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 5284,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 57,
+      "initialBytes": 6343,
+      "finalBytes": 105951
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 3852,
+      "chakra": 8000,
+      "stamina": 7717,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "initialBytes": 6343,
+      "finalBytes": 128365
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 1160,
+      "chakra": 8000,
+      "stamina": 7566,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 12
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 50,
+      "initialBytes": 6343,
+      "finalBytes": 131177
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 4264,
+      "chakra": 8000,
+      "stamina": 7566,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 61,
+      "initialBytes": 6328,
+      "finalBytes": 127460
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 4726,
+      "chakra": 8000,
+      "stamina": 7556,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 73,
+      "initialBytes": 6328,
+      "finalBytes": 138728
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 12,
+      "playerActions": 24,
+      "hp": 3485,
+      "chakra": 8000,
+      "stamina": 7688,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 2,
+        "basicAttack": 14
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 74,
+      "initialBytes": 6328,
+      "finalBytes": 148151
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 13,
+      "playerActions": 26,
+      "hp": 1138,
+      "chakra": 8000,
+      "stamina": 7932,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 18
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "initialBytes": 6328,
+      "finalBytes": 159434
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 5274,
+      "chakra": 8000,
+      "stamina": 7980,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 46,
+      "initialBytes": 6333,
+      "finalBytes": 98251
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 12,
+      "hp": 5642,
+      "chakra": 8000,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 5
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "initialBytes": 6333,
+      "finalBytes": 89202
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 5304,
+      "chakra": 8000,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 40,
+      "initialBytes": 6333,
+      "finalBytes": 100205
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 3164,
+      "chakra": 7717,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 49,
+      "initialBytes": 6333,
+      "finalBytes": 120211
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 19,
+      "hp": 4259,
+      "chakra": 7717,
+      "stamina": 7990,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 60,
+      "initialBytes": 6338,
+      "finalBytes": 125029
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 5280,
+      "chakra": 7717,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 10
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 70,
+      "initialBytes": 6338,
+      "finalBytes": 131416
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 4040,
+      "chakra": 7717,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "initialBytes": 6338,
+      "finalBytes": 128158
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 78,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 1333,
+      "chakra": 7576,
+      "stamina": 8000,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 12
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 50,
+      "initialBytes": 6338,
+      "finalBytes": 130893
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 7937,
+      "chakra": 9545,
+      "stamina": 9473,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 5
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 38,
+      "initialBytes": 6351,
+      "finalBytes": 86797
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 8146,
+      "chakra": 9545,
+      "stamina": 9336,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 35,
+      "initialBytes": 6351,
+      "finalBytes": 79777
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 8069,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 40,
+      "initialBytes": 6351,
+      "finalBytes": 100127
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Taijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 6903,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 1,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 43,
+      "initialBytes": 6351,
+      "finalBytes": 105271
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 8232,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 54,
+      "initialBytes": 6336,
+      "finalBytes": 105277
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 8395,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 57,
+      "initialBytes": 6336,
+      "finalBytes": 99287
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 8227,
+      "chakra": 9545,
+      "stamina": 9210,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 58,
+      "initialBytes": 6336,
+      "finalBytes": 122713
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Bukijutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 10,
+      "playerActions": 20,
+      "hp": 5808,
+      "chakra": 9545,
+      "stamina": 9032,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 2,
+        "basicAttack": 12
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 50,
+      "initialBytes": 6336,
+      "finalBytes": 123547
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 5,
+      "playerActions": 11,
+      "hp": 8191,
+      "chakra": 9376,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 3
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 34,
+      "initialBytes": 6341,
+      "finalBytes": 75090
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 4,
+      "playerActions": 9,
+      "hp": 8562,
+      "chakra": 9209,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 1
+      },
+      "statuses": [
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 29,
+      "initialBytes": 6341,
+      "finalBytes": 65285
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 14,
+      "hp": 8227,
+      "chakra": 9543,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 32,
+      "initialBytes": 6341,
+      "finalBytes": 87002
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Ninjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 16,
+      "hp": 6903,
+      "chakra": 9545,
+      "stamina": 9535,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 1,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Increase Damage Taken",
+        "Reflect",
+        "Wound"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 41,
+      "initialBytes": 6341,
+      "finalBytes": 102254
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "policy": "damage",
+      "outcome": "win",
+      "rounds": 7,
+      "playerActions": 15,
+      "hp": 8128,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 7
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 46,
+      "initialBytes": 6346,
+      "finalBytes": 98440
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "policy": "guard",
+      "outcome": "win",
+      "rounds": 6,
+      "playerActions": 13,
+      "hp": 8337,
+      "chakra": 9543,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "move": 3,
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 5
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Decrease Damage Taken",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 46,
+      "initialBytes": 6346,
+      "finalBytes": 91950
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "policy": "answer",
+      "outcome": "win",
+      "rounds": 8,
+      "playerActions": 17,
+      "hp": 8177,
+      "chakra": 9545,
+      "stamina": 9525,
+      "consumables": {},
+      "enemyActions": {
+        "starter-nin-earth-1": 1,
+        "starter-buki-water-2": 1,
+        "move": 3,
+        "starter-tai-lightning-2": 1,
+        "basicAttack": 9
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 42,
+      "initialBytes": 6346,
+      "finalBytes": 102541
+    },
+    {
+      "key": "combat-s-crisis",
+      "level": 95,
+      "discipline": "Genjutsu",
+      "policy": "close",
+      "outcome": "win",
+      "rounds": 9,
+      "playerActions": 18,
+      "hp": 6313,
+      "chakra": 9210,
+      "stamina": 9545,
+      "consumables": {},
+      "enemyActions": {
+        "starter-tai-lightning-2": 2,
+        "starter-nin-earth-1": 2,
+        "starter-buki-water-2": 1,
+        "basicAttack": 11
+      },
+      "statuses": [
+        "Decrease Damage Given",
+        "Increase Damage Taken",
+        "Poison",
+        "Reflect"
+      ],
+      "idleTurns": 0,
+      "proposalsRejected": 47,
+      "initialBytes": 6346,
+      "finalBytes": 117169
+    }
+  ]
+}

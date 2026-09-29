@@ -20,6 +20,7 @@ import { PROGRESSION_EXAM_HOLDS } from "../../../shared/progression-holds";
 import { baseStats, rankFromLevel } from "./stats";
 import { getCharacterElements } from "./elements";
 import { normalizeOnboardingStep } from "./onboarding-step";
+import { PROFESSION_CHANGE_APPROVAL_COST } from "../../../shared/profession-change";
 
 export interface ObjectiveRequirement {
     label: string;
@@ -54,6 +55,8 @@ export function examProgressionImpact(examKey: string): "blocking" | "prestige" 
  * shape stable (Elder is inferred from the save; missing AIs are assumed present).
  */
 export interface ObjectiveContext {
+    /** Show upcoming holds in the Logbook without making them the active goal. */
+    previewAdvancement?: boolean;
     examProctorExists?: boolean;
     rogueNinjaExists?: boolean;
     isKage?: boolean;
@@ -131,7 +134,9 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
     const defeatedAiIds = character.defeatedAiIds ?? [];
     const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
     const totalAiKills = character.totalAiKills ?? 0;
-    const totalMissionsCompleted = character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0;
+    // Advancement accepts either saved counter; a present zero must not hide
+    // larger clan contributions from the player before the exam is submitted.
+    const totalMissionsCompleted = Math.max(character.totalMissionsCompleted ?? 0, character.clanMissionContrib ?? 0);
     const totalTilesExplored = character.totalTilesExplored ?? 0;
     const hasGeninExamPassed = (character.examsPassed ?? []).includes("genin");
     const academyPathOpen =
@@ -163,7 +168,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         });
     }
 
-    // Rank exams — each appears once the player reaches its unlock level.
+    // Rank exams unlock at their holds; the Logbook can preview the requirements earlier.
     // Early chapters bridge the gap between the tutorial and the first rank gate.
     // They do not mint rewards themselves; they point into existing server-paid
     // combat, mission, and training loops.
@@ -228,7 +233,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                             label: "Choose a profession",
                             progress: character.profession ? 1 : 0,
                             target: 1,
-                            detail: "Unlocks at level 13: Healer, Vanguard, or Pet Tamer",
+                            detail: `Unlocks at level 13: Healer, Vanguard, or Pet Tamer. Changing later consumes an approval (base ${PROFESSION_CHANGE_APPROVAL_COST} Fate Shards) and resets profession rank, XP, and mastery.`,
                             ...(character.level >= 13 ? { goScreen: "professions" as Screen, goLabel: "Pick Path" } : {}),
                         },
                         { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "training", goLabel: "Earn Points" },
@@ -244,18 +249,18 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
         }
     }
 
-    if (character.level >= 20) {
+    if (character.level >= 20 || (ctx.previewAdvancement && character.level >= 10)) {
         objectives.push({
             id: "exam-genin",
             kind: "exam",
             title: "Genin Advancement Exam",
-            summary: "You became Genin at level 15. Clear this level-20 advancement gate to keep progressing toward Chunin.",
+            summary: "Genin rank begins at level 15. Prepare these requirements before the level-20 advancement hold to keep progressing toward Chunin.",
             examKey: "genin",
             progressionImpact: examProgressionImpact("genin"),
             unlockLevel: 20,
             requirements: [
                 { label: "Reach the Genin advancement gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
-                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened" },
+                { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened", goScreen: "centralHub", goLabel: "Awakening Stone" },
                 { label: "Train 400 stats", progress: statsTrained, target: 400, goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go Missions" },
                 { label: "Kill 20 AI", progress: totalAiKills, target: 20, goScreen: "missions", goLabel: "Go Combat" },
@@ -264,20 +269,20 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             ],
         });
     }
-    if (character.level >= 39) {
+    if (character.level >= 39 || (ctx.previewAdvancement && character.level >= 30)) {
         objectives.push({
             id: "exam-chunin",
             kind: "exam",
             title: "Chunin Advancement Exam",
-            summary: "You became Chunin at level 30. Clear this level-39 advancement gate to continue toward Jonin.",
+            summary: "Chunin rank begins at level 30. The level-39 advancement hold requires clan membership: join a clan or found your own; no invitation is needed to found one.",
             examKey: "chunin",
             progressionImpact: examProgressionImpact("chunin"),
             unlockLevel: 39,
             requirements: [
                 { label: "Reach the Chunin advancement gate (Level 39)", progress: character.level, target: 39, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
-                { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened" },
-                { label: "Complete 50 missions", progress: character.totalMissionsCompleted ?? character.clanMissionContrib ?? 0, target: 50 },
-                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100 },
+                { label: "Awaken your second element", progress: ownedElements.length, target: 2, detail: ownedElements[1] ?? "Second element not awakened", goScreen: "centralHub", goLabel: "Awakening Stone" },
+                { label: "Complete 50 missions", progress: totalMissionsCompleted, target: 50, goScreen: "missions", goLabel: "Go Missions" },
+                { label: "Explore 100 tiles", progress: character.totalTilesExplored ?? 0, target: 100, goScreen: "worldMap", goLabel: "Open World Map" },
                 // Solo-clearable on a low-population server: founding your own clan
                 // satisfies this just as well as joining one — no invite needed (L-2).
                 { label: "Join or found a clan", progress: character.clan ? 1 : 0, target: 1, detail: character.clan ?? "Join one, or create your own at the Clan Hall — no invite needed", goScreen: "clan", goLabel: "Go Clan" },
@@ -333,5 +338,5 @@ export function currentLogbookObjective(character: Character, ctx: ObjectiveCont
     const chapter = objectives.find((o) => o.kind === "chapter" && !objectiveComplete(o));
     if (chapter) return chapter;
     const passed = new Set(character.examsPassed ?? []);
-    return objectives.find((o) => o.kind === "exam" && o.progressionImpact === "blocking" && !passed.has(o.examKey ?? "")) ?? null;
+    return objectives.find((o) => o.kind === "exam" && character.level >= o.unlockLevel && o.progressionImpact === "blocking" && !passed.has(o.examKey ?? "")) ?? null;
 }

@@ -129,7 +129,7 @@ export function Logbook({
             character.equippedJutsuIds,
         ).length,
     };
-    const objectives = buildLogbookObjectives(character, objectiveContext);
+    const objectives = buildLogbookObjectives(character, { ...objectiveContext, previewAdvancement: true });
     const currentObjective = currentLogbookObjective(character, objectiveContext);
     const academyChecklist = objectives.find((o) => o.kind === "academy") ?? null;
     const academyComplete = academyChecklist ? objectiveComplete(academyChecklist) : false;
@@ -375,22 +375,23 @@ export function Logbook({
         const complete = objectiveComplete(exam);
         const prestige = exam.progressionImpact === "prestige";
         const isBlocking = !prestige && !passed && character.level >= exam.unlockLevel;
+        const upcoming = character.level < exam.unlockLevel;
         return (
             <section className="summary-box mission-board-section" key={exam.id}>
                 <h3>{exam.title} {prestige ? <small className="activity-spine-returner">Optional Prestige</small> : null} {passed ? "✓" : ""}</h3>
                 {exam.summary && <p className="hint">{exam.summary}</p>}
                 {prestige
                     ? <p className="hint"><strong>Progression impact: none.</strong> This distinction does not block leveling, stats, jutsu, or content.</p>
-                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>}
+                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : upcoming ? "Upcoming — prepare now" : complete ? "Ready to pass" : "In progress"}</strong></p>}
                 {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {exam.unlockLevel} until you pass this exam.</p>}
                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                 {!passed && <div className="menu">
-                    <button disabled={!complete} onClick={() => {
+                    <button disabled={upcoming || !complete} onClick={() => {
                         void passRankExamServer(character.name, exam.examKey).then((next) => {
                             updateCharacter(next);
                             setCeremony({ title: exam.title, prestige });
                         }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
-                    }}>{complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
+                    }}>{upcoming ? `Opens at level ${exam.unlockLevel}` : complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
                 </div>}
             </section>
         );

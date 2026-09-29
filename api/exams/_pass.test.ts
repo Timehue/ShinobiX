@@ -7,6 +7,17 @@ describe('rank exam authority', () => {
     it('requires every canonical Genin condition', () => {
         assert.equal(passRankExam(ready, 'genin').ok, true);
         assert.equal(passRankExam({ ...ready, totalStatsTrained: 399 }, 'genin').ok, false);
+        assert.equal(passRankExam({ ...ready, elements: [], element: '' }, 'genin').ok, false);
+    });
+    it('counts only distinct, non-empty awakened elements', () => {
+        const chunin = {
+            level: 39, examsPassed: ['genin'], elements: ['Fire', ' fire '], element: 'FIRE',
+            totalMissionsCompleted: 50, totalTilesExplored: 100, clan: 'Emberfall',
+            defeatedAiIds: ['builtin-ai-exam-proctor'],
+        };
+        assert.equal(passRankExam(chunin, 'chunin').ok, false);
+        assert.equal(passRankExam({ ...chunin, elements: ['Fire', 'Water'] }, 'chunin').ok, true);
+        assert.equal(passRankExam({ ...chunin, elements: ['Fire', 'Water'], totalMissionsCompleted: 0, clanMissionContrib: 50 }, 'chunin').ok, true);
     });
     it('enforces exam order and proof-backed leadership', () => {
         const special = { level: 80, totalPvpKills: 100, examsPassed: ['genin', 'chunin', 'jonin'] };

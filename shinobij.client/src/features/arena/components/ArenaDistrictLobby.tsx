@@ -7,6 +7,7 @@ import type { ArenaDistrictTab } from "../types";
 import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
 import { RankedFormatWeaponPicker } from "../../../components/RankedFormatWeaponPicker";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
+import { GrowthRewardGuide } from "../../../components/GrowthRewardGuide";
 import { TournamentPanel } from "../../tournaments/TournamentPanel";
 import { PetRankedModeCards } from "./PetRankedModeCards";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
@@ -149,6 +150,7 @@ export function ArenaDistrictLobby({
             )}
 
             {activeTab === "tournaments" && <TournamentPanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onFightStateChange={onTournamentFightStateChange} />}
+            {activeTab === "ranked" && <GrowthRewardGuide />}
             {activeTab === "ranked" && <Ranked2v2Panel key={character.name} character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />}
 
             {activeTab === "ranked" && (

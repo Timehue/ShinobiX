@@ -60,7 +60,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
             secondary: {
                 label: "Take an E-Rank mission",
                 screen: "missions",
-                detail: "Repeat the fight-and-claim loop for ryo and daily stat points.",
+                detail: "Claim ryo for gear and jutsu lessons. Training and field/hunt dailies provide stat points for levels.",
             },
         };
     }
@@ -72,7 +72,7 @@ export function buildAcademyHandoff(character: AcademyHandoffCharacter): Academy
         primary: {
             label: "Take an E-Rank mission",
             screen: "missions",
-            detail: "Build levels, ryo, and combat mastery through rookie work.",
+            detail: "Earn ryo and practice jutsu mastery. Follow your Logbook goals and train stats to build levels.",
         },
         secondary: {
             label: "Continue your story",
