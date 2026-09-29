@@ -25,6 +25,13 @@ import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs mirror the mobile nav without a second icon library.
 import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiSettings, GiShop } from "./icons/LightweightGameIcons";
 
+const VILLAGE_RETURN_ART: Record<string, string> = {
+    "Stormveil Village": "/ui/villages/stormveil.webp",
+    "Ashen Leaf Village": "/ui/villages/ashen-leaf.webp",
+    "Frostfang Village": "/ui/villages/frostfang.webp",
+    "Moonshadow Village": "/ui/villages/moonshadow.webp",
+};
+
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
 // primitive (strings/booleans). Shallow compare safely skips the
@@ -124,6 +131,22 @@ export const RightMenu = memo(function RightMenu({
                             </div>
                         </section>
                     </div>
+                    {(screen === "village" || screen === "centralHub") && (
+                        <button
+                            type="button"
+                            className="realm-wayfinder"
+                            onClick={() => guardedNavigate("village")}
+                            aria-label={screen === "centralHub" ? "Return to your village" : `Return to ${characterVillage || "your village"} home`}
+                            title={screen === "centralHub" ? "Return to your village" : `Return to ${characterVillage || "your village"} home`}
+                        >
+                            <img
+                                src={screen === "centralHub" ? "/ui/central.webp" : VILLAGE_RETURN_ART[characterVillage] ?? "/ui/village-return.webp"}
+                                alt=""
+                                aria-hidden="true"
+                            />
+                            <span className="realm-wayfinder__label">Village</span>
+                        </button>
+                    )}
                 </>
             )}
         </aside>

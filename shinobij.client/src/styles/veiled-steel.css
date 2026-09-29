@@ -963,6 +963,53 @@ html body.ui-scroll-locked {
   }
 }
 
+/* Compact return-to-village icon in the lower right rail on village hubs. */
+.app-shell:not(.screen-start) .realm-wayfinder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 134px;
+  min-height: 146px;
+  margin: clamp(28px, 5vh, 54px) auto 10px;
+  padding: 8px 5px;
+  overflow: hidden;
+  color: #ead7a6;
+  text-align: center;
+  background:
+    linear-gradient(145deg, rgba(94, 134, 145, 0.14), rgba(5, 12, 19, 0.78)),
+    rgba(6, 13, 20, 0.84);
+  border: 1px solid color-mix(in srgb, var(--village-accent-soft) 36%, rgba(210, 184, 117, 0.32));
+  border-radius: 7px;
+  box-shadow: 0 9px 22px rgba(0, 0, 0, 0.28), inset 0 1px rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.app-shell:not(.screen-start) .realm-wayfinder:hover {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--village-accent-soft) 70%, #d7bf80);
+  box-shadow: 0 13px 26px rgba(0, 0, 0, 0.34), 0 0 18px color-mix(in srgb, var(--village-accent) 16%, transparent);
+}
+
+.app-shell:not(.screen-start) .realm-wayfinder > img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 1px solid color-mix(in srgb, var(--village-accent-soft) 56%, #d7bf80);
+  border-radius: 8px;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.38);
+}
+
+.app-shell:not(.screen-start) .realm-wayfinder__label {
+  color: #ead7a6;
+  font: 800 0.56rem/1.2 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
 @media (max-width: 1100px) {
   .app-shell:not(.screen-start) .inventory-page {
     grid-template-columns: 1fr;
