@@ -117,9 +117,13 @@ export function Arena({
         leaveRankedQueue,
         isRankedSessionCurrent,
     } = useRankedQueue({ character, launchRankedMatch });
+    const [tournamentFightActive, setTournamentFightActive] = useState(false);
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>(returnToSpectateTab ? "spectate" : "ranked");
+    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>(() => {
+        try { if (sessionStorage.getItem('tournament-resume')) return 'tournaments'; } catch { /* optional recovery marker */ }
+        return returnToSpectateTab ? 'spectate' : 'ranked';
+    });
     useEffect(() => {
         if (!returnToSpectateTab) return;
         setActiveArenaTab("spectate");
@@ -157,7 +161,7 @@ export function Arena({
             setArenaTournament(loadArenaTournament());
             const enabled = loadDojoCircuitEnabled();
             setDojoCircuitEnabled(enabled);
-            if (!enabled) setActiveArenaTab((tab) => tab === "tournaments" ? "ranked" : tab);
+            if (!enabled) setActiveArenaTab((tab) => tab === "dojoCircuit" ? "ranked" : tab);
         };
         refreshArenaState();
         return visiblePoll(refreshArenaState, 5000);
@@ -572,6 +576,7 @@ export function Arena({
             character={character}
             onVersionedCharacter={onVersionedCharacter}
             activeTab={activeArenaTab}
+            tournamentFightActive={tournamentFightActive} onTournamentFightStateChange={setTournamentFightActive}
             hasAvailablePet={combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
             availablePetCount={availablePetCount}
             opponentClanData={opponentClanData}
@@ -588,7 +593,7 @@ export function Arena({
             spectatorFights={activeSpectatorFights}
             pendingSpectatorChallenges={pendingSpectatorChallenges}
             onBack={() => setScreen("centralHub")}
-            onTabChange={(tab) => tab === 'tournaments' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
+            onTabChange={(tab) => tab === 'dojoCircuit' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
             onChallengePlayer={(...args) => { void challengePlayer(...args); }}
             onAcceptDistrictChallenge={acceptDistrictChallenge}
             onDeclineChallenge={onDeclineChallenge}

@@ -50,6 +50,7 @@ import guardChallengeHandler from './api/village-guard/challenge.js';
 import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import dojoCircuitHandler from './api/dojo-circuit/event.js';
+import tournamentHandler from './api/tournaments/event.js';
 import worldStateHandler   from './api/world-state.js';
 import { seedHomeSectorOwnership } from './api/world-state.js';
 import { villageWarMapEnabled } from './api/_release-flags.js';
@@ -429,6 +430,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Game / world state
     route('/game-state',  gameStateHandler);
     route('/dojo-circuit/event', dojoCircuitHandler);
+    route('/tournaments/event', tournamentHandler);
     route('/world-state', worldStateHandler);
     route('/messages',    messagesHandler);
     route('/report',      reportHandler);

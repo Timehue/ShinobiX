@@ -30,6 +30,7 @@ import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { readFileSync, readdirSync } from 'node:fs';
+import { startTournamentClock } from './api/tournaments/_store.js';
 import { enforceRateLimit, flushRefusalLog } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 import { safeLogValue } from './api/_safe-log.js';
@@ -1089,6 +1090,7 @@ server.listen(PORT, () => {
     // Vercel removal: the always-on server now runs the daily save-snapshot
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
+    startTournamentClock();
     // War-map territory self-seed. Every deploy (and the coming account wipe)
     // must not depend on an operator remembering an admin seed call: the seeder
     // only fills sectors with NO owner (a conquered sector is never touched,

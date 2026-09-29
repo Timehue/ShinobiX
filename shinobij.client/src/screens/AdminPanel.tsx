@@ -75,6 +75,7 @@ import { normalizeVillageLeadershipImages, type VillageLeadershipImages } from "
 import { HOLLOW_GATE_MAX_FLOOR } from "../constants/game";
 import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world-state";
 import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
+import { AdminTournaments } from '../features/tournaments/AdminTournaments';
 import { AdminBoostEventPanel } from '../components/AdminBoostEventPanel';
 import type { EditableVnPage, VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
@@ -2747,6 +2748,7 @@ export function AdminPanel({
                         <p>These controls govern global events rather than village-specific territory systems.</p>
                     </div>
                     <AdminBoostEventPanel credential={adminPw} />
+                    <AdminTournaments credential={adminPw} />
                     <AdminCircuit credential={adminPw} character={character} />
                 </div>
             )}

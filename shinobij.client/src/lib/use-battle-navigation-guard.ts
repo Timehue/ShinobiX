@@ -94,6 +94,7 @@ export function useBattleNavigationGuard({
     useEffect(() => {
         const syncTowerFightGuard = () => {
             if (screenRef.current === "battleTowers") inBattleRef.current = hasActiveTowerFight();
+            if (screenRef.current === "arenaDistrict" && signalsRef.current) inBattleRef.current = isUnresolvedBattle(signalsRef.current);
         };
         window.addEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard);
         return () => window.removeEventListener(TOWER_FIGHT_STATE_EVENT, syncTowerFightGuard);
