@@ -78,6 +78,7 @@ import {
 } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { PetSummonEntrance } from "../components/PetSummonEntrance";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { groundZoneTilesForDisplay } from "../lib/ground-zone-display";
@@ -1367,7 +1368,7 @@ export function MissionArenaFight({
                                 {companion && isImageAvatar(companionImage) && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
                                     return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} data-battlefield-actor-id="companion" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={companionImage} alt={companion.name} />
+                                        <PetSummonEntrance><img className="tiny-map-avatar" src={companionImage} alt={companion.name} /></PetSummonEntrance>
                                     </div>;
                                 })()}
                                 {companion && (() => {

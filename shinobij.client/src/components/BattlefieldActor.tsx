@@ -1,5 +1,6 @@
 import React, { useState, type CSSProperties, type ReactNode } from "react";
 import { isImageAvatar } from "../lib/avatar";
+import { PetSummonEntrance } from './PetSummonEntrance';
 import {
     inferSpriteKind,
     inferSpriteNativeFacing,
@@ -22,6 +23,7 @@ type BattlefieldActorProps = {
     className?: string;
     style?: CSSProperties;
     children?: ReactNode;
+    summon?: boolean;
 };
 
 // Re-exported so existing importers keep their one-stop `BattlefieldActor`
@@ -49,6 +51,7 @@ export function BattlefieldActor({
     className = "",
     style,
     children,
+    summon = false,
 }: BattlefieldActorProps) {
     const [failedSprite, setFailedSprite] = useState<string | null>(null);
     const [failedPortrait, setFailedPortrait] = useState<string | null>(null);
@@ -59,6 +62,18 @@ export function BattlefieldActor({
     const resolvedNativeFacing = nativeFacing ?? (spriteSrc ? inferSpriteNativeFacing(spriteSrc) : "left");
     const resolvedFacing = spriteSrc ? facing ?? resolvedNativeFacing : undefined;
     const mirrored = spriteSrc ? resolvedFacing !== resolvedNativeFacing : undefined;
+
+    const art = spriteSrc ? (
+        <img className="battlefield-actor-sprite" src={spriteSrc} alt="" draggable={false} onError={() => setFailedSprite(spriteSrc)} />
+    ) : (
+        <span className="battlefield-actor-marker">
+            <span className="battlefield-actor-pin" />
+            <span className="battlefield-actor-portrait">
+                <span className="battlefield-actor-fallback">{initials}</span>
+                {portraitSrc && <img className="battlefield-actor-portrait-image" src={portraitSrc} alt="" draggable={false} onError={() => setFailedPortrait(portraitSrc)} />}
+            </span>
+        </span>
+    );
 
     return (
         <span
@@ -79,31 +94,7 @@ export function BattlefieldActor({
             data-battlefield-mirrored={spriteSrc ? String(mirrored) : undefined}
             style={style}
         >
-            {spriteSrc ? (
-                <img
-                    className="battlefield-actor-sprite"
-                    src={spriteSrc}
-                    alt=""
-                    draggable={false}
-                    onError={() => setFailedSprite(spriteSrc)}
-                />
-            ) : (
-                <span className="battlefield-actor-marker">
-                    <span className="battlefield-actor-pin" />
-                    <span className="battlefield-actor-portrait">
-                        <span className="battlefield-actor-fallback">{initials}</span>
-                        {portraitSrc ? (
-                            <img
-                                className="battlefield-actor-portrait-image"
-                                src={portraitSrc}
-                                alt=""
-                                draggable={false}
-                                onError={() => setFailedPortrait(portraitSrc)}
-                            />
-                        ) : null}
-                    </span>
-                </span>
-            )}
+            {summon ? <PetSummonEntrance>{art}</PetSummonEntrance> : art}
             {children}
         </span>
     );

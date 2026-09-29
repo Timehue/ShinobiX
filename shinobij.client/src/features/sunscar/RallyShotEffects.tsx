@@ -8,6 +8,7 @@ import { RALLY_TECHNIQUES } from '../../../../shared/sunscar/rally-profiles';
 /** Four pooled projectiles: no React updates or extra lights per shot. */
 export function RallyShotEffects({ state }: { state: RefObject<RallyState> }) {
     const bolts = useRef<THREE.InstancedMesh>(null);
+    const instanceColors = useMemo(() => new Float32Array(4 * 3).fill(1), []);
     const dummy = useMemo(() => new THREE.Object3D(), []);
     const colors = useMemo(() => Object.fromEntries(Object.entries(RALLY_TECHNIQUES).map(([key, value]) => [key, new THREE.Color(value.color)])), []);
     useFrame(() => {
@@ -26,7 +27,8 @@ export function RallyShotEffects({ state }: { state: RefObject<RallyState> }) {
         bolts.current.instanceMatrix.needsUpdate = true;
         if (bolts.current.instanceColor) bolts.current.instanceColor.needsUpdate = true;
     });
-    return <instancedMesh ref={bolts} args={[undefined, undefined, 4]} frustumCulled={false}>
+    return <instancedMesh ref={bolts} args={[undefined, undefined, 4]} count={0} frustumCulled={false}>
+        <instancedBufferAttribute attach="instanceColor" args={[instanceColors, 3]} />
         <sphereGeometry args={[1, 8, 6]}/><meshBasicMaterial toneMapped={false}/>
     </instancedMesh>;
 }

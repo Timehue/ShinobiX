@@ -186,7 +186,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     }
     return <section className="rally-race" aria-label={`${track.name} race`}>
         <div className="rally-stage" aria-label="3D race course">
-            <PetModelBoundary onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}><RallyCanvas state={state} advance={advance} onReady={onReady} onFail={onFail} reducedMotion={reducedMotion}
+            <PetModelBoundary onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}><RallyCanvas state={state} advance={advance} onReady={onReady} onFail={onFail} reducedMotion={reducedMotion} moving={running}
                 frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} /></Suspense></PetModelBoundary>
             <div className="rally-hud">
                 {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}

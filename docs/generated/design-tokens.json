@@ -2815,7 +2815,7 @@
           },
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 455
+            "line": 473
           },
           {
             "source": "shinobij.client/src/styles/pet-warfront-rite.css",
@@ -3395,7 +3395,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/PetBoardArena.css",
-            "line": 408
+            "line": 426
           },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "../RendererRetirement";
+import { PetSummon3D } from "../PetSummon3D";
 import { GameArtIcon } from "../GameArtIcon";
 import { Html, Sparkles } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
@@ -201,12 +202,14 @@ function ArenaStandee({ result, clock, id, pet, sharedImages }: {
             <group ref={group}>
                 <mesh position={[0, shadowW * 0.5, -0.05]}><planeGeometry args={[shadowW * 2.6, shadowW * 2.6]} /><meshBasicMaterial ref={glowMat} map={shadowTexture()} color="#fde047" transparent opacity={0} depthWrite={false} depthTest={false} toneMapped={false} blending={THREE.AdditiveBlending} /></mesh>
                 <group ref={flip}>
+                    <PetSummon3D enabled={team === 'blue'}>
                     {/* A single dash-trail ghost BEHIND the sprite (local -x = behind facing), faded in only at dash speed. */}
                     <ArenaGhost index={0} offsetX={-0.55} fastRef={fast} tex={useTex} color={tint} L={L} />
                     <mesh position={[L.meshX, L.meshY, 0]}>
                         <planeGeometry args={[L.planeW, L.planeH]} />
                         <meshBasicMaterial ref={mat} map={useTex} transparent alphaTest={0.4} depthWrite={false} toneMapped={false} />
                     </mesh>
+                    </PetSummon3D>
                 </group>
                 {/* Idle elemental aura — a few drifting element-tinted wisps so the creature reads ALIVE, not a static cutout. */}
                 <Sparkles count={5} scale={[1.0, 1.5, 0.6]} position={[0, 0.95, 0.05]} size={2.6} speed={0.25} opacity={0.5} color={tint} noise={1.2} />

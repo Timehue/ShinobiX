@@ -44,6 +44,8 @@ import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelFrame } from "./PetMo
 import { PetModelBoundary } from "./PetModelBoundary";
 import { WildBindingArenaFx, type WildBindingCinematic } from "./WildBindingArenaFx";
 import { PetSwitchSealFx } from "./pet-showdown/pet-switch-seal-fx";
+import { PetSummon3D } from "./PetSummon3D";
+import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { supportsPetWebGl2 } from "../lib/pet-webgl-capability";
 import { PetGraphicsQualityControl } from "./PetGraphicsQualityControl";
 import { petCombatModel, showdownFighterIdentity, type PetCombatModelConfig } from "../lib/pet-3d-models";
@@ -683,6 +685,16 @@ function ShowdownPostStack({ fxRef, bloomIntensity, distortion }: {
         // Balanced/Cinematic rendered directly to the display in linear space,
         // crushing dark coats and the entire arena compared with Performance.
         composer.addPass(output);
+        // Cinematic renders into a linear target, which selects different
+        // shaders from direct canvas rendering. Warm hidden, pooled effects
+        // against that actual target before the first signature exposes them.
+        const previousTarget = gl.getRenderTarget();
+        try {
+            gl.setRenderTarget(composer.readBuffer);
+            gl.compile(scene, camera);
+        } finally {
+            gl.setRenderTarget(previousTarget);
+        }
         stackRef.current = { composer, finish };
         return () => {
             stackRef.current = null;
@@ -1219,6 +1231,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         statuses: [],
         signature,
     });
+    const statusKinds = useMemo(() => statuses.map(status => status.kind), [statuses]);
     const fallbackTexture = useMemo(() => {
         if (info.model && !modelFailed) return null;
         const t = new THREE.TextureLoader().load(info.fallbackImage);
@@ -1530,7 +1543,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
         }
         f.faceX = faceX;
         f.faceZ = faceZ;
-        f.statuses = statuses.map((status) => status.kind);
+        f.statuses = statusKinds;
         f.victorious = victorious && !ko;
         f.desperate = !ko && displayHp / Math.max(1, info.view.maxHp) < 0.25;
         const bindingT = wildBinding ? Math.max(0, Math.min(1, (now - wildBinding.startedAt) / wildBinding.durationMs)) : -1;
@@ -1611,6 +1624,7 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
             {info.model && !modelFailed ? (
                 <PetModelBoundary onFail={() => setModelFailed(true)}>
                     <Suspense fallback={null}>
+                        <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player' && introActive && !info.view.benched && !ko} reducedMotion={reduced}>
                         {/* Physical presence follows rarity — a mythic stands
                             visibly larger than a standard. Purely visual; the
                             reticle, rings and popups are siblings and keep
@@ -1618,16 +1632,17 @@ function ShowdownFighter({ info, displayHp, ko, guarding, statuses, victorious, 
                         <group scale={(modelCalibration?.modelScale ?? 1) * rarityScale}>
                             <PetModel3D config={info.model} frame={frame} element={info.view.element} signature={signature} quality={quality} />
                         </group>
+                        </PetSummon3D>
                     </Suspense>
                 </PetModelBoundary>
             ) : (
                 // No approved 3D model: full-body card art on a grounded billboard.
-                <Billboard lockX lockZ>
+                <PetSummon3D dynamicLight={quality.dynamicPetLight} enabled={info.side === 'player' && introActive && !info.view.benched && !ko} reducedMotion={reduced}><Billboard lockX lockZ>
                     <mesh position={[0, 1.05, 0]}>
                         <planeGeometry args={[2.0, 2.0]} />
                         <meshBasicMaterial map={fallbackTexture} {...TRANSPARENT_UNLIT_PROPS} alphaTest={0.06} />
                     </mesh>
-                </Billboard>
+                </Billboard></PetSummon3D>
             )}
             {/* Contact blob shadow grounds the silhouette. */}
             <mesh
@@ -2179,6 +2194,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const renderQuality = PET_VISUAL_QUALITY_PRESETS[qualityId];
     const [stateView, setStateView] = useState(initialState);
     const [phase, setPhase] = useState<"command" | "playing" | "finished">("command");
+    const battleFrameloop = useBattleFrameloop(phase === 'finished');
     const [display, setDisplay] = useState<Record<string, DisplayEntry>>(() => buildDisplay(initialState));
     const [queue, setQueue] = useState<ShowdownEvent[]>([]);
     const [queueIndex, setQueueIndex] = useState(0);
@@ -3583,10 +3599,12 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
             {webGlAvailable ? <Canvas
+                frameloop={battleFrameloop}
                 key={renderQuality.id}
+                onCreated={({ gl }) => { gl.debug.checkShaderErrors = import.meta.env.DEV; }}
                 shadows={renderQuality.modelShadows ? "percentage" : false}
                 dpr={renderQuality.dpr}
-                gl={{ antialias: true, preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
+                gl={{ antialias: renderQuality.id !== 'low', preserveDrawingBuffer: fxStretch > 1 || captureFlag, toneMappingExposure: 1.12 }}
                 camera={{ fov: 48, position: [...WIDE_POS], near: 0.1, far: 80 }}
             >
                 <RendererRetirement />
@@ -3598,7 +3616,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     enemy={slots.get(wildBinding.enemyId)?.basePos ?? [0, FLOOR_Y, ENEMY_Z]}
                     reduced={reducedMotion}
                 />}
-                {!reducedMotion && <PetSwitchSealFx beatRef={beatRef} reducedMotion={reducedMotion} />}
+                {!reducedMotion && <PetSwitchSealFx beatRef={beatRef} reducedMotion={reducedMotion} dynamicLight={renderQuality.dynamicPetLight} />}
                 <BeatDrivenVfx beatRef={beatRef} posRef={posRef} radii={fighterRadii} signatures={fighterSignatures} reducedMotion={reducedMotion} quality={renderQuality} />
                 <SuperPillar drive={pillarDrive} />
                 <ShowdownVfxLayer spawns={vfx} />
@@ -3608,7 +3626,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                     signature left holding the field. */}
                 <ScarLayer scars={scars} />
                 {residues.map((r) => <ResidueFx key={r.key} spawn={r} particleBudget={renderQuality.setPieceParticles} />)}
-                <ClimateLayer element={climateElement} reduced={reducedMotion} />
+                <ClimateLayer element={climateElement} reduced={reducedMotion} warmElements={[...slots.values()].map(info => info.view.element)} />
                 {/* The moveset READS: casting glyph + charge orb during ranged
                     channels, per-kind accents, streak-throughs and debris. */}
                 <CastGlyphFx beatRef={beatRef} posRef={posRef} reduced={reducedMotion} />

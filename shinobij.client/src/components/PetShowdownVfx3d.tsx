@@ -30,9 +30,10 @@
    same as PetShowdownVfx; HMR granularity is irrelevant for visuals. */
 import { useEffect, useMemo, useRef } from "react";
 import { useShowdownPointGeometry } from "./use-showdown-point-geometry";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
+import { setPetEffectTexture } from "../lib/pet-effect-texture";
 import { epicTexture, type SetPieceSpawn, type VfxBeat } from "./PetShowdownVfx";
 import { showdownAttackRhythm, showdownChargeEnvelope } from "../lib/pet-showdown-choreography";
 import { showdownBeatProgress } from "../lib/showdown-playback";
@@ -640,7 +641,12 @@ export interface ClimateState {
     since: number;
 }
 
-export function ClimateLayer({ element, reduced }: { element: string | null; reduced: boolean }) {
+export function ClimateLayer({ element, reduced, warmElements }: { element: string | null; reduced: boolean; warmElements: readonly string[] }) {
+    const gl = useThree(state => state.gl);
+    const warmKey = [...new Set(warmElements)].sort().join(',');
+    const warmTextures = useMemo(() => warmKey.split(',').map(key => RESIDUE_STYLE[key]?.floor)
+        .filter((key): key is string => !!key).map(epicTexture).filter((texture): texture is THREE.Texture => !!texture), [warmKey]);
+    const uploaded = useRef(new WeakSet<THREE.Texture>());
     // The layer owns its OWN ramp clock: the parent used to hand down a
     //  timestamp, which meant either a setState inside an effect
     // (cascading renders) or reading a clock during render (impure). Here the
@@ -667,6 +673,16 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
     const style = element ? RESIDUE_STYLE[element] : undefined;
     const floorTex = useMemo(() => (style?.floor ? epicTexture(style.floor) : null), [style]);
     useFrame((state) => {
+        // Upload one ready image per preparation frame. Hidden mapped meshes
+        // below make these bindings visible to the renderer-retirement owner.
+        for (const texture of warmTextures) {
+            const image = texture.image as HTMLImageElement | undefined;
+            if (!uploaded.current.has(texture) && image?.complete && image.naturalWidth > 0) {
+                gl.initTexture(texture);
+                uploaded.current.add(texture);
+                break;
+            }
+        }
         const t = state.clock.elapsedTime;
         if (lastElement.current !== element) {
             lastElement.current = element;
@@ -678,8 +694,7 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
             floorMesh.current.visible = on && !!floorTex;
             if (on && floorTex) {
                 if (floorMat.current.map !== floorTex) {
-                    floorMat.current.map = floorTex;
-                    floorMat.current.needsUpdate = true;
+                    setPetEffectTexture(floorMat.current, floorTex);
                 }
                 floorMesh.current.rotation.z = t * 0.03;
                 floorMat.current.opacity = 0.11 * grow;
@@ -710,9 +725,12 @@ export function ClimateLayer({ element, reduced }: { element: string | null; red
     });
     return (
         <group>
+            <group visible={false}>{warmTextures.map(texture => <mesh key={texture.uuid}>
+                <planeGeometry args={[1, 1]} /><meshBasicMaterial map={texture} {...TRANSPARENT_MATERIAL_PROPS} />
+            </mesh>)}</group>
             <mesh ref={floorMesh} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.05, 0]} visible={false}>
                 <planeGeometry args={[23, 23]} />
-                <meshBasicMaterial ref={floorMat} {...TRANSPARENT_MATERIAL_PROPS} />
+                <meshBasicMaterial ref={floorMat} map={dot} {...TRANSPARENT_MATERIAL_PROPS} />
             </mesh>
             <pointLight ref={light} position={[0, 3.4, 0]} intensity={0} distance={17} decay={2} />
             <points ref={points} geometry={geometry} visible={false}>

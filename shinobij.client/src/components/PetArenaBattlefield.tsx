@@ -3,6 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { JutsuSpriteFx } from "./JutsuSpriteFx";
 import { PetBattleAvatar } from "./PetBattleAvatar";
+import { PetSummonEntrance } from "./PetSummonEntrance";
 import { GameArtIcon } from "./GameArtIcon";
 import { PET_GRID_COLS, PET_GRID_SIZE, PET_SPAWN_1V1 } from "../constants/pet-arena";
 import type { Pet } from "../types/pet";
@@ -782,7 +783,9 @@ export function PetArenaBattlefield({ playerPet, enemyPet, enemyOwner, playerRes
                                     {here && (
                                         <div className="pet-avatar-mover" data-petid={here.pet.id}>
                                             <div className={`pet-avatar-depth${faint ? " pet-fainted" : ""}`} style={depthStyle}>
-                                                <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} visualState={petPoseForAvatar(activeAnimEvent, here.pet.id, !!winnerPet && here.side === winnerSide, faint)} />
+                                                <PetSummonEntrance enabled={here.side === "player" && !!frame?.isPrefight}>
+                                                    <PetBattleAvatar key={`${here.pet.id}-${frame?.message ?? "idle"}`} pet={here.pet} side={here.side} active={here.isActor} hit={here.isTarget && !faint} status={here.side === "player" ? frame?.playerStatus : frame?.enemyStatus} sharedImages={sharedImages} visualState={petPoseForAvatar(activeAnimEvent, here.pet.id, !!winnerPet && here.side === winnerSide, faint)} />
+                                                </PetSummonEntrance>
                                             </div>
                                         </div>
                                     )}
