@@ -149,14 +149,15 @@ test("every authoritative Pet Arena result exposes an idempotent retry receipt",
         "the pending authoritative receipt must retry automatically instead of stranding the result screen");
 });
 
-test("rewarded Warfront exit is blocked from its first result frame through settlement", () => {
+test("rewarded Warfront exit waits only until its exact receipt is recoverable", () => {
     assert.equal(petBattleSettlementBlocksExit(null), false, "ordinary screens do not invent a missing receipt");
     assert.equal(petBattleSettlementBlocksExit(null, true), true, "a rewarded terminal frame waits for its receipt attempt");
     assert.equal(petBattleSettlementBlocksExit("pending", true), true);
     assert.equal(petBattleSettlementBlocksExit("error", true), true, "recoverable failure keeps the receipt on screen");
     assert.equal(petBattleSettlementBlocksExit("settled", true), false);
-    assert.match(arenaSource, /settlementPending=\{warfrontSettlementBlocksExit\}/);
+    assert.match(arenaSource, /settlementPending=\{warfrontSettlementPending\}/);
     assert.match(arenaSource, /canLeaveCurrentPetBattle\(warfrontSettlementBlocksExit\)/);
+    assert.match(arenaSource, /warfrontSettlementPending && !warfrontReceiptQueued/);
     const exitGuard = arenaSource.slice(arenaSource.indexOf("const warfrontSettlementBlocksExit"), arenaSource.indexOf("const warfrontResultActionsLocked"));
     assert.doesNotMatch(exitGuard, /vsAi/, "deployment and unfinished playback must not require a nonexistent result receipt");
 });

@@ -1,3 +1,4 @@
+import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
 import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
@@ -95,6 +96,7 @@ export type StageFighter = {
 
 export type PetWarfrontRiteStageProps = {
     sceneKey: number;
+    paused?: boolean;
     result: DuelResult;
     fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
@@ -449,12 +451,14 @@ function drawArena(
     };
 }
 
-function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
+function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const urls = useMemo(() => fighters.map((fighter) => impostorUrl(fighter.pet)), [fighters]);
     const [images, setImages] = useState<readonly HTMLImageElement[] | null>(null);
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
+    const actionTimeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
+        [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
     const heroCue = useMemo(() => warfrontHeroAttackCue(cues), [cues]);
     const fighterByActorId = useMemo(() => new Map(fighters.map((fighter) => [
@@ -597,6 +601,9 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         const spectaclePhases = Array.from({ length: WARFRONT_SPECTACLE_OVERLAP_CAP }, createWarfrontSpectaclePhase);
         const activeSpectacleCues: WarfrontAttackCue[] = [];
         const activeSpectaclePriorities: number[] = [];
+        const actionQaEnabled = new URLSearchParams(window.location.search).get("riteqa") === "1";
+        let paintCount = 0;
+        const elementalActorsSeen = new Set<string>();
         const renderedActors = new Map<string, {
             x: number;
             footY: number;
@@ -611,6 +618,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
 
         const paint = (now: number) => {
             if (document.hidden) { frame = 0; return; }
+            if (actionQaEnabled) canvas.dataset.riteRenderFrame = String(++paintCount);
             const cssWidth = Math.max(1, canvas.clientWidth);
             const cssHeight = Math.max(1, canvas.clientHeight);
             const dpr = Math.min(1.15, window.devicePixelRatio || 1);
@@ -852,7 +860,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                     }
                 } else {
                     drawWarfrontElementTell(context, signature, ox, oy - 12, radius, phase.tell, cueIndex + cue.contactTick * 0.013);
-                    drawWarfrontElementTravel(context, signature, ox, oy - 12, tx, ty - 12, phase.travel, Math.max(phase.travel, phase.contact), cueIndex + cue.contactTick * 0.017);
+                    // Travel is painted once above actor silhouettes below.
                 }
             }
             maxActiveCues = Math.max(maxActiveCues, activeCues);
@@ -1254,6 +1262,26 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 }
             }
             maxActorLocalHpBars = Math.max(maxActorLocalHpBars, actorLocalHpBars);
+            // Readable chest-height elemental travel for EVERY actor, including
+            // melee, misses and support, above bodies rather than hidden at feet.
+            const actionVisuals = actionTimeline[Math.floor(tick)] ?? [];
+            for (const action of actionVisuals) {
+                const [ox, oy] = project(action.ox, action.oz);
+                const [tx, ty] = project(action.tx, action.tz);
+                const sourceHeight = renderedActors.get(action.actorId)?.baseSize ?? 60;
+                const targetHeight = renderedActors.get(action.targetId)?.baseSize ?? 60;
+                const progress = warfrontActionProgress(action, tick);
+                const strength = tick <= action.contact ? 1 : Math.max(0, 1 - (tick - action.contact) / 3);
+                drawWarfrontElementTravel(context, warfrontElementSignature(action.element),
+                    ox, oy - sourceHeight * 0.48, tx, ty - targetHeight * 0.48,
+                    Math.max(0.03, progress), strength, action.contact * 0.017);
+                if (actionQaEnabled) elementalActorsSeen.add(action.actorId);
+            }
+            if (actionQaEnabled) {
+                canvas.dataset.riteElementalActorsSeen = [...elementalActorsSeen].join(",");
+                canvas.dataset.riteElementalActionsActive = String(actionVisuals.length);
+                canvas.dataset.riteElementalActorsActive = actionVisuals.map((action) => action.actorId).join(",");
+            }
             // Contact/result paint after bodies: the target owns the brightest
             // edge while the directional tracer remains behind silhouettes.
             let heroHpDelta = 0;
@@ -1611,7 +1639,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 if (gap > 100) gaps++;
             }
             lastFrameAt = now;
-            frame = requestAnimationFrame(paint);
+            if (!paused) frame = requestAnimationFrame(paint);
         };
         const handleVisibility = () => {
             cancelAnimationFrame(frame);
@@ -1636,7 +1664,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
+    }, [actionTimeline, paused, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
 
     useEffect(() => {
         const canvas = canvasRef.current;

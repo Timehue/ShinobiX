@@ -29,6 +29,7 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from "../../../shared/pet-showdown-contract";
 import { useState, useEffect, useMemo, useRef, Suspense, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { readPendingWarfrontReceipt, queueWarfrontReceipt, sendQueuedWarfrontReceipt, clearPendingWarfrontReceipt, type PendingWarfrontReceipt } from "../lib/warfront-pending-receipt";
 import { PetSettlementRetryError, postPetBattleReceipt } from "../lib/pet-battle-receipt";
 import "../styles/pet-skin.css";
 import type { Character, ServerPlayerSummary } from "../types/character";
@@ -429,6 +430,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const [chronicleCeremony, setChronicleCeremony] = useState<PetChronicleCeremonyReceipt | null>(null);
     const [chronicleProgress, setChronicleProgress] = useState<PetChronicleProgressReceipt | null>(null);
     const settlementAttemptRef = useRef<PetSettlementAttempt | null>(null);
+    const [queuedWarfrontAttempt, setQueuedWarfrontAttempt] = useState<string | null>(null);
     const settlementRetryTimerRef = useRef<number | null>(null);
     useEffect(() => () => {
         if (settlementRetryTimerRef.current !== null) window.clearTimeout(settlementRetryTimerRef.current);
@@ -650,12 +652,38 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         void runPetSettlementAttempt(attempt);
     }
 
+    async function settleQueuedWarfront(body: PendingWarfrontReceipt, scope: PetArenaPlayerScope): Promise<boolean> {
+        const id = `tactical:${body.reportKey}`;
+        if (!queueWarfrontReceipt(body)) throw new Error("The previous Warfront result still needs to be recorded.");
+        setQueuedWarfrontAttempt(id);
+        const data = await sendQueuedWarfrontReceipt<PetBattleSettlementResponse>(body);
+        if (!playerScopeIsActive(scope)) return false;
+        const applied = applyPetBattleSettlement(data, scope, []);
+        if (applied) clearPendingWarfrontReceipt(body);
+        return applied;
+    }
+
+    function recoverQueuedWarfront(scope: PetArenaPlayerScope): boolean {
+        const body = readPendingWarfrontReceipt(scope.playerName);
+        if (!body) return false;
+        const id = `tactical:${body.reportKey}`;
+        setQueuedWarfrontAttempt(id);
+        const existing = settlementAttemptRef.current;
+        if (existing?.id === id && existing.status === "error") void runPetSettlementAttempt(existing);
+        else beginPetSettlement({ id, kind: "tactical", label: "Beastbound Warfront result", scope,
+            run: () => settleQueuedWarfront(body, scope) });
+        return true;
+    }
+
+    useEffect(() => { recoverQueuedWarfront(capturePlayerScope()); }, [character.name]);
+
     function resetPetSettlement(): void {
         if (settlementRetryTimerRef.current !== null) {
             window.clearTimeout(settlementRetryTimerRef.current);
             settlementRetryTimerRef.current = null;
         }
         settlementAttemptRef.current = null;
+        setQueuedWarfrontAttempt(null);
         setSettlementPresentation(null);
     }
 
@@ -769,6 +797,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // to the smaller roster so a lopsided pick can't auto-stomp. Both clients
     // run this from identical embedded teams, so the match stays in sync.
     async function startArenaMatch(blue: Pet[], red: Pet[], seed: number, vsAi = false, sealedPlans?: WarfrontChallengePlans) {
+        if (recoverQueuedWarfront(capturePlayerScope())) return;
         if (vsAi && warfrontSetupInFlightRef.current) return;
         const scope = capturePlayerScope();
         const matchConfig = sealedPlans
@@ -909,6 +938,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     }
 
     async function resumeOwnedWarfront(scope: PetArenaPlayerScope): Promise<void> {
+        if (recoverQueuedWarfront(scope)) return;
         if (warfrontSetupInFlightRef.current || !playerAuthorityIsActive(scope)) return;
         warfrontSetupErrorRef.current = null;
         const request = (async (): Promise<WarfrontRewardSeal | null> => {
@@ -998,7 +1028,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     || seal.redPets.map((pet) => pet.id).join("\0") !== rivalPetIds.join("\0")) {
                     throw new Error("The Warfront battle proof does not match this replay. Keep this result open and retry.");
                 }
-                const data = await postPetBattleSettlement({
+                return settleQueuedWarfront({
                     ...bodyBase,
                     battleToken: seal.token,
                     // Beastbound Warfront's whole command transcript: the pet order,
@@ -1014,11 +1044,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         reformDeployment: plan.reformDeployment ?? null,
                         reforms: plan.reforms ?? [],
                     },
-                });
-                if (!playerScopeIsActive(m.scope)) return false;
-                // Warfront never activates gear/consumables; preserve the
-                // authoritative equipped items returned by settlement.
-                return applyPetBattleSettlement(data, m.scope, []);
+                }, m.scope);
             },
         });
     }
@@ -1354,6 +1380,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     }
 
     async function startBattle(opponentOverride?: PetArenaOpponent) {
+        if (recoverQueuedWarfront(capturePlayerScope())) return;
         // Releases the World Map's pending wanderer context, and ONLY once the
         // duel has actually started. A wanderer encounter is a one-shot piece of
         // world state: clear it up front, as an ordinary challenge can, and a
@@ -1717,13 +1744,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         : null;
     const activeSettlementStatus = activeSettlementAttempt?.status ?? null;
     const petSettlementBlocksExit = petBattleSettlementBlocksExit(activeSettlementStatus);
-    const warfrontSettlementBlocksExit = petBattleSettlementBlocksExit(activeSettlementStatus);
-    const warfrontResultActionsLocked = Boolean(
-        chronicleCeremony
-        // Only a terminal result requires a receipt before the attempt exists.
-        // Deployment and live playback must remain withdrawable.
-        || petBattleSettlementBlocksExit(activeSettlementStatus, Boolean(arenaMatch?.vsAi)),
-    );
+    const warfrontSettlementPending = petBattleSettlementBlocksExit(activeSettlementStatus);
+    const warfrontReceiptQueued = Boolean(activeSettlementAttempt && queuedWarfrontAttempt === activeSettlementAttempt.id);
+    const warfrontSettlementBlocksExit = warfrontSettlementPending && !warfrontReceiptQueued;
+    const warfrontResultActionsLocked = petBattleSettlementBlocksExit(activeSettlementStatus, Boolean(arenaMatch?.vsAi)) && !warfrontReceiptQueued;
     const activeBattleSetupIssue = battleSetupIssue && playerScopeIsActive(battleSetupIssue.scope)
         ? battleSetupIssue
         : null;
@@ -1868,7 +1892,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                     <span className="pet-settlement-notice__eyebrow">Sealed battle record</span>
                     <strong>{activeSettlementPresentation.label}</strong>
                     <p>
-                        {activeSettlementPresentation.status === "pending"
+                        {warfrontReceiptQueued && activeSettlementPresentation.status !== "settled"
+                            ? `Your Warfront result is queued. You can leave Pet Arena and return to retry. ${activeSettlementPresentation.detail ?? ""}`
+                            : activeSettlementPresentation.status === "pending"
                             ? activeSettlementPresentation.detail || "Recording the sealed result. Keep this battle open."
                             : activeSettlementPresentation.detail}
                     </p>
@@ -2401,8 +2427,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                         sharedImages={sharedImages}
                         onResult={(result, plan) => reportTacticalArenaResult(arenaMatch, result, plan)}
                         resultActionsLocked={warfrontResultActionsLocked}
-                        settlementPending={warfrontSettlementBlocksExit}
-                        settlementDetail={activeSettlementPresentation?.detail}
+                        settlementPending={warfrontSettlementPending}
+                        settlementDetail={warfrontReceiptQueued && warfrontSettlementPending
+                            ? `You can leave while this result is recorded. Return to Pet Arena to retry if needed. ${activeSettlementPresentation?.detail ?? ""}`
+                            : activeSettlementPresentation?.detail}
                         onRetrySettlement={activeSettlementPresentation?.status === "error" ? retryPetSettlement : undefined}
                         resultSupplement={chronicleProgress || chronicleCeremony ? (
                             <>
@@ -2421,7 +2449,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                 ) : null}
                             </>
                         ) : undefined}
-                        onExit={() => { if (canLeaveCurrentPetBattle(warfrontSettlementBlocksExit)) setArenaMatch(null); }}
+                        onExit={() => { if (canLeaveCurrentPetBattle(warfrontSettlementBlocksExit)) { setChronicleCeremony(null); setArenaMatch(null); } }}
                     />
                 </Suspense>
             )}
