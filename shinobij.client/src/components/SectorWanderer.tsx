@@ -18,6 +18,8 @@ import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from
 import type { Biome } from "../types/core";
 import type { Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
+import { loiterPositionAt } from "../lib/wanderer-loiter";
+import { serverNow } from "../lib/server-clock";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
@@ -100,7 +102,10 @@ export function SectorWanderer({
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
 
-    const posRef = useRef({ col: colOf(wanderer.homeTile), row: rowOf(wanderer.homeTile) });
+    const initialPose = wanderer.movement === "stationary"
+        ? loiterPositionAt(wanderer.id, wanderer.homeTile, serverNow())
+        : { col: colOf(wanderer.homeTile), row: rowOf(wanderer.homeTile) };
+    const posRef = useRef({ col: initialPose.col, row: initialPose.row });
     const facingRef = useRef(1);
     const sizeRef = useRef({ w: 0, h: 0 });
     const metricsRef = useRef({ padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
@@ -197,7 +202,7 @@ export function SectorWanderer({
                 ?? ((wanderer.verb === "attack" || wanderer.verb === "bountyHunter") ? "pursue" : "patrol");
             // Pursuers HUNT: once they spot you they path to you and confront you,
             // and they keep coming until you break the leash. Patrol actors amble
-            // and may approach nearby players; stationary service/story actors hold
+            // and may approach nearby players; service/story actors loiter near
             // their authored spot and only greet when the player comes to them.
             const isHunter = movement === "pursue";
             if (isHunter) {
@@ -210,8 +215,20 @@ export function SectorWanderer({
             if (distPlayer > NOTICE_TILES) greetedRef.current = false;
 
             if (movement === "stationary") {
-                setWalking(false);
-                if (armed && distPlayer <= NOTICE_TILES && !greetedRef.current) {
+                // The route follows the shared world clock, so leaving and
+                // returning does not reset a passive actor to its home tile.
+                // Quantize reduced motion to the same 200ms cadence as other AI.
+                const now = serverNow();
+                const pose = loiterPositionAt(wanderer.id, wanderer.homeTile,
+                    reduced ? Math.floor(now / REDUCED_STEP_MS) * REDUCED_STEP_MS : now);
+                posRef.current = { col: pose.col, row: pose.row };
+                facingRef.current = pose.facing;
+                applyFacing();
+                setWalking(pose.walking && !reduced);
+                paint();
+                const loiterDist = Math.hypot(pcol - pose.col, prow - pose.row);
+                if (loiterDist > NOTICE_TILES) greetedRef.current = false;
+                if (armed && loiterDist <= NOTICE_TILES && !greetedRef.current) {
                     greetedRef.current = true;
                     speak(wanderer.greeting);
                 }

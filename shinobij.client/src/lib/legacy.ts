@@ -7,6 +7,7 @@
  * never expose a server-disabled surface.
  */
 import type { Wanderer } from "./wanderers";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 import type { Character } from "../types/character";
 import {
     capabilityMutationAvailability,
@@ -327,9 +328,9 @@ export const LEGACY_SAGE_WANDERER_ID = "legacy-sage";
 
 /** The Wandering Sage as a sector NPC — rendered by the existing
  *  <SectorWanderer> billboard (violet tell, never hostile, never cooled).
- *  Placement is fixed per sector so he doesn't jump between polls. */
+ *  Placement is stable per sector so he doesn't jump between polls. */
 export function synthSageWanderer(sector: number): Wanderer {
-    const home = 5 * 12 + ((sector * 7) % 8) + 2;   // mid-row, deterministic column
+    const home = sectorWandererHomeTile(LEGACY_SAGE_WANDERER_ID, sector);
     return {
         id: LEGACY_SAGE_WANDERER_ID,
         name: "Wandering Sage",
