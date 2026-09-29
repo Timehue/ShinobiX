@@ -12,7 +12,7 @@ import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } fro
 import { PET_SPAWN_1V1 } from "../../constants/pet-arena";
 import { PetBattleAvatar } from ".././PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../../types/pet-battle";
-import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName } from "../../lib/pet-battle-anim";
+import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName, petPortraitImage } from "../../lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "../../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../../lib/jutsu-fx-assets";
@@ -967,9 +967,7 @@ export function PetColiseum({
                 (overlay, slide-ins, countdown pop) over the dimmed 3D arena.
                 In 2v2 each side also introduces its reserve as a small chip. */}
             {frame?.isPrefight && (() => {
-                const miniSrc = (p?: Pet) => p
-                    ? (sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")] || p.image || "")
-                    : "";
+                const miniSrc = (p?: Pet) => p ? petPortraitImage(p, sharedImages) : "";
                 const reserveChip = (p?: Pet) => p && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "#cbd5e1", font: "600 12px Inter, system-ui, sans-serif" }}>
                         <span style={{ color: "#94a3b8" }}>＋</span>

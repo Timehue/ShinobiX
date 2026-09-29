@@ -85,8 +85,8 @@ import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effect
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
-import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
+import { petPortraitImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 import { getAllItems } from "../lib/items";
 import type { Pet } from "../types/pet";
@@ -94,17 +94,6 @@ import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { unavailableCompanionSummonCopy } from "../lib/companion-summon-copy";
 import { playerSlug } from "../lib/utils";
 
-// The board token is a CIRCULAR orb (same treatment as the player/enemy), so the
-// pet's PORTRAIT is the right art. petCardImage reaches for the un-clipped
-// FULL-BODY battle sprite (`petbody:` / bodyImage) first — that's built for the
-// Pet Arena and reads wrong clipped into a circle. Prefer the portrait (`pet:` /
-// pet.image), then fall back to petCardImage so portrait-less starters still show
-// their baked idle pose instead of bare initials.
-function petOrbPortrait(pet: Pet, shared: Record<string, string>): string {
-    return firstSharedImage(shared, variantImageKeys("pet:", pet, [pet.id, petStripVariant(pet.id)]))
-        || pet.image
-        || petCardImage(pet, shared);
-}
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
@@ -1191,12 +1180,12 @@ export function MissionArenaFight({
     const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages);
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
-    // Portrait-first (see petOrbPortrait) — `pet.image` alone misses published art.
+    // Portrait-first — `pet.image` alone misses published and replacement art.
     const companionPetId = String(companion?.character?.visual ?? "");
     const companionPet = companionPetId ? (character.pets ?? []).find((p) => p.id === companionPetId) : undefined;
     const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
     const unavailableCompanionCopy = unavailableCompanionSummonCopy(activePet);
-    const companionImage = companionPet ? petOrbPortrait(companionPet, sharedImages ?? {}) : "";
+    const companionImage = companionPet ? petPortraitImage(companionPet, sharedImages ?? {}) : "";
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
