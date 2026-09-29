@@ -20,6 +20,7 @@ import type { Wanderer, WandererArchetypeId } from "./wanderers";
 import type { StoryRoadEvent, StoryRoadNpcArchetype } from "../data/story-road-events";
 import { applyStoryChoiceReceipt } from "./story-choice-mutations";
 import { queueStoryReport } from "./story-history-mutations";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 
 export const ROAD_WANDERER_PREFIX = "story-road-";
 
@@ -64,9 +65,7 @@ export function roadEventBySynthId(id: string, events: readonly StoryRoadEvent[]
 /** The event's NPC as a sector wanderer — never hostile, never cooled, placed
  *  deterministically per (event, sector) so it doesn't jump between polls. */
 export function synthRoadWanderer(event: StoryRoadEvent, sector: number): Wanderer {
-    let hash = 0;
-    for (const ch of event.slug) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    const home = 5 * 12 + ((sector * 7 + hash) % 8) + 2; // mid-row interior tile
+    const home = sectorWandererHomeTile(event.id, sector);
     return {
         id: event.id,
         name: event.npcName,

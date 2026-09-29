@@ -7,6 +7,7 @@ import { defaultVnPortrait } from "./vn";
 import type { StoryReckoning, StoryReckoningPage } from "../data/story-reckonings";
 import { storyFieldAftermathEvent, storyFieldBackdrop, storyFieldPages, storyFieldReckoningRedeemed } from "./story-field-work";
 import { readStoryFieldContent } from "./story-field-content-loader";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 
 export const STORY_RECKONING_ACCEPT_TRAIT = "__story-reckoning-accept";
 export const STORY_RECKONING_ABANDON_TRAIT = "__story-reckoning-abandon";
@@ -52,9 +53,7 @@ export function visibleStoryReckonings(character: Character, sector: number): Wa
 }
 
 export function synthStoryReckoningWanderer(quest: StoryReckoning, sector: number, character?: Character): Wanderer {
-    let hash = 0;
-    for (const ch of quest.slug) hash = (Math.imul(hash, 31) + ch.charCodeAt(0)) >>> 0;
-    const home = 5 * 12 + ((sector * 7 + hash) % 8) + 2;
+    const home = sectorWandererHomeTile(quest.id, sector);
     const aftermath = character ? storyFieldAftermathEvent(quest.id, character, "central") : null;
     const greeting = aftermath?.vnPages?.find((page) => page.speaker === quest.npcName)?.dialogue[0]
         ?? quest.intro.find((page) => page.speaker === quest.npcName)?.dialogue[0]

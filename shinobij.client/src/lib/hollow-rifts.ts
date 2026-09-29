@@ -19,6 +19,7 @@ import { sectorRegionName, villageForOutskirtsSector } from "../data/sectors";
 import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from "../../../shared/sector-geo";
 import { hollowRifts, hollowRiftById, type HollowRift, type RiftGiverArchetype, type RiftPage } from "../data/hollow-rifts";
 import { serverNow } from "./server-clock";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 
 export const RIFT_GIVER_PREFIX = "rift-giver-";
 export const RIFT_STRUCTURE_TYPE = "hollowRift";
@@ -122,9 +123,7 @@ export function nextRift(character: Character, now: number = serverNow()): Hollo
 /** The giver as a roaming sector wanderer (road-event pattern), placed in the
  *  player's CURRENT sector; talking to it opens the intro VN. */
 export function synthRiftGiver(rift: HollowRift, sector: number): Wanderer {
-    let hash = 0;
-    for (const ch of rift.slug) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-    const home = 5 * 12 + ((sector * 7 + hash) % 8) + 2;
+    const home = sectorWandererHomeTile(`${RIFT_GIVER_PREFIX}${rift.slug}`, sector);
     const face = RIFT_ART[rift.giverArchetype];
     return {
         id: `${RIFT_GIVER_PREFIX}${rift.slug}`,

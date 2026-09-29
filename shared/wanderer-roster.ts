@@ -63,8 +63,9 @@ export interface Wanderer {
     homeTile: number;
     /** patrol route (includes home); the wanderer ambles between these */
     waypoints: number[];
-    /** Explicit floor behavior. Stationary actors wait to be approached, patrol
-     *  actors roam their route, and pursue actors actively close on the player. */
+    /** Explicit floor behavior. Stationary actors loiter around their home and
+     *  wait to be approached; patrol actors roam their route; pursuers close on
+     *  the player. */
     movement?: WandererMovement;
     /** the line shown when you meet a non-attacker (and as a bandit's opener) */
     greeting: string;
@@ -266,7 +267,7 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
 const ARCHETYPE_IDS = Object.keys(WANDERER_ARCHETYPES) as WandererArchetypeId[];
 
 /** Natural-road movement is authored by role instead of inferred from the verb.
- *  Service NPCs wait at a recognizable spot; field actors keep the road alive;
+ *  Service NPCs loiter near a recognizable spot; field actors keep the road alive;
  *  bandits remain the intrusive threat that actively hunts the player. */
 function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
     if (archetype === "bandit") return "pursue";
