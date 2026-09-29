@@ -69,7 +69,7 @@
 @media (max-width: 979px) {
     @container shinobi-combat (min-width: 480px) and (max-height: 500px) {
         #combat.mission-arena-fight .combat-layout > .combat-main-area {
-            grid-template-columns: minmax(0, 1.55fr) minmax(220px, .85fr) !important;
+            grid-template-columns: minmax(0, 1.55fr) minmax(200px, .85fr) !important;
             grid-template-rows: 48px auto auto minmax(44px, 1fr) !important;
             grid-template-areas: "ap tabs" "terrain notice" "board commands" "board panel" !important;
         }
