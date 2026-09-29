@@ -116,7 +116,7 @@ export function UserView({
                     <h2>{viewingName}</h2>
                     <p>Profile not yet loaded. The player's full data has not been fetched yet.</p>
                 </div></div>
-                <button className="back-btn" onClick={onBack}>Back to Users</button>
+                <button className="back-btn" onClick={onBack}>Back</button>
             </div>
         );
     }
@@ -181,7 +181,7 @@ export function UserView({
                         <h2>{viewedCharacter.accountName || viewedCharacter.name}</h2>
                         <p>Viewing another shinobi's profile.</p>
                     </div>
-                    <button className="back-btn" onClick={onBack}>Back to Users</button>
+                    <button className="back-btn" onClick={onBack}>Back</button>
                 </div>
 
                 {!isSelf && (

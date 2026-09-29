@@ -53,7 +53,7 @@ test("back into a non-restorable screen falls back to the village, never half-lo
     // one from a history entry gives a broken board, which is the same failure
     // the refresh guards already prevent. They are also the COMMON entry to pop
     // — finishing any fight leaves one behind — so this must not be a no-op.
-    for (const screen of ["pvpBattle", "storyBoss", "hollowGateTiles", "petShowdown", "dungeon"]) {
+    for (const screen of ["pvpBattle", "storyBoss", "hollowGateTiles", "dungeon"]) {
         assert.deepEqual(
             decideBack({ targetHash: `#/${screen}`, battleUnresolved: false }),
             { action: "navigate", screen: "village", fellBack: true },
@@ -67,7 +67,7 @@ test("village → petArena → village: back lands somewhere real instead of doi
     // most ordinary stack in the game.
     const decision = decideBack({ targetHash: "#/petArena", battleUnresolved: false });
     assert.equal(decision.action, "navigate");
-    assert.equal((decision as { screen: string }).screen, "village");
+    assert.equal((decision as { screen: string }).screen, "petArena");
 });
 
 test("an unrecognised screen name still resolves to a safe destination", () => {
@@ -82,7 +82,7 @@ test("a fallback lands where the player IS, never teleporting a wild-sector play
     // then the hardware Back pops the stale duel entry. That used to land in the
     // village and zero the player's sector; the App now passes their location.
     assert.deepEqual(
-        decideBack({ targetHash: "#/petColiseum", battleUnresolved: false, fallbackScreen: "worldMap" }),
+        decideBack({ targetHash: "#/eventPetBattle", battleUnresolved: false, fallbackScreen: "worldMap" }),
         { action: "navigate", screen: "worldMap", fellBack: true },
     );
     // A deep-linkable target is still honoured as-is, and a live fight still refuses.

@@ -452,3 +452,9 @@ it("spectators do not appear as active fighters in world presence", () => {
     assert.equal(pvpBattleIdForPresence("ranked-id", { spectatingFromSector: 22 }), null);
     assert.equal(pvpBattleIdForPresence("ranked-id", { mode: "ranked" }), "ranked-id");
 });
+
+it('ranked and Kage results return to the activities that own them', () => {
+    assert.deepEqual(pvpResultReturn({ mode: 'ranked' }, 0), { returnTarget: 'arenaDistrict', returnLabel: 'Return to Ranked Arena' });
+    assert.deepEqual(pvpResultReturn({ kageChallengeId: 'challenge', sectorAttack: true }, 0), { returnTarget: 'townHall', returnLabel: 'Return to Town Hall' });
+    assert.equal(pvpResultReturn({ kageChallengeId: 'challenge' }, 0, true).returnTarget, 'hospital');
+});

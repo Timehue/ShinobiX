@@ -52,10 +52,12 @@ export const RightMenu = memo(function RightMenu({
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
     const navLockUntilRef = useRef(0);
+    const lastNavigationRef = useRef<Screen | null>(null);
     const isAdminAccount = isProtectedAdminName(characterName);
     const guardedNavigate = (next: Screen) => {
         const now = Date.now();
-        if (now < navLockUntilRef.current) return;
+        if (next === lastNavigationRef.current && now < navLockUntilRef.current) return;
+        lastNavigationRef.current = next;
         navLockUntilRef.current = now + 300;
         navigate(next);
     };

@@ -76,7 +76,7 @@ export const TRANSIENT_SCREEN_PARENT: Readonly<Partial<Record<Screen, Screen>>> 
     eventPetBattle: "worldMap",
     eventTiles: "worldMap",
     userView: "userHub",
-    battleLog: "arena",
+    battleLog: "profile",
 };
 
 // ─── Location ──────────────────────────────────────────────────────────────
@@ -117,8 +117,8 @@ export function restoreScreenForSave(
     if (inDungeonRun) return "dungeon";
     // A resumed journey stays on its map, even from town or a village bookmark.
     if (inWorldTravel) return "worldMap";
-    // A Village bookmark cannot move a field character home without a journey.
-    if (persisted === "village" && inWildSector) return "worldMap";
+    // Stale town bookmarks cannot move a field character without a journey.
+    if (persisted && TOWN_SCREENS.has(persisted) && inWildSector) return "worldMap";
     if (persisted && RESTORABLE_SCREENS.has(persisted)) return persisted;
     const parent = persisted ? TRANSIENT_SCREEN_PARENT[persisted] : undefined;
     if (parent) return parent;
