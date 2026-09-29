@@ -40,12 +40,12 @@ describe("player-facing jutsu tag contract", () => {
     });
 
     it("separates cast-time effects from next-round statuses", () => {
-        for (const name of ["Heal", "Shield", "Pierce", "Siphon", "Move", "Push", "Pull"]) {
+        for (const name of ["Heal", "Shield", "Pierce", "Siphon", "Move", "Push", "Pull", "Bloodline Seal"]) {
             assert.match(info(name).duration, /Instant/i, `${name} should resolve on cast`);
         }
         for (const name of [
             "Absorb", "Reflect", "Lifesteal", "Wound", "Ignition", "Stun",
-            "Bloodline Seal", "Elemental Seal", "Buff Prevent", "Debuff Prevent",
+            "Elemental Seal", "Buff Prevent", "Debuff Prevent",
             "Cleanse Prevent", "Clear Prevent", "Stun Prevent", "Copy", "Mirror",
             "Lag", "Overclock", "Increase Heal", "Increase Generals", "Increase Discipline",
         ]) {

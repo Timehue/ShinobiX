@@ -433,22 +433,23 @@ function countActive(f: PvpFighter, name: string, round: number): number {
 function sumActivePct(f: PvpFighter, name: string, round: number, fallback = 30): number {
     return sumActiveCombatStatusPercent(f.statuses, name, round, fallback);
 }
-// Tags resolve next round for ALL jutsus (bloodline or not) except INSTANT_EFFECT
-// ground-zone jutsus where the enemy is standing in the zone on cast.
-// Mirrors the client-side fix in App.tsx — previously only bloodline jutsus were
-// deferred, leaving non-bloodline tags incorrectly instant in PvP.
-function bloodlineTagsResolveNextRound(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>) {
+// Most jutsu statuses resolve next round, except INSTANT_EFFECT ground-zone
+// jutsus where the enemy is standing in the zone on cast. Bloodline Seal's
+// status-specific instant timing is handled separately below so it does not
+// change any other tag on the same jutsu (for example, Drain).
+function jutsuStatusesResolveNextRound(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>) {
     return !(jutsu.target === 'EMPTY_GROUND' && normalizeJutsuMethod(jutsu.method) === 'INSTANT_EFFECT');
 }
-function statusForJutsu(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpStatus {
+function statusForJutsu(jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number, immediate = false): PvpStatus {
     // Copy/Mirror can pass through a status that is itself yielding to a refresh.
     // A new cast authors a fresh lifecycle and must not inherit that retirement.
     const fresh = { ...status };
     delete fresh.inactiveRound;
-    return bloodlineTagsResolveNextRound(jutsu) ? { ...fresh, activeRound: round + 1 } : fresh;
+    if (immediate) return fresh;
+    return jutsuStatusesResolveNextRound(jutsu) ? { ...fresh, activeRound: round + 1 } : fresh;
 }
-function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number): PvpFighter {
-    return addStatus(f, statusForJutsu(jutsu, status, round), round);
+function addJutsuStatus(f: PvpFighter, jutsu: Pick<Jutsu, 'bloodlineRank' | 'target' | 'method'>, status: PvpStatus, round: number, immediate = false): PvpFighter {
+    return addStatus(f, statusForJutsu(jutsu, status, round, immediate), round);
 }
 // Wound is a stacking bleed DoT (every cast adds a stack, all stacks tick). Per-hit
 // magnitude is rank-capped, but the STACK COUNT was unbounded → repeated casts
@@ -888,7 +889,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         // for non-ground jutsus. Displacement happens on cast.
         if (tagName === 'Push') { if (!blocksDebuff(o, 'Push')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
         if (tagName === 'Pull') { if (!blocksDebuff(o, 'Pull')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
-        if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
+        if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round, true); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
         if (tagName === 'Elemental Seal') { if (!blocksDebuff(o, 'Elemental Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name}'s elemental jutsu are sealed.`); } continue; }
         // Recoil applies regardless of THIS jutsu's damage — a zero-damage 40-AP
         // utility jutsu carrying Recoil still seeds it (matches the client/PvE).
