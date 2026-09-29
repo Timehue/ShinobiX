@@ -89,7 +89,6 @@ import { petPortraitImage } from "../lib/pet-battle-anim";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 import { getAllItems } from "../lib/items";
-import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { unavailableCompanionSummonCopy } from "../lib/companion-summon-copy";
 import { playerSlug } from "../lib/utils";
