@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { findSectorSpectatorBattle } from './sector-spectate';
+import { findSectorSpectatorBattle, verifyPvpSpectatorBattle } from './sector-spectate';
 import { projectSectorPlayers } from './sector-player-roster';
 import type { PlayerRecord } from '../types/character';
 
@@ -19,7 +19,17 @@ const active = { battleId: 'live-id', stateRevision: 1, status: 'active', p1: fi
 test('spectating resolves the canonical account and verifies its active session', async () => {
     const { request, calls } = mockRequest(active);
     assert.equal(await findSectorSpectatorBattle('OPPONENT', 'Viewer', request), 'live-id');
-    assert.deepEqual(calls, ['/api/game-state', '/api/pvp/session?id=live-id']);
+    assert.deepEqual(calls, ['/api/game-state?activeFights=1', '/api/pvp/session?id=live-id']);
+});
+test('the arena board opens a live ranked session only for a nonparticipant', async () => {
+    const ranked = { ...active, ranked: true, playerRankedAuthorityVersion: 2 };
+    const request: typeof fetch = async (input) => {
+        assert.match(String(input), /^\/api\/pvp\/session\?id=/);
+        return Response.json(ranked);
+    };
+    assert.equal(await verifyPvpSpectatorBattle('live-id', 'Viewer', undefined, request), 'live-id');
+    await assert.rejects(verifyPvpSpectatorBattle('live-id', 'Opponent', undefined, request), /participant/);
+    await assert.rejects(verifyPvpSpectatorBattle('wrong', 'Viewer', undefined, request), /available/);
 });
 test('a server slug in the public feed resolves a fighter with a spaced display name', async () => {
     const session = { ...active, p1: fighter('Shadow Fox',0) };

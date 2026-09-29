@@ -20,6 +20,8 @@ import { availablePetBattleCount, isPetOnExpedition } from "../lib/pet";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import type { PlayerRankedAuthority } from "../lib/player-ranked-authority";
 import type { RankedQueueClientSession } from "../lib/ranked-queue-lifecycle";
+import type { PvpRecoveryContext } from "../lib/pvp-pending-session";
+import { fetchArenaActiveFights, verifyPvpSpectatorBattle } from "../lib/sector-spectate";
 import { pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery } from "../lib/pvp-session-create";
 import {
@@ -60,6 +62,9 @@ type ArenaProps = {
     setScreen: (screen: Screen) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
+    setPvpBattleContext?: (context: PvpRecoveryContext) => void;
+    returnToSpectateTab?: boolean;
+    onSpectateReturnConsumed?: () => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
     onAcceptChallenge: (challenge: DuelChallenge) => void;
     onDeclineChallenge: (challenge: DuelChallenge) => void;
@@ -95,6 +100,9 @@ export function Arena({
     setScreen,
     setPvpBattleId,
     setPvpRole,
+    setPvpBattleContext,
+    returnToSpectateTab = false,
+    onSpectateReturnConsumed,
     setPendingPetBattleOpponent,
     onAcceptChallenge,
     onDeclineChallenge,
@@ -111,7 +119,12 @@ export function Arena({
     } = useRankedQueue({ character, launchRankedMatch });
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
+    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>(returnToSpectateTab ? "spectate" : "ranked");
+    useEffect(() => {
+        if (!returnToSpectateTab) return;
+        setActiveArenaTab("spectate");
+        onSpectateReturnConsumed?.();
+    }, [returnToSpectateTab, onSpectateReturnConsumed]);
     // Open on Team Arena when a live 2v2 breadcrumb is present, so a refresh
     // mid-fight lands back on the board instead of the default Spar tab. The
     // match itself is re-entered from authoritative presence, not this key —
@@ -123,6 +136,13 @@ export function Arena({
     const [dojoCircuitEnabled, setDojoCircuitEnabled] = useState(() => loadDojoCircuitEnabled());
     const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
+    async function refreshSpectatorFights() {
+        try {
+            setSpectatorFights(await fetchArenaActiveFights());
+        } catch {
+            // Keep the last known board; the next poll or manual refresh retries.
+        }
+    }
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
 
     const combatEligiblePets = activeCarriedPets<Pet>(character);
@@ -138,11 +158,16 @@ export function Arena({
             const enabled = loadDojoCircuitEnabled();
             setDojoCircuitEnabled(enabled);
             if (!enabled) setActiveArenaTab((tab) => tab === "tournaments" ? "ranked" : tab);
-            setSpectatorFights(loadArenaActiveFights());
         };
         refreshArenaState();
         return visiblePoll(refreshArenaState, 5000);
     }, []);
+
+    useEffect(() => {
+        if (lobbyMode !== "arenaDistrict" || activeArenaTab !== "spectate") return;
+        void refreshSpectatorFights();
+        return visiblePoll(() => { void refreshSpectatorFights(); }, 10_000);
+    }, [lobbyMode, activeArenaTab]);
 
     useEffect(() => {
         let active = true;
@@ -524,16 +549,18 @@ export function Arena({
         setScreen("petArena");
     };
 
-    const spectateFight = (fight: ArenaSpectatorFight) => {
+    const spectateFight = async (fight: ArenaSpectatorFight) => {
         if (!fight.battleId || !setPvpBattleId || !setPvpRole) {
-            alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
+            alert("Spectating is currently unavailable.");
             return;
         }
-        fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: character.name, action: "join" }),
-        }).catch(() => {});
+        try {
+            await verifyPvpSpectatorBattle(fight.battleId, character.name);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Could not open this fight. Try again.");
+            return;
+        }
+        setPvpBattleContext?.({ spectatingFromScreen: lobbyMode });
         setPvpBattleId(fight.battleId);
         setPvpRole("p1");
         setScreen("pvpBattle");
@@ -572,7 +599,7 @@ export function Arena({
             onStartTournament={startTournament}
             onJoinRankedQueue={joinRankedQueue}
             onLeaveRankedQueue={leaveRankedQueue}
-            onRefreshFights={() => setSpectatorFights(loadArenaActiveFights())}
+            onRefreshFights={() => { void refreshSpectatorFights(); }}
             onSpectateFight={spectateFight}
             onViewPendingChallenge={() => alert("This fight has not started yet.")}
             onOpenPetLadder={(mode) => {
