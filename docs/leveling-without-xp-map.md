@@ -198,8 +198,8 @@ maximum = 45 + 18
 eligible one-time grants. Growth boosts apply only to eligible non-combat grants
 such as training and checklist rewards (§4.1). Surface it
 as a split meter — **"Daily Growth 33/45 · Combat 12/18"** — so progress reads
-as bars you fill. Non-combat claims grant **pool-only** (`unspentStats +=`);
-the auto-grow-used-stats split stays PvP-only.
+as bars you fill. Non-combat claims and eligible PvE/PvP combat wins grant
+**pool-only** (`unspentStats +=`), so players choose where every point goes.
 
 ### 4.1 Growth boosts — eligible XP bonuses become stat-gain bonuses
 

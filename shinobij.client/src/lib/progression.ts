@@ -69,8 +69,7 @@ export type PvpWinBaseSummary = {
     pvpKillMonth?: string;
     /** Exact gains from this battle, separate from the post-credit totals above. */
     reward?: { ryo: number; combatGrowth: number; auraDust: number; jutsuXp?: number };
-    // Serious (non-ranked) PvP combat-use stat growth. The pool share is already in
-    // `unspentStats`; `allocated` is the per-stat auto-growth the client adds on top
-    // via applyStatGrowth (server wrote the same delta, so no double-count/clobber).
+    // PvP combat growth is credited server-side to `unspentStats`; `allocated`
+    // remains in the response shape for compatibility and is empty for these wins.
     statGrowth?: { allocated: Partial<Record<string, number>>; unspentGain: number };
 };
