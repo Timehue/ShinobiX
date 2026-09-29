@@ -354,7 +354,7 @@ export function DungeonRareBeastBattle({
     }
 
     if (!selectedPet) {
-        return <div className="card cinematic-card"><h2>Rare Beast Seal</h2><p className="hint">Every carried pet is busy, training, breeding, or awaiting an expedition claim.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
+        return <div className="card cinematic-card"><h2>Rare Beast Seal</h2><p className="hint">Every carried pet is busy, breeding, or awaiting an expedition claim.</p><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>;
     }
     if (recoveryOnly && settlementStatus === "error") {
         return (

@@ -320,7 +320,7 @@ function PetLadderSession({ character, setScreen, sharedImages, onVersionedChara
                             {mode === "tactical" ? "Pick 4 pets to defend your rank — they fight for you even while you're offline. Trained stats, roles, and formation count. Warfront uses no gear or consumables." : "Pick the pet that defends your rank while you're away. Stats and PvP gear count."}
                         </p>
                         {available.length < teamSize
-                            ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (not breeding, training, or on expeditions) to set a defense.</div>
+                            ? <div className="pl-empty">You need {teamSize} available pet{teamSize > 1 ? "s" : ""} (not breeding or on expeditions) to set a defense.</div>
                             : <>
                                 <div className="pl-pet-grid">
                                     {available.map((pet) => {

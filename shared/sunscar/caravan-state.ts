@@ -16,7 +16,7 @@ export function caravanTrackerBlock(run: Pick<CaravanRun, 'selectedPetId'>, char
     const pet = (Array.isArray(character.pets) ? character.pets : []).find(p => p?.id === run.selectedPetId);
     if (!pet || pet.role !== 'tracker') return 'Bring a Tracker companion to use this approach.';
     const breeding = character.petBreeding as { state?: string; readyAt?: number; parentIds?: string[] } | undefined;
-    if (pet.training || pet.expedition || (breeding?.state === 'breeding' && now < Number(breeding.readyAt) && breeding.parentIds?.includes(pet.id))) return 'Your Tracker companion is busy elsewhere.';
+    if (pet.expedition || (breeding?.state === 'breeding' && now < Number(breeding.readyAt) && breeding.parentIds?.includes(pet.id))) return 'Your Tracker companion is busy elsewhere.';
     return null;
 }
 export function caravanChoiceBlock(run: CaravanRun, choice: CaravanChoice, character: CaravanCharacter, now = Date.now()): string | null {

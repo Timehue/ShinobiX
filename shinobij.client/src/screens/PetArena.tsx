@@ -716,7 +716,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             return;
         }
         if (!isLivePetDuelAvailable(selectedPet, character.petBreeding)) {
-            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with training, breeding, or an expedition reward.`);
+            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with breeding or an expedition reward.`);
             return;
         }
         // A requested 2v2 stays 2v2. Auto-pick supplies the local reserve; if
@@ -1166,7 +1166,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
     // The exact roster a live duel may send. Filters pets that are busy for any
-    // reason (expedition, training, breeding), not just expeditions, so a 2v2
+    // reason (expedition, breeding), not just expeditions, so a 2v2
     // cannot be assembled from a pet the server will refuse.
     const liveDuelPets = buildPetArenaLiveRoster(combatEligiblePets, selectedPet, reservePetId, character.petBreeding);
 
@@ -2360,7 +2360,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — choose pets to add or remove</p>
                                             <div style={{ marginTop: 6 }}>
                                                 {available.length < tacticalSize
-                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding, training, and expedition assignments do not count until cleared.</p>
+                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding and expedition assignments do not count until cleared.</p>
                                                     // The kickoff already sealed these four; while it waits
                                                     // out the pace, the grid must keep showing that band.
                                                     : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize, warfrontPaceSeconds !== null)}</div>}

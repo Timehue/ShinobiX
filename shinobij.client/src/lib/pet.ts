@@ -93,12 +93,12 @@ export function increasePetHappiness(pet: Pet, amount = 10): Pet {
     return { ...pet, happiness: Math.min(100, petHappiness(pet) + amount) };
 }
 
-export type WarfrontPetBusyReason = "breeding" | "training" | "expedition";
+export type WarfrontPetBusyReason = "breeding" | "expedition";
 
-export type ColosseumPetBusyReason = "breeding" | "training" | "expedition";
+export type ColosseumPetBusyReason = "breeding" | "expedition";
 
-// Mirrors api/pet/showdown.ts. Colosseum only blocks work that is active now;
-// completed training and expeditions can be collected later. breedingSessionId
+// Mirrors api/pet/showdown.ts. Training can continue during combat;
+// completed expeditions can be collected later in this mode. breedingSessionId
 // is intentionally absent: it is permanent lineage provenance on a hatched
 // companion, not evidence that the companion is currently in the barn.
 export function colosseumPetBusyReason(
@@ -107,7 +107,6 @@ export function colosseumPetBusyReason(
     now = serverNow(),
 ): ColosseumPetBusyReason | null {
     if (breedingPetIds?.has(pet.id)) return "breeding";
-    if (pet.training && now < pet.training.endsAt) return "training";
     if (pet.expedition && now < pet.expedition.endsAt) return "expedition";
     return null;
 }
@@ -121,14 +120,13 @@ export function isPetAvailableForColosseum(
 }
 
 // Mirrors api/pet/_pet-busy.ts exactly for Hollow Warfront admission. A
-// completed training or expedition remains busy until its result is collected,
+// completed expedition remains busy until its result is collected,
 // because the persisted record still exists and the server will reject it.
 export function warfrontPetBusyReason(
     pet: Pick<Pet, "id" | "training" | "expedition">,
     breedingPetIds?: ReadonlySet<string>,
 ): WarfrontPetBusyReason | null {
     if (breedingPetIds?.has(pet.id)) return "breeding";
-    if (pet.training) return "training";
     if (pet.expedition) return "expedition";
     return null;
 }

@@ -903,7 +903,7 @@
             "type": "callout",
             "tone": "warn",
             "label": "Availability matters",
-            "text": "A companion that is breeding, training, or away on an expedition cannot join a combat squad. Confirm status before building a Warfront formation."
+            "text": "Companions can join combat squads while training; their training continues. A companion that is breeding or away on an expedition is unavailable. Collect expedition rewards before building a Warfront formation."
           }
         ]
       },

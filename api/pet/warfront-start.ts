@@ -314,7 +314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'Every Warfront slot must name a distinct stored player pet.' });
         }
         if (bluePets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
-            return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+            return res.status(409).json({ error: 'A selected pet is busy with breeding or an expedition.' });
         }
 
         const coordinated = await coordinateWarfrontStart(

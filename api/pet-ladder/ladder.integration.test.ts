@@ -144,7 +144,7 @@ test('invalid positions, unowned pets, busy pets, and stale clients cannot alter
     assert.equal((await call(f.attacker, 'defense', { petIds: f.attackerPets.map((pet) => pet.id), warfrontPlan: { ...defaultWarfrontLadderPlan(), deployment: [0, 0, 2, 3] } })).status, 400);
     assert.equal((await call(f.attacker, 'defense', { petIds: f.defenderPets.map((pet) => pet.id), warfrontPlan: defaultWarfrontLadderPlan() })).status, 400);
     const save = await kv.get<any>(`save:${f.attacker}`);
-    save.character.pets[0].training = { endsAt: Date.now() + 60_000 };
+    save.character.pets[0].expedition = { endsAt: Date.now() + 60_000 };
     await kv.set(`save:${f.attacker}`, save);
     assert.equal((await call(f.attacker, 'defense', { petIds: f.attackerPets.map((pet) => pet.id), warfrontPlan: defaultWarfrontLadderPlan() })).status, 409);
     assert.equal((await call(f.attacker, 'challenge', { targetId: f.defender })).status, 409);
@@ -201,6 +201,18 @@ test('a losing human challenge preserves rank and records a held offline defense
     assert.deepEqual(order?.[0].record, { ...f.record, defended: 6 });
     assert.deepEqual(order?.[1].record, { ...f.record, losses: 4 });
     assert.equal(await kv.get(dailyKey(f.defender)), 1);
+});
+
+test('training pets can set a defense and challenge without interrupting training', async () => {
+    const f = await fixture();
+    const save = await kv.get<any>(`save:${f.attacker}`);
+    const training = { endsAt: Date.now() + 60_000, sealedXp: 30 };
+    save.character.pets[0].training = training;
+    await kv.set(`save:${f.attacker}`, save);
+    assert.equal((await call(f.attacker, 'defense', { petIds: f.attackerPets.map((pet) => pet.id), warfrontPlan: defaultWarfrontLadderPlan() })).status, 200);
+    const result = await call(f.attacker, 'challenge', { targetId: f.defender, warfrontRules: WARFRONT_LADDER_RULES });
+    assert.equal(result.status, 200, JSON.stringify(result.body));
+    assert.deepEqual((await kv.get<any>(`save:${f.attacker}`)).character.pets[0].training, training);
 });
 
 test('an offline sealed Warfront defense remains challengeable while its pets train or travel', async () => {

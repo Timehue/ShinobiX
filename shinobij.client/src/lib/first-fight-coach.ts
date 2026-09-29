@@ -60,6 +60,8 @@ export type FirstFightCoachState = {
     /** Names of the player's ACTIVE negative statuses this round. */
     myDebuffs: readonly string[];
     canAttack: boolean;
+    /** Current cost after combat modifiers; omitted by older coaching callers. */
+    attackAp?: number;
     canMove: boolean;
     canCastJutsu: boolean;
     hasFlicker: boolean;
@@ -114,31 +116,31 @@ export function firstFightCoachLine(state: FirstFightCoachState, seen: ReadonlyS
 }
 
 // ── Fight 1: the Academy dummy (band, moderate guidance) ────────────────────
-// Control-level hints in the feedback band, like the original spar coach, plus
-// the AP lesson: Attack costs 40, a jutsu 60, and the bar shows what is left.
+// Introduce the jutsu lesson before an attack can finish the fragile dummy.
+// Costs vary by technique (and statuses), so teach the live card values.
 function sparLine(state: FirstFightCoachState): FirstFightCoachLine {
     const { history, enemyHp, enemyMaxHp } = state;
     if (!state.myTurn) return band("spar-wait-turn", "Dummy's turn. Your AP refills next turn.");
     if (state.outOfActions || (!state.canAttack && !state.canMove && !state.canCastJutsu)) {
         return band("spar-end-turn", "Tap Wait to end your turn and recover AP.");
     }
-    if (!history.attacked && !state.enemyInMelee && state.canMove) {
+    if (!history.casted && state.canCastJutsu) {
+        return band("spar-jutsu", "Choose a lit jutsu. Read its power and cost first.");
+    }
+    if (history.casted && state.canCastJutsu && !state.canAttack) {
+        return band("spar-ready", "Choose another lit jutsu, or Wait to end your turn.");
+    }
+    if (!state.enemyInMelee && state.canMove) {
         return band("spar-move", "Move → tap a lit tile toward the dummy.");
     }
     if (!history.attacked && state.canAttack) {
-        return band("spar-attack", "Tap Attack. It costs 40 of your 100 AP.");
+        return band("spar-attack", `Attack costs ${state.attackAp ?? 40} AP. You have ${state.myAp} AP.`);
     }
-    if (history.attacked && !history.casted && state.canCastJutsu) {
-        return band("spar-jutsu", "Attack cost 40. A jutsu costs 60. Pick one.");
-    }
-    if (history.attacked && !history.casted && state.myAp > 0 && state.myAp < 60) {
-        return band("spar-low-ap", `${state.myAp} AP left. Tap Wait; AP refills next turn.`);
-    }
-    if (!state.enemyInMelee && state.canMove) return band("spar-move", "Move → tap a lit tile toward the dummy.");
     if (state.canAttack && enemyMaxHp > 0 && enemyHp <= enemyMaxHp * 0.25) {
         return band("spar-finish", state.canCastJutsu ? "Finish the dummy with Attack or a jutsu." : "Finish the dummy with Attack.");
     }
-    return band("spar-default", state.canAttack ? "Tap Attack. Wait ends your turn." : "Tap Wait to end your turn and recover AP.");
+    if (state.canCastJutsu) return band("spar-ready", "Choose another lit jutsu, or Wait to end your turn.");
+    return band("spar-default", state.canAttack ? "Tap Attack. Wait ends your turn." : `${state.myAp} AP left. Tap Wait to recover AP next turn.`);
 }
 
 // ── Fight 2: the sparring partner at range (band + one bubble, lighter) ─────

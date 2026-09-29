@@ -50,16 +50,16 @@ describe('private ranked pet engine', () => {
         };
         const choice = chooseAuthoritativeRankedPet(character, 100);
         assert.equal(choice.ok, true);
-        if (choice.ok) assert.equal(choice.pet.id, 'p2');
+        if (choice.ok) assert.equal(choice.pet.id, 'p1');
 
         const busy = chooseAuthoritativeRankedPet({
             ...character,
             pets: [
-                pet('p1', { training: { endsAt: 1 } }),
+                pet('p1', { expedition: { endsAt: 1 } }),
                 pet('p2', { expedition: { endsAt: 1 } }),
-                pet('p3', { training: { endsAt: 1 } }),
-                pet('p4', { training: { endsAt: 1 } }),
-                pet('p5', { training: { endsAt: 1 } }),
+                pet('p3', { expedition: { endsAt: 1 } }),
+                pet('p4', { expedition: { endsAt: 1 } }),
+                pet('p5', { expedition: { endsAt: 1 } }),
                 pet('overflow-p6'),
             ],
         }, 100);

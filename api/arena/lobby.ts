@@ -107,7 +107,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!preChosen) return res.status(400).json({ error: 'Pick exactly 2 pets that you own.' });
             const selectedIds = new Set(preChosen.map((pet) => String(pet.id ?? '')));
             if (owned.some((pet) => selectedIds.has(String(pet.id ?? '')) && petCombatBusyReason(save?.character ?? {}, pet))) {
-                return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+                return res.status(409).json({ error: 'A selected pet is busy with breeding or an expedition.' });
             }
         }
 

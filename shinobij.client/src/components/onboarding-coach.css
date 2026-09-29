@@ -10,6 +10,11 @@
     gap: 0;
     pointer-events: none; /* only the bubble re-enables — pet + gaps click through */
 }
+/* Yield while a player scrolls or tabs an actionable control under the guide. */
+.onboarding-coach-banner.coach-guide-yielding {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
 
 .coach-guide-pet {
     width: clamp(88px, 12vmin, 128px);

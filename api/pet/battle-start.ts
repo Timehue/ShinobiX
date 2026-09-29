@@ -216,7 +216,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // only strand one participant with a result they cannot settle while
         // their opponent settles normally.
         if (!pvpDuel && playerPets.some((pet) => petCombatBusyReason(myChar ?? {}, pet as unknown as Record<string, unknown>))) {
-            return res.status(409).json({ error: 'A selected pet is busy with breeding, training, or an expedition.' });
+            return res.status(409).json({ error: 'A selected pet is busy with breeding or an expedition.' });
         }
         let opponentPets: Pet[] = [];
         let isAiOpponent = false;

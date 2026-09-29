@@ -163,7 +163,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 { label: "Win your first combat mission", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
                 { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete your first mission", progress: totalMissionsCompleted, target: 1, detail: "Claim the Academy Trial or a rookie mission reward", goScreen: "missions", goLabel: "Go to Mission Hall" },
-                { label: "Sharpen a jutsu (mastery Lv 3)", progress: highestJutsuMastery, target: 3, detail: "Using a jutsu in battle levels it", goScreen: "battleArena", goLabel: "Go Arena" },
+                { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train Jutsu" },
             ],
         });
     }
@@ -242,7 +242,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                         { label: "Train 120 stat points", progress: statsTrained, target: 120, detail: "Short or long timers both count", goScreen: "training", goLabel: "Go Train" },
                         { label: "Scout 10 world map tiles", progress: totalTilesExplored, target: 10, detail: "Learn the field route before harder work", goScreen: "worldMap", goLabel: "Open World Map" },
                         { label: "Keep 4 jutsu equipped", progress: equippedJutsuCount, target: 4, detail: "A complete loadout matters more than one trick", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
-                        { label: "Sharpen a jutsu to Lv 3", progress: highestJutsuMastery, target: 3, detail: "Use jutsu in battle to raise mastery", goScreen: "battleArena", goLabel: "Go Arena" },
+                        { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train Jutsu" },
                     ],
                 });
             }
@@ -265,7 +265,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go Missions" },
                 { label: "Kill 20 AI", progress: totalAiKills, target: 20, goScreen: "missions", goLabel: "Go Combat" },
                 { label: "Explore 50 tiles", progress: totalTilesExplored, target: 50, goScreen: "worldMap", goLabel: "Open World Map" },
-                { label: "Sharpen a jutsu to Lv 3", progress: highestJutsuMastery, target: 3, detail: "Use a jutsu in battle to level it", goScreen: "battleArena", goLabel: "Go Arena" },
+                { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train Jutsu" },
             ],
         });
     }

@@ -251,7 +251,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? selectRankedTeam(character, requestedIds as string[]) : null;
         if (!team) {
             return res.status(409).json({
-                error: 'Carry four distinct pets that are not breeding, training, or on an expedition.',
+                error: 'Carry four distinct pets that are not breeding or on an expedition.',
                 errorCode: 'no-ranked-team',
             });
         }

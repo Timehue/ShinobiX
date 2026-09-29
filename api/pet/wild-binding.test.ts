@@ -98,6 +98,29 @@ async function post(handler: Handler, body: Json): Promise<{ status: number; bod
 }
 
 describe('server-authoritative wild binding', { concurrency: false }, () => {
+    it('lets a training companion enter and leave a wild battle without changing its training', async () => {
+        const save = (await kv.get<{ character: { pets: Json[] } }>(`save:${player}`))!;
+        const training = { type: 'strength', endsAt: Date.now() + 60_000, sealedXp: 30 };
+        save.character.pets[0].training = training;
+        await kv.set(`save:${player}`, save);
+        const started = await post(wildHandler, { action: 'start', petId: 'owned-fox-001' });
+        assert.equal(started.status, 200, JSON.stringify(started.body));
+        assert.equal((await post(wildHandler, { action: 'forfeit' })).status, 200);
+        const after = (await kv.get<typeof save>(`save:${player}`))!;
+        assert.deepEqual(after.character.pets[0].training, training);
+    });
+
+    it('keeps expedition companions out of wild battles without consuming the encounter', async () => {
+        const save = (await kv.get<{ character: { pets: Json[] } }>(`save:${player}`))!;
+        save.character.pets[0].expedition = { endsAt: Date.now() + 60_000 };
+        await kv.set(`save:${player}`, save);
+        const started = await post(wildHandler, { action: 'start', petId: 'owned-fox-001' });
+        assert.equal(started.status, 409);
+        assert.match(String(started.body.error), /expedition/);
+        assert.equal(await kv.get(`pet:wild-binding:${player}:${token}`), null);
+        assert.ok(await kv.get(`pet-encounter-active:${player}`));
+    });
+
     it('carries a bulk shop purchase into the encounter and spends one seal on capture', async () => {
         const save = await kv.get<Record<string, unknown>>(`save:${player}`);
         await kv.set(`save:${player}`, { ...save, character: { ...(save?.character as Record<string, unknown>), ryo: 2500 } });

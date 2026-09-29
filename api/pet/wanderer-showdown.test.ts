@@ -131,7 +131,7 @@ test('a busy lone pet leaves the encounter untouched, then starts a 1v1 when rea
         id: 'solo-road-pet', name: 'Solo Road Pet', rarity: 'rare', element: 'Earth', level: 20,
         xp: 0, maxLevel: 100, hp: 400, attack: 70, defense: 60, speed: 45,
         jutsus: [{ name: 'Solo Fang', power: 55, cooldown: 2, currentCooldown: 0, kind: 'damage' }],
-        unlockedForPve: true, training: { endsAt: Date.now() + 60_000 },
+        unlockedForPve: true, expedition: { endsAt: Date.now() + 60_000 },
     };
     const base = { name: playerName, level: 20, starterCardsClaimed: true, pets: [pet], ryo: 50 };
     const wanderer = findBeast(base);
@@ -147,7 +147,7 @@ test('a busy lone pet leaves the encounter untouched, then starts a 1v1 when rea
     assert.equal(unchanged?._saveVersion, 1);
     assert.equal(unchanged?.character.wandererCooldowns, undefined);
 
-    await kv.set(`save:${playerName}`, { ...unchanged, character: { ...unchanged?.character, pets: [{ ...pet, training: undefined }] } });
+    await kv.set(`save:${playerName}`, { ...unchanged, character: { ...unchanged?.character, pets: [{ ...pet, expedition: undefined, training: { endsAt: Date.now() + 60_000 } }] } });
     const ready = await post(playerName, token, { action: 'wanderer', wanderer });
     assert.equal(ready.status, 200, JSON.stringify(ready.body));
     assert.equal(ready.body.state.format, '1v1');

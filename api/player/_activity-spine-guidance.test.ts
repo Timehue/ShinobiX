@@ -99,9 +99,10 @@ test('an Endless Tower run resumes its own mode without turning the separate Tow
 
 test('Showdown readiness uses carried pets and the exact entry busy rule, without inventing defense locks', () => {
     const away = { expedition: { endsAt: now + 10_000 } };
-    for (const pets of [[], [pet('one', away)], [pet('one', away), pet('two', { training: { endsAt: now + 5000 } })]]) {
+    for (const pets of [[], [pet('one', away)], [pet('one', away), pet('two', away)]]) {
         assert.equal(first(input('companions', { pets })).screen, 'pets');
     }
+    assert.equal(first(input('companions', { pets: [pet('one', away), pet('two', { training: { endsAt: now + 5000 } })] })).screen, 'petShowdown');
     const breeding = { petBreeding: { state: 'breeding', readyAt: now + 1000, parentIds: ['one'] } };
     assert.equal(first(input('companions', breeding)).screen, 'pets');
     assert.ok(showdownBusyIssue({ ...character, ...breeding }, [pet('one')], now));

@@ -6149,7 +6149,7 @@ export function FirstPact({
                                 </button>;
                             })}
                         </div>
-                        {availablePets.length < FIRST_PACT_TEAM_SIZE && <p className="fp-squad-warning">Four available carried pets are required. Return resting pets from the Sanctuary or wait for training, breeding and expeditions to finish.</p>}
+                        {availablePets.length < FIRST_PACT_TEAM_SIZE && <p className="fp-squad-warning">Four available carried pets are required. Return resting pets from the Sanctuary or wait for breeding and expeditions to finish.</p>}
                         {battleError && <p className="fp-squad-warning" role="alert">{battleError}</p>}
                         <footer>
                             <div><strong>{selectedPets.length}/{FIRST_PACT_TEAM_SIZE} selected</strong><span>The first two start active. Selection order matters.</span></div>
