@@ -74,6 +74,7 @@ async function installAuthenticatedApi(page: Page) {
                 saveVersion += 1;
                 save = {
                     ...incoming,
+                    currentSector: 0,
                     character: {
                         ...(incoming.character ?? {}),
                         onboardingStep: "done",

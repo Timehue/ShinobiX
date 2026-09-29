@@ -105,8 +105,8 @@ test('return handoff appears on a later UTC day and stays off the Arena gateway'
     await expect(page.getByRole('heading', { name: 'Welcome back to the road.' })).toBeVisible();
     await page.getByRole('button', { name: 'Close field journal' }).click();
     // Arena lobbies are restorable, but deliberately not hash-deep-linkable.
-    // Restore through the real last-screen contract on a fresh document.
-    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleArena'));
+    // Restore through the account-scoped navigation trail on a fresh document.
+    await page.addInitScript(() => sessionStorage.setItem('navigation.v1:auditninja', JSON.stringify({ screen: 'battleArena', trail: ['village', 'battleArena'] })));
     await page.goto('/?first-contract-arena-check=1#/battleArena', { waitUntil: 'domcontentloaded' });
     await page.locator('.app-shell[data-screen="battleArena"]').waitFor({ state: 'visible' });
     await expect(page.locator('.fc-ribbon')).toHaveCount(0);
