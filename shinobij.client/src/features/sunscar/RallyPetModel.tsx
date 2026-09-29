@@ -87,8 +87,8 @@ export function RallyPetModel({ state, index, onReady, reducedMotion, moving }: 
         // Reduced motion jumps straight to the podium pose instead of gliding.
         const settle = reducedMotion ? 1 : 1 - Math.exp(-Math.min(delta, .1) * 5);
         finishTarget.set(position.x, position.y + (race.finished ? 0 : racer.jump), position.z);
-        if (!ready.current || reducedMotion || actor.current.position.distanceToSquared(finishTarget) > 100) actor.current.position.copy(finishTarget);
-        else actor.current.position.lerp(finishTarget, race.finished ? settle : 1 - Math.exp(-Math.min(delta, .1) * 35));
+        if (race.finished) actor.current.position.lerp(finishTarget, settle);
+        else actor.current.position.copy(finishTarget);
         const ahead = rallyPath(rallyTrack(race.trackId), racer.distance + .5);
         const facing = race.finished ? config.yawOffset : Math.PI + config.yawOffset - Math.atan2(ahead.x - path.x, .5);
         actor.current.rotation.y = race.finished ? THREE.MathUtils.lerp(actor.current.rotation.y, facing, settle) : facing;

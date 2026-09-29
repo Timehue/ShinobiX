@@ -2,7 +2,7 @@ import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { RendererRetirement } from '../../components/RendererRetirement';
 import * as THREE from 'three';
-import { rallyPath, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import type { RallyState } from '../../../../shared/sunscar/rally-types';
 import { RallyPetModel } from './RallyPetModel';
 import { RallyTrackScene } from './RallyTrackScene';
@@ -28,12 +28,11 @@ function RallyShaderPreparation() {
     }, [gl, scene, camera]);
     return null;
 }
-function RallyAdaptiveQuality({ state, onLight }: { state: RefObject<RallyState>; onLight: () => void }) {
-    const sample = useRef(newRallyQualitySample()), lastTick = useRef(0);
+function RallyAdaptiveQuality({ state, moving, onLight }: { state: RefObject<RallyState>; moving: RefObject<boolean>; onLight: () => void }) {
+    const sample = useRef(newRallyQualitySample());
     useFrame((_, delta) => {
         const race = state.current;
-        if (sampleRallyQuality(sample.current, delta, race.tick !== lastTick.current && !race.finished)) onLight();
-        lastTick.current = race.tick;
+        if (sampleRallyQuality(sample.current, delta, moving.current && !race.finished)) onLight();
     });
     return null;
 }
@@ -97,12 +96,13 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
     useFrame(() => {
         const race = state.current;
         const p = race.racers[0];
-        const path = rallyPath(rallyTrack(race.trackId), p.distance);
+        const track = rallyTrack(race.trackId);
         const attr = points.current?.geometry.attributes.position as THREE.BufferAttribute | undefined;
         if (!attr) return;
         for (let i = 0; i < 72; i++) {
             const age = ((i / 72 + race.tick / 180) % 1);
-            attr.setXYZ(i, path.x + p.lane * 2.65 + Math.sin(i * 13) * age * 1.7, path.y + .08 + age * .7, path.z + age * 6);
+            const trail = rallyLanePosition(track, p.distance - age * 6, p.lane * 2.65 + Math.sin(i * 13) * age * 1.7);
+            attr.setXYZ(i, trail.x, trail.y + .08 + age * .7, trail.z);
         }
         attr.needsUpdate = true;
         if (points.current) points.current.visible = p.speed > 3 && p.jump < .2 && p.finishTick === null;
@@ -129,7 +129,7 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
         <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
         <RaceClock advance={advance} />
-        {!light && <RallyAdaptiveQuality state={state} onLight={lowerQuality}/>}
+        {!light && <RallyAdaptiveQuality state={state} moving={moving} onLight={lowerQuality}/>}
         {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state} light={light}/>}
         <RallySun state={state} light={light}/>
         <directionalLight position={[12, 18, 24]} intensity={.9} color="#d5e9ff" />

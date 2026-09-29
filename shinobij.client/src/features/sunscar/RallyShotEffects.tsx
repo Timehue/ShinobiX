@@ -2,7 +2,7 @@ import { useMemo, useRef, type RefObject } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { RallyState } from '../../../../shared/sunscar/rally-types';
-import { rallyPath, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import { RALLY_TECHNIQUES } from '../../../../shared/sunscar/rally-profiles';
 
 /** Four pooled projectiles: no React updates or extra lights per shot. */
@@ -18,8 +18,8 @@ export function RallyShotEffects({ state }: { state: RefObject<RallyState> }) {
         if (!bolts.current.count) return;
         const track = rallyTrack(race.trackId);
         for (let i = 0; i < race.shots.length; i++) {
-            const shot = race.shots[i], path = rallyPath(track, shot.distance);
-            dummy.position.set(path.x + shot.lane * 2.65, path.y + .85, path.z);
+            const shot = race.shots[i], path = rallyLanePosition(track, shot.distance, shot.lane * 2.65);
+            dummy.position.set(path.x, path.y + .85, path.z);
             dummy.scale.set(shot.width * .65, .2, shot.element === 'Lightning' ? 1.2 : shot.element === 'Earth' ? .4 : .85); dummy.updateMatrix();
             bolts.current.setMatrixAt(i, dummy.matrix);
             bolts.current.setColorAt(i, colors[shot.element]);
