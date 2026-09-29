@@ -444,9 +444,9 @@ for (const width of [390,1366]) test(`Spectate opens live fight and chat and ret
     await boot(page,25,async()=>{
         // Exercise the existing live-poll fallback deterministically.
         await page.addInitScript(()=>Object.defineProperty(window,'EventSource',{value:undefined,configurable:true}));
-        await page.route('**/api/game-state',route=>{
+        await page.route('**/api/game-state*',route=>{
             if(route.request().method()==='POST') mutations.push('game-state');
-            return route.fulfill({json:{villageStates:{},arenaActiveFights:[{id:'fixture',battleId,title:'Shinobi002 vs RivalNinja',fighters:['Shinobi002','RivalNinja'],mode:'PvP',startedAt:Date.now()}]}});
+            return route.fulfill({json:{villageStates:{},arenaActiveFights:[{id:'fixture',battleId,title:'Shinobi002 vs RivalNinja',fighters:['Shinobi002','RivalNinja'],mode:'Ranked',startedAt:Date.now()}]}});
         });
         await page.route('**/api/pvp/session?**',route=>route.fulfill({json:session}));
         await page.route('**/api/pvp/spectate?**',route=>route.fulfill({json:[{name:'AuditNinja',joinedAt:Date.now()}]}));
@@ -517,7 +517,7 @@ test('a late spectator lookup cannot navigate after its target leaves',async({pa
     const fighter=(name:string,pos:number)=>({name,pos,hp:500,maxHp:500,chakra:500,maxChakra:500,stamina:500,maxStamina:500,shield:0,statuses:[],character:{name}});
     const session={battleId:'late-fixture',stateRevision:1,status:'active',p1:fighter('Shinobi002',10),p2:fighter('Rival',30),round:1,activePlayer:'p1',ap:{p1:100,p2:100},actionsThisTurn:0,cooldowns:{p1:{},p2:{}},log:[],winner:null};
     await boot(page,8,async()=>{
-        await page.route('**/api/game-state',route=>route.fulfill({json:{arenaActiveFights:[{battleId:'late-fixture',fighters:['Shinobi002','Rival'],startedAt:Date.now()}]}}));
+        await page.route('**/api/game-state*',route=>route.fulfill({json:{arenaActiveFights:[{battleId:'late-fixture',fighters:['Shinobi002','Rival'],startedAt:Date.now()}]}}));
         await page.route('**/api/pvp/session?**',async route=>{await gate;await route.fulfill({json:session});});
     });
     await page.getByRole('button',{name:'Spectate Shinobi002'}).click();
