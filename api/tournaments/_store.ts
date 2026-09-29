@@ -1,4 +1,5 @@
 import { kv } from '../_storage.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import type { Tournament, TournamentEntry, TournamentMatch } from '../../shared/tournaments.js';
 import { advanceBracket, matchSeed, openBracket, resolveNoShow } from './_bracket.js';
@@ -46,6 +47,13 @@ async function startMatch(event: Tournament, match: TournamentMatch, now: number
     }
     const existing = await readTowerPvpMatch(match.battleId);
     if (existing) { match.status = 'active'; applyCombatResult(match, existing); return; }
+    // Loadouts were sealed at signup; admission must use each player's current save.
+    const saves = await Promise.all(members.map(id => kv.get<{ character?: unknown }>(`save:${id}`)));
+    const unavailable = members.filter((_, i) => !saves[i]?.character || isIncapacitated(saves[i]!.character, now));
+    if (unavailable.length) {
+        match.ready = match.ready.filter(id => !unavailable.includes(id));
+        return; // Recover, then ready again within the existing round deadline.
+    }
     const lease = await claimTowerBattleLeases({ runId: match.battleId, members, mode: 'tournament' });
     if (!lease.ok) {
         match.ready = match.ready.filter(id => !lease.members.includes(id));

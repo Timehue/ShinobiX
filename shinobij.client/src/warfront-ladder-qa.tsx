@@ -34,7 +34,7 @@ function WarfrontLadderQa() {
         <output id="qa-pets" hidden>{JSON.stringify(pets)}</output>
         {district ? <Suspense fallback={<p>Loading district fixture…</p>}><ArenaDistrictLobby character={account} onVersionedCharacter={() => false} activeTab="petBattles" hasAvailablePet availablePetCount={4}
             opponentClanData={null} clanWarOpponents={[]} incomingClanWarChallenges={[]} arenaTournament={null}
-            tournamentRemaining={0} matchRemaining={0} isAdminTournamentManager={false} playerRankedEnabled={false}
+            tournamentRemaining={0} matchRemaining={0} isAdminTournamentManager={false} tournamentFightActive={false} onTournamentFightStateChange={noop} playerRankedEnabled={false}
             rankedQueueActive={false} rankedQueueSize={0} spectatorFights={[]} pendingSpectatorChallenges={[]}
             onBack={noop} onTabChange={noop} onChallengePlayer={noop} onAcceptDistrictChallenge={noop}
             onDeclineChallenge={noop} onAdvanceTournamentPlayer={noop} onDeclareTournamentWinner={noop}
