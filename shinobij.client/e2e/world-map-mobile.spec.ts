@@ -44,6 +44,43 @@ async function settleCamera(page: Page) {
     });
 }
 
+test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const runtimeErrors = await bootWorldMap(page);
+    if (testInfo.project.use.isMobile) await chooseRegion(page, "central");
+    await expect(page.locator(".wpk-gates .world-poi-plate-name")).toHaveText("Central");
+    await page.getByRole("button", { name: "Enter Central", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    await expect(page.getByRole("button", { name: "Central Battle", exact: true })).toHaveCount(0);
+    await expect(page.locator(".central-card").first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("central-direct-entry.png") });
+
+    for (const destination of [
+        { tile: "Arena District", screen: "arenaDistrict" },
+        { tile: "Shinobi Council Hall", screen: "shinobiCouncil" },
+    ]) {
+        await page.locator(".central-card").filter({ hasText: destination.tile }).click();
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", destination.screen);
+        await page.getByRole("button", { name: "Return to Central", exact: true }).click();
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    }
+
+    await page.locator(".central-card").filter({ hasText: "Pet Colosseum" }).click();
+    await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
+    await expect(page.locator(".pet-arena-return")).toContainText("Central");
+    await expect(page.locator(".pet-arena-return")).not.toContainText("The Gates");
+    await page.locator(".pet-arena-return").click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    await returnToWorldAtlas(page);
+    if (testInfo.project.use.isMobile) await chooseRegion(page, "central");
+    await page.getByRole("button", { name: "Enter Central", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    expect(runtimeErrors).toEqual([]);
+});
+
 async function chooseRegion(page: Page, region: typeof regions[number]) {
     const button = page.locator(`.wm-village-chip[data-region="${region}"]`);
     await expect(button).toHaveAccessibleName({

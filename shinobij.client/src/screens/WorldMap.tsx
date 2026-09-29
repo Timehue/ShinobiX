@@ -2745,7 +2745,11 @@ function WorldMapContent({
             setHollowGateMenu(true);   // choose: enter the shrine, or attune (spend shards)
             return;
         }
-        // Enemy village ? territory exploration page; own village & Central ? normal landmark
+        if (location.type === "central") {
+            setScreen("centralHub");
+            return;
+        }
+        // Enemy villages open territory exploration; your own village opens its landmark.
         if (location.type === "village" && location.name !== character.village) {
             setSelectedVillageTerritory(location);
         } else {
@@ -4932,8 +4936,6 @@ function WorldMapContent({
     }
 
     if (selectedLandmark) {
-        const isCentral = selectedLandmark.type === "central";
-
         const villageImage =
             selectedLandmark.name === "Ashen Leaf Village" ? houseImg :
                 selectedLandmark.name === "Frostfang Village" ? castleImg :
@@ -4944,13 +4946,7 @@ function WorldMapContent({
         return (
             <div className="map-instance">
                 <div className="village-full-scene">
-                    {!isCentral ? (
-                        <img src={villageImage} alt={selectedLandmark.name} />
-                    ) : (
-                        <div className="central-full-scene">
-                            <h1>The Thousand Gates</h1>
-                        </div>
-                    )}
+                    <img src={villageImage} alt={selectedLandmark.name} />
 
                     {/* Living preview: time-of-day wash + drifting biome ambience +
                         wildlife behind the menu, so the village breathes while you
@@ -4964,30 +4960,14 @@ function WorldMapContent({
                         <p>{biomeLabel(selectedLandmark.biome)}</p>
 
                         <div className="menu">
-                            {isCentral ? (
-                                <button onClick={() => {
-                                    setCurrentBiome("central");
-                                    setScreen("centralHub");
-                                }}>
-                                    Enter Central
-                                </button>
-                            ) : (
-                                <button onClick={() => setScreen("village")}>Enter {selectedLandmark.name.split(" ")[0]}</button>
-                            )}
-
-                            {isCentral ? (
-                                <button onClick={() => { setCurrentBiome("central"); setCurrentWeather(weatherForBiome("central")); setScreen("arena"); }}>
-                                    Central Battle
-                                </button>
-                            ) : (
-                                <button onClick={() => {
-                                    const outskirtsSector = villageOutskirtsSector(character.village);
-                                    setSelectedLandmark(null);
-                                    triggerTravelPoint(outskirtsSector);
-                                }}>
-                                    Outskirts
-                                </button>
-                            )}
+                            <button onClick={() => setScreen("village")}>Enter {selectedLandmark.name.split(" ")[0]}</button>
+                            <button onClick={() => {
+                                const outskirtsSector = villageOutskirtsSector(character.village);
+                                setSelectedLandmark(null);
+                                triggerTravelPoint(outskirtsSector);
+                            }}>
+                                Outskirts
+                            </button>
 
                             <button onClick={() => setSelectedLandmark(null)}>Leave</button>
                         </div>

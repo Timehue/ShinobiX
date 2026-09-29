@@ -92,7 +92,7 @@ const POI_PLATES: ReadonlyArray<{ key: string; name: string; tag: string; x: num
     // icon (76, 20) — pin 26 was moved down off this plate
     { key: "frostfang", name: "Frostfang Village", tag: "The Answered Roll: no name left in the snow", x: 76, y: 26, tone: "frost" },
     // icon (48, 40) — the one that always fitted: the band between pins 47 / 48
-    { key: "gates", name: "The Gates", tag: "The neutral hub, where every road converges", x: 48, y: 45.8, tone: "gold" },
+    { key: "gates", name: "Central", tag: "The neutral hub, where every road converges", x: 48, y: 45.8, tone: "gold" },
     // icon (16, 74) — pin 1 was moved down off this plate
     { key: "stormveil", name: "Stormveil Village", tag: "The Open Challenge: post a reason, answer the bell", x: 16, y: 79.8, tone: "tide" },
     // icon (63, 65) — pin 64 was moved down; pin 56 clears the plate's left edge.
