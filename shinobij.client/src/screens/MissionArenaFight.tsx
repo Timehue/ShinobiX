@@ -1,8 +1,10 @@
+import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
+import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { getAllJutsus } from "../lib/jutsu-loadout";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
 import { retryArenaSettlement } from "../lib/arena-settlement-retry";
@@ -129,6 +131,13 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 // squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
+const mobileCombatQuery = "(max-width: 979px)";
+function subscribeMobileCombat(onChange: () => void) {
+    const media = window.matchMedia(mobileCombatQuery);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+}
+const isMobileCombat = () => window.matchMedia(mobileCombatQuery).matches;
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; description?: string; battleDescription?: string; tags?: Array<{ name?: string; percent?: number }> };
 type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; description?: string; weaponRange?: number; apCost?: number };
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
@@ -279,7 +288,9 @@ export function MissionArenaFight({
     outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
     const [session, setSession] = useState<ServerArenaSession>(initialSession);
+    const mobileCombat = useSyncExternalStore(subscribeMobileCombat, isMobileCombat, () => false);
     const [mode, setMode] = useState<Mode>("idle");
+    const gridAppearance = useCombatGridAppearance(String(session.map.biome ?? "central"), mode !== "idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [selWeaponId, setSelWeaponId] = useState<string>("");
@@ -1260,7 +1271,7 @@ export function MissionArenaFight({
                     </div>
                 </div>
             )}
-            <CombatHudLayout className="combat-log-wide" hasActionNotice>
+            <CombatHudLayout className="combat-log-wide" hasActionNotice={!mobileCombat}>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -1285,7 +1296,8 @@ export function MissionArenaFight({
                         subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
-                    <CombatEnvironmentStrip>
+                    <CombatEnvironmentStrip className="combat-grid-environment">
+                        <div className="combat-grid-environment-details">
                         <span className="twp-strip-biome">{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -1310,6 +1322,8 @@ export function MissionArenaFight({
                                 </span>
                             </>
                         )}
+                    </div>
+                        <CombatGridAppearanceControls appearance={gridAppearance} />
                     </CombatEnvironmentStrip>
 
                     <CombatApPanel>
@@ -1338,7 +1352,7 @@ export function MissionArenaFight({
                         </div>
                     </CombatApPanel>
 
-                    <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
+                    <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef} {...gridAppearance.boardProps}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
                             const scaledH = layer.height * effectiveScale;
@@ -1486,6 +1500,7 @@ export function MissionArenaFight({
                                             onFocus={tileTargets.has(i) ? () => setHoverTile(i) : undefined}
                                             onBlur={tileTargets.has(i) ? () => setHoverTile(t => (t === i ? null : t)) : undefined}
                                         >
+                                            <CombatGridOutline />
                                             {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span>
                                                 : i === myPos ? ""
                                                 : i === enemyPos ? ""
@@ -1499,9 +1514,8 @@ export function MissionArenaFight({
                     </div>
                     <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
 
-                    {/* This fixed-height slot never unmounts: changing its message
-                        must not resize (and therefore auto-zoom) the board. */}
-                    <div className="combat-action-notice">
+                    {/* Desktop reserves feedback space; mobile places errors in the action tray. */}
+                    {!mobileCombat && <div className="combat-action-notice">
                         <div
                             className={`combat-targeting-hint${reject ? " is-error" : ""}`}
                             role={reject ? "alert" : "status"}
@@ -1513,7 +1527,7 @@ export function MissionArenaFight({
                                 <span className="spar-coach-hint">{coachBand}</span>
                             ) : <span>{"\u00a0"}</span>}
                         </div>
-                    </div>
+                    </div>}
 
                     {/* Basic commands and the jutsu/weapon/item loadout share a
                         single phone panel. `.combat-action-tray` is the one
@@ -1521,6 +1535,7 @@ export function MissionArenaFight({
                         `display: contents` everywhere else so each surface keeps
                         the grid area it already had. */}
                     <CombatActionTray>
+                        {mobileCombat && reject && <div className="combat-mobile-feedback" role="alert">{reject}</div>}
                         <CombatCommandBar>
                             <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
                                 disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}

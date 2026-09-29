@@ -1,4 +1,6 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
+import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
@@ -340,6 +342,10 @@ export function PvpBattleScreen({
     const [pendingJutsuDirect, setPendingJutsuDirect] = useState<Jutsu | null>(null);
     const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
     const [pendingWeaponId, setPendingWeaponId] = useState("");
+    const gridAppearance = useCombatGridAppearance(
+        session?.biome && terrainEffects[session.biome] ? session.biome : currentBiome,
+        Boolean(selectedActionId || pendingJutsuId || pendingJutsuDirect || pendingBasicAttack || pendingWeaponId),
+    );
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [moveFeedback, setMoveFeedback] = useState("");
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
@@ -2200,7 +2206,8 @@ export function PvpBattleScreen({
                         subtitle={<>Round {session.round} | PvP Duel</>}
                     />
 
-                    <CombatEnvironmentStrip>
+                    <CombatEnvironmentStrip className="combat-grid-environment">
+                        <div className="combat-grid-environment-details">
                         <span className="twp-strip-biome">{biomeLabel(arenaBiome)}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -2217,6 +2224,8 @@ export function PvpBattleScreen({
                         {weatherNegEl && (
                             <span className="twp-buff twp-negative">↓ {weatherNegEl} -2%</span>
                         )}
+                        </div>
+                        <CombatGridAppearanceControls appearance={gridAppearance} />
                     </CombatEnvironmentStrip>
 
                     <CombatApPanel>
@@ -2259,7 +2268,7 @@ export function PvpBattleScreen({
 
                     <CombatBoardStage>
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
-                        ref={battlefieldCallbackRef}>
+                        ref={battlefieldCallbackRef} {...gridAppearance.boardProps}>
                         <div style={(() => {
                             const scaledW = GRID_LAYER_W * effectiveScale;
                             const scaledH = GRID_LAYER_H * effectiveScale;
@@ -2446,6 +2455,7 @@ export function PvpBattleScreen({
                                                 onMouseLeave={() => { if (hoveredPvpTile !== null) setHoveredPvpTile(null); }}
                                                 onClick={() => handleTileClick(i)}
                                             >
+                                                <CombatGridOutline />
                                                 {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span> : null}
                                             </button>
                                         );

@@ -4105,6 +4105,10 @@
             "line": 7165
           },
           {
+            "source": "shinobij.client/src/styles/combat-grid-appearance.css",
+            "line": 69
+          },
+          {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",
             "line": 403
           },
