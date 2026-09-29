@@ -6,6 +6,7 @@ import type {
 import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
 import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
+import { timeStartingShield } from '../combat-core/shields.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
@@ -232,8 +233,8 @@ function cloneFighter(fighter: PvpFighter): PvpFighter {
 
 export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPveSession {
     const now = Math.max(0, Math.floor(params.now));
-    const player = cloneFighter(params.player);
-    const enemy = cloneFighter(params.enemy);
+    const player = timeStartingShield(cloneFighter(params.player));
+    const enemy = timeStartingShield(cloneFighter(params.enemy));
     assertSoloPveLoadoutCompatible(player.character);
     assertSoloPveLoadoutCompatible(enemy.character);
     const difficultyLevel = Number(params.difficultyEnemyLevel);

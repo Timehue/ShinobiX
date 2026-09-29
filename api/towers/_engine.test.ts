@@ -84,6 +84,37 @@ function frontline(squadChar = STRONG, enemyChar = WEAK): TowerActor[] {
 }
 
 describe('Battle Towers engine (P1.A2)', () => {
+    it('expires starting shields after two rounds', () => {
+        const shielded = makeActor('sq-1', 'squad', 0, { shield: 300 });
+        const session = makeSession([shielded, makeActor('en-1', 'enemy', 63)]);
+        assert.equal(shielded.shieldExpiresAtRound, 3);
+        startRound(session);
+        session.round = 2;
+        startRound(session);
+        assert.equal(shielded.shield, 300);
+        session.round = 3;
+        startRound(session);
+        assert.equal(shielded.shield, 0);
+    });
+
+    it('stamps shield jutsu through the Tower combat adapter', () => {
+        const shieldJutsu = {
+            id: 'test-shield', name: 'Test Shield', type: 'Ninjutsu', target: 'SELF',
+            range: 0, ap: 40, effectPower: 0, isUtility: true, tags: [{ name: 'Shield' }],
+        };
+        const actor = makeActor('sq-1', 'squad', 0, {
+            character: { ...STRONG, jutsu: [shieldJutsu] },
+        });
+        const session = makeSession([actor, makeActor('en-1', 'enemy', 63)]);
+        startRound(session);
+        const result = applyAction(session, makeFloor('defeat-all'), {
+            actorId: actor.id, type: 'jutsu', jutsuId: shieldJutsu.id, targetId: actor.id,
+        }, makeRng(1));
+        assert.equal(result.applied, true);
+        assert.ok(actor.shield > 0);
+        assert.equal(actor.shieldExpiresAtRound, 3);
+    });
+
     it('runs a full floor deterministically (same seed/inputs → byte-identical)', () => {
         const a = runTowerFloor(makeSession(frontline()), makeFloor('defeat-all'), makeRng(999));
         const b = runTowerFloor(makeSession(frontline()), makeFloor('defeat-all'), makeRng(999));
@@ -1645,6 +1676,23 @@ describe('Battle Towers basic actions', () => {
         startRound(protectedSession);
         assert.ok(applyAction(protectedSession, floor, { actorId: 'sq-1', type: 'clear', targetId: protectedEnemy.id }, makeRng(1)).applied);
         assert.equal(protectedEnemy.shield, 400, 'active Clear Prevent preserves the shield');
+    });
+
+    it('Clear reaches four hexes and refuses a fifth without spending AP', () => {
+        const floor = makeFloor('defeat-all');
+        for (const [pos, expected] of [[4, true], [5, false]] as const) {
+            const target = makeActor('en-1', 'enemy', pos, { shield: 400, character: WEAK });
+            const s = makeSession([makeActor('sq-1', 'squad', 0, { character: STRONG }), target]);
+            startRound(s);
+            const ap = s.activeAp;
+            const result = applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: target.id }, makeRng(1));
+            assert.equal(result.applied, expected);
+            assert.equal(target.shield, expected ? 0 : 400);
+            if (!expected) {
+                assert.equal(result.reason, 'out-of-range');
+                assert.equal(s.activeAp, ap);
+            }
+        }
     });
 
     it('an adds-gated boss rejects Clear without spending AP or stripping its barrier buffs', () => {

@@ -98,6 +98,7 @@ import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
 // ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
@@ -1012,7 +1013,7 @@ export function MissionArenaFight({
     // Whether the (single) enemy is reachable by the currently-armed action.
     const enemyInRange = (() => {
         if (!enemy || enemy.hp <= 0 || myPos < 0) return false;
-        const range = mode === "clear" ? Infinity : mode === "jutsu" ? armedJutsuRange : mode === "weapon" ? weaponRange : 1;
+        const range = mode === "clear" ? BASIC_CLEAR_RANGE : mode === "jutsu" ? armedJutsuRange : mode === "weapon" ? weaponRange : 1;
         return towerHexDistance(myPos, enemy.pos, w) <= range;
     })();
 
@@ -1219,7 +1220,7 @@ export function MissionArenaFight({
         mode === "move" ? "Click a highlighted tile to move." :
         mode === "attack" ? (enemyInMelee ? `Click ${enemyName} to strike.` : `Move next to ${enemyName} to strike.`) :
         mode === "weapon" ? `Click ${enemyName} if in range.` :
-        mode === "clear" ? `Click ${enemyName} to strip its buffs.` :
+        mode === "clear" ? `Click ${enemyName} within ${BASIC_CLEAR_RANGE} tiles to strip its buffs.` :
         mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
         mode === "jutsu" && isMoveJutsu(selJutsu) ? `Click a highlighted tile to flicker there.` :
         mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu?.name ?? "the zone"}.` :
@@ -1530,7 +1531,8 @@ export function MissionArenaFight({
                             <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
                                 disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></button>
                             <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
-                                disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {clearCd}</span></small></button>
+                                disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0 || towerHexDistance(myPos, enemyPos, w) > BASIC_CLEAR_RANGE}
+                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></button>
                             <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
                                 disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></button>
                             <button
@@ -1584,8 +1586,8 @@ export function MissionArenaFight({
                                         const Icon = jutsuIcon(j.type);
                                         const art = jutsuArt(j);
                                         return (
-                                            <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""}`}>
-                                                {onCd && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
+                                            <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""} ${onCd ? "jutsu-cooling" : ""}`}>
+                                                {onCd && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
                                                 <button
                                                     type="button"
                                                     className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}

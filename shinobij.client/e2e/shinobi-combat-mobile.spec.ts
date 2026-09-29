@@ -49,7 +49,7 @@ function commandChips() {
         ["Attack", "40 AP", " | 10 SP | R1"],
         ["Move", "30 AP", " / tile"],
         ["Heal", "60 AP", " | 10 CP | CD 0"],
-        ["Clear", "60 AP", " | CD 0"],
+        ["Clear", "60 AP", " | R4 | CD 0"],
         ["Cleanse", "60 AP", " | CD 0"],
         ["Flee", "100 AP", " | 50%"],
         ["Wait", "End turn", ""],
@@ -123,6 +123,41 @@ async function box(page: Page, selector: string) {
     expect(value, `${selector} should be rendered`).not.toBeNull();
     return value!;
 }
+
+test("jutsu cooldown stays prominent without covering Details on a short phone", async ({ page }) => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 640 }]) {
+        await mountCombatFixture(page, "pvp", viewport);
+        await page.locator(".combat-jutsu-card-wrap").first().evaluate((card) => {
+            card.classList.add("jutsu-cooling");
+            const button = card.querySelector<HTMLButtonElement>(".combat-jutsu-button")!;
+            button.classList.add("jutsu-on-cooldown");
+            button.disabled = true;
+            const badge = document.createElement("span");
+            badge.className = "combat-cd-badge combat-jutsu-cd-badge";
+            badge.innerHTML = '<span class="combat-cd-prefix">CD </span>3';
+            card.prepend(badge);
+        });
+        const card = page.locator(".combat-jutsu-card-wrap").first();
+        const badge = card.locator(".combat-jutsu-cd-badge");
+        await expect(badge).toBeVisible();
+        await expect(badge).toHaveCSS("background-color", "rgb(185, 28, 28)");
+        await expect(card).toHaveCSS("outline-style", "solid");
+        const cardBox = await card.boundingBox();
+        if (cardBox && cardBox.height <= 48) await expect(badge.locator(".combat-cd-prefix")).toBeHidden();
+        else await expect(badge.locator(".combat-cd-prefix")).toBeVisible();
+        if (viewport.width < 400) {
+            const badgeBox = await badge.boundingBox();
+            const detailsBox = await card.locator(".combat-jutsu-help").boundingBox();
+            expect(badgeBox).not.toBeNull();
+            expect(detailsBox).not.toBeNull();
+            const separated = badgeBox!.x + badgeBox!.width <= detailsBox!.x + 1
+                || detailsBox!.x + detailsBox!.width <= badgeBox!.x + 1
+                || badgeBox!.y + badgeBox!.height <= detailsBox!.y + 1
+                || detailsBox!.y + detailsBox!.height <= badgeBox!.y + 1;
+            expect(separated).toBe(true);
+        }
+    }
+});
 
 const mobilePortraits = [
     { width: 320, height: 568 },

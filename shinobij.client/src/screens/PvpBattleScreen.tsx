@@ -98,6 +98,7 @@ import { useSocialLock } from "../lib/account-status";
 import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
 import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from "../../../shared/pvp-cancellation";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -2128,7 +2129,7 @@ export function PvpBattleScreen({
             a: () => { if (basicAttackAvailability.affordable) { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); } },
             m: () => { if (moveAvailability.affordable) { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); } },
             h: () => { if (healAvailability.affordable) void submitAction("basicHeal"); },
-            c: () => { if (clearAvailability.affordable) void submitAction("clear"); },
+            c: () => { if (clearAvailability.affordable && pvpDist(myPos, oppPos) <= BASIC_CLEAR_RANGE) void submitAction("clear"); },
             x: () => { if (cleanseAvailability.affordable) void submitAction("cleanse"); },
             f: () => { if (fleeAvailability.affordable) void submitAction("flee"); },
             w: () => void submitAction("wait"),
@@ -2499,8 +2500,9 @@ export function PvpBattleScreen({
                                     <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP<span className="cmd-detail"> | 10 CP | CD {myCooldowns.basicHeal ?? 0}</span></small>
                                 </button>
                                 <button onClick={() => submitAction("clear")}
-                                    disabled={!isMyTurn || submitting || !clearAvailability.affordable}>
-                                    <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.clear ?? 0}</span></small>
+                                    disabled={!isMyTurn || submitting || !clearAvailability.affordable || pvpDist(myPos, oppPos) > BASIC_CLEAR_RANGE}
+                                    title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {myCooldowns.clear ?? 0}</span></small>
                                 </button>
                                 <button onClick={() => submitAction("cleanse")}
                                     disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
@@ -2553,8 +2555,8 @@ export function PvpBattleScreen({
                                                     onCooldown ? `CD ${cooldownRemaining}` : "",
                                                 ].filter(Boolean).join(" | ");
                                                 return (
-                                                    <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
-                                                        {onCooldown && <span className="combat-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}>{cooldownRemaining}</span>}
+                                                    <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-cooling" : ""}`}>
+                                                        {onCooldown && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}><span className="combat-cd-prefix">CD </span>{cooldownRemaining}</span>}
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}

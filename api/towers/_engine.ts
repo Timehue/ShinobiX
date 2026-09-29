@@ -19,6 +19,7 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
+import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
 import { reconcileGroundStatuses } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
@@ -59,6 +60,7 @@ import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses, isCombatStatusActive, removeActiveCombatStatusesByKind } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
+import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
@@ -715,6 +717,7 @@ function applyBossAegis(session: TowerSession, boss: TowerActor): number {
     const grant = Math.min(Math.floor((boss.maxHp * pct) / 100), Math.max(0, ceiling - boss.shield));
     if (grant <= 0) return 0;
     boss.shield += grant;
+    if (grant > 0) boss.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
     session.log.push(`${boss.name} raises an aegis — a shield of ${grant} forms around it!`);
     return grant;
 }
@@ -982,6 +985,7 @@ function actorToFighter(a: TowerActor): PvpFighter {
     return {
         name: a.name, hp: a.hp, maxHp: a.maxHp, chakra: a.chakra, maxChakra: a.maxChakra,
         stamina: a.stamina, maxStamina: a.maxStamina, shield: a.shield,
+        shieldExpiresAtRound: a.shieldExpiresAtRound,
         statuses: a.statuses.map(s => ({ ...s })), character: a.character, pos: a.pos,
     };
 }
@@ -990,6 +994,7 @@ function writeBackFighter(a: TowerActor, f: PvpFighter): void {
     a.chakra = Math.max(0, Math.floor(f.chakra));
     a.stamina = Math.max(0, Math.floor(f.stamina));
     a.shield = Math.max(0, Math.floor(f.shield));
+    a.shieldExpiresAtRound = f.shieldExpiresAtRound;
     a.statuses = f.statuses;
     // pos is intentionally NOT written back: applyJutsu's Push/Pull/Barrier operate on the PvP
     // grid, whose coordinates are meaningless on the tower board. Push/Pull are re-applied on the
@@ -1822,7 +1827,7 @@ export function humanHasTowerAction(session: TowerSession, actor: TowerActor, mo
     if (canAct(session, BASIC_ATTACK_AP, actor) && inRange(1)) return true;
     if (canAct(session, HEAL_AP, actor) && actor.chakra >= HEAL_CHAKRA && (actor.cooldowns.basicHeal ?? 0) <= 0) return true;
     if (canAct(session, CLEANSE_AP, actor) && (actor.cooldowns.cleanse ?? 0) <= 0) return true;
-    if (canAct(session, CLEAR_AP, actor) && (actor.cooldowns.clear ?? 0) <= 0 && hostiles.length > 0) return true;
+    if (canAct(session, CLEAR_AP, actor) && (actor.cooldowns.clear ?? 0) <= 0 && inRange(BASIC_CLEAR_RANGE)) return true;
     if (mode === 'pve' && session.towerTactics && canAct(session, TOWER_DISRUPT_AP, actor)
         && session.map.features?.some(feature => feature.kind === 'pylon' && feature.tiles[0] != null
             && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0])
@@ -1948,6 +1953,13 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    for (const actor of session.actors) {
+        const aged = expireShield(actor, session.round);
+        if (aged !== actor) {
+            Object.assign(actor, aged);
+            session.log.push(`${actor.name}'s shield expires.`);
+        }
+    }
     recordTowerKnockouts(session);
     expireCompanions(session);
     deployPendingEnemyWaves(session);
@@ -2428,6 +2440,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const cTarget = getActor(session, action.targetId);
         if (!cTarget || cTarget.hp <= 0) return { applied: false, reason: 'no-target' };
         if (!hostileSidesFor(actor.side).includes(cTarget.side)) return { applied: false, reason: 'friendly-fire' };
+        if (hexDistance(actor.pos, cTarget.pos, session.map.width) > BASIC_CLEAR_RANGE) return { applied: false, reason: 'out-of-range' };
         if (actor.side === 'squad' && rejectObjectiveLockedBoss(session, actor, cTarget)) {
             return { applied: false, reason: 'objective-locked' };
         }
@@ -3252,6 +3265,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         const comp = pveAiCompetence(band.enemyLevel);
         if (Number.isFinite(comp.clearBuffThreshold)
             && canAct(session, CLEAR_AP, actor) && (actor.cooldowns['clear'] ?? 0) <= 0
+            && hexDistance(actor.pos, target.pos, session.map.width) <= BASIC_CLEAR_RANGE
             && pveMeaningfulBuffCount(activeCombatStatuses(target.statuses, session.round)) >= comp.clearBuffThreshold) {
             return { actorId: actor.id, type: 'clear', targetId: target.id };
         }
@@ -3514,6 +3528,7 @@ function companionCast(
         case 'shield': case 'barrier': {
             const amt = Math.max(1, Math.floor(actor.maxHp * 0.2));
             actor.shield = Math.max(0, Number(actor.shield ?? 0)) + amt;
+            actor.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
             session.log.push(`${actor.name}${label} and raises a ${amt} HP shield.`);
             return;
         }
