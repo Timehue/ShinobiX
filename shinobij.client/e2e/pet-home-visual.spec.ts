@@ -666,7 +666,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-arena-return")).toContainText("Central · The Gates");
+    await expect(page.locator(".pet-arena-return")).toContainText("Central");
     await page.locator(".pet-arena-return").click();
     await expect(page.locator(".central-hub")).toBeVisible();
 

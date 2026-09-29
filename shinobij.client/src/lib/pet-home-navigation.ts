@@ -18,7 +18,7 @@ export function petHomeReturnLabel(screen: Screen): string {
     const labels: Partial<Record<Screen, string>> = {
         arena: "Battle Arena",
         arenaDistrict: "Arena District",
-        centralHub: "Central · The Gates",
+        centralHub: "Central",
         clan: "Clan Hall",
         hollowGateShrine: "Hollow Gate Shrine",
         village: "Village",
