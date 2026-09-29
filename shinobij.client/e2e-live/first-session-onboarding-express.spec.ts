@@ -370,7 +370,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // Learn the actual command/target interaction before the persistence solver
     // finishes the match. The guide occupies the existing feedback band, so it
     // cannot cover the vitals or the action tray on a phone.
-    await expect(page.locator('.combat-action-notice .spar-coach-hint')).toContainText('Move');
+    await expect(page.locator('.academy-click-bubble')).toContainText('Move into range');
     await expect(page.locator('body > .spar-coach-banner')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Move/ })).toBeEnabled();
     await page.getByRole('button', { name: /^Move/ }).click();
@@ -381,6 +381,9 @@ test(`a new player completes the full persisted Academy first session against bu
     expect(moved.applied).toBe(true);
     expect(moved.session.player.pos).not.toBe(started.session.player.pos);
     await page.locator('.combat-jutsu-button').filter({ hasText: 'Flicker' }).click();
+    const jutsuLesson = page.locator('#academy-jutsu-guide');
+    await expect(jutsuLesson).toBeVisible();
+    await jutsuLesson.getByRole('button', { name: 'Skip lessons' }).click();
     const jutsuReply = page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/solo-pve/action');
     await page.getByRole('button', { name: /jutsu move destination/ }).first().click();

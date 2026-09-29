@@ -124,14 +124,14 @@ function sparLine(state: FirstFightCoachState): FirstFightCoachLine {
     if (state.outOfActions || (!state.canAttack && !state.canMove && !state.canCastJutsu)) {
         return band("spar-end-turn", "Tap Wait to end your turn and recover AP.");
     }
+    if (!history.attacked && !state.enemyInMelee && state.canMove) {
+        return band("spar-move", "Move → tap a lit tile toward the dummy.");
+    }
     if (!history.casted && state.canCastJutsu) {
         return band("spar-jutsu", "Choose a lit jutsu. Read its power and cost first.");
     }
     if (history.casted && state.canCastJutsu && !state.canAttack) {
         return band("spar-ready", "Choose another lit jutsu, or Wait to end your turn.");
-    }
-    if (!state.enemyInMelee && state.canMove) {
-        return band("spar-move", "Move → tap a lit tile toward the dummy.");
     }
     if (!history.attacked && state.canAttack) {
         return band("spar-attack", `Attack costs ${state.attackAp ?? 40} AP. You have ${state.myAp} AP.`);

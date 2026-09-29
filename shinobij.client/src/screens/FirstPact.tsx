@@ -85,7 +85,7 @@ import {
     visitFirstPactAftermath,
     type FirstPactGrant,
 } from "../lib/first-pact-api";
-import { firstPactAftermathScene, resolveFirstPactCompanions } from "../lib/first-pact-aftermath";
+import { firstPactAftermathScene, firstPactPresentPetIds, resolveFirstPactCompanions } from "../lib/first-pact-aftermath";
 import {
     forfeitFirstPactShowdown,
     fetchShowdownState,
@@ -4493,6 +4493,10 @@ export function FirstPact({
     const availablePets = useMemo(() => (character.pets ?? []).filter((pet) => (
         carried.has(pet.id) && isPetAvailableForColosseum(pet, breedingParents)
     )), [breedingParents, carried, character.pets]);
+    const storyPresentPetIds = useMemo(
+        () => firstPactPresentPetIds(character.pets ?? [], carried, breedingParents),
+        [breedingParents, carried, character.pets],
+    );
     const activePet = useMemo(() => (
         availablePets.find((pet) => pet.id === character.activePetId) ?? availablePets[0] ?? null
     ), [availablePets, character.activePetId]);
@@ -4500,8 +4504,8 @@ export function FirstPact({
         .map((id) => character.pets.find((pet) => pet.id === id))
         .filter(Boolean) as Pet[], [character.pets, selectedPets]);
     const pactCompanions = useMemo(
-        () => resolveFirstPactCompanions(progress, character.pets ?? [], new Set(availablePets.map((pet) => pet.id))),
-        [availablePets, character.pets, progress],
+        () => resolveFirstPactCompanions(progress, character.pets ?? [], storyPresentPetIds),
+        [character.pets, progress, storyPresentPetIds],
     );
 
     const worldPixels = { width: FIRST_PACT_WORLD_WIDTH * FIRST_PACT_TILE_SIZE, height: FIRST_PACT_WORLD_HEIGHT * FIRST_PACT_TILE_SIZE };

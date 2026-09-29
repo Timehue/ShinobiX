@@ -1329,7 +1329,8 @@ export function MissionArenaFight({
         } else {
             const offensive = readyWithTarget.find(j => !isSelfCastJutsu(j) && !isMoveJutsu(j));
             const recommended = offensive ?? readyWithTarget[0];
-            if (!sparCasted && recommended) step = selectJutsu(recommended);
+            if (!sparCasted && !enemyInMelee && canMoveNow) step = move("Get closer to the dummy.");
+            else if (!sparCasted && recommended) step = selectJutsu(recommended);
             else if (enemyInMelee && myAp >= attackAp && myStamina >= 10) step = command("attack", "Strike the dummy", `Tap Attack to strike immediately (${attackAp} AP, 10 SP).`);
             else if (!enemyInMelee && canMoveNow) step = move("Get closer to the dummy.");
             else if (recommended) step = selectJutsu(recommended);

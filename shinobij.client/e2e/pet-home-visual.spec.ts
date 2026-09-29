@@ -705,8 +705,8 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     let readiness = page.locator(".pet-battle-readiness");
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
-    await expect(warfront).toContainText("Training results unclaimed");
-    await expect(warfront.getByRole("button", { name: /Collect training results/ })).toBeDisabled();
+    await expect(warfront).not.toContainText("Training results unclaimed");
+    await expect(warfront.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
     await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
 
     delete selectedPet.training;
@@ -764,11 +764,11 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await page.getByRole("button", { name: "Pet Arena" }).click();
     const warfrontTab = page.getByRole("button", { name: /Beastbound Warfront/ });
     await expect(warfrontTab).toBeEnabled();
-    await expect(page.locator(".pet-arena-readiness")).toContainText("5 companions");
+    await expect(page.locator(".pet-arena-readiness")).toContainText("6 companions");
     await warfrontTab.click();
     await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(0);
-    await expect(page.locator(".pet-pick")).toHaveCount(5);
+    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toBeVisible();
+    await expect(page.locator(".pet-pick")).toHaveCount(6);
     await expect(page.getByText("Your team (4/4)")).toBeVisible();
 
     expect(withoutAbortedFetches(consoleErrors)).toEqual([]);
