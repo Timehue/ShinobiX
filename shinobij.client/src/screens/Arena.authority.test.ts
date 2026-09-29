@@ -72,11 +72,14 @@ test("PvP acceptance delegates to App and routes with the server battle id", () 
     const spectate = sliceBetween(arena, "const spectateFight", "return (");
     assertOrdered(spectate, [
         "fight.battleId",
-        "fetch(`/api/pvp/spectate",
+        "await verifyPvpSpectatorBattle(fight.battleId, character.name)",
+        "setPvpBattleContext?.({ spectatingFromScreen: lobbyMode })",
         "setPvpBattleId(fight.battleId)",
         "setPvpRole(\"p1\")",
         "setScreen(\"pvpBattle\")",
     ], "spectator routing");
+    assert.doesNotMatch(spectate, /\/api\/pvp\/spectate/,
+        "the battle screen owns spectator joins after it loads the live session");
 });
 
 test("the retired pending PvP opponent compatibility sink stays absent", () => {

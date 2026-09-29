@@ -6390,10 +6390,7 @@ export default function App() {
                             currentWeather={currentWeather}
                             currentSector={currentSector}
                             sharedImages={sharedImages}
-                            // Pass the seed only when its battleId matches the
-                            // current pvpBattleId — a stale seed left over
-                            // from a previous fight should be ignored so the
-                            // mount fetches fresh state.
+                            // Ignore a stale seed from another fight; mount fetches fresh state.
                             seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
