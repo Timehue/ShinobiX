@@ -358,6 +358,7 @@ function WorldMapContent({
     onOwnSaveRead,
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
+    onExplorePresentationActiveChange,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -417,6 +418,7 @@ function WorldMapContent({
     // (lib/weekly-boss-launch.ts) and the Weekly Boss screen starts the sealed
     // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
+    onExplorePresentationActiveChange?: (active: boolean) => void;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -2630,6 +2632,14 @@ function WorldMapContent({
     const [chestVnPage, setChestVnPage] = useState(0);
     const [chestVnLine, setChestVnLine] = useState(0);
     const [chestVnDone, setChestVnDone] = useState(false);
+    const [explorePresentationInFlight, setExplorePresentationInFlight] = useState(false);
+    // Explore completion is server-confirmed before its result panel is shown.
+    // Hold the first-contract prompt across that handoff and until the panel closes.
+    useEffect(() => {
+        const presentationOpen = Boolean(explorePresentationInFlight || activePetEncounter || activeChest || activeGather || selectedCreatorEvent || fieldScene);
+        onExplorePresentationActiveChange?.(presentationOpen);
+    }, [explorePresentationInFlight, activePetEncounter, activeChest, activeGather, selectedCreatorEvent, fieldScene, onExplorePresentationActiveChange]);
+    useEffect(() => () => onExplorePresentationActiveChange?.(false), [onExplorePresentationActiveChange]);
     const locations = [
         // Crest positions sit ON each settlement in the 2026-07 keyart: the
         // pagoda cluster NW, the ice palace NE, the stilt harbour SW, the violet
@@ -3310,6 +3320,8 @@ function WorldMapContent({
     async function exploreSector(sector: number) {
         if (exploreInFlight.current) return;
         exploreInFlight.current = true;
+        onExplorePresentationActiveChange?.(true);
+        setExplorePresentationInFlight(true);
         try {
             const recovered = await recoverPendingWorldRewards(true);
             if (recovered !== "none") return;
@@ -3337,6 +3349,7 @@ function WorldMapContent({
             await resolveExplore(sector);
         } finally {
             exploreInFlight.current = false;
+            setExplorePresentationInFlight(false);
         }
     }
 

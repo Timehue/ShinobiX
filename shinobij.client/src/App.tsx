@@ -1705,6 +1705,7 @@ export default function App() {
     // Keeps the app-level battle lock active while a rift Chronicle ambush is
     // on screen. The server run and match id remain the actual seal authority.
     const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
+    const [worldExplorePresentationActive, setWorldExplorePresentationActive] = useState(false);
 
     // liveSectorPlayers now lives in lib/presence-store (external store) so the
     // ~1s heartbeat updates only the sector view, not the whole App tree. Read it
@@ -5870,7 +5871,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && character && <Suspense fallback={null}><CircuitReturnRibbon name={character.name} screen={screen} onReturn={() => navigate('dojoCircuit')} /></Suspense>}
                 {!activeTriggeredEvent && screen === 'dojoCircuit' && character && <DojoCircuit key={character.name} character={character} setScreen={navigate} />}
-                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
+                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive || worldExplorePresentationActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
@@ -5881,6 +5882,7 @@ export default function App() {
                     <WorldMap
                         key={worldMapKey}
                         onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
+                        onExplorePresentationActiveChange={setWorldExplorePresentationActive}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
                         character={character}
