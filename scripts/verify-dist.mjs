@@ -57,11 +57,11 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-// 2026-09-28: The themed menu icons and Warfront portraits bring the measured
-// production artifact to 538,983,231 B (514.0 MiB), 15,167 B above the former
-// 514 MiB ceiling. Reserve 516 MiB for the shipped runtime art. JavaScript/CSS
-// startup and product budgets remain independently gated by sizecheck.
-const maxClientArtifactBytes = 516 * 1024 * 1024;
+// 2026-09-30: Reviewed high-resolution pet-pose repairs bring the production
+// artifact to 548,713,084 B (523.3 MiB). Reserve 528 MiB for the shipped runtime
+// art, leaving 4.7 MiB of headroom. JavaScript/CSS startup and product budgets
+// remain independently gated by sizecheck.
+const maxClientArtifactBytes = 528 * 1024 * 1024;
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
