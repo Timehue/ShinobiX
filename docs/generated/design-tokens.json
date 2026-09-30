@@ -2271,7 +2271,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 158
+            "line": 157
           }
         ]
       },
@@ -2324,7 +2324,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/components/first-contract.css",
-            "line": 285
+            "line": 290
           }
         ]
       },
@@ -2437,11 +2437,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 121
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 176
           }
         ]
       },
@@ -2452,7 +2452,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 165
           }
         ]
       },
@@ -2588,7 +2588,7 @@
           },
           {
             "source": "shinobij.client/src/styles/training-skin.css",
-            "line": 280
+            "line": 299
           }
         ]
       },
@@ -2808,7 +2808,7 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 165
           }
         ]
       },
@@ -2941,11 +2941,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 121
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 176
           }
         ]
       },
@@ -3502,7 +3502,7 @@
           },
           {
             "source": "shinobij.client/src/components/first-contract.css",
-            "line": 258
+            "line": 263
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
@@ -4186,11 +4186,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 166
+            "line": 165
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 177
+            "line": 176
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -4280,11 +4280,11 @@
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 122
+            "line": 121
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
-            "line": 130
+            "line": 129
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
