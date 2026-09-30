@@ -1,7 +1,7 @@
 import { useSharedNow } from "../lib/use-shared-now";
 import { petTrainingOptions } from "../data/pet-config";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { dailyMissionsCompleted, dailyHuntsCompleted } from "../lib/character-progress";
+import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../lib/character-progress";
 /*
  * Desktop left-rail profile card — avatar + name/rank + HP/Chakra/Stamina
  * + core currencies + daily caps + XP bar + in-flight timers.
@@ -33,7 +33,7 @@ import type { Character } from "../types/character";
 import type { DailyLoginCommitFactory } from "../lib/daily-login-api";
 import type { Biome, Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
+import { DAILY_MISSION_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
 import { GameIcon, ShinobiCurrencyIcon } from "./icons/GameIcon";
@@ -191,7 +191,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
-                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}</span>
+                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="dice" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Fate Spins</span>
