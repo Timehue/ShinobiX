@@ -207,10 +207,10 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   } else if (recovery === 'free' || recovery === 'poor') {
    if (recovery === 'poor') {
     await expect(page.getByRole('button', { name: 'Pay & discharge', exact: true })).toBeDisabled();
-    await expect(page.locator('.hospital-screen--admitted')).toContainText('short 2,400 ryo');
+    await expect(page.locator('.hospital-screen--admitted')).toContainText('short 25 ryo');
     const refused = await request.post('/api/player/heal', { headers, data: { targetName: name, paySkip: true, hospitalizedAt: settled.character.hospitalizedAt } });
     expect(refused.status()).toBe(402);
-    expect((await save()).character.ryo).toBe(100);
+    expect((await save()).character.ryo).toBe(50);
    }
    await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0, { timeout: 80000 });
   } else if (recovery === 'healer') {
