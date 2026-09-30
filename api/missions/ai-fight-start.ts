@@ -61,8 +61,6 @@ import {
     WANDERER_ENCOUNTER_COOLDOWN_MS,
     withWandererUseState,
 } from '../sector/_wanderer-encounter.js';
-import { sectorPlace } from '../../shared/sector-geo.js';
-import { STORY_VILLAGE_BIOMES } from '../story/_authoritative-story-combat.js';
 
 type AiFightActivePointer = {
     playerName: string;
@@ -211,11 +209,7 @@ async function sealAiFightEncounter(
         const save = await augmentSaveWithForgedDefs(rawSave);
         if (!save?.character) throw new Error('Authoritative player save is unavailable.');
         const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
-        const fightSector = Math.floor(Number(genericAuthority?.sector ?? save.currentSector));
-        const fightBiome = worldSpec?.environment.biome
-            ?? sectorPlace(fightSector)?.biome
-            ?? STORY_VILLAGE_BIOMES[String((save.character as Record<string, unknown>).village ?? '')]
-            ?? 'central';
+
         // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
         // for the encounter — a client-chosen level is a client-chosen
         // difficulty. Combat missions are the only entry point that re-levels
@@ -233,8 +227,8 @@ async function sealAiFightEncounter(
             sessionId,
             now: Date.now(),
             ...(scaling ? { scaling } : {}),
-            environment: worldSpec?.environment ?? { biome: fightBiome },
             ...(worldSpec ? {
+                environment: worldSpec.environment,
                 encounter: {
                     kind: 'world-ai',
                     id: worldSpec.context.kind,
