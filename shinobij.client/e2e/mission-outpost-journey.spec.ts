@@ -33,7 +33,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         expect(logbookCalls).toBe(1);
     });
 
-    test(`Supply Trail at Explore 3/3 leads to its Sector 18 outpost at ${viewport.width}px`, async ({ page }) => {
+    test(`Supply Trail at Explore 3/3 guides the player to an enemy village at ${viewport.width}px`, async ({ page }) => {
         await page.setViewportSize(viewport);
         const missionId = 'fetch-d-supply-trail';
         const save = uiAuditSave();
@@ -59,28 +59,13 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             missionProgress: save.missionProgress,
             _saveVersion: runtime.currentVersion(),
         } }));
-        let raidRequest: Record<string, unknown> | null = null;
-        await page.route('**/api/missions/raid-start', route => {
-            raidRequest = route.request().postDataJSON() as Record<string, unknown>;
-            return route.fulfill({ status: 409, json: {
-                reason: 'location-mismatch',
-                error: 'Return to Sector 18 and try again.',
-            } });
-        });
-
         await expectUiAuditBoot(page, runtime, 'missions');
         await page.getByRole('tab', { name: 'Field' }).click();
         const card = page.locator('.mh-field-card.mh-field-accepted').filter({ hasText: 'D Rank Supply Trail Sweep' });
         await expect(card).toContainText('Explore 3/3');
         await expect(card).toContainText('Raid 0/1');
-        await expect(card).toContainText('Next: Raid Mission Outpost.');
-        await card.getByRole('button', { name: 'Raid Mission Outpost' }).click();
+        await expect(card).toContainText('Next: Travel to one of the other three villages and raid its village guard from the outskirts.');
+        await card.getByRole('button', { name: 'Go to an Enemy Village' }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
-        const action = page.locator('.sector-hud-context').getByRole('button', { name: 'Raid Mission Outpost' });
-        await expect(action).toBeVisible();
-        await expect(action).toBeEnabled();
-        await action.click();
-        expect(raidRequest).toMatchObject({ missionId, sector: 18 });
-        await expect(page.getByRole('alertdialog', { name: 'Notice' })).toContainText('Return to Sector 18 and try again.');
     });
 }
