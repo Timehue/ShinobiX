@@ -302,9 +302,11 @@ matters most.
   is Lv 40+/Fate-Shard priced (`Shop.tsx`), and Fate Shards are essentially
   unearnable before ~Lv 50. A new player sees a cash shop full of things they
   can't get.
-- **Hospital dead-time.** A KO sends non-healers to a forced 60-second wait or a
-  2,500-ryo skip they can't afford (`Hospital.tsx:20`). Not a currency drain, but
-  a momentum stop at the worst moment.
+- **Hospital dead-time.** A KO sends non-healers to a 60-second free checkout or
+  an optional level-scaled skip (`min(2,500, 25 × level)` before discounts). The
+  level-three skip is 75 ryo, below the 100-ryo starting wallet; higher levels
+  pay more as their Ryo income rises. This softens the early-game momentum stop
+  without removing the recovery choice.
 
 **Design (proposals — balance-sensitive, need sign-off).**
 - **Gentle early jutsu curve:** make the first ~3–5 jutsu levels cheap/fast
@@ -393,7 +395,7 @@ daily caps, Rank-8 discount) are complete too. Early-game changes:
 | `CHARACTER_XP_GAIN_MULTIPLIER` | 45 | **1** (or a modest 2–3) | Restore a real early curve; §2 shows base curve is healthy |
 | Starting equipped jutsu | 0 | **1–2 bloodline + Flicker at mastery 1** | Removes the silent combat wall (§4) |
 | Jutsu level 1→2 cost | 3,000 ryo / 10 min | **~150–300 ryo / <1 min for levels 1→~5**, steep curve after | Kill the early grind wall (§7) |
-| Hospital timer (Lv < 10) | 60 s / 2,500 skip | **~15–20 s, or free first revive** | Protect new-player momentum (§7) |
+| Hospital timer (Lv < 10) | 60 s / `min(2,500, 25 × level)` skip | **~15–20 s, or free first revive** | Protect new-player momentum (§7) |
 | Daily quests | profession-gated | **new-player set from Day 1** | Habit anchor (§6) |
 | Login bonus | none | **modest capped streak** | Return reason (§6) |
 

@@ -34,6 +34,7 @@ beforeEach(async () => {
         _saveVersion: 1,
         character: {
             name: PLAYER,
+            level: 100,
             profession: 'vanguard',
             ryo: 10_000,
             hp: 1,
@@ -91,6 +92,22 @@ test('concurrent paid discharge debits exactly once', { concurrency: false }, as
         assert.equal(character.ryo, 7_500);
         assert.equal(character.hospitalized, false);
     }
+});
+
+test('low-level paid discharge charges the level-scaled amount', { concurrency: false }, async () => {
+    const save = (await kv.get<Record<string, unknown>>(SAVE_KEY))!;
+    await kv.set(SAVE_KEY, {
+        ...save,
+        character: { ...(save.character as Record<string, unknown>), level: 3, ryo: 100 },
+    });
+
+    const result = response();
+    await handler(request(), result.res);
+
+    assert.equal(result.out.statusCode, 200);
+    assert.equal(result.out.body?.chargedRyo, 75);
+    const stored = await kv.get<{ character?: { ryo?: number } }>(SAVE_KEY);
+    assert.equal(stored?.character?.ryo, 25);
 });
 
 test('a delayed discharge cannot charge or clear a later admission', { concurrency: false }, async () => {

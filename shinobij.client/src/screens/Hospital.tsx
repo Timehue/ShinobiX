@@ -15,6 +15,7 @@ import { FacilityHero } from "../components/FacilityHero";
 import { serverNow } from "../lib/server-clock";
 import { GameIcon } from "../components/icons/GameIcon";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { hospitalDischargeBaseCost } from "../../../shared/hospital-discharge-cost";
 
 export
 function Hospital({ character, updateCharacter, setScreen, playerRoster, onServerVersion, onVersionedCharacter }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; setScreen: (s: Screen, authoritativeCharacter?: Character) => void; playerRoster: PlayerRecord[]; onServerVersion: (version: unknown) => boolean; onVersionedCharacter: VersionedCharacterCommit }) {
@@ -22,9 +23,9 @@ function Hospital({ character, updateCharacter, setScreen, playerRoster, onServe
     const healerRank = isHealer ? (character.professionRank ?? 1) : 0;
     const hospitalDiscount = getHospitalDiscountPercent(character);
     // Healers heal themselves for free — both the server-backed topUp vitals refill and the
-    // discharge action cost 0 ryo. Non-Healers pay a bumped 2,500 ryo to
-    // discharge (or wait the 60-second free checkout) and can't topUp at all.
-    const dischargeCost = isHealer ? 0 : discountCost(2500, hospitalDiscount);
+    // discharge action costs 0 ryo. Non-Healers pay 25 ryo per level (capped at
+    // 2,500, before discounts) to skip the 60-second free checkout.
+    const dischargeCost = isHealer ? 0 : discountCost(hospitalDischargeBaseCost(character.level), hospitalDiscount);
     const topUpCost = isHealer ? 0 : discountCost(50, hospitalDiscount);
     const academyRecoveryStep = normalizeOnboardingStep(character.onboardingStep) === "academySpar";
     const hpPercent = Math.max(0, Math.min(100, character.maxHp > 0 ? (character.hp / character.maxHp) * 100 : 0));
