@@ -228,6 +228,11 @@
 .fc-route.is-unavailable:disabled { opacity: 1; }
 .fc-route.is-unavailable .fc-route-art { filter: saturate(.55) brightness(.78); }
 .fc-route.is-unavailable .fc-route-link { color: #c6cdda; }
+.fc-route.is-complete { border-color: #9fb8a36b; box-shadow: inset 0 -2px 0 #9fb8a330; }
+.fc-route.is-complete .fc-route-art { filter: grayscale(.86) brightness(.56); }
+.fc-route.is-complete .fc-route-number { border-color: #aec2ae70; color: #bdc9bd; }
+.fc-route.is-complete .fc-route-link { color: #aebdaf; }
+.fc-route.is-locked:not(.is-unavailable) { opacity: .48; }
 
 .fc-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 12px; }
 .fc-primary, .fc-secondary { min-height: 46px; padding: 12px 18px; border-radius: 3px 10px 3px 10px; font: 700 13px var(--font-body, Inter, sans-serif); cursor: pointer; }
