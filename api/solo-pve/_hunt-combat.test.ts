@@ -36,23 +36,24 @@ function session(formation = forms[4]!, blockedTiles: number[] = []) {
 }
 
 describe('Tower-powered hunt encounters', () => {
-    it('seals all five formations deterministically for the accepted run', () => {
+    it('seals formations deterministically: the target is one creature, a pack ambush is three', () => {
         const seen = new Set<string>();
         for (let i = 0; i < 200; i++) {
-            const form = huntFormationFor(`accepted-${i}`, 'hunt-target');
-            assert.deepEqual(form, huntFormationFor(`accepted-${i}`, 'hunt-target'));
+            assert.deepEqual(huntFormationFor(`accepted-${i}`, 'hunt-target', 'd'), { version: 1, kind: 'single', count: 1 });
+            const form = huntFormationFor(`accepted-${i}`, 'hunt-pack', `decision-${i}`);
+            assert.deepEqual(form, huntFormationFor(`accepted-${i}`, 'hunt-pack', `decision-${i}`));
             seen.add(`${form.kind}:${form.count}`);
         }
-        assert.deepEqual([...seen].sort(), forms.map(f => `${f.kind}:${f.count}`).sort());
+        assert.deepEqual([...seen].sort(), ['pack:3', 'waves:3']);
     });
 
-    for (const form of forms) it(`preserves vitals and total health in ${form.kind}:${form.count}`, () => {
+    for (const form of forms) it(`gives every creature full health and keeps player vitals in ${form.kind}:${form.count}`, () => {
         const s = session(form);
         const b = s.huntCombat!.battle;
         const all = [...b.actors, ...(b.pendingEnemyWaves ?? []).flatMap(w => w.actors)];
         const enemies = all.filter(a => a.side === 'enemy');
         assert.equal(enemies.length, form.count);
-        assert.equal(enemies.reduce((total, a) => total + a.maxHp, 0), 1000);
+        for (const enemy of enemies) assert.equal(enemy.maxHp, 1000, 'each creature keeps the full encounter HP');
         assert.equal(enemies.filter(a => a.character.huntContractTarget).length, 1);
         assert.equal(s.player.hp, 740);
         assert.equal(s.player.chakra, 210);

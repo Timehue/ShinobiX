@@ -35,10 +35,9 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
         const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
-        // Share the encounter's existing HP budget across the creatures. Packs
-        // also split offensive strength because all members can act in one round.
-        actor.maxHp = Math.max(1, Math.floor(session.enemy.maxHp / formation.count) + (index === formation.count - 1 ? session.enemy.maxHp % formation.count : 0));
-        actor.hp = actor.maxHp;
+        // Every creature keeps the encounter's full HP, so a pack costs as much
+        // effort as the three fights it replaces. Only a simultaneous pack trims
+        // offensive strength, because all members can act in the same round.
         if (formation.kind === 'pack') {
             const stats = actor.character.stats as Record<string, number>;
             actor.character.stats = Object.fromEntries(Object.entries(stats).map(([key, value]) => [key, Math.max(1, Math.floor(value / Math.sqrt(formation.count)))]));
