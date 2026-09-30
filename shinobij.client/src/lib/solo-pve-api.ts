@@ -132,6 +132,7 @@ export type SoloPveRejectionEvent = {
 };
 
 export type SoloPveSession = {
+    huntCombat?: { formation: import('../../../shared/hunt-combat').HuntFormation; battle: import('./towers-api').TowerSession };
     runtime: 'solo-pve';
     schemaVersion: 1;
     sessionId: string;
@@ -211,6 +212,7 @@ export type SoloPveSession = {
 };
 
 export type SoloPveActionInput =
+    | { type: 'huntAction'; action: import('../../../shared/hunt-combat').HuntCombatAction }
     | { type: 'move'; tile: number }
     | { type: 'basicAttack' }
     | { type: 'basicHeal' }

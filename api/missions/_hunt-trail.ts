@@ -93,3 +93,9 @@ export function deterministicHuntAmbush(
 export function clampHuntQuality(value: unknown): number {
     return Math.max(HUNT_QUALITY_MIN, Math.min(HUNT_QUALITY_MAX, Math.floor(Number(value) || 0)));
 }
+
+export function huntFormationFor(runId: string, kind: string, decisionId = ''): import('../../shared/hunt-combat.js').HuntFormation {
+    const roll = huntHash(`${runId}:${kind}:${decisionId}:formation-v1`) % 5;
+    return roll === 0 ? { version: 1, kind: 'single', count: 1 }
+        : { version: 1, kind: roll <= 2 ? 'waves' : 'pack', count: roll === 1 || roll === 3 ? 2 : 3 };
+}

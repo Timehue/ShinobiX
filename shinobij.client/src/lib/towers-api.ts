@@ -157,7 +157,7 @@ export type TowerSession = {
     map: TowerMap;
     actors: TowerActor[];
     /** Enemy pods sealed for a future round; never infer these from current board HP. */
-    pendingEnemyWaves?: Array<{ round: number; actors: TowerActor[] }>;
+    pendingEnemyWaves?: Array<{ round: number; afterClear?: boolean; actors: TowerActor[] }>;
     turnQueue: string[];
     activeIndex: number;
     round: number;

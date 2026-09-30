@@ -1700,7 +1700,10 @@ function reinforcementEntryTile(session: TowerSession, preferred: number, forbid
 function deployPendingEnemyWaves(session: TowerSession): void {
     const waves = session.pendingEnemyWaves;
     if (!waves?.length) return;
-    const due = waves.filter(wave => wave.round <= session.round).sort((a, b) => a.round - b.round);
+    const nextClearWave = !isSideAlive(session, 'enemy')
+        ? waves.find(wave => wave.afterClear && wave.round <= session.round) : undefined;
+    const due = waves.filter(wave => wave.afterClear ? wave === nextClearWave : wave.round <= session.round)
+        .sort((a, b) => a.round - b.round);
     if (!due.length) return;
     const forbidden = reinforcementForbiddenTiles(session);
     let deployed = 0;
@@ -1721,11 +1724,11 @@ function deployPendingEnemyWaves(session: TowerSession): void {
             forbidden.add(tile);
             deployed++;
         }
-        if (waiting.length > 0) retained.push({ round: wave.round, actors: waiting });
+        if (waiting.length > 0) retained.push({ ...wave, actors: waiting });
     }
     session.pendingEnemyWaves = [
         ...retained,
-        ...waves.filter(wave => wave.round > session.round),
+        ...waves.filter(wave => !due.includes(wave)),
     ].sort((a, b) => a.round - b.round);
     if (session.pendingEnemyWaves.length === 0) delete session.pendingEnemyWaves;
     if (deployed > 0) session.log.push(`${deployed} reinforcement${deployed === 1 ? '' : 's'} enter the battlefield.`);

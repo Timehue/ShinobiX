@@ -14,6 +14,7 @@ import {
     type AiFightStart,
 } from "../lib/ai-fight-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
+import { fetchHuntCombatState, huntSessionForTower, submitHuntCombatAction } from '../lib/hunt-combat-api';
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "../lib/ai-fight-request";
 import {
     settleAiFight,
@@ -40,6 +41,7 @@ import { requestForResumedGenericFight, rememberCircuitCombatSession, forgetCirc
 // always live; the screen is code-split and warmed on the request, in parallel with
 // the start round-trip, so it is resident by the time the session opens.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+const HuntTowerFight = lazyWithRetry(() => import('../screens/BattleTowerFight').then(m => ({ default: m.BattleTowerFight })));
 const CircuitCombatResult = lazyWithRetry(() => import('../features/dojo-circuit/CircuitCombatResult').then(m => ({ default: m.CircuitCombatResult })));
 
 type ActiveFight = {
@@ -405,7 +407,11 @@ export function AiFightHost({
             setStartFailure(null);
             // Warm-up only. A failed load resurfaces through the lazy MissionArenaFight
             // above (retries, then ErrorBoundary); it must not also escape unhandled here.
-            void import("../screens/MissionArenaFight").catch(() => {});
+            if (request.worldEncounter?.kind === 'hunt-pack' || request.worldEncounter?.kind === 'hunt-target') {
+                void import('../screens/BattleTowerFight').catch(() => {});
+            } else {
+                void import("../screens/MissionArenaFight").catch(() => {});
+            }
             startAiFight({
                 playerName: originatingPlayerName,
                 opponentId: request.opponentId,
@@ -603,7 +609,20 @@ export function AiFightHost({
 
     return (
         <Suspense fallback={null}>
-            <MissionArenaFight
+            {currentFight.session.huntCombat ? <HuntTowerFight
+                character={character}
+                sharedImages={sharedImages}
+                runId={currentFight.sessionId}
+                initialSession={huntSessionForTower(currentFight.session)}
+                stateFn={fetchHuntCombatState}
+                actionRetryFn={submitHuntCombatAction}
+                settleFn={settle}
+                settleOnAnyDone
+                variant="hunt"
+                enemyAvatarOverride={request.enemyAvatar}
+                onRecordBattle={onRecordBattle}
+                onExit={closeFight}
+            /> : <MissionArenaFight
                 character={character}
                 runId={currentFight.sessionId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
@@ -634,7 +653,7 @@ export function AiFightHost({
                         onExit={closeFight}
                     />
                 )}
-            />
+            />}
         </Suspense>
     );
 }

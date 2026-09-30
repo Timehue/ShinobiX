@@ -56,7 +56,12 @@ const host = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.u
 test("AiFightHost renders the code-split authoritative solo shell", () => {
     assert.match(host, /<MissionArenaFight/);
     assert.match(host, /import\(["']\.\.\/screens\/MissionArenaFight["']\)/);
-    assert.doesNotMatch(host, /<BattleTowerFight|screens\/BattleTowerFight/);
+    // Only hunts may use the grid shell, and only through the server-owned hunt transport.
+    assert.doesNotMatch(host, /<BattleTowerFight/);
+    // The lazy import plus its idle preload are the only references.
+    assert.equal((host.match(/screens\/BattleTowerFight/g) ?? []).length, 2);
+    assert.match(host, /const HuntTowerFight = lazyWithRetry\(\(\) => import\(['"]\.\.\/screens\/BattleTowerFight['"]\)/);
+    assert.match(host, /stateFn=\{fetchHuntCombatState\}[\s\S]{0,80}actionRetryFn=\{submitHuntCombatAction\}/);
 });
 
 test("AiFightHost requires standalone solo-PvE and has no local or Tower authority", () => {
