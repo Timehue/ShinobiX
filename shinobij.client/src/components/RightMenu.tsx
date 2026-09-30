@@ -46,6 +46,7 @@ export const RightMenu = memo(function RightMenu({
     characterClan,
     profession,
     screen,
+    currentSector,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -56,8 +57,13 @@ export const RightMenu = memo(function RightMenu({
     characterClan: string;
     profession: Profession | null;
     screen: Screen;
+    currentSector: number;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    // Menu screens only change the panel, not the player's town. Preserve which
+    // town hub they came from so its return artwork stays visible on those screens.
+    const townHubRef = useRef<"village" | "centralHub">(screen === "centralHub" ? "centralHub" : "village");
+    if (screen === "village" || screen === "centralHub") townHubRef.current = screen;
     const navLockUntilRef = useRef(0);
     const lastNavigationRef = useRef<Screen | null>(null);
     const isAdminAccount = isProtectedAdminName(characterName);
@@ -131,7 +137,7 @@ export const RightMenu = memo(function RightMenu({
                             </div>
                         </section>
                     </div>
-                    {(screen === "village" || screen === "centralHub") && (
+                    {currentSector === 0 && screen !== "sunscarFestival" && (
                         <button
                             type="button"
                             className="realm-wayfinder"
@@ -140,7 +146,7 @@ export const RightMenu = memo(function RightMenu({
                             title={screen === "centralHub" ? "Return to your village" : `Return to ${characterVillage || "your village"} home`}
                         >
                             <img
-                                src={screen === "centralHub" ? "/ui/central.webp" : VILLAGE_RETURN_ART[characterVillage] ?? "/ui/village-return.webp"}
+                                src={townHubRef.current === "centralHub" ? "/ui/central.webp" : VILLAGE_RETURN_ART[characterVillage] ?? "/ui/village-return.webp"}
                                 alt=""
                                 aria-hidden="true"
                             />

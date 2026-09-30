@@ -5392,6 +5392,7 @@ export default function App() {
                         characterVillage={character?.village ?? ""} storyVillage={character?.storyVillage ?? character?.village ?? ""} characterClan={character?.clan ?? ""}
                         profession={character?.profession ?? null}
                         screen={screen}
+                        currentSector={currentSector}
                     />
                     <MobileNav
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
