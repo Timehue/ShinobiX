@@ -44,6 +44,7 @@ test("the story-fight bus reports the host's verdict, not merely that one is mou
 });
 
 const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const battleFlow = readFileSync(new URL("./battle-flow-screen.ts", import.meta.url), "utf8");
 const storyHost = readFileSync(new URL("../components/StoryBossFightHost.tsx", import.meta.url), "utf8");
 const aiHost = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.url), "utf8");
 const triggeredBattle = readFileSync(new URL("./triggered-event-battle.ts", import.meta.url), "utf8");
@@ -68,14 +69,10 @@ test("App tracks both hosts and the VN auto-triggers consult them", () => {
     // The ref, not the state: a host announces from a CHILD effect, which React
     // flushes before App's own effects in the same commit, so the state the effect
     // closed over is still stale exactly when the VN would re-open.
-    assert.match(
-        app,
-        // `[^}]` already matches newlines, so keep it a single unambiguous class:
-        // the `(?:[^}]|\n)` alternation this replaced overlapped itself and was a
-        // genuine ReDoS (js/redos, caught by CodeQL on this PR).
-        /function isBattleFlowScreen\([^)]*\): boolean \{[^}]*?sealedFightOnScreen \|\| sealedFightEngagedRef\.current/,
-        "isBattleFlowScreen must treat an engaged sealed fight as a battle flow",
-    );
+    assert.match(app, /resolveBattleFlowScreen\(screenSnapshot, sealedFightOnScreen, sealedFightEngagedRef\.current,/,
+        "App must pass its synchronous sealed-fight ref to the battle-flow guard");
+    assert.match(battleFlow, /return sealedFightOnScreen \|\| sealedFightEngaged[\s\S]*?\|\| isPresenceBattleActive\(\);/,
+        "the extracted guard must preserve sealed-fight and presence checks");
     const guards = app.match(/if \(isBattleFlowScreen\(screen, sealedFightOpen\)\) return;/g) ?? [];
     assert.equal(guards.length, 3, "all three VN auto-trigger effects must gate on the sealed fight");
     // The story beat resolves behind a lazy import, so re-check after the await too.
