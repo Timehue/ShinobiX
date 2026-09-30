@@ -1114,6 +1114,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     || typeof trail.targetProofId !== 'string' || !trail.targetProofId) {
                     return { applied: false, reason: 'missing-hunt-kill-receipt' };
                 }
+                // A hunt contract can be repeated during the daily pool. Use
+                // this server-issued kill proof as the claim identity so retries
+                // remain idempotent without treating the mission id itself as a
+                // once-per-day lock. The legacy unsuffixed marker check above
+                // still protects claims written before repeatable hunts shipped.
+                missionReceipt = `${todayKey}:hunt:${missionId}:${trail.targetProofId}`;
+                if (claimedServerMissions.includes(missionReceipt)) {
+                    return { applied: false, reason: 'already-claimed-today' };
+                }
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
                 baseStatPoints = FIELD_MISSION_STAT_POINTS; boostStatPoints = true;
