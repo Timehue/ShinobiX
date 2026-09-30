@@ -95,7 +95,7 @@ import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } fro
 import { StoryFieldScene } from "../components/StoryFieldScene";
 import { StoryFieldJournal } from "../components/StoryFieldJournal";
 import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
-import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
+import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, sectorPhrase, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
 import { usePetMentorGuide } from "../lib/use-pet-mentor-guide";
@@ -4021,7 +4021,20 @@ function WorldMapContent({
                         setSelectedCreatorEvent(null);
                         if (rift) void acceptRift(character.name, rift.id).then((resp) => {
                             if (resp.ok && resp.activeRiftQuest) {
+                                if (onServerVersion?.(resp._saveVersion) === false) return;
                                 updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev);
+                                const sealedSector = resp.activeRiftQuest.targetSector;
+                                if (Number.isInteger(sealedSector)) {
+                                    setSelectedSector(playableFieldObjectiveSector(sealedSector));
+                                    const previewSector = riftTargetSector(character.name, rift.id);
+                                    if (sealedSector !== previewSector) {
+                                        setTravelToast({
+                                            id: Date.now(),
+                                            kicker: "Rift location corrected",
+                                            text: `The rift is in ${sectorPhrase(sealedSector)}. The map and quest journal now point there.`,
+                                        });
+                                    }
+                                }
                             } else {
                                 setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40);
                             }
