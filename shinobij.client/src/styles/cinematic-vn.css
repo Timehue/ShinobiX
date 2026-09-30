@@ -694,6 +694,11 @@
     gap: 8px;
 }
 
+.cvn-dialogue-footer .vn-controls.vn-decision-controls {
+    width: 100%;
+    justify-content: space-between;
+}
+
 .cvn-dungeon-footer {
     display: flex;
     flex: 1;

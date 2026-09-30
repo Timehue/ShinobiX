@@ -152,6 +152,7 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-dialogue-copy h2 { margin: 3px 0 10px; font: 500 29px Georgia, serif; }
 .fp-dialogue-copy p { flex: 1; margin: 0; color: #d5dce0; font: 400 16px/1.58 Georgia, serif; }
 .fp-dialogue-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.fp-dialogue-actions.fp-decision-actions { justify-content: space-between; }
 .fp-dialogue-choices { display: grid; flex: 1; gap: 7px; }
 /* min-height, not more padding: a one-line choice measured 40px, under the 44px
    touch floor every other surface in this game holds to, and the Arbiter's

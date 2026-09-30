@@ -155,9 +155,9 @@ export function DungeonEncounter({
                 <h2>All seals verified</h2>
                 <p>“Three clean signals. No rescue rope used. Take what the vault owes you; I have the next challenger to keep breathing.”</p>
                 <p>The Warden, Chronicle, and Rare Beast proofs are bound to this run. Claim the reserved reward now; if the request is interrupted, this screen remains recoverable.</p>
-                <div className="menu">
-                    <button className="admin-button" onClick={onClaimReward}>Claim Dungeon Reward</button>
+                <div className="menu vn-decision-controls">
                     <button className="danger-button" onClick={onLeave}>Abandon Dungeon</button>
+                    <button className="admin-button" onClick={onClaimReward}>Claim Dungeon Reward</button>
                 </div>
             </div>
         );
@@ -373,7 +373,7 @@ export function DungeonRareBeastBattle({
                 <div className="pet-arena-grid"><PetArenaCard owner="You" pet={selectedPet} sharedImages={sharedImages} /><div className="pet-arena-card"><p className="act-label">SERVER-SEALED OPPONENT</p><h3>Dungeon Rare Beast</h3><p className="hint">Species, stats, seed, and outcome are revealed only by the combat authority.</p></div></div>
                 {error && <p role="alert" className="hint">{error}</p>}
                 {/* Leave stays enabled while sealing: it is the escape hatch if the start request stalls. */}
-                <div className="menu"><button className="admin-button" disabled={startBusy} onClick={() => { void startBattle(); }}>{startBusy ? "Sealing…" : "Start Pet Battle"}</button><button className="danger-button" onClick={onLeave}>Leave Dungeon</button></div>
+                <div className="menu vn-decision-controls"><button className="danger-button" onClick={onLeave}>Leave Dungeon</button><button className="admin-button" disabled={startBusy} onClick={() => { void startBattle(); }}>{startBusy ? "Sealing…" : "Start Pet Battle"}</button></div>
             </div>
         );
     }
@@ -524,11 +524,11 @@ export function DungeonPetBattle({ character, onWin, onLeave, sharedImages = {},
                     </div>
                 </div>
                 {error && <p className="hint" style={{ color: "#fca5a5" }}>{error}</p>}
-                <div className="menu">
+                <div className="menu vn-decision-controls">
+                    <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
                     <button className="admin-button" disabled={starting} onClick={() => void startBattle()}>
                         {starting ? "Breaking the seal…" : "Start Pet Battle"}
                     </button>
-                    <button className="danger-button" onClick={onLeave}>Leave Dungeon</button>
                 </div>
             </div>
         );
