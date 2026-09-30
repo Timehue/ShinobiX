@@ -50,7 +50,7 @@ test("Story Hall resumes a dismissed chapter in the same session", async ({ page
     const novel = await openFirstChapter(page);
     await nextLine(novel);
     const rememberedLine = await novel.locator(".vn-dialogue > p").innerText();
-    await novel.getByRole("button", { name: "Skip visual novel scene", exact: true }).click();
+    await novel.getByRole("button", { name: /^(?:Skip visual novel scene|Defer scene until next session)$/ }).click();
     await expect(novel).toHaveCount(0);
     await page.getByRole("button", { name: "Enter Story Hall", exact: true }).click();
     const resume = page.getByRole("button", { name: "Resume current chapter", exact: true });

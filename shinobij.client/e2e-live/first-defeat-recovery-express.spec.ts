@@ -152,7 +152,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   expect(settled.character.ryo).toBe(character.ryo);
   expect(settled.currentSector).toBe(0);
   await page.reload(); await expect(page.locator('.hospital-screen--admitted')).toBeVisible(); await capture('05-hospital-reload');
-  await page.getByRole('button', { name: 'Travel', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
   const rejection = page.getByRole('alertdialog');
   await expect(rejection).toContainText("You're still admitted");
   await rejection.getByRole('button', { name: 'OK', exact: true }).click();
@@ -285,7 +285,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    expect(synced.character.hospitalized).toBe(false);
    events.push({ moment: 'achievementRefreshRace', body: synced });
   } else { await page.reload(); }
-  await expect(page.getByRole('button', { name: 'Travel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
   await capture('07-recovered-reload');
   await page.unrouteAll({ behavior: 'wait' });
@@ -297,7 +297,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await otherTab.close();
   // Return to the world, open another permitted activity, then really log out
   // and log back in rather than restoring the fixture's local session again.
-  await page.getByRole('button', { name: 'Travel', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
   await expect(page.locator('.anime-world-map')).toBeVisible();
   const beforeActivity = await save();
   const nextActivity = await request.post('/api/missions/ai-fight-start', { headers, data: { playerName: name, battleKind: 'practice', opponentId: 'builtin-ai-academy-sparring' } });
@@ -348,7 +348,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await page.getByRole('button', { name: 'Enter Village' }).click();
   await loginSave;
   await expect(page.getByTestId('start-create')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Travel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
   const loggedIn = await save(); events.push({ moment: 'loggedInAgain', save: loggedIn });
   expect(loggedIn.character.hospitalized).toBe(false);
