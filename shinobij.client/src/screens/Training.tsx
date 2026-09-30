@@ -36,7 +36,7 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { friendlyJutsuTrainingError, jutsuHallNoticeTitle, trainingResponseError, type JutsuHallNotice } from "../lib/training-feedback";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
+import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel, statCapForLevel } from "../constants/game";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
@@ -58,6 +58,7 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
     const recommendation = trainingRecommendation(character, savedBloodlines);
     const [chosenStat, setSelectedStat] = useState<keyof Stats | null>(null);
     const selectedStat = chosenStat ?? recommendation.stat;
+    const currentStatCap = statCapForLevel(character.level);
     const [timerPickerOpen, setTimerPickerOpen] = useState(false);
     const [trainingBusy, setTrainingBusy] = useState(false);
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
@@ -234,23 +235,25 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
                         <div className="stat-grid">
                             {group.stats.map((stat) => {
                                 const info = STAT_LABELS[stat];
+                                const statCapped = (character.stats?.[stat] ?? 10) >= currentStatCap;
                                 return (
                                     <button
                                         key={stat}
-                                        className={`location-button${selectedStat === stat ? " selected" : ""}${!activeTraining && recommendation.stat === stat ? " training-recommended" : ""}${showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat ? " academy-click-target" : ""}`}
+                                        className={`location-button${selectedStat === stat ? " selected" : ""}${!activeTraining && recommendation.stat === stat && !statCapped ? " training-recommended" : ""}${showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? " academy-click-target" : ""}`}
                                         data-training-stat={stat}
-                                        data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat ? "true" : undefined}
+                                        data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? "true" : undefined}
+                                        disabled={statCapped}
                                         aria-describedby={recommendation.stat === stat ? "training-recommendation" : undefined}
                                         onClick={() => {
                                             setSelectedStat(stat);
                                             setTimerPickerOpen(true);
                                         }}
                                         aria-pressed={selectedStat === stat}
-                                        title={recommendation.stat === stat ? recommendation.reason : `${info?.label ?? stat}: train this stat next.`}
+                                        title={statCapped ? `${info?.label ?? stat} is at the ${currentStatCap} rank cap.` : recommendation.stat === stat ? recommendation.reason : `${info?.label ?? stat}: train this stat next.`}
                                     >
                                         <span className="tile-icon">{info?.icon ?? "?"}</span>
                                         <span className="training-stat-name">{info?.label ?? stat}</span>
-                                        <small>{!activeTraining && recommendation.stat === stat ? "Recommended" : selectedStat === stat ? "Choose a timer" : "Click to train"}</small>
+                                        <small>{statCapped ? "Maxed at rank cap" : !activeTraining && recommendation.stat === stat ? "Recommended" : selectedStat === stat ? "Choose a timer" : "Click to train"}</small>
                                     </button>
                                 );
                             })}

@@ -277,6 +277,25 @@
     color: #ffe5a4 !important;
     font-weight: 700;
 }
+.training-screen .stat-grid .location-button:disabled {
+    background: #141820 !important;
+    border-color: #51545b !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.025) !important;
+    color: #8b9099 !important;
+    cursor: not-allowed;
+    filter: grayscale(0.85);
+    opacity: 0.68;
+}
+.training-screen .stat-grid .location-button:disabled.selected,
+.training-screen .stat-grid .location-button:disabled[aria-pressed="true"] {
+    border-color: #51545b !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.025) !important;
+    color: #8b9099 !important;
+}
+.training-screen .stat-grid .location-button:disabled small {
+    color: #9297a0 !important;
+    font-weight: 500;
+}
 @media (max-width: 480px) {
     .training-screen .stat-grid .training-stat-name {
         max-width: 100%;
