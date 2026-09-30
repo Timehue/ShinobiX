@@ -124,6 +124,12 @@ test('a fight host\'s flag flip and a socket-less trip reach a live client', { t
     // A peer in sector 21 with no socket at all (the HTTP heartbeat's world).
     onlineStore.upsert({ name: MOVER, sector: 21, character: { name: MOVER, level: 7 } });
     await delay(700);
+    // Drain any delayed join/update frame before observing the battle-specific
+    // change below. Under a busy CI runner, the batch timer can run later than
+    // the delay above and otherwise coalesce a watcher refresh into this frame.
+    const { flushPresenceUpdates } = await import('./presence-broadcast.js');
+    flushPresenceUpdates();
+    await delay(50);
     events.length = 0;
 
     noteBattleStarted(MOVER);
