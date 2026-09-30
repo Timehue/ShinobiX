@@ -48,10 +48,10 @@ test("field mission suggests the next objective while allowing either progress o
         objective: "explore", instruction: "World Map → Sector 18 → Explore.", label: "Explore Sector 18",
     });
     assert.deepEqual(fieldMissionNextAction(contract, 3, 0, 0), {
-        objective: "raid", instruction: "Go to Mission Outpost in Sector 18.", label: "Go to Mission Outpost",
+        objective: "raid", instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.", label: "Go to an Enemy Village",
     });
     assert.deepEqual(fieldMissionNextAction(contract, 3, 0, 18), {
-        objective: "raid", instruction: "Raid Mission Outpost.", label: "Raid Mission Outpost",
+        objective: "raid", instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.", label: "Go to an Enemy Village",
     });
     assert.equal(fieldMissionNextAction(contract, 3, 1, 18).label, "Claim Reward");
     assert.equal(fieldMissionNextAction(contract, 0, 1, 18).objective, "explore");

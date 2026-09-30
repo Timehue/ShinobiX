@@ -176,7 +176,7 @@ import { canonicalNarrativeEvent } from "../lib/canonical-narrative";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
 import { biomeLabel, weatherEffects } from "../data/world";
-import { builtinFetchMissions, builtinHuntMissions, fieldMissionRaidNeeded, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
+import { builtinFetchMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
 import { takeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
@@ -440,7 +440,6 @@ function WorldMapContent({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
-    const [focusedFieldMissionId, setFocusedFieldMissionId] = useState<string | null>(null);
     const [fieldScene, setFieldScene] = useState<{ questId: string; pointId: string; review?: boolean } | null>(null);
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
@@ -497,18 +496,8 @@ function WorldMapContent({
         if (!mission || mission.targetSector !== intent.targetSector
             || nextFieldMissionObjective(mission, missionProgress[mission.id] ?? 0,
                 missionProgress[missionRaidProgressKey(mission.id)] ?? 0) !== intent.objective) return;
-        setSelectedSector(mission.targetSector);
-        setFocusedFieldMissionId(mission.id);
+        setSelectedSector(intent.objective === "explore" ? mission.targetSector : null);
     }, [character.name, acceptedMissionIds, missionProgress]);
-
-    const missionOutpost = selectedSector == null ? null : (focusedFieldMissionId
-        ? builtinFetchMissions.find((mission) => mission.id === focusedFieldMissionId
-            && acceptedMissionIds.includes(mission.id) && mission.targetSector === selectedSector
-            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))
-        : builtinFetchMissions.find((mission) => mission.targetSector === selectedSector
-            && acceptedMissionIds.includes(mission.id)
-            && missionRaidRequirement(mission) > 0
-            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))) ?? null;
 
     function adoptHuntProgressMirror(
         missionId: string,
@@ -4448,11 +4437,6 @@ function WorldMapContent({
                         onExplore={handleExploreSelectedSector}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
-                        missionOutpost={missionOutpost ? { missionId: missionOutpost.id, missionName: missionOutpost.name } : null}
-                        missionRaidCooldownMs={raidStartCooldownMs}
-                        onStartMissionRaid={missionOutpost ? () => runWhenSectorConfirmed(selectedSector!, () => {
-                            void launchAiGuardRaid("", 0, missionOutpost.targetSector, undefined, missionOutpost.id);
-                        }) : undefined}
                     />
                         }
                         overlayLayer={
@@ -4770,11 +4754,14 @@ function WorldMapContent({
         const loc = selectedVillageTerritory;
         const biome = loc.biome;
         const weather = weatherForBiome(biome);
+        const villageRaidMissionActive = loc.name !== character.village && builtinFetchMissions.some((mission) =>
+            acceptedMissionIds.includes(mission.id) && missionRaidRequirement(mission) > 0,
+        );
         // Pick a virtual sector number inside the enemy territory for explore/battle logic
         const virtualSector = villageOutskirtsSector(loc.name) + 4;
         const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name, virtualSector);
         return (
-            <div className="map-instance">
+            <div className="map-instance village-outskirts-instance">
                 <div className="instance-frame">
                     <main className="tile-scene">
                         <div className="scene-title">
@@ -4814,11 +4801,12 @@ function WorldMapContent({
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>Explore Territory</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
-                        {/* Village Guard / Raid */}
                         <div className="territory-guard-section">
+                            <h4>Village Raid</h4>
+                            <p className="territory-raid-guidance">Raid this village from its outskirts.{villageRaidMissionActive ? " Wins here count toward your field mission raid objectives." : ""}</p>
                             {territoryGuards.length > 0 ? (
                                 <>
-                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guarded</p>
+                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guard</p>
                                     {territoryGuards.map(g => (
                                         <p key={g.name} className="territory-guard-name">
                                             {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
@@ -4917,15 +4905,15 @@ function WorldMapContent({
                                             })(); });
                                         }}
                                     >
-                                        <GameArtIcon kind="roleDefender" size={17} /> Challenge Guard
+                                        <GameArtIcon kind="roleDefender" size={17} /> Raid Village Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
-                                        Guard online? Real PvP. Guard offline? AI fight.
+                                        Online guards fight back directly; otherwise, defeat the village garrison.
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
+                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>No Active Player Guard</p>
                                     <button onClick={() => runWhenSectorConfirmed(virtualSector, () => {
                                         launchAiGuardRaid(pickGuardAi(character.level), character.level, virtualSector, () => {
                                             setCurrentSector(virtualSector);
@@ -4933,7 +4921,7 @@ function WorldMapContent({
                                             setCurrentWeather(weather);
                                         });
                                     })}>
-                                        Raid {loc.name.split(" ")[0]}
+                                        Raid Village Garrison
                                     </button>
                                 </>
                             )}

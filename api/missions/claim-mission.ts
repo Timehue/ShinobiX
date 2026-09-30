@@ -152,9 +152,16 @@ export function legacyMissionProgressSpec(
         const claimed = Array.isArray(character.claimedServerMissions)
             ? character.claimedServerMissions.map(String)
             : [];
-        if (!claimed.includes(missionReceipt)) return null;
+        // New field and hunt claims append their server run nonce to the
+        // durable marker. Keep accepting the original exact marker for saves
+        // written before that rollout, while reconciling current claims too.
+        const claimedMarker = [...claimed].reverse().find((entry) => entry === missionReceipt || entry.startsWith(`${missionReceipt}:`));
+        if (!claimedMarker) return null;
         return {
-            receiptId: `mission:${missionReceipt}`,
+            // Repeated field runs have distinct claim markers, so their legacy
+            // aggregate receipts must also be distinct or only the first run
+            // increments missionCompletions.
+            receiptId: `mission:${claimedMarker}`,
             deltas: missionType === 'hunt' ? { huntCompletions: 1 } : { missionCompletions: 1 },
             durableReceipt: false,
         };
@@ -237,6 +244,7 @@ type ClaimOutcome =
     }
     | {
         applied: true;
+        missionReceipt?: string;
         saveVersion: number;
         reward: {
             xpBoosted: number;        // base after town-hall boost; client passes to gainXp
@@ -966,11 +974,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
             }
-            const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
+            let missionReceipt = `${todayKey}:${missionType}:${missionId}`;
             const claimedServerMissions = Array.isArray(char.claimedServerMissions)
                 ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
                 : [];
-            if ((missionType === 'field' || missionType === 'hunt') && claimedServerMissions.includes(missionReceipt)) {
+            if (missionType === 'hunt' && claimedServerMissions.includes(missionReceipt)) {
                 return { applied: false, reason: 'already-claimed-today' };
             }
 
@@ -1051,6 +1059,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!acceptedIds.includes(missionId)) return { applied: false, reason: 'not-accepted' };
                 const fieldRun = serverFieldMissionRun(char, missionId);
                 if (!fieldRun) return { applied: false, reason: 'field-run-required' };
+                // Each accepted run is a distinct daily claim. Keep retries of
+                // the same run idempotent without limiting a field mission to
+                // one completion per day; hasDailyMissionSlot below enforces
+                // the shared 20-claim daily limit.
+                missionReceipt = `${todayKey}:field:${missionId}:${fieldRun.runId}`;
+                if (claimedServerMissions.includes(missionReceipt)) {
+                    return { applied: false, reason: 'already-claimed-today' };
+                }
                 const eligibility = canPlayerClaimMission(char, def);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
@@ -1326,6 +1342,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return {
                 applied: true,
+                missionReceipt,
                 saveVersion: Number(persisted._saveVersion ?? updated._saveVersion ?? 0),
                 reward: {
                     xpBoosted: 0, // retired — kept in the shape for old clients
@@ -1387,9 +1404,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Economy telemetry — log the server-computed faucet deltas (ryo +
             // any premium currency) so created-vs-destroyed is measurable.
             const r = outcome.reward;
-            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${todayKey}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
+            const economyReceipt = outcome.missionReceipt ?? `${todayKey}:${missionType}:${missionId}`;
+            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${economyReceipt}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
             for (const [cur, amt] of Object.entries(r.currency ?? {})) {
-                if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
+                if (amt) await recordEconomyTxn({ txnId: `mission:${economyReceipt}:${cur}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
             const metricRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
             const finalChar = (metricRecord?.character ?? null) as Record<string, unknown> | null;
@@ -1428,6 +1446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (outcome.applied) {
             const {
                 saveVersion,
+                missionReceipt: _missionReceipt,
                 replayed: _replayed,
                 combatSettlementFingerprint: _combatSettlementFingerprint,
                 ...body

@@ -10,6 +10,7 @@ import {
     savedAcceptedMissionIds,
 } from './_mission-progress-receipt.js';
 import { serverFieldMissionRun } from './_field-trail.js';
+import { VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
 
 const FIELD_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -70,8 +71,13 @@ export function acceptedRaidFetchMissions(
         if (HUNT_MISSION_IDS.has(id)) continue;
         const mission = fieldMissionById(id);
         if (!mission || Math.floor(Number(mission.raidCount ?? 0)) <= 0) continue;
-        if (Number.isSafeInteger(raidSector)
-            && Math.floor(Number(mission.targetSector)) !== Math.floor(Number(raidSector))) continue;
+        if (Number.isSafeInteger(raidSector)) {
+            const homeVillage = String(character?.village ?? '').trim();
+            const isEnemyVillageOutskirts = Object.entries(VILLAGE_OUTSKIRTS).some(([village, outskirts]) =>
+                village !== homeVillage && raidSector === outskirts + 4,
+            );
+            if (!homeVillage || !isEnemyVillageOutskirts) continue;
+        }
         if (!canPlayerReceiveMission(character, mission).ok) continue;
         const run = serverFieldMissionRun(character, mission.id);
         if (!run || run.acceptedAt > proofAt) continue;
