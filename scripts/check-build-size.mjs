@@ -881,7 +881,14 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // production-equivalent build; main was already at 388,979 B, only 21 B below
 // this gate. Re-baseline to 393,000 B for ~3.8 KB of variance, as on 2026-09-06.
 // The independent initial raw, entry, per-chunk, CSS, and product gates stay put.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 393_000;
+// 2026-09-30: Main had drifted to ~392,4xx B locally (CI reads ~0.5 KB higher), so
+// only ~600 B of headroom was left. Letting hunts reach the grid fight screen makes
+// the bundler split two small shared modules into the entry graph (two extra
+// chunks, +~700 B gzip) even though the host's own code is unchanged; it measures
+// 393,076 B locally / ~393,6xx B on CI. Re-baselined, with the owner's approval,
+// to 394,500 B for ~0.9 KB of variance. The next startup addition should trim its
+// own code first instead of moving this again.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 394_500;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one
