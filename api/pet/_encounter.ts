@@ -3,6 +3,7 @@ import { createOwnedPet, resolvePetTemplateId, rollOwnedPetTrait } from './_owne
 import { sectorWeatherElements, type SectorWeather } from '../../shared/sector-weather.js';
 import { isWorldNight } from '../../shared/world-phase.js';
 import { isNightOnlyWildPet, NIGHT_PET_NIGHT_WEIGHT } from '../../shared/night-pets.js';
+import { PET_MAX_LEVEL } from './_growth.js';
 
 const TRAITS = ['Loyal', 'Aggressive', 'Guardian', 'Swift', 'Lucky', 'Battleborn'] as const;
 export type WildPetTrait = typeof TRAITS[number];
@@ -10,6 +11,18 @@ export const DAILY_WILD_ENCOUNTER_ATTEMPTS = 150;
 
 /** The Explore hit ceiling: a roll above this is a miss. */
 const WILD_HIT_CEILING = 0.05;
+
+function petLevel(value: unknown): number {
+    const level = Number(value);
+    return Number.isFinite(level) ? Math.max(1, Math.min(PET_MAX_LEVEL, Math.floor(level))) : 1;
+}
+
+/** Roll once when the chosen companion enters battle; both endpoints are inclusive. */
+export function rollWildPetLevel(companionLevel: unknown, random: () => number): number {
+    const max = petLevel(companionLevel);
+    const min = Math.max(1, max - 20);
+    return min + Math.floor(Math.max(0, Math.min(0.999999999, random())) * (max - min + 1));
+}
 
 /**
  * `guaranteed` (a Tracker trail's final sector) always yields a pet: the first
@@ -52,6 +65,7 @@ export function grantWildPet(character: Record<string, unknown>, pet: Record<str
     const templateId = resolvePetTemplateId(pet);
     if (!templateId) return { ok: false as const, reason: 'invalid-pet-template' as const };
     const secureInt = (min: number, max: number) => min + Math.floor(Math.max(0, Math.min(0.999999999, random())) * (max - min));
+    // The rolled level only affects the wild battle; capture starts fresh at level 1.
     const granted = createOwnedPet(templateId, {
         origin: 'wild',
         instanceId: String(pet.id ?? ''),
