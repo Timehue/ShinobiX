@@ -242,7 +242,7 @@ async function prepareEarlyPack(player: string) {
 }
 
 describe('sealed hunt handler journey', () => {
-    it('accepts, settles an early pack loss, rematches the target, and claims exactly once', async () => {
+    it('accepts repeat hunts while keeping each kill claim idempotent', async () => {
         const player = 'huntjourneycomplete';
         await seedPlayer(player);
         const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
@@ -352,8 +352,9 @@ describe('sealed hunt handler journey', () => {
         assert.equal(Number((claimReplay.body?.character as Record<string, unknown>).ryo), paidRyo);
         const reaccept = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         assert.equal(reaccept.statusCode, 200);
-        assert.equal(reaccept.body?.claimedToday, true);
-        assert.equal(reaccept.body?.state, null);
+        assert.notEqual(reaccept.body?.claimedToday, true);
+        assert.ok(reaccept.body?.state);
+        assert.equal((reaccept.body?.state as Record<string, unknown>).missionId, MISSION_ID);
     });
 
     it('rejects a forged generic hunt-kill receipt without the sealed trail target proof', async () => {
