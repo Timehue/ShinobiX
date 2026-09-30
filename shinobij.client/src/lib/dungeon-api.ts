@@ -23,7 +23,7 @@ function dungeonProbeFailure(message: string, status?: number, reason?: string):
 
 export function dungeonProbeFailureMessage(error: unknown): string {
     if (!(error instanceof DungeonProbeError)) return 'The hidden-dungeon search could not be verified. Try exploring again to recover your saved attempt.';
-    if (error.reason === 'daily-limit') return 'Daily hidden-dungeon search limit reached (150/150). Resets at midnight UTC.';
+    if (error.reason === 'daily-limit') return 'Daily hidden-dungeon search limit reached (100/100). Resets at midnight UTC.';
     if (error.status === 401) return 'Your session needs to reconnect. Sign in again, then explore to recover your saved attempt.';
     if (error.status === 429) return 'Too many exploration requests. Wait a moment, then try again; your saved attempt will be reused.';
     if (!error.retryable) return error.message;

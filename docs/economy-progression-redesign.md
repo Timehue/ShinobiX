@@ -134,7 +134,7 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 ### 1.6 Drops & RNG (current)
 - **Wild pets:** 1% per explore, split Standard 0.50 / Rare 0.30 / Legendary
   0.18 / Mythic 0.02; yard cap 5; starters/evos not wild-spawnable
-  (`lib/pet-balance.ts:871`). At 150 explores/day ≈ **1.5 pet rolls/day**.
+  (`lib/pet-balance.ts:871`). At 100 explores/day ≈ **1 pet roll/day**.
 - **Fate shards:** expeditions 5–10% (`FATE_RATE` scout/forage .05, ruins .10) ·
   L70 hunts guaranteed +1 · black-market trinket(22%)=1–3 / jackpot(1%)=25 ·
   wanderer gift 25%=1 · login streak 5/7d · map-control.

@@ -2,7 +2,7 @@ import { gainXp } from '../_xp-engine.js';
 import { recordFirstContractActivity } from '../../shared/first-contract.js';
 import { isPlayableWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 
-export const DAILY_SECTOR_EXPLORE_LIMIT = 150;
+export const DAILY_SECTOR_EXPLORE_LIMIT = 100;
 
 /**
  * Authored chance an admitted tile turns up an Ancient Chest. Exported because

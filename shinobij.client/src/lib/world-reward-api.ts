@@ -91,7 +91,7 @@ export function worldRewardFailureMessage(result: WorldRewardFailure, kind: 'exp
     if (reason === 'pending-find-limit') return 'Your field satchel holds 24 pending finds. Open Saved Finds on the map and collect one to keep exploring.';
     if (reason === 'daily-limit') return kind === 'chest'
         ? 'Daily chest limit reached. Resets at midnight UTC. Your discovered chest remains saved for recovery.'
-        : 'Daily tile exploration limit reached (150/150). Resets at midnight UTC.';
+        : 'Daily tile exploration limit reached (100/100). Resets at midnight UTC.';
     if (reason === 'sector-depleted') return kind === 'chest'
         ? 'This sector has been picked clean for today. Your discovered chest remains saved for recovery.'
         : 'This sector has been picked clean for today. Try another sector.';

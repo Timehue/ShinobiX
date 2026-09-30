@@ -21,7 +21,7 @@ describe("slow-down notices", () => {
         for (const message of [
             "Not enough ryo. You need 500.",
             "Your session needs to reconnect.",
-            "Daily tile exploration limit reached (150/150). Resets at midnight UTC.",
+            "Daily tile exploration limit reached (100/100). Resets at midnight UTC.",
             "Couldn't save your progress",
             "Training could not be started.",
             "Too many active challenges.",

@@ -178,7 +178,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                 <div className="left-caps-grid">
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--green-300)" }} />Tiles</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/150</span>
+                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 100 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/100</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>

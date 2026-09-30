@@ -3319,8 +3319,8 @@ function WorldMapContent({
                 return;
             }
             const dailyTiles = character.dailyTilesExplored ?? 0;
-            if (dailyTiles >= 150) {
-                alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+            if (dailyTiles >= 100) {
+                alert("Daily tile exploration limit reached (100/100). Resets at midnight UTC.");
                 return;
             }
             const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);

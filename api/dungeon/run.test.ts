@@ -87,15 +87,15 @@ test('sector mismatch is distinct from transient presence startup', async () => 
 test('daily cap explains its reset and still permits recovery of an existing receipt', async () => {
     const at = Date.now();
     const day = new Date(at).toISOString().slice(0, 10);
-    const capped = { serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 150,
-        serverExploreDate: day, serverExploresToday: 150 };
+    const capped = { serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 100,
+        serverExploreDate: day, serverExploresToday: 100 };
     await seed(capped);
     bePresent();
     const refused = await probe();
     assert.equal(refused.status, 409);
     assert.equal(refused.body.reason, 'daily-limit');
     assert.match(String(refused.body.error), /midnight UTC/);
-    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 150);
+    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 100);
     await seed({ ...capped, serverFreeDungeonProbeReceipts: [{ requestId, day, sector: 27, found: false, token: '', at }] });
     onlineStore.remove(player);
     const replay = await probe();
@@ -103,7 +103,7 @@ test('daily cap explains its reset and still permits recovery of an existing rec
     assert.equal(replay.body.requestId, requestId);
     assert.equal(replay.body.sector, 27);
     assert.equal(replay.body.found, false);
-    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 150);
+    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 100);
 });
 
 test('an unearned probe explains prior exploration without claiming a daily cap', async () => {
