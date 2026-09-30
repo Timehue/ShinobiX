@@ -44,6 +44,8 @@ export type RiftResponse = {
     firstClear?: boolean;
     firstClearAt?: number;
     completedRiftId?: string;
+    /** Save revision the server wrote; lets the client adopt it instead of racing the autosave. */
+    _saveVersion?: number;
 };
 
 async function postRift(body: Record<string, unknown>): Promise<RiftResponse> {
