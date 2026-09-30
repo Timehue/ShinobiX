@@ -239,6 +239,7 @@ import { overlayVnImages } from './lib/vn-shared-artwork';
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
+import { isBattleFlowScreen as resolveBattleFlowScreen } from "./lib/battle-flow-screen";
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
 import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
@@ -1896,14 +1897,8 @@ export default function App() {
     }
 
     function isBattleFlowScreen(screenSnapshot: Screen = screenRef.current, sealedFightOnScreen = false): boolean {
-        // A sealed story/AI fight is a BODY PORTAL: `screen` never moves while one is
-        // up, so the screen alone reports "no battle" for the whole fight. Callers in a
-        // render pass hand in the state; the ref is the same fact read synchronously.
-        return sealedFightOnScreen || sealedFightEngagedRef.current
-            || BATTLE_SCREENS.has(screenSnapshot)
-            || screenSnapshot === "sectorPet"
-            || screenSnapshot === "clanWarPet"
-            || isPresenceBattleActive(screenSnapshot);
+        return resolveBattleFlowScreen(screenSnapshot, sealedFightOnScreen, sealedFightEngagedRef.current,
+            () => isPresenceBattleActive(screenSnapshot));
     }
 
     useEffect(() => {
