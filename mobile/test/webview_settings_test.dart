@@ -214,6 +214,21 @@ void main() {
     }
   });
 
+  test('the WebView camera capture provider exposes only app-specific capture files', () {
+    final manifest = _read('android/app/src/main/AndroidManifest.xml');
+    const providerPattern = r'<provider\s+android:name="com\.pichillilorenzo\.flutter_inappwebview_android\.InAppWebViewFileProvider"[\s\S]*?</provider>';
+    final provider = RegExp(providerPattern).firstMatch(manifest)?.group(0);
+    expect(provider, isNotNull);
+    expect(provider, contains('android:authorities="\${applicationId}.flutter_inappwebview_android.fileprovider"'));
+    expect(provider, contains('android:exported="false"'));
+    expect(provider, contains('android:grantUriPermissions="true"'));
+    expect(provider, contains('android:resource="@xml/provider_paths"'));
+
+    final paths = _read('android/app/src/main/res/xml/provider_paths.xml');
+    expect(paths, contains('<external-files-path name="captures" path="." />'));
+    expect(paths, isNot(contains('<root-path')));
+  });
+
   test('the manifest keeps the launcher alias, the keyboard resize and no web App Links', () {
     final manifest = _read('android/app/src/main/AndroidManifest.xml');
     // The chat keyboard must push the page up, not cover the input.
