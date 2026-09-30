@@ -21,7 +21,10 @@ import {
     serverHuntSign,
     serverHuntTrailSector,
 } from './_hunt-trail.js';
-import type { HuntTrailState } from './_world-ai-fight.js';
+import { cleanWorldAiActivePointer, cleanWorldAiPendingChain, worldAiActiveKey, type HuntTrailState } from './_world-ai-fight.js';
+import { abandonSoloPveSession } from '../solo-pve/_abandon.js';
+import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
+import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -94,7 +97,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Unknown hunt-trail action.' });
         }
 
-        const out = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ record, character }) => {
+        const mutateTrail = () => mutatePlayerSave<Record<string, unknown>>(playerName, async ({ record, character }) => {
             const acceptedIds = stringList(record.acceptedMissionIds);
             const missionProgress = progressMap(record.missionProgress);
             const trails = trailMap(character);
@@ -171,11 +174,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (action === 'abandon') {
                 delete trails[missionId];
+                const pending = cleanWorldAiPendingChain(character.worldAiPendingChain);
+                const nextCharacter: Record<string, unknown> = { ...character, serverHuntTrails: trails };
+                if (pending?.request.kind === 'hunt-pack' && pending.request.sourceId === missionId) delete nextCharacter.worldAiPendingChain;
                 const nextAccepted = acceptedIds.filter((id) => id !== missionId);
                 const nextProgress = { ...missionProgress, [missionId]: 0 };
                 return {
                     ok: true as const,
-                    character: { ...character, serverHuntTrails: trails },
+                    character: nextCharacter,
                     recordPatch: { acceptedMissionIds: nextAccepted, missionProgress: nextProgress },
                     value: { state: null, acceptedMissionIds: nextAccepted, missionProgress: nextProgress, resetReceipt: true },
                 };
@@ -244,6 +250,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 value: { ...lastDecision, decisionId, state: publicState(state, playerName, missionId), acceptedMissionIds: acceptedIds, missionProgress: nextProgress, ...(choice.outcome.advances ? { trackEvidenceId: decisionId } : {}) },
             };
         });
+
+        // Share the start lease so a new fight cannot be minted between closing
+        // this contract's fight and deleting its accepted run.
+        const out = action === 'abandon' ? await withKvLock(`ai-fight-start-lease:${playerName}`, async () => {
+            const key = worldAiActiveKey(playerName);
+            const pointer = cleanWorldAiActivePointer(await kv.get(key));
+            const ownsFight = pointer?.playerName.toLowerCase() === playerName.toLowerCase()
+                && (pointer.context.kind === 'hunt-pack' || pointer.context.kind === 'hunt-target')
+                && pointer.context.missionId === missionId;
+            if (ownsFight) {
+                const closed = await abandonSoloPveSession(pointer.sessionId, playerName);
+                if (!closed.ok && closed.status !== 404) return closed;
+                if (closed.ok) {
+                    const usage = await settleSoloPveTerminalUsage(closed.session, playerName);
+                    if (!usage.ok) return usage;
+                    const physical = await settlePveFightOutcome(usage.session, playerName);
+                    if (!physical.ok) return physical;
+                }
+            }
+            const result = await mutateTrail();
+            if (result.ok && ownsFight) await kv.del(key);
+            return result;
+        }, { failClosed: true, ttlSec: 20 }) : await mutateTrail();
 
         if (!out.ok) return res.status(out.status).json({ ok: false, error: out.error });
         const receiptKey = missionProgressReceiptKey(playerName, missionId);
