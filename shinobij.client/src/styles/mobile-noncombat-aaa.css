@@ -658,8 +658,8 @@
   }
 
   body:not(.in-battle) .coach-guide-pet {
-    inline-size: 72px;
-    block-size: 88px;
+    inline-size: 88px;
+    block-size: 104px;
   }
 }
 

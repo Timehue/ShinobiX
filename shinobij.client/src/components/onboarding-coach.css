@@ -10,6 +10,12 @@
     gap: 0;
     pointer-events: none; /* only the bubble re-enables — pet + gaps click through */
 }
+
+/* Reward confirmations should sit under the tutorial guide instead of
+   covering its pet or speech bubble. */
+body.coach-banner-open .game-toast-stack {
+    z-index: 8999;
+}
 /* Yield while a player scrolls or tabs an actionable control under the guide. */
 .onboarding-coach-banner.coach-guide-yielding {
     visibility: hidden !important;
