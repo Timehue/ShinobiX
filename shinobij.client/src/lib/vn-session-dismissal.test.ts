@@ -35,6 +35,16 @@ test("skipping the Aura Sphere scene defers its item instead of forfeiting it", 
     assert.equal(isSessionDismissableStoryScene("builtin-awakening-lv2"), false);
 });
 
+test("the observed Aura Sphere and Challenge Board intros defer across this session", () => {
+    const challengeBoardId = storyToCreatorEvent(storylines["Stormveil Village"][0], "Stormveil Village", 0).id;
+    const dismissed = new Set<string>();
+    for (const id of ["builtin-aura-sphere-lv9", challengeBoardId]) {
+        assert.equal(isSessionDismissableStoryScene(id), true, `${id} is intentionally deferred, not completed`);
+        dismissStorySceneForSession(id, dismissed);
+    }
+    assert.deepEqual([...dismissed], ["builtin-aura-sphere-lv9", challengeBoardId]);
+});
+
 test("dismissing records only what the auto-trigger would otherwise re-offer", () => {
     const dismissed = new Set<string>();
     dismissStorySceneForSession("story-interlude-stormveil-2", dismissed);

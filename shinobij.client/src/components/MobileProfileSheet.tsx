@@ -19,6 +19,7 @@ import { ProfileCardBody } from "./LeftProfileCard";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
+import type { Biome } from "../types/core";
 import { GiNinjaHeroicStance } from "./icons/LightweightGameIcons";
 
 export const MobileProfileSheet = memo(function MobileProfileSheet({
@@ -27,6 +28,7 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
     character,
     updateCharacter,
     currentSector,
+    currentBiome,
     setScreen,
     activeTraining,
     activeJutsuTraining,
@@ -36,6 +38,7 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     currentSector: number;
+    currentBiome: Biome;
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -90,6 +93,7 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
                         character={character}
                         updateCharacter={updateCharacter}
                         currentSector={currentSector}
+                        currentBiome={currentBiome}
                         // Any in-card navigation (avatar → profile, "What's next"
                         // pin, Level Up) should dismiss the sheet first.
                         setScreen={(s) => { onClose(); setScreen(s); }}

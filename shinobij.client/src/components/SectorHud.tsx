@@ -17,7 +17,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     rosterState: SectorRosterState; playerAction: SectorPlayerActionState;
     onPlayerAction: (key: string, sector: number, intent: SectorPlayerIntent, originCurrent?: () => boolean) => void;
 }) {
-    const { sector, present, biome, weather, players, hunt, territory, sectorContest,
+    const { sector, present, biome, players, hunt, territory, sectorContest,
         rosterState, playerAction, onPlayerAction, onExplore, onFindRicherGround,
         onHunt, onOpenSectorContest, villageWarAdmissionOpen } = props;
     const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
         onClick={event => event.stopPropagation()} onKeyDown={event => event.stopPropagation()}
         onKeyUp={event => event.stopPropagation()}>
         <div className="sector-hud-top">
-            <SectorHudIdentity sector={sector} present={present} biome={biome} weather={weather} />
+            <SectorHudIdentity sector={sector} present={present} biome={biome} />
             <div className="sector-hud-controls" aria-label="Sector actions">
                 <button type="button" className="sector-hud-explore" data-sector-explore=""
                     aria-label={gatherDepleted ? 'Find richer ground' : 'Explore'}
@@ -70,7 +70,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
             {territory?.rewardsSuspended && !territory.breached && <span className="sector-hud-warning">Territory rewards suspended</span>}
         </div>
         <section className="sector-nearby" aria-label="Nearby players">
-            <SectorNearby sector={sector} biome={biome} weather={weather} players={players} present={present}
+            <SectorNearby sector={sector} biome={biome} players={players} present={present}
                 rosterState={rosterState} action={playerAction} onAction={run} />
         </section>
         {open && <SectorHudPanel id={`${id}-info`} rootRef={rootRef} onClose={close} title="Sector Info">

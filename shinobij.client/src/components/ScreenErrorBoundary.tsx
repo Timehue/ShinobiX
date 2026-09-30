@@ -60,14 +60,16 @@ export class ScreenErrorBoundary extends Component<Props, State> {
                         ? "The game was updated while you were playing. Reload to get the latest version. Anything since your last autosave may not have been stored."
                         : "Something went wrong drawing this view. Try the menu first — going to another screen keeps this session (and any unsaved progress) alive. Reloading may lose changes since the last autosave."}
                 </p>
-                <RecoveryActions />
                 <button
                     type="button"
                     onClick={() => window.location.reload()}
-                    style={{ cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
+                    style={chunk
+                        ? { cursor: "pointer", marginTop: 4, background: "linear-gradient(180deg, var(--gold), #eab308)", color: "#1a1306", fontWeight: 900, fontSize: 14, border: "none", borderRadius: 10, padding: "11px 22px", boxShadow: "0 5px 18px rgba(234,179,8,0.24)" }
+                        : { cursor: "pointer", marginTop: 10, background: "transparent", color: "#cbd5e1", fontWeight: 700, fontSize: 13, border: "1px solid rgba(148,163,184,0.35)", borderRadius: 10, padding: "9px 18px" }}
                 >
-                    Reload Current Screen
+                    {chunk ? "Reload to Continue" : "Reload Current Screen"}
                 </button>
+                <div style={{ marginTop: 12 }}><RecoveryActions /></div>
             </div>
         );
     }

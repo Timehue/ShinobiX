@@ -14,6 +14,7 @@ const buttonBase = {
 
 export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
     return (
+        <>
         <div
             style={{
                 display: "flex",
@@ -47,18 +48,18 @@ export function RecoveryActions({ compact = false }: RecoveryActionsProps) {
             >
                 Return to Start
             </button>
+        </div>
+        <details style={{ width: "100%", marginTop: 6, color: "#94a3b8", fontSize: 12, textAlign: "center" }}>
+            <summary style={{ cursor: "pointer", display: "inline-block", padding: "4px 8px" }}>Advanced recovery options</summary>
+            <p style={{ maxWidth: 390, margin: "8px auto", lineHeight: 1.45 }}>Reset Local Save clears this device’s cached session data. Your server save is not deleted.</p>
             <button
                 type="button"
                 onClick={resetLocalSaveAndReload}
-                style={{
-                    ...buttonBase,
-                    background: "#3b1116",
-                    color: "#fecdd3",
-                    border: "1px solid rgba(248,113,113,0.55)",
-                }}
+                style={{ ...buttonBase, background: "#3b1116", color: "#fecdd3", border: "1px solid rgba(248,113,113,0.55)" }}
             >
-                Reset Local Save
+                Reset Local Save…
             </button>
-        </div>
+        </details>
+        </>
     );
 }

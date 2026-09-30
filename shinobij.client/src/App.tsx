@@ -232,7 +232,7 @@ import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { readScreenPreference } from "./lib/navigation-trail";
-import { setSectorReopen } from "./lib/sector-return";
+import { setSectorReopen, worldMapReopenTarget } from "./lib/sector-return";
 import { useAppHistory } from "./lib/app-history";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
 import { overlayVnImages } from './lib/vn-shared-artwork';
@@ -506,7 +506,7 @@ import { recoverHollowGateRun } from "./lib/hollow-gate-recovery";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
-import { dismissStorySceneForSession } from "./lib/vn-session-dismissal";
+import { dismissStorySceneForSession, isSessionDismissableStoryScene } from "./lib/vn-session-dismissal";
 import { launchTriggeredEventBattle, type EventEncounterBattle, type PendingEventEncounter } from "./lib/triggered-event-battle";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
@@ -4523,7 +4523,7 @@ export default function App() {
         void logoutPlayerRef.current();
     }, []);
 
-    function navigate(nextScreen: Screen, authoritativeCharacter?: Character): boolean {
+    function navigate(nextScreen: Screen, authoritativeCharacter?: Character, options?: { worldMapOverview?: boolean }): boolean {
         const currentVillageWarAvailability = viewAvailability("villageWar");
         if (!villageWarScreenMountAllowed(nextScreen, currentVillageWarAvailability)) {
             alert(sectorMapAdmissionMessage(currentVillageWarAvailability));
@@ -4578,7 +4578,7 @@ export default function App() {
         }
 
         if (nextScreen === "worldMap") {
-            if (screen !== "worldMap" && isWildSector(currentSectorRef.current)) setSectorReopen(currentSectorRef.current);
+            setSectorReopen(worldMapReopenTarget(screen, currentSectorRef.current, options?.worldMapOverview));
             setWorldMapKey((k) => k + 1);
         }
         perfNotifyScreen(nextScreen);
@@ -4593,6 +4593,10 @@ export default function App() {
         setScreen(nextScreen);
         return true;
     }
+
+    const openWorldMapOverviewRef = useRef<() => void>(() => undefined);
+    openWorldMapOverviewRef.current = () => { navigate("worldMap", undefined, { worldMapOverview: true }); };
+    const openWorldMapOverview = useCallback(() => openWorldMapOverviewRef.current(), []);
 
     async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
@@ -5361,6 +5365,7 @@ export default function App() {
                         updateCharacter={setCharacter}
                         beginDailyLogin={saveCoordinator.beginDailyLogin}
                         currentSector={currentSector}
+                        currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome}
                         setScreen={stableNavigate}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
@@ -5389,10 +5394,13 @@ export default function App() {
                         profession={character?.profession ?? null}
                         screen={screen}
                         currentSector={currentSector}
+                        openWorldMapOverview={openWorldMapOverview}
                     />
                     <MobileNav
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
                         character={character} updateCharacter={setCharacter} currentSector={currentSector}
+                        currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome}
+                        openWorldMapOverview={openWorldMapOverview}
                         activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
                     />
                 </Suspense>
@@ -5638,6 +5646,7 @@ export default function App() {
                 {activeTriggeredEvent && character && (
                     <ActiveStoryVisualNovel
                         event={activeTriggeredEvent}
+                        cancelLabel={isSessionDismissableStoryScene(activeTriggeredEvent.id) ? "Later this session" : "Skip"}
                         character={character}
                         pageIndex={triggerPage}
                         lineIndex={triggerLine}
@@ -6043,7 +6052,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hospital" && character && <Hospital character={character} updateCharacter={setCharacter} setScreen={navigate} playerRoster={playerRoster} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "professions" && character && <Professions sharedImages={sharedImages} character={character} updateCharacter={setCharacter} setScreen={navigate} onBack={goBack} playerRoster={playerRoster} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
+                {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}

@@ -10,6 +10,7 @@ import {
     currentLogbookObjective,
     examProgressionImpact,
     objectiveComplete,
+    qualifyingStatGrowth,
 } from "./logbook-objectives";
 import { buildJourneyGuide } from "./journey-guide";
 import { onboardingStepAtLeast } from "./onboarding-step";
@@ -31,6 +32,41 @@ function makeCharacter(over: Partial<Character> = {}): Character {
         ...over,
     } as unknown as Character;
 }
+
+test("stat-growth objectives count allocated and earned growth, not unspent points or a timer in progress", () => {
+    const base = baseStats();
+    const unspent = makeCharacter({ unspentStats: 18, stats: base, totalStatsTrained: 0 });
+    assert.equal(qualifyingStatGrowth(unspent), 0);
+
+    const allocatedStats = { ...base, intelligence: base.intelligence + 18 };
+    const allocated = makeCharacter({ unspentStats: 0, stats: allocatedStats, totalStatsTrained: 0 });
+    assert.equal(qualifyingStatGrowth(allocated), 18);
+
+    const combatGrowth = makeCharacter({ stats: base, totalStatsTrained: 18 });
+    assert.equal(qualifyingStatGrowth(combatGrowth), 18);
+
+    const completedTimedTraining = makeCharacter({ stats: allocatedStats, totalStatsTrained: 18 });
+    assert.equal(qualifyingStatGrowth(completedTimedTraining), 18);
+    const firstSteps = (character: Partial<Character>) => buildLogbookObjectives(makeCharacter({
+        level: 3,
+        academyChecklistClaimed: true,
+        ...character,
+    })).find((objective) => objective.id === "first-steps")?.requirements.find((requirement) => requirement.target === 18);
+    const unspentObjective = firstSteps({ unspentStats: 18, stats: base, totalStatsTrained: 0 });
+    const allocatedObjective = firstSteps({ unspentStats: 0, stats: allocatedStats, totalStatsTrained: 0 });
+    const combatObjective = firstSteps({ stats: base, totalStatsTrained: 18 });
+    const trainingObjective = firstSteps({ stats: allocatedStats, totalStatsTrained: 18 });
+    assert.equal(unspentObjective?.progress, 0);
+    assert.deepEqual([allocatedObjective?.progress, combatObjective?.progress, trainingObjective?.progress], [18, 18, 18]);
+    assert.equal(allocatedObjective?.label, "Gain 18 permanent stat points");
+    assert.match(allocatedObjective?.detail ?? "", /combat growth and allocated points/i);
+    assert.match(allocatedObjective?.detail ?? "", /Unspent points do not count/i);
+
+    const academyTraining = buildLogbookObjectives(makeCharacter({ level: 1 })).find((objective) => objective.id === "academy-training");
+    assert.equal(academyTraining?.requirements.find((requirement) => requirement.target === 5)?.label, "Gain 5 permanent stat points");
+    const genin = buildLogbookObjectives(makeCharacter({ level: 20 })).find((objective) => objective.id === "exam-genin");
+    assert.equal(genin?.requirements.find((requirement) => requirement.target === 400)?.label, "Gain 400 permanent stat points");
+});
 
 test("a fresh Academy Student gets the Academy Training objective first", () => {
     const c = makeCharacter({ level: 3 });

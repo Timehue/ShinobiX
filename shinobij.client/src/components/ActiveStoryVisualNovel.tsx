@@ -7,7 +7,7 @@ import { markStoryEpilogueSeen, queueStoryReport, recordStoryScene } from "../li
 import { TriggeredVisualNovel } from "./TriggeredVisualNovel";
 
 export function ActiveStoryVisualNovel({
-    event, character, pageIndex, lineIndex, setPageIndex, setLineIndex,
+    event, character, pageIndex, lineIndex, setPageIndex, setLineIndex, cancelLabel,
     setCharacter, onCancel, onComplete, onBattle, onFinaleLane, onEpilogueExit, sharedImages,
 }: {
     event: CreatorEvent;
@@ -23,6 +23,7 @@ export function ActiveStoryVisualNovel({
     onFinaleLane: (lane: string) => void;
     onEpilogueExit: () => void;
     sharedImages: Record<string, string>;
+    cancelLabel?: string;
 }) {
     return <TriggeredVisualNovel
         event={event} character={character} pageIndex={pageIndex} lineIndex={lineIndex}
@@ -62,5 +63,6 @@ export function ActiveStoryVisualNovel({
             ? recordStoryScene(current, event.id, cursor, history)
             : current)}
         sharedImages={sharedImages}
+        cancelLabel={cancelLabel}
     />;
 }

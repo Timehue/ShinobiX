@@ -1,9 +1,18 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { WEATHER_WINDOW_MS, resolveSectorWeather } from "../../../shared/sector-weather.js";
 import { FORECAST_REFRESH_MS, sectorSkyLine, shortDuration } from "./sector-forecast.js";
 
 const NOW = Date.UTC(2026, 7, 26, 13, 7, 30);
+
+test("desktop and mobile profile weather use the shared sector forecast reading", () => {
+    const profile = readFileSync(new URL("../components/LeftProfileCard.tsx", import.meta.url), "utf8");
+    const forecast = readFileSync(new URL("../components/SectorSkyForecast.tsx", import.meta.url), "utf8");
+    assert.match(profile, /SectorSkyForecast sector=\{currentSector\} biome=\{currentBiome\} variant="name"/);
+    assert.match(forecast, /useSharedNow\(\)/);
+    assert.doesNotMatch(profile, /Weather Clear Skies/);
+});
 
 describe("shortDuration", () => {
     test("prints the coarsest true unit, and nothing at all for no time left", () => {

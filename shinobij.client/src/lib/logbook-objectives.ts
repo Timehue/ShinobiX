@@ -72,6 +72,19 @@ export interface ObjectiveContext {
     equippedJutsuCount?: number;
 }
 
+/**
+ * Permanent stat growth credited by the progression system. The saved counter
+ * includes combat growth and completed training; the allocated-stat delta
+ * covers reward points that a player later assigns. Taking the larger value
+ * avoids counting training growth twice. Unspent points are intentionally not
+ * growth until allocated.
+ */
+export function qualifyingStatGrowth(character: Character): number {
+    const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
+    const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
+    return Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
+}
+
 export function objectiveComplete(objective: LogbookObjective): boolean {
     return objective.requirements.every((r) => r.progress >= r.target);
 }
@@ -128,9 +141,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                     goScreen: "centralHub",
                     goLabel: "Awakening Stone",
                 };
-    const baseStatTotal = Object.values(baseStats()).reduce((sum, value) => sum + value, 0);
-    const currentStatTotal = Object.values(character.stats).reduce((sum, value) => sum + value, 0);
-    const statsTrained = Math.max(character.totalStatsTrained ?? 0, Math.max(0, currentStatTotal - baseStatTotal));
+    const statsTrained = qualifyingStatGrowth(character);
     const defeatedAiIds = character.defeatedAiIds ?? [];
     const highestJutsuMastery = Math.max(0, ...((character.jutsuMastery ?? []).map((m) => m.level)));
     const totalAiKills = character.totalAiKills ?? 0;
@@ -161,7 +172,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                 academyAwakeningRequirement,
                 { label: "Equip your jutsu loadout", progress: equippedJutsuCount, target: 4, detail: "Add a 4th jutsu", goScreen: "profile", goLabel: "Open Profile" },
                 { label: "Win your first combat mission", progress: totalAiKills, target: 1, detail: "Complete the E-Rank Drill or another Arena or hunt fight", goScreen: "battleArena", goLabel: "Go Arena" },
-                { label: "Train at the grounds", progress: statsTrained, target: 5, detail: "Train a stat at the Training Grounds", goScreen: "training", goLabel: "Go Train" },
+                { label: "Gain 5 permanent stat points", progress: statsTrained, target: 5, detail: "Combat growth and assigned points count. Unspent points do not; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete your first mission", progress: totalMissionsCompleted, target: 1, detail: "Claim the Academy Trial or a rookie mission reward", goScreen: "missions", goLabel: "Go to Mission Hall" },
                 { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train Jutsu" },
             ],
@@ -178,7 +189,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             { label: "Reach level 3", progress: character.level, target: 3, detail: "Train stats and run your dailies — every point levels you", goScreen: "training", goLabel: "Go Train" },
             { label: "Win 3 AI battles", progress: totalAiKills, target: 3, detail: "Combat missions count after you claim them", goScreen: "missions", goLabel: "Go Combat" },
             { label: "Complete 3 missions", progress: totalMissionsCompleted, target: 3, detail: "Return to Mission Hall to claim rewards", goScreen: "missions", goLabel: "Go Missions" },
-            { label: "Train 18 stat points", progress: statsTrained, target: 18, detail: "Three short sessions is enough", goScreen: "training", goLabel: "Go Train" },
+            { label: "Gain 18 permanent stat points", progress: statsTrained, target: 18, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go Train" },
             { label: "Equip 4 jutsu", progress: equippedJutsuCount, target: 4, detail: "Keep a full starter loadout", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
         ];
         if ((character.pets ?? []).length > 0 || character.activePetId) {
@@ -215,7 +226,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                     { label: "Scout 5 world map tiles", progress: totalTilesExplored, target: 5, detail: "Explore safely and return for rewards", goScreen: "worldMap", goLabel: "Open World Map" },
                     { label: "Complete 5 missions", progress: totalMissionsCompleted, target: 5, detail: "Combat and field claims both count", goScreen: "missions", goLabel: "Go Missions" },
                     { label: "Win 5 AI battles", progress: totalAiKills, target: 5, detail: "Use Basic Attack, jutsu, then Wait when AP is low", goScreen: "missions", goLabel: "Go Combat" },
-                    { label: "Train 60 stat points", progress: statsTrained, target: 60, detail: "Training raises the power your rank cap can use", goScreen: "training", goLabel: "Go Train" },
+                    { label: "Gain 60 permanent stat points", progress: statsTrained, target: 60, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go Train" },
                 ],
             };
             objectives.push(fieldTraining);
@@ -239,7 +250,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                         { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "training", goLabel: "Earn Points" },
                         { label: "Complete 10 missions", progress: totalMissionsCompleted, target: 10, detail: "Claim rewards back at Mission Hall", goScreen: "missions", goLabel: "Go Missions" },
                         { label: "Win 10 AI battles", progress: totalAiKills, target: 10, detail: "Rookie combat missions are safe practice", goScreen: "missions", goLabel: "Go Combat" },
-                        { label: "Train 120 stat points", progress: statsTrained, target: 120, detail: "Short or long timers both count", goScreen: "training", goLabel: "Go Train" },
+                        { label: "Gain 120 permanent stat points", progress: statsTrained, target: 120, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go Train" },
                         { label: "Scout 10 world map tiles", progress: totalTilesExplored, target: 10, detail: "Learn the field route before harder work", goScreen: "worldMap", goLabel: "Open World Map" },
                         { label: "Keep 4 jutsu equipped", progress: equippedJutsuCount, target: 4, detail: "A complete loadout matters more than one trick", goScreen: "jutsuTraining", goLabel: "Go Jutsu" },
                         { label: "Train one jutsu to mastery Lv 3", progress: highestJutsuMastery, target: 3, detail: "Complete and claim lessons for the same jutsu in the Jutsu Training Hall", goScreen: "jutsuTraining", goLabel: "Train Jutsu" },
@@ -261,7 +272,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
             requirements: [
                 { label: "Reach the Genin advancement gate (Level 20)", progress: character.level, target: 20, detail: "The level hold lifts once you pass", goScreen: "training", goLabel: "Earn Points" },
                 { label: "Awaken your first element", progress: ownedElements.length, target: 1, detail: ownedElements[0] ?? "No element awakened", goScreen: "centralHub", goLabel: "Awakening Stone" },
-                { label: "Train 400 stats", progress: statsTrained, target: 400, goScreen: "training", goLabel: "Go Train" },
+                { label: "Gain 400 permanent stat points", progress: statsTrained, target: 400, detail: "Counts combat growth and allocated points. Unspent points do not count; completed timed training is one way to grow.", goScreen: "training", goLabel: "Go Train" },
                 { label: "Complete 20 missions", progress: totalMissionsCompleted, target: 20, goScreen: "missions", goLabel: "Go Missions" },
                 { label: "Kill 20 AI", progress: totalAiKills, target: 20, goScreen: "missions", goLabel: "Go Combat" },
                 { label: "Explore 50 tiles", progress: totalTilesExplored, target: 50, goScreen: "worldMap", goLabel: "Open World Map" },
