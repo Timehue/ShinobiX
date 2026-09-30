@@ -12,8 +12,6 @@ import { homeVillageForSector } from '../_war-map-sectors.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { loadAiFightProfile } from './_ai-fight-encounter.js';
 import { acceptedRaidFetchMissions } from './_field-raid-progress.js';
-import { cleanMissionProgressReceipt, missionProgressReceiptKey } from './_mission-progress-receipt.js';
-import { serverFieldMissionRun } from './_field-trail.js';
 import { raidVillageGuardOpponentId } from './_generic-ai-fight-authority.js';
 import type { AiFightScaling } from './_ai-fight-encounter.js';
 import { territoryIsBreached } from '../_territory-lifecycle.js';
@@ -230,37 +228,6 @@ async function fieldRaidAuthority(params: {
     };
 }
 
-async function fieldMissionRaidAuthority(params: {
-    playerName: string;
-    save: Record<string, unknown>;
-    sector: number;
-    missionId: string;
-}): Promise<{ authority: RaidStartAuthority } | { reason: 'mission-raid-not-accepted' | 'mission-raid-sector-mismatch' | 'mission-raid-already-complete' | 'mission-raid-encounter-unavailable' }> {
-    const accepted = acceptedRaidFetchMissions(params.save)
-        .find((mission) => mission.id === params.missionId);
-    if (!accepted) return { reason: 'mission-raid-not-accepted' };
-    if (Math.floor(Number(accepted.targetSector)) !== params.sector) return { reason: 'mission-raid-sector-mismatch' };
-    const character = params.save.character as Record<string, unknown> | undefined;
-    const run = serverFieldMissionRun(character, accepted.id);
-    const progress = cleanMissionProgressReceipt(await kv.get(missionProgressReceiptKey(params.playerName, accepted.id)));
-    if (!run) return { reason: 'mission-raid-not-accepted' };
-    if (progress?.runId === run.runId && progress.raidCount >= Math.floor(Number(accepted.raidCount ?? 0))) {
-        return { reason: 'mission-raid-already-complete' };
-    }
-    const aiId = typeof accepted.raidAiProfileId === 'string' ? accepted.raidAiProfileId.trim() : '';
-    if (!aiId || !(await loadAiFightProfile(aiId))) return { reason: 'mission-raid-encounter-unavailable' };
-    return {
-        authority: {
-            aiId,
-            sector: params.sector,
-            source: 'field-mission-raid',
-            sourceId: accepted.id,
-            missionId: accepted.id,
-            missionRunId: run.runId,
-        },
-    };
-}
-
 function utcDateKey(): string {
     return new Date().toISOString().slice(0, 10);
 }
@@ -280,6 +247,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const missionIdRaw = typeof body.missionId === 'string' ? body.missionId.trim().slice(0, 96) : '';
         const missionId = /^[A-Za-z0-9_-]{1,96}$/.test(missionIdRaw) ? missionIdRaw : '';
         if (missionIdRaw && !missionId) return res.status(400).json({ error: 'Invalid mission id.' });
+        if (missionId) {
+            return res.status(409).json({
+                error: "Field missions now count raids against another village's garrison from its outskirts.",
+                reason: 'village-raid-required',
+            });
+        }
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
 
@@ -315,41 +288,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
         if (!record || !char) return res.status(404).json({ error: 'Player save not found.' });
-        let missionAuthority: RaidStartAuthority | null = null;
-        if (missionId) {
-            const resolvedMissionAuthority = await fieldMissionRaidAuthority({ playerName, save: record, sector, missionId });
-            if ('reason' in resolvedMissionAuthority) {
-                return res.status(409).json({
-                    error: resolvedMissionAuthority.reason === 'mission-raid-encounter-unavailable'
-                        ? 'This field mission has no authored outpost encounter yet.'
-                        : resolvedMissionAuthority.reason === 'mission-raid-sector-mismatch'
-                            ? 'That mission outpost is in a different sector.'
-                            : resolvedMissionAuthority.reason === 'mission-raid-already-complete'
-                                ? 'This mission outpost objective is already complete.'
-                            : 'That field mission is not accepted and eligible for a raid.',
-                    reason: resolvedMissionAuthority.reason,
-                    code: resolvedMissionAuthority.reason.toUpperCase().replaceAll('-', '_'),
-                });
-            }
-            const missionPresenceBlock = sectorPresenceBlock(playerName, sector);
-            if (missionPresenceBlock && !identity.admin) {
-                return res.status(missionPresenceBlock.status).json({ error: missionPresenceBlock.error, reason: missionPresenceBlock.reason });
-            }
-            missionAuthority = resolvedMissionAuthority.authority;
-        }
-
-        const creatorAuthority = missionId ? null : await creatorRaidAuthority({
+        const creatorAuthority = await creatorRaidAuthority({
             requestedAiId: aiId,
             sector,
             level: Math.max(1, Math.floor(Number(char.level) || 1)),
         });
-        if (!creatorAuthority && !missionId) {
+        if (!creatorAuthority) {
             const presenceBlock = sectorPresenceBlock(playerName, sector);
             if (presenceBlock && !identity.admin) {
                 return res.status(presenceBlock.status).json({ error: presenceBlock.error, reason: presenceBlock.reason });
             }
         }
-        const authority = missionAuthority ?? creatorAuthority ?? await fieldRaidAuthority({ playerName, save: record, character: char, sector });
+        const authority = creatorAuthority ?? await fieldRaidAuthority({ playerName, save: record, character: char, sector });
         if (!authority) {
             return res.status(409).json({ error: 'There is no server-authorized raid target in that sector.' });
         }

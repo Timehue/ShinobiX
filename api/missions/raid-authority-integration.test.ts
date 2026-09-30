@@ -159,40 +159,7 @@ describe('sealed raid authority', () => {
         assert.deepEqual(token?.scaling, { level: 31 });
     });
 
-    it('seals an introductory outpost for each village without sweep ordering or guard scaling', async () => {
-        const { loadAiFightProfile } = await import('./_ai-fight-encounter.js');
-        const { FIELD_MISSIONS } = await import('./_mission-catalog.js');
-        for (const mission of FIELD_MISSIONS.filter((entry) => entry.id.startsWith('fetch-'))) {
-            assert.ok(mission.raidAiProfileId);
-            assert.ok(await loadAiFightProfile(mission.raidAiProfileId), `${mission.id} has a server encounter`);
-        }
-        await kv.set('guard:veteran-outpost-test', { village: 'Mist', level: 100 });
-        await kv.set('world:territory:18', { sector: 18, ownerVillage: 'Mist', ownerClan: 'MistClan', hp: 20_000 });
-        for (const village of ['Leaf', 'Mist', 'Sand', 'Cloud']) {
-            const player = `raidauthmission${village.toLowerCase()}`;
-            const runId = `fieldrunmission${village.toLowerCase()}01`;
-            await seed(player, {
-                level: 1, village, clan: '',
-                serverFieldMissionRuns: {
-                    [FIELD_MISSION]: { missionId: FIELD_MISSION, runId, acceptedAt: Date.now() - 1_000 },
-                },
-            }, { acceptedMissionIds: [FIELD_MISSION] });
-            onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
-            const started = await post(raidStart, player, {
-                requestId: `missionoutpost${village.toLowerCase()}01`, missionId: FIELD_MISSION, sector: 18,
-                aiId: 'builtin-ai-central-champion',
-            });
-            assert.equal(started.statusCode, 200, village);
-            assert.equal(started.body?.opponentId, 'mission-outpost-d-supply-trail');
-            assert.equal(started.body?.source, 'field-mission-raid');
-            const token = await kv.get<Record<string, unknown>>(`raid-token:${player}:${started.body?.token}`);
-            assert.equal(token?.missionRunId, runId);
-            assert.equal(token?.aiId, 'mission-outpost-d-supply-trail');
-        }
-        await kv.del('guard:veteran-outpost-test');
-    });
-
-    it('rejects an outpost in the wrong sector', async () => {
+    it('routes field raid objectives through village garrisons, not wilderness mission outposts', async () => {
         const player = 'raidauthmissiontarget';
         await seed(player, {
             level: 1,
@@ -202,17 +169,17 @@ describe('sealed raid authority', () => {
         }, { acceptedMissionIds: [FIELD_MISSION] });
         onlineStore.upsert({ name: player, sector: 18, character: { name: player, hp: 100, maxHp: 100 } });
 
-        const wrongSector = await post(raidStart, player, {
-            requestId: 'missionwrongsectorrequest01', missionId: FIELD_MISSION, sector: 19,
+        const legacyOutpost = await post(raidStart, player, {
+            requestId: 'missionwrongsectorrequest01', missionId: FIELD_MISSION, sector: 18,
             aiId: 'builtin-ai-academy-sparring',
         });
-        assert.equal(wrongSector.statusCode, 409);
-        assert.equal(wrongSector.body?.reason, 'mission-raid-sector-mismatch');
+        assert.equal(legacyOutpost.statusCode, 409);
+        assert.equal(legacyOutpost.body?.reason, 'village-raid-required');
 
         assert.equal(await kv.get(`raid-start-count:${player}:${utcDateKey()}`), null);
     });
 
-    it('mission outpost victory stamps one fetch receipt and has no Vanguard, Legacy, or territory effects', async () => {
+    it('a legacy wilderness outpost proof does not stamp village raid progress', async () => {
         const player = 'raidauthmissiononly';
         const acceptedAt = Date.now() - 1_000;
         await seed(player, {
@@ -240,9 +207,9 @@ describe('sealed raid authority', () => {
         const receipt = await kv.get<Record<string, unknown>>(missionProgressReceiptKey(player, FIELD_MISSION));
         const save = await kv.get<Record<string, unknown>>(`save:${player}`);
         const territory = await kv.get<Record<string, unknown>>('world:territory:18');
-        assert.deepEqual(first.fetchMissionsCredited, [FIELD_MISSION]);
-        assert.deepEqual(replay.fetchMissionsCredited, [FIELD_MISSION]);
-        assert.equal(receipt?.raidCount, 1, 'proof-specific evidence prevents duplicate credit');
+        assert.deepEqual(first.fetchMissionsCredited, []);
+        assert.deepEqual(replay.fetchMissionsCredited, []);
+        assert.equal(receipt?.raidCount ?? 0, 0, 'a wilderness mission outpost is no longer valid raid evidence');
         assert.equal(first.xpAwarded, 0);
         assert.equal(first.bonusRyo, 0);
         assert.equal(first.bonusSeals, 0);

@@ -13,7 +13,6 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
-import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
@@ -173,7 +172,7 @@ export function Logbook({
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
-        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid one of the other three villages ${raidReq - raidProgress} more time(s).`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
@@ -202,7 +201,7 @@ export function Logbook({
                     [mission.id]: Math.min(mission.exploreCount, Math.max(0, exploreCount)),
                     [missionRaidProgressKey(mission.id)]: Math.min(raidReq, Math.max(0, raidCount)),
                 }));
-                return alert(`The Mission Hall corrected this contract to ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} raids` : ""}. Finish the remaining verified work, then claim again.`);
+                return alert(`The Mission Hall corrected this contract to ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} village raids` : ""}. Explore Sector ${mission.targetSector} if needed${raidReq > 0 ? ", then raid one of the other three villages for any remaining raid count" : ""} before claiming again.`);
             }
             return alert(claimReasonMessage(result.reason, result));
         }
@@ -221,6 +220,7 @@ export function Logbook({
             return alert("This creator field mission is awaiting a published server contract. Nothing was accepted.");
         }
         if (acceptedMissionIds.includes(mission.id) || fieldTrailPending) return;
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         setFieldTrailPending(mission.id);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
@@ -232,7 +232,7 @@ export function Logbook({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its mission outpost ${raidReq} time(s)` : ""}, then claim the reward.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid a guard at any of the other three villages ${raidReq} time(s)` : ""}, then claim the reward.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -515,7 +515,7 @@ export function Logbook({
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily Limit Reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
                                 </div>
                             </div>
                         );
@@ -583,11 +583,6 @@ export function Logbook({
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
                                     {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
-                                        writeFieldMissionNavigationIntent(character.name, {
-                                            missionId: mission.id,
-                                            targetSector: mission.targetSector,
-                                            objective: nextAction.objective,
-                                        });
                                         setScreen("worldMap");
                                     }}>{nextAction.label}</button>}
                                     <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>

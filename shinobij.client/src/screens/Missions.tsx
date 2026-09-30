@@ -24,7 +24,6 @@ import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
-import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 
 import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
@@ -334,6 +333,7 @@ export function Missions({
         }
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if (fieldTrailPending || acceptedMissionIds.includes(mission.id)) return;
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         setFieldTrailPending(mission.id);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
@@ -345,7 +345,7 @@ export function Missions({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its Mission Outpost ${raidReq} time(s)` : ""}. Claim the reward at the Mission Hall.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid a guard at any of the other three villages ${raidReq} time(s)` : ""}. Claim the reward at the Mission Hall.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -374,7 +374,7 @@ export function Missions({
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
-        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid one of the other three villages ${raidReq - raidProgress} more time(s).`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
@@ -416,7 +416,7 @@ export function Missions({
                 const exploresLeft = Math.max(0, mission.exploreCount - exploreCount);
                 const raidsLeft = Math.max(0, raidReq - raidCount);
                 return alert(
-                    `The Mission Hall only logged ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} raids` : ""} for this contract, so it can't be paid yet. Your board has been corrected — explore Sector ${mission.targetSector} ${exploresLeft} more time(s)${raidsLeft > 0 ? ` and raid ${raidsLeft} more time(s)` : ""} to finish it.`,
+                    `The Mission Hall only logged ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} village raids` : ""} for this contract, so it can't be paid yet. Your board has been corrected — explore Sector ${mission.targetSector} ${exploresLeft} more time(s)${raidsLeft > 0 ? ` and raid one of the other three villages ${raidsLeft} more time(s)` : ""} to finish it.`,
                 );
             }
             return alert(claimReasonMessage(result.reason, result));
@@ -692,7 +692,7 @@ export function Missions({
                                         </div>
                                         {recommended && <span className="mh-recommended-badge">Recommended First Field Mission</span>}
                                         <p className="mh-field-description">{mission.description}</p>
-                                        {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Raid Mission Outpost there. Claim the reward at the Mission Hall.</p>}
+                                        {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Then travel to one of the other three villages and raid its guard from the outskirts. Claim your reward here.</p>}
                                         <div className="mh-field-objectives" aria-label="Mission objectives">
                                             <span><small>Sweep</small><strong>×{mission.exploreCount}</strong></span>
                                             {raidReq > 0 && <span><small>Raid</small><strong>×{raidReq}</strong></span>}
@@ -715,8 +715,8 @@ export function Missions({
                                         {accepted && <p className="mh-field-next-step mh-field-next-step-desktop"><strong>Next:</strong> {nextAction.instruction}</p>}
                                         <div className="mh-fetch-actions">
                                             {!accepted
-                                                ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked} onClick={() => { void acceptFetchMission(mission); }}>
-                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : "Accept Mission"}</span>
+                                                ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked || !hasDailyMissionSlot(character)} onClick={() => { void acceptFetchMission(mission); }}>
+                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : !hasDailyMissionSlot(character) ? "Daily Limit Reached" : "Accept Mission"}</span>
                                                     <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                 </button>
                                                 : complete
@@ -734,11 +734,6 @@ export function Missions({
                                                     : nextAction.objective === "explore"
                                                     ? null
                                                     : <button className="mh-field-primary-action" onClick={() => {
-                                                        writeFieldMissionNavigationIntent(character.name, {
-                                                            missionId: mission.id,
-                                                            targetSector: mission.targetSector,
-                                                            objective: nextAction.objective,
-                                                        });
                                                         setScreen("worldMap");
                                                     }}>
                                                         <span className="mh-field-primary-label">{nextAction.label}</span>

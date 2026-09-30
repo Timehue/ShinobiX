@@ -12,6 +12,79 @@
     font-size: 12px !important;
 }
 
+/* Village outskirts are an operation hub, not the old narrow sector sidebar. */
+.village-outskirts-instance .instance-frame > aside.instance-actions {
+    padding: clamp(12px, 1.5vw, 20px) !important;
+    gap: 12px !important;
+    border: 1px solid rgba(148, 163, 184, .35) !important;
+    border-radius: 14px !important;
+    background: linear-gradient(180deg, rgba(15, 23, 42, .98), rgba(7, 14, 28, .98)) !important;
+    box-shadow: 0 14px 38px rgba(0, 0, 0, .35), inset 0 1px rgba(255, 255, 255, .04) !important;
+}
+
+.village-outskirts-instance .instance-actions h3 {
+    font-size: clamp(17px, 1.4vw, 21px) !important;
+    padding-bottom: 10px !important;
+    white-space: normal !important;
+}
+
+.village-outskirts-instance .instance-actions > p {
+    margin: 0 !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+}
+
+.village-outskirts-instance .instance-actions > button,
+.village-outskirts-instance .territory-guard-section button {
+    min-height: 46px !important;
+    padding: 10px 12px !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    font-weight: 750 !important;
+}
+
+.village-outskirts-instance .territory-guard-section {
+    display: grid;
+    gap: 9px;
+    margin-top: 2px;
+    padding: 14px;
+    border: 1px solid rgba(250, 204, 21, .3);
+    border-radius: 11px;
+    background: linear-gradient(145deg, rgba(30, 41, 59, .82), rgba(10, 17, 31, .9));
+}
+
+.village-outskirts-instance .territory-guard-section h4 {
+    margin: 0;
+    color: #f8d66d;
+    font-size: 15px;
+}
+
+.village-outskirts-instance .territory-raid-guidance {
+    color: #cbd5e1;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.village-outskirts-instance .territory-guard-section .territory-raid-btn,
+.village-outskirts-instance .territory-guard-section > button {
+    min-height: 46px !important;
+    border-color: rgba(248, 113, 113, .8) !important;
+    background: linear-gradient(180deg, #7f1d1d, #3f1119) !important;
+}
+
+.village-outskirts-instance .territory-guard-label {
+    margin: 0;
+    color: #e2e8f0;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.village-outskirts-instance .territory-guard-name {
+    margin: 0;
+    color: #cbd5e1;
+    font-size: 12px;
+}
+
 .scene-title {
     padding: 4px 8px !important;
     font-size: 12px !important;
