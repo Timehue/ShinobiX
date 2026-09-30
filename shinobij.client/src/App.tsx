@@ -507,6 +507,7 @@ import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
 import { dismissStorySceneForSession, isSessionDismissableStoryScene } from "./lib/vn-session-dismissal";
+import { useWorldMapOverview } from "./lib/use-world-map-overview";
 import { launchTriggeredEventBattle, type EventEncounterBattle, type PendingEventEncounter } from "./lib/triggered-event-battle";
 import { StoryBossFightHost } from "./components/StoryBossFightHost";
 import { AiFightHost } from "./components/AiFightHost";
@@ -4594,9 +4595,7 @@ export default function App() {
         return true;
     }
 
-    const openWorldMapOverviewRef = useRef<() => void>(() => undefined);
-    openWorldMapOverviewRef.current = () => { navigate("worldMap", undefined, { worldMapOverview: true }); };
-    const openWorldMapOverview = useCallback(() => openWorldMapOverviewRef.current(), []);
+    const openWorldMapOverview = useWorldMapOverview(navigate);
 
     async function completeTriggeredEvent(event: CreatorEvent) {
         if (character) {
@@ -5364,8 +5363,7 @@ export default function App() {
                         character={character}
                         updateCharacter={setCharacter}
                         beginDailyLogin={saveCoordinator.beginDailyLogin}
-                        currentSector={currentSector}
-                        currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome}
+                        currentSector={currentSector} currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome}
                         setScreen={stableNavigate}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
@@ -5393,14 +5391,11 @@ export default function App() {
                         characterVillage={character?.village ?? ""} storyVillage={character?.storyVillage ?? character?.village ?? ""} characterClan={character?.clan ?? ""}
                         profession={character?.profession ?? null}
                         screen={screen}
-                        currentSector={currentSector}
-                        openWorldMapOverview={openWorldMapOverview}
+                        currentSector={currentSector} openWorldMapOverview={openWorldMapOverview}
                     />
                     <MobileNav
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
-                        character={character} updateCharacter={setCharacter} currentSector={currentSector}
-                        currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome}
-                        openWorldMapOverview={openWorldMapOverview}
+                        character={character} updateCharacter={setCharacter} currentSector={currentSector} currentBiome={currentSector > 0 ? biomeForWorldSector(currentSector) : currentBiome} openWorldMapOverview={openWorldMapOverview}
                         activeTraining={activeTraining} activeJutsuTraining={activeJutsuTraining} screen={screen}
                     />
                 </Suspense>
