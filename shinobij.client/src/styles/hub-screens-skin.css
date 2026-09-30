@@ -462,7 +462,25 @@
 }
 
 .mission-hall .rookie-orders-actions button {
-    flex: 1 1 150px;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+    min-width: 0;
+    min-height: 40px;
+    height: 40px;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    font: 750 11px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.06em !important;
+    text-align: center;
+}
+
+.mission-hall .rookie-orders-actions .start-primary-btn::before,
+.mission-hall .rookie-orders-actions .start-primary-btn::after {
+    display: none;
 }
 
 .mission-hall .mh-tag,

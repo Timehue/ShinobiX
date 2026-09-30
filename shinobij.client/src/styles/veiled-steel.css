@@ -1441,7 +1441,7 @@ body.coach-banner-open .onboarding-coach-banner.coach-guide {
 }
 
 body.coach-banner-open .coach-guide-pet {
-  width: clamp(64px, 7vmin, 92px);
+  width: clamp(84px, 9vmin, 116px);
   margin-right: -4px;
 }
 
@@ -1989,7 +1989,7 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 
   body.coach-banner-open .coach-guide-pet {
-    width: 54px;
+    width: 82px;
   }
 
   body.coach-banner-open .coach-guide-bubble {

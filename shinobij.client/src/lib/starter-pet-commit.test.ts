@@ -8,13 +8,20 @@ const server = { ...current, onboardingStep: "companionIntro", pets: [{ ...curre
 
 test("a superseded grant still permits the handoff without accepting an older character", () => {
     let offered: Character | undefined;
+    const offeredVersions: unknown[] = [];
     const completed = completeStarterPetCommit(current, { character: server, _saveVersion: 5 }, "starter-fire", {
         activeAccountKey: "rookie", latestVersion: 6,
-        commitCharacter: (character, version) => { offered = character; assert.equal(version, 5); return false; },
+        commitCharacter: (character, version) => {
+            offered = character;
+            offeredVersions.push(version);
+            return version === 6;
+        },
     });
     assert.equal(completed, true);
+    assert.deepEqual(offeredVersions, [5, 6]);
     assert.equal(offered?.onboardingStep, "training");
     assert.equal(offered?.academyVow, "unbound");
+    assert.equal(offered?.pets[0].name, "Canonical", "the newer save keeps the server-rolled starter");
     assert.equal(current.pets[0].name, "Optimistic", "no rejected character was installed or mutated");
 });
 

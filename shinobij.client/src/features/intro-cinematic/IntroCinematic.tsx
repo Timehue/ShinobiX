@@ -596,7 +596,7 @@ export function IntroCinematic({
                                         <MiniStatBar label="DEF" value={o.pet.defense} max={STAT_MAX.defense} />
                                         <MiniStatBar label="SPD" value={o.pet.speed} max={STAT_MAX.speed} />
                                     </span>
-                                    <p className="icx-pet-trait">★ {o.traitEffect}</p>
+                                    <p className="icx-pet-trait">★ Random trait assigned when chosen</p>
                                 </button>
                             );
                         })}
