@@ -31,7 +31,7 @@ import { levelProgress } from "../lib/character-progress";
 import { useOwnAvatar } from "../lib/own-avatar";
 import type { Character } from "../types/character";
 import type { DailyLoginCommitFactory } from "../lib/daily-login-api";
-import type { Screen } from "../types/core";
+import type { Biome, Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
@@ -44,6 +44,7 @@ import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 import { openPetExpedition } from "../lib/pet-expedition-navigation";
+import { SectorSkyForecast } from "./SectorSkyForecast";
 
 // The shared prop shape for the card body + its desktop host. Both read the
 // same slice of App state; keeping one type keeps the two call-sites in sync.
@@ -51,6 +52,7 @@ type ProfileCardProps = {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     currentSector: number;
+    currentBiome: Biome;
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -67,6 +69,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     updateCharacter,
     beginDailyLogin,
     currentSector,
+    currentBiome,
     setScreen,
     activeTraining,
     activeJutsuTraining,
@@ -97,6 +100,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 character={character}
                 updateCharacter={updateCharacter}
                 currentSector={currentSector}
+                currentBiome={currentBiome}
                 setScreen={setScreen}
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}
@@ -114,6 +118,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
 export const ProfileCardBody = memo(function ProfileCardBody({
     character,
     currentSector,
+    currentBiome,
     setScreen,
     activeTraining,
     activeJutsuTraining,
@@ -154,7 +159,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
             <div className="left-profile-stat">Sector {currentSector}</div>
-            <div className="left-profile-stat">Weather Clear Skies</div>
+            <div className="left-profile-stat">Weather <SectorSkyForecast sector={currentSector} biome={currentBiome} variant="name" /></div>
 
             {/* Core currencies — bloodline materials live on the character page. */}
             <div className="left-currencies">

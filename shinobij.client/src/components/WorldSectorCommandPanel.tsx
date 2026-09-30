@@ -34,7 +34,6 @@ export function WorldSectorCommandPanel({
     sector,
     present,
     biome,
-    weather,
     territory,
     gathering,
     contract,
@@ -62,10 +61,10 @@ export function WorldSectorCommandPanel({
             <header className="sector-panel-heading">
                 <div className="sector-panel-kicker">
                     <span className={`sector-biome-token sector-biome-${biome}`}>{biomeLabel(biome)}</span>
-                    <span><SectorSkyForecast sector={sector} biome={biome} fallback={weather} /></span>
+                    <span><SectorSkyForecast sector={sector} biome={biome} /></span>
                 </div>
                 {gather && <SectorGatherReadout gather={gather} />}
-                <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="effect" />
+                <SectorSkyForecast sector={sector} biome={biome} variant="effect" />
             </header>
 
             {territory && (
