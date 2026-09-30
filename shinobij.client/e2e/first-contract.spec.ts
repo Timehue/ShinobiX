@@ -168,7 +168,14 @@ test('return handoff appears on a later UTC day and stays off the Arena gateway'
     await page.getByRole('button', { name: 'Close field journal' }).click();
     // Arena lobbies are restorable, but deliberately not hash-deep-linkable.
     // Restore through the real last-screen contract on a fresh document.
-    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleArena'));
+    await page.addInitScript(() => {
+        // The account-scoped trail is authoritative over the legacy breadcrumb.
+        // Seed that real restore path and discard the just-closed village visit.
+        sessionStorage.removeItem('navigation.v1:auditninja');
+        localStorage.setItem('navigation.v1:auditninja:screen', 'battleArena');
+        localStorage.setItem('lastScreen.owner.v1', 'auditninja');
+        localStorage.setItem('lastScreen.v1', 'battleArena');
+    });
     await page.goto('/?first-contract-arena-check=1#/battleArena', { waitUntil: 'domcontentloaded' });
     await page.locator('.app-shell[data-screen="battleArena"]').waitFor({ state: 'visible' });
     await expect(page.locator('.fc-ribbon')).toHaveCount(0);
