@@ -6063,11 +6063,11 @@ export function FirstPact({
                             <span className="fp-eyebrow">{interiorSpeech.title}</span>
                             <h2>{interiorSpeech.name}</h2>
                             <p>{interiorSpeech.lines[Math.min(dialogLine, interiorSpeech.lines.length - 1)]}</p>
-                            <div className="fp-dialogue-actions">
+                            <div className="fp-dialogue-actions fp-decision-actions">
+                                <button type="button" className="fp-quiet-button" onClick={() => setInteriorSpeech(null)}>Step back</button>
                                 {dialogLine < interiorSpeech.lines.length - 1
                                     ? <button type="button" onClick={() => setDialogLine((line) => line + 1)}>Continue</button>
                                     : null}
-                                <button type="button" className="fp-quiet-button" onClick={() => setInteriorSpeech(null)}>Step back</button>
                             </div>
                         </div>
                     </section>
@@ -6087,7 +6087,8 @@ export function FirstPact({
                             <span className="fp-eyebrow">{dialogNarrated ? "The surviving record" : dialogNpc.title}</span>
                             <h2>{dialogNarrated ? "Narrator" : dialogNpc.name}</h2>
                             <p>{dialog.lines[Math.min(dialogLine, dialog.lines.length - 1)]}</p>
-                            <div className="fp-dialogue-actions">
+                            <div className="fp-dialogue-actions fp-decision-actions">
+                                <button type="button" className="fp-quiet-button" onClick={() => setDialogNpc(null)}>Leave</button>
                                 {dialogLine < dialog.lines.length - 1
                                     ? <button type="button" onClick={() => setDialogLine((line) => line + 1)}>Continue</button>
                                     : dialog.choices?.length
@@ -6114,7 +6115,6 @@ export function FirstPact({
                                                 : dialog.action?.kind === "main-battle"
                                                     ? <button type="button" onClick={() => openSquad(dialog.action?.kind === "main-battle" ? dialog.action.encounterId : undefined)}>{dialog.action.label}</button>
                                                     : null}
-                                <button type="button" className="fp-quiet-button" onClick={() => setDialogNpc(null)}>Leave</button>
                             </div>
                         </div>
                     </section>

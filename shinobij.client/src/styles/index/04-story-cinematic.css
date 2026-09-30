@@ -219,6 +219,14 @@
     margin-top: 14px;
 }
 
+.vn-decision-controls {
+    justify-content: space-between;
+}
+
+.vn-decision-controls > :last-child {
+    margin-left: auto;
+}
+
 .vn-controls button,
 .vn-choice-row button,
 .vn-finale-panel .menu button {
