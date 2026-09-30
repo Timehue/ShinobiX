@@ -27,9 +27,9 @@ export const SECTOR_CONTRACT_SLOTS = 6;
 /*
  * ── Balance, in one place, deliberately conservative ──────────────────────
  * An explore pays ~20-35 ryo (api/world/_explore.ts sectorExploreReward), and
- * a player's global ceiling is 150 explores/day. A contract therefore asks for
+ * a player's global ceiling is 100 explores/day. A contract therefore asks for
  * 8-12 explores in one sector and pays roughly 8-15 explores' worth on top:
- * chasing all six slots costs at most 72 of the 150 daily explores, so it
+ * chasing all six slots costs at most 72 of the 100 daily explores, so it
  * directs a player's day without consuming it.
  *
  * These four numbers are the whole dial. They are a first pass and have NOT

@@ -1,13 +1,14 @@
 import { dungeonWardenWasDefeated } from './_ai-fight.js';
 import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
 import { dungeonPresentationId } from '../../shared/dungeon-presentation.js';
+import { DAILY_SECTOR_EXPLORE_LIMIT } from '../world/_explore.js';
 
 export const DUNGEON_KEY_ID = 'dungeon-key';
 export const DUNGEON_RELIC_ID = 'dungeon-legendary-relic';
 export const DUNGEON_MIN_RUN_MS = 30_000;
 export const FREE_DUNGEON_LEVEL = 50;
 export const FREE_DUNGEON_CHANCE = 0.02;
-export const FREE_DUNGEON_DAILY_PROBE_LIMIT = 150;
+export const FREE_DUNGEON_DAILY_PROBE_LIMIT = DAILY_SECTOR_EXPLORE_LIMIT;
 
 export type FreeDungeonProbeReceipt = {
     requestId: string;
