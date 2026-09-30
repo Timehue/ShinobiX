@@ -8,6 +8,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { hospitalDischargeBaseCost } from '../../shared/hospital-discharge-cost.js';
 import { getDurableSettlement } from '../_durable-settlement.js';
 import { parseSettlementRequestId } from '../_settlement-receipts.js';
 import {
@@ -33,17 +34,16 @@ const HEALER_MAX_XP_PER_HEAL = 100;
 const HEALER_RAID_ASSIST_WINDOW_MS = 10 * 60 * 1000;
 const HEALER_RAID_ASSIST_MULT = 1.5;
 const HOSPITAL_DURATION_MS = 60_000;
-// Pay-to-skip discharge cost (matches client-side dischargeCost in Hospital.tsx).
-// Charged server-side when paySkip=true and the hospital timer hasn't expired.
-const PAY_SKIP_DISCHARGE_COST = 2500;
+// Pay-to-skip discharge cost is shared with the client and scales from level 1
+// to the existing 2,500-ryo cap at level 100. Charged only before free checkout.
 
 // Server-side mirror of the client hospital-discount math
 // (shinobij.client/src/lib/village-upgrades.ts getHospitalDiscountPercent +
 // clan-upgrades.ts clanUpgradeEffectPercent('medicalWing')). The Hospital UI
 // shows a discounted discharge price; without mirroring it here the server
-// charged/required a flat 2500 — overcharging upgraded players and hard-blocking
-// anyone holding between the discounted price and 2500 ryo. Keep these constants
-// in sync with the client (village hospital perLevel 1%, max 50 levels; clan
+// charged/required an undiscounted price — overcharging upgraded players and
+// hard-blocking anyone holding between the discounted price and full price.
+// Keep the discount constants in sync with the client (village hospital perLevel 1%, max 50 levels; clan
 // Medical Wing 0.3%/level capped at 15%; medics clan doctrine 5%). The doctrine
 // component was previously missing here, so the Hospital UI showed a medics-clan
 // discount the server never actually applied. Pinned by _cross-build-parity.test.
@@ -63,10 +63,10 @@ function hospitalDiscountPct(char: Record<string, unknown>): number {
     const doctrinePct = char.clanDoctrine === 'medics' ? DOCTRINE_HOSPITAL_DISCOUNT_PCT : 0;
     return villagePct + clanPct + doctrinePct;
 }
-// discountCost(PAY_SKIP_DISCHARGE_COST, pct), mirroring lib/village-upgrades.ts.
+// discountCost(level-scaled base price, pct), mirroring lib/village-upgrades.ts.
 function discountedDischargeCost(char: Record<string, unknown>): number {
     const pct = hospitalDiscountPct(char);
-    return Math.max(1, Math.floor(PAY_SKIP_DISCHARGE_COST * Math.max(0, 1 - pct / 100)));
+    return Math.max(1, Math.floor(hospitalDischargeBaseCost(char.level) * Math.max(0, 1 - pct / 100)));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -204,8 +204,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Self-heal / hospital checkout. Three flavors:
             //   (a) Healer's free checkout — Healers always discharge free.
             //   (b) Wait-out checkout — anyone, after hospital timer expires.
-            //   (c) Pay-skip discharge — pay PAY_SKIP_DISCHARGE_COST ryo to
-            //       skip the remaining timer. Charged SERVER-side here.
+            //   (c) Pay-skip discharge — pay the level-scaled fee to skip the
+            //       remaining timer. Charged SERVER-side here.
             //       Previously this was a client-only flow that deducted ryo
             //       locally but the save validator reverted the discharge,
             //       so players paid ryo for nothing. Now the server applies

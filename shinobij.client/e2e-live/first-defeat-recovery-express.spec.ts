@@ -52,7 +52,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
  const headers = { 'x-player-name': name, 'x-player-token': token };
  const receipt = 'defeat-explore-receipt-001';
  const character = {
-  name, village: 'Moonshadow Village', specialty: 'Ninjutsu', bloodline: 'None', level: 3, rankTitle: 'Academy Student', xp: 0, ryo: recovery === 'poor' ? 100 : 10000,
+  name, village: 'Moonshadow Village', specialty: 'Ninjutsu', bloodline: 'None', level: 3, rankTitle: 'Academy Student', xp: 0, ryo: recovery === 'poor' ? 50 : 10000,
   hp: 40, maxHp: 700, chakra: 35, maxChakra: 1181, stamina: 45, maxStamina: 1181, unspentStats: 0,
   stats: Object.fromEntries(['strength','speed','intelligence','willpower','bukijutsuOffense','bukijutsuDefense','taijutsuOffense','taijutsuDefense','genjutsuOffense','genjutsuDefense','ninjutsuOffense','ninjutsuDefense'].map(key => [key, 20])),
   onboardingStep: 'done', profession: recovery === 'healer' ? 'healer' : 'vanguard', professionChosenAt: 1, inventory: [], itemStacks: [], equipment: {}, pets: [], jutsuMastery: [], equippedJutsuIds: [],
@@ -248,7 +248,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await expect(page.locator('.stormveil-village-screen')).toBeVisible();
   await capture('06-recovered');
   const recovered = await save(); events.push({ moment: 'recovered', save: recovered });
-  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'external-stale'].includes(recovery) ? 2500 : 0;
+  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
   expect(recovered.character.ryo).toBe(character.ryo - expectedCharge);
   expect(recovered.character.hp).toBe(recovered.character.maxHp);
   expect(recovered.character.hospitalized).toBe(false);
