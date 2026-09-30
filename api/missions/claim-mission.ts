@@ -978,10 +978,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claimedServerMissions = Array.isArray(char.claimedServerMissions)
                 ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
                 : [];
-            if (missionType === 'hunt' && claimedServerMissions.includes(missionReceipt)) {
-                return { applied: false, reason: 'already-claimed-today' };
-            }
-
             const bonusPct = missionRewardBonusPct(char);
 
             // ── Resolve mission + per-type eligibility ──────────────────────
