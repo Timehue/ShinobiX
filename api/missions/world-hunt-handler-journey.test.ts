@@ -350,6 +350,21 @@ describe('sealed hunt handler journey', () => {
         assert.equal(claimReplay.statusCode, 200);
         assert.equal(claimReplay.body?.applied, false);
         assert.equal(Number((claimReplay.body?.character as Record<string, unknown>).ryo), paidRyo);
+        // Older releases stored one unsuffixed receipt per contract/day. Keep
+        // such a receipt from preventing a fresh hunt run after the rollout.
+        await patchSave(player, (save) => {
+            const character = save.character as Record<string, unknown>;
+            const claimed = Array.isArray(character.claimedServerMissions)
+                ? character.claimedServerMissions.map(String)
+                : [];
+            return {
+                ...save,
+                character: {
+                    ...character,
+                    claimedServerMissions: [...claimed, `${new Date().toISOString().slice(0, 10)}:hunt:${MISSION_ID}`],
+                },
+            };
+        });
         const reaccept = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         assert.equal(reaccept.statusCode, 200);
         assert.notEqual(reaccept.body?.claimedToday, true);
