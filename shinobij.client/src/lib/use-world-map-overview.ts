@@ -1,0 +1,11 @@
+import { useCallback, useRef } from "react";
+import type { Character } from "../types/character";
+import type { Screen } from "../types/core";
+
+type Navigate = (screen: Screen, character?: Character, options?: { worldMapOverview?: boolean }) => boolean;
+
+export function useWorldMapOverview(navigate: Navigate): () => void {
+    const navigateRef = useRef(navigate);
+    navigateRef.current = navigate;
+    return useCallback(() => navigateRef.current("worldMap", undefined, { worldMapOverview: true }), []);
+}
