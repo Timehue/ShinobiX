@@ -987,10 +987,12 @@ html body.ui-scroll-locked {
   transition: border-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 
-.app-shell:not(.screen-start) .realm-wayfinder:hover {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--village-accent-soft) 70%, #d7bf80);
-  box-shadow: 0 13px 26px rgba(0, 0, 0, 0.34), 0 0 18px color-mix(in srgb, var(--village-accent) 16%, transparent);
+@media (hover: hover) {
+  .app-shell:not(.screen-start) .realm-wayfinder:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--village-accent-soft) 70%, #d7bf80);
+    box-shadow: 0 13px 26px rgba(0, 0, 0, 0.34), 0 0 18px color-mix(in srgb, var(--village-accent) 16%, transparent);
+  }
 }
 
 .app-shell:not(.screen-start) .realm-wayfinder > img {
