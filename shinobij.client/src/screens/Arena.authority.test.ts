@@ -44,7 +44,7 @@ test("practice admission reaches AiFightHost and MissionArenaFight only through 
     assert.doesNotMatch(launch, /fetch\(|setScreen\(|setBattleStarted/);
 
     assert.match(aiHost, /onAiFightRequest\(/);
-    assert.match(aiHost, /<MissionArenaFight/);
+    assert.match(aiHost, /<AiFightScreen/);
     assert.match(aiHost, /runId=\{currentFight\.sessionId\}/);
     assert.match(aiHost, /initialSession=\{soloPveSessionForArena\(currentFight\.session\)\}/);
 });
