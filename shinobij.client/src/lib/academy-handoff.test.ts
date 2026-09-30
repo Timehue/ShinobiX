@@ -27,6 +27,10 @@ describe("Academy handoff", () => {
         assert.equal(handoff?.id, "academy-handoff-choice");
         assert.equal(handoff?.primary.screen, "missions");
         assert.equal(handoff?.secondary.screen, "storyHall");
+        assert.notEqual(handoff?.primary.intent, "openAwakening");
+        assert.notEqual(handoff?.secondary.label, "Visit the Awakening Stone");
+        const legacyElementOnly = buildAcademyHandoff({ ...completedAcademy, element: "Fire" });
+        assert.notEqual(legacyElementOnly?.primary.intent, "openAwakening", "the legacy singular element field also means the stone was already used");
     });
 
     it("does not appear for skipped, unfinished, rewarded, or veteran Academy paths", () => {
