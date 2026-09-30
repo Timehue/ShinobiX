@@ -2267,7 +2267,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1303
+            "line": 1308
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -2422,7 +2422,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1519
+            "line": 1537
           }
         ]
       },
@@ -2956,7 +2956,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1315
+            "line": 1320
           }
         ]
       },
@@ -3261,11 +3261,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 968
+            "line": 973
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1309
+            "line": 1314
           }
         ]
       },
@@ -3284,7 +3284,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1489
+            "line": 1494
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3380,7 +3380,7 @@
           },
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1109
+            "line": 1127
           },
           {
             "source": "shinobij.client/src/styles/pet-home.css",
@@ -3506,7 +3506,7 @@
           },
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
-            "line": 250
+            "line": 251
           },
           {
             "source": "shinobij.client/src/styles/card-clash-tutorial.css",
@@ -3680,15 +3680,15 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 968
+            "line": 973
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1125
+            "line": 1130
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1145
+            "line": 1150
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
@@ -3810,7 +3810,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1309
+            "line": 1314
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
@@ -4086,7 +4086,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/screens/FirstPact.css",
-            "line": 239
+            "line": 240
           },
           {
             "source": "shinobij.client/src/screens/PetShowdown.css",
@@ -4530,7 +4530,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/hub-screens-skin.css",
-            "line": 1105
+            "line": 1123
           },
           {
             "source": "shinobij.client/src/styles/jutsu-training-skin.css",
