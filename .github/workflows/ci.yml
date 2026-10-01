@@ -543,8 +543,11 @@ jobs:
     runs-on: ubuntu-latest
     # Run 36622735387 exhausted shards 1 and 2 before all browser cases ran.
     # Split the same suite five ways to retain coverage and leave room for
-    # the CSP, Stronghold and sector audits within the existing time limit.
-    timeout-minutes: 29
+    # the CSP, Stronghold and sector audits. Hosted Playwright browser downloads
+    # can consume 15+ minutes on a slow runner, so leave enough time for the
+    # browser shard itself to finish after dependencies are installed while
+    # staying inside the workflow's enforced sub-36-minute job budget.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:

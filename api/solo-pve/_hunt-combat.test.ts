@@ -114,6 +114,23 @@ describe('Tower-powered hunt encounters', () => {
         assert.equal(b.winner, 'squad');
     });
 
+    it('keeps hunt logs grouped by their real round and uses hunt completion text', () => {
+        const s = session(forms[0]);
+        const b = s.huntCombat!.battle;
+        for (const round of [2, 3, 4]) {
+            b.round = round;
+            startRound(b);
+        }
+        b.actors.filter(actor => actor.side === 'enemy').forEach(actor => { actor.hp = 0; });
+        checkTowerWinner(b, b.encounterFloor!);
+
+        assert.deepEqual(b.log.filter(line => /^--- Round \d+ ---$/.test(line)), [
+            '--- Round 1 ---', '--- Round 2 ---', '--- Round 3 ---', '--- Round 4 ---',
+        ]);
+        assert.ok(b.log.includes('Hunt encounter cleared!'));
+        assert.ok(!b.log.some(line => line.includes('Floor 9501')));
+    });
+
     it('resolves selected targets and AoE through Tower combat and rejects forged targets', () => {
         let s = session();
         const b = s.huntCombat!.battle;

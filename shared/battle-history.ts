@@ -51,7 +51,7 @@ function startsWithFighterName(text: string, name: string): boolean {
  * Unlike the 1v1 grouper, side is decided by matching each line's leading
  * fighter name against the ally / enemy name lists; lines that name no known
  * fighter (objective/floor narration) become ownerless system lines. The tower
- * log has no round markers, so everything is tagged round 1.
+ * log may include round markers; unmarked legacy logs remain tagged round 1.
  */
 export function buildActionsFromTowerLog(
     log: ReadonlyArray<string>,
@@ -62,22 +62,28 @@ export function buildActionsFromTowerLog(
     const allies = [...new Set(allyNames.filter(Boolean))].sort((a, b) => b.length - a.length);
     const enemies = [...new Set(enemyNames.filter(Boolean))].sort((a, b) => b.length - a.length);
     const actions: BattleHistoryAction[] = [];
+    let round = 1;
     for (const raw of log) {
         const text = (raw ?? "").trim();
         if (!text) continue;
+        const marker = text.match(/^--- Round (\d+) ---$/i);
+        if (marker) {
+            round = Math.max(1, Number(marker[1]) || round);
+            continue;
+        }
         const ally = allies.find((n) => startsWithFighterName(text, n));
         const enemy = ally ? undefined : enemies.find((n) => startsWithFighterName(text, n));
         const name = ally ?? enemy ?? "";
         if (name) {
             actions.push({
-                round: 1,
+                round,
                 role: ally ? "player" : "enemy",
                 actor: name,
                 headline: text.slice(name.length).replace(/^[\s:—-]+/, ""),
                 effectLines: [],
             });
         } else {
-            actions.push({ round: 1, role: "system", actor: "", headline: text, effectLines: [] });
+            actions.push({ round, role: "system", actor: "", headline: text, effectLines: [] });
         }
     }
     return capBattleActions(actions);
