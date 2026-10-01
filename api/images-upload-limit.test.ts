@@ -15,7 +15,7 @@ const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJA
 
 before(async () => {
     ({ kv } = await import('./_storage.js'));
-    images = await import('./images.js');
+    images = (await import('./images.js')) as unknown as typeof images;
     handler = images.default as unknown as typeof handler;
     issueToken = (await import('./_auth.js')).issuePlayerToken;
 });
