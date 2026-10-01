@@ -160,9 +160,8 @@ describe('executable multi-engine runtime registry', () => {
     // Explore encounter, Showdown turns, and server-settled capture.
     // 66 as of 2026-09-23: one Hollow Gate rift ambush uses a run-bound
     // Chronicle match and a server-settled parent-run receipt.
-    // 67 as of 2026-10-01: the Sunscar Caravan ambush fights on the Battle
-    // Tower engine, bound to the day's caravan run, which settles the reward
-    // (registered with the 3b70471da cutover; this fixture lagged it).
+    // 67 as of 2026-10-01: caravan ambushes use the Tower engine while
+    // preserving the parent caravan run as their settlement owner.
     assert.equal(ids.length, 67, 'The corrected inventory must retain the independently pinned 67-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
