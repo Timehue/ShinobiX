@@ -591,7 +591,10 @@ jobs:
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install release browsers
-        run: npx --prefix shinobij.client playwright install --with-deps chromium firefox webkit 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/browser-install.log
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium firefox webkit
+          log: .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/browser-install.log
       # Surface focused policy/lifecycle failures before the long browser matrix.
       - name: Verify built CSP in Chromium and WebKit
         if: ${{ matrix.shard == 1 }}
@@ -726,7 +729,10 @@ jobs:
           tar -xzf .ci-artifacts/release/release-dist.tgz
           node scripts/verify-dist.mjs
       - name: Install combat browsers
-        run: npx --prefix shinobij.client playwright install --with-deps ${{ matrix.browser }} 2>&1 | tee .ci-evidence/e2e-combat-${{ matrix.shard }}/browser-install.log
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: ${{ matrix.browser }}
+          log: .ci-evidence/e2e-combat-${{ matrix.shard }}/browser-install.log
       - name: Combat layout and jutsu-arming matrix
         env:
           COMBAT_LAYOUT_CAPTURE_PHASE: after
@@ -818,7 +824,10 @@ jobs:
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install Warfront browser
-        run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-warfront/browser-install.log
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
+          log: .ci-evidence/e2e-warfront/browser-install.log
       - name: Warfront positional-mode browser matrix
         run: npm run test:e2e:warfront --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-warfront/playwright.log
       - name: Retain Warfront browser evidence
@@ -887,7 +896,10 @@ jobs:
           cd ../..
           tar -xzf .ci-artifacts/release/release-dist.tgz
       - name: Install live Express browser
-        run: npx --prefix shinobij.client playwright install --with-deps chromium 2>&1 | tee .ci-evidence/e2e-village-stores/browser-install.log
+        uses: ./.github/actions/playwright-browsers
+        with:
+          browsers: chromium
+          log: .ci-evidence/e2e-village-stores/browser-install.log
       # Keep the required check name stable while covering the shared server
       # routing and save lifecycle used by the economy and Academy journeys.
       - name: Live Express economy, Academy persistence and route wiring
