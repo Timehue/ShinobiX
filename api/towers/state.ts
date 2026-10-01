@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
         }
 
-        if (session.worldCrisis80 || isPublicTowerRun(session) || isSpireRun(session)) {
+        if (session.worldCrisis80 || session.caravanAmbush || isPublicTowerRun(session) || isSpireRun(session)) {
             const members = towerBattleLeaseMembers(session);
             if (session.rewardSettlementState === 'settled') {
                 await releaseTowerBattleLeases(runId, members);
