@@ -372,8 +372,19 @@ token deletion for exactly-once semantics.
   (5s default) is not renewed, and a pool wait can reach 15s under load, so a
   slow holder can outlive its lock while another writer commits. Commit with
   `kv.compareSet(key, <row you read>, next)` and answer a lost race with a 409
-  (the player autosave and `writeVersionedPlayerSaveWithStore` both do). A plain
-  upsert silently overwrites the other writer's commit.
+  (the player autosave, `writeVersionedPlayerSaveWithStore` and
+  `writeSaveProjected` all do). A plain upsert silently overwrites the other
+  writer's commit.
+  - `writeSaveProjected` throws `player-save-version-conflict` on a lost race and
+    writes nothing. Wrap the WHOLE `withKvLock(...)` call in
+    `retryOnSaveVersionConflict` (it re-reads and recomputes; safe only when the
+    result is receipt-keyed), and map a second loss to the retryable
+    `SAVE_VERSION_CONFLICT_REPLY` 409 rather than a 500.
+  - **Never mutate the row you read** (or its `character`) before committing:
+    the comparison is against that object, so an in-place change makes every
+    write fail. Build a copy (`{ ...char, field }`).
+  - Many older writers still commit with a plain `kv.set` on `save:` keys; move
+    them to this pattern when you touch them.
 - **Debit before credit; never re-credit.** `collect-supply` keeps a deliberate
   "lose, never duplicate" stance: it zeroes sectors first, then credits the
   treasury; on a credit failure it records an unreconciled-loss audit key and
