@@ -2346,6 +2346,11 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         if (spot === undefined) return { applied: false, reason: 'no-space' };
         session.actors.push(companionActor(seal, spot));
         session.pendingCompanion = undefined;
+        session.companionUsage = {
+            petId: seal.petId,
+            ...(seal.pveGearId ? { pveGearId: seal.pveGearId } : {}),
+            ...(seal.consumableId ? { consumableId: seal.consumableId } : {}),
+        };
         session.turnQueue.splice(session.activeIndex + 1, 0, COMPANION_ACTOR_ID);
         session.log.push(`${actor.name} summons ${seal.name}!`);
         // PVE-gear perk: some collars heal the summoner as the pet lands.

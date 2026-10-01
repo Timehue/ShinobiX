@@ -12,6 +12,7 @@ import { advanceCaravan, caravanBaseReward, caravanProgress, departCaravan, requ
 import { finishCaravanCombat, startCaravanCombat } from './_caravan-combat.js';
 import { caravanDaily } from '../../shared/sunscar/caravan-contracts.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
+import { readSession as readTowerSession, needsTowerLapseReconciliation } from '../towers/_tower-store.js';
 import { battleLockedFor } from '../_elapsed-state.js';
 import { petEncounterActiveKey, petEncounterRequestKey, PET_ENCOUNTER_POINTER_TTL_SECONDS } from '../pet/_encounter-pointer.js';
 
@@ -66,8 +67,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Reconnect repairs a terminal fight even when the tab closed before
             // its result overlay reported back to the expedition.
             if (progress.current?.status === 'combat' && progress.current.combat) {
-                const session = await readSoloPveSession(progress.current.combat.sessionId);
-                if (session?.status === 'done' || session && session.expiresAt <= Date.now()) {
+                const sessionId = progress.current.combat.sessionId;
+                const isTower = sessionId.startsWith('caravan-tower:');
+                const session = isTower ? await readTowerSession(sessionId) : await readSoloPveSession(sessionId);
+                const finished = isTower
+                    ? !!session && (session.status === 'done' || needsTowerLapseReconciliation(session))
+                    : !!session && (session.status === 'done' || Number(session.expiresAt) <= Date.now());
+                if (finished) {
                     const repaired = await finishCaravanCombat(player, progress.current.id);
                     if (!repaired.ok) return res.status(repaired.status).json({ error: repaired.error });
                     return respond(repaired.character, repaired._saveVersion);
