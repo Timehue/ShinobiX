@@ -20,6 +20,7 @@ let trailHandler: Handler;
 let startHandler: Handler;
 let reportHandler: Handler;
 let claimHandler: Handler;
+let actionHandler: Handler;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -31,6 +32,7 @@ before(async () => {
     startHandler = (await import('./ai-fight-start.js')).default as unknown as Handler;
     reportHandler = (await import('./report-ai-fight.js')).default as unknown as Handler;
     claimHandler = (await import('./claim-mission.js')).default as unknown as Handler;
+    actionHandler = (await import('../solo-pve/action.js')).default as unknown as Handler;
 });
 
 beforeEach(async () => {
@@ -140,6 +142,13 @@ async function terminalize(sessionId: string, outcome: 'win' | 'loss', suffix: s
     assert.ok(session);
     const winner = outcome === 'win' ? 'player' as const : 'enemy' as const;
     const nextVersion = session.version + 1;
+    if (session.huntCombat) {
+        const battle = session.huntCombat.battle;
+        battle.status = 'done';
+        battle.winner = outcome === 'win' ? 'squad' : 'enemy';
+        battle.actors.forEach(actor => { actor.hp = actor.id === 'player' ? (outcome === 'win' ? 420 : 180) : outcome === 'win' ? 0 : actor.hp; });
+        if (outcome === 'win') delete battle.pendingEnemyWaves;
+    }
     await writeSoloPveSession({
         ...session,
         player: { ...session.player, hp: outcome === 'win' ? 420 : 180 },
@@ -160,6 +169,36 @@ async function terminalize(sessionId: string, outcome: 'win' | 'loss', suffix: s
             settlementState: 'pending',
         },
     });
+}
+
+/** A small server-owned fixture, then only authenticated combat commands. */
+async function playHuntToVictory(player: string, sessionId: string) {
+    let session = await readSoloPveSession(sessionId);
+    assert.ok(session?.huntCombat);
+    const battle = session.huntCombat.battle;
+    battle.actors.find(actor => actor.id === 'player')!.character.jutsu = [{ id: 'journey-sweep', name: 'Sweep', type: 'Taijutsu', target: 'OPPONENT',
+        method: 'AOE_BURST', effectPower: 5000, ap: 100, range: 30, chakraCost: 0, staminaCost: 0, cooldown: 0, tags: [] }];
+    for (const actor of [...battle.actors, ...(battle.pendingEnemyWaves ?? []).flatMap(wave => wave.actors)]) {
+        if (actor.side === 'enemy') actor.hp = 1;
+    }
+    await writeSoloPveSession(session);
+    let lastCommand: Record<string, unknown> = {};
+    for (let step = 0; session.status === 'active' && step < 20; step++) {
+        const current = session.huntCombat!.battle;
+        const enemy = current.actors.find(actor => actor.side === 'enemy' && actor.hp > 0);
+        lastCommand = { sessionId, expectedVersion: session.version, moveToken: `hunt-journey-move-${step}`, type: 'huntAction',
+            action: enemy && current.activeAp >= 100 ? { type: 'jutsu', jutsuId: 'journey-sweep', targetId: enemy.id } : { type: 'wait' } };
+        const result = await post(actionHandler, player, lastCommand);
+        assert.equal(result.statusCode, 200, JSON.stringify(result.body));
+        assert.equal(result.body?.applied, true, JSON.stringify(result.body));
+        session = (await readSoloPveSession(sessionId))!;
+    }
+    assert.equal(session.outcome, 'win');
+    assert.equal(session.terminalEvidence?.outcome, 'win');
+    assert.equal(session.huntCombat!.battle.status, 'done');
+    const replay = await post(actionHandler, player, lastCommand);
+    assert.equal(replay.body?.duplicate, true);
+    assert.equal((await readSoloPveSession(sessionId))?.version, session.version);
 }
 
 function state(out: Out): Record<string, unknown> {
@@ -242,6 +281,67 @@ async function prepareEarlyPack(player: string) {
 }
 
 describe('sealed hunt handler journey', () => {
+    it('closes active combat when abandoning and cannot apply its late result to a reaccepted hunt', async () => {
+        const player = 'huntjourneyactiveabandon';
+        const prepared = await prepareEarlyPack(player);
+        const started = await startWorld(player, prepared.request);
+        const abandoned = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
+        assert.equal(abandoned.statusCode, 200, JSON.stringify(abandoned.body));
+        const closed = await readSoloPveSession(String(started.body?.sessionId));
+        assert.equal(closed?.status, 'done');
+        assert.equal(closed?.huntCombat?.battle.status, 'done');
+        assert.equal(closed?.outcome, 'loss');
+        assert.equal(await kv.get(`world-ai-active:${player}`), null);
+        const repeated = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
+        assert.equal(repeated.statusCode, 200);
+        assert.equal((await readSoloPveSession(String(started.body?.sessionId)))?.player.hp, closed?.player.hp);
+        const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        const newRun = state(accepted);
+        assert.notEqual(newRun.runId, prepared.route.runId);
+        const report = await post(reportHandler, player, { aiFightToken: started.body?.token });
+        assert.equal(report.statusCode, 200, JSON.stringify(report.body));
+        const current = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
+        assert.equal(state(current).runId, newRun.runId);
+        assert.equal(state(current).progress, 0);
+        assert.equal(state(current).quality, 0);
+        assert.equal(state(current).targetDefeated, false);
+        assert.equal(state(current).packSettled, false);
+    });
+
+    it('abandons a hunt by clearing its accepted run, progress, trail, and receipt', async () => {
+        const player = 'huntjourneyabandon';
+        await seedPlayer(player);
+        const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        assert.equal(accepted.statusCode, 200);
+        const abandonedRun = state(accepted);
+        const receiptKey = `missions:progress:${player}:${MISSION_ID}`;
+        await kv.set(receiptKey, {
+            playerName: player,
+            missionId: MISSION_ID,
+            missionType: 'hunt',
+            exploreCount: 2,
+            raidCount: 0,
+            huntKill: false,
+            evidenceIds: ['huntabandonproof0001'],
+            updatedAt: Date.now(),
+        });
+
+        const abandoned = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
+        assert.equal(abandoned.statusCode, 200);
+        assert.equal(abandoned.body?.state, null);
+        assert.deepEqual(abandoned.body?.acceptedMissionIds, []);
+        assert.equal((abandoned.body?.missionProgress as Record<string, unknown>)[MISSION_ID], 0);
+        assert.equal(await kv.get(receiptKey), null);
+        const saved = await kv.get<Record<string, unknown>>(`save:${player}`);
+        const character = saved?.character as Record<string, unknown>;
+        assert.deepEqual(character.serverHuntTrails, {});
+
+        const reaccepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        assert.equal(reaccepted.statusCode, 200);
+        assert.notEqual(state(reaccepted).runId, abandonedRun.runId);
+        assert.equal((reaccepted.body?.missionProgress as Record<string, unknown>)[MISSION_ID], 0);
+    });
+
     it('accepts repeat hunts while keeping each kill claim idempotent', async () => {
         const player = 'huntjourneycomplete';
         await seedPlayer(player);
@@ -325,7 +425,9 @@ describe('sealed hunt handler journey', () => {
 
         const rematch = await startWorld(player, targetDescriptor);
         assert.notEqual(rematch.body?.token, firstTarget.body?.token);
-        await terminalize(String(rematch.body?.sessionId), 'win', 'target-win');
+        assert.deepEqual((rematch.body?.worldContext as Record<string, unknown>)?.huntFormation,
+            (firstTarget.body?.worldContext as Record<string, unknown>)?.huntFormation);
+        await playHuntToVictory(player, String(rematch.body?.sessionId));
         const targetWin = await post(reportHandler, player, { aiFightToken: rematch.body?.token });
         assert.equal(targetWin.statusCode, 200, JSON.stringify(targetWin.body));
         assert.equal(targetWin.body?.outcome, 'win');
@@ -395,53 +497,37 @@ describe('sealed hunt handler journey', () => {
         assert.equal((save?.character as Record<string, unknown>).ryo, 50);
     });
 
-    it('recovers every won pack wave after a lost response and applies each chain heal once', async () => {
+    it('recovers one sealed pack encounter and settles the whole formation only once', async () => {
         const player = 'huntjourneypackwin';
         const prepared = await prepareEarlyPack(player);
-        let request = prepared.request;
-        const tokens: string[] = [];
-        for (let stage = 0; stage <= 2; stage += 1) {
-            const started = await startWorld(player, request);
-            const token = String(started.body?.token);
-            tokens.push(token);
-            if (stage > 0) {
-                assert.equal(
-                    Number((started.body?.session as Record<string, unknown>)?.player
-                        && ((started.body?.session as Record<string, unknown>).player as Record<string, unknown>).hp),
-                    600,
-                    'the next sealed wave applies the one-third carry heal server-side',
-                );
-                const activeReplay = await post(startHandler, player, { worldEncounter: request });
-                assert.equal(activeReplay.statusCode, 200);
-                assert.equal(activeReplay.body?.token, token);
-                assert.equal(activeReplay.body?.resumed, true, 'retrying an already sealed stage cannot heal or mint twice');
-            }
-            await terminalize(String(started.body?.sessionId), 'win', `pack-win-${stage}`);
-            const won = await post(reportHandler, player, { aiFightToken: token });
-            assert.equal(won.statusCode, 200, JSON.stringify(won.body));
-            assert.equal(won.body?.outcome, 'win');
-            assert.equal((won.body?.worldContext as Record<string, unknown>).stage, stage);
-            const replay = await post(reportHandler, player, { aiFightToken: token });
-            assert.equal(replay.statusCode, 200);
-            assert.equal((replay.body?.worldContext as Record<string, unknown>).stage, stage);
-
-            if (stage < 2) {
-                const recovery = await post(startHandler, player, { resumeWorldFight: true });
-                assert.equal(recovery.statusCode, 200);
-                const pending = recovery.body?.pendingWorldChain as Record<string, unknown>;
-                assert.ok(pending);
-                request = pending.request as Record<string, unknown>;
-                assert.equal(request.stage, stage + 1);
-                assert.equal(request.chainId, (won.body?.worldContext as Record<string, unknown>).chainId);
-            }
-        }
-        assert.equal(new Set(tokens).size, 3);
+        const started = await startWorld(player, prepared.request);
+        const token = String(started.body?.token);
+        const activeReplay = await post(startHandler, player, { worldEncounter: prepared.request });
+        assert.equal(activeReplay.statusCode, 200);
+        assert.equal(activeReplay.body?.token, token);
+        assert.equal(activeReplay.body?.resumed, true, 'retrying an already sealed stage cannot heal or mint twice');
+        const original = (started.body?.session as Record<string, unknown>).huntCombat;
+        assert.ok(original);
+        assert.deepEqual((activeReplay.body?.session as Record<string, unknown>).huntCombat, original);
+        const premature = await post(reportHandler, player, { aiFightToken: token });
+        assert.equal(premature.statusCode, 409, 'an active formation cannot settle');
+        await playHuntToVictory(player, String(started.body?.sessionId));
+        const won = await post(reportHandler, player, { aiFightToken: token });
+        assert.equal(won.statusCode, 200, JSON.stringify(won.body));
+        assert.equal(won.body?.outcome, 'win');
+        assert.equal((won.body?.worldContext as Record<string, unknown>).finalStage, true);
+        const replay = await post(reportHandler, player, { aiFightToken: token });
+        assert.equal(replay.statusCode, 200);
+        assert.equal((replay.body?.worldContext as Record<string, unknown>).stage, 0);
+        const recovery = await post(startHandler, player, { resumeWorldFight: true });
+        assert.equal(recovery.statusCode, 404);
+        assert.ok(!recovery.body?.pendingWorldChain);
         const finalState = await post(trailHandler, player, { missionId: MISSION_ID, action: 'state' });
         assert.equal(state(finalState).packPending, false);
         assert.equal(state(finalState).packSettled, true);
         const save = await kv.get<Record<string, unknown>>(`save:${player}`);
         const character = save?.character as Record<string, unknown>;
-        assert.equal((character.worldAiChainWins as unknown[]).length, 3);
-        assert.equal((character.worldAiChainHeals as unknown[]).length, 2);
+        assert.equal((character.worldAiChainWins as unknown[]).length, 1);
+        assert.equal((character.worldAiChainHeals as unknown[] | undefined)?.length ?? 0, 0);
     });
 });

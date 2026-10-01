@@ -13,6 +13,7 @@ import {
 import { SOLO_PVE_SESSION_TTL_SECONDS } from '../solo-pve/_session.js';
 import type { WorldAiFightContext } from '../../shared/world-ai-fight.js';
 import { serverHuntTrailSector } from './_hunt-trail.js';
+import { HUNT_MISSION_IDS, huntMissionById } from './_mission-catalog.js';
 import {
     ALWAYS_SERVER_LEDGER_CHARACTER_FIELDS,
     COMBAT_STRIP_CHAR_FIELDS,
@@ -49,6 +50,31 @@ class MemoryStore {
 }
 
 describe('World AI fight authority', () => {
+    it('routes every built-in hunt through formations while preserving its exact target identity', async () => {
+        assert.ok(HUNT_MISSION_IDS.size >= 10);
+        for (const id of HUNT_MISSION_IDS) {
+            const mission = huntMissionById(id)!;
+            const ready = { currentSector: mission.targetSector, acceptedMissionIds: [id], character: {
+                name: 'Hunter', level: 100, hunterRank: 5,
+                serverHuntTrails: { [id]: { missionId: id, runId: `accepted-${id}`, progress: mission.exploreCount - 1, quality: 0, acceptedAt: 1 } },
+            } };
+            const target = await buildWorldAiFightSpec({ playerName: 'Hunter', save: ready,
+                request: { kind: 'hunt-target', sourceId: id, sector: mission.targetSector } });
+            assert.equal(target.profile.id, mission.aiProfileId);
+            assert.ok(target.context.huntFormation, id);
+            assert.equal(target.context.finalStage, true);
+            assert.equal(target.context.huntRunId, `accepted-${id}`);
+        }
+    });
+
+    it('does not revive old hunt chains after abandoning or reaccepting the contract', () => {
+        const character = huntSave().character;
+        const old: WorldAiFightContext = { kind: 'hunt-pack', sourceId: 'hunt-wild-boar', missionId: 'hunt-wild-boar',
+            huntRunId: 'abandoned-run', decisionId: 'old-decision', chainId: 'old-chain', stage: 0, nextStage: 1, displayName: 'Boar', sector: 25 };
+        assert.deepEqual(applyWorldAiFightSettlement(character, old, 'win', 'late-win'), character);
+        assert.deepEqual(applyWorldAiFightSettlement({ ...character, serverHuntTrails: {} }, old, 'win', 'late-win'), { ...character, serverHuntTrails: {} });
+    });
+
     it('rejects unrelated chain/decision fields and off-map sectors', () => {
         assert.equal(cleanWorldAiFightRequest({ kind: 'questbook-boss', sourceId: 'qb-bell', sector: 1, stage: 1, chainId: 'abcdefgh' }), null);
         assert.equal(cleanWorldAiFightRequest({ kind: 'wanderer-ambush', sourceId: 'wanderer-ambush', sector: 1, stage: 0, chainId: 'abcdefgh' }), null);
@@ -99,6 +125,8 @@ describe('World AI fight authority', () => {
         assert.equal(spec.context.huntQuality, 3);
         assert.equal(spec.context.huntOpening, 'cornered');
         assert.equal(spec.context.missionId, 'hunt-wild-boar');
+        assert.ok(spec.context.huntFormation);
+        assert.equal(spec.context.finalStage, true);
         assert.equal(spec.profile.id, 'hunt-ai-wild-boar');
     });
 
@@ -151,6 +179,14 @@ describe('World AI fight authority', () => {
         const spec = await buildWorldAiFightSpec({ playerName: 'Hunter', request, save: earlySave, generatedChainId: 'packchain1' });
         assert.equal(spec.context.chainId, 'packchain1');
         assert.equal(spec.context.missionId, 'hunt-wild-boar');
+        assert.ok(spec.context.huntFormation);
+        assert.equal(spec.context.finalStage, true);
+        const legacyRequest = { ...request, stage: 1, chainId: 'old-pack-chain' };
+        await assert.rejects(buildWorldAiFightSpec({ playerName: 'Hunter', request: legacyRequest, save: earlySave }), /world-chain-proof-missing/);
+        const legacy = await buildWorldAiFightSpec({ playerName: 'Hunter', request: legacyRequest,
+            save: { ...earlySave, character: { ...earlySave.character, worldAiChainWins: [{ chainId: 'old-pack-chain', stage: 0, kind: 'hunt-pack', sourceId: request.sourceId, sector: 20 }] } } });
+        assert.equal(legacy.context.huntFormation, undefined);
+        assert.equal(legacy.context.nextStage, 2);
 
         await assert.rejects(
             buildWorldAiFightSpec({ playerName: 'Hunter', request: { ...request, sector: 21 }, save: { ...earlySave, currentSector: 21 } }),

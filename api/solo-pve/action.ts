@@ -5,9 +5,14 @@ import { cors, safeName } from '../_utils.js';
 import { executeSoloPveAction } from './_action-service.js';
 import type { SoloPveAction } from './_session.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
+import { parseHuntCombatAction } from '../../shared/hunt-combat.js';
 
 function parseAction(body: Record<string, unknown>): SoloPveAction | null {
     const type = String(body.type ?? '');
+    if (type === 'huntAction') {
+        const action = parseHuntCombatAction(body.action);
+        return action ? { type, action } : null;
+    }
     if (type === 'move' && Number.isFinite(Number(body.tile))) return { type, tile: Math.floor(Number(body.tile)) };
     if (type === 'jutsu' && typeof body.jutsuId === 'string' && body.jutsuId) {
         return { type, jutsuId: body.jutsuId.slice(0, 128), ...(Number.isFinite(Number(body.tile)) ? { tile: Math.floor(Number(body.tile)) } : {}) };

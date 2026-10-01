@@ -72,7 +72,7 @@ test("Tower tactical controls remain available and accessible off turn", () => {
     assert.doesNotMatch(fight, /aria-label="Immediate battlefield threats"/);
     assert.match(fight, /Boss barrier ·/);
     assert.match(fight, /Break seals/);
-    assert.match(api, /pendingEnemyWaves\?: Array<\{ round: number; actors: TowerActor\[\] \}>/);
+    assert.match(api, /pendingEnemyWaves\?: Array<\{ round: number; afterClear\?: boolean; actors: TowerActor\[\] \}>/);
     assert.match(fight, /Fit \/ reset/);
     assert.match(tacticalCss, /touch-action:\s*none/);
     assert.match(tacticalCss, /@media \(max-width: 1023px\)/);

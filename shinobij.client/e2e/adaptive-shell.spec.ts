@@ -598,7 +598,7 @@ test("mobile storage notice clears fixed navigation and remains dismissible", as
     await notice.getByRole("button", { name: "Got it" }).click();
     await expect(notice).toBeHidden();
     await expectFinalActionableClearsFixedNavigation(page, page.locator(".center-game"), mobileNav);
-    await mobileNav.getByRole("button", { name: "Travel" }).click();
+    await mobileNav.getByRole("button", { name: /^(?:Travel|World Map)$/ }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
 });
 

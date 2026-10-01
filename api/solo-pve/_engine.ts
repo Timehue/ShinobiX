@@ -1,4 +1,5 @@
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
+import { applyHuntCombatAction } from './_hunt-combat.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -2066,6 +2067,8 @@ export function applySoloPveAction(
     action: SoloPveAction,
     opts: SoloPveEngineOptions = {},
 ): SoloPveActionResult {
+    if (source.huntCombat) return applyHuntCombatAction(source, action, opts);
+    if (action.type === 'huntAction') return { applied: false, reason: 'not-a-hunt-battle', session: source };
     const session = cloneSession(source);
     const result = directAction(session, 'player', action, opts);
     if (result.applied && session.status === 'active' && session.activeSide === 'player' && !playerHasLegalAction(session)) {

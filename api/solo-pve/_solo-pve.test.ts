@@ -100,7 +100,7 @@ describe('solo-PvE session and store boundaries', () => {
         await assert.rejects(() => writeSoloPveSession({ runtime: 'tower' } as never, { kv }), /non-solo-pve/);
     });
 
-    it('does not couple the foundation to Tower modules', async () => {
+    it('keeps direct Tower dependencies isolated in the hunt adapter', async () => {
         for (const file of ['_session.ts', '_store.ts', '_engine.ts', '_action-service.ts', '_ai-encounter.ts', 'action.ts', 'state.ts']) {
             const source = await readFile(resolve(process.cwd(), 'api', 'solo-pve', file), 'utf8');
             assert.doesNotMatch(source, /(?:from|import\()\s*['"]\.\.\/towers\//, `${file} imports Tower`);

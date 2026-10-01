@@ -209,7 +209,7 @@ test('renamed login loads the original save and keeps primary navigation connect
     await page.getByRole('button', { name: /Enter Village/ }).click();
     await expect(page.locator('.app-shell')).toBeVisible();
     const nav = page.locator('.mobile-bottom-nav');
-    for (const [label, screen] of [['Items', 'inventory'], ['Village', 'village'], ['Travel', 'worldMap']]) {
+    for (const [label, screen] of [['Items', 'inventory'], ['Village', 'village'], ['World Map', 'worldMap']]) {
         await nav.getByRole('button', { name: label, exact: true }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', screen);
         await expect(nav.getByRole('button', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');

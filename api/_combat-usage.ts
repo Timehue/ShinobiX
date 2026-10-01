@@ -216,7 +216,7 @@ export function recordPvpCombatUsage(session: PvpSession): void {
 export function soloPveCombatUsage(session: SoloPveSession): FighterUsage[] | null {
     if (session.status !== 'done' || !session.outcome) return null;
     const player = (session.player?.character ?? {}) as Record<string, unknown>;
-    const usedJutsu = (session.events ?? [])
+    const usedJutsu = session.huntCombat?.usedJutsuIds ?? (session.events ?? [])
         .filter((e) => e.actor === 'player' && e.action === 'jutsu' && typeof e.actionId === 'string')
         .map((e) => e.actionId as string);
     const playerOutcome = session.outcome;

@@ -16,6 +16,9 @@ async function bootInField(page: Page, screen: string) {
 }
 
 test("desktop field shortcuts keep the world overview reachable across menus and reloads", async ({ page }, info: TestInfo) => {
+    // Desktop-only: the right-hand menu and its Return to Village shortcut do not exist
+    // on the touch layouts, which navigate through the bottom bar instead.
+    test.skip(Boolean(info.project.use.isMobile), "Desktop shortcuts are not rendered on touch layouts.");
     await bootInField(page, "missions");
     const travelRequests: string[] = [];
     page.on("request", (request) => {

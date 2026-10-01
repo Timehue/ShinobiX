@@ -145,6 +145,34 @@ describe("hunt signs", () => {
             }
         }
     });
+
+    it("has no dominated choice or repeatable no-progress option", () => {
+        const signs = new Map<string, ReturnType<typeof huntSignFor>>();
+        for (let stage = 0; stage < 64; stage += 1) {
+            const sign = huntSignFor(mission, stage, "Rin");
+            signs.set(sign.id, sign);
+        }
+        assert.equal(signs.size, 4, "audit should cover every authored sign");
+        for (const sign of signs.values()) {
+            for (const choice of sign.choices) {
+                assert.equal(choice.outcome.advances, true, `${sign.id}/${choice.id} can be repeated without moving the hunt forward`);
+            }
+            for (let i = 0; i < sign.choices.length; i += 1) {
+                for (let j = 0; j < sign.choices.length; j += 1) {
+                    if (i === j) continue;
+                    const a = sign.choices[i]!;
+                    const b = sign.choices[j]!;
+                    const dominates = a.outcome.quality >= b.outcome.quality
+                        && Number(a.outcome.advances) >= Number(b.outcome.advances)
+                        && a.outcome.ambushChance <= b.outcome.ambushChance
+                        && (a.outcome.quality > b.outcome.quality
+                            || Number(a.outcome.advances) > Number(b.outcome.advances)
+                            || a.outcome.ambushChance < b.outcome.ambushChance);
+                    assert.equal(dominates, false, `${sign.id}/${a.id} dominates ${b.id}`);
+                }
+            }
+        }
+    });
 });
 
 describe("ambush roll", () => {
