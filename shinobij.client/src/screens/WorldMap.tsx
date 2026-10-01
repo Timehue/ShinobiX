@@ -2190,7 +2190,7 @@ function WorldMapContent({
         // This is only a navigation marker. The Showdown endpoint validates the
         // exact wanderer and chooses the format, both teams and seed itself.
         setPendingPetBattleOpponent({
-            owner: w.name,
+            owner: "Roaming AI",
             // PetArenaOpponent is the existing navigation envelope. This pet
             // is never shown or sent to Showdown; the server draws the real team.
             pet: genericPetArenaOpponents[0].pet,

@@ -1603,7 +1603,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         // player watches a name and portrait that never fought.
         const sealedWandererPet = opponent.wanderer ? battleSeal.opponentPets?.[0] : undefined;
         const shownOpponent = sealedWandererPet
-            ? { ...opponent, owner: battleSeal.wandererName ?? opponent.owner, pet: sealedWandererPet }
+            ? { ...opponent, owner: "Roaming AI", pet: sealedWandererPet }
             : opponent;
         // The same response carried the save the kickoff wrote — the encounter's
         // use cooldown and the wanderer's relocation. Adopt it through the normal

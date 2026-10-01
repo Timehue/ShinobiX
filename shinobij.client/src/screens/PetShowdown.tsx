@@ -229,7 +229,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             if (state && !state.finished) {
                 if (crumb.roadChallenge) {
                     setRoadChallenge(true);
-                    setRoadOpponentName(crumb.roadOpponentName ?? "Road Beast");
+                    // Older breadcrumbs stored the wanderer's pet name in the
+                    // owner slot. Keep resumed battles on the correct identity:
+                    // the road encounter is owned by the roaming AI.
+                    setRoadOpponentName("Roaming AI");
                 }
                 // A resumed fight mounts just as directly as a fresh one, so it
                 // needs the same warm-up — after a reload nothing is cached.
