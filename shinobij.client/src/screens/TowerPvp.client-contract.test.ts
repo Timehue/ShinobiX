@@ -33,7 +33,11 @@ test("ready-room side effects run only for an accepted monotonic match revision"
 test("forfeit bypasses turn-target gating and cannot present a clickable silent no-op", () => {
     const promptAt = fight.indexOf("Forfeit your fighter from this match?");
     assert.ok(promptAt >= 0);
-    const control = fight.slice(Math.max(0, promptAt - 800), promptAt + 500);
+    // From the leave button's own opening tag, not a fixed character count:
+    // each new variant branch in its onClick pushed `disabled=` out of reach.
+    const buttonAt = fight.lastIndexOf('className="tower-fight-leave"', promptAt);
+    assert.ok(buttonAt >= 0, "the forfeit prompt must live in the tower-fight-leave button");
+    const control = fight.slice(buttonAt, promptAt + 500);
     assert.match(control, /disabled=\{\(isTeamPvp \|\| isHunt\) && busy\}/);
     assert.match(control, /void send\(\{ type: "forfeit" \}\)/);
     assert.doesNotMatch(control, /!myTurn|if \(myTurn\)|if \(!myTurn\)/);
