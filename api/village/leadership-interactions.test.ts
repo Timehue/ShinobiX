@@ -101,7 +101,10 @@ test('appointments grant orders and war weight; clearing and stale writes cannot
 });
 
 test('all seven earned seats have real ANBU powers and rotate at UTC month rollover', async t => {
-    t.mock.method(Date, 'now', () => Date.UTC(2026, 8, 30, 23, 59));
+    // One mock, moved by assignment: a second t.mock.method on Date.now leaves the
+    // FIRST mock installed after the test, freezing every later test in September.
+    let now = Date.UTC(2026, 8, 30, 23, 59);
+    t.mock.method(Date, 'now', () => now);
     for (let i = 0; i < 9; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: '2026-09' });
     await request(anbu, 'kage', { action: 'appoint', seat: 0, appointee: 'fighter0' });
     assert.deepEqual((await roster(village)).earned, ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6', 'fighter7']);
@@ -109,13 +112,13 @@ test('all seven earned seats have real ANBU powers and rotate at UTC month rollo
     assert.equal((await request(orders, 'fighter1', { action: 'post', id: 'patrol-gate', type: 'general', title: 'Patrol', body: 'Patrol the gate.' })).status, 200);
     const { loadAnbuAppointees } = await import('../_anbu-infiltration-store.js');
     assert.deepEqual(await loadAnbuAppointees(village), (await roster(village)).members, 'garrisons and infiltration share the complete roster');
-    t.mock.method(Date, 'now', () => Date.UTC(2026, 9, 1, 0, 1));
+    now = Date.UTC(2026, 9, 1, 0, 1);
     assert.deepEqual((await roster(village)).members, ['fighter0'], 'appointed seats survive monthly rollover');
     assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_VILLAGER);
 });
 
 test('village changes remove appointed and earned powers and do not block the next candidate', async () => {
-    for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: new Date().toISOString().slice(0, 7) });
+    for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: new Date(Date.now()).toISOString().slice(0, 7) });
     await request(anbu, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     for (const name of ['operative', 'fighter0']) {
         const saved = await kv.get<any>(`save:${name}`);
@@ -214,7 +217,7 @@ test('committed PvP rewards refresh earned seats before the next client autosave
     const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
     assert.equal((await roster(village)).members.includes('operative'), false);
     const result = await mutatePlayerSave('operative', ({ character }) => ({ ok: true as const, character: {
-        ...character, monthlyPvpKills: 1, pvpKillMonth: new Date().toISOString().slice(0, 7), totalPvpKills: 101,
+        ...character, monthlyPvpKills: 1, pvpKillMonth: new Date(Date.now()).toISOString().slice(0, 7), totalPvpKills: 101,
     }, value: {} }));
     assert.equal(result.ok, true);
     assert.equal((await roster(village)).earned.includes('operative'), true);
