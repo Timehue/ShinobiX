@@ -552,19 +552,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const reject = ownershipReject(id, identity);
             if (reject) return res.status(reject.status).json({ error: reject.error });
 
-            // First-writer-wins on the player-created carve-outs: a player who
-            // didn't publish this id first can't overwrite it (custom bloodline /
-            // jutsu / named gear / pet art). The first publish claims the slot.
-            const claimReject = await imageClaimReject(id, identity);
-            if (claimReject) return res.status(claimReject.status).json({ error: claimReject.error });
-
-            // Charged only for an upload that would otherwise be written, so a
-            // rejected or malformed request never spends the player's budget.
+            // Charged after the cheap validation above, so a malformed or
+            // forbidden request never spends the player's budget — but BEFORE the
+            // claim below, because claiming is itself a durable write: a player
+            // over budget must not keep reserving fresh ids.
             if (!identity.admin) {
                 const backstop = { strict: true, ipBackstopMultiplier: IMAGE_UPLOAD_IP_BACKSTOP };
                 if (!(await enforceRateLimitKv(req, res, 'image-upload', IMAGE_UPLOAD_BURST_LIMIT, IMAGE_UPLOAD_BURST_WINDOW_MS, identity.name, backstop))) return;
                 if (!(await enforceRateLimitKv(req, res, 'image-upload-day', IMAGE_UPLOAD_DAILY_LIMIT, IMAGE_UPLOAD_DAY_MS, identity.name, backstop))) return;
             }
+
+            // First-writer-wins on the player-created carve-outs: a player who
+            // didn't publish this id first can't overwrite it (custom bloodline /
+            // jutsu / named gear / pet art). The first publish claims the slot.
+            const claimReject = await imageClaimReject(id, identity);
+            if (claimReject) return res.status(claimReject.status).json({ error: claimReject.error });
 
             const cat = categoryFromId(id);
 

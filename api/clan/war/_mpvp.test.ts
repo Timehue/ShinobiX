@@ -245,6 +245,14 @@ describe('Clan War 2v2 settlement', { concurrency: false }, () => {
         assert.equal(await potions(), 1, 'the replay charges the two potions still owed');
         await settleClanWar2v2Match(match);
         assert.equal(await potions(), 1, 'and never charges them twice');
+
+        // The in-save receipt window keeps only the newest receipts. Even with
+        // this match's receipt evicted, a late teammate's replay must not charge
+        // the member a second time from whatever they hold now.
+        const charged = await kv.get<Record<string, any>>(saveKey);
+        await kv.set(saveKey, { ...charged, character: { ...charged!.character, serverSettlementReceipts: [], itemStacks: [{ itemId: 'potion', count: 5 }] } });
+        await settleClanWar2v2Match(match);
+        assert.equal(await potions(), 5, 'the durable charged marker blocks a re-charge after receipt eviction');
     });
 
     it('refuses to settle a match that has not ended', async () => {

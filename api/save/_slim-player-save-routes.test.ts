@@ -17,6 +17,7 @@ const PRIOR_FLAG = process.env.SLIM_PLAYER_SAVES;
 
 const FORGED = 'named-weapon-1234abcd-12ab-34cd-56ef-1234567890ab';
 const ADMIN_ARMOR = { id: 'admin-tidewall-plate', name: 'Tidewall Plate', slot: 'body', rarity: 'mythic', bonuses: { defense: 40 } };
+const ADMIN_SCROLL = { id: 'admin-gale-scroll', name: 'Gale Scroll', slot: 'waist', rarity: 'epic', bonuses: { speed: 12 } };
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -38,7 +39,7 @@ function bloated(name: string) {
             name, level: 1, xp: 0, experience: 0, ryo: 0, rank: 'Academy Student', rankTitle: 'Academy Student', village: '',
             stats: {}, inventory: [], itemStacks: [], pets: [], equipment: { hand: FORGED, body: ADMIN_ARMOR.id }, earnedTitles: [], serverTitles: [],
         },
-        creatorItems: [ADMIN_ARMOR, { id: FORGED, name: 'Moonfang', slot: 'hand', rarity: 'legendary', weaponEp: 26 }],
+        creatorItems: [ADMIN_ARMOR, ADMIN_SCROLL, { id: FORGED, name: 'Moonfang', slot: 'hand', rarity: 'legendary', weaponEp: 26 }],
         creatorJutsus: [{ id: 'frozen-copy', name: 'Frozen', power: 1 }],
         editablePets: [{ id: 'pet-copy' }],
         creatorAis: [{ id: 'ai-copy' }],
@@ -77,7 +78,7 @@ async function slimAdmin(body: Record<string, unknown>) {
 beforeEach(async () => {
     for (const key of await kv.keys('*')) await kv.del(key);
     resetItemCatalog();
-    await kv.set('save:admin1', { character: { name: 'Admin 1' }, creatorItems: [ADMIN_ARMOR] });
+    await kv.set('save:admin1', { character: { name: 'Admin 1' }, creatorItems: [ADMIN_ARMOR, ADMIN_SCROLL] });
 });
 
 describe('autosave with SLIM_PLAYER_SAVES', () => {
@@ -89,7 +90,7 @@ describe('autosave with SLIM_PLAYER_SAVES', () => {
         assert.equal(saved.status, 200, JSON.stringify(saved.body));
         const stored = await kv.get<Record<string, any>>('save:slimoff');
         assert.deepEqual(stored!.editablePets, [{ id: 'pet-copy' }]);
-        assert.equal(stored!.creatorItems.length, 2);
+        assert.equal(stored!.creatorItems.length, 3);
         // The new client omits creatorJutsus from the body; the stored copy is
         // what PvP resolves, so it must survive untouched (zero PvP change).
         assert.deepEqual(stored!.creatorJutsus, [{ id: 'frozen-copy', name: 'Frozen', power: 1 }]);
@@ -104,7 +105,7 @@ describe('autosave with SLIM_PLAYER_SAVES', () => {
         assert.equal(saved.status, 200, JSON.stringify(saved.body));
         const stored = await kv.get<Record<string, any>>('save:slimon');
         for (const field of ['editablePets', 'creatorAis', 'creatorEvents', 'creatorCards']) assert.equal(field in stored!, false, field);
-        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [FORGED], 'admin copy dropped, forged kept');
+        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, FORGED], 'unheld admin copy dropped; the equipped admin armour and forged gear kept');
         assert.deepEqual(stored!.creatorJutsus, [{ id: 'frozen-copy', name: 'Frozen', power: 1 }]);
         assert.deepEqual(stored!.character.equipment, { hand: FORGED, body: ADMIN_ARMOR.id }, 'equipment untouched');
     });
@@ -139,9 +140,9 @@ describe('/api/admin/slim-player-saves', () => {
         assert.equal(applied.body?.written, 1);
         const stored = await kv.get<Record<string, any>>('save:dormant');
         assert.equal('editablePets' in stored!, false);
-        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [FORGED]);
+        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, FORGED]);
         assert.equal(stored!._saveVersion, 4, 'nothing the player owns changed, so open clients are not forced to refetch');
-        assert.deepEqual((await kv.get<Record<string, any>>('save:admin1'))!.creatorItems, [ADMIN_ARMOR]);
+        assert.deepEqual((await kv.get<Record<string, any>>('save:admin1'))!.creatorItems, [ADMIN_ARMOR, ADMIN_SCROLL]);
         const again = await slimAdmin({ dryRun: false });
         assert.equal(again.body?.written, 0, 'idempotent');
         assert.equal(again.body?.unchanged, 1);

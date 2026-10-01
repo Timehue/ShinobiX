@@ -21,10 +21,11 @@ const FORGED_ARMOR = 'named-armor-aaaabbbb-cccc-dddd-eeee-ffff00001111';
 const ADMIN_ARMOR = { id: 'admin-tidewall-plate', name: 'Tidewall Plate', slot: 'body', rarity: 'mythic', bonuses: { defense: 40 }, armorRawDR: 0.2 };
 const ADMIN_BLADE = { id: 'admin-stormcutter', name: 'Stormcutter', slot: 'hand', rarity: 'mythic', weaponEp: 30, bonuses: { strength: 25 } };
 const DELETED = { id: 'admin-retired-charm', name: '__ADMIN_DELETED_ITEM__' };
+const ADMIN_UNHELD = { id: 'admin-gale-scroll', name: 'Gale Scroll', slot: 'waist', rarity: 'epic', bonuses: { speed: 12 } };
 const ADMIN_JUTSU = { id: 'admin-tidal-lance', name: 'Tidal Lance', type: 'Ninjutsu', power: 90, chakraCost: 30, updatedAt: 5 };
 
 function adminContent() {
-    const records = [{ creatorItems: [ADMIN_ARMOR, ADMIN_BLADE, { id: 'admin-retired-charm', name: 'Old Charm', slot: 'waist' }, DELETED], creatorJutsus: [ADMIN_JUTSU] }];
+    const records = [{ creatorItems: [ADMIN_ARMOR, ADMIN_BLADE, ADMIN_UNHELD, { id: 'admin-retired-charm', name: 'Old Charm', slot: 'waist' }, DELETED], creatorJutsus: [ADMIN_JUTSU] }];
     return { items: buildAdminItemCatalog(records), jutsu: buildAdminJutsuCatalog(records) };
 }
 
@@ -46,8 +47,9 @@ function playerSave(): Record<string, unknown> {
         savedBloodlines: [{ id: 'bl-tide', name: 'Tidecaller', rank: 'A', jutsus: [{ id: 'bl-tide-1', name: 'Undertow', type: 'Ninjutsu', power: 70 }] }],
         creatorJutsus: [{ ...ADMIN_JUTSU, power: 75, updatedAt: 1 }],
         creatorItems: [
-            { ...ADMIN_ARMOR, bonuses: { defense: 10 } },          // stale admin copy — shadowed
-            ADMIN_BLADE,                                             // admin copy — shadowed
+            { ...ADMIN_ARMOR, bonuses: { defense: 10 } },          // stale admin copy, but HELD (equipped) — kept
+            ADMIN_BLADE,                                             // admin copy, HELD (inventory) — kept
+            ADMIN_UNHELD,                                            // admin copy the player does not hold — shadowed
             { id: 'bulwark-crown', name: 'Bulwark Crown (copy)', slot: 'head', rarity: 'legendary' }, // built-in copy — shadowed
             { id: FORGED, name: 'Moonfang', slot: 'hand', rarity: 'legendary', weaponEp: 26, bonuses: { strength: 30 } },
             { id: FORGED_ARMOR, name: 'Duskhide', slot: 'body', rarity: 'legendary', bonuses: { defense: 22 } },
@@ -75,11 +77,30 @@ describe('slimPlayerSaveRecord', () => {
         assert.deepEqual(out.record.savedBloodlines, record.savedBloodlines);
     });
 
-    it('drops only item copies a catalog already defines; forged, unknown and admin-deleted ids stay', () => {
+    it('drops only item copies a catalog already defines and the player does not hold; forged, unknown, held and admin-deleted ids stay', () => {
         const out = slim.slimPlayerSaveRecord(playerSave(), adminContent().items);
         const kept = (out.record.creatorItems as Array<Record<string, unknown>>).map((item) => item.id ?? item.name);
-        assert.deepEqual(kept, [FORGED, FORGED_ARMOR, 'mystery-relic', 'admin-retired-charm', 'no id']);
-        assert.equal(out.droppedItemCopies, 3);
+        assert.deepEqual(kept, [ADMIN_ARMOR.id, ADMIN_BLADE.id, FORGED, FORGED_ARMOR, 'mystery-relic', 'admin-retired-charm', 'no id']);
+        assert.equal(out.droppedItemCopies, 2, 'the unheld admin copy and the built-in copy');
+    });
+
+    it('a held admin item survives an untombstoned admin delete (the Admin Panel just filters it out)', async () => {
+        const record = playerSave();
+        const slimmed = slim.slimPlayerSaveRecord(record, adminContent().items).record;
+        // The admin later deletes Stormcutter outright: no tombstone, simply gone from the slot.
+        const { buildAdminItemCatalog: build } = await import('../_admin-item-catalog.js');
+        const afterDelete = build([{ creatorItems: [ADMIN_ARMOR, ADMIN_UNHELD] }]);
+        const parity = await checkSlimParity(record, slimmed, { items: afterDelete, jutsu: adminContent().jutsu });
+        assert.deepEqual(parity.diffs, [], 'the held blade still resolves from the player copy');
+    });
+
+    it('holding is judged anywhere in the save: itemStacks, bank, pet gear', () => {
+        const record = playerSave();
+        const character = record.character as Record<string, unknown>;
+        record.character = { ...character, inventory: [], equipment: {}, bank: { items: [{ itemId: ADMIN_BLADE.id }] } };
+        const kept = (slim.slimPlayerSaveRecord(record, adminContent().items).record.creatorItems as Array<Record<string, unknown>>).map((item) => item.id);
+        assert.equal(kept.includes(ADMIN_BLADE.id), true, 'a banked admin item keeps its copy');
+        assert.equal(kept.includes(ADMIN_ARMOR.id), false, 'an admin item no longer held is dropped');
     });
 
     it('never mutates the record it was given', () => {

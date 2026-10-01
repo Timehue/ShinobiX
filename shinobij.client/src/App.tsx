@@ -46,7 +46,7 @@ import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
-import { pullAdminSnapshotsWithDeviceCache } from "./lib/shared-admin-content-cache";
+import { pullAdminSnapshotsWithDeviceCache, rememberSharedAdminItems } from "./lib/shared-admin-content-cache";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
@@ -3281,7 +3281,7 @@ export default function App() {
             setCreatorRaids([]);
         }
         if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
-        if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
+        if (snap.creatorItems) { rememberSharedAdminItems(snap.creatorItems as GameItem[]); setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[])); }
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
         // Event-gate config: recency-merged like the other shared content so
@@ -3295,8 +3295,8 @@ export default function App() {
     }
 
     async function pullSharedAdminContent() {
-        const snapshots = await pullAdminSnapshotsWithDeviceCache(pullSaveFromServer); // a failed slot falls back to this device's last good copy
-        const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
+        // Cached fallbacks first, live reads last (later wins); see the module.
+        const available = await pullAdminSnapshotsWithDeviceCache(pullSaveFromServer);
         if (!available.length) return;
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.

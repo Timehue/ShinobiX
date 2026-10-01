@@ -12,7 +12,8 @@ compare-and-set commit, and they decided no fight.
 | Field | Action | Why it is safe |
 |---|---|---|
 | `editablePets`, `creatorAis`, `creatorEvents`, `creatorCards` | removed | No server code reads a player's copy; the client pulls the admin slots at login and keeps a device copy (`lib/shared-admin-content-cache.ts`). |
-| `creatorItems` entries whose id the built-in `ITEM_CATALOG` or the live admin catalog defines | removed | Combat resolves `ITEM_CATALOG ?? admin ?? player copy` (`api/pvp/_multipliers.ts buildItemLookup`), so these copies can never be read. |
+| `creatorItems` entries whose id the built-in `ITEM_CATALOG` defines, or the live admin catalog defines **and the player does not hold** | removed | Combat resolves `ITEM_CATALOG ?? admin ?? player copy` (`api/pvp/_multipliers.ts buildItemLookup`), so these copies can never be read. |
+| Copies of admin items the player holds (anywhere in the save: inventory, equipment, stacks, bank, pet gear) | **kept** | The Admin Panel deletes a custom item without a tombstone; after that, the player's copy is the only definition of gear they still own. |
 | Forged named gear (`named-weapon-*`, `named-armor-*`) | **kept** | The save is its only home. |
 | Any item neither catalog knows; admin-deleted ids | **kept** | Removing them could change resolution. |
 | `creatorJutsus` | **kept** | PvP resolves a player's stored copy over the admin one; the owner chose zero PvP change. |
@@ -29,8 +30,12 @@ never took them from the body), which ships on independently of the switch.
 - Elemental Core attunement resolves admin weapons from the admin catalog.
 - The PvP challenge flow lists the opponent's own items first, then local admin
   content, so admin gear still displays for a slimmed opponent.
-- The client keeps the last good admin content per slot on the device and uses
-  it when the login pull fails.
+- The client keeps the last good admin content (shared fields only) per slot on
+  the device and uses it when the login pull fails; a live slot always wins over
+  a cached one, and when nothing at all is available it retries once after 15 s.
+- A save refetch (409, reload) keeps the admin items already applied this page,
+  and the save-conflict check compares only the player's own forged items, so a
+  slimmed save never produces a recovery banner on its own.
 
 ## Rollout
 
@@ -53,5 +58,5 @@ never took them from the body), which ships on independently of the switch.
 
 - Set `SLIM_PLAYER_SAVES=0` (or unset): no further saves are slimmed.
 - Already-slim saves keep working; the removed content is a copy of what the
-  admin slots hold. The nightly `save-snapshot:*` rows keep 90 days of the
+  admin slots hold (held admin items were never removed). The nightly `save-snapshot:*` rows keep 90 days of the
   original rows if a full restore is ever wanted.

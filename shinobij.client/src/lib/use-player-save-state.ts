@@ -17,6 +17,7 @@ import { type CreatorMission, type CreatorRaid } from "../types/missions";
 import { mergeMissingBuiltInPets, petPool } from "./pet-roster";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import type { PlayerSavePayload, PlayerSaveSnapshot } from './player-save-types';
+import { withSharedAdminItems } from './shared-admin-content-cache';
 
 export function isContentAdminName(raw: unknown): boolean {
     const name = String(raw ?? "").trim().toLowerCase();
@@ -124,7 +125,10 @@ export function usePlayerSaveState() {
         setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
         setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
         if (snap.creatorCards) setCreatorCards(snap.creatorCards);
-        if (snap.creatorItems) setCreatorItems(snap.creatorItems);
+        // A slimmed save carries only the player's own items; keep the admin item
+        // definitions already pulled this page so a mid-session refetch (409,
+        // force reload) does not drop them until the next login.
+        if (snap.creatorItems) setCreatorItems(contentAdmin ? snap.creatorItems : withSharedAdminItems(snap.creatorItems));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));

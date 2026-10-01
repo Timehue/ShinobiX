@@ -70,6 +70,15 @@ test('rejected uploads do not spend the budget', async () => {
     assert.equal(await upload(headers, ip), 200, 'malformed requests never charged the budget');
 });
 
+test('a player over budget cannot keep reserving image ids (the claim is a durable write too)', async () => {
+    const headers = { 'x-player-token': await account('squatter') };
+    const ip = '10.60.4.1';
+    for (let i = 0; i < images.IMAGE_UPLOAD_BURST_LIMIT; i++) assert.equal(await upload(headers, ip), 200);
+    const id = `pet:${randomUUID()}`;
+    assert.equal(await upload(headers, ip, id), 429);
+    assert.equal(await kv.get(`img-owner:${id}`), null, 'a rate-limited upload claimed nothing');
+});
+
 test('new accounts on one address cannot each mint a fresh allowance', async () => {
     const ip = '10.60.2.1';
     let ok = 0;

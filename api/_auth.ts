@@ -524,6 +524,23 @@ export async function authedPlayer(
 }
 
 /**
+ * Verify a password outside authedPlayer under the SAME per-IP budgets: every
+ * attempt is charged before scrypt runs, and a failure is charged to the
+ * failed-verify budget. For rare explicit actions (deleting another player's
+ * legacy save with their password), so the attempt cap applies whether or not
+ * tokens are enabled. Returns false when over budget, without running scrypt.
+ */
+export async function verifyPlayerPasswordBudgeted(req: ReqLike, name: string, password: string): Promise<boolean> {
+    const ip = clientIp(req) ?? 'unknown';
+    const budgetKey = `authpw-fail:${ip}`;
+    if (!hasBudget(budgetKey, PASSWORD_FAIL_LIMIT)) return false;
+    if (!allow(`authpw-attempt:${ip}`, PASSWORD_ATTEMPT_LIMIT, PASSWORD_ATTEMPT_WINDOW_MS).ok) return false;
+    if (await verifyPlayerPassword(name, password)) return true;
+    allow(budgetKey, PASSWORD_FAIL_LIMIT, PASSWORD_FAIL_WINDOW_MS);
+    return false;
+}
+
+/**
  * Convenience: require *either* a valid player auth or admin auth.
  * Returns { admin: true } or { admin: false, name } on success, null on failure.
  */

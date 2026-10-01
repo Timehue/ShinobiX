@@ -21,8 +21,7 @@ import { kv } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody } from '../_utils.js';
-import { verifyPlayerPassword } from '../player-auth.js';
-import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from '../_auth.js';
+import { authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js';
@@ -1504,9 +1503,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // auth record can only be deleted by an admin. (Previously the
                     // missing-auth-record case fell through and let any logged-in
                     // player delete a legacy save.)
+                    // Budgeted like authedPlayer: scrypt blocks the event loop, and an
+                    // unthrottled verify here was both a CPU stall and an unlimited
+                    // password oracle for any account with an auth record.
                     const playerPw = req.headers['x-player-password'] as string | undefined;
                     const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
-                    if (!authRecord || !playerPw || !(await verifyPlayerPassword(name, playerPw))) {
+                    if (!authRecord || !playerPw || !(await verifyPlayerPasswordBudgeted(req, name, playerPw))) {
                         return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
                     }
                 }

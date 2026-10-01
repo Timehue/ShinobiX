@@ -17,7 +17,10 @@
  *     whose id the built-in or admin catalog already defines can never be read —
  *     only those are dropped. Forged named gear (the save is its only home),
  *     anything neither catalog knows, and admin-deleted ids are KEPT, so item
- *     resolution is unchanged BY CONSTRUCTION.
+ *     resolution is unchanged BY CONSTRUCTION. A copy of an ADMIN item the
+ *     player holds is kept too: the Admin Panel deletes custom items without a
+ *     tombstone, and after such a delete that copy is the item's only
+ *     definition. Only copies of items the player does not hold are dropped.
  *   - creatorJutsus is deliberately untouched: PvP still resolves a player's
  *     stored copy over the admin one (api/pvp/session.ts), and the owner chose
  *     zero PvP change (2026-10-01).
@@ -50,6 +53,24 @@ export function isShadowedItemCopy(id: string, adminItems: SlimAdminItems | null
     return Boolean(adminItems?.has(id));
 }
 
+/**
+ * Every string anywhere in the record outside the item copies themselves and
+ * the fields being removed — an over-approximation of "item ids this player
+ * holds" (inventory, equipment, itemStacks, bank, pet gear, receipts...).
+ */
+function referencedStrings(record: Record<string, unknown>): Set<string> {
+    const seen = new Set<string>();
+    const skip = new Set<string>(['creatorItems', ...SLIMMED_SHARED_FIELDS]);
+    const stack: unknown[] = Object.entries(record).filter(([key]) => !skip.has(key)).map(([, value]) => value);
+    while (stack.length > 0) {
+        const value = stack.pop();
+        if (typeof value === 'string') seen.add(value);
+        else if (Array.isArray(value)) stack.push(...value);
+        else if (value && typeof value === 'object') stack.push(...Object.values(value as Record<string, unknown>));
+    }
+    return seen;
+}
+
 export type SlimResult<T> = { record: T; changed: boolean; removedFields: string[]; droppedItemCopies: number };
 
 /**
@@ -72,9 +93,18 @@ export function slimPlayerSaveRecord<T extends Record<string, unknown>>(
     }
     let droppedItemCopies = 0;
     if (Array.isArray(record.creatorItems)) {
+        // An admin item the player HOLDS keeps its copy: the Admin Panel deletes
+        // a custom item without a tombstone, and this copy is then the only
+        // definition left for gear the player still owns. Built-in items cannot
+        // be deleted, so their copies go regardless.
+        let held: Set<string> | null = null;
         const kept = (record.creatorItems as unknown[]).filter((item) => {
             const id = item && typeof item === 'object' ? (item as Record<string, unknown>).id : undefined;
-            const shadowed = typeof id === 'string' && isShadowedItemCopy(id, adminItems);
+            let shadowed = typeof id === 'string' && isShadowedItemCopy(id, adminItems);
+            if (shadowed && !Object.prototype.hasOwnProperty.call(ITEM_CATALOG, id as string)) {
+                held ??= referencedStrings(record);
+                if (held.has(id as string)) shadowed = false;
+            }
             if (shadowed) droppedItemCopies += 1;
             return !shadowed;
         });
