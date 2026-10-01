@@ -86,6 +86,18 @@ describe("buildActionsFromTowerLog — squad log, color by side", () => {
         assert.equal(a!.actor, "Raijin");
         assert.equal(a!.role, "enemy");
     });
+
+    it("tracks round markers and keeps them out of the action history", () => {
+        const actions = buildActionsFromTowerLog([
+            "--- Round 1 ---",
+            "Hunter strikes → Boar for 45 damage.",
+            "--- Round 2 ---",
+            "Boar takes 45 (12/60).",
+            "Hunt encounter cleared!",
+        ], ["Hunter"], ["Boar"]);
+        assert.deepEqual(actions.map(action => action.round), [1, 2, 2]);
+        assert.ok(actions.every(action => !action.headline.startsWith("--- Round ")));
+    });
 });
 
 describe("appendBattleHistory", () => {

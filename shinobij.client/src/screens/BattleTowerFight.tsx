@@ -26,7 +26,7 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import {
     buildTowerMilestoneReceipt, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
-    estimateTowerActionDamage,
+    estimateTowerActionDamage, towerPreviewTargetInRange,
     TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -1731,7 +1731,7 @@ export function BattleTowerFight({
         if (!target) {
             return { title: armedActionName, target: "Hover or select an enemy", metrics, detail: "Reachable targets are outlined on the battlefield." };
         }
-        const inRange = enemiesInRange.has(target.id);
+        const inRange = towerPreviewTargetInRange(target.id, myActor.id, enemiesInRange, mode === "jutsu" && isSelfCastJutsu(selJutsu));
         const effectPower = mode === "attack" ? 10
             : mode === "weapon" ? Number(armedWeapon?.item.weaponEp ?? 15)
                 : Number(selJutsu?.effectPower ?? 0);
