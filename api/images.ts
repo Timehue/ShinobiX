@@ -6,6 +6,23 @@ import { writeAssetMeta, deleteAssetMeta, imageFormat, assetMetaKey } from './_a
 import { recordAudit } from './_audit.js';
 import { r2ReadEnabled, r2WriteEnabled, putImage, deleteImage } from './_r2.js';
 import { bumpImageVersion, readImageVersion } from './_image-version.js';
+import { enforceRateLimitKv } from './_ratelimit.js';
+
+/*
+ * Player upload budget. Every POST rewrites a whole shared category row (kv_hset)
+ * and a fresh id adds up to 3 MB to it for good, so an unlimited loop over fresh
+ * `pet:<id>` ids is a disk-fill and DB-load vector (the 2026-09-19 outage class).
+ * Sized for real creation flows: a Bloodline Maker save republishes the bloodline
+ * plus every jutsu icon at once, so the burst allows several full edits. The IP
+ * backstop is tightened so new (guest) accounts on one address do not each mint a
+ * fresh allowance. Admins are exempt. This bounds a single actor; it is not a byte
+ * quota (that would need a storage change).
+ */
+export const IMAGE_UPLOAD_BURST_LIMIT = 40;
+export const IMAGE_UPLOAD_BURST_WINDOW_MS = 10 * 60_000;
+export const IMAGE_UPLOAD_DAILY_LIMIT = 120;
+const IMAGE_UPLOAD_DAY_MS = 24 * 60 * 60_000;
+const IMAGE_UPLOAD_IP_BACKSTOP = 3;
 
 // Max raw image string length (≈ base64 of a ~2 MB image). Anything bigger is
 // rejected — keeps disk usage bounded and stops one player from filling the
@@ -540,6 +557,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // jutsu / named gear / pet art). The first publish claims the slot.
             const claimReject = await imageClaimReject(id, identity);
             if (claimReject) return res.status(claimReject.status).json({ error: claimReject.error });
+
+            // Charged only for an upload that would otherwise be written, so a
+            // rejected or malformed request never spends the player's budget.
+            if (!identity.admin) {
+                const backstop = { strict: true, ipBackstopMultiplier: IMAGE_UPLOAD_IP_BACKSTOP };
+                if (!(await enforceRateLimitKv(req, res, 'image-upload', IMAGE_UPLOAD_BURST_LIMIT, IMAGE_UPLOAD_BURST_WINDOW_MS, identity.name, backstop))) return;
+                if (!(await enforceRateLimitKv(req, res, 'image-upload-day', IMAGE_UPLOAD_DAILY_LIMIT, IMAGE_UPLOAD_DAY_MS, identity.name, backstop))) return;
+            }
 
             const cat = categoryFromId(id);
 
