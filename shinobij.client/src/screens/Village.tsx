@@ -48,6 +48,9 @@ export function Village({ character, setScreen }: { character: Character; setScr
                         style={{
                             left: location.mapX,
                             top: location.mapY,
+                            // Restores the desktop spot on portrait tablets, where the phone grid overrides left/top.
+                            "--map-x": location.mapX,
+                            "--map-y": location.mapY,
                             "--facility-accent": location.accent,
                         } as CSSProperties}
                         onPointerDown={() => preloadScreen(location.screen, character.storyVillage || character.village)}
