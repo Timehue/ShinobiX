@@ -101,6 +101,20 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     for (const tool of ['tsx', 'esbuild']) assert.ok(rootPackage.devDependencies[tool], `${tool} must be a direct QA dependency`);
 });
 
+test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI', () => {
+    const playwrightConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    assert.match(playwrightConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*pet-gauntlet-board\.spec\.ts/,
+        'the immutable production-preview suite must leave the Vite source fixture to its dedicated config');
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    const step = responsive?.split(/\n(?=      - name: )/).find((value) => value.startsWith('      - name: Pet Gauntlet playback and renderer recovery\n'));
+    assert.ok(step, 'the required responsive job must execute the renderer recovery check');
+    assert.match(step, /if: \$\{\{ matrix\.shard == 1 \}\}/, 'the expensive source fixture must run once');
+    assert.match(step, /xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij\.client/,
+        'the headful WebGL regression needs a virtual display on the Linux CI runner');
+    assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/gauntlet-render\.log/,
+        'the result must be retained in responsive CI evidence');
+});
+
 test('built CSP and every Stronghold audit feed the required responsive gate with retained evidence', () => {
     const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
     // GitHub's implicit Bash shell does not enable pipefail. All these gates
