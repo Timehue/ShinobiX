@@ -347,7 +347,10 @@ jobs:
     needs: [server_build_security, client_quality]
     if: ${{ always() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # The joined server and client distributions occasionally take longer than
+    # ten minutes to download, verify, package, and upload on hosted runners.
+    # Keep downstream release and browser gates from being failed by a job cap.
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - name: Initialize evidence
