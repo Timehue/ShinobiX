@@ -39,6 +39,16 @@ an account's epoch is still zero.
 then password path, and the **same ban gate applies to both** — a token can
 never bypass a ban.
 
+The password path runs blocking `scryptSync`, so it carries two per-IP budgets,
+both checked before any scrypt work:
+
+- **Failures**: 12 per 5 minutes, always on (`PASSWORD_FAIL_LIMIT`).
+- **Every attempt**: 20 per minute, but only while `SESSION_SECRET` is set
+  (`PASSWORD_ATTEMPT_LIMIT`). Honest clients then authenticate by token, so this
+  only stops an account sending its own correct password to stall the event loop
+  (reproduced at ~44 req/s on 2026-10-01). With `SESSION_SECRET` unset the
+  password path carries all traffic, so successes stay free there.
+
 ### Client side (`shinobij.client/src/authFetch.ts`)
 
 A global `window.fetch` interceptor (`installAuthFetch`) attaches auth to every
@@ -358,6 +368,12 @@ token deletion for exactly-once semantics.
   currency/economy critical section. Lock the **shared resource** key
   (e.g. `clan-seal-pool:<clan>`), not just the actor's `save:<name>` — two
   different actors hold different save locks and would still race the shared row.
+- **Commit with compare-and-set, not a plain `kv.set`.** `withKvLock`'s TTL
+  (5s default) is not renewed, and a pool wait can reach 15s under load, so a
+  slow holder can outlive its lock while another writer commits. Commit with
+  `kv.compareSet(key, <row you read>, next)` and answer a lost race with a 409
+  (the player autosave and `writeVersionedPlayerSaveWithStore` both do). A plain
+  upsert silently overwrites the other writer's commit.
 - **Debit before credit; never re-credit.** `collect-supply` keeps a deliberate
   "lose, never duplicate" stance: it zeroes sectors first, then credits the
   treasury; on a credit failure it records an unreconciled-loss audit key and
