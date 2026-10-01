@@ -1238,10 +1238,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // measure drift. Non-clan only — clan payloads stay byte-identical.
                     if (!isClanSave) (payload as Record<string, unknown>)._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
 
-                    await Promise.all([
-                        kv.set(key, payload),
-                        ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
-                    ]);
+                    // Commit only over the exact row this request validated. The lock
+                    // above has a 5s TTL and no renewal, so a write stalled on the
+                    // database (pool waits reach 15s under overload) can outlive it;
+                    // another writer then takes the lock and commits — a claim
+                    // receipt, a reward. A plain upsert here would silently overwrite
+                    // that commit. Compare-and-set refuses instead, and the client
+                    // handles the 409 exactly like any other version conflict.
+                    // Same pattern as writeVersionedPlayerSaveWithStore.
+                    const committed = await kv.compareSet(key, existing ?? null, payload);
+                    if (!committed) {
+                        const current = await kv.get<Record<string, unknown>>(key).catch(() => null);
+                        return res.status(409).json({
+                            error: 'Save conflict — another tab or device wrote first.',
+                            currentVersion: Number(current?._saveVersion ?? 0),
+                        });
+                    }
+                    if (writeRegistry) await kv.hset(REGISTRY_KEY, { [name]: registryEntry });
                     if (!existing && identityName && !isClanSave) {
                         captureServerProductEvent('character_created', { source: 'save' });
                     }
