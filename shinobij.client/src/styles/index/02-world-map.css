@@ -78,7 +78,8 @@
 
 .atlas-sector {
     position: absolute;
-    z-index: 5;
+    /* Sector destinations win hit-testing when a landmark crest overlaps one. */
+    z-index: 10;
     width: 28px;
     height: 28px;
     min-width: 0;
