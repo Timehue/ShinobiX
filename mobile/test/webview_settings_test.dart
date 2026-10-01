@@ -197,6 +197,24 @@ void main() {
     expect(scopes.single['onPopInvokedWithResult'], contains('if (!didPop) unawaited(_onBack());'));
   });
 
+  test('the WebView never sees the system bars the shell already pads for', () {
+    // The Dart layout keeps the WebView clear of the status and navigation bars...
+    final page = _read('lib/src/shell_page.dart');
+    expect(page, contains('SizedBox(height: bars.top)'));
+    expect(page, contains('height: math.max(bars.bottom, keyboard)'));
+    // ...so the WebView must see those insets as zero. WebView 144+ forwards them
+    // to the page as env(safe-area-inset-*), and the game padded for them a
+    // second time: an empty bar-high band under the bottom menu and above the HUD.
+    final activity = _read('android/app/src/main/kotlin/com/shinobijourney/app/MainActivity.kt');
+    expect(activity, contains('setOnHierarchyChangeListener(ShellInsetsGuard)'));
+    expect(activity, contains('WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()'));
+    expect(activity, contains('.setInsets(handledByShell, Insets.NONE)'));
+    expect(activity, contains('.setDisplayCutout(null)'));
+    // Flutter's keyboard-animation listener owns the FlutterView's own insets
+    // listener; replacing it would break the keyboard animation.
+    expect(activity, isNot(contains('setOnApplyWindowInsetsListener(flutterView')));
+  });
+
   test('the manifest asks for internet and vibration only, and keeps backups off', () {
     final manifest = _read('android/app/src/main/AndroidManifest.xml');
     final permissions =

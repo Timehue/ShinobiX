@@ -1957,6 +1957,30 @@ body.coach-banner-open .coach-guide-actions .location-button {
   .facility-tile .stormveil-map-label { font-size:11px; }
 }
 
+/* A portrait tablet has room for the desktop village: each facility returns to
+   its spot on the painting (--map-x/--map-y repeat the inline left/top that the
+   grid above overrides). Phones and short landscape screens keep the grid,
+   where those spots would overlap. While the companion guide is open it holds
+   the top of the map, so the grid stays then too. */
+@media (min-width:600px) and (max-width:979px) and (min-height:800px) {
+  .app-shell.screen-village .stormveil-map:not(:has(.journey-guide)) .facility-tile {
+    position:absolute!important; left:var(--map-x)!important; top:var(--map-y)!important;
+    transform:translate(-50%,-50%)!important; z-index:4!important;
+    width:max-content!important; max-width:112px!important;
+  }
+  .app-shell.screen-village .stormveil-map:not(:has(.journey-guide)) .facility-tile:focus-visible {
+    z-index:8!important; transform:translate(-50%,-50%) scale(1.08)!important;
+  }
+  @media (hover: hover) {
+    .app-shell.screen-village .stormveil-map:not(:has(.journey-guide)) .facility-tile:hover {
+      z-index:8!important; transform:translate(-50%,-50%) scale(1.08)!important;
+    }
+  }
+  .app-shell.screen-village .stormveil-map:not(:has(.journey-guide)) .facility-tile .stormveil-map-icon-frame {
+    width:clamp(64px,9vw,80px); height:clamp(64px,9vw,80px);
+  }
+}
+
 @media (max-width:360px) {
   /* Three stable columns keep long facility labels and focus scaling inside
      the framed village map at the smallest supported phone width. */

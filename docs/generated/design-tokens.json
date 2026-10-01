@@ -2313,7 +2313,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1960
+            "line": 1984
           }
         ]
       },
@@ -2433,7 +2433,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 444
+            "line": 473
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -2493,11 +2493,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 277
+            "line": 306
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 367
+            "line": 396
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -2792,7 +2792,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 401
+            "line": 296
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 430
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -2937,7 +2941,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 444
+            "line": 473
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -3031,6 +3035,17 @@
           {
             "source": "shinobij.client/src/styles/sunscar-hub.css",
             "line": 73
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 600,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1965
           }
         ]
       },
@@ -3642,6 +3657,17 @@
         ]
       },
       {
+        "direction": "min",
+        "axis": "height",
+        "valuePx": 800,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1965
+          }
+        ]
+      },
+      {
         "direction": "max",
         "axis": "width",
         "valuePx": 800,
@@ -3776,11 +3802,11 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1984
+            "line": 2008
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2039
+            "line": 2063
           },
           {
             "source": "shinobij.client/src/styles/village-war-map-skin.css",
@@ -4162,11 +4188,11 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 367
+            "line": 396
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 444
+            "line": 473
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -4231,6 +4257,10 @@
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1945
+          },
+          {
+            "source": "shinobij.client/src/styles/veiled-steel.css",
+            "line": 1965
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -4316,7 +4346,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 2083
+            "line": 2107
           }
         ]
       },
@@ -4712,7 +4742,7 @@
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
-            "line": 1978
+            "line": 2002
           }
         ]
       },
