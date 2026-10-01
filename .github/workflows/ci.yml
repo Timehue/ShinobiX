@@ -627,6 +627,9 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/sector-hud.log
+      - name: Pet Gauntlet playback and renderer recovery
+        if: ${{ matrix.shard == 1 }}
+        run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/gauntlet-render.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
