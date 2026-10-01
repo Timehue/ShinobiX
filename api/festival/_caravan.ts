@@ -104,7 +104,7 @@ export function advanceCaravan(character: Obj, body: Obj, now: number): { charac
             const resolved = resolveCaravanChoice(run, String(body.choiceId), caravanFieldCharacter(character, petRoleOf), now);
             updated = resolved.run; effect = resolved.effect;
             next = applyVitals({ ...character, ryo: (Number(character.ryo) || 0) - resolved.costRyo }, effect, run.morale);
-            if (effect.combat) updated.combat = { sessionId: `caravan:${run.id}:${run.currentNodeId}`, enemy: effect.combat, nodeId: run.currentNodeId!, settled: false };
+            if (effect.combat) updated.combat = { sessionId: `caravan-tower:${run.id}:${run.currentNodeId}`, enemy: effect.combat, nodeId: run.currentNodeId!, settled: false };
             if (effect.petTrail) updated.petEncounter = { requestId: `caravan_${run.id.replace(/-/g, '')}_${run.currentNodeId}`, state: 'pending' };
         } else if (body.action === 'retire') {
             if (run.status === 'combat') throw new FestivalError('Leave the battle through the normal combat controls first.', 409);

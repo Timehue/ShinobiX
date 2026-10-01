@@ -120,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // not the lease. Leasing it here left a battleTowers lock that the
         // assault's next state/action refresh refused, so the fight returned 500
         // until the lease expired.
-        if (!(liveSession.worldCrisis80 || isPublicTowerRun(liveSession) || isSpireRun(liveSession))) {
+        if (!(liveSession.worldCrisis80 || liveSession.caravanAmbush || isPublicTowerRun(liveSession) || isSpireRun(liveSession))) {
             return res.status(200).json({ runId, session: liveSession });
         }
         const partyId = (liveSession as TowerSession & { towerPartyId?: string }).towerPartyId;

@@ -6,6 +6,29 @@ import { closeTowerPartyRun } from './_party.js';
 import { withTowerSessionMutation, type TowerSessionLock } from './_session-mutation.js';
 import { isTowerRunLapsed, needsTowerLapseReconciliation, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
+import { settleCaravanCombat, requireCaravan } from '../festival/_caravan.js';
+import { settleConsumedItemsForMember } from './_tower-store.js';
+import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
+
+async function settleCaravanAmbushLapse(session: TowerSession, playerName: string): Promise<{ ok: boolean; applied?: boolean; error?: string }> {
+    const binding = session.caravanAmbush;
+    const actor = session.actors.find(candidate => candidate.side === 'squad' && candidate.ai === false && candidate.ownerSlug === playerName);
+    if (!binding || !actor) return { ok: false, error: 'Caravan ambush proof is incomplete.' };
+    await settleConsumedItemsForMember({ session, slug: playerName });
+    const result = await mutatePlayerSave(playerName, ({ character }) => {
+        const { run } = requireCaravan(character, binding.runId);
+        if (!run.combat || run.combat.sessionId !== session.runId) return { ok: false as const, status: 409, error: 'Ambush binding changed.' };
+        if (run.combat.settled) return { ok: true as const, character, value: false, write: false };
+        const now = Date.now();
+        const physical = applyAiFightOutcomeToCharacter(character, 'forfeit', actor, now, true);
+        const next = settleCaravanCombat(applyCompanionUsageCost(physical, session.companionUsage), session.runId, false, now);
+        return { ok: true as const, character: next, value: true, write: true };
+    });
+    if (!result.ok) return { ok: false, error: result.error };
+    return { ok: true, applied: result.value };
+}
 
 /*
  * Lapsed Tower runs (F08).
@@ -84,7 +107,11 @@ export async function terminalizeLapsedTowerRun(
     // settlement by save key and in-save receipt).
     const session = outcome.session;
     let settled = false;
-    const settle = deps.settle ?? settlePveFightOutcome;
+    const settle = deps.settle ?? (async (row: AiFightSession, playerName: string) => {
+        const tower = row as unknown as TowerSession;
+        if (tower.caravanAmbush) return settleCaravanAmbushLapse(tower, playerName);
+        return settlePveFightOutcome(row, playerName);
+    });
     try {
         for (const member of towerBattleLeaseMembers(session)) {
             const result = await settle(session, safeName(member));
