@@ -320,6 +320,8 @@ export type TowerSession = {
  */
 export type TowerEnemyWave = {
     round: number;
+    /** Deploy this wave only after all deployed enemies are defeated. */
+    afterClear?: boolean;
     actors: TowerActor[];
 };
 

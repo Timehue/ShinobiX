@@ -22,7 +22,7 @@ test("punctuated display names hash to the same hunt trail and sign as safeName"
     const displayName = "Rill O'Neil!";
     const safe = playerSlug(displayName);
     assert.equal(safe, "rilloneil");
-    for (let progress = 0; progress < mission.exploreCount; progress += 1) {
+    for (let progress = 0; progress < 64; progress += 1) {
         assert.equal(
             huntTrailSector(mission as never, progress, safe),
             serverHuntTrailSector(mission as never, progress, safe),
@@ -30,10 +30,12 @@ test("punctuated display names hash to the same hunt trail and sign as safeName"
         const clientSign = huntSignFor(mission as never, progress, safe);
         const serverSign = serverHuntSign(mission.id, progress, safe);
         assert.equal(clientSign.id, serverSign.id);
+        assert.equal(clientSign.kicker, serverSign.kicker);
+        assert.equal(clientSign.prose, serverSign.prose);
         assert.deepEqual(
-            clientSign.choices.map(({ id, outcome }) => ({ id, outcome })),
-            serverSign.choices.map(({ id, outcome }) => ({ id, outcome })),
-            `choice ids/outcomes drifted for ${clientSign.id}`,
+            clientSign.choices,
+            serverSign.choices,
+            `choice copy/outcomes drifted for ${clientSign.id}`,
         );
     }
 });

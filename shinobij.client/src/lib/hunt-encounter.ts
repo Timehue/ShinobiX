@@ -158,13 +158,13 @@ const SIGNS: readonly HuntSign[] = [
         choices: [
             {
                 id: "push", label: "Push the blood trail",
-                detail: "Run it down before the bleeding stops. Tires the beast out.",
-                risk: "It knows it is being chased.",
+                detail: "Run it down before the bleeding stops. Tire the beast before the final fight.",
+                risk: "It knows it is being chased; there is a 35% chance the pack springs first.",
                 outcome: { quality: 1, advances: true, ambushChance: 0.35 },
             },
             {
                 id: "downwind", label: "Circle downwind",
-                detail: "Give up the pace to keep your scent off it. Slower, but nothing hears you.",
+                detail: "Lose some pace to keep your scent off the trail. The pack will not hear you coming.",
                 risk: "",
                 outcome: { quality: 0, advances: true, ambushChance: 0 },
             },
@@ -177,22 +177,22 @@ const SIGNS: readonly HuntSign[] = [
         choices: [
             {
                 id: "wait", label: "Lie in wait",
-                detail: "Take the hollow and hold still. It comes back to you, on your terms.",
+                detail: "Take the hollow and hold still. The beast returns on ground you chose.",
                 risk: "",
                 outcome: { quality: 1, advances: true, ambushChance: 0 },
             },
             {
                 id: "smoke", label: "Smoke it out",
-                detail: "Fire the bracken and force it into the open. Fast, and loud.",
-                risk: "Every animal within a mile will move.",
-                outcome: { quality: -1, advances: true, ambushChance: 0.20 },
+                detail: "Seal the exits with fire and force the target into the open. A clean flush leaves it badly placed for the final fight.",
+                risk: "The smoke carries far: 20% chance the pack closes in, but this route can corner the target.",
+                outcome: { quality: 2, advances: true, ambushChance: 0.20 },
             },
         ],
     },
     {
         id: "fork",
         kicker: "The trail forks",
-        prose: "Two sets of tracks leave the streambed. One is deep, dragging, favouring a side. The other is light and even — and there are several of it.",
+        prose: "Two sets of tracks leave the streambed. One is deep, dragging, and favours a side. The other is light and even — and there are several of them.",
         choices: [
             // A readable skill-check, not a coin flip: the prose states the tell
             // (deep, dragging, favouring a side = weight and a bad leg). Reading it
@@ -205,9 +205,9 @@ const SIGNS: readonly HuntSign[] = [
             },
             {
                 id: "light", label: "Follow the light tracks",
-                detail: "Fresher and easier to read, and there are more of them.",
-                risk: "Several sets of one animal's tracks is rarely one animal.",
-                outcome: { quality: -1, advances: true, ambushChance: 0.30 },
+                detail: "Cut through the fresher tracks to close quickly on the target.",
+                risk: "Several sets rarely mean one animal: 30% chance the pack catches you in its feeding ground.",
+                outcome: { quality: 2, advances: true, ambushChance: 0.30 },
             },
         ],
     },
@@ -217,16 +217,16 @@ const SIGNS: readonly HuntSign[] = [
         prose: "Scat, claw-scores on the bark at two different heights, and a half-eaten kill nobody bothered to bury. More than one animal works this ground.",
         choices: [
             {
-                id: "press", label: "Press on regardless",
-                detail: "The contract is the contract. Walk through them if you have to.",
-                risk: "They are already circling.",
+                id: "press", label: "Press through the pack ground",
+                detail: "Keep on the target’s trail and use the noise to close the gap.",
+                risk: "They are already circling: 55% chance the pack attacks before you reach the target.",
                 outcome: { quality: 1, advances: true, ambushChance: 0.55 },
             },
             {
-                id: "withdraw", label: "Withdraw and re-read the ground",
-                detail: "Back out clean and pick the trail up somewhere they are not.",
-                risk: "Costs you the trail — no progress.",
-                outcome: { quality: 0, advances: false, ambushChance: 0 },
+                id: "withdraw", label: "Flank around the pack",
+                detail: "Give up the clean approach and keep tracking from outside their hearing.",
+                risk: "",
+                outcome: { quality: 0, advances: true, ambushChance: 0 },
             },
         ],
     },

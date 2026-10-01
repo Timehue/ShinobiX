@@ -111,7 +111,7 @@ test("village travel shortcut waits and navigation cannot bypass its countdown",
     await village.click();
     await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
     await village.click();
-    await page.getByRole("button", { name: "Travel", exact: true }).filter({ visible: true }).first().click();
+    await page.getByRole("button", { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
     await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
@@ -948,7 +948,7 @@ test("integration: sector travel and atlas return restore landscape navigation",
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Village", exact: true }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
     await expect(page.locator("html")).not.toHaveClass(/\bwm-zoom\b/);
-    await page.locator(".mobile-bottom-nav").getByRole("button", { name: "Travel", exact: true }).click();
+    await page.locator(".mobile-bottom-nav").getByRole("button", { name: /^(?:Travel|World Map)$/ }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await chooseRegion(page, "moon");

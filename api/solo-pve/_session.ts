@@ -175,6 +175,9 @@ export type SoloPveSession = {
     encounter: SoloPveEncounter;
     player: PvpFighter;
     enemy: PvpFighter;
+    /** Hunt combat is resolved only by the embedded Tower engine. Player/enemy
+     * below remain settlement projections; the actor collection owns combat. */
+    huntCombat?: import('./_hunt-combat.js').HuntCombatState;
     round: number;
     activeSide: SoloPveSide;
     ap: Record<SoloPveSide, number>;
@@ -325,6 +328,7 @@ export type SoloPveJutsu = CombatJutsu & {
 export type SoloPveItem = CombatItem;
 
 export type SoloPveAction =
+    | { type: 'huntAction'; action: import('../../shared/hunt-combat.js').HuntCombatAction }
     | { type: 'move'; tile: number }
     | { type: 'basicAttack' }
     | { type: 'basicHeal' }

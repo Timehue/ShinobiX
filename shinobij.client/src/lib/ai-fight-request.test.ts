@@ -54,9 +54,19 @@ test("unsubscribing restores the fail-closed no-host state", () => {
 const host = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.url), "utf8");
 
 test("AiFightHost renders the code-split authoritative solo shell", () => {
-    assert.match(host, /<MissionArenaFight/);
-    assert.match(host, /import\(["']\.\.\/screens\/MissionArenaFight["']\)/);
+    // The host renders the lazy AiFightScreen, which keeps MissionArenaFight for every
+    // ordinary AI fight and swaps in the grid screen only for a hunt battlefield.
+    assert.match(host, /<AiFightScreen/);
+    assert.match(host, /import\(["']\.\.\/screens\/AiFightScreen["']\)/);
+    const screen = readFileSync(new URL("../screens/AiFightScreen.tsx", import.meta.url), "utf8");
+    assert.match(screen, /<MissionArenaFight \{\.\.\.arena\} \/>/);
+    assert.match(screen, /if \(!huntSession\.huntCombat\)/);
+    // The host never touches the Tower shell directly; hunts reach the grid screen
+    // only through the lazy hunt wrapper, which owns the server-owned hunt transport.
     assert.doesNotMatch(host, /<BattleTowerFight|screens\/BattleTowerFight/);
+    const huntShell = readFileSync(new URL("../screens/HuntTowerFight.tsx", import.meta.url), "utf8");
+    assert.match(huntShell, /stateFn=\{fetchHuntCombatState\}[\s\S]{0,80}actionRetryFn=\{submitHuntCombatAction\}/);
+    assert.match(huntShell, /variant="hunt"/);
 });
 
 test("AiFightHost requires standalone solo-PvE and has no local or Tower authority", () => {
