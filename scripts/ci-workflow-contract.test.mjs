@@ -36,9 +36,13 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     // client-quality 35 to fit three of them. That commit raised the timeouts
     // with its reasoning written into ci.yml and left this bound at 30, which
     // reddened main on a contract test rather than on any product code — the
-    // audit-flake fix tripping a guard that predated it. 36 clears the retry
-    // budget and still fails a job that has genuinely run away.
-    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 36), `ordinary CI timeout escaped the sub-36-minute policy: ${timeouts.join(', ')}`);
+    // audit-flake fix tripping a guard that predated it. 36 cleared the retry
+    // budget and still failed a job that had genuinely run away.
+    // 50 since 6ed8ab4c1 raised the e2e-responsive shards to 45: a slow hosted
+    // runner can spend 15+ minutes downloading Playwright's browsers before a
+    // single case runs, and at 29 the shards hung and held the PR queue. 50
+    // still fails a job that is holding a runner for an hour.
+    assert.ok(timeouts.every((minutes) => minutes > 0 && minutes < 50), `ordinary CI timeout escaped the sub-50-minute policy: ${timeouts.join(', ')}`);
 });
 
 test('split CI preserves every release gate and builds each artifact once', () => {
