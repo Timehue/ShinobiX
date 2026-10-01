@@ -127,6 +127,18 @@ describe('scrypt denial-of-service guard on the generic auth path', () => {
         // rotating name mint unlimited scrypt budget.
         assert.match(authSource, /const failKey = `authpw-fail:\$\{clientIp\(req\) \?\? 'unknown'\}`/);
     });
+
+    it('with tokens enabled, charges EVERY attempt per IP before spending scrypt', () => {
+        // Failures alone did not cover an attacker sending their own CORRECT password
+        // (~40 req/s stalled the loop, 2026-10-01). The attempt cap must be IP-keyed,
+        // gated on playerSessionsEnabled() so the token-less fallback is untouched, and
+        // charged with allow() BEFORE verifying so a concurrent burst cannot slip past.
+        assert.match(authSource, /const attemptKey = `authpw-attempt:\$\{clientIp\(req\) \?\? 'unknown'\}`/);
+        const charge = authSource.indexOf('if (playerSessionsEnabled() && !allow(attemptKey, PASSWORD_ATTEMPT_LIMIT, PASSWORD_ATTEMPT_WINDOW_MS).ok)');
+        const verify = authSource.indexOf('await verifyPlayerPassword(canonical, pw)');
+        assert.ok(charge > 0, 'the password path must charge an attempt cap when tokens are enabled');
+        assert.ok(charge < verify, 'the attempt cap must be charged before the scrypt call');
+    });
 });
 
 describe('IP backstop for name-keyed buckets', () => {
