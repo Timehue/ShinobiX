@@ -46,6 +46,7 @@ import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
+import { pullAdminSnapshotsWithDeviceCache } from "./lib/shared-admin-content-cache";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
@@ -2486,7 +2487,7 @@ export default function App() {
             const p1Character = challenger;
             const p2Character = p2CombatSave?.character ?? acceptingCharacter;
             const p1AllItems = getAllItems(creatorItems);
-            const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
+            const p2AllItems = getAllItems(p2CombatSave?.creatorItems ? [...p2CombatSave.creatorItems, ...creatorItems] : creatorItems); // opponent's own entries first (find() = first wins); local admin content fills ids a slimmed save no longer copies
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
@@ -3294,10 +3295,7 @@ export default function App() {
     }
 
     async function pullSharedAdminContent() {
-        const snapshots = await Promise.all([
-            pullSaveFromServer("Admin 1"),
-            pullSaveFromServer("Admin 2"),
-        ]);
+        const snapshots = await pullAdminSnapshotsWithDeviceCache(pullSaveFromServer); // a failed slot falls back to this device's last good copy
         const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
         if (!available.length) return;
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);

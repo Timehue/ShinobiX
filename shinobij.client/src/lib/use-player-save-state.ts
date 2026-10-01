@@ -59,6 +59,22 @@ export function usePlayerSaveState() {
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
         savedBloodlines: SavedBloodline[];
     }> = {}) {
+        // Shared admin content (jutsu / AIs / events / cards / pet kits) is only
+        // authored on the admin slots. For an ordinary player the server never
+        // takes it from the save body — the ledger keeps the stored copy and the
+        // admin slots are the source (api/save/_slim-player-save.ts) — so sending
+        // it re-uploaded ~250 KB of dead weight on every autosave. In-memory state
+        // still holds it (admin pull + device cache). creatorItems stays: it
+        // carries the player's own forged gear.
+        const sharedContent: Partial<{
+            creatorJutsus: Jutsu[];
+            creatorAis: CreatorAi[];
+            creatorEvents: CreatorEvent[];
+            creatorCards: TileCard[];
+            editablePets: Pet[];
+        }> = isContentAdminName(characterToSave.name)
+            ? { creatorJutsus, creatorAis, creatorEvents, creatorCards, editablePets }
+            : {};
         return {
             // Compact stackables into itemStacks before the server cap (save-side migration).
             character: normalizeInventory(characterToSave),
@@ -71,16 +87,12 @@ export function usePlayerSaveState() {
             currentSector,
             pendingTravel,
             savedBloodlines,
-            creatorJutsus,
-            creatorAis,
-            creatorEvents,
+            ...sharedContent,
             creatorMissions,
             creatorRaids,
-            creatorCards,
             creatorItems,
             petEncounterVn,
             ancientChestVn,
-            editablePets,
             hollowGateEventConfig,
             ...overrides,
         };

@@ -4,6 +4,7 @@ import { authedPlayerOrAdmin, bodyNameMatchesAuth } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { ADMIN_ITEM_CATALOG_UNAVAILABLE, loadAdminItemObjects } from '../_admin-item-catalog.js';
 import { canonicalOwnedElement } from '../pvp/_elements.js';
 
 // Server-authoritative weapon elemental attunement.
@@ -30,11 +31,20 @@ function isWeaponShape(item: Record<string, unknown>): boolean {
         (Array.isArray(item.weaponTags) && (item.weaponTags as unknown[]).length));
 }
 
-// Resolve a weapon's slot + rarity + whether it's a real weapon, from the built-in
-// catalog ∪ the player's own creatorItems (named weapons). Returns null for unknown ids.
-function resolveWeaponMeta(weaponId: string, creatorItems: unknown): { slot: string; rarity: string; isWeapon: boolean } | null {
+// Resolve a weapon's slot + rarity + whether it's a real weapon, in the same order
+// combat resolves gear (api/pvp/_multipliers.ts buildItemLookup): built-in catalog,
+// then the live admin catalog, then the player's own creatorItems (their forged
+// named weapons). The admin catalog matters because slimmed player saves no longer
+// mirror admin items. Returns null for unknown ids.
+function resolveWeaponMeta(
+    weaponId: string,
+    creatorItems: unknown,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
+): { slot: string; rarity: string; isWeapon: boolean } | null {
     const builtin = ITEM_CATALOG[weaponId] as Record<string, unknown> | undefined;
     if (builtin) return { slot: String(builtin.slot ?? ''), rarity: String(builtin.rarity ?? ''), isWeapon: isWeaponShape(builtin) };
+    const authored = adminItems?.get(weaponId);
+    if (authored) return { slot: String(authored.slot ?? ''), rarity: String(authored.rarity ?? ''), isWeapon: isWeaponShape(authored) };
     if (Array.isArray(creatorItems)) {
         const c = creatorItems.find(
             (i) => i && typeof i === 'object' && (i as Record<string, unknown>).id === weaponId,
@@ -92,6 +102,7 @@ export function decideElementalCoreAttunement(
     creatorItems: unknown,
     weaponId: string,
     element: string,
+    adminItems?: ReadonlyMap<string, Record<string, unknown>> | null,
 ): AttuneDecision {
     // 1. The element must be one the player has AWAKENED (not merely a valid token).
     //    canonicalElement is the stored casing so PvP's case-sensitive whitelist honors it.
@@ -102,7 +113,7 @@ export function decideElementalCoreAttunement(
     // 2. The target must be a legendary/mythic melee (hand) WEAPON — not gear that
     //    merely shares the hand slot (gloves/gauntlets), which would otherwise ride
     //    the bloodline multiplier as a fake weapon swing in combat.
-    const meta = resolveWeaponMeta(weaponId, creatorItems);
+    const meta = resolveWeaponMeta(weaponId, creatorItems, adminItems);
     if (!meta) return { ok: false, status: 404, error: 'Unknown weapon.' };
     if (meta.slot !== 'hand' || !meta.isWeapon) return { ok: false, status: 400, error: 'Only melee weapons can be attuned.' };
     const rarity = meta.rarity.toLowerCase();
@@ -160,8 +171,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only attune your own weapons.' });
         }
 
+        // Load BEFORE the save lock (I/O). Strict: a never-loaded catalog must not
+        // turn an admin weapon into "Unknown weapon" — the catch answers 503.
+        const adminItems = await loadAdminItemObjects({ strict: true });
         const result = await mutatePlayerSave(playerName, ({ record, character }) =>
-            decideElementalCoreAttunement(character, record.creatorItems, weaponId, element));
+            decideElementalCoreAttunement(character, record.creatorItems, weaponId, element, adminItems));
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
         return res.status(200).json({
@@ -172,6 +186,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: result._saveVersion,
         });
     } catch (err) {
+        if (err instanceof Error && err.message === ADMIN_ITEM_CATALOG_UNAVAILABLE) {
+            return res.status(503).json({ error: 'The weapon catalog is still loading. Please try again.', retryable: true });
+        }
         console.error('[weapon/apply-elemental-core]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

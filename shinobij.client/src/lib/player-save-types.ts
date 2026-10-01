@@ -18,16 +18,19 @@ export type PlayerSaveFields = {
     currentSector: number;
     pendingTravel: PendingTravelSave | null;
     savedBloodlines: SavedBloodline[];
-    creatorJutsus: Jutsu[];
-    creatorAis: CreatorAi[];
-    creatorEvents: CreatorEvent[];
+    // Shared admin content: only the admin content slots upload these. An
+    // ordinary player's payload omits them (lib/use-player-save-state.ts) and a
+    // slimmed stored save does not carry them (api/save/_slim-player-save.ts).
+    creatorJutsus?: Jutsu[];
+    creatorAis?: CreatorAi[];
+    creatorEvents?: CreatorEvent[];
     creatorMissions: CreatorMission[];
     creatorRaids: CreatorRaid[];
-    creatorCards: TileCard[];
+    creatorCards?: TileCard[];
     creatorItems: GameItem[];
     petEncounterVn: CreatorEvent;
     ancientChestVn: CreatorEvent;
-    editablePets: Pet[];
+    editablePets?: Pet[];
     hollowGateEventConfig: HollowGateEventConfig | null;
 };
 

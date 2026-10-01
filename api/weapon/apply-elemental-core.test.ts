@@ -97,4 +97,15 @@ describe('decideElementalCoreAttunement (server-authoritative validation)', () =
         assert.equal((d.character.weaponElements as Record<string, string>)['black-lotus-dagger'], 'Fire');
         assert.equal(d.value.element, 'Fire');
     });
+
+    it('resolves an admin-authored weapon from the live admin catalog when the save holds no copy (slimmed saves)', () => {
+        const adminBlade = { id: 'admin-stormcutter', name: 'Stormcutter', slot: 'hand', rarity: 'mythic', weaponEp: 30 };
+        const char = baseChar({ inventory: ['admin-stormcutter'] });
+        const withoutCatalog = decideElementalCoreAttunement(char, [], 'admin-stormcutter', 'Fire');
+        assert.equal(withoutCatalog.ok, false, 'with no copy and no catalog the weapon is unknown');
+        const withCatalog = decideElementalCoreAttunement(char, [], 'admin-stormcutter', 'Fire', new Map([[adminBlade.id, adminBlade]]));
+        assert.equal(withCatalog.ok, true);
+        if (!withCatalog.ok) return;
+        assert.equal((withCatalog.character.weaponElements as Record<string, string>)['admin-stormcutter'], 'Fire');
+    });
 });
