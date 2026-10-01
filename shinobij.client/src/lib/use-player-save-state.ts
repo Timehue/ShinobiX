@@ -17,7 +17,7 @@ import { type CreatorMission, type CreatorRaid } from "../types/missions";
 import { mergeMissingBuiltInPets, petPool } from "./pet-roster";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import type { PlayerSavePayload, PlayerSaveSnapshot } from './player-save-types';
-import { withSharedAdminItems } from './shared-admin-content-cache';
+import { withSharedAdminItems } from './shared-admin-items';
 
 export function isContentAdminName(raw: unknown): boolean {
     const name = String(raw ?? "").trim().toLowerCase();

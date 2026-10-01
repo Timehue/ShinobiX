@@ -46,7 +46,7 @@ import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
-import { pullAdminSnapshotsWithDeviceCache, rememberSharedAdminItems } from "./lib/shared-admin-content-cache";
+import { pullSharedAdminSnapshots, rememberSharedAdminItems } from "./lib/shared-admin-items";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
@@ -3296,7 +3296,7 @@ export default function App() {
 
     async function pullSharedAdminContent() {
         // Cached fallbacks first, live reads last (later wins); see the module.
-        const available = await pullAdminSnapshotsWithDeviceCache(pullSaveFromServer);
+        const available = await pullSharedAdminSnapshots(pullSaveFromServer); // lazy device cache; live-only if its chunk fails
         if (!available.length) return;
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
