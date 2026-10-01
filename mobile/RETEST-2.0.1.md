@@ -48,7 +48,7 @@ happens.
    `AndroidManifest.xml` declares the plugin's non-exported FileProvider, and
    `provider_paths.xml` exposes only the app-specific external files directory
    used by the plugin. The source test pins both. The camera capture flow still
-   needs confirmation on a phone running the signed build 7; row 12 records it.
+   needs confirmation on a phone running the signed build 7 or later; row 12 records it.
 2. **The website's shop through a legal page (row 5).** Legal pages open in a
    Chrome tab, and their "← Back to Home" link loads the full website in that
    tab. The app's User-Agent token is absent there. Whether the website still
