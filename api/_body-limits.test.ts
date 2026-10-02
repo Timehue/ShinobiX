@@ -11,7 +11,7 @@ describe('classifyBodyLimit', () => {
     it('grants the big parser ONLY to image/import + specific admin content routes', () => {
         for (const p of [
             '/api/images', '/images', '/api/img/upload', '/api/generate-image',
-            '/api/kv-proxy', '/api/admin/bloodline-review', '/api/admin/item-review',
+            '/api/admin/bloodline-review', '/api/admin/item-review',
             '/api/admin/save-snapshot',
         ]) {
             assert.equal(classifyBodyLimit(p), 'big', `${p} should get the 50 MB parser`);
@@ -21,8 +21,8 @@ describe('classifyBodyLimit', () => {
     it('does NOT grant the big parser to ordinary admin routes (the pre-auth 50 MB fix)', () => {
         for (const p of [
             '/api/admin/server-reset', '/api/admin/players', '/api/admin/economy',
-            '/api/admin/audit-log', '/api/admin/moderation', '/api/admin/migrate-kv',
-            '/admin/server-reset', '/api/admin-auth',
+            '/api/admin/audit-log', '/api/admin/moderation', '/api/admin/migrate-images-to-r2',
+            '/admin/server-reset', '/api/admin-auth', '/api/kv-proxy', '/kv/get',
         ]) {
             assert.equal(classifyBodyLimit(p), 'default', `${p} must NOT get the 50 MB parser`);
         }
