@@ -73,7 +73,10 @@ test("skip and Escape enter the builder once and release focus", async ({ page }
     await page.goto("http://ritual.local/?resumed");
     await page.clock.install();
     for (let count = 1; count <= 2; count++) {
-        await page.getByRole("button", { name: "Begin ritual" }).click();
+        // Open with the keyboard so WebKit pointer-click blur does not replace
+        // the opener whose keyboard focus this test checks after dismissal.
+        await page.getByRole("button", { name: "Begin ritual" }).focus();
+        await page.getByRole("button", { name: "Begin ritual" }).press("Enter");
         const dialog = page.getByRole("dialog", { name: "S Rank Rekindled" });
         await expect(dialog).toBeVisible();
         await page.keyboard.press("Tab");
