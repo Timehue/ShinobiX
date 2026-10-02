@@ -722,7 +722,7 @@ test('durable ranked intent heals a second-save win failure after the live proof
     }
 
     const realNow = Date.now;
-    const originalSet = kv.set;
+    const originalCompareSet = kv.compareSet;
     const baseNow = realNow() + 1_200_000;
     Date.now = () => baseNow;
     const proof = {
@@ -732,13 +732,14 @@ test('durable ranked intent heals a second-save win failure after the live proof
     };
     await kv.set(`pet:ranked-token:${matchToken}`, proof, { ex: 15 * 60 });
     try {
+        // Saves commit through mutatePlayerSaves' compare-and-set.
         let failBravoOnce = true;
-        kv.set = async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        kv.compareSet = async (key, expected, value, options) => {
             if (key === `save:${bravo}` && failBravoOnce) {
                 failBravoOnce = false;
                 throw new Error('injected second participant save failure');
             }
-            return originalSet(key, value, options);
+            return originalCompareSet.call(kv, key, expected, value, options);
         };
         Date.now = () => baseNow + 6_000;
         const failed = response();
@@ -753,7 +754,7 @@ test('durable ranked intent heals a second-save win failure after the live proof
         assert.ok(rankedLedgerEntry(alphaAfterFailure?.character as Record<string, unknown>, matchToken));
         assert.equal(rankedLedgerEntry(bravoAfterFailure?.character as Record<string, unknown>, matchToken), undefined);
         assert.equal(await kv.get(`pet:ranked-result:${matchToken}`), null);
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
 
         Date.now = () => baseNow + (16 * 60 * 1_000);
         assert.equal(await kv.get(`pet:ranked-token:${matchToken}`), null, 'the short live proof genuinely expired');
@@ -772,8 +773,65 @@ test('durable ranked intent heals a second-save win failure after the live proof
         assert.ok(await kv.get(`pet:ranked-result:${matchToken}`));
         assert.equal(await kv.get(`pet:ranked-intent:${matchToken}`), null);
     } finally {
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
         Date.now = realNow;
+        await Promise.all([
+            kv.del(`pet:ranked-token:${matchToken}`),
+            kv.del(`pet:ranked-result:${matchToken}`),
+            kv.del(`pet:ranked-intent:${matchToken}`),
+        ]);
+    }
+});
+
+test('a ranked result keeps the idle recovery both players earned since their last save', async () => {
+    // A ranked report settles the opponent too, who is usually offline. The raw
+    // pair of writes fenced both regeneration cursors and erased that recovery.
+    const alpha = 'rankedregenalpha';
+    const bravo = 'rankedregenbravo';
+    const matchToken = '00000000-0000-4000-8000-000000930001';
+    const pairId = '00000000-0000-4000-8000-000000930002';
+    const alphaPet = {
+        id: 'regen-alpha-pet', name: 'Alpha', rarity: 'standard', level: 20, xp: 0, maxLevel: 100,
+        hp: 5_000, attack: 1_000, defense: 1_000, speed: 1_000,
+        jutsus: [{ name: 'Verdict', power: 1_000, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
+    };
+    const bravoPet = {
+        id: 'regen-bravo-pet', name: 'Bravo', rarity: 'standard', level: 20, xp: 0, maxLevel: 100,
+        hp: 1, attack: 1, defense: 1, speed: 1,
+        jutsus: [{ name: 'Tap', power: 1, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
+    };
+    const auth = await import('../_auth.js');
+    const alphaToken = auth.issuePlayerToken(alpha)!;
+    const at = Date.now() - 30_000;
+    for (const [name, pet] of [[alpha, alphaPet], [bravo, bravoPet]] as const) {
+        await kv.set(`save:${name}`, {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: {
+                name, level: 20, petRankedRating: 1000, activePetId: pet.id, pets: [pet],
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+            },
+        });
+    }
+    await kv.set(`pet:ranked-token:${matchToken}`, {
+        authority: 'pet-ranked-queue-v1', pairId,
+        a: alpha, b: bravo, aRating: 1000, bRating: 1000,
+        aPet: alphaPet, bPet: bravoPet, seed: 73, createdAt: Date.now() - 6_000,
+    }, { ex: 15 * 60 });
+    try {
+        const settled = response();
+        await resultHandler(request({
+            playerName: alpha, outcome: 'win', ranked: true,
+            reportKey: `ranked:${matchToken}`, matchToken,
+        }, alphaToken, '203.0.113.51'), settled.res);
+        assert.equal(settled.out.statusCode, 200, JSON.stringify(settled.out.body));
+        for (const name of [alpha, bravo]) {
+            const character = (await kv.get<Record<string, unknown>>(`save:${name}`))?.character as Record<string, unknown>;
+            assert.ok(rankedLedgerEntry(character, matchToken), `${name} settled`);
+            assert.ok(Number(character.hp) >= 40, `${name}: hp ${character.hp} lost the idle recovery`);
+            assert.ok(Number(character.chakra) >= 50, `${name}: chakra ${character.chakra} lost the idle recovery`);
+            assert.ok(Number(character.stamina) >= 30, `${name}: stamina ${character.stamina} lost the idle recovery`);
+        }
+    } finally {
         await Promise.all([
             kv.del(`pet:ranked-token:${matchToken}`),
             kv.del(`pet:ranked-result:${matchToken}`),
@@ -816,7 +874,7 @@ test('durable ranked intent heals a second-save failure after the live proof exp
     }
 
     const realNow = Date.now;
-    const originalSet = kv.set;
+    const originalCompareSet = kv.compareSet;
     const baseNow = realNow() + 2_400_000;
     Date.now = () => baseNow;
     const proof = {
@@ -833,13 +891,14 @@ test('durable ranked intent heals a second-save failure after the live proof exp
         'a stalemate must still name a winner — Showdown does not draw');
     await kv.set(`pet:ranked-token:${matchToken}`, proof, { ex: 15 * 60 });
     try {
+        // Saves commit through mutatePlayerSaves' compare-and-set.
         let failBravoOnce = true;
-        kv.set = async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        kv.compareSet = async (key, expected, value, options) => {
             if (key === `save:${bravo}` && failBravoOnce) {
                 failBravoOnce = false;
                 throw new Error('injected draw second participant save failure');
             }
-            return originalSet(key, value, options);
+            return originalCompareSet.call(kv, key, expected, value, options);
         };
         Date.now = () => baseNow + 6_000;
         const failed = response();
@@ -854,7 +913,7 @@ test('durable ranked intent heals a second-save failure after the live proof exp
         assert.ok(rankedLedgerEntry(alphaAfterFailure?.character as Record<string, unknown>, matchToken));
         assert.equal(rankedLedgerEntry(bravoAfterFailure?.character as Record<string, unknown>, matchToken), undefined);
         assert.equal(await kv.get(`pet:ranked-result:${matchToken}`), null);
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
 
         Date.now = () => baseNow + (16 * 60 * 1_000);
         assert.equal(await kv.get(`pet:ranked-token:${matchToken}`), null);
@@ -885,7 +944,7 @@ test('durable ranked intent heals a second-save failure after the live proof exp
         assert.ok(await kv.get(`pet:ranked-result:${matchToken}`));
         assert.equal(await kv.get(`pet:ranked-intent:${matchToken}`), null);
     } finally {
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
         Date.now = realNow;
         await Promise.all([
             kv.del(`pet:ranked-token:${matchToken}`),
