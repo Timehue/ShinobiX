@@ -11,11 +11,7 @@ import { resolveRankedPetDuel } from './_ranked-duel.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
-import {
-    type WfBuyPolicy,
-    type WfDoctrine,
-    type WfStance,
-} from '../_pet-sim/pet-warfront-sim.js';
+import type { WfBuyPolicy, WfDoctrine, WfStance } from '../_pet-sim/pet-warfront-contract.js';
 import {
     RITE_BAND_SIZE,
     isValidRitePlan,

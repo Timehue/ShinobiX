@@ -396,10 +396,8 @@ describe('Dungeon Rare Beast server authority', () => {
         await runCleanupCrash('token-gone', 2);
     });
 
-    it('retires a completed Dungeon lease before admitting a new social pet battle', async () => {
+    it('retires a completed Dungeon lease before admitting the next pet battle', async () => {
         const playerName = 'dungeonpetnextadmit';
-        const opponentName = 'dungeonpetnextfoe';
-        const opponentPetId = 'dungeon-pet-next-foe';
         const runToken = 'dungeonpetnext001';
         const authToken = issuePlayerToken(playerName)!;
         await installSave(playerName, runToken);
@@ -428,30 +426,20 @@ describe('Dungeon Rare Beast server authority', () => {
         const claimed = await settleDungeonRun(playerName, authToken, runToken, '127.0.11.3');
         assert.equal(claimed.statusCode, 200);
 
+        // The next admission is the Rare Beast battle of a fresh Dungeon run. (It
+        // used to be an unchallenged social duel; that path was retired with the
+        // legacy duel sim on 2026-10-02.)
+        const nextRunToken = 'dungeonpetnext002';
         const playerSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const playerCharacter = playerSave?.character as Record<string, unknown>;
-        const playerPet = (playerCharacter.pets as Array<Record<string, unknown>>)[0];
-        await kv.set(`save:${opponentName}`, {
-            _saveVersion: 1,
-            character: {
-                ...playerCharacter,
-                name: opponentName,
-                activePetId: opponentPetId,
-                activeDungeonRun: null,
-                pets: [{ ...playerPet, id: opponentPetId, name: 'Social Recovery Foil', nickname: 'Foil' }],
-            },
+        await kv.set(`save:${playerName}`, {
+            ...playerSave,
+            character: { ...playerCharacter, activeDungeonRun: readyCharacter(playerName, nextRunToken).activeDungeonRun },
         });
 
-        const next = response();
-        await startHandler(request({
-            playerName,
-            playerPetIds: [PLAYER_PET_ID],
-            opponentName,
-            opponentPetIds: [opponentPetId],
-            mode: '1v1',
-        }, authToken, '127.0.11.4'), next.res);
-        assert.equal(next.out.statusCode, 200);
-        const nextToken = String(next.out.body?.token ?? '');
+        const next = await startDungeonBattle(playerName, authToken, nextRunToken, '127.0.11.4');
+        assert.equal(next.statusCode, 200);
+        const nextToken = String(next.body?.token ?? '');
         assert.ok(nextToken);
         assert.notEqual(nextToken, oldBattleToken);
         assert.equal(await kv.get(oldTokenKey), null);
