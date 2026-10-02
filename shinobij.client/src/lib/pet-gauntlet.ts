@@ -3,17 +3,17 @@
  *
  * A run = a sequence of escalating fights. Between fights you DRAFT from a shop
  * into a small run-only roster, field up to 2 of them, and chase element/role
- * SYNERGIES (lib/pet-synergies.ts). The fight itself is the deterministic
- * continuous duel — this module never simulates combat; the UI hands the fielded
- * (synergy-buffed) squad to runPetPartyDuel and reports back win/loss.
+ * SYNERGIES (lib/pet-synergies.ts). The fight itself is the deterministic grid
+ * board battle — this module never simulates combat; the UI hands the fielded
+ * (synergy-buffed) squad to runPetGridBattle (lib/pet-board-sim.ts) and reports
+ * back win/loss.
  *
  * LOCKED DESIGN (owner): FRESH-DRAFT, RUN-ONLY pets pulled from the EXISTING
  * roster (rawPetPool → balanceBuiltInPetTemplate) — no new pets, and drafted pets
  * vanish at run end (the gauntlet never touches the player's real collection).
- * V1 = PREVIEW: no rewards (the UI grants nothing); fields up to 2 so it reuses
- * runPetPartyDuel + PetColiseumDuel with ZERO engine/renderer changes. A larger
- * fielded squad (deeper synergies) is a v2 that needs an N-v-N sim wrapper +
- * renderer work.
+ * V1 originally fielded up to 2 pets so it could reuse the legacy 2v2 duel (since
+ * retired) with ZERO engine/renderer changes; the run now resolves on the grid
+ * board battle.
  *
  * Pure + deterministic: every roll is a function of (seed, round, rerolls) via a
  * seeded PRNG, so a run is reproducible (and server-validatable later). No

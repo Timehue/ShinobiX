@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { safeName } from '../_utils.js';
 import {
     isPetRankedMatchId,
@@ -241,13 +242,16 @@ async function requireSetWithExactReadback(
         if (written === 'OK') return;
     } catch (error) {
         const stored = await store.get<unknown>(key).catch(() => null);
-        if (isDeepStrictEqual(stored, value)) return;
+        if (storedValueEquals(stored, value)) return;
         throw error;
     }
     const stored = await store.get<unknown>(key).catch(() => null);
-    if (isDeepStrictEqual(stored, value)) return;
+    if (storedValueEquals(stored, value)) return;
     throw new Error('pet-ranked-journal-write-unconfirmed');
 }
+
+/** Tests call the read-back directly: every value this module writes is a string or a token parsed from JSON. */
+export const requireSetWithExactReadbackForTest = requireSetWithExactReadback;
 
 /** Claim only a missing row; an existing owned row is never delete-refreshed. */
 async function claimMissingExact(

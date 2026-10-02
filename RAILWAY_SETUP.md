@@ -90,14 +90,14 @@ See `.env.example` for the annotated list. Minimum to boot:
 | `GUEST_SWEEP_ENABLED` | ○ | `1` lets the daily cron actually delete guest characters idle for 14 days. Unset, it only logs what it would take — read a night of that first. |
 | `CRON_SECRET` | ▲ | Guards the daily snapshot job (set if you use Railway Cron). |
 | `RESTART_TOKEN` | ▲ | Guards `POST /restart`. |
-| `KV_PROXY_URL` | ✖ | **RETIRED 2026-07-17 — leave unset.** Rollback-only: re-points save/image keys at the cPanel disk overlay (docs/RETIRE_CPANEL_RUNBOOK.md). |
-| `KV_PROXY_TOKEN` | ✖ | Rollback-only companion secret for `KV_PROXY_URL`; remove after cPanel decommission. |
-| `REQUIRE_DISK_OVERLAY` | ✖ | **Leave unset.** Setting `1` with no overlay configured refuses to boot (that guard is rollback tooling, not production config). |
+| `KV_PROXY_TOKEN` | ✖ | Legacy: `/restart` falls back to it only while `RESTART_TOKEN` is unset. Delete it once `RESTART_TOKEN` is set. |
 | `OPENAI_API_KEY` | ○ | Only if the AI image endpoint is used. |
 
-Do **not** set `PORT`, `STATIC_DIR`, `PG_SSL`, or `DISK_KV_DIR` on Railway
-(containers have an ephemeral filesystem). See "Storage topology" below —
-production is Supabase-only since the cPanel overlay retirement.
+Do **not** set `PORT`, `STATIC_DIR`, or `PG_SSL` on Railway. `DISK_KV_DIR`,
+`KV_PROXY_URL` and `REQUIRE_DISK_OVERLAY` belonged to the cPanel disk overlay,
+whose code was removed on 2026-10-02; they no longer do anything, and the server
+logs a boot warning if one is still set, so delete them. See "Storage topology"
+below.
 
 ---
 
@@ -135,26 +135,18 @@ add that origin to `ALLOWED_ORIGINS` in **both** `server.ts` **and**
 
 ## Migration considerations (read before cutting over)
 
-- **Storage topology.** Since the cPanel overlay retirement
-  (2026-07-17, docs/RETIRE_CPANEL_RUNBOOK.md) production runs **Mode A —
-  Supabase-only**: every key, including `save:*` / `shared:images*` /
-  `shared:imgfields*`, lives on the base Postgres store. Leave `DISK_KV_DIR`,
-  `KV_PROXY_*`, and `REQUIRE_DISK_OVERLAY` **unset**.
-  - **Mode B — cPanel disk overlay (RETIRED; rollback-only).** Re-enabling it
-    (set `KV_PROXY_URL` + `KV_PROXY_TOKEN`, plus `REQUIRE_DISK_OVERLAY=1` so a
-    half-configured overlay refuses to boot rather than silently serving wiped
-    saves) re-points save/image keys at the cPanel disk. Only do this as the
-    documented rollback during the soak window — and reconcile any saves written
-    to Postgres first (see the runbook's rollback section).
+- **Storage topology.** Every key, including `save:*` / `shared:images*` /
+  `shared:imgfields*`, lives on the base Postgres store. The cPanel disk overlay
+  that used to hold those prefixes was retired on 2026-07-17 and its code removed
+  on 2026-10-02 (docs/RETIRE_CPANEL_RUNBOOK.md); cPanel is shut down, so there is
+  no overlay to roll back to.
   - **Verify after every deploy:** `GET /api/health?deep=1` returns a `saveStore`
-    field. It must be **`base-store`** — `disk`/`remote-proxy` now means the
-    rollback overlay is unexpectedly active.
+    field. It must be **`base-store`**.
   - **Automated staging gate:** run
     `EXPECTED_SAVE_STORE=base-store node scripts/release-health-check.mjs https://<domain>`
     before opening the build to players.
-- **Ephemeral filesystem.** Railway containers reset their disk on every deploy,
-  so never use `DISK_KV_DIR` there. `DISK_KV_DIR` is only ever correct on the
-  (retired-from-live-traffic) cPanel box, whose disk is persistent.
+- **Ephemeral filesystem.** Railway containers reset their disk on every deploy.
+  Nothing in the server stores data on the local disk.
 - **Cross-provider DB traffic.** Railway↔Supabase round trips cost latency +
   egress on both sides, and the 1-second heartbeat write is the worst offender.
   The realtime layer (in-memory presence + WebSocket) removes it — that's the

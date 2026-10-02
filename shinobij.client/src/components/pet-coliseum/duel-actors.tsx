@@ -27,11 +27,9 @@ import { type DuelDashCue, findActor, hollowHoundSurface, duelFieldToFloor, dash
 
 // ═════════════════════════════════════════════════════════════════════════════
 // PetColiseumDuel — Phase C of the combat redesign (docs/pet-combat-redesign-plan.md).
-// Renders the new CONTINUOUS duel engine (pet-duel-sim.ts) as a fluid fight: it
-// runs runPetDuel / runPetPartyDuel, then plays the per-tick snapshot stream,
-// INTERPOLATING between ticks for smooth motion at any framerate. PREVIEW ONLY
-// (behind the petDuel.v1 flag) — the real battle outcome + rewards still come
-// from the shipped round engine, so this has no gameplay/ranked impact.
+// Renders a precomputed or live DuelResult from the cinematic duel engine
+// (pet-duel-cinematic.ts) as a fluid fight: it plays the per-tick snapshot
+// stream, INTERPOLATING between ticks for smooth motion at any framerate.
 // ═════════════════════════════════════════════════════════════════════════════
 
 // duel sim state → the visual pose the flipbook/choreography uses.

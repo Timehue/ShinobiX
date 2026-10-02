@@ -102,22 +102,16 @@ let cine = read("lib/pet-duel-cinematic.ts")
     .replace(/from "\.\/pet-duel-sim"/g, 'from "./pet-duel-sim.js"');
 write("pet-duel-cinematic.ts", "lib/pet-duel-cinematic.ts", cine);
 
-// 7. Hollow Warfront sim → pet-warfront-{mask-baked,map,sim}.ts. The Warfront
-//    lane-war mode is SERVER-AUTHORITATIVE for its vs-AI reward: the reward
-//    endpoint re-runs this EXACT sim (Node/V8) to verify a browser's reported
-//    outcome. The sim meets the cross-engine determinism contract (no
-//    sin/cos/atan2/hypot — see its header), so any browser reproduces byte-for-
-//    byte on the server. Only import rewrites; ArenaRole/ArenaSlot are inlined.
+// 7. Hollow Warfront map + contract → pet-warfront-{mask-baked,map,contract}.ts.
+//    The settlement runs on the Rite (step 12); the lane-war simulator that used
+//    to be mirrored here was retired on 2026-10-02. The server still reads the
+//    map's WfTheme and the contract's tick rate and plan types.
 write("pet-warfront-mask-baked.ts", "lib/pet-warfront-mask-baked.ts", read("lib/pet-warfront-mask-baked.ts"));
 const wfMap = read("lib/pet-warfront-map.ts")
     .replace(/from "\.\/pet-warfront-mask-baked"/g, 'from "./pet-warfront-mask-baked.js"');
 write("pet-warfront-map.ts", "lib/pet-warfront-map.ts", wfMap);
-const wfSim = read("lib/pet-warfront-sim.ts")
-    .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
-    .replace(/import type \{ ArenaRole, ArenaSlot \} from "\.\/pet-arena-sim";/,
-        'type ArenaRole = "defender" | "tracker" | "assassin" | "sage";\ninterface ArenaSlot { pet: Pet; role: ArenaRole; }')
-    .replace(/from "\.\/pet-warfront-map"/g, 'from "./pet-warfront-map.js"');
-write("pet-warfront-sim.ts", "lib/pet-warfront-sim.ts", wfSim);
+// The contract imports nothing, so it is copied verbatim.
+write("pet-warfront-contract.ts", "lib/pet-warfront-contract.ts", read("lib/pet-warfront-contract.ts"));
 
 // 8. pet-roles.ts → pet-roles.ts. The Warfront reward endpoint needs
 //    derivePetRole to assign the IDENTICAL roles the client did (roles feed the
@@ -168,7 +162,7 @@ const STRAY = ['../types/pet', '../data/pet-config', './pet-coliseum-flag', '../
     // A client-depth shared/ path compiles on the client and NOT on the server,
     // so without this the mirror ships broken and only tsc notices.
     '../../../shared/'];
-for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-sim.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
+for (const name of ["pet-types.ts", "pet-config.ts", "pet-duel-sim.ts", "pet-duel-cinematic.ts", "pet-warfront-mask-baked.ts", "pet-warfront-map.ts", "pet-warfront-contract.ts", "pet-roles.ts", "pet-bond-meter.ts", "pet-duel-doctrine.ts", "pet-warfront-rite.ts"]) {
     const body = readFileSync(join(OUT, name), "utf8");
     for (const s of STRAY) if (body.includes(s)) throw new Error(`gen-pet-sim: stray client import "${s}" left in ${name} — a rewrite rule missed it`);
 }
