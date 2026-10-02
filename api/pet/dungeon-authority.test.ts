@@ -34,6 +34,21 @@ function request(body: Record<string, unknown>, authToken: string, remoteAddress
     } as never;
 }
 
+/**
+ * What a Postgres jsonb read hands back: the JSON form, with every object's keys
+ * in jsonb order (shorter keys first, then bytewise) rather than insertion order.
+ */
+function postgresRead(value: unknown): unknown {
+    const order = (entry: unknown): unknown => {
+        if (Array.isArray(entry)) return entry.map(order);
+        if (!entry || typeof entry !== 'object') return entry;
+        return Object.fromEntries(Object.entries(entry)
+            .sort(([a], [b]) => Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)))
+            .map(([key, child]) => [key, order(child)]));
+    };
+    return value === null ? null : order(JSON.parse(JSON.stringify(value)));
+}
+
 const PLAYER_PET_ID = 'dungeon-pet-hero';
 
 function readyCharacter(playerName: string, runToken: string) {
@@ -268,6 +283,23 @@ describe('Dungeon Rare Beast server authority', () => {
         } finally {
             Date.now = realNow;
         }
+    });
+
+    it('settles a Rare Beast result once Postgres has reordered the sealed token', async (t) => {
+        // The fixed Beast snapshot is compared with the one sealed in the battle
+        // token. jsonb returns that token with its keys reordered (hp, id, xp,
+        // name, ...), so comparing JSON text refused every Rare Beast result.
+        const playerName = 'dungeonpetjsonbprobe';
+        const runToken = 'dungeonpetjsonb01';
+        const authToken = issuePlayerToken(playerName)!;
+        await installSave(playerName, runToken);
+        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.12.1');
+        assert.equal(started.statusCode, 200);
+        const realGet = kv.get.bind(kv);
+        t.mock.method(kv, 'get', async (key: string) => postgresRead(await realGet(key)));
+        const settled = await reportDungeonBattle(playerName, authToken, started, '127.0.12.2');
+        assert.equal(settled.statusCode, 200, JSON.stringify(settled.body));
+        assert.equal(settled.body?.outcome, 'win', 'the sealed server replay still decides the result');
     });
 
     it('settles concurrent reports once and retains the token across a result-receipt outage', async () => {
