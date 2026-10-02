@@ -1,6 +1,7 @@
 import { safeLogValue } from '../_safe-log.js';
 import { resolvePlayerReference } from '../_account-name.js';
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
@@ -69,6 +70,29 @@ function priorNonceAnswer(prior: NonceRecord | null, fingerprint: string): { sta
     }
     if (prior.receipt) return { status: 200, body: { ...(prior.receipt as Record<string, unknown>), duplicate: true } };
     return { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true, txId: typeof prior.txId === 'string' ? prior.txId : undefined } };
+}
+
+/** A stored value compared the way the store keeps it (JSON drops undefined fields). */
+function sameStoredValue(a: unknown, b: unknown): boolean {
+    return isDeepStrictEqual(JSON.parse(JSON.stringify(a ?? null)), JSON.parse(JSON.stringify(b ?? null)));
+}
+
+/**
+ * What a save write that THREW actually did. A write can commit and still throw,
+ * its reply lost on the way back, so only a read-back can say: the intended
+ * value is there (`landed`), the previous one still is (`missed`), or the read
+ * failed or found something else and nobody can tell (`unknown`).
+ */
+async function thrownWriteOutcome(key: string, intended: unknown, previous: unknown): Promise<'landed' | 'missed' | 'unknown'> {
+    let stored: unknown;
+    try {
+        stored = await kv.get(key);
+    } catch {
+        return 'unknown';
+    }
+    if (sameStoredValue(stored, intended)) return 'landed';
+    if (sameStoredValue(stored, previous)) return 'missed';
+    return 'unknown';
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -238,27 +262,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const senderBalance = num(senderChar[currency]) - plan.debit;
+                let senderWrite: unknown;
                 try {
                     const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
-                    await kv.set(senderKey, mergePreservingImages(senderUpdated, senderRec));
+                    senderWrite = mergePreservingImages(senderUpdated, senderRec);
+                    await kv.set(senderKey, senderWrite);
                 } catch (err) {
-                    // Nothing moved. Roll the pending marker back so a retry may
-                    // run for real, and journal the failure.
-                    if (nonceKey) await kv.del(nonceKey).catch(() => undefined);
-                    await failEconomyTx(txId, err, { note: 'debit write failed; no funds moved' }).catch(() => undefined);
-                    return { status: 502, body: { error: 'The transfer could not start. Nothing was sent.' } };
+                    // A debit can commit and still throw. Deleting the marker
+                    // after one that landed let the retry of the same nonce
+                    // debit the sender a second time, so read back first.
+                    const outcome = senderWrite === undefined ? 'missed' : await thrownWriteOutcome(senderKey, senderWrite, senderRec);
+                    if (outcome === 'missed') {
+                        // Nothing moved. Roll the pending marker back so a retry
+                        // may run for real, and journal the failure.
+                        if (nonceKey) await kv.del(nonceKey).catch(() => undefined);
+                        await failEconomyTx(txId, err, { note: 'debit write failed; no funds moved' }).catch(() => undefined);
+                        return { status: 502, body: { error: 'The transfer could not start. Nothing was sent.' } };
+                    }
+                    if (outcome === 'unknown') {
+                        // The debit may have landed. Keep the pending marker,
+                        // which is what stops a retry from debiting again, and
+                        // leave the reconcile trail.
+                        await failEconomyTx(txId, err, { note: `debit of ${plan.debit} ${currency} unconfirmed; recipient not credited — reconcile` }).catch(() => undefined);
+                        console.error('[player/trade] debit write unconfirmed', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
+                        return { status: 502, body: { error: 'The transfer could not be confirmed. It is recorded for review — do not resend.', txId } };
+                    }
+                    // Landed: only the reply was lost. Carry on to the credit.
                 }
                 await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
+                let recipientWrite: unknown;
                 try {
                     const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } }, { previousCharacter: recipientChar });
-                    await kv.set(recipientKey, mergePreservingImages(recipientUpdated, recipientRec));
+                    recipientWrite = mergePreservingImages(recipientUpdated, recipientRec);
+                    await kv.set(recipientKey, recipientWrite);
                 } catch (err) {
-                    // Debit committed, credit did not: loss-direction, never a
-                    // mint. Keep the pending nonce (blocks a re-debit) and flag
-                    // the journal for reconciliation.
-                    await failEconomyTx(txId, err, { note: `debited ${plan.debit} ${currency}; recipient credit failed — reconcile` }).catch(() => undefined);
-                    console.error('[player/trade] credit write failed after debit', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
-                    return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
+                    // A credit that committed with its reply lost is a finished
+                    // transfer: journalled as failed, it invites a second credit.
+                    const landed = recipientWrite !== undefined
+                        && await thrownWriteOutcome(recipientKey, recipientWrite, recipientRec) === 'landed';
+                    if (!landed) {
+                        // Debit committed, credit did not (or cannot be shown
+                        // to have): loss-direction, never a mint. Keep the
+                        // pending nonce (blocks a re-debit) and flag the journal
+                        // for reconciliation.
+                        await failEconomyTx(txId, err, { note: `debited ${plan.debit} ${currency}; recipient credit failed — reconcile` }).catch(() => undefined);
+                        console.error('[player/trade] credit write failed after debit', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
+                        return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
+                    }
                 }
                 await completeEconomyTx(txId).catch(() => undefined);
                 // Charge the rolling window INSIDE the locks, beside the debit it
