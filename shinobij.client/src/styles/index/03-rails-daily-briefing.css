@@ -67,6 +67,40 @@
 .notif-bar.compact { padding: 4px; }
 .notif-bar.compact .notif-chip { justify-content: center; padding: 6px 0; }
 
+/* Compact profile-card shortcut, directly below the level. */
+.left-daily-briefing-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    align-self: center;
+    flex: 0 0 auto;
+    width: calc(100% - 12px);
+    max-width: 200px;
+    min-height: 30px;
+    margin-top: 3px;
+    padding: 6px 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+    background: rgba(15, 23, 42, 0.22);
+    color: var(--slate-200);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+@media (hover: hover) {
+    .left-daily-briefing-button:hover {
+        background: rgba(148, 163, 184, 0.1);
+        border-color: rgba(148, 163, 184, 0.55);
+    }
+}
+.left-daily-briefing-button:focus-visible {
+    outline: 2px solid var(--gold-400);
+    outline-offset: 3px;
+}
+
 /* ===== Daily Briefing modal (once-per-day notice board) ===== */
 /* The shell is a transparent sizing box only — the visible card inside is the
    one thing that scrolls. It used to be 960px wide around a 720px card (dead

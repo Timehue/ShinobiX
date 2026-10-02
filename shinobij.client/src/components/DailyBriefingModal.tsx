@@ -8,9 +8,9 @@
  *     player isn't part of, click-through to the relevant screen,
  *   • preserves collective world context without duplicating the Logbook.
  *
- * Dismiss (✕ / backdrop / "Enter the village") hides it until the next UTC day
- * via a localStorage date stamp. Renders nothing when there's nothing to show
- * (below level 5, or already dismissed today).
+ * Dismiss (✕ / backdrop / "Enter the village") hides the automatic popup until
+ * the next UTC day via a localStorage date stamp. The profile card's Daily
+ * Briefing button can reopen it at any time for eligible players.
  *
  * Hosted by LeftProfileCard (which already has character + training props) and
  * rendered through a portal to <body>, so it shows full-screen on desktop AND
@@ -61,6 +61,16 @@ export function DailyBriefingModal({
     const [dismissed, setDismissed] = useState(() => {
         try { return localStorage.getItem(SEEN_KEY) === today; } catch { return false; }
     });
+    const openerRef = useRef<HTMLElement | null>(null);
+    useEffect(() => {
+        const reopen = (event: Event) => {
+            const opener = (event as CustomEvent<HTMLElement>).detail;
+            openerRef.current = opener instanceof HTMLElement ? opener : null;
+            setDismissed(false);
+        };
+        window.addEventListener("shinobix:open-daily-briefing", reopen);
+        return () => window.removeEventListener("shinobix:open-daily-briefing", reopen);
+    }, []);
     // Held back through the first awakening handoff too: finishing the Academy
     // should lead straight to the Awakening Stone, not another full-screen
     // notice board. The daily reward remains available once the player owns an
@@ -167,7 +177,7 @@ export function DailyBriefingModal({
     const { featured: wars, remaining: otherWars } = briefingWarPriorities(worldReport(now), character.village, character.clan ?? "");
 
     return (
-        <Modal open={shouldShow} onClose={close} bare ariaLabel="Daily Briefing" size="lg" className="daily-briefing-modal-shell">
+        <Modal open={shouldShow} onClose={close} bare ariaLabel="Daily Briefing" size="lg" className="daily-briefing-modal-shell" returnFocusRef={openerRef}>
             <div
                 className="daily-briefing-card"
                 style={{ backgroundImage: `linear-gradient(180deg, rgba(8,12,24,0.42), rgba(8,12,24,0.86) 46%, rgba(8,12,24,0.95)), url(${briefingBg})` }}
