@@ -230,7 +230,10 @@ describe('pet bond decay — PvE summon ONLY', () => {
     // decided by build and play, not by daily upkeep (the balanced-PvP pillar).
     const DUEL_SOURCES = [
         'api/_pet-sim/pet-duel-sim.ts',
-        'api/_pet-sim/pet-warfront-sim.ts',
+        // The live Warfront and coliseum engines (the lane-war sim that used to
+        // sit here was retired on 2026-10-02).
+        'api/_pet-sim/pet-duel-cinematic.ts',
+        'api/_pet-sim/pet-warfront-rite.ts',
         'api/_pet-sim/pet-board-sim.ts',
         'api/_pet-showdown/engine.ts',
         'api/pet/_pvp-duel.ts',

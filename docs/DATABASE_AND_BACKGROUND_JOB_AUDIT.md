@@ -25,7 +25,9 @@ this document is aggregate — no player names, saves, IPs, fingerprints, tokens
 > every other key — the "remote KV proxy" / disk-overlay hop (a latency and 502
 > source) is eliminated. See `docs/RETIRE_CPANEL_RUNBOOK.md`. The topology map
 > below describes the *pre-cutover* two-tier layout; the live layout is now
-> single-stack (Railway + Postgres).
+> single-stack (Railway + Postgres). **2026-10-02:** cPanel is shut down and the
+> overlay, KV proxy and routing code were removed from the server, so the
+> overlay-specific findings below are history.
 
 ---
 

@@ -1,7 +1,10 @@
 /**
- * Small runtime contract for the Hollow Warfront UI. Keep simulation code out
- * of this module: the authoritative engine is bundled only in the Web Worker.
- * These values mirror the deterministic engine's exported public contract.
+ * Small runtime contract for Hollow Warfront, shared by the UI and the server.
+ * Keep simulation code out of this module: the authoritative engine
+ * (pet-warfront-rite.ts) is bundled only in the Web Worker. The lane-war
+ * simulator these values used to mirror was retired on 2026-10-02, so this
+ * module is now their single source; scripts/gen-pet-sim.mjs copies it to
+ * api/_pet-sim/ for the server.
  */
 export const WARFRONT_TPS = 30;
 export const WF_MAX_SECONDS = 420;
@@ -11,6 +14,7 @@ export const WF_PHASE_SUDDEN = 300;
 
 export type WfStance = "balanced" | "siege" | "jungle" | "headhunt" | "turtle";
 export type WfDoctrine = "none" | "vanguard" | "bulwark" | "zealot" | "warden-pact";
+export type WfBuyPolicy = "off" | "balanced" | "offense" | "defense";
 
 export const WF_DOCTRINES: ReadonlyArray<{ id: WfDoctrine; icon: string; label: string; desc: string }> = [
     { id: "vanguard", icon: "\u2694", label: "Vanguard", desc: "+8% attack — claim the first duel" },

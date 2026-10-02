@@ -23,10 +23,13 @@ import { petStatCeil, petJutsuPowerCeil } from "../_pet-stat-ceil.js";
 import { resolveWarDuel } from "../_pet-showdown/war-duel.js";
 import type { ShowdownReplayScript } from "../../shared/pet-showdown-contract.js";
 import type { Pet as CinePet } from "../_pet-sim/pet-types.js";
-import type { ArenaRole } from "./_arena-sim.js";
 import { runWarfrontRite } from "../_pet-sim/pet-warfront-rite.js";
 import { defaultWarfrontLadderPlan, parseWarfrontLadderPlan, type WarfrontLadderPlan } from "../../shared/warfront-ladder-plan.js";
 import type { Pet, PetJutsu, PetLoadout, JutsuElement, PetRole, PetSubRole, PetTrait } from "./_pet-types.js";
+
+/** A ladder pet's arena role. The hand-ported tactical arena sim that used to
+ *  define this type was retired on 2026-10-02; the roles are the pet roles. */
+type ArenaRole = PetRole;
 
 export type Mode = "coliseum" | "tactical";
 export const COLISEUM_PETS = 1;
