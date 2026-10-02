@@ -187,7 +187,8 @@ function sectorWithNightNinja(nowMs: number): number {
 test('the night slot sits just above the daytime cast', () => {
     assert.equal(WANDERER_NIGHT_INDEX, WANDERER_MAX_INDEX + 1);
     // Mirrored as a literal by the e2e quiet-road helpers (adaptive-shell,
-    // story-field-work, pet-mentor-guide, world-map-mobile).
+    // story-field-work, pet-mentor-guide, world-map-mobile) and by the live
+    // journeys' shinobij.client/e2e-live/helpers/quiet-road.ts.
     assert.equal(WANDERER_NIGHT_INDEX, 2);
 });
 
