@@ -41,7 +41,7 @@ import { villageWarMapEnabled } from './_release-flags.js';
 import { onlineStore } from './_realtime/online-store.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { listSleeperCamps, type SleeperCamp } from './_realtime/sleeper-camps.js';
-import { settleSleeperKoLocked } from './player/sleeper-kill.js';
+import { settleSleeperKo } from './player/sleeper-kill.js';
 import { pushOfflineNotice } from './player/_offline-notices.js';
 import { LockContendedError } from './_lock.js';
 
@@ -318,14 +318,13 @@ export async function raidSleeperCamp(args: { targetPlayer: string; sector: numb
     const slug = safeName(args.targetPlayer);
     if (!slug) return false;
     try {
-        const result = await withKvLock(`save:${slug}`, async () => {
-            if (await isMercTargetOnCooldown(slug, args.now)) return false;
-            // We hold save:<slug>, so use the locked settlement directly.
-            const ko = await settleSleeperKoLocked(slug, { now: args.now, expectSector: args.sector });
-            if (ko.status !== 200) return false;
-            await setMercTargetCooldown(slug, args.now);
-            return true;
-        }, { failClosed: true });
+        const ko = await settleSleeperKo(slug, {
+            now: args.now,
+            expectSector: args.sector,
+            gate: async () => !(await isMercTargetOnCooldown(slug, args.now)),
+            afterKo: () => setMercTargetCooldown(slug, args.now),
+        });
+        const result = ko.status === 200;
         if (result === true) {
             // The victim wakes in the hospital with no idea why — leave them a
             // note for their next heartbeat. Best-effort; the raid already landed.

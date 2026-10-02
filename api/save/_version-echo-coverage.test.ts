@@ -32,11 +32,11 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  * have echoed from the start, which is why mission rewards survive a 409.
  */
 const ECHOES_VERSION = new Set([
-    // Sleeping-camp KO. It credits the attacker (base ryo, kill count, Vanguard
-    // seals) and may then credit a head bounty on top; it echoes whichever write
-    // touched the save LAST, so the client adopts the balance it will actually
-    // read back. Used to be EXEMPT ("bumps silently") — it no longer does.
-    'player/sleeper-kill.ts',
+    // (player/sleeper-kill.ts used to be listed here. It now commits the KO and
+    // the attacker's credit through mutatePlayerSaves and names no BUMP_MARKER,
+    // so the "every mutatePlayerSave route acknowledges the committed version"
+    // gate below covers it. It still echoes whichever write touched the
+    // attacker's save LAST — the credit, or a head bounty on top.)
     // Ranked 2v2 ladder settlement. It rates up to four saves in one call, but
     // the CALLER is always one of them, and its only caller — pvp/ranked-2v2.ts's
     // settle action — echoes that participant's committed `_saveVersion` so the
@@ -74,7 +74,9 @@ const ECHOES_VERSION = new Set([
     'missions/report-raid.ts',
     'pet/battle-result.ts',
     'pet/showdown.ts',
-    'player/_cross-heal-settlement.ts',
+    // player/_cross-heal-settlement.ts now commits both saves through
+    // mutatePlayerSaves and names no BUMP_MARKER. It still returns the healer's
+    // exact committed `_saveVersion`, which player/heal.ts echoes.
     // battle/lock.ts (every PvE defeat — the hottest path of all),
     // hollow-gate/step.ts, legacy/trial.ts, missions/report-pet-event.ts,
     // pet/gauntlet.ts, player/heal.ts and weekly-boss.ts now commit through

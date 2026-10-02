@@ -1,7 +1,7 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
@@ -20,6 +20,7 @@ import {
 } from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
+import { mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -1271,18 +1272,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // any token resolved by the current engine. It stays because a draw
             // is still representable in the receipt shape.
             if (simulatedWinner === null) {
-                const settleDrawPet = async (
-                    slug: string,
-                    record: Record<string, unknown>,
-                ) => {
-                    const sk = `save:${slug}`;
-                    const char = characterFromSave(record);
-                    if (!char) throw new Error(`Ranked participant save is missing a character: ${slug}`);
+                // Each side's receipt rides in its own save write, so a side
+                // that already settled is left as it is.
+                const settleDrawSide = (slug: string, char: Record<string, unknown>): PlayerSavesSide => {
                     const receipts = readRankedPetSaveReceipts(char)
                         .slice(-(RANKED_SAVE_RECEIPT_CAP - 1));
-                    if (receipts.some((entry) => rankedPetSaveReceiptToken(entry) === matchToken)) return;
-                    const updated = bumpSaveVersion({
-                        ...record,
+                    if (receipts.some((entry) => rankedPetSaveReceiptToken(entry) === matchToken)) return { write: false, character: char };
+                    return {
                         character: {
                             ...char,
                             redeemedPetRankedMatchTokens: [
@@ -1290,22 +1286,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 makeRankedPetSaveReceipt(matchToken, tok, null, slug),
                             ],
                         },
-                    });
-                    await kv.set(sk, mergePreservingImages(updated, record));
+                    };
                 };
                 try {
-                    const [k1, k2] = [`save:${tok.a}`, `save:${tok.b}`].sort();
-                     await withKvLock(k1, () => withKvLock(k2, async () => {
-                         const [aRecord, bRecord] = await Promise.all([
-                             kv.get<Record<string, unknown>>(`save:${tok.a}`),
-                             kv.get<Record<string, unknown>>(`save:${tok.b}`),
-                         ]);
-                         if (!characterFromSave(aRecord) || !characterFromSave(bRecord)) {
-                             throw new Error('Both ranked participant saves must exist before settlement.');
-                         }
-                         await settleDrawPet(tok.a, aRecord!);
-                         await settleDrawPet(tok.b, bRecord!);
-                     }, { failClosed: true }), { failClosed: true });
+                    // Both saves are locked, and both must exist, before either
+                    // is written; a retry replays a side from its receipt.
+                    const drawn = await retryOnSaveVersionConflict(() => mutatePlayerSaves<null>([tok.a, tok.b], (sides) => ({
+                        ok: true,
+                        value: null,
+                        sides: {
+                            [tok.a]: settleDrawSide(tok.a, sides[tok.a]!.character),
+                            [tok.b]: settleDrawSide(tok.b, sides[tok.b]!.character),
+                        },
+                    })));
+                    if (!drawn.ok) throw new Error('Both ranked participant saves must exist before settlement.');
                      await writeRankedSettlementReceipt(matchToken, tok, null);
                      const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                      if (!characterFromSave(finalSave)) throw new Error('Ranked draw settled, but the authoritative save could not be reloaded.');
@@ -1329,14 +1323,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Settle one side once. The receipt lives in the same save write as
             // rating + witness progress, so a failed write cannot
             // strand an external NX marker and a failed response can be replayed.
-            const settlePet = async (
+            const settlePet = (
                 slug: string,
                 role: 'winner' | 'loser',
-                record: Record<string, unknown>,
+                char: Record<string, unknown>,
             ) => {
-                const sk = `save:${slug}`;
-                const char = characterFromSave(record);
-                if (!char) throw new Error(`Ranked participant save is missing a character: ${slug}`);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind: 'pet' });
                 const receipts = readRankedPetSaveReceipts(char)
                     .slice(-(RANKED_SAVE_RECEIPT_CAP - 1));
@@ -1346,13 +1337,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? petWitnessReceiptForSettlement(char, `pet-ranked:${matchToken}`)
                         : { granted: [] as string[], witnessed: [], livingWitnessProgress: [] };
                     return {
-                        field: 'petRankedRating',
-                        value: Number.isFinite(currentRating) ? currentRating : r.newRating,
-                        delta: 0,
-                        replayed: true,
-                        chronicleCards: replayReceipt.granted,
-                        witnessedPets: replayReceipt.witnessed,
-                        livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                        side: { write: false, character: char } satisfies PlayerSavesSide,
+                        rating: {
+                            field: 'petRankedRating',
+                            value: Number.isFinite(currentRating) ? currentRating : r.newRating,
+                            delta: 0,
+                            replayed: true,
+                            chronicleCards: replayReceipt.granted,
+                            witnessedPets: replayReceipt.witnessed,
+                            livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                        },
                     };
                 }
                 const combatPetId = String((slug === tok.a ? tok.aPet : tok.bPet)?.id ?? '');
@@ -1367,33 +1361,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const witness = role === 'winner'
                     ? recordPetArenaVictory(rankedCharacter, [combatPetId], Date.now(), `pet-ranked:${matchToken}`)
                     : { character: rankedCharacter, granted: [] as string[], witnessed: [], livingWitnessProgress: [] };
-                const updated = bumpSaveVersion({ ...record, character: witness.character });
-                await kv.set(sk, mergePreservingImages(updated, record));
                 return {
-                    field: 'petRankedRating',
-                    value: r.newRating,
-                    delta: r.delta,
-                    chronicleCards: witness.granted,
-                    witnessedPets: witness.witnessed,
-                    livingWitnessProgress: witness.livingWitnessProgress,
+                    side: { character: witness.character } satisfies PlayerSavesSide,
+                    rating: {
+                        field: 'petRankedRating',
+                        value: r.newRating,
+                        delta: r.delta,
+                        chronicleCards: witness.granted,
+                        witnessedPets: witness.witnessed,
+                        livingWitnessProgress: witness.livingWitnessProgress,
+                    } as { field: string; value: number; delta: number; replayed?: boolean; chronicleCards: string[]; witnessedPets: unknown[]; livingWitnessProgress: unknown[] },
                 };
             };
 
             try {
-                // Lock both saves in deterministic key order (deadlock-free).
-                const [k1, k2] = [`save:${winnerName}`, `save:${loserName}`].sort();
-                const out = await withKvLock(k1, () => withKvLock(k2, async () => {
-                    const [winnerRecord, loserRecord] = await Promise.all([
-                        kv.get<Record<string, unknown>>(`save:${winnerName}`),
-                        kv.get<Record<string, unknown>>(`save:${loserName}`),
-                    ]);
-                    if (!characterFromSave(winnerRecord) || !characterFromSave(loserRecord)) {
-                        throw new Error('Both ranked participant saves must exist before settlement.');
-                    }
-                    const w = await settlePet(winnerName, 'winner', winnerRecord!);
-                    const l = await settlePet(loserName, 'loser', loserRecord!);
-                     return { rating: playerName === winnerName ? w : l };
-                 }, { failClosed: true }), { failClosed: true });
+                // Both saves are locked (one sorted order, deadlock-free) and
+                // must exist before either is written. Each side's receipt is in
+                // its own write, so a retry replays a side that already settled.
+                const settled = await retryOnSaveVersionConflict(() => mutatePlayerSaves([winnerName, loserName], (sides) => {
+                    const w = settlePet(winnerName, 'winner', sides[winnerName]!.character);
+                    const l = settlePet(loserName, 'loser', sides[loserName]!.character);
+                    return {
+                        ok: true,
+                        value: playerName === winnerName ? w.rating : l.rating,
+                        sides: { [winnerName]: w.side, [loserName]: l.side },
+                    };
+                }));
+                if (!settled.ok) throw new Error('Both ranked participant saves must exist before settlement.');
+                const out = { rating: settled.value };
                  // The public Pet Elo board reads this index, not full saves.
                  // Project both durable ratings before publishing completion;
                  // a retry re-reads the latest saves if projection fails.
