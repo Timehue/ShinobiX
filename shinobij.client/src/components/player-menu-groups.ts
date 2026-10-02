@@ -1,6 +1,6 @@
 import {
     GiAnvil, GiBeerStein, GiBiceps, GiBookCover, GiEnvelope,
-    GiFireSpellCast, GiKnapsack, GiNinjaHeroicStance, GiPawPrint,
+    GiFireSpellCast, GiKnapsack, GiNinjaHeroicStance, GiPetHome,
     GiScrollUnfurled, GiThreeFriends, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
@@ -14,7 +14,7 @@ export const PLAYER_MENU_GROUPS = [
     ] },
     { id: "character", label: "Character", items: [
         ["profile", "Character", GiNinjaHeroicStance], ["inventory", "Inventory", GiKnapsack],
-        ["home", "Pet Home", GiPawPrint], ["professions", "Professions", GiAnvil],
+        ["home", "Pet Home", GiPetHome], ["professions", "Professions", GiAnvil],
     ] },
     { id: "social", label: "Social", items: [
         ["userHub", "Users", GiThreeFriends], ["messages", "Mail", GiEnvelope],

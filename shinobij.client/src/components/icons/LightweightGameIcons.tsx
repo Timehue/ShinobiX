@@ -88,6 +88,7 @@ const medal = artGlyph("crown");
 const menu = gameGlyph("menu");
 const moon = artGlyph("biomeShadow");
 const paw = artGlyph("petTamer");
+const petHome = artGlyph("petHome");
 const person = artGlyph("roleDefender");
 const ryo = artGlyph("ryo");
 const scroll = artGlyph("scroll");
@@ -96,12 +97,18 @@ const snow = artGlyph("biomeSnow");
 const sparkle = artGlyph("auraStone");
 const speed = artGlyph("speed");
 const strength = artGlyph("training");
+const blacksmith = artGlyph("blacksmith");
+const community = artGlyph("community");
 const target = artGlyph("roleTracker");
 const tower = artGlyph("clanHall");
 const coliseum = artGlyph("arena");
 const travel = artGlyph("gate");
 
-const book = artGlyph("scroll");
+const book = artGlyph("logbook");
+const storyBook = artGlyph("storyHall");
+const tavern = artGlyph("tavern");
+const shop = artGlyph("shop");
+const premiumShop = artGlyph("premiumShop");
 const chat = pathGlyph("M4 4.5h16v11H9l-5 4v-15Z");
 const discord = gameGlyph("discord");
 const envelope = gameGlyph("envelope");
@@ -121,12 +128,12 @@ const trophy = artGlyph("crown");
 export {
     clock as GiAlarmClock,
     paw as GiAnimalHide,
-    strength as GiAnvil,
-    bag as GiBeerStein,
+    blacksmith as GiAnvil,
+    tavern as GiBeerStein,
     strength as GiBiceps,
     defense as GiBlackBelt,
     flag as GiBlackFlag,
-    strength as GiBlacksmith,
+    blacksmith as GiBlacksmith,
     book as GiBookCover,
     book as GiBookshelf,
     speed as GiBootPrints,
@@ -197,11 +204,12 @@ export {
     person as GiNinjaHeroicStance,
     book as GiNotebook,
     target as GiOgre,
-    book as GiOpenBook,
+    storyBook as GiOpenBook,
     gift as GiOpenTreasureChest,
     lock as GiPadlock,
     tower as GiPagoda,
     paw as GiPawPrint,
+    petHome as GiPetHome,
     map as GiPositionMarker,
     attack as GiPunchBlast,
     medal as GiRank3,
@@ -211,7 +219,8 @@ export {
     clock as GiSandsOfTime,
     scroll as GiScrollUnfurled,
     defense as GiShield,
-    bag as GiShop,
+    shop as GiShop,
+    premiumShop as GiPremiumShop,
     snow as GiSnowflake1,
     sparkle as GiSparkles,
     speaker as GiSpeaker,
@@ -230,7 +239,7 @@ export {
     chat as GiTalk,
     target as GiTargeted,
     travel as GiTempleGate,
-    person as GiThreeFriends,
+    community as GiThreeFriends,
     bone as GiTombstone,
     map as GiTrail,
     trash as GiTrashCan,
