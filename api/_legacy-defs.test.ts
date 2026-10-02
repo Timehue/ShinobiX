@@ -12,6 +12,18 @@ import {
 import {
     BOOTSTRAP_CAPS, legacyBootstrapBeforeCounterIncrement, seedLegacyStatsFromSave,
 } from './_legacy-track.js';
+
+test('a path qualifying without PvP keeps every trial variant free of mandatory PvP', () => {
+    const pvp = new Set(['pvpWins', 'pvpKills', 'rankedWins', 'sameRankWins', 'higherLevelWins', 'comebackWins', 'bestKillStreak', 'defensiveWins', 'sectorDefenses', 'warPvpKills']);
+    for (const def of LEGACY_DEFS) {
+        if (def.reqs.some((req) => 'stat' in req ? pvp.has(req.stat) : req.anyOf.every((r) => pvp.has(r.stat)))) continue;
+        for (const kind of ['awaken', 'bind', 'prove', 'mythic'] as const) {
+            for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) assert.ok(
+                trialObjectivesFor(def, kind, variant).every((objective) => !pvp.has(objective.stat)), `${def.id} ${kind}/${variant}`,
+            );
+        }
+    }
+});
 import { AI_FIGHT_SOFT_CAP_PER_DAY } from './missions/_ai-fight-reward.js';
 import { DAILY_HUNT_LIMIT, DAILY_MISSION_LIMIT } from './missions/_mission-catalog.js';
 import { AMBUSH_REWARDS_PER_DAY } from './sector/_wanderer-ambush.js';

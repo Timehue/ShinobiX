@@ -76,3 +76,22 @@ test('guardDefenseDeltas — queue-defense faucet (defender wins, attacker wins,
     // Missing marker fields don't false-credit an empty winner name.
     assert.deepEqual(guardDefenseDeltas({}, 'guard'), {});
 });
+
+test('level-cap ranked upsets remain earnable from sealed rating snapshots', () => {
+    const session = { p1: fighter('Cap', { level: 100 }), p2: fighter('Favorite', { level: 100 }),
+        playerRankedAuthorityVersion: 2, p1Rating: 1000, p2Rating: 1100 };
+    assert.equal(extractPvpLegacyDeltas(session, 'Cap', 'Favorite').winnerDeltas.higherLevelWins, 1);
+    assert.equal(extractPvpLegacyDeltas(session, 'Cap', 'Favorite').winnerDeltas.rankedWins, 1);
+    assert.equal(extractPvpLegacyDeltas({ ...session, p2Rating: 1099 }, 'Cap', 'Favorite').winnerDeltas.higherLevelWins, undefined);
+    assert.equal(extractPvpLegacyDeltas({ ...session, playerRankedAuthorityVersion: undefined }, 'Cap', 'Favorite').winnerDeltas.higherLevelWins, undefined);
+});
+
+test('basic, siphon and lifesteal healing count for either fighter', () => {
+    const session = { p1: fighter('Healer'), p2: fighter('Other'), log: [
+        'Healer uses Basic Heal, restoring 30 HP.', 'Siphon: Healer heals 12 HP.',
+        'Lifesteal: Other heals 20 HP.', 'Heal: Healer restores 0 HP.',
+    ] };
+    const { winnerDeltas, loserDeltas } = extractPvpLegacyDeltas(session, 'Healer', 'Other');
+    assert.equal(winnerDeltas.healingDone, 42);
+    assert.equal(loserDeltas.healingDone, 20);
+});

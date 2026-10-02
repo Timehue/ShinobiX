@@ -1,0 +1,49 @@
+✔ solo PvE uses applied HP, shield and damage facts, excluding overheal and companion damage (3.379ms)
+✔ real combat healing log and Legacy credit match applied HP, including full-health casts (3.6744ms)
+✔ Tower attribution respects multiple human and enemy casters (1.2854ms)
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for dungeonproberecovery1: Legacy activity receipt was not committed.
+✔ verified dungeon clear repairs interrupted Legacy delivery without repeating rewards (16093.2953ms)
+✔ no-presence retains its retry reason and spends nothing until presence is ready (7.4604ms)
+✔ sector mismatch is distinct from transient presence startup (2.3874ms)
+✔ daily cap explains its reset and still permits recovery of an existing receipt (6.2221ms)
+✔ an unearned probe explains prior exploration without claiming a daily cap (2.5936ms)
+[dungeon/run] Error: Injected lost dungeon probe acknowledgement.
+✔ contention reports retryable busy and never mints a dungeon without the save lock (669.5151ms)
+✔ lost response replays the committed discovery without another daily attempt (8.5151ms)
+▶ Tower direct-cast canonical tag parity
+  ✔ matches applyPvpJutsu for every non-positional canonical tag (27.6609ms)
+  ✔ classifies stale zero-damage utility records exactly like canonical PvP targeting (1.5497ms)
+✔ Tower direct-cast canonical tag parity (30.3499ms)
+▶ Tower AP modifier parity for every action family
+  ✔ Lag changes validation and committed spend for every paid action (4.5776ms)
+  ✔ Overclock changes validation and committed spend for every paid action (2.5984ms)
+  ✔ Lag + Overclock changes validation and committed spend for every paid action (15.8042ms)
+  ✔ keeps wait and companion summon explicitly free under Lag (1.2513ms)
+✔ Tower AP modifier parity for every action family (24.8007ms)
+▶ Tower jutsu eligibility and resource-spend parity
+  ✔ Elemental Seal rejects every elemental Tower jutsu route before any commitment (1.2799ms)
+  ✔ Elemental Seal does not reject a non-basic element (0.8498ms)
+  ✔ combat-resources-v2 Poison charges once for every Tower jutsu route, including N-target AOE (4.0798ms)
+  ✔ resolves lethal Poison exertion before awarding a Tower winner (26.6094ms)
+✔ Tower jutsu eligibility and resource-spend parity (59.124ms)
+▶ Tower-grid Barrier policy
+  ✔ replaces the PvP coordinate with a deterministic valid Tower tile and blocks all human tile routes (2.4536ms)
+  ✔ feeds AI pathing, companion placement, displacement, and reinforcement entry from one tile authority (15.2794ms)
+  ✔ persists after caster defeat for the original duration, then expires deterministically (3.4616ms)
+✔ Tower-grid Barrier policy (21.484ms)
+▶ EMPTY_GROUND spiral parity
+  ✔ creates the canonical radius-two footprint and immediately applies Recoil (1.1893ms)
+✔ EMPTY_GROUND spiral parity (40.3427ms)
+▶ authored EMPTY_GROUND Recoil kits
+  ✔ ships canonical persistent Recoil on both Revenant ground-control techniques and resolves it in Tower combat (1.4992ms)
+✔ authored EMPTY_GROUND Recoil kits (1.6079ms)
+✔ generated Legacy roster matches the canonical identities and all trial variants (173.3858ms)
+ℹ tests 26
+ℹ suites 6
+ℹ pass 26
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 33558.8378

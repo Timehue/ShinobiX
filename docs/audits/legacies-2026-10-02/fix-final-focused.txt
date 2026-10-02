@@ -1,0 +1,112 @@
+✔ public Legacy announcement projection hides tier classifications (1.2126ms)
+✔ public Hall projection hides old tier fields, types, and copy (0.359ms)
+✔ non-Legacy world records preserve their public importance and wording (0.1528ms)
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (9729.3315ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (5.6218ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (40.7687ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.3283ms)
+[pvp-items] unresolved equipped item id(s) Tester custom-storm-tanto
+▶ equipped-item resolution against the admin catalog
+  ✔ resolves an admin-authored item whose definition the player save lacks (69.3869ms)
+  ✔ drops that same item when no admin catalog is supplied (the old behaviour) (1.1491ms)
+  ✔ still resolves a player's own forged named weapon (only their array has it) (39.3054ms)
+  ✔ keeps the built-in definition for a built-in id (0.1907ms)
+  ✔ honors a shared tombstone ahead of built-in, admin, and player copies (0.1847ms)
+  ✔ prefers the admin definition over the player's mirrored copy (0.1749ms)
+  ✔ logs (and still drops) an equipped id nothing can resolve (35.5197ms)
+  ✔ feeds admin gear into the derived multiplier layer (armor DR + passives) (0.7431ms)
+  ✔ leaves an above-baseline ADMIN item unclamped (0.8186ms)
+  ✔ still budgets a player's OWN over-budget creator item (0.529ms)
+  ✔ still clamps the DERIVED multipliers an unclamped admin item feeds (0.3208ms)
+✔ equipped-item resolution against the admin catalog (151.573ms)
+▶ no built-in item advertises an inert vitals bonus
+  ✔ grants no maxHp / maxChakra / maxStamina from the built-in catalog (2.5273ms)
+✔ no built-in item advertises an inert vitals bonus (2.6809ms)
+[kv] isolated in-memory QA backend active
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-1","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790948117170","battleId":"pvp-cont-1","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-2","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790948117221","battleId":"pvp-cont-2","attackerWon":false,"points":5,"attackerPoints":200,"defenderPoints":5,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-3","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790948117233","battleId":"pvp-cont-3","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-4","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790948117241","battleId":"pvp-cont-4","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-6","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-skipped","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790948117248","battleId":"pvp-cont-6","reason":"superseded"}
+[war-event] {"kind":"pvp-resolution","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-6","outcome":"superseded","reason":"superseded"}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-7","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790688917250","battleId":"pvp-cont-7","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-8","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-skipped","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790688917250","battleId":"pvp-cont-8","reason":"superseded"}
+[war-event] {"kind":"pvp-resolution","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-8","outcome":"superseded","reason":"superseded"}
+▶ world PvP sector continuation past the old 200-receipt ceiling
+  ✔ scores the 201st battle of a war (it used to throw and stall both fighters' rewards) (69.2213ms)
+  ✔ a defender kill counts for the defence, attributed to the defender (11.7735ms)
+✔ world PvP sector continuation past the old 200-receipt ceiling (5167.9239ms)
+▶ world PvP sector continuation: crash recovery by keyed reads
+  ✔ recovers a score whose resolution receipt was lost, without re-applying it (8.7935ms)
+  ✔ proves an applied battle after its contest row has expired (the receipt outlives the row) (5.9374ms)
+  ✔ does not scan every war on the normal path (0.666ms)
+✔ world PvP sector continuation: crash recovery by keyed reads (15.7161ms)
+▶ world PvP sector continuation: eligibility
+  ✔ a battle begun before this contest instance started never scores it (1.3452ms)
+  ✔ a battle that ended before endsAt still scores after endsAt until settlement stamps the war (10.7349ms)
+✔ world PvP sector continuation: eligibility (12.3746ms)
+[kv] isolated in-memory QA backend active
+[towers/settle] Error: Injected final Spire campaign save failure
+    at Object.kv.set (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:122:46)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\towers\_records.ts:66:34)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:131:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle.ts:135:32)
+    at async settle (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:87:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:126:31)
+    at async Test.run (node:internal/test_runner/test:1208:7)
+    at async Promise.all (index 0)
+    at async Suite.run (node:internal/test_runner/test:1619:7)
+[towers/settle] Error: Injected final Spire campaign save failure
+    at Object.kv.set (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:122:46)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\towers\_records.ts:66:34)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:131:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle.ts:135:32)
+    at async settle (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:87:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:126:31)
+    at async Test.run (node:internal/test_runner/test:1208:7)
+    at async Promise.all (index 0)
+    at async Suite.run (node:internal/test_runner/test:1619:7)
+[towers/settle] Error: Injected campaign save failure
+    at Object.kv.set (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:176:27)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\towers\_records.ts:66:34)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:131:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle.ts:135:32)
+    at async settle (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:87:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\towers\settle-party-lifecycle.test.ts:180:27)
+    at async Test.run (node:internal/test_runner/test:1208:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:831:7)
+▶ Tower party settlement lifecycle
+  ✔ recovers final IV/V Spire proof through the actual endpoint before sealing the title (392.6431ms)
+  ✔ retries a failed campaign examination write before releasing the run, then enables the next era (44.2294ms)
+  ✔ keeps discovery/indexes through a partial member failure, then closes only after stable retry (9.9704ms)
+✔ Tower party settlement lifecycle (7545.2389ms)
+✔ craft dungeon first pages retain their own biome scenes (1.3246ms)
+✔ early system events stay valid away from a village meeting (0.5214ms)
+✔ public cultural lore identifies the record making each claim (0.3242ms)
+✔ every gathering biome and branch variant is part of the live story tone gates (0.2879ms)
+✔ story narration suppresses every generic Player portrait across the catalog (2.5201ms)
+✔ story and event copy uses shinobi-world language instead of generic fantasy or raw game terms (7.1654ms)
+✔ all live visual-novel copy follows the zero-dash punctuation rule (3.3023ms)
+✔ authored narrative avoids stock AI-mysticism and retired village labels (17.3443ms)
+✔ rift givers speak as people instead of narrating themselves (2.4287ms)
+✔ adjacent world lore, wanderers, shrines, and era events expose no pilgrim terminology (26.8691ms)
+ℹ tests 39
+ℹ suites 6
+ℹ pass 39
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23646.5891
