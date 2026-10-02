@@ -64,9 +64,6 @@ import villageWarDebuffHandler from './api/village/war-debuff.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
-import kvProxyHandler     from './api/kv-proxy.js';
-import migrateKvHandler   from './api/admin/migrate-kv.js';
-import migrateToBaseHandler from './api/admin/migrate-to-base.js';
 import migrateImagesToR2Handler from './api/admin/migrate-images-to-r2.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
@@ -458,16 +455,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/bloodline-review', bloodlineReviewHandler);
     route('/admin/item-review',      itemReviewHandler);
 
-    // Internal KV proxy — a remote server (e.g. Railway) forwards disk-routed keys
-    // to the cPanel disk overlay here. Mounted with a trailing :op param so
-    // /api/kv/get etc. all hit one handler.
-    route('/kv/:op', kvProxyHandler);
-
-    // Admin: migrate disk-routed keys from Supabase → disk overlay.
-    route('/admin/migrate-kv', migrateKvHandler);
-    // Admin: REVERSE copy disk overlay → Supabase base, to retire the overlay/cPanel
-    // (Option B, docs/RETIRE_CPANEL_RUNBOOK.md). Copy-only — never deletes the overlay.
-    route('/admin/migrate-to-base', migrateToBaseHandler);
+    // The cPanel KV proxy (/kv/:op) and the two overlay migration routes
+    // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
+    // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;

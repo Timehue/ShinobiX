@@ -18,9 +18,7 @@ import { isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 // server-sealed. Only the authored VN encounters below moved to the Showdown
 // host, so these presentation modules are still reachable from this screen.
 import { type DuelResult } from "../lib/pet-duel-sim";
-import { runPetDuelCinematic } from "../lib/pet-duel-cinematic";
 import { createLiveDuel, type LiveDuel } from "../lib/pet-duel-live";
-import { petPlayerControlEnabled } from "../lib/pet-coliseum-flag";
 import {
     settleDungeonPetBattle,
     startDungeonPetBattle,
@@ -237,8 +235,7 @@ export function DungeonRareBeastBattle({
     const selectedPet = eligiblePets.find((pet) => pet.id === chosenPetId) ?? eligiblePets[0];
     const [battle, setBattle] = useState<{
         seal: DungeonPetBattleSeal;
-        result: DuelResult | null;
-        live: LiveDuel | null;
+        live: LiveDuel;
         playerPet: Pet;
         opponentPet: Pet;
         id: number;
@@ -332,20 +329,12 @@ export function DungeonRareBeastBattle({
             const playerPet = restoreDungeonPetCosmetics(seal.playerPet, selectedPet);
             const opponentPet = restoreDungeonPetCosmetics(seal.opponentPet, undefined, dungeonPetImage);
             const config = seal.battleConfig;
-            const controlled = petPlayerControlEnabled();
-            const live = controlled
-                ? createLiveDuel(playerPet, opponentPet, seal.seed, config.damageMult, config.hpMult, config.revive, config.applyItems, config.accuracy, config.terrain)
-                : null;
-            const result = controlled
-                ? null
-                : runPetDuelCinematic(playerPet, opponentPet, seal.seed, config.damageMult, config.hpMult, config.revive, config.applyItems, config.accuracy, config.terrain);
-            const next = { seal, result, live, playerPet, opponentPet, id: ++battleId.current };
-            setBattle(next);
-            if (result) {
-                const payload = Object.freeze({ seal, reportedOutcome: result.result });
-                terminalPayload.current = payload;
-                void submitTerminal(payload).catch(() => undefined);
-            }
+            // Every Rare Beast fight is player-controlled: the sealed config drives
+            // a live duel, and its input log is the settlement proof (reportOutcome).
+            // The watch-only precomputed branch that sat here could never run
+            // (petPlayerControlEnabled is a constant true); removed 2026-10-02.
+            const live = createLiveDuel(playerPet, opponentPet, seal.seed, config.damageMult, config.hpMult, config.revive, config.applyItems, config.accuracy, config.terrain);
+            setBattle({ seal, live, playerPet, opponentPet, id: ++battleId.current });
         } catch (cause) {
             setError(cause instanceof Error ? cause.message : "The Dungeon Rare Beast seal is unavailable.");
         } finally {
@@ -383,9 +372,7 @@ export function DungeonRareBeastBattle({
                 key={battle.id}
                 playerPet={battle.playerPet}
                 enemyPet={battle.opponentPet}
-                seed={battle.seal.seed}
-                result={battle.result ?? undefined}
-                live={battle.live ?? undefined}
+                live={battle.live}
                 onOutcome={reportOutcome}
                 sharedImages={sharedImages}
                 settlementStatus={settlementStatus}

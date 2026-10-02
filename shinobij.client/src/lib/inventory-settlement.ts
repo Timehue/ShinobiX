@@ -6,6 +6,8 @@ export type WarCrateRewards = {
     boneCharms: number;
     relic: true;
     dungeonKey: boolean;
+    equippableRelicId?: string;
+    fateShards?: number;
 };
 
 export async function openWarCrate(playerName: string): Promise<

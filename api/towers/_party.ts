@@ -339,7 +339,7 @@ export async function repairStaleTowerPartyLifecycle(
                 hostSlug: party.hostSlug,
                 partyId: party.id,
                 runId: party.launch.runId,
-            }, { kv, lock, now: clock });
+            }, { now: clock });
         }
 
         const invitees = [...party.invitedSlugs];

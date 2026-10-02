@@ -11,6 +11,7 @@ import {
     petRankedRecoveryKey,
     PET_RANKED_REPLAY_TTL_SECONDS,
     preparePetRankedJournal,
+    requireSetWithExactReadbackForTest,
 } from './_ranked-journal.js';
 import {
     petRankedActiveKey,
@@ -430,5 +431,45 @@ describe('durable ranked pet settlement journal', { concurrency: false }, () => 
         (malformedToken.token as Record<string, unknown>).clientSeed = 999;
         await store.set(key, JSON.stringify(malformedToken));
         await assert.rejects(getPetRankedJournal(store, MATCH), /pet-ranked-journal-invalid/);
+    });
+});
+
+describe('exact-readback journal writes against Postgres-shaped reads', () => {
+    // Reads come back as Postgres returns them: an undefined field is gone and
+    // -0 is 0. The memory store keeps both, so it needs this wrapper.
+    function postgresReads(base: KvLike, set?: KvLike['set']): KvLike {
+        return {
+            ...base,
+            async get<T = unknown>(key: string): Promise<T | null> {
+                const stored = await base.get<T>(key);
+                return stored === null ? null : JSON.parse(JSON.stringify(stored)) as T;
+            },
+            ...(set ? { set } : {}),
+        };
+    }
+    const value = { matchId: MATCH, ratings: { a: 12, b: -0 }, note: undefined };
+
+    it('confirms a write that landed but lost its reply', async () => {
+        const base = _makeMemoryKv();
+        const store = postgresReads(base, async (key, written, options) => {
+            await base.set(key, written, options);
+            throw new Error('Connection terminated unexpectedly');
+        });
+        await requireSetWithExactReadbackForTest(store, 'pet:journal-readback-lost', value, { nx: true });
+    });
+
+    it('confirms a write an earlier attempt already landed when the NX set answers null', async () => {
+        const base = _makeMemoryKv();
+        await base.set('pet:journal-readback-nx', value);
+        await requireSetWithExactReadbackForTest(postgresReads(base), 'pet:journal-readback-nx', value, { nx: true });
+    });
+
+    it('still refuses a different stored value', async () => {
+        const base = _makeMemoryKv();
+        await base.set('pet:journal-readback-foreign', { ...value, ratings: { a: 12, b: -12 } });
+        await assert.rejects(
+            requireSetWithExactReadbackForTest(postgresReads(base), 'pet:journal-readback-foreign', value, { nx: true }),
+            /pet-ranked-journal-write-unconfirmed/,
+        );
     });
 });

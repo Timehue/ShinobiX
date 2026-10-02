@@ -222,6 +222,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // (wandererQuestComplete → char[def.metric]) reads it with no new code path.
     // Both are server-mirrored: world/explore appends, quest accept resets, and a
     // client write is discarded — otherwise the objective could be forged outright.
+    f('relicRosterVersion', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'one-time retired relic conversion stamp'),
+    f('relicRewardLedger', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'bounded daily PvP/tower relic rolls and exact outcomes'),
     f('relicSurvey', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'biomes surveyed since accept; world/explore appends, wanderer-quest accept resets'),
     f('relicSurveyCount', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'length mirror of relicSurvey so the numeric quest completion check needs no survey-specific branch'),
     f('pendingGatherFinds', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),

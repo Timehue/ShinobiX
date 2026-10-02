@@ -17,8 +17,8 @@
  * to mutatePlayerSave, plus the projection — and committed with compare-and-set
  * against the row read under the lock (see writeSaveProjected), not a plain set.
  */
-import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { mergePreservingImages } from '../_utils.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 
@@ -86,7 +86,7 @@ export async function writeSaveProjected(
         // A transport error can hide a write that did land (lost response).
         // Only a read-back of exactly what we meant to write proves that.
         const readback = await kv.get(saveKey).catch(() => null);
-        if (!isDeepStrictEqual(readback, intended)) throw error;
+        if (!storedValueEquals(readback, intended)) throw error;
     }
     // Never allowed to fail the write it follows — see api/_currency-ledger.ts.
     await syncCurrencyLedger(

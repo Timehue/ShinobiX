@@ -27,7 +27,7 @@ Legend: 🔴 Critical · 🟠 High · 🟡 Medium · ⚪ Low · ✅ already fine
 
 ## Priority 0
 
-### #3 KV proxy hardening — 🟡 PARTIALLY-REAL
+### #3 KV proxy hardening — 🟡 PARTIALLY-REAL (✅ moot 2026-10-02: the proxy was deleted with the cPanel overlay)
 `api/kv-proxy.ts` already: POST-only, `safeEqual` constant-time token compare,
 array-header normalized, fails closed if `KV_PROXY_TOKEN` unset (lines 22-37).
 **Gaps:** no rate limit, no audit logging, no IP allowlist, no key-prefix

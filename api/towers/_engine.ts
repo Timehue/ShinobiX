@@ -1,3 +1,4 @@
+import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -124,6 +125,8 @@ export type ActionResult = { applied: boolean; reason?: string };
 type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
+    /** Bloodline weather affinity; the weather term reads it before `element`. */
+    weatherElement?: string;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
     bloodlineRank?: string;
     // Weapon synth sets this when the wielder lacks the weapon's element → the swing
@@ -131,6 +134,8 @@ type JutsuLike = {
     suppressBloodline?: boolean;
     /** Internal server stamp for equipped-weapon tag scaling. */
     weaponSwing?: boolean;
+    /** Equipped weapon element, used only by the PvE relic bonus channel. */
+    pveWeaponElement?: string;
     /** deterministic Tower-AI authoring hints; ignored by the shared resolver */
     aiPriority?: number;
     aiHpBelowPct?: number;
@@ -1507,13 +1512,17 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
 // (chakra/stamina) + cooldown bookkeeping is the caller's job (it differs per action).
-// Sealed-weather term (combat missions): +5% matching-element / −2% opposed-element
-// on the attacker's OUTGOING jutsu, mirroring the Arena's weather rule. session.weather
-// is absent for every other tower/spire/clan-boss run → ×1, byte-identical.
+// Sealed-weather term: +5% matching-element / −2% opposed-element on the attacker's
+// OUTGOING jutsu, mirroring the Arena's weather rule. Hunt encounters copy their Solo
+// session's sealed weather onto the battle (api/solo-pve/_hunt-combat.ts); every
+// other tower/spire/clan-boss run leaves session.weather absent → ×1, byte-identical.
+// A bloodline technique's explicit weatherElement (a base element, or "None" to opt
+// out) outranks its cosmetic element, exactly as in PvP (api/pvp/move.ts), Solo PvE
+// (api/solo-pve/_engine.ts) and the client's weatherElementOf (lib/elements.ts).
 function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     const w = session.weather;
     if (!w) return 1;
-    return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
+    return weatherMultiplier(String(jutsu.weatherElement ?? jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
 /**
@@ -1527,8 +1536,11 @@ function isAiCombatant(actor: TowerActor): boolean {
 }
 
 /** PvE-only relic multipliers, sealed by hydrateCharacterFromSave (already clamped). */
-function pveRelicDealtMult(actor: TowerActor): number {
-    return 1 + Math.max(0, Number(actor.character?.pveDamagePct) || 0) / 100;
+function pveRelicDealtMult(actor: TowerActor, attack: JutsuLike): number {
+    const specialist = pveSpecialistDamagePercent(actor.character?.pveSpecialistBonuses, {
+        type: attack.type, element: attack.weaponSwing ? attack.pveWeaponElement : attack.element,
+    });
+    return 1 + (Math.max(0, Number(actor.character?.pveDamagePct) || 0) + specialist) / 100;
 }
 function pveRelicTakenMult(target: TowerActor): number {
     return Math.max(0.25, 1 - Math.max(0, Number(target.character?.pveDamageTakenPct) || 0) / 100);
@@ -1564,7 +1576,7 @@ function resolveHit(
     //   • per-target — inside a PvE session, the counterparty must still be a real
     //     AI, so an async/AFK human ally or opponent never feeds it.
     const pveSession = session.towerId !== TOWER_PVP_TOWER_ID;
-    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
+    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor, jutsu) : 1;
     const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target) * formationDefendMult(session, target)
@@ -2423,6 +2435,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cut = healcutPct(session);
             if (cut > 0) healAmt = Math.max(0, Math.floor(healAmt * (1 - cut / 100)));
         }
+        healAmt = Math.min(Math.max(0, actor.maxHp - actor.hp), healAmt);
         actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
         actor.chakra = Math.max(0, actor.chakra - HEAL_CHAKRA);
         actor.cooldowns['basicHeal'] = HEAL_CD;
@@ -2509,6 +2522,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         }
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
+            pveWeaponElement: item.weaponElement,
             isUtility: false, weaponSwing: true, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
             // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
             // bloodline damage multiplier only when the weapon's element is one the

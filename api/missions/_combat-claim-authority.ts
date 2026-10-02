@@ -1,5 +1,5 @@
-import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 
 export const COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS = 6 * 60 * 60;
 export const COMBAT_MISSION_CLAIM_TOKEN_TTL_MS = COMBAT_MISSION_CLAIM_TOKEN_TTL_SECONDS * 1000;
@@ -268,9 +268,9 @@ export async function retireCombatMissionClaimToken(params: {
         if (writeError) throw writeError;
         throw readError;
     }
-    if (isDeepStrictEqual(readback, spent)) return;
+    if (storedValueEquals(readback, spent)) return;
     // A different current row is a successor's authority, not our cleanup job.
-    if (!isDeepStrictEqual(readback, params.expected)) return;
+    if (!storedValueEquals(readback, params.expected)) return;
     if (writeError) throw writeError;
     throw new Error('combat-mission-claim-token-retirement-unconfirmed');
 }
@@ -504,7 +504,7 @@ export async function setExactKvRow(
         writeError = error;
     }
     const readback = await store.get(key).catch(() => null);
-    if (isDeepStrictEqual(readback, value)) return;
+    if (storedValueEquals(readback, value)) return;
     if (writeError) throw writeError;
     throw new Error(`kv-write-unconfirmed:${key}`);
 }
@@ -524,7 +524,7 @@ export async function compareSetExactKvRow(
         writeError = error;
     }
     const readback = await store.get(key).catch(() => null);
-    if (isDeepStrictEqual(readback, value)) return;
+    if (storedValueEquals(readback, value)) return;
     if (writeError) throw writeError;
     throw new Error(`kv-compare-set-unconfirmed:${key}`);
 }
@@ -547,8 +547,8 @@ export async function publishCombatMissionClaimRows(params: {
         params.store.get(params.tokenKey).catch(() => null),
         params.store.get(params.saveKey).catch(() => null),
     ]);
-    if (!isDeepStrictEqual(tokenReadback, params.token)
-        || !isDeepStrictEqual(saveReadback, params.saveRecord)) {
+    if (!storedValueEquals(tokenReadback, params.token)
+        || !storedValueEquals(saveReadback, params.saveRecord)) {
         throw new Error('combat-mission-claim-publication-unconfirmed');
     }
 }
@@ -576,7 +576,7 @@ export async function confirmCombatMissionClaimSave(params: {
             params.settlement.rewardFingerprint,
         );
         confirmationStatus = inspected.status;
-        if (inspected.status === 'replay' && isDeepStrictEqual(inspected.receipt, params.settlement)) return stored!;
+        if (inspected.status === 'replay' && storedValueEquals(inspected.receipt, params.settlement)) return stored!;
     }
     if (writeError) throw writeError;
     throw new Error(`combat-mission-claim-save-unconfirmed:${confirmationStatus}`);

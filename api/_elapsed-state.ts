@@ -1,3 +1,4 @@
+import { migrateRelicRoster } from '../shared/relics.js';
 import { reconcileElderFocus } from './village/_elders.js';
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
@@ -443,10 +444,11 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         // seam that durably applies it (shared/pet-happiness.ts). It is
         // deliberately owner-only: a foreign profile read must never write.
         const bond = settleCharacterPetHappiness(breeding.character, now);
-        if (migrated.changed || breeding.changed || bond.changed) {
+        const relics = migrateRelicRoster(bond.character);
+        if (migrated.changed || breeding.changed || bond.changed || relics.changed) {
             projected = {
                 ...projected,
-                record: { ...projected.record, character: bond.character },
+                record: { ...projected.record, character: relics.character },
                 changed: true,
             };
         }
@@ -477,8 +479,9 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
             const migrated = migrateCharacterOwnedPets(slug, next.record.character as Record<string, unknown>);
             const breeding = settlePetBreedingSession(migrated.character, now);
             const bond = settleCharacterPetHappiness(breeding.character, now);
-            if (migrated.changed || breeding.changed || bond.changed) {
-                next = { ...next, record: { ...next.record, character: bond.character }, changed: true };
+            const relics = migrateRelicRoster(bond.character);
+            if (migrated.changed || breeding.changed || bond.changed || relics.changed) {
+                next = { ...next, record: { ...next.record, character: relics.character }, changed: true };
                 petStateChanged = true;
             }
         }

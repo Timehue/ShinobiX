@@ -65,3 +65,17 @@ export async function recordPairWinAndDecay(winnerSlug: string, loserSlug: strin
         return 1;
     }
 }
+
+/**
+ * The decay recordPairWinAndDecay would return for the NEXT win of `winner`
+ * over `loser`, without recording anything. For a settlement that must price
+ * the win before it commits and record it only once it has: read this first,
+ * then call recordPairWinAndDecay after the credit lands. Fails open like it.
+ */
+export async function previewPairWinDecay(winnerSlug: string, loserSlug: string): Promise<number> {
+    try {
+        return repeatWinDecayMultiplier(Number(await kv.get(pairKey(winnerSlug, loserSlug))) || 0);
+    } catch {
+        return 1;
+    }
+}

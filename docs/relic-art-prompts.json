@@ -1,0 +1,48 @@
+{
+  "provider": "built-in image_gen",
+  "date": "2026-10-02",
+  "assets": [
+    {
+      "id": "relic-duelists-red-cord",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-109ae764-b1b3-4425-a961-5d8b1ddbced6.png",
+      "output": "shinobij.client/public/items/relic-duelists-red-cord.webp",
+      "prompt": "Use case: stylized-concept. Asset: square transparent RPG inventory icon for Shinobi Journey. Create one Duelist's Red Cord relic: a compact knotted crimson silk cord loop with a weathered bronze blade-shaped charm, subtle ember red magic. Hand-painted dark fantasy collectible, detailed bronze highlights, strong readable silhouette, centered entire object occupying 80% of square, matching the reference's painterly antique metal quality. No characters, weapons in hands, labels, text, border, ground or background; real transparent alpha. This is a new distinct asset, reference is style only."
+    },
+    {
+      "id": "relic-mirror-mask-shard",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-929a2b2c-f7f2-44cc-887e-205483179ef8.png",
+      "output": "shinobij.client/public/items/relic-mirror-mask-shard.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Mirror-Mask Shard: a broken half of a small porcelain shinobi fox mask inset in antique silver, violet glass eye glowing with illusory mist. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    },
+    {
+      "id": "relic-conquerors-war-seal",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-6812e679-8479-4f4e-b003-d15d937ef4d2.png",
+      "output": "shinobij.client/public/items/relic-conquerors-war-seal.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Conqueror's War Seal: a heavy bronze circular victory seal, scarred crimson lacquer, tightly bound black cord and a glowing red clenched-fist abstract emblem. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    },
+    {
+      "id": "relic-skybreak-prism",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-4724fb34-3511-434d-92c2-ba5a7076abdf.png",
+      "output": "shinobij.client/public/items/relic-skybreak-prism.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Skybreak Prism: a faceted pale jade crystal held in an aged bronze open ring, a tightly swirling turquoise wind vortex within. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    },
+    {
+      "id": "relic-fivefold-chakra-seal",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-b48aa0c1-446f-48aa-a9ae-72e6708f3456.png",
+      "output": "shinobij.client/public/items/relic-fivefold-chakra-seal.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Fivefold Chakra Seal: an ancient circular bronze talisman with five small inset gems in red, blue, green, amber and violet, surrounding a luminous white chakra core. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    },
+    {
+      "id": "relic-worldroot-heart",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-15d816ce-1e40-4e0b-be6e-faba35cfc556.png",
+      "output": "shinobij.client/public/items/relic-worldroot-heart.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Worldroot Heart: a polished amber heart-stone wrapped in ancient twisted dark roots with small glowing green cracks, earthy bronze fittings. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    },
+    {
+      "id": "relic-zenith-lotus",
+      "source": "C:\\Users\\Tyler R\\.codex\\generated_images\\01a0fd33-6ce4-7e30-ab66-79f6c9ae0794\\exec-6250fbc9-ae1d-43ad-80ee-ae96ebb3be9c.png",
+      "output": "shinobij.client/public/items/relic-zenith-lotus.webp",
+      "prompt": "Use case: stylized-concept. Create a square transparent RPG inventory relic icon for Shinobi Journey. Subject: Zenith Lotus: a rare miniature golden lotus blossom around a brilliant ivory star crystal, blackened bronze base with one dark violet silk tassel. Match the provided reference's hand-painted dark fantasy collectible style, worn materials, warm metallic highlights, magical restrained glow. Center the complete object with a 10% transparent margin on all sides; strong silhouette legible at 64 pixels. No text, no border, no scenery, no characters; genuine transparent alpha. Reference is style only; make this a distinct new object."
+    }
+  ]
+}

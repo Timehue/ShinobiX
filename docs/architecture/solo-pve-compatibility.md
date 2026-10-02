@@ -4,12 +4,12 @@ This report is enforced by `api/solo-pve/_compatibility.test.ts`. A generated or
 
 ## Published content snapshot
 
-Snapshot date: 2026-08-04
+Snapshot date: 2026-08-04; item catalog refreshed 2026-10-02 for the 20-relic roster.
 
 | Content | Checked | Result |
 | --- | ---: | --- |
 | Current + legacy jutsu catalogs | 217 | 0 unsupported |
-| Item catalog | 164 | 0 unsupported |
+| Item catalog | 202 | 0 unsupported |
 | AI profiles | 71 profiles / 30 unique jutsu references | 0 unresolved or unsupported |
 | Ground-target jutsu | 12 | 0 unsupported |
 | Move-tagged jutsu | 12 | 0 unsupported |
