@@ -33,6 +33,9 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'missions/claim-mission.ts', mechanism: 'in-save-receipt', markers: ['claimedServerMissions'] },
     { file: 'missions/report-raid.ts', mechanism: 'single-use-token', markers: ['consumeSingleUseToken'] },
     { file: 'missions/report-pet-event.ts', mechanism: 'single-use-token', markers: ['redeemedPetExpeditionTokens'] },
+    // Daily-mission profession XP and newbie ryo: the completion records a
+    // pending grant, and the credit stamps its id into serverSettlementReceipts.
+    { file: 'missions/_progress.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt', 'pendingXpGrants', 'pendingRyoGrants'] },
     { file: 'world/explore.ts', mechanism: 'in-save-receipt', markers: ['redeemedSectorExplorations'] },
     { file: 'world/open-chest.ts', mechanism: 'in-save-receipt', markers: ['redeemedAncientChests'] },
     { file: 'pet/befriend.ts', mechanism: 'in-save-receipt', markers: ['redeemedPetEncounters'] },
