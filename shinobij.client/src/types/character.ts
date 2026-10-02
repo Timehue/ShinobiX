@@ -822,6 +822,7 @@ export type Character = {
     // server-credited titles). Sanitizer re-injects the stored copy — client
     // edits never persist. Wearable-title ownership is verified against it.
     serverTitles?: string[];
+    eraJourneys?: import('../../../shared/era-chapters').EraJourneys;
     // Custom-title cosmetics (paid, cosmetic-only). Server allowlists both:
     // style ∈ TITLE_STYLES ids, icon ∈ TITLE_ICONS (lib/legacy.ts).
     customTitleStyle?: string;

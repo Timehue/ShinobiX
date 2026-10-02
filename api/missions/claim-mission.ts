@@ -5,6 +5,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordEraCampaignEvidence } from '../_era-campaign.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
@@ -732,6 +733,7 @@ async function applyReservedCombatMissionPayout(params: {
     }).character as SaveChar;
     next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
     next = appendCombatMissionClaimSettlement(next, settlement);
+    next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${settlement.runId}`, missionId: settlement.missionId, at: params.reservation.wonAt });
 
     next = creditElderWinDeltas((params.record.character ?? {}) as Record<string, unknown>, next);
     const updated = bumpSaveVersion<Record<string, unknown>>({
@@ -1279,6 +1281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let combatSettlement: CombatMissionClaimSettlement | null = null;
             if (combat && combatToken) {
+                next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${combatToken.runId}`, missionId: combatToken.missionId, at: combatToken.wonAt });
                 next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
                 const result: CombatMissionClaimResult = { reward, combat, completion: 'daily' };
                 combatSettlement = {

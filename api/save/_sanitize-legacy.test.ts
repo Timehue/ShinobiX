@@ -27,6 +27,14 @@ function withLegacyFlag(on: boolean, fn: () => void) {
 const FORGED_LEGACY = { legacyId: 'duel-sovereign', stage: 5, titles: ['Eternal Duel Sovereign'] };
 const STORED_LEGACY = { legacyId: 'duel-sovereign', stage: 2, titles: ['Duel Initiate'], startedAt: 1234 };
 
+test('era journey baseline and completion are server-owned, including first saves', () => {
+    const forged = { 'mythic-legacies': { routeId: 'field', startedAt: 1, completedAt: 2, baselines: { orders: 0, witnesses: 0 } } };
+    assert.equal('eraJourneys' in sanitize({ eraJourneys: forged }, null), false);
+    const stored = { 'shinobi-awakening': { routeId: 'field', startedAt: 100, baselines: { orders: 50 } } };
+    assert.deepEqual(sanitize({ eraJourneys: forged }, { eraJourneys: stored }).eraJourneys, stored);
+    assert.deepEqual(sanitize({}, { eraJourneys: stored }).eraJourneys, stored);
+});
+
 // ── character.legacy: server-owned, stored copy always wins ─────────────────
 
 test('legacy: a forged legacy with none stored is deleted outright', () => {

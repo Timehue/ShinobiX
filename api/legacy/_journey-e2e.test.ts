@@ -14,6 +14,7 @@
  */
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { ERA_CHAPTERS, type EraJourney } from '../../shared/era-chapters.js';
 
 process.env.ENABLE_LEGACY = '1';
 process.env.ADMIN_PASSWORD = 'e2e-test-admin';
@@ -45,6 +46,7 @@ let definitions: (req: never, res: never) => Promise<unknown>;
 let sage: (req: never, res: never) => Promise<unknown>;
 let trial: (req: never, res: never) => Promise<unknown>;
 let statsEp: (req: never, res: never) => Promise<unknown>;
+let eraJourney: (req: never, res: never) => Promise<unknown>;
 let LEGACY_BY_ID: ReadonlyMap<string, { title: string; rarity: string; category: string }>;
 let bumpLegacyStats: typeof import('../_legacy-track.js').bumpLegacyStats;
 
@@ -84,6 +86,7 @@ before(async () => {
     sage = (await import('./sage.js')).default as unknown as typeof sage;
     trial = (await import('./trial.js')).default as unknown as typeof trial;
     statsEp = (await import('./stats.js')).default as unknown as typeof statsEp;
+    eraJourney = (await import('../eras/journey.js')).default as unknown as typeof eraJourney;
     LEGACY_BY_ID = (await import('../_legacy-defs.js')).LEGACY_BY_ID;
     bumpLegacyStats = (await import('../_legacy-track.js')).bumpLegacyStats;
 
@@ -111,6 +114,39 @@ let offerIds: string[] = [];
 let chosen = '';
 let acceptedVersion = 0;
 const chosenDef = () => LEGACY_BY_ID.get(chosen)!;
+
+/** Isolate era prerequisites while retaining the Legacy produced by real trials. */
+async function assertEraAdmission(stage: number) {
+    const saveKey = `save:${P}`;
+    const saved = store.get(saveKey) as { character: Record<string, unknown> };
+    const eraState = store.get('game:era-state');
+    const now = Date.now();
+    const predecessors = Object.fromEntries(ERA_CHAPTERS.slice(0, 4).map(chapter => {
+        const route = chapter.routes[0]!;
+        const stages = route.stages!;
+        return [chapter.eraId, { version: 2, routeId: route.id, startedAt: now, baselines: {},
+            stageIndex: stages.length, stageStartedAt: now, stageCounts: {},
+            completedStages: stages.map(item => ({ id: item.id, at: now })), proofReceipts: [], completedAt: now } satisfies EraJourney];
+    }));
+    try {
+        store.set(saveKey, { ...saved, character: { ...saved.character, level: 100, eraJourneys: predecessors } });
+        store.set('game:era-state', { overrides: { 'mythic-legacies': { status: 'unlocked' } } });
+        const { res, out } = fakeRes();
+        await eraJourney(fakeReq('GET', undefined, { playerName: P }), res);
+        assert.equal(out.statusCode, 200);
+        const chapters = (out.body as { chapters: Array<{ eraId: string; available: boolean; blockedReason?: string }> }).chapters;
+        const master = chapters.find(chapter => chapter.eraId === ERA_CHAPTERS[3]!.eraId)!;
+        const grandmaster = chapters.find(chapter => chapter.eraId === ERA_CHAPTERS[4]!.eraId)!;
+        assert.equal(master.available, stage >= 4, 'actual Proven trial must admit the Master campaign');
+        assert.equal(grandmaster.available, stage >= 5, 'actual summit trial must admit the Grandmaster campaign');
+        if (stage < 4) assert.match(master.blockedReason!, /Stage IV \(Proven\)/);
+        if (stage < 5) assert.match(grandmaster.blockedReason!, /Stage V \(summit\)/);
+    } finally {
+        store.set(saveKey, saved);
+        if (eraState === undefined) store.delete('game:era-state');
+        else store.set('game:era-state', eraState);
+    }
+}
 
 test('flag-off canary: definitions 404s without ENABLE_LEGACY', async () => {
     delete process.env.ENABLE_LEGACY;
@@ -172,6 +208,24 @@ test('accept rejects a legacy that was not offered', async () => {
     assert.equal(b.reason, 'not-offered');
 });
 
+test('failed world authority cannot seal an acceptance with a guessed birth era', async t => {
+    const { kv } = await import('../_storage.js');
+    const original = kv.get.bind(kv);
+    const saveBefore = clone(store.get(`save:${P}`));
+    const offerBefore = clone(store.get(`legacy:sage-offer:${P}`));
+    const patch = t.mock.method(kv, 'get', async (key: string) => {
+        if (key === 'game:era-state') throw new Error('injected-accept-era-read-failure');
+        return original(key);
+    });
+    const { res, out } = fakeRes();
+    await sage(fakeReq('POST', { action: 'accept', playerName: P, legacyId: offerIds[0] }), res);
+    assert.equal(out.statusCode, 500);
+    assert.equal(store.has(`legacy:accepted:${P}`), false);
+    assert.deepEqual(store.get(`save:${P}`), saveBefore);
+    assert.deepEqual(store.get(`legacy:sage-offer:${P}`), offerBefore);
+    patch.mock.restore();
+});
+
 test('accept seals the path, auto-starts a DECORATED awaken trial, returns the intro', async () => {
     chosen = offerIds[0];
     const { res, out } = fakeRes();
@@ -189,7 +243,7 @@ test('accept seals the path, auto-starts a DECORATED awaken trial, returns the i
     assert.equal(b.legacy.legacyId, chosen);
     // The legacy is stamped with the world era it was taken up in (>=1, and the
     // launch eras I-IV are unlocked so it lands at 4). Pins it to the timeline.
-    assert.ok(typeof b.legacy.eraBorn === 'number' && b.legacy.eraBorn >= 1, 'accept must stamp the world era (eraBorn)');
+    assert.equal(b.legacy.eraBorn, 4, 'accept must stamp the actual highest unlocked world era');
     // Accept grants the Aura Stones boon and its exact-once receipt in the SAME
     // player-save commit. No external marker may land ahead of the balance.
     const savedChar = (store.get(`save:${P}`) as { character?: { auraStones?: number; legacy?: { acceptanceReceipt?: unknown } }; _saveVersion?: number });
@@ -515,7 +569,8 @@ test('bind trial: start (variant 0) → reroll swaps the ask (attempt 2, variant
     assert.equal((r.out.body as { legacy: { stage: number } }).legacy.stage, 3);
 });
 
-test('prove → stage 4 with the Proven title; mythic → stage 5 with the Eternal title', async () => {
+test('real Proven and summit trials grant their titles and open the matching era admission', async () => {
+    await assertEraAdmission(3);
     for (const [kind, stage, titlePrefix] of [['prove', 4, 'Proven '], ['mythic', 5, 'Eternal ']] as const) {
         let r = fakeRes();
         await trial(fakeReq('POST', { action: 'start', playerName: P }), r.res);
@@ -527,6 +582,7 @@ test('prove → stage 4 with the Proven title; mythic → stage 5 with the Etern
         assert.equal(done.ok, true);
         assert.equal(done.legacy.stage, stage);
         assert.equal(done.title, `${titlePrefix}${chosenDef().title}`);
+        await assertEraAdmission(stage);
     }
 });
 

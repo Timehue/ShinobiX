@@ -2,7 +2,7 @@ import { PROFESSION_MAX_RANK } from "../constants/profession";
 import { professionThresholds } from "../lib/profession-bonuses";
 // Relative-time display reads Date.now() in render by design; verbatim-moved from App.tsx (rule disabled file-wide there).
 /* eslint-disable react-hooks/purity */
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import {
     type Character,
@@ -19,7 +19,10 @@ import { CentralDestinationHeader } from "../components/CentralDestinationHeader
 import { GameArtIcon } from "../components/GameArtIcon";
 import { WorldCrisisNewsEntry } from "../components/WorldCrisisNewsEntry";
 import { WorldCrisis80NewsEntry } from "../components/WorldCrisis80NewsEntry";
-import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
+import { WorldEraChapter } from "../components/WorldEraChapter";
+import { fetchEraChapters } from "../lib/era-journeys";
+import { eraMilestoneSummary, type EraChapterProgress } from "../../../shared/era-chapters";
+import { fetchHallOfLegends, fetchAnnouncements, fetchEras, useLegacyAvailability, useLegacyMutationAvailability, type HallEntryView, type AnnouncementView, type EraView } from "../lib/legacy";
 
 type WeeklyBossLb = {
     weekKey: string;
@@ -35,8 +38,9 @@ type WeeklyBossLb = {
 const LEGACY_HALL_TABS = new Set<LbTab>(["legends", "eras"]);
 
 export 
-function HallOfLegends({ character, setScreen, playerRoster }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>> }) {
+function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacter }: { character: Character; setScreen: (s: Screen) => void; playerRoster: PlayerRecord[]; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: (character: Character, version?: number) => boolean }) {
     const legacyAvailable = useLegacyAvailability();
+    const canRecordChapter = useLegacyMutationAvailability();
     // Deep-link support: the Daily Briefing's "World news" teaser (and any
     // other surface) can land the player on a specific tab via a one-shot
     // sessionStorage hint — previously a mythic headline opened the Ranked
@@ -166,6 +170,23 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
     const [hallEntries, setHallEntries] = useState<HallEntryView[] | null>(null);
     const [worldNews, setWorldNews] = useState<AnnouncementView[] | null>(null);
     const [eraViews, setEraViews] = useState<EraView[] | null>(null);
+    const [personalChapters, setPersonalChapters] = useState<{ playerName: string; chapters: EraChapterProgress[] } | null>(null);
+    const chapterRequest = useRef(0);
+    useEffect(() => {
+        if (tab !== "eras" || !legacyAvailable) return;
+        let alive = true;
+        const refresh = () => {
+            const request = ++chapterRequest.current;
+            void fetchEraChapters(character.name).then(chapters => {
+                if (!alive || request !== chapterRequest.current) return;
+                setPersonalChapters({ playerName: character.name, chapters }); clearLoadError("chapters");
+            }).catch(error => { if (alive && request === chapterRequest.current) setLoadError("chapters", error instanceof Error ? error.message : "Your chapters could not be loaded."); });
+            void fetchEras().then(result => { if (alive && result) setEraViews(result.eras); });
+        };
+        refresh();
+        const timer = window.setInterval(() => { if (!document.hidden) refresh(); }, 30_000);
+        return () => { alive = false; window.clearInterval(timer); };
+    }, [tab, legacyAvailable, character.name, loadRequest]);
     useEffect(() => {
         if (tab !== "news" && (!legacyAvailable || (tab !== "legends" && tab !== "eras"))) return;
         let alive = true;
@@ -314,9 +335,9 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
             </div>
 
             <div className="hol-board">
-                {loadErrors[tab] && (
+                {(loadErrors[tab] || (tab === "eras" && loadErrors.chapters)) && (
                     <div className="summary-box" role="alert" style={{ marginBottom: "0.8rem", borderColor: "var(--danger)" }}>
-                        <span>{loadErrors[tab]}</span>{" "}
+                        <span>{loadErrors[tab] || loadErrors.chapters}</span>{" "}
                         <button onClick={() => { clearLoadError(tab); setLoadRequest(request => request + 1); }}>Retry</button>
                     </div>
                 )}
@@ -640,7 +661,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                     <div style={{ position: "absolute", left: 12, bottom: 8, textShadow: "0 1px 6px rgba(0,0,0,.9)" }}>
                                         <b style={{ fontSize: "1rem", color: e.status === "unlocked" ? "var(--gold-300)" : "var(--slate-300)" }}>{e.name}</b>
                                         <span style={{ marginLeft: 8, fontSize: ".7rem", color: e.status === "unlocked" ? "var(--green-300)" : "var(--purple-400)" }}>
-                                            {e.status === "unlocked" ? "UNLOCKED" : e.status === "milestone_active" ? "IN PROGRESS" : "SEALED"}
+                                            {e.status === "unlocked" ? "WORLD UNLOCKED" : e.status === "milestone_active" ? "WORLD IN PROGRESS" : "WORLD SEALED"}
                                         </span>
                                     </div>
                                 </div>
@@ -704,18 +725,10 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                         );
                                     })()}
                                     {e.status === "milestone_active" && e.milestones.length > 0 && (() => {
-                                        // "How close to the next age" — a tonal synthesis of the
-                                        // SAME public milestone fractions the bars below already
-                                        // show. No new data, no rank/rarity, single violet.
-                                        const pct = e.milestones.reduce((a, m) => a + Math.min(1, m.current / Math.max(1, m.required)), 0) / e.milestones.length;
-                                        const met = e.milestones.filter((m) => m.done).length;
-                                        const band = pct >= 0.85 ? "The next age is within reach. Nearly all its measures are met."
-                                            : pct >= 0.5 ? "The next age stirs; more than half its measures are met."
-                                            : pct >= 0.15 ? "The next age is distant, but the world has begun to move."
-                                            : "The next age is far off. Its first measures are only beginning.";
+                                        // Every requirement matters; an average is not an ETA.
                                         return (
                                             <p style={{ margin: "4px 0 8px", fontSize: ".74rem", color: "#c4b5fd", fontStyle: "italic" }}>
-                                                {band} <span style={{ color: "#9aa3b2", fontStyle: "normal" }}>({met}/{e.milestones.length} measures met)</span>
+                                                {eraMilestoneSummary(e.milestones, e.trigger)}
                                             </p>
                                         );
                                     })()}
@@ -726,7 +739,7 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                                 <span>{m.current.toLocaleString()} / {m.required.toLocaleString()}</span>
                                             </div>
                                             <div style={{ height: 6, borderRadius: 3, background: "rgba(148,163,184,.15)", overflow: "hidden" }}>
-                                                <div style={{ height: "100%", width: `${Math.min(100, (m.current / Math.max(1, m.required)) * 100)}%`, background: m.done ? "var(--green-400)" : "var(--purple-400)" }} />
+                                                <div style={{ height: "100%", width: `${m.done ? 100 : Math.min(100, (m.current / Math.max(1, m.required)) * 100)}%`, background: m.done ? "var(--green-400)" : "var(--purple-400)" }} />
                                             </div>
                                         </div>
                                     ))}
@@ -735,6 +748,10 @@ function HallOfLegends({ character, setScreen, playerRoster }: { character: Char
                                             {e.trigger.fired ? `✓ Final trigger struck by ${e.trigger.firedBy}` : `Final trigger: ${e.trigger.label}`}
                                         </p>
                                     )}
+                                    {e.status === "milestone_active" && <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+                                        {([['missions', 'Carry missions'], ['arenaDistrict', 'Win shinobi duels'], ['worldMap', 'Find wanderers'], ['hollowGateShrine', 'Explore the Gate'], ['logbook', 'Your Legacy path']] as const).map(([destination, label]) => <button key={destination} type="button" className="btn" onClick={() => setScreen(destination)}>{label} →</button>)}
+                                    </div>}
+                                    <WorldEraChapter eraId={e.id} playerName={character.name} progress={personalChapters?.playerName === character.name ? personalChapters.chapters.find(chapter => chapter.eraId === e.id) : undefined} canMutate={canRecordChapter} setScreen={setScreen} onVersionedCharacter={onVersionedCharacter} onProgress={progress => { chapterRequest.current += 1; setPersonalChapters(current => current?.playerName === character.name ? { ...current, chapters: current.chapters.map(chapter => chapter.eraId === progress.eraId ? progress : chapter) } : current); setLoadRequest(current => current + 1); }} />
                                 </div>
                             </div>
                         ))

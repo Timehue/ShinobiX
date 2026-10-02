@@ -130,6 +130,48 @@ async function seedPlayer(playerName: string, sector: number, character: Record<
 }
 
 describe('sector wanderer reward endpoints verify the claimed NPC, not just the id shape', () => {
+    it('recovers Legacy and era discovery failures without repaying, and counts each player on a shared wanderer', async t => {
+        const previousFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            const { readEraContributions } = await import('../_era.js');
+            const { w, sector } = liveWanderer('gift');
+            const first = 'claimplayer-era-a', second = 'claimplayer-era-b';
+            for (const player of [first, second]) {
+                await seedPlayer(player, sector);
+                await kv.set(`legacy:stats:${player}`, { updatedAt: Date.now() });
+            }
+            const body = { sector, wandererId: w.id, wandererArchetype: w.archetype, wandererVerb: w.verb, wandererLevel: w.level, wandererName: w.name };
+            const originalSet = kv.set.bind(kv);
+            const statsFailure = t.mock.method(kv, 'set', async (key: string, value: unknown, opts?: Parameters<typeof kv.set>[2]) =>
+                key === `legacy:stats:${first}` ? null : originalSet(key, value, opts));
+            assert.equal((await post(gift, first, body)).statusCode, 503);
+            const paid = await kv.get<any>(`save:${first}`);
+            assert.ok(paid.character.ryo > 5000);
+            assert.equal((await readEraContributions()).discoveries, 0);
+            statsFailure.mock.restore();
+            const originalHset = kv.hset.bind(kv);
+            const eraFailure = t.mock.method(kv, 'hset', async (key: string, fields: Record<string, unknown>) => {
+                if (key === 'era:contrib-receipts:discoveries') throw new Error('injected-wanderer-era-write-failure');
+                return originalHset(key, fields);
+            });
+            assert.equal((await post(gift, first, body)).statusCode, 503);
+            assert.equal((await readEraContributions()).discoveries, 0);
+            eraFailure.mock.restore();
+            assert.equal((await post(gift, first, body)).statusCode, 200);
+            assert.equal((await readEraContributions()).discoveries, 1);
+            assert.equal((await post(gift, second, body)).statusCode, 200);
+            assert.equal((await readEraContributions()).discoveries, 2, 'a different player owns a different settlement receipt');
+            assert.equal((await post(gift, first, body)).statusCode, 200);
+            assert.equal((await readEraContributions()).discoveries, 2, 'replays cannot duplicate global credit');
+            assert.equal((await kv.get<any>(`save:${first}`)).character.ryo, paid.character.ryo);
+            assert.equal((await kv.get<any>(`legacy:stats:${first}`)).sectorDiscoveries, 1);
+        } finally {
+            if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+            else process.env.ENABLE_LEGACY = previousFlag;
+        }
+    });
+
     it('wanderer-gift refuses a forged archetype/verb/level and still pays a legitimate claim', async () => {
         const player = 'claimplayergift';
         const { w, sector } = liveWanderer('gift');

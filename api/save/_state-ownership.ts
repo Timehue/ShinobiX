@@ -413,6 +413,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('hollowGateIntroSeen', 'character', 'client-preference', 'hollow-gate', ['combat-strip-char']),
 
     // ── Titles / legacy / server vaults ─────────────────────────────────────
+    f('eraJourneys', 'character', 'server-owned', 'eras', ['server-mirror-char', 'combat-strip-char'], 'Permanent campaigns and chapters; journey admission/completion and mission, Gate, Tower settlements write server proof.'),
     f('serverTitles', 'character', 'server-owned', 'titles', [], 'era grants; stored copy always wins'),
     f('legacy', 'character', 'server-owned', 'legacy', [], 'legacy endpoints only; stored copy always wins'),
     f('customTitleStyle', 'character', 'cosmetic-ref', 'titles', [], 'allowlisted when legacy live; non-first saves frozen to stored'),

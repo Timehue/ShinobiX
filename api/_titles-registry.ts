@@ -15,6 +15,7 @@
  */
 import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ERA_DEFS } from './_era-defs.js';
+import { ERA_CHAPTERS } from '../shared/era-chapters.js';
 import { SUNSCAR_TITLES } from '../shared/sunscar/prestige.js';
 import { provenTitleFor, mythicTitleFor } from './_legacy-core.js';
 
@@ -100,6 +101,7 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ACHIEVEMENT_TITLES,
     ...ALL_LEGACY_TITLES,
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
+    ...ERA_CHAPTERS.map(chapter => chapter.rewardTitle),
     ...Object.values(KAGE_LIBERATOR_TITLES),
     ...Object.values(FIRST_PACT_TITLES),
     ...SUNSCAR_TITLES,
@@ -164,6 +166,7 @@ const FIRST_PACT_TITLE_SET: ReadonlySet<string> = new Set(
 export function isServerCreditedTitle(text: string): boolean {
     const key = normalizeTitleKey(text);
     return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key)
+        || ERA_CHAPTERS.some(chapter => chapter.rewardTitle.toLowerCase() === key)
         || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key)
         || SUNSCAR_TITLES.some(title => title.toLowerCase() === key);
 }

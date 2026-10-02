@@ -116,7 +116,7 @@ export const ERA_DEFS: readonly EraDef[] = [
         chronicle: [
             'The tremors were blamed on the Gate at first. Then something with a name older than the villages stood up.',
             'For the first time, four rival villages fought on the same side of a battle line. Nobody called it peace, but the line held.',
-            'The great-beast watch now turns over every seventh dawn. When a horn sounds, old rivals report to the same muster field.',
+            'The great-beast watch keeps the muster fields ready. When a horn sounds, old rivals report to the same battle line.',
         ],
         banner: '/legacy/eras/era-4-world-boss-awakening.webp',
         initialStatus: 'unlocked', unlockedAt: 1778803200000, milestones: [], // 2026-05-15
@@ -125,7 +125,7 @@ export const ERA_DEFS: readonly EraDef[] = [
     },
     {
         id: 'mythic-legacies', number: 5, name: 'Era V: Mythic Legacies',
-        description: 'The Hall begins naming the rarest witnessed patterns: mythic trials, deeper Gate surveys, and Legacies accepted for life.',
+        description: 'Together, the villages open the First Mythic Survey: a permanent investigation of the roads or the deep, with a place in the record for every returning witness.',
         lore: 'Hall clerks have cleared one blank stone and refuse to say whose name they expect to carve there.',
         chronicle: [
             'A hooded elder with violet eyes has been seen on the roads, watching certain shinobi a moment too long.',
@@ -151,7 +151,7 @@ export const ERA_DEFS: readonly EraDef[] = [
             title: 'Herald of the Mythic Age',
         },
         unlockTitle: 'ERA V: MYTHIC LEGACIES',
-        unlockMessage: '{player} has awakened the first mythic legacy, and the world crossed its threshold with them. The Mythic Age begins.',
+        unlockMessage: '{player} has awakened the first mythic legacy, and the world crossed its threshold with them. The First Mythic Survey is now open in the Hall. Every shinobi can leave an account of this age.',
     },
 ];
 

@@ -3,6 +3,17 @@ import assert from 'node:assert/strict';
 import { hasReservedTitleTerm, isAllowedCustomTitle } from './_text-moderation.js';
 import { KNOWN_EARNED_TITLES, ACHIEVEMENT_TITLES, isKnownEarnedTitle, isServerCreditedTitle, isLegacyOnlyTitle, normalizeTitleKey } from './_titles-registry.js';
 import { LEGACY_DEFS } from './_legacy-defs.js';
+import { ownsKnownProfileTitle } from './player/_profile-title-ownership.js';
+import { ERA_CHAPTERS } from '../shared/era-chapters.js';
+
+test('era chapter titles require server ownership rather than a forged earned list', () => {
+    for (const chapter of ERA_CHAPTERS) {
+        assert.equal(isKnownEarnedTitle(chapter.rewardTitle), true);
+        assert.equal(isServerCreditedTitle(chapter.rewardTitle), true);
+        assert.equal(ownsKnownProfileTitle({ earnedTitles: [chapter.rewardTitle] }, chapter.rewardTitle), false);
+        assert.equal(ownsKnownProfileTitle({ serverTitles: [chapter.rewardTitle] }, chapter.rewardTitle), true);
+    }
+});
 
 test('reserved terms catch authority/impersonation, leet + homoglyph + zero-width included', () => {
     for (const bad of [

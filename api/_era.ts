@@ -11,11 +11,11 @@
  * The credited trigger can land BEFORE the milestones finish: it is recorded
  * once (NX) at `era:trigger:<id>` and honored when the nightly pass finds the
  * milestones complete — the finisher keeps their credit either way.
- * Unlocking is exactly-once via the `era:unlocked:<id>` NX marker.
+ * Unlock state preserves first credit; receipt-backed effects retry to completion.
  */
 import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
-import { announce, addHallEntry } from './_announce.js';
+import { announce, addHallEntry, ANNOUNCEMENTS_KEY, type Announcement } from './_announce.js';
 import { legacyEnabled } from './_legacy-track.js';
 import { bumpSaveVersion } from './save/_save-version.js';
 import { mergePreservingImages } from './_utils.js';
@@ -28,7 +28,10 @@ export const ERA_STATE_KEY = 'game:era-state';
 const contribKey = (m: EraMetric) => `era:contrib:${m}`;
 const contributionReceiptKey = (m: EraMetric) => `era:contrib-receipts:${m}`;
 const idempotentContribKey = (m: EraMetric) => `era:contrib-idempotent:${m}`;
-const RECEIPT_BACKED_METRICS = new Set<EraMetric>(['legaciesAwakened']);
+// These sources already have permanent settlement identities and do not own
+// a cross-row acknowledgement saga. An unacknowledged bounded pending list
+// would otherwise stop discoveries before Era V's 400-encounter requirement.
+const RECEIPT_BACKED_METRICS = new Set<EraMetric>(['legaciesAwakened', 'discoveries', 'warBattles']);
 const triggerKey = (id: string) => `era:trigger:${id}`;
 
 type IdempotentEraContributionState = {
@@ -115,12 +118,19 @@ export type EraState = { overrides: Record<string, EraOverride> };
 export type EraTriggerRecord = { player: string; village?: string; ts: number };
 
 export async function getEraState(): Promise<EraState> {
-    try {
-        const raw = await kv.get<EraState>(ERA_STATE_KEY);
-        return raw && typeof raw === 'object' && raw.overrides ? raw : { overrides: {} };
-    } catch {
-        return { overrides: {} };
+    const raw = await kv.get<EraState>(ERA_STATE_KEY);
+    if (raw === null || raw === undefined) return { overrides: {} };
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw) || !raw.overrides
+        || typeof raw.overrides !== 'object' || Array.isArray(raw.overrides)) throw new Error('Invalid era state.');
+    for (const override of Object.values(raw.overrides)) {
+        if (!override || typeof override !== 'object' || Array.isArray(override)
+            || (override.status !== undefined && !['locked', 'admin_available', 'milestone_active', 'unlocked'].includes(override.status))
+            || (override.milestoneOverrides !== undefined && (!override.milestoneOverrides || typeof override.milestoneOverrides !== 'object'
+                || Array.isArray(override.milestoneOverrides) || Object.values(override.milestoneOverrides).some(value => !Number.isFinite(value) || value < 0)))) {
+            throw new Error('Invalid era override.');
+        }
     }
+    return raw;
 }
 
 export async function readEraContributions(): Promise<Record<EraMetric, number>> {
@@ -129,7 +139,7 @@ export async function readEraContributions(): Promise<Record<EraMetric, number>>
         ...(RECEIPT_BACKED_METRICS.has(metric) ? [contributionReceiptKey(metric)] : []),
     ]);
     // All counters/receipts are uncached authority keys. Read the independent
-    // rows together instead of serializing 15 network/database round trips.
+    // rows together instead of serializing independent database round trips.
     const values = await kv.mget<unknown[]>(...keys);
     const rows = new Map(keys.map((key, index) => [key, values[index]]));
     const out = {} as Record<EraMetric, number>;
@@ -156,20 +166,17 @@ export async function readEraContributions(): Promise<Record<EraMetric, number>>
 /** The highest-numbered era currently unlocked — the world's active chapter.
  *  Used to stamp `eraBorn` on a legacy at accept, pinning the accomplishment to
  *  the timeline. Reads the same state + overrides the roster/cron use, so it
- *  can't drift. Defaults to 1 on any read failure (never blocks an accept). */
+ *  can't drift. Failed authority reads remain retryable instead of permanently
+ *  stamping a Legacy with a guessed historical era. */
 export async function currentEraNumber(): Promise<number> {
-    try {
-        const state = await getEraState();
-        let highest = 1;
-        for (const def of ERA_DEFS) {
-            if (effectiveStatus(def, state.overrides[def.id]) === 'unlocked' && def.number > highest) {
-                highest = def.number;
-            }
+    const state = await getEraState();
+    let highest = 1;
+    for (const def of ERA_DEFS) {
+        if (effectiveStatus(def, state.overrides[def.id]) === 'unlocked' && def.number > highest) {
+            highest = def.number;
         }
-        return highest;
-    } catch {
-        return 1;
     }
+    return highest;
 }
 
 /** Fire-and-forget global contribution bump from settle endpoints. */
@@ -226,6 +233,11 @@ export async function bumpEraContributionOnce(
         console.error(`[era] receipt contribution failed (${metric}):`, err instanceof Error ? err.message : err);
         return false;
     }
+}
+
+/** The same road wanderer can be resolved independently by several players. */
+export async function bumpEraDiscoveryContribution(playerName: string, receiptId: string): Promise<boolean> {
+    return bumpEraContributionOnce('discoveries', `discovery:${playerName}:${receiptId}`);
 }
 
 /** Compact a cross-row contribution only after its owning save receipt lands. */
@@ -346,7 +358,8 @@ export async function recordEraTrigger(
             // milestone phase — a locked / admin_available / already-unlocked
             // era must not claim its once-ever finisher (verification finding).
             if (effectiveStatus(def, state.overrides[def.id]) !== 'milestone_active') continue;
-            await kv.set(triggerKey(def.id), { player: credited.player, village: credited.village, ts: Date.now() } satisfies EraTriggerRecord, { nx: true });
+            const claimed = await kv.set(triggerKey(def.id), { player: credited.player, village: credited.village, ts: Date.now() } satisfies EraTriggerRecord, { nx: true });
+            if (claimed !== 'OK' && !(await kv.get<EraTriggerRecord>(triggerKey(def.id)))) throw new Error('Era trigger was not committed.');
             await checkEraUnlocks();
         }
         return true;
@@ -436,7 +449,7 @@ export async function unlockEra(
             unlockedVillage: override?.unlockedVillage ?? credited?.village ?? null,
             unlockedAt: override?.unlockedAt ?? now,
         };
-        await kv.set(ERA_STATE_KEY, state);
+        if (await kv.set(ERA_STATE_KEY, state) !== 'OK') throw new Error('Era unlock was not committed.');
         transitioned = true;
     }, { failClosed: true });
 
@@ -460,43 +473,58 @@ export async function completeEraEffects(def: EraDef): Promise<boolean> {
         .replace('{player}', player ?? 'the shinobi of the world')
         .replace('{village}', village ?? 'every village');
 
-    // Announce once (NX-guarded so a retry after a crash never double-posts).
-    if ((await kv.set(announcedNxKey(def.id), '1', { nx: true })) === 'OK') {
-        await announce({
-            type: 'era_unlock', importance: 'mythic',
-            title: def.unlockTitle, message,
-            player, village, meta: { eraId: def.id },
-        });
-    }
+    // A receipt binds the feed and village-chat writes. The old NX marker
+    // could be stranded BEFORE delivery. Adopt a surviving legacy feed row
+    // before retrying, rather than posting the same historic unlock twice.
+    const receiptId = `era:${def.id}:unlock`;
+    await withKvLock(ANNOUNCEMENTS_KEY, async () => {
+        const list = await kv.get<Announcement[]>(ANNOUNCEMENTS_KEY);
+        const existing = list?.find(item => item.type === 'era_unlock' && item.meta?.eraId === def.id);
+        if (existing && !existing.receiptId) {
+            await kv.set(ANNOUNCEMENTS_KEY, list!.map(item => item.id === existing.id ? { ...item, receiptId } : item));
+        }
+    }, { failClosed: true });
+    const announcement = await announce({
+        type: 'era_unlock', importance: 'mythic',
+        title: def.unlockTitle, message,
+        player, village, meta: { eraId: def.id },
+    }, { receiptId });
+    if (!announcement) return false;
+    await kv.set(announcedNxKey(def.id), '1');
     // Permanent Hall entry (own NX via nxKey).
     await addHallEntry({
         entryType: 'era_unlock', title: def.name, description: message,
         player, village, meta: { eraId: def.id },
     }, { nxKey: `era:${def.id}` });
+    const hallMarker = await kv.get<'1' | { status?: string }>(`hall:nx:era:${def.id}`);
+    if (hallMarker !== '1' && hallMarker?.status !== 'done') return false;
 
     // Grant the credited finisher their era title (serverTitles = the
     // server-owned ownership source; idempotent includes-check).
     if (player && def.trigger?.title) {
         try {
-            await withKvLock(`save:${player}`, async () => {
+            const delivered = await withKvLock(`save:${player}`, async () => {
                 const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return;
+                if (!rec || !char) return false;
                 const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
                 const server = Array.isArray(char.serverTitles) ? (char.serverTitles as string[]) : [];
-                if (server.includes(def.trigger!.title)) return;
+                if (server.includes(def.trigger!.title) && earned.includes(def.trigger!.title)) return true;
                 const updated = {
                     ...char,
-                    serverTitles: [...server, def.trigger!.title],
+                    serverTitles: server.includes(def.trigger!.title) ? server : [...server, def.trigger!.title],
                     earnedTitles: earned.includes(def.trigger!.title) ? earned : [...earned, def.trigger!.title],
                 };
-                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-            });
+                if (await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec)) !== 'OK') return false;
+                return true;
+            }, { failClosed: true });
+            if (!delivered) return false;
         } catch (err) {
             console.error('[era] title grant failed:', err instanceof Error ? err.message : err);
+            return false;
         }
     }
-    await kv.set(effectsDoneKey(def.id), true);
+    if (await kv.set(effectsDoneKey(def.id), true) !== 'OK') return false;
     console.log(`[era] side effects complete for ${def.id}${player ? ` (credited ${player})` : ''}`);
     return true;
 }
