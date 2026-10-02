@@ -24,6 +24,8 @@ import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
+import { VillageTransfer } from "./VillageTransfer";
+import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 
 function shopArtworkIcon(item: GameItem): GameIconName {
     switch (normalizeEquipmentSlot(item.slot)) {
@@ -117,6 +119,7 @@ function ShopBase({
         // Drops, crafting materials, and keys ship with cost: 0 because they're
         // earned in-game, not bought. Exclude them from shop listings.
         return shopSlots.includes(item.slot)
+            && item.id !== VILLAGE_TRANSFER_SCROLL_ID
             && filterRarities.includes(item.rarity)
             && !craftOnlyWeapon
             && !craftOnlyArmor
@@ -245,6 +248,8 @@ function ShopBase({
             {currency === "ryo" && (
                 <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toFixed(2)}%</strong></p>
             )}
+
+            {currency === "fateShards" && <VillageTransfer key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} />}
 
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) =>

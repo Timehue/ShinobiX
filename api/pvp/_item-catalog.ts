@@ -229,6 +229,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "veil-of-the-hollow": {"id":"veil-of-the-hollow","name":"Veil of the Hollow","slot":"item","rarity":"legendary","cost":0,"stackable":true,"bonuses":{}},
     "village-supply-bundle": {"id":"village-supply-bundle","name":"Village Supply Bundle","slot":"item","rarity":"common","cost":0,"stackable":true,"bonuses":{}},
     "village-supply-crate": {"id":"village-supply-crate","name":"Village Supply Crate","slot":"item","rarity":"uncommon","cost":0,"stackable":true,"bonuses":{}},
+    "village-transfer-scroll": {"id":"village-transfer-scroll","name":"Village Transfer Scroll","slot":"item","rarity":"legendary","cost":250,"levelReq":100,"serviceItem":true,"bonuses":{}},
     "void-leech-nodachi": {"id":"void-leech-nodachi","name":"Void Leech Nodachi","slot":"hand","rarity":"mythic","cost":100,"levelReq":55,"weaponRange":4,"weaponCooldown":5,"weaponEp":25,"weaponEffect":"Lifesteal","weaponEffectValue":35,"bonuses":{"bukijutsuOffense":168}},
     "war-resource-cache": {"id":"war-resource-cache","name":"War Resource Cache","slot":"item","rarity":"rare","cost":0,"stackable":true,"bonuses":{}},
     "war-supply-cache": {"id":"war-supply-cache","name":"War Supply Cache","slot":"item","rarity":"rare","cost":0,"stackable":true,"bonuses":{}},
