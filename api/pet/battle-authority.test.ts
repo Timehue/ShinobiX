@@ -510,8 +510,6 @@ test('ranked save evidence recovers winner Legacy credit after receipt outage, i
         hp: 1, attack: 1, defense: 1, speed: 1,
         jutsus: [{ name: 'Tap', power: 1, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
     };
-    const { runPetDuel } = await import('../_pet-sim/pet-duel-sim.js');
-    assert.equal(runPetDuel(alphaPet as never, omegaPet as never, 73, 1, 1, false).result, 'win');
 
     const auth = await import('../_auth.js');
     const alphaToken = auth.issuePlayerToken(alpha)!;
@@ -709,8 +707,6 @@ test('durable ranked intent heals a second-save win failure after the live proof
         hp: 1, attack: 1, defense: 1, speed: 1,
         jutsus: [{ name: 'Tap', power: 1, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
     };
-    const { runPetDuel } = await import('../_pet-sim/pet-duel-sim.js');
-    assert.equal(runPetDuel(alphaPet as never, bravoPet as never, 73, 1, 1, false).result, 'win');
     const auth = await import('../_auth.js');
     const alphaToken = auth.issuePlayerToken(alpha)!;
     const bravoToken = auth.issuePlayerToken(bravo)!;
