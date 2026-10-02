@@ -1,3 +1,4 @@
+import { settleTowerRelicReward } from './_relic-reward.js';
 import type { TowerClearComparison } from '../../shared/tower-progression.js';
 import { settleTowerRecords } from './_records.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -112,6 +113,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : a.ai
                     ? await settleAssistForAlly({ session, slug })
                     : await settleFloorForMember({ session, slug }));
+            if (!spire && !a.ai && session.winner === 'squad') {
+                const relic = await settleTowerRelicReward(session, slug);
+                results[slug] = { ...results[slug], relic };
+            }
             const reward = results[slug];
             if (!a.ai && (reward.paid || reward.reason === 'already-paid' || reward.reason === 'already-first-cleared') && session.winner === 'squad') {
                 const record = await kv.get<Record<string, unknown>>(`save:${slug}`);

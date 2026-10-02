@@ -21,7 +21,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'open-war-crate', 10, 60_000, identity.name, { strict: true }))) return;
 
         const out = await mutatePlayerSave(playerName, ({ character }) => {
-            const opened = applyWarCrateOpen(character, Math.random());
+            const opened = applyWarCrateOpen(character, Math.random(), Math.random());
             if (!opened.ok) return opened;
             return { ok: true, character: opened.character, value: opened.rewards };
         });
@@ -33,6 +33,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             { currency: 'ryo', delta: out.value.ryo, balanceAfter: Number(balances.ryo ?? 0) },
             { currency: 'honorSeals', delta: out.value.honorSeals, balanceAfter: Number(balances.honorSeals ?? 0) },
             { currency: 'boneCharms', delta: out.value.boneCharms, balanceAfter: Number(balances.boneCharms ?? 0) },
+            { currency: 'fateShards', delta: out.value.fateShards ?? 0, balanceAfter: Number(balances.fateShards ?? 0) },
         ];
         // The save mutation above is the authoritative transaction. Economy
         // records are observability/audit projections and must never turn a

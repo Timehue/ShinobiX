@@ -204,6 +204,135 @@ export type PlayerSaveMutationOptions = Pick<VersionedWriteOptions, 'hollowGateC
     lockTtlSec?: number;
 };
 
+/** One save, read and settled under its lock, ready for a decision. */
+type LoadedSave = {
+    playerName: string;
+    saveKey: string;
+    /** The exact stored row: the value the compare-and-set expects. */
+    record: PlayerSaveRecord;
+    /** The settled character, the "before" a decision's vitals are compared with. */
+    character: PlayerCharacter;
+    regen: { excluded: boolean; cursor: number };
+    /** The decision's own copies (see the note in loadSettledSave). */
+    ctx: PlayerSaveMutationContext;
+};
+
+type MissingSave = { ok: false; status: 404; error: string; code: PlayerSaveMissingCode };
+
+/** The write a decision asks for, shared by the one- and two-save writers. */
+type SaveWrite = Pick<Extract<PlayerSaveMutation<unknown>, { ok: true }>,
+    'character' | 'recordPatch' | 'hollowGateCurrencySource' | 'hollowGateProvenanceRecorded'>;
+
+type CommittedSave = { record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number };
+
+/** Read and settle one save. The caller already holds its lock. */
+async function loadSettledSave(playerName: string, saveKey: string): Promise<LoadedSave | MissingSave> {
+    const { kv } = await import('../_storage.js');
+    const record = await kv.get<PlayerSaveRecord>(saveKey);
+    const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
+    if (!record || !storedCharacter) {
+        const code: PlayerSaveMissingCode = record ? 'character-not-found' : 'save-not-found';
+        return { ok: false as const, status: 404, error: 'Player save not found.', code };
+    }
+
+    // Settle the idle recovery that elapsed since the regen cursor BEFORE
+    // the mutation reads a vital (F13). A consumer that validates or spends
+    // HP/chakra/stamina — training, a fight start, an item — used to see
+    // whatever the last owner GET had persisted, so it could refuse an
+    // action the player's own screen showed as ready, or the mutation's
+    // version bump discarded the recovery earned since that GET. Real
+    // activity excludes it: a battle lock, an open Hollow Gate run, an
+    // admission. One get, under the lock the write already holds.
+    const now = Date.now();
+    const [{ battleLockedFor, settleVitalsRegen }, { migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
+        import('../_elapsed-state.js'),
+        import('../pet/_owned-pet.js'),
+        import('../pet/_breeding-requirements.js'),
+    ]);
+    const regen = settleVitalsRegen(record, { now, battleLocked: await battleLockedFor(playerName) });
+    const settledCharacter = (regen.record.character ?? storedCharacter) as PlayerCharacter;
+
+    // Every authoritative mutation sees the same idempotent owned-pet
+    // migration and time-based barn settlement before it validates an
+    // action. That makes parents available at readyAt even when Home was
+    // never opened, and prevents one endpoint from operating on a legacy
+    // pet shape while another sees the migrated schema.
+    const migrated = migrateCharacterOwnedPets(playerName, settledCharacter);
+    const settled = settlePetBreedingSession(migrated.character);
+    const character = await reconcileElderFocus(settled.character);
+
+    // The callback gets its own top-level copies. `record` is the exact row the
+    // compare-and-set below expects, and `character` can be that row's own
+    // character object, so a callback that assigned a field in place
+    // (`character.flag = …`) used to edit the expected value itself: the
+    // write then failed as a version conflict nobody caused, and the elder
+    // and Hollow Gate credits compared against an already-edited "before".
+    // Nested state is still shared; callbacks build new arrays and objects
+    // rather than pushing into the ones they read.
+    //
+    // The copies keep one relation callers rely on: `ctx.character` is
+    // `ctx.record.character` exactly when the pet/breeding/elder settles
+    // changed nothing (the Exchange browse skips its inventory diff on that).
+    const ownCharacter = { ...character };
+    const settledRecordCharacter = regen.record.character as PlayerCharacter;
+    return {
+        playerName,
+        saveKey,
+        record,
+        character,
+        regen: { excluded: regen.excluded, cursor: regen.cursor },
+        ctx: {
+            playerName,
+            saveKey,
+            record: {
+                ...regen.record,
+                character: settledRecordCharacter === character ? ownCharacter : { ...settledRecordCharacter },
+            },
+            character: ownCharacter,
+        },
+    };
+}
+
+/** Commit one decision's write with an exact compare-and-set. The caller holds the lock. */
+async function commitSaveWrite(loaded: LoadedSave, write: SaveWrite, options: PlayerSaveMutationOptions): Promise<CommittedSave> {
+    // Bump _saveVersion on server-side player mutations so stale client
+    // autosaves refetch instead of overwriting the credited/debited save.
+    //
+    // The regen cursor: a mutation that itself changed a vital (a fight
+    // settlement, a heal, a stamina spend) fences it to now — its time is
+    // not idle recovery. Anything else carries the settled cursor forward,
+    // so the sub-second remainder survives the write. Excluded state (a
+    // battle lock, an admission) and a record with no clock also fence.
+    const vitalsTouched = (['hp', 'chakra', 'stamina'] as const)
+        .some((key) => Number(write.character[key] ?? NaN) !== Number(loaded.character[key] ?? NaN));
+    // `undefined` lets bumpSaveVersion fence the cursor to the exact write
+    // instant (`_saveAt`), so the two stamps agree on a fence.
+    const regenAt = vitalsTouched || loaded.regen.excluded || !loaded.regen.cursor ? undefined : loaded.regen.cursor;
+    const hollowGateCurrencySource = write.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
+    const out = await writeVersionedPlayerSave(loaded.saveKey, loaded.record, write.character, write.recordPatch, {
+        regenAt,
+        ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
+        ...(write.hollowGateProvenanceRecorded ? { hollowGateProvenanceRecorded: true } : {}),
+    });
+    return {
+        record: out.record,
+        character: out.record.character as PlayerCharacter,
+        _saveVersion: out._saveVersion,
+    };
+}
+
+function isSaveVersionConflict(error: unknown): boolean {
+    return error instanceof Error && error.message === 'player-save-version-conflict';
+}
+
+async function runUndo(saveKey: string, what: string, undo: () => Promise<void> | void): Promise<void> {
+    try {
+        await undo();
+    } catch (undoError) {
+        console.error(`[mutatePlayerSave] ${saveKey}: undoing a decision after ${what} failed:`, undoError);
+    }
+}
+
 export async function mutatePlayerSave<T>(
     playerNameRaw: string,
     mutate: (ctx: PlayerSaveMutationContext) => Promise<PlayerSaveMutation<T>> | PlayerSaveMutation<T>,
@@ -214,8 +343,7 @@ export async function mutatePlayerSave<T>(
     // back.
     options: PlayerSaveMutationOptions = {},
 ): Promise<PlayerSaveMutationResult<T>> {
-    const [{ kv }, { withKvLock }, { safeName }] = await Promise.all([
-        import('../_storage.js'),
+    const [{ withKvLock }, { safeName }] = await Promise.all([
         import('../_lock.js'),
         import('../_utils.js'),
     ]);
@@ -223,62 +351,9 @@ export async function mutatePlayerSave<T>(
     if (!playerName) return { ok: false, status: 400, error: 'Invalid player name.' };
     const saveKey = `save:${playerName}`;
     return await withKvLock(saveKey, async () => {
-        const record = await kv.get<PlayerSaveRecord>(saveKey);
-        const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
-        if (!record || !storedCharacter) {
-            const code: PlayerSaveMissingCode = record ? 'character-not-found' : 'save-not-found';
-            return { ok: false as const, status: 404, error: 'Player save not found.', code };
-        }
-
-        // Settle the idle recovery that elapsed since the regen cursor BEFORE
-        // the mutation reads a vital (F13). A consumer that validates or spends
-        // HP/chakra/stamina — training, a fight start, an item — used to see
-        // whatever the last owner GET had persisted, so it could refuse an
-        // action the player's own screen showed as ready, or the mutation's
-        // version bump discarded the recovery earned since that GET. Real
-        // activity excludes it: a battle lock, an open Hollow Gate run, an
-        // admission. One get, under the lock the write already holds.
-        const now = Date.now();
-        const [{ battleLockedFor, settleVitalsRegen }, { migrateCharacterOwnedPets }, { settlePetBreedingSession }] = await Promise.all([
-            import('../_elapsed-state.js'),
-            import('../pet/_owned-pet.js'),
-            import('../pet/_breeding-requirements.js'),
-        ]);
-        const regen = settleVitalsRegen(record, { now, battleLocked: await battleLockedFor(playerName) });
-        const settledCharacter = (regen.record.character ?? storedCharacter) as PlayerCharacter;
-
-        // Every authoritative mutation sees the same idempotent owned-pet
-        // migration and time-based barn settlement before it validates an
-        // action. That makes parents available at readyAt even when Home was
-        // never opened, and prevents one endpoint from operating on a legacy
-        // pet shape while another sees the migrated schema.
-        const migrated = migrateCharacterOwnedPets(playerName, settledCharacter);
-        const settled = settlePetBreedingSession(migrated.character);
-        const character = await reconcileElderFocus(settled.character);
-
-        // The callback gets its own top-level copies. `record` is the exact row the
-        // compare-and-set below expects, and `character` can be that row's own
-        // character object, so a callback that assigned a field in place
-        // (`character.flag = …`) used to edit the expected value itself: the
-        // write then failed as a version conflict nobody caused, and the elder
-        // and Hollow Gate credits compared against an already-edited "before".
-        // Nested state is still shared; callbacks build new arrays and objects
-        // rather than pushing into the ones they read.
-        //
-        // The copies keep one relation callers rely on: `ctx.character` is
-        // `ctx.record.character` exactly when the pet/breeding/elder settles
-        // changed nothing (the Exchange browse skips its inventory diff on that).
-        const ownCharacter = { ...character };
-        const settledRecordCharacter = regen.record.character as PlayerCharacter;
-        const decision = await mutate({
-            playerName,
-            saveKey,
-            record: {
-                ...regen.record,
-                character: settledRecordCharacter === character ? ownCharacter : { ...settledRecordCharacter },
-            },
-            character: ownCharacter,
-        });
+        const loaded = await loadSettledSave(playerName, saveKey);
+        if (!('ctx' in loaded)) return loaded;
+        const decision = await mutate(loaded.ctx);
         if (!decision.ok) return decision;
 
         // Read/replay paths can return the authoritative snapshot without
@@ -287,51 +362,167 @@ export async function mutatePlayerSave<T>(
             return {
                 ok: true as const,
                 value: decision.value,
-                record,
+                record: loaded.record,
                 character: decision.character,
-                _saveVersion: Number(record._saveVersion ?? 0),
+                _saveVersion: Number(loaded.record._saveVersion ?? 0),
             };
         }
 
-        // Bump _saveVersion on server-side player mutations so stale client
-        // autosaves refetch instead of overwriting the credited/debited save.
-        //
-        // The regen cursor: a mutation that itself changed a vital (a fight
-        // settlement, a heal, a stamina spend) fences it to now — its time is
-        // not idle recovery. Anything else carries the settled cursor forward,
-        // so the sub-second remainder survives the write. Excluded state (a
-        // battle lock, an admission) and a record with no clock also fence.
-        const vitalsTouched = (['hp', 'chakra', 'stamina'] as const)
-            .some((key) => Number(decision.character[key] ?? NaN) !== Number(character[key] ?? NaN));
-        // `undefined` lets bumpSaveVersion fence the cursor to the exact write
-        // instant (`_saveAt`), so the two stamps agree on a fence.
-        const regenAt = vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
-        const hollowGateCurrencySource = decision.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
-        let out: Awaited<ReturnType<typeof writeVersionedPlayerSave>>;
+        let committed: CommittedSave;
         try {
-            out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
-                regenAt,
-                ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
-                ...(decision.hollowGateProvenanceRecorded ? { hollowGateProvenanceRecorded: true } : {}),
-            });
+            committed = await commitSaveWrite(loaded, decision, options);
         } catch (error) {
-            const conflict = error instanceof Error && error.message === 'player-save-version-conflict';
+            const conflict = isSaveVersionConflict(error);
             const undo = conflict ? decision.onConflict : decision.onUnconfirmedWrite;
-            if (undo) {
-                try {
-                    await undo();
-                } catch (undoError) {
-                    console.error(`[mutatePlayerSave] ${saveKey}: undoing a decision after a ${conflict ? 'lost compare-and-set' : 'failed write'} failed:`, undoError);
-                }
-            }
+            if (undo) await runUndo(saveKey, conflict ? 'a lost compare-and-set' : 'a failed write', undo);
             throw error;
         }
-        const committed = {
-            record: out.record,
-            character: out.record.character as PlayerCharacter,
-            _saveVersion: out._saveVersion,
-        };
         if (decision.afterCommit) await decision.afterCommit(committed);
         return { ok: true as const, value: decision.value, ...committed };
     }, { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) });
+}
+
+/** A save as one write of a two-save settlement left it. */
+export type PlayerSaveCommit = CommittedSave;
+
+/** One save's part of a two-save decision. */
+export type PlayerSavesSide = SaveWrite & {
+    /** false leaves this save exactly as it is (a side that already settled). */
+    write?: boolean;
+    /**
+     * Runs right after THIS save commits, under every lock: a journal step
+     * that must follow this write and precede the next one. A throw stops the
+     * settlement there. With a save still unwritten it surfaces as
+     * PlayerSavesPartialCommitError, otherwise as itself.
+     */
+    afterCommit?: (committed: PlayerSaveCommit) => Promise<void> | void;
+};
+
+export type PlayerSavesDecision<T> =
+    | {
+        ok: true;
+        value: T;
+        /** One entry per save, keyed by the slug its context carries. */
+        sides: Record<string, PlayerSavesSide>;
+        /**
+         * Runs once every write has committed, still under every lock. A throw
+         * reaches the caller with every save already committed.
+         */
+        afterCommit?: (saves: Record<string, PlayerSaveCommit & { written: boolean }>) => Promise<void> | void;
+    }
+    | { ok: false; status: number; error: string };
+
+export type PlayerSavesResult<T> =
+    | {
+        ok: true;
+        value: T;
+        /** Each save as it now stands, keyed by slug; `written` says whether this call changed it. */
+        saves: Record<string, PlayerSaveCommit & { written: boolean }>;
+    }
+    | { ok: false; status: number; error: string; code?: PlayerSaveMissingCode; playerName?: string };
+
+/**
+ * A later save write failed after an earlier one committed. It is deliberately
+ * NOT the version-conflict error, so retryOnSaveVersionConflict never re-runs a
+ * half-applied settlement on its own: only a caller whose every side carries
+ * its own receipt may retry it (the committed side then replays as unchanged).
+ */
+export class PlayerSavesPartialCommitError extends Error {
+    constructor(
+        public readonly committed: readonly string[],
+        public readonly failed: string,
+        public readonly cause: unknown,
+    ) {
+        super(`Saved ${committed.join(', ')} but not ${failed}.`);
+        this.name = 'PlayerSavesPartialCommitError';
+    }
+}
+
+/**
+ * mutatePlayerSave for a settlement that changes two (or more) players' saves
+ * together: a ranked result, a heal, a transfer.
+ *
+ * Every save is locked, in ONE sorted order and fail-closed, before any is
+ * read, so two settlements over the same players can never wait on each other
+ * and lock contention can only abort before anything moved. Each save is read
+ * and settled exactly as mutatePlayerSave does it (its own regen, battle lock,
+ * pet migration and elder reconcile), and `decide` sees them all at once. A
+ * missing save answers 404 naming it, and nothing is written.
+ *
+ * The writes commit one at a time in the order the names were given (the
+ * meaningful order: debit before credit), each an exact compare-and-set with
+ * its own regen cursor. A failure of the FIRST write leaves nothing committed
+ * and rethrows its own error, so a lost compare-and-set can still be retried.
+ * A failure after a write has committed throws PlayerSavesPartialCommitError.
+ */
+export async function mutatePlayerSaves<T>(
+    playerNamesRaw: readonly string[],
+    decide: (sides: Readonly<Record<string, PlayerSaveMutationContext>>) => Promise<PlayerSavesDecision<T>> | PlayerSavesDecision<T>,
+    options: PlayerSaveMutationOptions = {},
+): Promise<PlayerSavesResult<T>> {
+    const [{ withKvLock }, { safeName }] = await Promise.all([
+        import('../_lock.js'),
+        import('../_utils.js'),
+    ]);
+    const names = playerNamesRaw.map((name) => safeName(name));
+    if (names.length === 0 || names.some((name) => !name)) return { ok: false, status: 400, error: 'Invalid player name.' };
+    if (new Set(names).size !== names.length) {
+        throw new Error(`mutatePlayerSaves needs distinct saves, got ${names.join(', ')}.`);
+    }
+    const lockOptions = { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) };
+    const lockOrder = [...names].sort();
+
+    const settle = async (): Promise<PlayerSavesResult<T>> => {
+        const loaded: Record<string, LoadedSave> = {};
+        for (const name of names) {
+            const save = await loadSettledSave(name, `save:${name}`);
+            if (!('ctx' in save)) return { ...save, playerName: name };
+            loaded[name] = save;
+        }
+        const decision = await decide(Object.fromEntries(names.map((name) => [name, loaded[name]!.ctx])));
+        if (!decision.ok) return decision;
+        for (const name of names) {
+            if (!decision.sides[name]) throw new Error(`mutatePlayerSaves: the decision has no side for ${name}.`);
+        }
+
+        const saves: Record<string, CommittedSave & { written: boolean }> = {};
+        const committed: string[] = [];
+        for (const [index, name] of names.entries()) {
+            const side = decision.sides[name]!;
+            const save = loaded[name]!;
+            if (side.write === false) {
+                saves[name] = {
+                    record: save.record,
+                    character: side.character,
+                    _saveVersion: Number(save.record._saveVersion ?? 0),
+                    written: false,
+                };
+                continue;
+            }
+            let written: CommittedSave;
+            try {
+                written = await commitSaveWrite(save, side, options);
+            } catch (error) {
+                if (committed.length === 0) throw error;
+                throw new PlayerSavesPartialCommitError(committed, name, error);
+            }
+            saves[name] = { ...written, written: true };
+            committed.push(name);
+            if (!side.afterCommit) continue;
+            try {
+                await side.afterCommit(written);
+            } catch (error) {
+                const unwritten = names.slice(index + 1).find((next) => decision.sides[next]!.write !== false);
+                if (unwritten) throw new PlayerSavesPartialCommitError(committed, unwritten, error);
+                throw error;
+            }
+        }
+        if (decision.afterCommit) await decision.afterCommit(saves);
+        return { ok: true, value: decision.value, saves };
+    };
+
+    const lockFrom = (index: number): Promise<PlayerSavesResult<T>> => index === lockOrder.length
+        ? settle()
+        : withKvLock(`save:${lockOrder[index]}`, () => lockFrom(index + 1), lockOptions);
+    return await lockFrom(0);
 }
