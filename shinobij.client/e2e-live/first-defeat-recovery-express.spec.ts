@@ -1,6 +1,7 @@
 import { expect, type Route } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -66,7 +67,9 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
  const sector = before.currentSector;
  // The owner-read travel migration chooses the canonical spawn sector. Bind
  // the prepared ambush receipt to that actual location, never a guessed one.
- const bound = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...before, character: { ...before.character, redeemedSectorExplorations: [{ id: receipt, sector, at: Date.now(), outcome: { kind: 'battle' } }] } } });
+ // Quiet that sector's road too: the journey waits on the world map, where a
+ // hunting bandit would park its own encounter over the fight. See quietRoadCooldowns.
+ const bound = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...before, character: { ...before.character, redeemedSectorExplorations: [{ id: receipt, sector, at: Date.now(), outcome: { kind: 'battle' } }], wandererCooldowns: quietRoadCooldowns([sector]) } } });
  expect(bound.status()).toBe(200);
  before = await save();
  await request.post(`/api/save/${name}?ack=1`, { headers });
@@ -237,9 +240,16 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    const retryDischarge = page.getByRole('button', { name: 'Pay & discharge', exact: true });
    const recoveredVillage = page.locator('.stormveil-village-screen');
    await expect(retryDischarge.or(recoveredVillage)).toBeVisible();
+   // The committed discharge also reaches the client on its own (its next save
+   // sync, or the stay's timer running out), and that can unmount the hospital
+   // between any check and a click: CI once waited out the whole test on a
+   // detached retry button. A retry that finds no button IS that recovery. The
+   // assertions below prove either path leaves the hospital charged once.
    if (await retryDischarge.isVisible()) {
-    await retryDischarge.click();
-    if (recovery === 'paid-lost') await expect(page.getByText(/Discharge confirmed\. HP restored/)).toBeVisible();
+    const retried = await retryDischarge.click({ timeout: 10_000 }).then(() => true, () => false);
+    if (retried && recovery === 'paid-lost') {
+     await expect(page.getByText(/Discharge confirmed\. HP restored/).or(recoveredVillage)).toBeVisible();
+    }
    }
   } else {
    await page.locator('.hospital-screen--admitted').getByRole('button', { name: 'Pay & discharge', exact: true }).dblclick();

@@ -223,7 +223,18 @@ function isKvSetCall(node: ts.Node): node is ts.CallExpression {
         && node.expression.name.text === 'set';
 }
 
-function scanPlayerSaveWrites(source: string, fileName = 'fixture.ts'): PlayerSaveWrite[] {
+/** Any `<store>.set(key, …)` or `<store>.compareSet(key, …)`, whatever the store is called. */
+function isAnyStoreWriteCall(node: ts.Node): node is ts.CallExpression {
+    return ts.isCallExpression(node)
+        && ts.isPropertyAccessExpression(node.expression)
+        && (node.expression.name.text === 'set' || node.expression.name.text === 'compareSet');
+}
+
+function scanPlayerSaveWrites(
+    source: string,
+    fileName = 'fixture.ts',
+    isWriteCall: (node: ts.Node) => node is ts.CallExpression = isKvSetCall,
+): PlayerSaveWrite[] {
     const sourceFile = ts.createSourceFile(fileName, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
     const scopes: Scope[] = [new Map()];
     const writes: PlayerSaveWrite[] = [];
@@ -252,7 +263,7 @@ function scanPlayerSaveWrites(source: string, fileName = 'fixture.ts'): PlayerSa
             if (binding) binding.initializer = node.right;
         }
 
-        if (isKvSetCall(node) && node.arguments.length >= 2 && isPlayerSaveKey(node.arguments[0], scopes)) {
+        if (isWriteCall(node) && node.arguments.length >= 2 && isPlayerSaveKey(node.arguments[0], scopes)) {
             const { line } = sourceFile.getLineAndCharacterOfPosition(node.getStart(sourceFile));
             writes.push({
                 line: line + 1,
@@ -307,6 +318,73 @@ test('the versionless-by-design escape hatch stays at its one intended call site
         VERSIONLESS_BY_DESIGN_CALLERS.map(([file, uses]) => `${file}:${uses}`),
         'A versionless player-save write appeared outside the settle projection. ' +
         'If it credits anything a player keeps, it must use bumpSaveVersion instead.',
+    );
+});
+
+/*
+ * Ratchet: player-save writes that bypass mutatePlayerSave.
+ *
+ * A raw write is versioned (the guard above makes sure of that) but skips
+ * everything else the shared writer does. It does not settle the idle recovery
+ * earned since the regeneration cursor, so the version bump discards it and the
+ * player watches their HP, chakra and stamina fall back. It also skips the
+ * owned-pet migration, the breeding settlement, elder-focus reconciliation,
+ * elder-win credit, the currency-ledger projection, the public-index refresh,
+ * and the world-crisis level-crossing observers.
+ *
+ * These files are being moved onto mutatePlayerSave one domain at a time
+ * (docs/refactor-plan-2026-10-02.md, owner decision 2). Each count is EXACT:
+ * a new raw write fails here, and so does a conversion that forgets to lower its
+ * entry. Some files stay raw by design; their entries say why.
+ */
+const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
+    // ── Stays raw by design ─────────────────────────────────────────────────
+    // The autosave route owns the save contract that mutatePlayerSave builds on.
+    'save/[name].ts': 2,
+    // The owner-read settle projection: unversioned on purpose, exact CAS.
+    '_elapsed-state.ts': 1,
+    // Mirrors published content into the admin slots, which are not player saves.
+    'admin/content-publish.ts': 1,
+    // Test-only journey fixture (NODE_ENV=test + QA memory KV) that positions two saves.
+    '_qa-sector-war.ts': 2,
+    // Crash-recoverable compare-and-set sagas whose embedded receipts are the
+    // authority for a commit whose acknowledgement was lost.
+    'cron/_ranked-season.ts': 1,
+    'pet/_ranked-settlement.ts': 1,
+    'pvp/_consumable-settlement.ts': 1,
+    'pvp/_player-ranked-journal.ts': 1,
+
+    // ── Two players' saves in one settlement (needs a two-save design) ──────
+    'pet/battle-result.ts': 2,
+    'player/_cross-heal-settlement.ts': 2,
+    'player/sleeper-kill.ts': 2,
+    'player/trade.ts': 2,
+
+    // ── Being moved onto mutatePlayerSave ───────────────────────────────────
+    'admin/bloodline-review.ts': 1,
+    'towers/_entry-recovery.ts': 1,
+    'towers/_records.ts': 1,
+    'towers/_tower-store.ts': 4,
+    'village/_kage-inactivity.ts': 1,
+};
+
+test('raw player-save writes only ever shrink', () => {
+    const counts: Record<string, number> = {};
+    for (const file of collectTsFiles(API_DIR)) {
+        const rel = relative(API_DIR, file).replace(/\\/g, '/');
+        const writes = scanPlayerSaveWrites(readFileSync(file, 'utf8'), file, isAnyStoreWriteCall).length;
+        if (writes > 0) counts[rel] = writes;
+    }
+    const expected = { ...RAW_PLAYER_SAVE_WRITES };
+    const drift = [...new Set([...Object.keys(counts), ...Object.keys(expected)])].sort()
+        .filter((rel) => (counts[rel] ?? 0) !== (expected[rel] ?? 0))
+        .map((rel) => `${rel}: allowlisted ${expected[rel] ?? 0}, found ${counts[rel] ?? 0}`);
+    assert.deepEqual(
+        drift,
+        [],
+        'Raw player-save writes changed. A NEW raw write must go through mutatePlayerSave instead; '
+        + 'a conversion must lower its entry in RAW_PLAYER_SAVE_WRITES (delete it at zero).\n  '
+        + drift.join('\n  '),
     );
 });
 
