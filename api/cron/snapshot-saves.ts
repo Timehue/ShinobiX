@@ -200,7 +200,7 @@ export async function runSnapshotSaves(maxRuntimeMs: number = MAX_RUNTIME_MS): P
     // ZERO players" must never masquerade as a healthy backup. No writes
     // happen before this point, so the early return is side-effect free.
     if (saveKeys.length === 0) {
-        console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — storage misconfigured (check DATABASE_URL / SUPABASE_POSTGRES_URL; if the retired overlay was re-enabled for rollback, check KV_PROXY_URL / KV_PROXY_TOKEN). Snapshotted 0 players.');
+        console.error('[cron/snapshot-saves] ALARM: zero save:* rows found — storage misconfigured (check DATABASE_URL / SUPABASE_POSTGRES_URL point at the production database). Snapshotted 0 players.');
         return { ok: false, emptyKeyspace: true, writeOutage: false, snapshotted: 0, skipped: 0, validPlayers: 0, failed: [], processed: 0, total: 0, elapsedMs: Date.now() - startedAt, truncated: false };
     }
     const playerSaveKeys = saveKeys.filter(isPlayerSnapshotSaveKey);

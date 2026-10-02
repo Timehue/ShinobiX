@@ -35,9 +35,7 @@ test('canonical www duplicate redirects normal SPA pages to the apex canonical s
 
 test('API, storage, health, robots, sitemap, and static paths are not redirected', () => {
     for (const pathname of [
-        '/api/kv/get',
         '/api/pvp/session',
-        '/kv/get',
         '/health',
         '/health/db',
         '/restart',
