@@ -66,11 +66,11 @@ describe('resolution order matches the engine source', () => {
     it('resolvePostDamage applies its effects in POST_DAMAGE_ORDER', () => {
         const anchors: Record<PostDamageStep, string> = {
             shieldBlock: 'shield: Math.max(0, o.shield - blocked)',
-            absorb: 'if (o.hp > 0 && absorbHeal > 0) o =',
-            itemAbsorb: 'if (o.hp > 0 && itemAbsorbHeal > 0) o =',
+            absorb: 'if (appliedAbsorb > 0) o =',
+            itemAbsorb: 'if (appliedItemAbsorb > 0) o =',
             reflect: 'if (reflectedDmg > 0) { s =',
             itemReflect: 'if (itemReflectedDmg > 0) { s =',
-            itemLifesteal: 'if (itemLifeStealHeal > 0) { s =',
+            itemLifesteal: 'if (appliedItemLifeSteal > 0) { s =',
             woundAndSiphon: 'for (const tag of tags)',
             recoil: 'if (recoilStatus && finalDmg > 0)',
             lifesteal: 'if (lsPct > 0 && finalDmg > 0)',
@@ -150,9 +150,17 @@ describe('resolution order is visible in real casts', () => {
         const lifesteal = amountFrom(r.lines, /^Lifesteal: A heals (\d+) HP/);
         assert.ok(siphon.index < recoil.index && recoil.index < lifesteal.index, `log order: ${JSON.stringify(r.lines)}`);
 
+        // Healing logs report HP actually restored, so the full-HP cast logs
+        // zero Siphon. Measure its available heal with the same cast from an
+        // injured state instead of treating that zero as the potential heal.
+        const injured = applyJutsu({ ...a, hp: 500 }, b, jutsu('siphon', [{ name: 'Siphon', percent: 30 }]), 1, 'central', 2);
+        const availableSiphon = amountFrom(injured.lines, /^Siphon: A heals (\d+) HP/).amount;
+        assert.equal(siphon.amount, 0, 'Siphon is wasted before Recoil at full HP');
+        assert.ok(availableSiphon > 0, 'the same Siphon must heal an injured caster');
+
         const cap = (hp: number) => Math.min(1000, hp);
         const pinned = cap(cap(1000 + siphon.amount) - recoil.amount + lifesteal.amount);
-        const siphonLast = cap(cap(1000 - recoil.amount + lifesteal.amount) + siphon.amount);
+        const siphonLast = cap(cap(1000 - recoil.amount + lifesteal.amount) + availableSiphon);
         assert.equal(r.self.hp, pinned);
         assert.notEqual(pinned, siphonLast, 'fixture no longer distinguishes the two orders');
     });
