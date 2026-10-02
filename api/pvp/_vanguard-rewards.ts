@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import type { KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { safeName, setSafeRecordValue } from '../_utils.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
@@ -556,14 +557,17 @@ async function vanguardCompareSetConfirmed(
         if (await store.compareSet(key, expected, next, ttlSeconds ? { ex: ttlSeconds } : undefined) === true) return true;
     } catch (error) {
         const readback = await store.get(key).catch(() => null);
-        if (isDeepStrictEqual(readback, next)) return true;
+        if (storedValueEquals(readback, next)) return true;
         throw error;
     }
     // Remote adapters may commit but fulfill with false/null when the
     // acknowledgement is lost. Treat every non-true acknowledgement as
     // ambiguous until an exact readback distinguishes commit from conflict.
-    return isDeepStrictEqual(await store.get(key), next);
+    return storedValueEquals(await store.get(key), next);
 }
+
+/** Tests call the read-back directly: every intent this module writes is built from validated, JSON-safe fields. */
+export const vanguardCompareSetConfirmedForTest = vanguardCompareSetConfirmed;
 
 function committedVanguardIntent(marker: VanguardRewardSettlementMarker): VanguardRewardIntentV2 {
     if (marker.state !== 'settled' || !marker.outcome || !marker.settledAt) {

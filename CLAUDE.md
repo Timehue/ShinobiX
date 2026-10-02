@@ -38,15 +38,15 @@ shape.)
   Upstash/Vercel architecture — not a current plan). The legacy
   Upstash/Redis KV layer has been fully migrated to Supabase (the one-off
   `migrate-upstash-*` / `import-*` scripts have been removed; see git history).
-  **cPanel disk overlay RETIRED 2026-07-17:** `save:*`, `shared:images*`,
-  `shared:imgfields*` now live in Supabase Postgres (the base `kv_store`), same as
-  every other key — NOT the cPanel disk. `KV_PROXY_URL` / `REQUIRE_DISK_OVERLAY`
-  are unset on Railway (`saveStoreKind='base-store'`). The overlay/proxy code
-  (`api/kv-proxy.ts`, `_makeRemoteKv`, the routing wrapper) is now dormant/dead;
-  the cutover ran via `POST /api/admin/migrate-to-base` (see
-  `docs/RETIRE_CPANEL_RUNBOOK.md`). During the soak, cPanel data is retained for
-  rollback (re-add `KV_PROXY_URL` + `REQUIRE_DISK_OVERLAY`); after decommission the
-  overlay code can be removed.
+  **cPanel disk overlay RETIRED 2026-07-17, code REMOVED 2026-10-02:** `save:*`,
+  `shared:images*`, `shared:imgfields*` live in Supabase Postgres (the base
+  `kv_store`), same as every other key. There is no overlay, KV proxy, routing
+  wrapper or overlay migration endpoint any more, so `saveStoreKind` is always
+  `'base-store'` (`'memory-qa'` under the QA harness). `DISK_KV_DIR`,
+  `KV_PROXY_URL` and `REQUIRE_DISK_OVERLAY` do nothing except log a boot warning.
+  cPanel is shut down, so there is no rollback path to it;
+  `docs/RETIRE_CPANEL_RUNBOOK.md` records the cutover. `kv-backup.mjs` refuses to
+  restore a pre-cutover backup whose saves lived on the overlay.
 - **`scripts/`** — build/test tooling (incl. `run-tests.mjs`, the test auto-discoverer
   described under Conventions) plus one-off migration and balance-simulation scripts.
   Notably `gen-story-pdf.mjs` (+ `_story-pdf-build.py`): render the whole story
