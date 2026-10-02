@@ -19,6 +19,7 @@ import { applyJutsu } from './move.js';
 import { derivePveBonuses } from './_multipliers.js';
 import { applySoloPveAction } from '../solo-pve/_engine.js';
 import { createSoloPveSession } from '../solo-pve/_session.js';
+import { RELIC_ROSTER } from '../../shared/relics.js';
 
 const STAT_FIELDS = [
     'strength', 'speed', 'intelligence', 'willpower',
@@ -32,7 +33,7 @@ const BIS = {
     hand: 'void-leech-nodachi',
 };
 const BLAST = {
-    id: 'blast', name: 'Blast', type: 'Ninjutsu', target: 'OPPONENT', method: 'SINGLE',
+    id: 'blast', name: 'Blast', type: 'Ninjutsu', element: 'Lightning', target: 'OPPONENT', method: 'SINGLE',
     ap: 60, effectPower: 40, range: 3, cooldown: 0, chakraCost: 0, staminaCost: 0,
     tags: [{ name: 'Damage', percent: 100 }],
 };
@@ -41,16 +42,17 @@ const BLAST_ADMIN = {
     items: new Map(),
 };
 
-function maxedFighter(relic: string | null): Record<string, unknown> {
+function maxedFighter(relic: string | null, attackType = BLAST.type): Record<string, unknown> {
+    const blast = { ...BLAST, type: attackType };
     const stats: Record<string, number> = {};
     for (const f of STAT_FIELDS) stats[f] = 2500;
     const character: Record<string, unknown> = {
         name: 'Maxed', level: 100, specialty: 'Ninjutsu', stats,
         equipment: { ...BIS, ...(relic ? { relic } : {}) },
         maxHp: 10000, hp: 10000, maxChakra: 10000, chakra: 10000, maxStamina: 10000, stamina: 10000,
-        jutsu: [BLAST], jutsuMastery: [{ jutsuId: 'blast', level: 50 }],
+        jutsu: [blast], jutsuMastery: [{ jutsuId: 'blast', level: 50 }],
     };
-    return hydrateCharacterFromSave(character, {}, { character, creatorItems: [] }, BLAST_ADMIN);
+    return hydrateCharacterFromSave(character, {}, { character, creatorItems: [] }, { ...BLAST_ADMIN, jutsu: new Map([[blast.id, blast]]) });
 }
 
 function fighter(character: Record<string, unknown>, pos: number): PvpFighter {
@@ -60,11 +62,11 @@ function fighter(character: Record<string, unknown>, pos: number): PvpFighter {
     };
 }
 
-function soloPveDamage(relic: string | null): number {
+function soloPveDamage(relic: string | null, attackType = BLAST.type): number {
     const session = createSoloPveSession({
         sessionId: 's', ownerSlug: 'alice',
         encounter: { kind: 'generic-ai', id: 'rival', level: 100 },
-        player: fighter(maxedFighter(relic), 62),
+        player: fighter(maxedFighter(relic, attackType), 62),
         enemy: fighter(maxedFighter(null), 63),
         now: 1_800_000_000_000, difficultyEnemyLevel: 100,
     } as never);
@@ -79,25 +81,26 @@ function pvpDamage(relic: string | null): number {
 }
 
 describe('PvE-only relic power', () => {
-    it('derives the two fields from the equipped relic', () => {
+    it('derives only the matching specialist fields from equipped relics', () => {
         const offense = derivePveBonuses({ equipment: { relic: 'relic-stormglass-pendulum' } }, { creatorItems: [] }, null);
         const defense = derivePveBonuses({ equipment: { relic: 'relic-gravewatch-fang' } }, { creatorItems: [] }, null);
-        assert.equal(offense.pveDamagePct, 10);
+        assert.equal(offense.pveDamagePct, 0);
+        assert.equal(offense.pveSpecialistBonuses.pveLightningDamagePercent, 8);
         assert.equal(offense.pveDamageTakenPct, 0);
-        assert.equal(defense.pveDamageTakenPct, 8);
+        assert.equal(defense.pveDamageTakenPct, 0);
+        assert.equal(defense.pveSpecialistBonuses.pveTaijutsuDamagePercent, 8);
         assert.equal(defense.pveDamagePct, 0);
     });
 
     it('is sealed onto the fighter by hydrateCharacterFromSave', () => {
-        assert.equal(maxedFighter('relic-stormglass-pendulum').pveDamagePct, 10);
-        assert.equal(maxedFighter('relic-gravewatch-fang').pveDamageTakenPct, 8);
+        assert.equal((maxedFighter('relic-stormglass-pendulum').pveSpecialistBonuses as Record<string, number>).pveLightningDamagePercent, 8);
+        assert.equal(maxedFighter('relic-hollow-gate-cinder').pveDamagePct, 8);
         assert.equal(maxedFighter(null).pveDamagePct, 0);
     });
 
     it('RAISES PvE damage even at fully maxed stats — where stat bonuses do nothing', () => {
         const base = soloPveDamage(null);
         assert.ok(base > 0, 'baseline should deal damage');
-        // +10% legendary, +6% epic, +3% free. Stat bonuses alone move this by 0.
         // The multiplier is applied inside the damage pipeline, so allow ±1 for
         // where the engine rounds rather than pinning an exact product.
         const expectPct = (relic: string, pct: number) => {
@@ -108,23 +111,35 @@ describe('PvE-only relic power', () => {
                 `${relic} should deal ~+${pct}% in PvE: got ${got}, expected ~${want.toFixed(1)} (base ${base})`,
             );
         };
-        expectPct('relic-stormglass-pendulum', 10);  // wild legendary
-        expectPct('relic-ashfall-reliquary', 6);     // wild epic
-        // The shop relic is the FLOOR of the pool: 1%, and spread across all four
-        // offenses so no build is favoured (owner ruling 2026-08-16).
+        expectPct('relic-stormglass-pendulum', 8);
+        expectPct('relic-fivefold-chakra-seal', 14);
+        expectPct('relic-zenith-lotus', 10);
+        expectPct('event-kesa-storm-seal', 3);
         expectPct('chakra-ring', 1);
+        expectPct('relic-ashfall-reliquary', 0);
+        expectPct('relic-gravewatch-fang', 0);
     });
 
     it('changes NOTHING in PvP — the pillar guard', () => {
         const base = pvpDamage(null);
-        for (const relic of [
-            'relic-stormglass-pendulum', 'relic-drownstone-compass', 'relic-gravewatch-fang',
-            'relic-hollow-gate-cinder', 'relic-ashfall-reliquary', 'chakra-ring',
-        ]) {
+        for (const { id: relic } of RELIC_ROSTER) {
             assert.equal(
                 pvpDamage(relic), base,
                 `${relic} must not change PvP damage — PvE power may never cross into PvP`,
             );
+        }
+    });
+
+    it('each top offense relic gives its own school +14% at the stat cap', () => {
+        for (const [id, school] of [
+            ['relic-duelists-red-cord', 'Bukijutsu'], ['relic-mirror-mask-shard', 'Genjutsu'],
+            ['relic-conquerors-war-seal', 'Taijutsu'], ['relic-fivefold-chakra-seal', 'Ninjutsu'],
+        ]) {
+            const base = soloPveDamage(null, school);
+            assert.ok(base > 0);
+            assert.ok(Math.abs(soloPveDamage(id, school) - base * 1.14) <= 1, `${school}: +14%`);
+            const otherSchool = school === 'Ninjutsu' ? 'Taijutsu' : 'Ninjutsu';
+            assert.equal(soloPveDamage(id, otherSchool), soloPveDamage(null, otherSchool), `${school}: unrelated school unchanged`);
         }
     });
 
@@ -158,7 +173,7 @@ describe('PvE-only relic power', () => {
     });
 
     it('stacks the sphere perk with a relic — they are different slots', () => {
-        assert.equal(sphereChar(300, 'relic-stormglass-pendulum').pveDamagePct, 15, '5 (sphere) + 10 (relic)');
+        assert.equal(sphereChar(300, 'relic-zenith-lotus').pveDamagePct, 15, '5 (sphere) + 10 (relic)');
     });
 
     it('keeps the sphere perk out of PvP like every other PvE bonus', () => {
@@ -175,7 +190,7 @@ describe('PvE-only relic power', () => {
         assert.equal(10000 - r.opponent.hp, pvpDamage(null), 'the sphere must not raise PvP damage');
     });
 
-    it('a defensive relic reduces what the AI deals to the player', () => {
+    it('offense relics do not change incoming AI damage', () => {
         const hit = (relic: string | null) => {
             const session = createSoloPveSession({
                 sessionId: 's', ownerSlug: 'alice',
@@ -191,6 +206,6 @@ describe('PvE-only relic power', () => {
         };
         const bare = hit(null);
         const warded = hit('relic-gravewatch-fang');
-        if (bare > 0) assert.ok(warded < bare, `an 8% ward should blunt the AI's hit (${warded} < ${bare})`);
+        assert.equal(warded, bare);
     });
 });

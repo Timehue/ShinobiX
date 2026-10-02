@@ -1,3 +1,4 @@
+import { PVE_SPECIALIST_FIELDS, type PveSpecialistField } from '../../shared/relics.js';
 /*
  * Server-side derivation of the PvP combat MULTIPLIER layer.
  *
@@ -221,6 +222,7 @@ export type DerivedPveBonuses = {
     pveDamagePct: number;
     /** % less damage this fighter TAKES, in PvE only. */
     pveDamageTakenPct: number;
+    pveSpecialistBonuses: Partial<Record<PveSpecialistField, number>>;
 };
 
 export const AURA_SPHERE_ITEM_ID = 'aura-sphere';
@@ -256,6 +258,7 @@ export function derivePveBonuses(
         pveDamagePct: sumEquippedBonus(saveCharacter.equipment, getItem, 'pveDamagePercent')
             + auraSpherePveDamagePct(saveCharacter),
         pveDamageTakenPct: sumEquippedBonus(saveCharacter.equipment, getItem, 'pveDamageTakenPercent'),
+        pveSpecialistBonuses: Object.fromEntries(PVE_SPECIALIST_FIELDS.map(field => [field, Math.max(0, Math.min(100, sumEquippedBonus(saveCharacter.equipment, getItem, field)))])),
     };
 }
 

@@ -32,11 +32,11 @@ const BUMP_MARKERS = ['bumpSaveVersion', 'versionedPlayerRecord'];
  * have echoed from the start, which is why mission rewards survive a 409.
  */
 const ECHOES_VERSION = new Set([
-    // Sleeping-camp KO. It credits the attacker (base ryo, kill count, Vanguard
-    // seals) and may then credit a head bounty on top; it echoes whichever write
-    // touched the save LAST, so the client adopts the balance it will actually
-    // read back. Used to be EXEMPT ("bumps silently") — it no longer does.
-    'player/sleeper-kill.ts',
+    // (player/sleeper-kill.ts used to be listed here. It now commits the KO and
+    // the attacker's credit through mutatePlayerSaves and names no BUMP_MARKER,
+    // so the "every mutatePlayerSave route acknowledges the committed version"
+    // gate below covers it. It still echoes whichever write touched the
+    // attacker's save LAST — the credit, or a head bounty on top.)
     // Ranked 2v2 ladder settlement. It rates up to four saves in one call, but
     // the CALLER is always one of them, and its only caller — pvp/ranked-2v2.ts's
     // settle action — echoes that participant's committed `_saveVersion` so the
@@ -74,7 +74,9 @@ const ECHOES_VERSION = new Set([
     'missions/report-raid.ts',
     'pet/battle-result.ts',
     'pet/showdown.ts',
-    'player/_cross-heal-settlement.ts',
+    // player/_cross-heal-settlement.ts now commits both saves through
+    // mutatePlayerSaves and names no BUMP_MARKER. It still returns the healer's
+    // exact committed `_saveVersion`, which player/heal.ts echoes.
     // battle/lock.ts (every PvE defeat — the hottest path of all),
     // hollow-gate/step.ts, legacy/trial.ts, missions/report-pet-event.ts,
     // pet/gauntlet.ts, player/heal.ts and weekly-boss.ts now commit through
@@ -213,7 +215,9 @@ const EXEMPT = new Set([
     // end-to-end, by village/sector-war-authority-race.test.ts.
     '_war-declaration-funding.ts',
     '_war-mercenary-hire.ts',
-    'admin/bloodline-review.ts',
+    // (admin/bloodline-review.ts used to be listed here. It now commits through
+    // mutatePlayerSave and is gated with the other admin routes in
+    // ADMIN_TARGET_MUTATION_ROUTES below.)
     'cron/_ranked-season.ts',
     // cron/_clan-boss-weekly.ts (many members' saves, from a timer), _subscription.ts
     // (billing callbacks and admin comps), missions/_progress.ts, clan-boss/_profession.ts
@@ -236,19 +240,17 @@ const EXEMPT = new Set([
     // Ranked-V2 move/cron callers take the empty-usage confirmation branch and
     // do not mutate either save here, so this helper has no single safe echo.
     'pvp/_consumable-settlement.ts',
-    // Daily cron pass (kage-inactivity): refunds a pending challenger's declare
-    // stake under their save lock when an absent Kage's seat is vacated. There is
-    // no HTTP response to echo a version into; the challenger's next load adopts
-    // the bumped `_saveVersion` and they are told via an offline notice.
-    'village/_kage-inactivity.ts',
-    // Shared crash-recovery helper. Direct recovery changes the caller, while a
-    // party lifecycle repair can refund the host on another member's request;
-    // exposing the host's version from the helper would be ambiguous and unsafe.
-    'towers/_entry-recovery.ts',
-    'towers/_tower-store.ts',
-    // Multi-member records helper; towers/settle re-reads and echoes the caller's
-    // committed character and _saveVersion after every member's record settles.
-    'towers/_records.ts',
+    // (village/_kage-inactivity.ts used to be listed here. Its stake-refund drain
+    // now commits through mutatePlayerSave and names no BUMP_MARKER. It still has
+    // no HTTP response to echo into: the challenger's next load adopts the bumped
+    // `_saveVersion`, and an offline notice tells them.)
+    // (towers/_entry-recovery.ts, towers/_tower-store.ts and towers/_records.ts
+    // used to be listed here. They now commit through mutatePlayerSave and name
+    // no BUMP_MARKER. The reasons they never echo still hold: the crash-recovery
+    // refund can credit the host on another member's request, and the member
+    // settlements and records write every squad member's save. towers/settle
+    // still re-reads and echoes only the caller's committed character and
+    // `_saveVersion` once every member has settled.)
     // Many actions on one route, most of them world/village rows rather than
     // saves. Its one save-versioning action — the village-war declaration's
     // Honor Seal debit, live only when the war map is disabled — echoes the
@@ -268,6 +270,7 @@ const EXEMPT = new Set([
  * adopts the bump from their own next load.
  */
 const ADMIN_TARGET_MUTATION_ROUTES = new Set([
+    'admin/bloodline-review.ts',
     'admin/economy-reconcile.ts',
     'admin/legacy.ts',
 ]);

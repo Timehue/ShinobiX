@@ -5,9 +5,10 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
+import { appendLegacyEvent, legacyEnabled, getLegacyStats } from '../_legacy-track.js';
 import { currentEraNumber } from '../_era.js';
-import { getLegacyOverlay } from '../_legacy-score.js';
+import { getLegacyOverlay, evaluateAllLegacies, LEGACY_OVERLAY_KEY, type LegacyOverlay } from '../_legacy-score.js';
+import { storyKeyFor, type StoryRecord } from '../_story-record.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
 import {
     legacyAcceptedKey, trialProgress, trialIntroFor,
@@ -22,6 +23,7 @@ import {
     sagePityKey as pityKey,
     SAGE_OFFER_TTL_SECONDS as OFFER_TTL_SECONDS,
     type SageOffer,
+    type PityState,
 } from '../_legacy-sage-roll.js';
 import {
     AURA_STONES_BY_RARITY,
@@ -49,12 +51,6 @@ import {
  * first became offer-eligible without a spawn, hard guarantee at day 7
  * (soft+hard pity). Tunable via the shared:legacy-defs overlay.
  */
-
-type PityState = {
-    eligibleSince?: number;    // first roll where the player had >=1 eligible legacy
-    lastSpawnAt?: number;
-    declinedUntil?: number;    // re-offer cooldown after a decline
-};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 export { sageMetricKey };
@@ -135,7 +131,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const now = Date.now();
             await kv.set(offerKey(playerName), { ...offer, status: 'declined', declinedAt: now }, { ex: OFFER_TTL_SECONDS });
             const pity = (await kv.get<PityState>(pityKey(playerName))) ?? {};
-            await kv.set(pityKey(playerName), { declinedUntil: now + declineCooldownDays * DAY_MS });
+            await kv.set(pityKey(playerName), {
+                offerHistory: [...offer.offers.map((entry) => entry.legacyId), ...(pity.offerHistory ?? [])]
+                    .filter((id, index, all) => all.indexOf(id) === index).slice(0, 100),
+                declinedUntil: now + declineCooldownDays * DAY_MS,
+            });
             await appendLegacyEvent(playerName, { type: 'offer-declined', meta: { offers: offer.offers.map((o) => o.legacyId) } });
             await bumpSageMetric('declines');
             return res.status(200).json({ ok: true });
@@ -227,6 +227,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     if (!offer.offers.some((o) => o.legacyId === legacyId)) {
                         return { status: 200, body: { ok: false, reason: 'not-offered' } };
+                    }
+                    const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+                    const character = rec?.character as Record<string, unknown> | undefined;
+                    if (!character) return { status: 404, body: { error: 'Save not found.' } };
+                    const [stats, overlay, story] = await Promise.all([
+                        getLegacyStats(playerName, character), kv.get<LegacyOverlay>(LEGACY_OVERLAY_KEY), kv.get<StoryRecord>(storyKeyFor(playerName)),
+                    ]);
+                    if (!evaluateAllLegacies(stats, {
+                        level: Number(character.level) || 0, village: String(character.village ?? ''),
+                        overlay: overlay ?? {}, storyLanes: story?.lanes ?? null,
+                    }).some((evaluation) => evaluation.legacyId === legacyId && evaluation.eligible)) {
+                        return { status: 409, body: { ok: false, reason: 'offer-no-longer-eligible', error: 'Your deeds no longer qualify for this path. Decline this offer and let the Sage return with a new choice.' } };
                     }
                     // The one-legacy-forever constraint: an atomic NX marker.
                     // Preserve the acceptance era and actor inside the durable

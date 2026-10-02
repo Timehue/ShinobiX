@@ -454,7 +454,9 @@ export function Inventory({
                 const honorGain = Math.max(0, Number(result.rewards.honorSeals) || 0);
                 const charmGain = Math.max(0, Number(result.rewards.boneCharms) || 0);
                 const honorMsg = honorGain > 0 ? `, +${honorGain} Honor Seals` : `, +${charmGain} Bone Charm`;
-                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}.`);
+                const bonusRelic = result.rewards.equippableRelicId ? getItemById(allItems, result.rewards.equippableRelicId)?.name : undefined;
+                const bonusMsg = bonusRelic ? `, +1 ${bonusRelic}` : result.rewards.fateShards ? `, +${result.rewards.fateShards} Fate Shards (duplicate relic)` : "";
+                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}${bonusMsg}.`);
             } catch (error) {
                 alert(error instanceof Error ? error.message : "War crate could not be opened.");
             } finally {

@@ -14,10 +14,9 @@ let settleSaveRecordForRead: typeof import('../_elapsed-state.js').settleSaveRec
 let mutatePlayerSave: typeof import('./_mutate-player-save.js').mutatePlayerSave;
 let applyBankTransfer: typeof import('../bank/_transfer.js').applyBankTransfer;
 let startTraining: Handler;
-// Without this stamp migrateCharacterOwnedPets reports a one-time durable
-// migration, which legitimately publishes a version and would shift the counts
-// asserted below by one. Stamping it keeps the owner settlement projection-only,
-// which is the case these tests are about.
+// Stamp existing one-time migrations in this fixture: owned-pet and relic
+// conversion legitimately publish a version. These cases isolate projection-
+// only vitals and must not accidentally include either durable migration.
 let PET_BREEDING_MIGRATION_VERSION: number;
 
 const TEST_PREFIX = 'elapsedvitalconsumer';
@@ -28,6 +27,7 @@ function character(name: string): Json {
         name,
         level: 1,
         petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+        relicRosterVersion: 1,
         hp: 10,
         maxHp: 100,
         chakra: 20,

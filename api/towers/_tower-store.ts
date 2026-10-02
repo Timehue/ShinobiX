@@ -12,19 +12,24 @@ import { creditElderWins } from '../../shared/elder-elections.js';
  *   - the one-time-first-clear gate is a PERMANENT server NX receipt
  *     (tower-firstclear:<slug>:<floor>) — NOT the client-writable battleTowerClearedFloors
  *     array, which is forgeable; the per-run receipt guards replay;
- *   - receipts are placed inside the member's failClosed save lock; server-owned
- *     character stamps recover a save that commits before its response is dropped;
+ *   - each member's credit commits through mutatePlayerSave (the failClosed save lock,
+ *     an exact compare-and-set, and the idle recovery settled into the same write);
+ *     the external receipts are published under that lock only after the commit, and
+ *     server-owned character stamps recover a save that commits before its response
+ *     is dropped;
  *   - Progression is credited as stat-pool points (character XP is retired; a raw pool grant
  *     the client clamps away on load).
  *
- * kv / lock / now are INJECTABLE (default to the real ones) so the currency logic is
- * unit-testable with a fake in-memory store — same pattern as _lock.ts. See plan §8/§9.
+ * kv / lock / now are INJECTABLE (default to the real ones) for the run-side records:
+ * sessions, tokens, receipts, counters and the Spire board. Player saves never go
+ * through them — they always commit through mutatePlayerSave on the shared KV.
  */
 import { kv as realKv } from '../_storage.js';
 import { createHash } from 'node:crypto';
 import { withKvLock as realWithKvLock } from '../_lock.js';
-import { mergePreservingImages, setSafeRecordValue } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { setSafeRecordValue } from '../_utils.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { applyDerivedLevel, type XpCharacter } from '../_xp-engine.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import { computeFloorReward, computeAssistReward, computeFloorClearScore, clearMetrics } from './_tower-rewards.js';
@@ -282,7 +287,7 @@ function creditFloorClear(
     };
 }
 
-export type SettleResult = { paid: boolean; reason?: string; score?: number };
+export type SettleResult = { paid: boolean; reason?: string; score?: number; relic?: { itemId?: string; fateShards?: number; reason?: string } };
 export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 
 function embeddedTowerReceipt(kind: 'items' | 'spire', parts: unknown[]): { requestId: string; fingerprint: string } {
@@ -315,7 +320,6 @@ export async function settleConsumedItemsForMember(
     deps: StoreDeps = {},
 ): Promise<ConsumedItemsResult> {
     const kv = deps.kv ?? realKv;
-    const lock = deps.lock ?? realWithKvLock;
     const now = deps.now ?? Date.now;
     const { session, slug } = params;
 
@@ -324,50 +328,42 @@ export async function settleConsumedItemsForMember(
     if (!Object.keys(used).length) return { consumed: false, reason: 'none', used };
     if (session.status !== 'done') return { consumed: false, reason: 'not-done', used };
 
-    let result: ConsumedItemsResult = { consumed: false, reason: 'unknown', used };
+    const receipt = consumedItemsKey(session.runId, slug);
+    // Projection only. The receipt embedded in the same save write as the
+    // deduction is the crash-safe authority.
+    const publishReceipt = () => kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL }).then(() => undefined, () => undefined);
     try {
-        await lock(`save:${slug}`, async () => {
-            const receipt = consumedItemsKey(session.runId, slug);
-            if (await kv.get(receipt)) {
-                result = { consumed: false, reason: 'already-consumed', used };
-                return;
-            }
-            const saveKey = `save:${slug}`;
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (!record || !char) {
-                result = { consumed: false, reason: 'no-save', used };
-                return;
-            }
+        // Published only after the deduction committed, so seeing it first is
+        // the same answer without the save lock, even for a save since removed.
+        if (await kv.get(receipt)) return { consumed: false, reason: 'already-consumed', used };
+        // The deduction and its receipt commit in one write, so a lost
+        // compare-and-set re-runs once against the fresh save.
+        const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<ConsumedItemsResult>(slug, async ({ character: char }) => {
+            const unwritten = (reason: string) => ({ ok: true as const, write: false, character: char, value: { consumed: false, reason, used } });
+            if (await kv.get(receipt)) return unwritten('already-consumed');
             const sortedUsed = Object.entries(used).sort(([a], [b]) => a.localeCompare(b));
             const identity = embeddedTowerReceipt('items', [session.runId, slug, sortedUsed]);
             const inspection = inspectSettlementReceipt(char, identity.requestId, identity.fingerprint);
             if (inspection.status === 'replay') {
-                await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL }).catch(() => null);
-                result = { consumed: false, reason: 'already-consumed', used };
-                return;
+                await publishReceipt();
+                return unwritten('already-consumed');
             }
-            if (inspection.status !== 'fresh') {
-                result = { consumed: false, reason: 'invalid-receipt', used };
-                return;
-            }
-            const deducted = deductUsedItems(char, used);
-            const updated = appendSettlementReceipt(deducted, inspection.receipts, {
-                ...identity,
-                value: { runId: session.runId, used },
-                settledAt: now(),
-            });
-            const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }), record));
-            if (written === null) throw new Error('Tower consumable settlement save was not committed.');
-            // Projection only. The receipt embedded in the same save write as the
-            // deduction is the crash-safe authority.
-            await kv.set(receipt, { ts: now(), used }, { ex: PAID_RECEIPT_TTL }).catch(() => null);
-            result = { consumed: true, used };
-        }, { failClosed: true });
+            if (inspection.status !== 'fresh') return unwritten('invalid-receipt');
+            return {
+                ok: true,
+                character: appendSettlementReceipt(deductUsedItems(char, used), inspection.receipts, {
+                    ...identity,
+                    value: { runId: session.runId, used },
+                    settledAt: now(),
+                }),
+                value: { consumed: true, used },
+                afterCommit: publishReceipt,
+            };
+        }));
+        return out.ok ? out.value : { consumed: false, reason: 'no-save', used };
     } catch {
-        result = { consumed: false, reason: 'contended', used };
+        return { consumed: false, reason: 'contended', used };
     }
-    return result;
 }
 
 /**
@@ -381,7 +377,6 @@ export async function settleFloorForMember(
     deps: StoreDeps = {},
 ): Promise<SettleResult> {
     const kv = deps.kv ?? realKv;
-    const lock = deps.lock ?? realWithKvLock;
     const now = deps.now ?? Date.now;
     const { session, slug } = params;
 
@@ -399,20 +394,21 @@ export async function settleFloorForMember(
         computeFloorClearScore(clearMetrics(session), floor) * towerRouteScoreMultiplier(session),
     ); // server-computed, including the sealed elite-route risk bonus
 
-    let result: SettleResult = { paid: false, reason: 'unknown' };
+    const paidReceipt = floorPaidKey(session.runId, floor.id, slug);
+    const firstReceipt = firstClearKey(slug, floor.id);
+    const publishReceipts = async () => {
+        await kv.set(firstReceipt, { ts: now() }, { nx: true }).catch(() => null);
+        await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
+    };
     try {
-        await lock(`save:${slug}`, async () => {
-            const paidReceipt = floorPaidKey(session.runId, floor.id, slug);
-            const firstReceipt = firstClearKey(slug, floor.id);
-            if (await kv.get(paidReceipt)) {
-                result = { paid: false, reason: 'already-paid' }; return;
-            }
-            const saveKey = `save:${slug}`;
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (!record || !char) {
-                result = { paid: false, reason: 'no-save' }; return;
-            }
+        // Published only after the claim committed, so seeing it first is the
+        // same answer without the save lock, even for a save since removed.
+        if (await kv.get(paidReceipt)) return { paid: false, reason: 'already-paid' };
+        // The reward and its character claim commit in one write, so a lost
+        // compare-and-set re-runs once against the fresh save.
+        const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<SettleResult>(slug, async ({ character: char }) => {
+            const unwritten = (value: SettleResult) => ({ ok: true as const, write: false, character: char, value });
+            if (await kv.get(paidReceipt)) return unwritten({ paid: false, reason: 'already-paid' });
 
             // battleTowerClaimedRewards is server-owned and is written atomically
             // with the reward. It recovers a forwarded save write whose adapter
@@ -422,35 +418,23 @@ export async function settleFloorForMember(
                 ? char.battleTowerClaimedRewards as unknown[]
                 : [];
             if (claimed.includes(claimKey)) {
-                await kv.set(firstReceipt, { ts: now() }, { nx: true }).catch(() => null);
-                await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
-                result = { paid: false, reason: 'already-first-cleared', score };
-                return;
+                await publishReceipts();
+                return unwritten({ paid: false, reason: 'already-first-cleared', score });
             }
             // Honor legacy/permanent receipts before paying, but make the
             // server-owned character claim the atomic authority for new writes.
-            if (await kv.get(firstReceipt)) {
-                result = { paid: false, reason: 'already-first-cleared', score }; return;
-            }
+            if (await kv.get(firstReceipt)) return unwritten({ paid: false, reason: 'already-first-cleared', score });
             const cleared = creditFloorClear(char, reward, score, floor.id);
             const updated = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
                 ? creditElderWins(cleared, 0, 1, now()) : cleared;
-            try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
-                if (written === null) throw new Error('Tower floor settlement save was not committed.');
-            } catch (e) {
-                // The atomic character claim did not commit; no external receipt
-                // has been published, so a retry remains safe.
-                throw e;
-            }
-            await kv.set(firstReceipt, { ts: now() }, { nx: true }).catch(() => null);
-            await kv.set(paidReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
-            result = { paid: true, score };
-        }, { failClosed: true });
+            // No external receipt is published until the claim has committed, so
+            // a write that did not land leaves a clean retry.
+            return { ok: true, character: updated, value: { paid: true, score }, afterCommit: publishReceipts };
+        }));
+        return out.ok ? out.value : { paid: false, reason: 'no-save' };
     } catch {
-        result = { paid: false, reason: 'contended' };
+        return { paid: false, reason: 'contended' };
     }
-    return result;
 }
 
 /**
@@ -463,7 +447,6 @@ export async function settleAssistForAlly(
     deps: StoreDeps = {},
 ): Promise<SettleResult> {
     const kv = deps.kv ?? realKv;
-    const lock = deps.lock ?? realWithKvLock;
     const now = deps.now ?? Date.now;
     const { session, slug } = params;
 
@@ -477,67 +460,62 @@ export async function settleAssistForAlly(
     if (!isPublicTowerRun(session)) return { paid: false, reason: 'not-a-catalog-floor' };
     const reward = computeAssistReward(floor);
 
-    let result: SettleResult = { paid: false, reason: 'unknown' };
+    const receipt = assistPaidKey(session.runId, slug);
+    const publishReceipt = () => kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).then(() => undefined, () => undefined);
     try {
-        await lock(`save:${slug}`, async () => {
-            const receipt = assistPaidKey(session.runId, slug);
-            const saveKey = `save:${slug}`;
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (!record || !char) {
-                result = { paid: false, reason: 'no-save' }; return;
-            }
+        // The day's slot is reserved before the save write and handed back
+        // whenever that write is known not to have landed, so a lost
+        // compare-and-set can re-run once against the fresh save.
+        const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<SettleResult>(slug, async ({ saveKey, character: char }) => {
+            const unwritten = (value: SettleResult) => ({ ok: true as const, write: false, character: char, value });
             const claimed = Array.isArray(char.battleTowerAssistRewardsClaimed)
                 ? char.battleTowerAssistRewardsClaimed as string[]
                 : [];
             if (claimed.includes(session.runId)) {
-                await kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
-                result = { paid: false, reason: 'assist-already-paid' };
-                return;
+                await publishReceipt();
+                return unwritten({ paid: false, reason: 'assist-already-paid' });
             }
-            if (await kv.get(receipt)) {
-                result = { paid: false, reason: 'assist-already-paid' }; return;
-            }
+            if (await kv.get(receipt)) return unwritten({ paid: false, reason: 'assist-already-paid' });
             const countKey = assistCountKey(slug, utcDateKey(now()));
             const count = await kv.incr(countKey, { ex: 25 * 60 * 60 });
-            if (count > MAX_ASSISTS_PER_DAY) {
-                result = { paid: false, reason: 'assist-daily-cap' }; return;
-            }
+            if (count > MAX_ASSISTS_PER_DAY) return unwritten({ paid: false, reason: 'assist-daily-cap' });
+            const releaseSlot = () => kv.set(countKey, Math.max(0, count - 1), { ex: 25 * 60 * 60 }).then(() => undefined);
             // Assists are the repeatable channel → ryo only (the old assist XP
             // folds into ryo at ~0.75:1); the derived-level recompute replaces
             // the retired gainXp level-up side effect.
             const leveled = applyDerivedLevel(char as XpCharacter) as unknown as Record<string, unknown>;
-            const updated: Record<string, unknown> = {
-                ...leveled,
-                ryo: num(leveled.ryo) + num(reward.ryo) + Math.floor(num(reward.xp) * 0.75),
-                battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
-            };
-            try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
-                if (written === null) throw new Error('Tower assist settlement save was not committed.');
-            } catch (e) {
-                // If the save definitely did not land, release the daily slot.
-                // A forwarded write is detected through the atomic character
-                // receipt and keeps its corresponding cap reservation.
-                try {
-                    const observed = await kv.get<Record<string, unknown>>(saveKey);
-                    const observedChar = observed?.character as Record<string, unknown> | undefined;
-                    const observedClaims = Array.isArray(observedChar?.battleTowerAssistRewardsClaimed)
-                        ? observedChar.battleTowerAssistRewardsClaimed as unknown[]
-                        : [];
-                    if (!observedClaims.includes(session.runId)) {
-                        await kv.set(countKey, Math.max(0, count - 1), { ex: 25 * 60 * 60 });
+            return {
+                ok: true,
+                character: {
+                    ...leveled,
+                    ryo: num(leveled.ryo) + num(reward.ryo) + Math.floor(num(reward.xp) * 0.75),
+                    battleTowerAssistRewardsClaimed: [...claimed, session.runId].slice(-500),
+                },
+                value: { paid: true },
+                // A lost compare-and-set committed nothing.
+                onConflict: releaseSlot,
+                // Any other failure may have landed. A forwarded write is detected
+                // through the atomic character receipt and keeps its reservation.
+                onUnconfirmedWrite: async () => {
+                    let observedClaims: unknown[];
+                    try {
+                        const observed = await realKv.get<Record<string, unknown>>(saveKey);
+                        const observedChar = observed?.character as Record<string, unknown> | undefined;
+                        observedClaims = Array.isArray(observedChar?.battleTowerAssistRewardsClaimed)
+                            ? observedChar.battleTowerAssistRewardsClaimed as unknown[]
+                            : [];
+                    } catch {
+                        return; // inconclusive read: fail closed and keep the slot
                     }
-                } catch { /* inconclusive read: fail closed and keep the slot */ }
-                throw e;
-            }
-            await kv.set(receipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
-            result = { paid: true };
-        }, { failClosed: true });
+                    if (!observedClaims.includes(session.runId)) await releaseSlot();
+                },
+                afterCommit: publishReceipt,
+            };
+        }));
+        return out.ok ? out.value : { paid: false, reason: 'no-save' };
     } catch {
-        result = { paid: false, reason: 'contended' };
+        return { paid: false, reason: 'contended' };
     }
-    return result;
 }
 
 // ─── Endless Spire settlement (best-tier-per-week; separate from the story channel) ──
@@ -592,7 +570,6 @@ export async function settleSpireForMember(
     deps: StoreDeps = {},
 ): Promise<SettleResult> {
     const kv = deps.kv ?? realKv;
-    const lock = deps.lock ?? realWithKvLock;
     const now = deps.now ?? Date.now;
     const { session, slug } = params;
 
@@ -601,7 +578,7 @@ export async function settleSpireForMember(
     const tier = Math.floor(Number(session.ascensionTier ?? 0));
     if (!isSpireRun(session)) return { paid: false, reason: 'not-spire' };
 
-    let result: SettleResult = { paid: false, reason: 'unknown' };
+    let result: SettleResult;
     let boardEntry: SpireBoardEntry | null = null;
     let boardWeek = '';
     const captureBoardEntry = (char: Record<string, unknown>, wk: string) => {
@@ -618,13 +595,10 @@ export async function settleSpireForMember(
         };
     };
     try {
-        await lock(`save:${slug}`, async () => {
-            const saveKey = `save:${slug}`;
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as Record<string, unknown> | undefined;
-            if (!record || !char) {
-                result = { paid: false, reason: 'no-save' }; return;
-            }
+        // The clear, its weekly shards and its receipt commit in one write, so a
+        // lost compare-and-set re-runs once against the fresh save.
+        const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<SettleResult>(slug, async ({ character: char }) => {
+            const unwritten = (value: SettleResult) => ({ ok: true as const, write: false, character: char, value });
             const identity = embeddedTowerReceipt('spire', [session.runId, slug, tier]);
             const inspection = inspectSettlementReceipt(char, identity.requestId, identity.fingerprint);
             if (inspection.status === 'replay') {
@@ -638,18 +612,12 @@ export async function settleSpireForMember(
                         }).catch(() => null);
                     }
                 }
-                result = { paid: false, reason: 'already-paid', score: tier };
-                return;
+                return unwritten({ paid: false, reason: 'already-paid', score: tier });
             }
-            if (inspection.status !== 'fresh') {
-                result = { paid: false, reason: 'invalid-receipt', score: tier };
-                return;
-            }
+            if (inspection.status !== 'fresh') return unwritten({ paid: false, reason: 'invalid-receipt', score: tier });
             // Per-run replay guard (24h): a given run settles this member at most once.
             const runReceipt = floorPaidKey(session.runId, tier, slug);
-            if (await kv.get(runReceipt)) {
-                result = { paid: false, reason: 'already-paid', score: tier }; return;
-            }
+            if (await kv.get(runReceipt)) return unwritten({ paid: false, reason: 'already-paid', score: tier });
             // Best-tier-per-week reward: the flat Fate Shard trickle is paid the FIRST time this
             // tier is cleared this reset-week (so a full 1→20 climb pays 2×20 = 40, no farming).
             const wk = weekKey(now());
@@ -666,24 +634,24 @@ export async function settleSpireForMember(
             const cleared = creditSpireClear(char, tier, wk, shards);
             const credited = session.actors.some(actor => actor.ownerSlug === slug && !actor.ai)
                 ? creditElderWins(cleared, 0, 1, now()) : cleared;
-            const updated = appendSettlementReceipt(credited, inspection.receipts, {
-                ...identity,
-                value: { runId: session.runId, tier, weekKey: wk, shards },
-                settledAt: now(),
-            });
-            try {
-                const written = await kv.set(saveKey, mergePreservingImages(bumpSaveVersion({ ...record, character: updated }, { previousCharacter: char }), record));
-                if (written === null) throw new Error('Spire settlement save was not committed.');
-            } catch (e) {
-                throw e;
-            }
-            await kv.set(runReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
-            await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: SPIRE_REWARD_TTL }).catch(() => null);
-            result = { paid: true, score: tier };
-            // Capture the maintained-leaderboard entry (best tier this week) — written AFTER the
-            // save lock releases so the board lock never nests inside the save lock.
-            captureBoardEntry(char, wk);
-        }, { failClosed: true });
+            return {
+                ok: true,
+                character: appendSettlementReceipt(credited, inspection.receipts, {
+                    ...identity,
+                    value: { runId: session.runId, tier, weekKey: wk, shards },
+                    settledAt: now(),
+                }),
+                value: { paid: true, score: tier },
+                afterCommit: async () => {
+                    await kv.set(runReceipt, { ts: now() }, { nx: true, ex: PAID_RECEIPT_TTL }).catch(() => null);
+                    await kv.set(rewardReceipt, { ts: now() }, { nx: true, ex: SPIRE_REWARD_TTL }).catch(() => null);
+                    // Capture the maintained-leaderboard entry (best tier this week) — written AFTER the
+                    // save lock releases so the board lock never nests inside the save lock.
+                    captureBoardEntry(char, wk);
+                },
+            };
+        }));
+        result = out.ok ? out.value : { paid: false, reason: 'no-save' };
     } catch {
         result = { paid: false, reason: 'contended' };
     }

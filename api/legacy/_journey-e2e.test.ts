@@ -22,6 +22,42 @@ process.env.ADMIN_PASSWORD = 'e2e-test-admin';
 process.env.SUPABASE_URL ??= 'http://localhost:1'; // never contacted — kv is patched
 process.env.SUPABASE_SERVICE_KEY ??= 'x';
 
+test('first acceptance rejects disabled and under-level offers while a sealed retry stays valid', async () => {
+    const player = 'e2efreshqualification';
+    store.set(`save:${player}`, { character: { name: player, level: 100, village: 'Stormveil', auraStones: 0 } });
+    store.set(`legacy:stats:${player}`, clone(store.get(`legacy:stats:${P}`)));
+    const originalOverlay = clone(store.get('shared:legacy-defs'));
+    const roll = fakeRes();
+    await sage(fakeReq('POST', { action: 'roll', playerName: player, force: true }), roll.res);
+    const id = (roll.out.body as { offer: { offers: { legacyId: string }[] } }).offer.offers[0].legacyId;
+    try {
+        store.set('shared:legacy-defs', { disabled: [id] });
+        let response = fakeRes();
+        await sage(fakeReq('POST', { action: 'accept', playerName: player, legacyId: id }), response.res);
+        assert.equal(response.out.statusCode, 409);
+        assert.equal((response.out.body as { reason: string }).reason, 'offer-no-longer-eligible');
+        assert.equal(store.has(`legacy:accepted:${player}`), false);
+        store.set('shared:legacy-defs', {});
+        const record = store.get(`save:${player}`) as { character: Record<string, unknown> };
+        record.character.level = 49;
+        response = fakeRes();
+        await sage(fakeReq('POST', { action: 'accept', playerName: player, legacyId: id }), response.res);
+        assert.equal(response.out.statusCode, 409);
+        record.character.level = 100;
+        response = fakeRes();
+        await sage(fakeReq('POST', { action: 'accept', playerName: player, legacyId: id }), response.res);
+        assert.equal(response.out.statusCode, 200);
+        assert.equal((response.out.body as { ok: boolean }).ok, true);
+        store.set('shared:legacy-defs', { disabled: [id] });
+        response = fakeRes();
+        await sage(fakeReq('POST', { action: 'accept', playerName: player, legacyId: id }), response.res);
+        assert.equal(response.out.statusCode, 200);
+        assert.equal((response.out.body as { ok: boolean }).ok, true);
+    } finally {
+        if (originalOverlay === null) store.delete('shared:legacy-defs'); else store.set('shared:legacy-defs', originalOverlay);
+    }
+});
+
 // ── In-memory KV honoring nx (exactly what the NX seal + locks rely on) ─────
 const store = new Map<string, unknown>();
 const clone = (v: unknown) => (v === undefined || v === null) ? null : JSON.parse(JSON.stringify(v));

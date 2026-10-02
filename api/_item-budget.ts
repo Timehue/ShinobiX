@@ -39,11 +39,14 @@
 import { NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
 import { FORGED_ITEM_ID } from './save/_forged-items.js';
 
+import { PVE_SPECIALIST_FIELDS } from '../shared/relics.js';
+
 const PASSIVE_PCT_FIELDS = new Set(['damagePercent', 'absorbPercent', 'reflectPercent', 'lifeStealPercent']);
 // PvE-only relic power (see api/pvp/_multipliers.ts derivePveBonuses). These sit
 // OUTSIDE the per-rank stat cap, so an authored item must not be able to mint an
-// arbitrary one — the built-in ceiling is 10 (legendary wild relic).
-const PVE_PCT_FIELDS = new Set(['pveDamagePercent', 'pveDamageTakenPercent']);
+// arbitrary one. Authored items retain the 10% ceiling; canonical relics have
+// their own reviewed specialist values and bypass this authored-item budget.
+const PVE_PCT_FIELDS = new Set<string>(['pveDamagePercent', 'pveDamageTakenPercent', ...PVE_SPECIALIST_FIELDS]);
 const MAX_PVE_PCT = 10;
 const VITAL_FIELDS = new Set(['maxHp', 'maxChakra', 'maxStamina']);
 const MAX_PASSIVE_PCT = 2;

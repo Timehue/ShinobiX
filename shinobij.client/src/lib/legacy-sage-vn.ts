@@ -22,7 +22,8 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
     // Uses only fields already on the offer (no rank/rarity).
     const offerLines = offer.offers.map((o) => {
         const villagePart = o.villageAffinity ? ` I found the clearest reports of it in ${o.villageAffinity}.` : "";
-        const sigPart = o.signature ? ` If you take the name and pass its trial, I will teach you ${o.signature.name}.` : "";
+        const sigPart = (o.signature ? ` If you take the name and pass its trial, I will teach you ${o.signature.name} when you reach the Bound stage.` : "")
+            + (o.trialActivities?.length ? ` Its trials will involve ${o.trialActivities.join(', ')}. You can ask me to reroll an unfinished trial for another proof. Its progress starts anew; completed stages remain yours.` : "");
         return `${SPEAKER}: ${o.name}. ${o.flavor}${villagePart}${sigPart}`;
     });
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
