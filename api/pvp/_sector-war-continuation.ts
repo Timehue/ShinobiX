@@ -27,6 +27,7 @@ import { legacyEnabled, bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraContributionOnce } from '../_era.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { logWarEvent } from '../_war-event-log.js';
+import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import {
     pvpSessionMayGrantProgress,
     type PvpSession,
@@ -84,19 +85,36 @@ export type PvpSectorWarRegistration =
     | { registered: false; noContest: true };
 
 async function helpAppliedSectorWarEffects(
-    battleId: string,
+    session: PvpSession,
     winnerName: string,
     attackerWon: boolean,
 ): Promise<void> {
     if (!legacyEnabled()) return;
+    const battleId = session.battleId;
     const receiptId = `sector-pvp:${battleId}`;
-    const legacySettled = await bumpLegacyStats(winnerName, {
-        warPvpKills: 1,
-        warContribution: 2000,
+    const winner = session.winner === 'p1' ? session.p1 : session.p2;
+    const loser = session.winner === 'p1' ? session.p2 : session.p1;
+    const opponentName = safeName(loser.name);
+    const opponentSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
+    const opponentChar = opponentSave?.character as Record<string, unknown> | undefined;
+    const created = Number(opponentChar?.createdAt ?? 0);
+    const duration = Number(session.lastMoveAt) - Number(session.createdAt);
+    const creditAllowed = Boolean(opponentChar) && Number.isFinite(duration) && duration >= 15_000
+        && session.realFighters?.p1 !== false && session.realFighters?.p2 !== false
+        && (!created || Number(session.createdAt) - created >= 72 * 60 * 60 * 1000)
+        && !(await hasRecentIpOrFpOverlap(winnerName, opponentName));
+    const legacySettled = await bumpLegacyStats(winnerName, creditAllowed ? {
+        warPvpKills: 1, warContribution: 2000,
         ...(!attackerWon ? { sectorDefenses: 1, defensiveWins: 1 } : {}),
-    }, {
+    } : {}, {
         receiptId,
         durableReceipt: true,
+        ...(creditAllowed ? {
+            pvpTarget: opponentName,
+            pvpLevelGap: Number(winner.character.level ?? 0) - Number(loser.character.level ?? 0),
+            pvpAttributionId: battleId,
+            pvpAttributionAt: Number(session.endedAt ?? session.lastMoveAt),
+        } : {}),
     });
     if (!legacySettled) throw new Error('sector-war-legacy-effects-unconfirmed');
     // Era delivery is also receipt-backed. Existing receipts confirm replay;
@@ -273,7 +291,7 @@ export async function settlePvpSectorWarContinuation(
                 || prior.points !== located.receipt.points) {
                 throw new Error('sector-war-resolution-receipt-authority-conflict');
             }
-            await helpAppliedSectorWarEffects(battleId, winnerName, proven.attackerWon);
+            await helpAppliedSectorWarEffects(session, winnerName, proven.attackerWon);
         }
         return prior;
     }
@@ -286,7 +304,7 @@ export async function settlePvpSectorWarContinuation(
     const embedded = await locate(token?.sectorWarId ?? null);
     if (embedded) {
         const proven = proveApplied(embedded, 'sector-war-embedded-receipt-authority-conflict');
-        await helpAppliedSectorWarEffects(battleId, winnerName, proven.attackerWon);
+        await helpAppliedSectorWarEffects(session, winnerName, proven.attackerWon);
         return commitSectorWarResolutionReceipt({
             ...receiptBase,
             outcome: 'applied',
@@ -386,7 +404,7 @@ export async function settlePvpSectorWarContinuation(
         return commitNoop('superseded', token.sectorWarId);
     }
 
-    await helpAppliedSectorWarEffects(battleId, winnerName, attackerWon);
+    await helpAppliedSectorWarEffects(session, winnerName, attackerWon);
     return commitSectorWarResolutionReceipt({
         ...receiptBase,
         outcome: 'applied',
