@@ -127,6 +127,8 @@ export function utcDateKey(now = new Date()): string {
     return now.toISOString().slice(0, 10);
 }
 
+const UTC_DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
 // Vanguard Rank 2+ perk: +10% XP on all Vanguard XP gains. Mirrored from the
 // client-side professionXpMultiplier in App.tsx so both grant paths agree.
 function xpMultiplierFor(profession: Profession, currentRank: number): number {
@@ -281,7 +283,8 @@ function getMissionPoolSafeCount(profession: Profession): number {
 }
 
 // Load (or issue) today's missions for a player. Returns null if profession
-// doesn't have missions. Vanguard Rank 6+ gets 4 missions instead of 3
+// doesn't have missions, or if `now` falls on an earlier UTC day than the set
+// already stored. Vanguard Rank 6+ gets 4 missions instead of 3
 // (the Rank 6 even-rank perk).
 // The daily endpoint and progress reporters can pass the trusted character they
 // already loaded, avoiding a duplicate save:<player> database round trip.
@@ -302,6 +305,14 @@ export async function loadOrIssueDailyMissions(
     const slotCount = (profession === 'vanguard' && currentRank >= 6) ? 4 : 3;
 
     const existing = await kv.get<DailyMissionsState>(dailyKey(playerName));
+    // An event dated before the stored set must not replace it. The raid saga
+    // reports at its proof time, which can fall on the previous UTC day, and
+    // issuing that day's set here overwrote the current one: its progress and
+    // event receipts were wiped, and the next report reissued the day's
+    // missions fresh, so ones already completed and paid could pay again. The
+    // older day's set is gone, so whether the event already counted there
+    // cannot be proven. It counts nothing instead (loss-only).
+    if (existing && UTC_DATE_KEY.test(String(existing.date)) && existing.date > today) return null;
     if (existing && existing.date === today && existing.profession === profession) {
         if (!char) return existing;
         const repaired = repairDailyMissionsForEligibility({ state: existing, playerName, today, slotCount, character: char });
