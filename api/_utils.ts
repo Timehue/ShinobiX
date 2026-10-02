@@ -75,6 +75,11 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // a paid outcome (or prior amounts into a no-payout) invalidates the proof
     // and blocks every subsequent PvP reward claim for the winner.
     'vanguardRewardSettlementStamp',
+    // The supporter flag is one entitlement value, written only by
+    // api/_subscription.ts. Merging the previous flag into a paid renewal kept
+    // an admin comp's `expiresAt` and `source`, so the perks would end at the
+    // old comp's expiry while the player was still paying.
+    'patreon',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 

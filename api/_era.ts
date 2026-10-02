@@ -17,8 +17,7 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { announce, addHallEntry, ANNOUNCEMENTS_KEY, type Announcement } from './_announce.js';
 import { legacyEnabled } from './_legacy-track.js';
-import { bumpSaveVersion } from './save/_save-version.js';
-import { mergePreservingImages } from './_utils.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import {
     ERA_DEFS, ERA_BY_ID, ERA_METRICS,
     type EraDef, type EraMetric, type EraStatus, type EraTriggerKind,
@@ -500,25 +499,24 @@ export async function completeEraEffects(def: EraDef): Promise<boolean> {
     if (hallMarker !== '1' && hallMarker?.status !== 'done') return false;
 
     // Grant the credited finisher their era title (serverTitles = the
-    // server-owned ownership source; idempotent includes-check).
+    // server-owned ownership source; idempotent includes-check). Any failure,
+    // including a lost compare-and-set, leaves the effects undone for the
+    // next pass, which finds the title already held or grants it then.
     if (player && def.trigger?.title) {
+        const title = def.trigger.title;
         try {
-            const delivered = await withKvLock(`save:${player}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return false;
+            const granted = await mutatePlayerSave<null>(player, ({ character: char }) => {
                 const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
                 const server = Array.isArray(char.serverTitles) ? (char.serverTitles as string[]) : [];
-                if (server.includes(def.trigger!.title) && earned.includes(def.trigger!.title)) return true;
+                if (server.includes(title) && earned.includes(title)) return { ok: true, write: false, character: char, value: null };
                 const updated = {
                     ...char,
-                    serverTitles: server.includes(def.trigger!.title) ? server : [...server, def.trigger!.title],
-                    earnedTitles: earned.includes(def.trigger!.title) ? earned : [...earned, def.trigger!.title],
+                    serverTitles: server.includes(title) ? server : [...server, title],
+                    earnedTitles: earned.includes(title) ? earned : [...earned, title],
                 };
-                if (await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec)) !== 'OK') return false;
-                return true;
-            }, { failClosed: true });
-            if (!delivered) return false;
+                return { ok: true, character: updated, value: null };
+            });
+            if (!granted.ok) return false;
         } catch (err) {
             console.error('[era] title grant failed:', err instanceof Error ? err.message : err);
             return false;

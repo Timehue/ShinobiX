@@ -142,6 +142,47 @@ describe('mutatePlayerSave callback contract', { concurrency: false }, () => {
         assert.equal(undone, false, 'a write that may have landed is never undone');
     });
 
+    it('runs afterCommit once the save is committed, while the save lock is still held', async () => {
+        const name = `${PREFIX}aftercommit`;
+        await kv.set(`save:${name}`, { _saveVersion: 6, _saveAt: Date.now(), character: settledCharacter(name) });
+        let seen: { version: number; stored: number; locked: boolean } | undefined;
+        const out = await mutatePlayerSave(name, ({ character }) => ({
+            ok: true,
+            character: { ...character, ryo: 60 },
+            value: null,
+            afterCommit: async ({ _saveVersion }) => {
+                const stored = await kv.get<Json>(`save:${name}`);
+                seen = { version: _saveVersion, stored: Number(stored?._saveVersion), locked: Boolean(await kv.get(`lock:save:${name}`)) };
+            },
+        }));
+
+        assert.equal(out.ok, true);
+        assert.deepEqual(seen, { version: 7, stored: 7, locked: true });
+    });
+
+    it('never runs afterCommit for a decision that writes nothing, or whose write lost', async () => {
+        const name = `${PREFIX}aftercommitskip`;
+        await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), character: settledCharacter(name) });
+        let ran = 0;
+        await mutatePlayerSave(name, ({ character }) => ({
+            ok: true, write: false, character, value: null, afterCommit: () => { ran += 1; },
+        }));
+
+        const original = kv.compareSet;
+        kv.compareSet = async (key, expected, value, options) => {
+            if (key === `save:${name}`) return false;
+            return original.call(kv, key, expected, value, options);
+        };
+        try {
+            await assert.rejects(mutatePlayerSave(name, ({ character }) => ({
+                ok: true, character: { ...character, ryo: 1 }, value: null, afterCommit: () => { ran += 1; },
+            })), /player-save-version-conflict/);
+        } finally {
+            kv.compareSet = original;
+        }
+        assert.equal(ran, 0);
+    });
+
     it('says whether the save or only its character is missing', async () => {
         const absent = await mutatePlayerSave(`${PREFIX}absent`, ({ character }) => ({ ok: true, character, value: null }));
         assert.deepEqual(absent, { ok: false, status: 404, error: 'Player save not found.', code: 'save-not-found' });
