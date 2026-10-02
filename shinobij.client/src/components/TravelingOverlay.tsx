@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { travelMaskStartedAt } from "../lib/travel-mask";
 
 /*
  * The "Traveling" mask, with its own 100ms heartbeat.
@@ -17,10 +18,11 @@ import { useEffect, useState } from "react";
  * is still the single source of truth for when travel actually ends.
  */
 export function TravelingOverlay({ arrivalAt }: { arrivalAt: number }) {
-    // Captured on mount so the bar fills over the time the player will really
-    // sit here. On a mid-travel remount (a refresh restoring pendingTravel)
-    // that is the REMAINING trip, which is exactly what the bar should show.
-    const [startedAt] = useState(() => Date.now());
+    // Captured on the trip's first mount so the bar fills over the time the
+    // player will really sit here. After a refresh restoring pendingTravel that
+    // is the REMAINING trip, which is exactly what the bar should show. The
+    // loading fallback's copy hands over to WorldMap's without restarting it.
+    const [startedAt] = useState(() => travelMaskStartedAt(arrivalAt));
     const [now, setNow] = useState(() => Date.now());
 
     useEffect(() => {
