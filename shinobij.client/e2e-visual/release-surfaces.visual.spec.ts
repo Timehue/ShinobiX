@@ -486,7 +486,12 @@ test('authenticated Central Hub shell', async ({ page }) => {
     await page.route('**/api/**', (route) => {
         const path = new URL(route.request().url()).pathname.toLowerCase();
         if (path === '/api/save/visualninja') {
-            return json(route, { character, currentBiome: 'central', currentSector: 40, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: ['builtin-aura-sphere-lv9'], _saveVersion: 1 });
+            // Sector 0: standing in Central is being in town. Entering a town hub
+            // resets the sector to 0 (lib/screen-guards TOWN_SCREENS), and a town
+            // bookmark restored for a FIELD sector (1–66) reopens the World Map
+            // instead. Sector 40 is Goatstone Terraces, a field sector, which is
+            // how this spec silently lost the hub on 2026-09-29.
+            return json(route, { character, currentBiome: 'central', currentSector: 0, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: ['builtin-aura-sphere-lv9'], _saveVersion: 1 });
         }
         if (path === '/api/player-auth') return json(route, { ok: true, token: 'visual-session-token' });
         if (path === '/api/perf-beacon') return route.fulfill({ status: 204 });

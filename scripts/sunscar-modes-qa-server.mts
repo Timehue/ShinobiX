@@ -69,6 +69,7 @@ app.post('/__qa/combat-fixture', async (req, res) => {
 });
 for (const [path, source] of [
     ['/festival/rally', '../api/festival/rally.js'], ['/festival/caravan', '../api/festival/caravan.js'], ['/festival/exchange', '../api/festival/exchange.js'],
+    ['/festival/black-market', '../api/festival/black-market.js'],
     ['/pet/encounter-start', '../api/pet/encounter-start.js'], ['/pet/befriend', '../api/pet/befriend.js'], ['/pet/encounter-decline', '../api/pet/encounter-decline.js'],
     ['/solo-pve/state', '../api/solo-pve/state.js'], ['/solo-pve/action', '../api/solo-pve/action.js'], ['/pve/fight-outcome', '../api/pve/fight-outcome.js'],
 ] as const) {
