@@ -1,3 +1,4 @@
+import { NON_STORY_RELICS } from '../../../shared/relics';
 /*
  * starterItems — the full catalog of canonical game items (armor / weapons /
  * consumables / event-specific drops / hunting materials).
@@ -47,29 +48,6 @@ export const starterItems: GameItem[] = [
         bonuses: { taijutsuDefense: 20 },
     },
     {
-        id: "chakra-ring",
-        name: "Chakra Ring",
-        image: "/items/shop-chakra-ring-v1.webp",
-        slot: "relic",
-        rarity: "rare",
-        cost: 600,
-        description: "Improves chakra flow.",
-        // The shop relic, and therefore the FLOOR of the whole relic pool: a
-        // 600-ryo item with no level requirement must never beat a Reckoning
-        // reward earned at Lv58+. Owner ruling 2026-08-16.
-        //   • Spread across ALL FOUR offenses instead of ninjutsu only, so every
-        //     build gets the same deal. Only the offense matching the cast is read
-        //     (getOffense), so this is +5 effective for anyone — not +20.
-        //   • PvE damage cut 3% -> 1%.
-        // It also dropped its maxChakra 150 in the same pass: chakra/stamina pools
-        // come from LEVEL alone (maxChakraForLevel), so an item vitals bonus never
-        // reached a pool — it only ever showed in the popup.
-        bonuses: {
-            ninjutsuOffense: 5, taijutsuOffense: 5, bukijutsuOffense: 5, genjutsuOffense: 5,
-            pveDamagePercent: 1,
-        },
-    },
-    {
         id: AURA_SPHERE_ITEM_ID,
         name: "Aura Sphere",
         slot: "aura",
@@ -79,116 +57,7 @@ export const starterItems: GameItem[] = [
         description: "An elder-gifted sphere that unlocks the Aura Sphere menu while equipped.",
         bonuses: {},
     },
-    // -- Wild relics (open-world RNG drops) ------------------------------------
-    // Chase gear pulled out of the world itself, not out of a village's story.
-    // They roll ONLY from Ancient Chests in wild sectors, at a very low chance
-    // (WILD_RELIC_DROP_CHANCE in api/world/_chest.ts) — cost 0 keeps them out of
-    // the shop entirely.
-    //
-    // BALANCE: stat bonuses ONLY, deliberately. Gear stats are added BEFORE the
-    // per-rank stat cap (perRankStatCap), so a relic speeds a player toward the
-    // shared ceiling without ever raising it — a capped fighter gains nothing
-    // from one. The percent passives (damagePercent / absorbPercent /
-    // reflectPercent / lifeStealPercent / shield) are NOT under that cap, so
-    // putting them on an RNG drop WOULD raise the PvP ceiling by luck. Keep them
-    // off wild relics. Each relic is a distinct build pick, not a strict upgrade,
-    // and together they cover the taijutsu/bukijutsu gap the story relics leave.
-    {
-        id: "relic-ashfall-reliquary",
-        name: "Ashfall Reliquary",
-        slot: "relic",
-        rarity: "epic",
-        cost: 0,
-        levelReq: 35,
-        image: "/items/relic-ashfall-reliquary.webp",
-        description: "A sealed ash-vessel recovered from a caldera shelf. The cinders inside have not cooled in a hundred years.",
-        flavorText: "The mountain keeps its dead warm.",
-        bonuses: { bukijutsuOffense: 18, strength: 12 , pveDamagePercent: 6 },
-    },
-    {
-        id: "relic-rootbound-effigy",
-        name: "Rootbound Effigy",
-        slot: "relic",
-        rarity: "epic",
-        cost: 0,
-        levelReq: 35,
-        image: "/items/relic-rootbound-effigy.webp",
-        description: "A carved figure the forest grew around and would not give back. The grain still moves against the knife.",
-        flavorText: "It was a gift. The wood disagreed.",
-        bonuses: { taijutsuOffense: 18, taijutsuDefense: 12 , pveDamageTakenPercent: 5 },
-    },
-    {
-        id: "relic-rimeglass-lens",
-        name: "Rimeglass Lens",
-        slot: "relic",
-        rarity: "epic",
-        cost: 0,
-        levelReq: 45,
-        image: "/items/relic-rimeglass-lens.webp",
-        description: "Ice pressed to glass under a drift that never thawed. Held to the eye, it shows the field one breath before it moves.",
-        flavorText: "Cold enough to see through.",
-        bonuses: { genjutsuOffense: 18, intelligence: 12 , pveDamagePercent: 6 },
-    },
-    {
-        id: "relic-umbral-knot",
-        name: "Umbral Knot",
-        slot: "relic",
-        rarity: "epic",
-        cost: 0,
-        levelReq: 45,
-        image: "/items/relic-umbral-knot.webp",
-        description: "A cord tied in a knot that casts more shadow than cord. Every attempt to trace it ends where it started.",
-        flavorText: "Pull, and the dark tightens.",
-        bonuses: { speed: 14, genjutsuDefense: 16 , pveDamageTakenPercent: 5 },
-    },
-    {
-        id: "relic-stormglass-pendulum",
-        name: "Stormglass Pendulum",
-        slot: "relic",
-        rarity: "legendary",
-        cost: 0,
-        levelReq: 60,
-        image: "/items/relic-stormglass-pendulum.webp",
-        description: "Lightning caught in the sand it fused. It swings toward the next strike a heartbeat before the sky agrees.",
-        flavorText: "It has never once swung wrong.",
-        bonuses: { ninjutsuOffense: 24, willpower: 16 , pveDamagePercent: 10 },
-    },
-    {
-        id: "relic-gravewatch-fang",
-        name: "Gravewatch Fang",
-        slot: "relic",
-        rarity: "legendary",
-        cost: 0,
-        levelReq: 60,
-        image: "/items/relic-gravewatch-fang.webp",
-        description: "Drawn from something that guarded a barrow and lost. The tooth kept the duty the beast could not.",
-        flavorText: "Still standing watch. Still refusing to fall.",
-        bonuses: { strength: 22, bukijutsuDefense: 18 , pveDamageTakenPercent: 8 },
-    },
-    {
-        id: "relic-drownstone-compass",
-        name: "Drownstone Compass",
-        slot: "relic",
-        rarity: "legendary",
-        cost: 0,
-        levelReq: 70,
-        image: "/items/relic-drownstone-compass.webp",
-        description: "A sunken bearing-stone that points not north but onward. Wherever it is carried, the ground ahead is already known.",
-        flavorText: "Every road it names, it has walked.",
-        bonuses: { speed: 20, intelligence: 20 , pveDamagePercent: 10 },
-    },
-    {
-        id: "relic-hollow-gate-cinder",
-        name: "Hollow-Gate Cinder",
-        slot: "relic",
-        rarity: "legendary",
-        cost: 0,
-        levelReq: 75,
-        image: "/items/relic-hollow-gate-cinder.webp",
-        description: "An ember that came through a rift and kept burning in open air. Whatever carried it this far was hunted down for it.",
-        flavorText: "It came through. So did the thing that guarded it.",
-        bonuses: { ninjutsuOffense: 22, ninjutsuDefense: 18 , pveDamageTakenPercent: 8 },
-    },
+    ...NON_STORY_RELICS,
     {
         id: "pet-treat",
         name: "Treats",
@@ -428,7 +297,7 @@ export const starterItems: GameItem[] = [
     { id: "veil-of-the-hollow", name: "Veil of the Hollow", slot: "item", rarity: "legendary", cost: 0, description: "A relic claimed from a Hidden Chamber deep within the Hollow Gate Shrine. Whispers of the Hollow Hounds cling to it. Substitutes for a Warforged Relic when forging legendary weapons.", bonuses: {} },
     { id: "hollow-gate-key", name: "Hollow Gate Key", slot: "item", rarity: "rare", cost: 0, description: "A bone-pale key etched with Hollow Gate sigils. Starting an ordinary five-floor run consumes one key and requires your village's active 30-day access seal. Resuming that run spends no new key; accepted rift assignments are free. Crafted at the Crafter from 5 Dungeon Keys or 10 Fate Shards; granted on completing your village story.", bonuses: {} },
     { id: "warforged-relic", name: "Warforged Relic", slot: "item", rarity: "legendary", cost: 0, description: "A battle-marked relic from a war crate. Used to forge legendary weapons.", bonuses: {} },
-    { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open it for a Warforged Relic and a chance at a Dungeon Key.", bonuses: {} },
+    { id: "legendary-war-crate", name: "Legendary War Crate", slot: "item", rarity: "legendary", cost: 0, description: "A crate awarded for major clan or village war victories. Open for a Warforged Relic and a chance at a Dungeon Key. At level 100, each of the four +14% PvE offense relics has a 0.10% bonus chance.", bonuses: {} },
     // -- Elemental attunement (Shards → Core → weapon element) ------------------
     { id: "elemental-shard", name: "Elemental Shard", slot: "item", rarity: "epic", cost: 0, image: "/item-elemental-shard.webp", description: "A jagged mote of crystallized elemental chakra shed by a Hollow Gate boss. Combine 10 at the Crafter to forge an Elemental Core.", bonuses: {} },
     { id: "elemental-core", name: "Elemental Core", slot: "item", rarity: "legendary", cost: 0, image: "/item-elemental-core.webp", description: "A stable orb of pure elemental chakra forged from 10 Elemental Shards. Apply it to a legendary or mythic weapon to attune it to one of your awakened elements. An attuned weapon carries your bloodline's power on every strike.", bonuses: {} },

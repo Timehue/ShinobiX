@@ -1,6 +1,13 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { levelGapMult, vanguardXpForLevel, vanguardSealsForRank, rankFromXp } from './_vanguard-rewards.js';
+import { _makeMemoryKv, type KvLike } from '../_storage.js';
+import {
+    levelGapMult,
+    vanguardXpForLevel,
+    vanguardSealsForRank,
+    rankFromXp,
+    vanguardCompareSetConfirmedForTest,
+} from './_vanguard-rewards.js';
 
 describe('levelGapMult', () => {
     it('full reward within 10 levels (either direction)', () => {
@@ -68,5 +75,45 @@ describe('rankFromXp (baseline curve)', () => {
     });
     it('caps at Rank 10 above max threshold', () => {
         assert.equal(rankFromXp(1_000_000), 10);
+    });
+});
+
+describe('vanguard intent compare-set against Postgres-shaped reads', () => {
+    const KEY = 'pvp:vanguard-rewarded:readback';
+    const intent = { state: 'committed', expectedSaveVersion: -0, markerSettledAt: undefined, outcome: { granted: true, seals: 1, xp: 300 } };
+
+    /** Reads come back as Postgres returns them: the JSON form, so -0 is 0 and undefined is gone. */
+    function postgresStore(compareSet: (base: KvLike, ...args: Parameters<KvLike['compareSet']>) => Promise<boolean>) {
+        const base = _makeMemoryKv();
+        const store: Pick<KvLike, 'get' | 'compareSet'> = {
+            async get<T = unknown>(key: string): Promise<T | null> {
+                const stored = await base.get<T>(key);
+                return stored === null ? null : JSON.parse(JSON.stringify(stored)) as T;
+            },
+            compareSet: (...args) => compareSet(base, ...args),
+        };
+        return { base, store };
+    }
+
+    it('confirms a compare-set that landed but lost its reply', async () => {
+        const { store } = postgresStore(async (base, key, expected, value, options) => {
+            await base.compareSet(key, expected, value, options);
+            throw new Error('Connection terminated unexpectedly');
+        });
+        assert.equal(await vanguardCompareSetConfirmedForTest(store, KEY, null, intent), true);
+    });
+
+    it('confirms a compare-set that landed but answered false', async () => {
+        const { store } = postgresStore(async (base, key, expected, value, options) => {
+            await base.compareSet(key, expected, value, options);
+            return false;
+        });
+        assert.equal(await vanguardCompareSetConfirmedForTest(store, KEY, null, intent), true);
+    });
+
+    it('still reports a conflict when another writer holds the row', async () => {
+        const { base, store } = postgresStore((inner, ...args) => inner.compareSet(...args));
+        await base.set(KEY, { ...intent, state: 'pending' });
+        assert.equal(await vanguardCompareSetConfirmedForTest(store, KEY, null, intent), false);
     });
 });

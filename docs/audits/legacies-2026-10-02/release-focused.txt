@@ -1,0 +1,1232 @@
+✔ a path qualifying without PvP keeps every trial variant free of mandatory PvP (4.5218ms)
+✔ post-settlement mirror snapshots are rewound before first-touch bootstrap (1.1626ms)
+✔ roster has exactly 100 legacies with the design rarity split (0.2678ms)
+✔ ids are unique kebab-case slugs and the map covers all of them (0.5988ms)
+✔ names and titles are present, distinct enough, and flavored (0.3354ms)
+✔ Sage-facing Legacy flavor reads as concise witness evidence, not slogans or game UI (0.5977ms)
+✔ multi-proof rule holds per rarity (0.3735ms)
+✔ same-tier identities are not strict requirement upgrades of one another (1.4081ms)
+✔ all 100 badge and wearable-title links resolve without identity collisions (21.3916ms)
+✔ requirement breadth follows the intended basic-to-mythic effort curve (0.5722ms)
+✔ a genuine level-50 villager always has an attainable basic fallback (0.8212ms)
+✔ all requirement stats are known counters and thresholds are sane (0.4581ms)
+✔ rarity thresholds escalate: a mythic is never cheaper than a basic on shared stats (0.4222ms)
+✔ basic proofs stay below every higher-tier use of the same stat (0.3712ms)
+✔ weighted primary mastery floors strictly increase between tiers (0.7042ms)
+✔ mythics are calendar-scale but remain possible within bounded earning cadences (0.3904ms)
+✔ fresh-delta trials never demand more than 30 standard days from a capped faucet (4.1034ms)
+✔ every requirement stat has a write path (no dead-stat legacies) (0.5007ms)
+✔ trial objectives only use strictly LIVE stats (mirrors move once a day at best) (4.259ms)
+✔ trial variants differ, later kinds add breadth, and the client labels every trial stat (23.6353ms)
+✔ legendary and mythic tiers cannot be fully covered by bootstrap-seeded counters (0.4147ms)
+✔ village affinities only reference real villages (0.1814ms)
+✔ no legacy uses the internal "mythic" identity category (it would leak the hidden rarity) (0.1507ms)
+▶ legacy jutsu ⇄ legacy defs linkage
+  ✔ exactly 100 signatures with unique ids, each owned by a real Legacy (3.4767ms)
+  ✔ every Legacy def resolves its specialtyJutsuId into the catalog (0.3467ms)
+  ✔ unique jutsu names and legacy-<slug> ids that never collide with built-ins (0.4807ms)
+✔ legacy jutsu ⇄ legacy defs linkage (5.6559ms)
+▶ legacy jutsu tier rules (locked design)
+  ✔ cooldown 10 and element "None" on all 100 (0.4834ms)
+  ✔ AP tiers follow starter conventions (60 damage / 40 utility) with tiered EP (0.4467ms)
+  ✔ bloodlineRank carries the cap tier: mythic/legendary S, rare A, basic none (0.2529ms)
+  ✔ capped-tag percents follow the tier ladder (M 40 / L 40+35 / R 35 / B 30) (0.536ms)
+  ✔ Wound follows its own rank ladder (35/35/30/25) and only on damage casts (0.4074ms)
+  ✔ tag vocabulary: canonical names only, no bloodline-unique control tags (0.4553ms)
+  ✔ Increase Discipline only on discipline-typed jutsu; style Legacies are typed to their own style (0.4478ms)
+  ✔ shape contracts: methods, targets, and the Move pairing (0.404ms)
+  ✔ battle-log + card flavor present and token-free (rendered verbatim) (0.3749ms)
+✔ legacy jutsu tier rules (locked design) (4.7531ms)
+node:internal/modules/cjs/loader:1564
+  const err = new Error(message);
+              ^
+
+Error: Cannot find module './_relic-reward.js'
+Require stack:
+- C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+- C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+- C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\move.ts
+- C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pve.test.ts
+    at node:internal/modules/cjs/loader:1564:15
+    at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+    at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+    at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+    at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+    at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+    at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+    at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: [
+    'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts',
+    'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts',
+    'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\move.ts',
+    'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pve.test.ts'
+  ]
+}
+
+Node.js v24.21.0
+✖ api\_legacy-pve.test.ts (30468.9886ms)
+✖ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (12217.9976ms)
+✖ a guard challenge retains its server evidence through delayed terminal recovery (0.0869ms)
+✖ guard proof must name both actual battle participants (0.0741ms)
+✖ guard proof cannot reverse the server-sealed attacker and defender (0.0606ms)
+✖ a failed loser write retries the same terminal without recrediting the winner (0.1035ms)
+✖ pending combat and war delivery retain their battle proof through later activity receipt churn (0.0673ms)
+✖ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (0.0926ms)
+✖ practice, pet, NPC and quick-surrender battles do not grant player proof (0.0855ms)
+✔ rank bands mirror the level thresholds (1.2566ms)
+✔ extract parses the battle log with exact move.ts line formats (1.1919ms)
+✔ comeback, upset, and ranked flags (0.4584ms)
+✔ guardDefenseDeltas — queue-defense faucet (defender wins, attacker wins, no marker) (1.0707ms)
+✔ level-cap ranked upsets remain earnable from sealed rating snapshots (0.3205ms)
+✔ basic, siphon and lifesteal healing count for either fighter (0.2616ms)
+[kv] isolated in-memory QA backend active
+✔ an expired stored offer cannot suppress a new Sage roll (272.7888ms)
+✔ declined offers eventually visit every eligible path without depending on event retention (442.8506ms)
+✔ repeat-kill decay: 1st and 2nd full, 3rd half, 4th quarter, then zero (1.6866ms)
+✔ win-trading ring detection: rotations + single-target dominance trip it (0.3663ms)
+✔ bootstrap seeds from save counters with plausibility caps (0.3695ms)
+✔ a basic legacy passes on its single floor and fails below it (24.2833ms)
+✔ mythic requires every floor — one gap sinks it, reasons say which (0.4671ms)
+✔ village affinity boosts score but never grants eligibility (0.3295ms)
+✔ server-recorded story choices only break ties between already-earned paths (0.4926ms)
+✔ threshold overlay retunes a floor without a deploy (0.1726ms)
+✔ suspicion flags seal legendary+ but leave basic/rare offers open (28.0737ms)
+✔ below level 50 nothing is eligible (1.4259ms)
+✔ sage offers: best fit + different-category alternate + basic fallback, max 3 (26.253ms)
+✔ finite story milestone receipts survive rolling activity eviction (20.4421ms)
+✔ durable and rolling receipt checks share one exact-once gate (0.2822ms)
+✔ recovery receipts expire by day without retiring permanent milestone or war receipts (0.3543ms)
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for dungeonproberecovery1: Legacy activity receipt was not committed.
+✔ verified dungeon clear repairs interrupted Legacy delivery without repeating rewards (12672.1719ms)
+✔ no-presence retains its retry reason and spends nothing until presence is ready (203.3551ms)
+✔ sector mismatch is distinct from transient presence startup (2.3529ms)
+✔ daily cap explains its reset and still permits recovery of an existing receipt (8.039ms)
+✔ an unearned probe explains prior exploration without claiming a daily cap (3.4809ms)
+[dungeon/run] Error: Injected lost dungeon probe acknowledgement.
+✔ contention reports retryable busy and never mints a dungeon without the save lock (635.7298ms)
+✔ lost response replays the committed discovery without another daily attempt (7.3342ms)
+[legacy/sage] Error: injected-accept-era-read-failure
+[legacy/sage] Error: injected acceptance save failure
+[legacy/trial] Error: injected trial delete failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+✔ first acceptance rejects disabled and under-level offers while a sealed retry stays valid (2660.2144ms)
+✔ flag-off canary: definitions 404s without ENABLE_LEGACY (7.4877ms)
+✔ definitions serves the full 100-legacy codex (16.9003ms)
+✔ verified server progress performs the Sage roll without a map-screen call (7.2433ms)
+✔ forced sage roll spawns a multi-choice offer (0.7965ms)
+✔ accept rejects a legacy that was not offered (0.3781ms)
+✔ failed world authority cannot seal an acceptance with a guessed birth era (98.9739ms)
+✔ accept seals the path, auto-starts a DECORATED awaken trial, returns the intro (36.3956ms)
+✔ re-accepting the same legacy is idempotent — never a stage-1 reset (37.6445ms)
+✔ accepting a DIFFERENT legacy after sealing → 409 sealed (one legacy forever) (0.4812ms)
+✔ ordinary stats GET repairs an expired marker-only accept exactly once across save, trial, Chronicle, and world receipts (129.5735ms)
+✔ awaken completion survives save→delete and delete→effects failures, then replays exactly once (273.0675ms)
+✔ re-accept AFTER progression still returns the CURRENT stage (3.5744ms)
+✔ bind trial: start (variant 0) → reroll swaps the ask (attempt 2, variant 1) → stage 3 (5.4256ms)
+✔ real Proven and summit trials grant their titles and open the matching era admission (12.9317ms)
+✔ the summit is permanent history: hall entries minted, no further trials (0.4406ms)
+✔ status endpoint reflects the finished journey (stage 5, 3 titles, category resolved) (3.4651ms)
+✔ applyClaimedMissionState clears claimed field missions from accepted ids and progress (2.0621ms)
+✔ applyClaimedMissionState clears claimed hunts without touching unrelated progress (0.2116ms)
+✔ applyClaimedMissionState leaves combat claims alone (0.1515ms)
+✔ clearStalePendingCombatClaim drops the stale key and reports cleared (0.3969ms)
+✔ clearStalePendingCombatClaim is a no-op (same ref) when the key is absent (0.2113ms)
+✔ clearStalePendingCombatClaim tolerates a missing/invalid pending list (0.142ms)
+✔ Legacy mission progress is derived from committed save receipts (0.5944ms)
+▶ mission claim authority shape and retention
+  ✖ accepts the previous rolling-deploy token shape but keeps run + mission binding
+  ✖ preserves all 40 possible live-token markers and bounds only expired history
+  ✖ never evicts an unfinished effect saga after its token horizon
+  ✖ fails closed when token retirement cannot distinguish read failure from absence
+✖ mission claim authority shape and retention (2892.966ms)
+▶ mission queue publication recovery
+  ✖ accepts a committed token acknowledgement loss only after exact readback
+  ✖ fails closed on null token publication and retries from the completed run
+  ✖ does not finalize metadata when the pending-save row is null, then repairs it
+  ✖ repairs either publication row from settled session + binding authority
+  ✖ does not let a second completed run replace an earlier unpaid token
+  ✖ does not overwrite corrupt non-null authority while an earlier payout may be pending
+✖ mission queue publication recovery (0.0493ms)
+▶ mission payout receipt recovery
+  ✖ S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write
+  ✖ qualified era proof commits with combat rewards, including reservation recovery, and replays once
+  ✖ fails closed when the token read throws and never clears the pending claim
+  ✖ treats only an authoritative null as absence and preserves pending on corrupt authority
+  ✖ fences an expired-lock stale-heal writer with exact save CAS
+  ✖ recovers an old-worker delete then pre-save crash only after CAS fencing null to paying
+  ✖ does not recover or repay after the old-worker payout save already cleared pending
+  ✖ fails closed on a non-null mismatched old-delete recovery triplet
+  ✖ fails closed when old-delete recovery evidence cannot be read
+  ✖ recovers commit-then-throw and replays the exact reward/character without a second payout
+  ✖ fences the old worker before a payout commit whose acknowledgement is lost
+  ✖ throw-before-commit leaves the sole token retryable and pays once
+  ✖ null-before-commit leaves the sole token retryable and pays once
+  ✖ repairs an old worker pending-clear from the durable pre-commit payment reservation
+  ✖ fences an expired-lock writer when an intervening save wins the CAS
+  ✖ a lost HTTP response replays from the atomic marker without changing the save
+  ✖ an old run token can only replay its old receipt and cannot pay a later queued run
+  ✖ does not let a successor run overlap unfinished effects from the prior payout
+  ✖ helps a newbie reward forward after crashing between progress and save credit
+  ✖ honors pinned newbie Ryo when a profession is chosen after the target marker commits
+  ✖ help-forwards an unstaged receipt instead of silently declaring its post-effects complete
+  ✖ helps Legacy counters forward after crashing between target CAS and save stamp
+  ✖ helps the Era contribution forward after crashing between target CAS and save stamp
+  ✖ terminal target-row run IDs fence callers paused until after acknowledgement
+  ✖ a successor queue helps a completed paying row through lost retirement acknowledgement
+  ✖ retries token retirement after every effect is durable without replaying any payout
+✖ mission payout receipt recovery (0.0576ms)
+✖ new real-player casual sessions stamp v1 and expose zero consumable charges (1065.5121ms)
+✖ world session creation seals the actual guard role and delivers defense credit without the map notification (0.1679ms)
+✖ overlapping world creates cannot replace the published battle guard roles (57.0407ms)
+✖ a guard publisher resumed after its lease expires cannot overwrite a successor proof (0.1626ms)
+✖ ordinary PvP session fetch avoids a KV counter write while pending recovery keeps it (0.1053ms)
+✖ PvP restores equipped named weapons and armor before publishing the battle (0.0937ms)
+✖ PvP refuses to publish a battle with unresolved equipped named armor (0.07ms)
+✖ real player duels refuse a missing opponent save instead of sealing an NPC fallback (0.0843ms)
+✖ a temporary named-gear registry read failure cannot publish an incomplete battle (0.1067ms)
+✖ a stable create capability resumes one session and never indexes the unsolicited opponent (0.1501ms)
+✖ pointer activation failure rolls back to a same-capability replaceable tombstone (0.0675ms)
+✖ a creator paused past its pointer lease cannot leave an orphan after a successor wins (0.0675ms)
+✖ a world-PvP win settles in a sector that has no territory row (1756.425ms)
+✖ the loser's claim settles too — both fighters were trapped, not just the winner (4.9799ms)
+✖ a retry of the same claim replays instead of double-settling (0.1387ms)
+✖ the real claim barrier repairs both Legacy records without a client win report or a second reward (0.1288ms)
+[kv] isolated in-memory QA backend active
+✖ real story settle handler rejects another account before touching the sealed run (1875.6524ms)
+✖ real story settle handler grants one authoritative Chronicle record and replays exactly once (0.1732ms)
+✖ committed reward remains visible when Legacy delivery fails, then reconciles without another grant (0.079ms)
+✖ a failed combat metadata write returns the committed receipt and remains repairable (0.0767ms)
+✖ unavailable authority records are not fabricated as confirmed or pending (0.1046ms)
+▶ Tower party settlement lifecycle
+  ✖ credits each human caster through real settlement and holds recovery leases until Legacy delivery succeeds
+  ✖ recovers final IV/V Spire proof through the actual endpoint before sealing the title
+  ✖ retries a failed campaign examination write before releasing the run, then enables the next era
+  ✖ keeps discovery/indexes through a partial member failure, then closes only after stable retry
+✖ Tower party settlement lifecycle (1760.2472ms)
+✖ generated Legacy roster matches the canonical identities and all trial variants (103.7313ms)
+✔ Stage I does not equip the Stage II badge or public profile showcase (43.56ms)
+ℹ tests 160
+ℹ suites 6
+ℹ pass 89
+ℹ fail 31
+ℹ cancelled 40
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 207719.6707
+
+✖ failing tests:
+
+test at api\_legacy-pve.test.ts:1:1
+✖ api\_legacy-pve.test.ts (30468.9886ms)
+  'test failed'
+
+test at api\_legacy-pvp-settlement.test.ts:2:2643
+✖ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (12217.9976ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:3879
+✖ a guard challenge retains its server evidence through delayed terminal recovery (0.0869ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:5521
+✖ guard proof must name both actual battle participants (0.0741ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:6131
+✖ guard proof cannot reverse the server-sealed attacker and defender (0.0606ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:6619
+✖ a failed loser write retries the same terminal without recrediting the winner (0.1035ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:7390
+✖ pending combat and war delivery retain their battle proof through later activity receipt churn (0.0673ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:8687
+✖ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (0.0926ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\_legacy-pvp-settlement.test.ts:2:9758
+✖ practice, pet, NPC and quick-surrender battles do not grant player proof (0.0855ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_legacy-pvp-settlement.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\_legacy-pvp-settlement.ts' ]
+  }
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:10433
+✖ accepts the previous rolling-deploy token shape but keeps run + mission binding
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:11019
+✖ preserves all 40 possible live-token markers and bounds only expired history
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:12037
+✖ never evicts an unfinished effect saga after its token horizon
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:12782
+✖ fails closed when token retirement cannot distinguish read failure from absence
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:10338
+✖ mission claim authority shape and retention (2892.966ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\missions\\queue-combat-claim.ts' ]
+  }
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:13650
+✖ accepts a committed token acknowledgement loss only after exact readback
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:14413
+✖ fails closed on null token publication and retries from the completed run
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:15168
+✖ does not finalize metadata when the pending-save row is null, then repairs it
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:16185
+✖ repairs either publication row from settled session + binding authority
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:17324
+✖ does not let a second completed run replace an earlier unpaid token
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:18009
+✖ does not overwrite corrupt non-null authority while an earlier payout may be pending
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:13564
+✖ mission queue publication recovery (0.0493ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\missions\\queue-combat-claim.ts' ]
+  }
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:19181
+✖ S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:21055
+✖ qualified era proof commits with combat rewards, including reservation recovery, and replays once
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:22960
+✖ fails closed when the token read throws and never clears the pending claim
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:23863
+✖ treats only an authoritative null as absence and preserves pending on corrupt authority
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:24719
+✖ fences an expired-lock stale-heal writer with exact save CAS
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:26178
+✖ recovers an old-worker delete then pre-save crash only after CAS fencing null to paying
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:27815
+✖ does not recover or repay after the old-worker payout save already cleared pending
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:28937
+✖ fails closed on a non-null mismatched old-delete recovery triplet
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:29951
+✖ fails closed when old-delete recovery evidence cannot be read
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:30971
+✖ recovers commit-then-throw and replays the exact reward/character without a second payout
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:32750
+✖ fences the old worker before a payout commit whose acknowledgement is lost
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:34203
+✖ throw-before-commit leaves the sole token retryable and pays once
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:34203
+✖ null-before-commit leaves the sole token retryable and pays once
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:36252
+✖ repairs an old worker pending-clear from the durable pre-commit payment reservation
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:37995
+✖ fences an expired-lock writer when an intervening save wins the CAS
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:39725
+✖ a lost HTTP response replays from the atomic marker without changing the save
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:40441
+✖ an old run token can only replay its old receipt and cannot pay a later queued run
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:42222
+✖ does not let a successor run overlap unfinished effects from the prior payout
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:43841
+✖ helps a newbie reward forward after crashing between progress and save credit
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:46282
+✖ honors pinned newbie Ryo when a profession is chosen after the target marker commits
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:47816
+✖ help-forwards an unstaged receipt instead of silently declaring its post-effects complete
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:50658
+✖ helps Legacy counters forward after crashing between target CAS and save stamp
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:53523
+✖ helps the Era contribution forward after crashing between target CAS and save stamp
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:55080
+✖ terminal target-row run IDs fence callers paused until after acknowledgement
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:57725
+✖ a successor queue helps a completed paying row through lost retirement acknowledgement
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:58986
+✖ retries token retirement after every effect is durable without replaying any payout
+  'test did not finish before its parent and was cancelled'
+
+test at api\missions\mission-combat-claim-saga.test.ts:2:19098
+✖ mission payout receipt recovery (0.0576ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\missions\\queue-combat-claim.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:2754
+✖ new real-player casual sessions stamp v1 and expose zero consumable charges (1065.5121ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:3979
+✖ world session creation seals the actual guard role and delivers defense credit without the map notification (0.1679ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:7452
+✖ overlapping world creates cannot replace the published battle guard roles (57.0407ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:10412
+✖ a guard publisher resumed after its lease expires cannot overwrite a successor proof (0.1626ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:12320
+✖ ordinary PvP session fetch avoids a KV counter write while pending recovery keeps it (0.1053ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:13505
+✖ PvP restores equipped named weapons and armor before publishing the battle (0.0937ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:14811
+✖ PvP refuses to publish a battle with unresolved equipped named armor (0.07ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:15656
+✖ real player duels refuse a missing opponent save instead of sealing an NPC fallback (0.0843ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:16871
+✖ a temporary named-gear registry read failure cannot publish an incomplete battle (0.1067ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:17918
+✖ a stable create capability resumes one session and never indexes the unsolicited opponent (0.1501ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:19067
+✖ pointer activation failure rolls back to a same-capability replaceable tombstone (0.0675ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:20371
+✖ a creator paused past its pointer lease cannot leave an orphan after a successor wins (0.0675ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts' ]
+  }
+
+test at api\pvp\_world-raid-claim.integration.test.ts:2:3529
+✖ a world-PvP win settles in a sector that has no territory row (1756.425ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts' ]
+  }
+
+test at api\pvp\_world-raid-claim.integration.test.ts:2:4625
+✖ the loser's claim settles too — both fighters were trapped, not just the winner (4.9799ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts' ]
+  }
+
+test at api\pvp\_world-raid-claim.integration.test.ts:2:4993
+✖ a retry of the same claim replays instead of double-settling (0.1387ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts' ]
+  }
+
+test at api\pvp\_world-raid-claim.integration.test.ts:2:5611
+✖ the real claim barrier repairs both Legacy records without a client win report or a second reward (0.1288ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts' ]
+  }
+
+test at api\story\settle-handler.test.ts:2:5191
+✖ real story settle handler rejects another account before touching the sealed run (1875.6524ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\story\settle.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\story\\settle.ts' ]
+  }
+
+test at api\story\settle-handler.test.ts:2:5576
+✖ real story settle handler grants one authoritative Chronicle record and replays exactly once (0.1732ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\story\settle.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\story\\settle.ts' ]
+  }
+
+test at api\story\settle-handler.test.ts:2:7180
+✖ committed reward remains visible when Legacy delivery fails, then reconciles without another grant (0.079ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\story\settle.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\story\\settle.ts' ]
+  }
+
+test at api\story\settle-handler.test.ts:2:9060
+✖ a failed combat metadata write returns the committed receipt and remains repairable (0.0767ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\story\settle.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\story\\settle.ts' ]
+  }
+
+test at api\story\settle-handler.test.ts:2:10452
+✖ unavailable authority records are not fabricated as confirmed or pending (0.1046ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\solo-pve\_settlement.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\story\settle.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\solo-pve\\_settlement.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\story\\settle.ts' ]
+  }
+
+test at api\towers\settle-party-lifecycle.test.ts:2:3866
+✖ credits each human caster through real settlement and holds recovery leases until Legacy delivery succeeds
+  'test did not finish before its parent and was cancelled'
+
+test at api\towers\settle-party-lifecycle.test.ts:2:6585
+✖ recovers final IV/V Spire proof through the actual endpoint before sealing the title
+  'test did not finish before its parent and was cancelled'
+
+test at api\towers\settle-party-lifecycle.test.ts:2:10458
+✖ retries a failed campaign examination write before releasing the run, then enables the next era
+  'test did not finish before its parent and was cancelled'
+
+test at api\towers\settle-party-lifecycle.test.ts:2:14097
+✖ keeps discovery/indexes through a partial member failure, then closes only after stable retry
+  'test did not finish before its parent and was cancelled'
+
+test at api\towers\settle-party-lifecycle.test.ts:2:3782
+✖ Tower party settlement lifecycle (1760.2472ms)
+  Error: Cannot find module './_relic-reward.js'
+  Require stack:
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_committed-terminal-effects.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\_lapse.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\session.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\pvp\claim-rewards.ts
+  - C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\towers\_tower-store.ts
+      at node:internal/modules/cjs/loader:1564:15
+      at j._resolveFilename (file:///C:/Users/Tyler%20R/source/repos/NinjaK/.codex-worktrees/legacy-acquisition-live-main/node_modules/tsx/dist/register-SoqaU4rg.mjs:2:17957)
+      at nextResolveSimple (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1006)
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4959
+      at C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:9:4261
+      at resolveTsPaths (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:759)
+      at Module._resolveFilename (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\node_modules\tsx\dist\register-OY9cqBEN.cjs:10:1199)
+      at wrapResolveFilename (node:internal/modules/cjs/loader:1118:27)
+      at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1142:10)
+      at defaultResolve (node:internal/modules/cjs/loader:1199:20) {
+    code: 'MODULE_NOT_FOUND',
+    requireStack: [ 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_committed-terminal-effects.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\_lapse.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\session.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\pvp\\claim-rewards.ts', 'C:\\Users\\Tyler R\\source\\repos\\NinjaK\\.codex-worktrees\\legacy-acquisition-live-main\\api\\towers\\_tower-store.ts' ]
+  }
+
+test at scripts\legacy-roster.test.ts:2:1398
+✖ generated Legacy roster matches the canonical identities and all trial variants (103.7313ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+
+  + '# Legacy roster\r\n' +
+  +   '\r\n' +
+  +   '> Generated from `api/_legacy-defs.ts` and `api/_legacy-core.ts`. Regenerate with `npm run generate:legacy-roster`; validate with `npm run check:legacy-roster`. Server overlay thresholds and disabled paths can override this code baseline.\r\n' +
+  +   '\r\n' +
+  +   'Tracking continues through level 100. Sage offers begin at level 50; a path may require late-game deeds. Accepting one path is permanent. Declining lets later appearances rotate through eligible choices. Qualification is checked again before the initial acceptance seal.\r\n' +
+  +   '\r\n' +
+  +   'Style deeds follow the character’s permanent specialty. Support counts applied HP restoration, successful shield grants and damage absorbed by shields. `comebackWins` is the historical counter name for clutch wins ending at 15% HP or less. `higherLevelWins` counts wins against opponents at least five levels higher; at level 96+, a sealed player-ranked opponent rated at least 100 higher also qualifies as an upset.\r\n' +
+  +   '\r\n' +
+  +   'PvP credit uses the sealed match, excludes practice/pet/NPC/quick-surrender matches, and applies opponent decay to both fighters and war proof. Each opponent renews at midnight UTC: full, full, half, quarter, then zero credit. Account-age, shared-IP/device, level-gap and suspicion checks still apply.\r\n' +
+  +   '\r\n' +
+  +   'Trials use fresh progress after their sealed baselines. A reroll replaces an unfinished trial with the other variant and fresh baselines; completed stages remain. Paths without PvP qualification requirements have PvE trial routes. An older active trial keeps its issued objectives until completion or reroll.\r\n' +
+  +   '\r\n' +
+  +   '## mythic (10)\r\n' +
+  +   '\r\n' +
+  +   '| Path | Title | Category | Village | Qualification: all requirements | Flavor |\r\n' +
+  +   '|---|---|---|---|---|---|\r\n' +
+  +   '| Legacy of the First Flame (first-flame) | First Flame Bearer | explorer | — | firstClears ≥ 1; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Road wardens in five countries copied routes from this shinobi’s field notes. Witnesses remember who carried the first torch into places patrols had abandoned. |\r\n' +
+  +   '| Legacy of the Sundered Seal (gate-opener) | Sundered Seal | pve | — | hollowGateClears ≥ 75; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction. |\r\n' +
+  +   '| Legacy of the Hundred Storms (hundred-storms) | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 800; ninjutsuDamage ≥ 600,000; pveKills ≥ 3,000; eliteKills ≥ 400; pvpWins ≥ 150; eventCompletions ≥ 8; warContribution ≥ 100,000 | Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads. |\r\n' +
+  +   '| Legacy of the Duel Sovereign (duel-sovereign) | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Arena clerks checked the record twice: four hundred wins, including ranked rivals and shinobi with every advantage on paper. |\r\n' +
+  +   '| Legacy of the Silent Empire (silent-empire) | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | Opponents describe missing seconds, false orders, and fights decided before they understood the genjutsu. The reports come from every border. |\r\n' +
+  +   '| Legacy of the Last Bastion (last-bastion) | The Last Bastion | support | — | healingDone ≥ 500,000; damageBlocked ≥ 1,000,000; shieldsApplied ≥ 800; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | Medics and defenders keep placing the same shinobi at the last unbroken position. Hundreds of people reached shelter behind that line. |\r\n' +
+  +   "| Legacy of the Founder's Shadow (founders-shadow) | Founder's Shadow | village | — | villageTenureDays ≥ 75; villageDonations ≥ 1,000,000; warsWon ≥ 12; warPvpKills ≥ 150; sectorCaptures ≥ 25; missionCompletions ≥ 500; defensiveWins ≥ 50 | Donation ledgers, war rolls, and mission books all carry this name. The village has leaned on the same person for years. |\r\n" +
+  +   '| Legacy of the World Awakener (world-awakener) | World Awakener | pve | — | weeklyBossTop10 ≥ 8; bossContribution ≥ 1,200,000; eventCompletions ≥ 15; pvpWins ≥ 150; firstClears ≥ 1; warContribution ≥ 100,000 | Great-beast hunt reports from eight seasons place this shinobi near the decisive strike. Rival villages agree on the name, which is rare enough. |\r\n' +
+  +   "| Legacy of the Horizon's End (horizons-end) | Horizon's End | explorer | — | tilesExplored ≥ 2,500; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; eventCompletions ≥ 8 | Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain. |\r\n" +
+  +   '| Legacy of the Deathless Ember (deathless-ember) | Deathless Ember | taijutsu | — | comebackWins ≥ 40; defensiveWins ≥ 100; pvpWins ≥ 250; hollowGateClears ≥ 40; eliteKills ≥ 400; taijutsuDamage ≥ 400,000; damageBlocked ≥ 800,000 | Healers recorded injuries that should have ended the fight. Witnesses recorded the same shinobi standing up and finishing it. |\r\n' +
+  +   '\r\n' +
+  +   '## legendary (25)\r\n' +
+  +   '\r\n' +
+  +   '| Path | Title | Category | Village | Qualification: all requirements | Flavor |\r\n' +
+  +   '|---|---|---|---|---|---|\r\n' +
+  +   '| Legacy of the Elemental Cataclysm (elemental-cataclysm) | Cataclysm | ninjutsu | — | ninjutsuDamage ≥ 600,000; ninjutsuKills ≥ 600; pveKills ≥ 1,500 | Field teams still identify this shinobi’s battles by scorched ground, flash-frozen stone, and trees split by lightning. |\r\n' +
+  +   '| Legacy of the Thousand Seals (thousand-seals) | Thousand Seals | ninjutsu | — | ninjutsuKills ≥ 500; missionCompletions ≥ 400; eliteKills ≥ 200 | Witnesses describe complete hand-seal chains formed under pressure, with no wasted motion and no need to begin again. |\r\n' +
+  +   '| Legacy of the Moonlit Ghost (moonlit-ghost) | Moonlit Ghost | genjutsu | Moonshadow | genjutsuKills ≥ 600; pvpWins ≥ 150; sectorDiscoveries ≥ 80 | Moonshadow booth records show opponents striking the wrong position again and again. Most never saw the real shinobi until the bout ended. |\r\n' +
+  +   '| Legacy of the Void Whisper (void-whisper) | Void Whisper | genjutsu | — | genjutsuKills ≥ 400; genjutsuDamage ≥ 350,000; defensiveWins ≥ 40 | Opponents remember the field going quiet before their senses failed. The same detail appears in reports from unrelated fights. |\r\n' +
+  +   '| Legacy of the Arena Demon (arena-demon) | Arena Demon | taijutsu | — | taijutsuKills ≥ 600; pvpWins ≥ 150; sameRankWins ≥ 40 | Stormveil bookies still post a duration line, but few will take the opposing name anymore. |\r\n' +
+  +   '| Legacy of the Unbroken Body (unbroken-body) | Unbroken | taijutsu | — | taijutsuDamage ≥ 500,000; damageBlocked ≥ 700,000; comebackWins ≥ 15 | The hospital has treated this shinobi for fractures, torn joints, and worse. Several intake forms were signed after a victory. |\r\n' +
+  +   '| Legacy of the Blade Saint (blade-saint) | Blade Saint | bukijutsu | — | bukijutsuKills ≥ 700; bukijutsuDamage ≥ 500,000; sameRankWins ≥ 50 | Armorers who watched the bouts noted the same clean draw under ten different pressures. Practice made it reliable, not decorative. |\r\n' +
+  +   '| Legacy of the Thousand Cuts (thousand-cuts) | Thousand Cuts | bukijutsu | — | bukijutsuKills ≥ 500; pveKills ≥ 1,500; huntCompletions ≥ 150 | Hunt reports show a patient fighter who opens small wounds, controls the escape, and lets the target exhaust itself. |\r\n' +
+  +   '| Legacy of the Duel King (duel-king) | Duel King | pvp | — | pvpWins ≥ 200; rankedWins ≥ 60; bestKillStreak ≥ 10; eliteKills ≥ 150 | The challenge board has carried this name through two hundred victories. Every open challenge was answered in public. |\r\n' +
+  +   '| Legacy of the Village Reaper (village-reaper) | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | War rolls credit this shinobi with a hundred enemy defeats and repeated captures at the front. Survivors recognize the field sign. |\r\n' +
+  +   '| Legacy of the Bloodstained Path (bloodstained-path) | Bloodstained | pvp | — | pvpKills ≥ 250; higherLevelWins ≥ 30; comebackWins ≥ 15; huntCompletions ≥ 80 | The record follows one fighter through duels, hunts, and ambushes. Too many entries end with the other name crossed out. |\r\n' +
+  +   '| Legacy of the Gatebreaker (gatebreaker) | Gatebreaker | pve | — | hollowGateClears ≥ 30; eliteKills ≥ 200; bossContribution ≥ 400,000; hiddenFinds ≥ 15 | Hollow Gate keepers have replaced hinges, seals, and warning boards after this shinobi’s descents. The repair ledger is unusually thick. |\r\n' +
+  +   '| Legacy of the Trial Conqueror (trial-conqueror) | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | Dungeon wardens and tower clerks agree that this shinobi finishes trials after most candidates turn back. |\r\n' +
+  +   '| Legacy of the Ancient Hunter (ancient-hunter) | Ancient Hunter | pve | — | huntCompletions ≥ 150; eliteKills ≥ 250; hiddenFinds ≥ 25 | Hunter Guild records show old beasts tracked through broken country and brought down without losing the trail. |\r\n' +
+  +   '| Legacy of the Ashen Will (ashen-will) | Ashen Will | village | Ashen Leaf | villageTenureDays ≥ 45; villageDonations ≥ 250,000; warContribution ≥ 30,000; sectorDefenses ≥ 12 | Ashen Leaf’s Branch Register shows the same shinobi funding repairs, holding threatened ground, and changing old practice when it failed people. |\r\n' +
+  +   '| Legacy of the Storm Fang (storm-fang) | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; raidsCompleted ≥ 40; warsWon ≥ 6 | Stormveil’s Challenge Board records this shinobi answering raids and posted grievances in the open, usually before the rain cleared. |\r\n' +
+  +   '| Legacy of the Frostbound Shield (frostbound-shield) | Frostbound Shield | village | Frostfang | villageTen'... 64998 more characters
+  - '# Legacy roster\n' +
+  -   '\n' +
+  -   '> Generated from `api/_legacy-defs.ts` and `api/_legacy-core.ts`. Regenerate with `npm run generate:legacy-roster`; validate with `npm run check:legacy-roster`. Server overlay thresholds and disabled paths can override this code baseline.\n' +
+  -   '\n' +
+  -   'Tracking continues through level 100. Sage offers begin at level 50; a path may require late-game deeds. Accepting one path is permanent. Declining lets later appearances rotate through eligible choices. Qualification is checked again before the initial acceptance seal.\n' +
+  -   '\n' +
+  -   'Style deeds follow the character’s permanent specialty. Support counts applied HP restoration, successful shield grants and damage absorbed by shields. `comebackWins` is the historical counter name for clutch wins ending at 15% HP or less. `higherLevelWins` counts wins against opponents at least five levels higher; at level 96+, a sealed player-ranked opponent rated at least 100 higher also qualifies as an upset.\n' +
+  -   '\n' +
+  -   'PvP credit uses the sealed match, excludes practice/pet/NPC/quick-surrender matches, and applies opponent decay to both fighters and war proof. Each opponent renews at midnight UTC: full, full, half, quarter, then zero credit. Account-age, shared-IP/device, level-gap and suspicion checks still apply.\n' +
+  -   '\n' +
+  -   'Trials use fresh progress after their sealed baselines. A reroll replaces an unfinished trial with the other variant and fresh baselines; completed stages remain. Paths without PvP qualification requirements have PvE trial routes. An older active trial keeps its issued objectives until completion or reroll.\n' +
+  -   '\n' +
+  -   '## mythic (10)\n' +
+  -   '\n' +
+  -   '| Path | Title | Category | Village | Qualification: all requirements | Flavor |\n' +
+  -   '|---|---|---|---|---|---|\n' +
+  -   '| Legacy of the First Flame (first-flame) | First Flame Bearer | explorer | — | firstClears ≥ 1; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Road wardens in five countries copied routes from this shinobi’s field notes. Witnesses remember who carried the first torch into places patrols had abandoned. |\n' +
+  -   '| Legacy of the Sundered Seal (gate-opener) | Sundered Seal | pve | — | hollowGateClears ≥ 75; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction. |\n' +
+  -   '| Legacy of the Hundred Storms (hundred-storms) | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 800; ninjutsuDamage ≥ 600,000; pveKills ≥ 3,000; eliteKills ≥ 400; pvpWins ≥ 150; eventCompletions ≥ 8; warContribution ≥ 100,000 | Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads. |\n' +
+  -   '| Legacy of the Duel Sovereign (duel-sovereign) | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Arena clerks checked the record twice: four hundred wins, including ranked rivals and shinobi with every advantage on paper. |\n' +
+  -   '| Legacy of the Silent Empire (silent-empire) | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | Opponents describe missing seconds, false orders, and fights decided before they understood the genjutsu. The reports come from every border. |\n' +
+  -   '| Legacy of the Last Bastion (last-bastion) | The Last Bastion | support | — | healingDone ≥ 500,000; damageBlocked ≥ 1,000,000; shieldsApplied ≥ 800; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | Medics and defenders keep placing the same shinobi at the last unbroken position. Hundreds of people reached shelter behind that line. |\n' +
+  -   "| Legacy of the Founder's Shadow (founders-shadow) | Founder's Shadow | village | — | villageTenureDays ≥ 75; villageDonations ≥ 1,000,000; warsWon ≥ 12; warPvpKills ≥ 150; sectorCaptures ≥ 25; missionCompletions ≥ 500; defensiveWins ≥ 50 | Donation ledgers, war rolls, and mission books all carry this name. The village has leaned on the same person for years. |\n" +
+  -   '| Legacy of the World Awakener (world-awakener) | World Awakener | pve | — | weeklyBossTop10 ≥ 8; bossContribution ≥ 1,200,000; eventCompletions ≥ 15; pvpWins ≥ 150; firstClears ≥ 1; warContribution ≥ 100,000 | Great-beast hunt reports from eight seasons place this shinobi near the decisive strike. Rival villages agree on the name, which is rare enough. |\n' +
+  -   "| Legacy of the Horizon's End (horizons-end) | Horizon's End | explorer | — | tilesExplored ≥ 2,500; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; eventCompletions ≥ 8 | Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain. |\n" +
+  -   '| Legacy of the Deathless Ember (deathless-ember) | Deathless Ember | taijutsu | — | comebackWins ≥ 40; defensiveWins ≥ 100; pvpWins ≥ 250; hollowGateClears ≥ 40; eliteKills ≥ 400; taijutsuDamage ≥ 400,000; damageBlocked ≥ 800,000 | Healers recorded injuries that should have ended the fight. Witnesses recorded the same shinobi standing up and finishing it. |\n' +
+  -   '\n' +
+  -   '## legendary (25)\n' +
+  -   '\n' +
+  -   '| Path | Title | Category | Village | Qualification: all requirements | Flavor |\n' +
+  -   '|---|---|---|---|---|---|\n' +
+  -   '| Legacy of the Elemental Cataclysm (elemental-cataclysm) | Cataclysm | ninjutsu | — | ninjutsuDamage ≥ 600,000; ninjutsuKills ≥ 600; pveKills ≥ 1,500 | Field teams still identify this shinobi’s battles by scorched ground, flash-frozen stone, and trees split by lightning. |\n' +
+  -   '| Legacy of the Thousand Seals (thousand-seals) | Thousand Seals | ninjutsu | — | ninjutsuKills ≥ 500; missionCompletions ≥ 400; eliteKills ≥ 200 | Witnesses describe complete hand-seal chains formed under pressure, with no wasted motion and no need to begin again. |\n' +
+  -   '| Legacy of the Moonlit Ghost (moonlit-ghost) | Moonlit Ghost | genjutsu | Moonshadow | genjutsuKills ≥ 600; pvpWins ≥ 150; sectorDiscoveries ≥ 80 | Moonshadow booth records show opponents striking the wrong position again and again. Most never saw the real shinobi until the bout ended. |\n' +
+  -   '| Legacy of the Void Whisper (void-whisper) | Void Whisper | genjutsu | — | genjutsuKills ≥ 400; genjutsuDamage ≥ 350,000; defensiveWins ≥ 40 | Opponents remember the field going quiet before their senses failed. The same detail appears in reports from unrelated fights. |\n' +
+  -   '| Legacy of the Arena Demon (arena-demon) | Arena Demon | taijutsu | — | taijutsuKills ≥ 600; pvpWins ≥ 150; sameRankWins ≥ 40 | Stormveil bookies still post a duration line, but few will take the opposing name anymore. |\n' +
+  -   '| Legacy of the Unbroken Body (unbroken-body) | Unbroken | taijutsu | — | taijutsuDamage ≥ 500,000; damageBlocked ≥ 700,000; comebackWins ≥ 15 | The hospital has treated this shinobi for fractures, torn joints, and worse. Several intake forms were signed after a victory. |\n' +
+  -   '| Legacy of the Blade Saint (blade-saint) | Blade Saint | bukijutsu | — | bukijutsuKills ≥ 700; bukijutsuDamage ≥ 500,000; sameRankWins ≥ 50 | Armorers who watched the bouts noted the same clean draw under ten different pressures. Practice made it reliable, not decorative. |\n' +
+  -   '| Legacy of the Thousand Cuts (thousand-cuts) | Thousand Cuts | bukijutsu | — | bukijutsuKills ≥ 500; pveKills ≥ 1,500; huntCompletions ≥ 150 | Hunt reports show a patient fighter who opens small wounds, controls the escape, and lets the target exhaust itself. |\n' +
+  -   '| Legacy of the Duel King (duel-king) | Duel King | pvp | — | pvpWins ≥ 200; rankedWins ≥ 60; bestKillStreak ≥ 10; eliteKills ≥ 150 | The challenge board has carried this name through two hundred victories. Every open challenge was answered in public. |\n' +
+  -   '| Legacy of the Village Reaper (village-reaper) | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | War rolls credit this shinobi with a hundred enemy defeats and repeated captures at the front. Survivors recognize the field sign. |\n' +
+  -   '| Legacy of the Bloodstained Path (bloodstained-path) | Bloodstained | pvp | — | pvpKills ≥ 250; higherLevelWins ≥ 30; comebackWins ≥ 15; huntCompletions ≥ 80 | The record follows one fighter through duels, hunts, and ambushes. Too many entries end with the other name crossed out. |\n' +
+  -   '| Legacy of the Gatebreaker (gatebreaker) | Gatebreaker | pve | — | hollowGateClears ≥ 30; eliteKills ≥ 200; bossContribution ≥ 400,000; hiddenFinds ≥ 15 | Hollow Gate keepers have replaced hinges, seals, and warning boards after this shinobi’s descents. The repair ledger is unusually thick. |\n' +
+  -   '| Legacy of the Trial Conqueror (trial-conqueror) | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | Dungeon wardens and tower clerks agree that this shinobi finishes trials after most candidates turn back. |\n' +
+  -   '| Legacy of the Ancient Hunter (ancient-hunter) | Ancient Hunter | pve | — | huntCompletions ≥ 150; eliteKills ≥ 250; hiddenFinds ≥ 25 | Hunter Guild records show old beasts tracked through broken country and brought down without losing the trail. |\n' +
+  -   '| Legacy of the Ashen Will (ashen-will) | Ashen Will | village | Ashen Leaf | villageTenureDays ≥ 45; villageDonations ≥ 250,000; warContribution ≥ 30,000; sectorDefenses ≥ 12 | Ashen Leaf’s Branch Register shows the same shinobi funding repairs, holding threatened ground, and changing old practice when it failed people. |\n' +
+  -   '| Legacy of the Storm Fang (storm-fang) | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; raidsCompleted ≥ 40; warsWon ≥ 6 | Stormveil’s Challenge Board records this shinobi answering raids and posted grievances in the open, usually before the rain cleared. |\n' +
+  -   '| Legacy of the Frostbound Shield (frostbound-shield) | Frostbound Shield | village | Frostfang | villageTenureDays ≥ 45; sectorDefenses ≥ 18; damageBlocke'... 64760 more characters
+
+      at TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\scripts\legacy-roster.test.ts:7:12)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1402:25)
+      at Test.start (node:internal/test_runner/test:1262:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:387:17) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: "# Legacy roster\r\n\r\n> Generated from `api/_legacy-defs.ts` and `api/_legacy-core.ts`. Regenerate with `npm run generate:legacy-roster`; validate with `npm run check:legacy-roster`. Server overlay thresholds and disabled paths can override this code baseline.\r\n\r\nTracking continues through level 100. Sage offers begin at level 50; a path may require late-game deeds. Accepting one path is permanent. Declining lets later appearances rotate through eligible choices. Qualification is checked again before the initial acceptance seal.\r\n\r\nStyle deeds follow the character’s permanent specialty. Support counts applied HP restoration, successful shield grants and damage absorbed by shields. `comebackWins` is the historical counter name for clutch wins ending at 15% HP or less. `higherLevelWins` counts wins against opponents at least five levels higher; at level 96+, a sealed player-ranked opponent rated at least 100 higher also qualifies as an upset.\r\n\r\nPvP credit uses the sealed match, excludes practice/pet/NPC/quick-surrender matches, and applies opponent decay to both fighters and war proof. Each opponent renews at midnight UTC: full, full, half, quarter, then zero credit. Account-age, shared-IP/device, level-gap and suspicion checks still apply.\r\n\r\nTrials use fresh progress after their sealed baselines. A reroll replaces an unfinished trial with the other variant and fresh baselines; completed stages remain. Paths without PvP qualification requirements have PvE trial routes. An older active trial keeps its issued objectives until completion or reroll.\r\n\r\n## mythic (10)\r\n\r\n| Path | Title | Category | Village | Qualification: all requirements | Flavor |\r\n|---|---|---|---|---|---|\r\n| Legacy of the First Flame (first-flame) | First Flame Bearer | explorer | — | firstClears ≥ 1; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Road wardens in five countries copied routes from this shinobi’s field notes. Witnesses remember who carried the first torch into places patrols had abandoned. |\r\n| Legacy of the Sundered Seal (gate-opener) | Sundered Seal | pve | — | hollowGateClears ≥ 75; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction. |\r\n| Legacy of the Hundred Storms (hundred-storms) | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 800; ninjutsuDamage ≥ 600,000; pveKills ≥ 3,000; eliteKills ≥ 400; pvpWins ≥ 150; eventCompletions ≥ 8; warContribution ≥ 100,000 | Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads. |\r\n| Legacy of the Duel Sovereign (duel-sovereign) | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Arena clerks checked the record twice: four hundred wins, including ranked rivals and shinobi with every advantage on paper. |\r\n| Legacy of the Silent Empire (silent-empire) | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | Opponents describe missing seconds, false orders, and fights decided before they understood the genjutsu. The reports come from every border. |\r\n| Legacy of the Last Bastion (last-bastion) | The Last Bastion | support | — | healingDone ≥ 500,000; damageBlocked ≥ 1,000,000; shieldsApplied ≥ 800; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | Medics and defenders keep placing the same shinobi at the last unbroken position. Hundreds of people reached shelter behind that line. |\r\n| Legacy of the Founder's Shadow (founders-shadow) | Founder's Shadow | village | — | villageTenureDays ≥ 75; villageDonations ≥ 1,000,000; warsWon ≥ 12; warPvpKills ≥ 150; sectorCaptures ≥ 25; missionCompletions ≥ 500; defensiveWins ≥ 50 | Donation ledgers, war rolls, and mission books all carry this name. The village has leaned on the same person for years. |\r\n| Legacy of the World Awakener (world-awakener) | World Awakener | pve | — | weeklyBossTop10 ≥ 8; bossContribution ≥ 1,200,000; eventCompletions ≥ 15; pvpWins ≥ 150; firstClears ≥ 1; warContribution ≥ 100,000 | Great-beast hunt reports from eight seasons place this shinobi near the decisive strike. Rival villages agree on the name, which is rare enough. |\r\n| Legacy of the Horizon's End (horizons-end) | Horizon's End | explorer | — | tilesExplored ≥ 2,500; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; eventCompletions ≥ 8 | Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain. |\r\n| Legacy of the Deathless Ember (deathless-ember) | Deathless Ember | taijutsu | — | comebackWins ≥ 40; defensiveWins ≥ 100; pvpWins ≥ 250; hollowGateClears ≥ 40; eliteKills ≥ 400; taijutsuDamage ≥ 400,000; damageBlocked ≥ 800,000 | Healers recorded injuries that should have ended the fight. Witnesses recorded the same shinobi standing up and finishing it. |\r\n\r\n## legendary (25)\r\n\r\n| Path | Title | Category | Village | Qualification: all requirements | Flavor |\r\n|---|---|---|---|---|---|\r\n| Legacy of the Elemental Cataclysm (elemental-cataclysm) | Cataclysm | ninjutsu | — | ninjutsuDamage ≥ 600,000; ninjutsuKills ≥ 600; pveKills ≥ 1,500 | Field teams still identify this shinobi’s battles by scorched ground, flash-frozen stone, and trees split by lightning. |\r\n| Legacy of the Thousand Seals (thousand-seals) | Thousand Seals | ninjutsu | — | ninjutsuKills ≥ 500; missionCompletions ≥ 400; eliteKills ≥ 200 | Witnesses describe complete hand-seal chains formed under pressure, with no wasted motion and no need to begin again. |\r\n| Legacy of the Moonlit Ghost (moonlit-ghost) | Moonlit Ghost | genjutsu | Moonshadow | genjutsuKills ≥ 600; pvpWins ≥ 150; sectorDiscoveries ≥ 80 | Moonshadow booth records show opponents striking the wrong position again and again. Most never saw the real shinobi until the bout ended. |\r\n| Legacy of the Void Whisper (void-whisper) | Void Whisper | genjutsu | — | genjutsuKills ≥ 400; genjutsuDamage ≥ 350,000; defensiveWins ≥ 40 | Opponents remember the field going quiet before their senses failed. The same detail appears in reports from unrelated fights. |\r\n| Legacy of the Arena Demon (arena-demon) | Arena Demon | taijutsu | — | taijutsuKills ≥ 600; pvpWins ≥ 150; sameRankWins ≥ 40 | Stormveil bookies still post a duration line, but few will take the opposing name anymore. |\r\n| Legacy of the Unbroken Body (unbroken-body) | Unbroken | taijutsu | — | taijutsuDamage ≥ 500,000; damageBlocked ≥ 700,000; comebackWins ≥ 15 | The hospital has treated this shinobi for fractures, torn joints, and worse. Several intake forms were signed after a victory. |\r\n| Legacy of the Blade Saint (blade-saint) | Blade Saint | bukijutsu | — | bukijutsuKills ≥ 700; bukijutsuDamage ≥ 500,000; sameRankWins ≥ 50 | Armorers who watched the bouts noted the same clean draw under ten different pressures. Practice made it reliable, not decorative. |\r\n| Legacy of the Thousand Cuts (thousand-cuts) | Thousand Cuts | bukijutsu | — | bukijutsuKills ≥ 500; pveKills ≥ 1,500; huntCompletions ≥ 150 | Hunt reports show a patient fighter who opens small wounds, controls the escape, and lets the target exhaust itself. |\r\n| Legacy of the Duel King (duel-king) | Duel King | pvp | — | pvpWins ≥ 200; rankedWins ≥ 60; bestKillStreak ≥ 10; eliteKills ≥ 150 | The challenge board has carried this name through two hundred victories. Every open challenge was answered in public. |\r\n| Legacy of the Village Reaper (village-reaper) | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | War rolls credit this shinobi with a hundred enemy defeats and repeated captures at the front. Survivors recognize the field sign. |\r\n| Legacy of the Bloodstained Path (bloodstained-path) | Bloodstained | pvp | — | pvpKills ≥ 250; higherLevelWins ≥ 30; comebackWins ≥ 15; huntCompletions ≥ 80 | The record follows one fighter through duels, hunts, and ambushes. Too many entries end with the other name crossed out. |\r\n| Legacy of the Gatebreaker (gatebreaker) | Gatebreaker | pve | — | hollowGateClears ≥ 30; eliteKills ≥ 200; bossContribution ≥ 400,000; hiddenFinds ≥ 15 | Hollow Gate keepers have replaced hinges, seals, and warning boards after this shinobi’s descents. The repair ledger is unusually thick. |\r\n| Legacy of the Trial Conqueror (trial-conqueror) | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | Dungeon wardens and tower clerks agree that this shinobi finishes trials after most candidates turn back. |\r\n| Legacy of the Ancient Hunter (ancient-hunter) | Ancient Hunter | pve | — | huntCompletions ≥ 150; eliteKills ≥ 250; hiddenFinds ≥ 25 | Hunter Guild records show old beasts tracked through broken country and brought down without losing the trail. |\r\n| Legacy of the Ashen Will (ashen-will) | Ashen Will | village | Ashen Leaf | villageTenureDays ≥ 45; villageDonations ≥ 250,000; warContribution ≥ 30,000; sectorDefenses ≥ 12 | Ashen Leaf’s Branch Register shows the same shinobi funding repairs, holding threatened ground, and changing old practice when it failed people. |\r\n| Legacy of the Storm Fang (storm-fang) | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; raidsCompleted ≥ 40; warsWon ≥ 6 | Stormveil’s Challenge Board records this shinobi answering raids and posted grievances in the open, usually before the rain cleared. |\r\n| Legacy of the Frostbound Shield (frostbound-shield) | Frostbound Shield | village | Frostfang | villageTen"... 64998 more characters,
+    expected: "# Legacy roster\n\n> Generated from `api/_legacy-defs.ts` and `api/_legacy-core.ts`. Regenerate with `npm run generate:legacy-roster`; validate with `npm run check:legacy-roster`. Server overlay thresholds and disabled paths can override this code baseline.\n\nTracking continues through level 100. Sage offers begin at level 50; a path may require late-game deeds. Accepting one path is permanent. Declining lets later appearances rotate through eligible choices. Qualification is checked again before the initial acceptance seal.\n\nStyle deeds follow the character’s permanent specialty. Support counts applied HP restoration, successful shield grants and damage absorbed by shields. `comebackWins` is the historical counter name for clutch wins ending at 15% HP or less. `higherLevelWins` counts wins against opponents at least five levels higher; at level 96+, a sealed player-ranked opponent rated at least 100 higher also qualifies as an upset.\n\nPvP credit uses the sealed match, excludes practice/pet/NPC/quick-surrender matches, and applies opponent decay to both fighters and war proof. Each opponent renews at midnight UTC: full, full, half, quarter, then zero credit. Account-age, shared-IP/device, level-gap and suspicion checks still apply.\n\nTrials use fresh progress after their sealed baselines. A reroll replaces an unfinished trial with the other variant and fresh baselines; completed stages remain. Paths without PvP qualification requirements have PvE trial routes. An older active trial keeps its issued objectives until completion or reroll.\n\n## mythic (10)\n\n| Path | Title | Category | Village | Qualification: all requirements | Flavor |\n|---|---|---|---|---|---|\n| Legacy of the First Flame (first-flame) | First Flame Bearer | explorer | — | firstClears ≥ 1; missionCompletions ≥ 600; pveKills ≥ 3,000; warContribution ≥ 200,000; eventCompletions ≥ 10; tilesExplored ≥ 2,000 | Road wardens in five countries copied routes from this shinobi’s field notes. Witnesses remember who carried the first torch into places patrols had abandoned. |\n| Legacy of the Sundered Seal (gate-opener) | Sundered Seal | pve | — | hollowGateClears ≥ 75; eliteKills ≥ 500; bossContribution ≥ 1,000,000; firstClears ≥ 1; hiddenFinds ≥ 30; damageBlocked ≥ 500,000 | The Central keepers logged seventy-five descents under the same name. Most shinobi stop returning after the first bad extraction. |\n| Legacy of the Hundred Storms (hundred-storms) | Hundred Storms | ninjutsu | — | ninjutsuKills ≥ 800; ninjutsuDamage ≥ 600,000; pveKills ≥ 3,000; eliteKills ≥ 400; pvpWins ≥ 150; eventCompletions ≥ 8; warContribution ≥ 100,000 | Mission reports follow the same ninjutsu specialist through thousands of victories, great-beast hunts, border wars, and storms that changed the ground beneath whole squads. |\n| Legacy of the Duel Sovereign (duel-sovereign) | Duel Sovereign | pvp | — | pvpWins ≥ 400; sameRankWins ≥ 150; bestKillStreak ≥ 15; rankedWins ≥ 120; higherLevelWins ≥ 60; warPvpKills ≥ 50; eliteKills ≥ 200; eventCompletions ≥ 8 | Arena clerks checked the record twice: four hundred wins, including ranked rivals and shinobi with every advantage on paper. |\n| Legacy of the Silent Empire (silent-empire) | Silent Emperor | genjutsu | — | genjutsuKills ≥ 800; genjutsuDamage ≥ 600,000; pvpWins ≥ 200; defensiveWins ≥ 75; missionCompletions ≥ 400; sectorDiscoveries ≥ 100 | Opponents describe missing seconds, false orders, and fights decided before they understood the genjutsu. The reports come from every border. |\n| Legacy of the Last Bastion (last-bastion) | The Last Bastion | support | — | healingDone ≥ 500,000; damageBlocked ≥ 1,000,000; shieldsApplied ≥ 800; sectorDefenses ≥ 25; defensiveWins ≥ 100; villageTenureDays ≥ 45 | Medics and defenders keep placing the same shinobi at the last unbroken position. Hundreds of people reached shelter behind that line. |\n| Legacy of the Founder's Shadow (founders-shadow) | Founder's Shadow | village | — | villageTenureDays ≥ 75; villageDonations ≥ 1,000,000; warsWon ≥ 12; warPvpKills ≥ 150; sectorCaptures ≥ 25; missionCompletions ≥ 500; defensiveWins ≥ 50 | Donation ledgers, war rolls, and mission books all carry this name. The village has leaned on the same person for years. |\n| Legacy of the World Awakener (world-awakener) | World Awakener | pve | — | weeklyBossTop10 ≥ 8; bossContribution ≥ 1,200,000; eventCompletions ≥ 15; pvpWins ≥ 150; firstClears ≥ 1; warContribution ≥ 100,000 | Great-beast hunt reports from eight seasons place this shinobi near the decisive strike. Rival villages agree on the name, which is rare enough. |\n| Legacy of the Horizon's End (horizons-end) | Horizon's End | explorer | — | tilesExplored ≥ 2,500; sectorDiscoveries ≥ 250; hiddenFinds ≥ 60; wandererQuests ≥ 75; huntCompletions ≥ 150; petExpeditions ≥ 50; eventCompletions ≥ 8 | Surveyors have redrawn their outer lines around this shinobi’s discoveries. Their oldest boots have crossed more blank country than most maps contain. |\n| Legacy of the Deathless Ember (deathless-ember) | Deathless Ember | taijutsu | — | comebackWins ≥ 40; defensiveWins ≥ 100; pvpWins ≥ 250; hollowGateClears ≥ 40; eliteKills ≥ 400; taijutsuDamage ≥ 400,000; damageBlocked ≥ 800,000 | Healers recorded injuries that should have ended the fight. Witnesses recorded the same shinobi standing up and finishing it. |\n\n## legendary (25)\n\n| Path | Title | Category | Village | Qualification: all requirements | Flavor |\n|---|---|---|---|---|---|\n| Legacy of the Elemental Cataclysm (elemental-cataclysm) | Cataclysm | ninjutsu | — | ninjutsuDamage ≥ 600,000; ninjutsuKills ≥ 600; pveKills ≥ 1,500 | Field teams still identify this shinobi’s battles by scorched ground, flash-frozen stone, and trees split by lightning. |\n| Legacy of the Thousand Seals (thousand-seals) | Thousand Seals | ninjutsu | — | ninjutsuKills ≥ 500; missionCompletions ≥ 400; eliteKills ≥ 200 | Witnesses describe complete hand-seal chains formed under pressure, with no wasted motion and no need to begin again. |\n| Legacy of the Moonlit Ghost (moonlit-ghost) | Moonlit Ghost | genjutsu | Moonshadow | genjutsuKills ≥ 600; pvpWins ≥ 150; sectorDiscoveries ≥ 80 | Moonshadow booth records show opponents striking the wrong position again and again. Most never saw the real shinobi until the bout ended. |\n| Legacy of the Void Whisper (void-whisper) | Void Whisper | genjutsu | — | genjutsuKills ≥ 400; genjutsuDamage ≥ 350,000; defensiveWins ≥ 40 | Opponents remember the field going quiet before their senses failed. The same detail appears in reports from unrelated fights. |\n| Legacy of the Arena Demon (arena-demon) | Arena Demon | taijutsu | — | taijutsuKills ≥ 600; pvpWins ≥ 150; sameRankWins ≥ 40 | Stormveil bookies still post a duration line, but few will take the opposing name anymore. |\n| Legacy of the Unbroken Body (unbroken-body) | Unbroken | taijutsu | — | taijutsuDamage ≥ 500,000; damageBlocked ≥ 700,000; comebackWins ≥ 15 | The hospital has treated this shinobi for fractures, torn joints, and worse. Several intake forms were signed after a victory. |\n| Legacy of the Blade Saint (blade-saint) | Blade Saint | bukijutsu | — | bukijutsuKills ≥ 700; bukijutsuDamage ≥ 500,000; sameRankWins ≥ 50 | Armorers who watched the bouts noted the same clean draw under ten different pressures. Practice made it reliable, not decorative. |\n| Legacy of the Thousand Cuts (thousand-cuts) | Thousand Cuts | bukijutsu | — | bukijutsuKills ≥ 500; pveKills ≥ 1,500; huntCompletions ≥ 150 | Hunt reports show a patient fighter who opens small wounds, controls the escape, and lets the target exhaust itself. |\n| Legacy of the Duel King (duel-king) | Duel King | pvp | — | pvpWins ≥ 200; rankedWins ≥ 60; bestKillStreak ≥ 10; eliteKills ≥ 150 | The challenge board has carried this name through two hundred victories. Every open challenge was answered in public. |\n| Legacy of the Village Reaper (village-reaper) | Village Reaper | war | — | warPvpKills ≥ 100; warsWon ≥ 8; pvpWins ≥ 150 | War rolls credit this shinobi with a hundred enemy defeats and repeated captures at the front. Survivors recognize the field sign. |\n| Legacy of the Bloodstained Path (bloodstained-path) | Bloodstained | pvp | — | pvpKills ≥ 250; higherLevelWins ≥ 30; comebackWins ≥ 15; huntCompletions ≥ 80 | The record follows one fighter through duels, hunts, and ambushes. Too many entries end with the other name crossed out. |\n| Legacy of the Gatebreaker (gatebreaker) | Gatebreaker | pve | — | hollowGateClears ≥ 30; eliteKills ≥ 200; bossContribution ≥ 400,000; hiddenFinds ≥ 15 | Hollow Gate keepers have replaced hinges, seals, and warning boards after this shinobi’s descents. The repair ledger is unusually thick. |\n| Legacy of the Trial Conqueror (trial-conqueror) | Trial Conqueror | pve | — | dungeonClears ≥ 40; endlessTowerBest ≥ 40; missionCompletions ≥ 400; tilesExplored ≥ 1,500 | Dungeon wardens and tower clerks agree that this shinobi finishes trials after most candidates turn back. |\n| Legacy of the Ancient Hunter (ancient-hunter) | Ancient Hunter | pve | — | huntCompletions ≥ 150; eliteKills ≥ 250; hiddenFinds ≥ 25 | Hunter Guild records show old beasts tracked through broken country and brought down without losing the trail. |\n| Legacy of the Ashen Will (ashen-will) | Ashen Will | village | Ashen Leaf | villageTenureDays ≥ 45; villageDonations ≥ 250,000; warContribution ≥ 30,000; sectorDefenses ≥ 12 | Ashen Leaf’s Branch Register shows the same shinobi funding repairs, holding threatened ground, and changing old practice when it failed people. |\n| Legacy of the Storm Fang (storm-fang) | Storm Fang | village | Stormveil | villageTenureDays ≥ 45; warPvpKills ≥ 60; raidsCompleted ≥ 40; warsWon ≥ 6 | Stormveil’s Challenge Board records this shinobi answering raids and posted grievances in the open, usually before the rain cleared. |\n| Legacy of the Frostbound Shield (frostbound-shield) | Frostbound Shield | village | Frostfang | villageTenureDays ≥ 45; sectorDefenses ≥ 18; damageBlocke"... 64760 more characters,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

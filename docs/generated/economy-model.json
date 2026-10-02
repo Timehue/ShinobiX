@@ -808,15 +808,6 @@
     },
     {
       "system": "shop",
-      "id": "chakra-ring",
-      "currency": "ryo",
-      "amount": 600,
-      "cadence": "per unit",
-      "authority": "api/pvp/_item-catalog.ts",
-      "notes": "rare relic"
-    },
-    {
-      "system": "shop",
       "id": "cloth-hood",
       "currency": "ryo",
       "amount": 120,
@@ -2174,15 +2165,6 @@
       "slot": "waist",
       "levelReq": 20,
       "baseCost": 320,
-      "currency": "ryo"
-    },
-    {
-      "id": "chakra-ring",
-      "name": "Chakra Ring",
-      "rarity": "rare",
-      "slot": "relic",
-      "levelReq": 1,
-      "baseCost": 600,
       "currency": "ryo"
     },
     {

@@ -1,10 +1,16 @@
 import { expect, test } from "@playwright/test";
 import { starterItems } from "../src/data/starter-items";
+import { eventItems } from "../src/data/event-items";
+import { RELIC_ROSTER } from "../../shared/relics";
 import { expectUiAuditBoot, installUiAuditRuntime } from "./helpers/ui-audit-runtime";
 
-const canonicalItemArtwork = starterItems.map(({ id, image }) => ({ id, image }));
+const canonicalItemArtwork = [...starterItems, ...eventItems].map(({ id, image }) => ({ id, image }));
 
 test("every canonical item and the Shadow Lotus bloodline ship decodable artwork", async ({ page }) => {
+    // Village relics live in the event catalog, so starter-only coverage misses them.
+    for (const relic of RELIC_ROSTER) {
+        expect(canonicalItemArtwork.find(item => item.id === relic.id)?.image, relic.id).toBe(relic.image);
+    }
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
     const audit = await page.evaluate(async (items) => {

@@ -108,6 +108,175 @@ test('new real-player casual sessions stamp v1 and expose zero consumable charge
     assert.deepEqual(session?.itemsUsed, { p1: {}, p2: {} });
 });
 
+test('world session creation seals the actual guard role and delivers defense credit without the map notification', async () => {
+    const creator = 'guardsealattacker', guard = 'guardsealdefender';
+    const battleId = 'pvp-12345678-1234-4123-8123-123456789012';
+    const previousFlag = process.env.ENABLE_LEGACY;
+    process.env.ENABLE_LEGACY = '1';
+    try {
+        await seedPlayers(creator, guard);
+        await kv.set(`guard:${guard}`, { name: guard, village: 'Leaf', level: 20, lastSeen: Date.now() });
+        online.upsert({ name: creator, sector: 3, character: character(creator) });
+        online.upsert({ name: guard, sector: 3, character: character(guard) });
+        const req = createRequest(creator, creator, guard, battleId, '127.0.0.20') as { body: Record<string, unknown> };
+        req.body = { ...req.body, useCurrentVitals: true, requireWorldCoLocation: true, rewardSector: 3,
+            guardDefenseEvidence: { version: 1, defender: 'p1' } };
+        const originalSet = kv.set;
+        kv.set = async (key, value, options) => key === `legacy:guard-defense:${battleId}` ? null : originalSet(key, value, options);
+        try {
+            const interrupted = response();
+            await handler(req as never, interrupted.res);
+            assert.equal(interrupted.out.statusCode, 503);
+            assert.equal(await kv.get(`pvp:${battleId}`), null, 'a battle cannot start without its required defense evidence');
+        } finally { kv.set = originalSet; }
+        const created = response();
+        await handler(req as never, created.res);
+        assert.equal(created.out.statusCode, 200, JSON.stringify(created.out.body));
+        const session = created.out.body?.session as import('./session.js').PvpSession;
+        assert.equal(session.rewardAuthority, 'world');
+        assert.equal('guardDefenseEvidence' in session, false, 'no new session storage field is introduced');
+        const proof = { defender: guard, attacker: creator };
+        assert.deepEqual(await kv.get(`legacy:guard-defense:${battleId}`), proof, 'server publishes the actual roles without the map notification');
+        await kv.set(`guard:${creator}`, { name: creator, village: 'Leaf', level: 20, lastSeen: Date.now() });
+        const notify = (await import('../village-guard/challenge.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
+        const notified = response();
+        const notifyReq = createRequest(creator, creator, guard, battleId, '127.0.0.21') as { body: Record<string, unknown> };
+        notifyReq.body = { attackerCharacter: character(creator), village: 'Leaf', guardName: creator, battleId };
+        await notify(notifyReq as never, notified.res);
+        assert.equal(notified.out.statusCode, 200);
+        assert.deepEqual(await kv.get(`legacy:guard-defense:${battleId}`), proof, 'a later notification cannot rewrite witnessed roles');
+        await kv.del(`guard:${guard}`);
+        session.status = 'done'; session.winner = 'p2'; session.joined = { p1: true, p2: true };
+        session.lastMoveAt = session.createdAt + 30_000; session.endedAt = session.lastMoveAt;
+        const { settlePvpLegacyProgress } = await import('../_legacy-pvp-settlement.js');
+        await settlePvpLegacyProgress(session);
+        await settlePvpLegacyProgress(session);
+        const stats = await kv.get<Record<string, unknown>>(`legacy:stats:${guard}`);
+        assert.equal(stats?.pvpWins, 1);
+        assert.equal(stats?.defensiveWins, 1);
+        assert.equal(stats?.sectorDefenses, 1, 'leaving guard duty later does not erase the battle proof');
+        const attacker = await kv.get<Record<string, unknown>>(`legacy:stats:${creator}`);
+        assert.equal(attacker?.defensiveWins, undefined);
+        assert.equal(attacker?.pvpLosses, 1);
+    } finally {
+        online.remove(creator); online.remove(guard);
+        if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+        else process.env.ENABLE_LEGACY = previousFlag;
+    }
+});
+
+test('overlapping world creates cannot replace the published battle guard roles', async () => {
+    const attacker = 'guardraceattacker', defender = 'guardracedefender';
+    const battleId = 'pvp-12345678-1234-4123-8123-123456789013';
+    const previousFlag = process.env.ENABLE_LEGACY;
+    const originalSet = kv.set;
+    let releasePublication!: () => void, releaseLosingProof!: () => void;
+    const publicationPaused = new Promise<void>((resolve) => {
+        const publicationGate = new Promise<void>((resume) => { releasePublication = resume; });
+        let proofWrites = 0;
+        const proofGate = new Promise<void>((resume) => { releaseLosingProof = resume; });
+        kv.set = async (key, value, options) => {
+            if (key === `legacy:guard-defense:${battleId}` && ++proofWrites === 2) {
+                losingProofReached();
+                await proofGate;
+            }
+            if (key === `pvp:${battleId}` && (value as { worldAttacker?: { name?: string } })?.worldAttacker?.name === attacker) {
+                resolve();
+                await publicationGate;
+            }
+            return originalSet(key, value, options);
+        };
+    });
+    let losingProofReached!: () => void;
+    const losingProofPaused = new Promise<void>((resolve) => { losingProofReached = resolve; });
+    process.env.ENABLE_LEGACY = '1';
+    try {
+        await seedPlayers(attacker, defender);
+        for (const name of [attacker, defender]) {
+            await kv.set(`guard:${name}`, { name, village: 'Leaf', level: 20, lastSeen: Date.now() });
+            online.upsert({ name, sector: 3, character: character(name) });
+        }
+        const request = (name: string, ip: string) => {
+            const req = createRequest(name, attacker, defender, battleId, ip) as { body: Record<string, unknown> };
+            req.body = { ...req.body, useCurrentVitals: true, requireWorldCoLocation: true, rewardSector: 3 };
+            return req as never;
+        };
+        const winning = response(), losing = response();
+        const first = handler(request(attacker, '127.0.0.22'), winning.res);
+        await publicationPaused;
+        const second = handler(request(defender, '127.0.0.23'), losing.res);
+        // Before the fix the loser reaches its proof write while the winner's
+        // publication is paused. With the shared publication lease it waits.
+        await Promise.race([losingProofPaused, new Promise((resolve) => setTimeout(resolve, 100))]);
+        releasePublication();
+        await first;
+        assert.equal(winning.out.statusCode, 200, JSON.stringify(winning.out.body));
+        releaseLosingProof();
+        await second;
+        assert.notEqual(losing.out.statusCode, 200);
+        const published = await kv.get<import('./session.js').PvpSession>(`pvp:${battleId}`);
+        assert.equal(published?.worldAttacker?.name, attacker);
+        assert.deepEqual(await kv.get(`legacy:guard-defense:${battleId}`), { defender, attacker });
+        assert.ok(published);
+        published.status = 'done'; published.winner = 'p1'; published.joined = { p1: true, p2: true };
+        published.lastMoveAt = published.createdAt + 30_000; published.endedAt = published.lastMoveAt;
+        await (await import('../_legacy-pvp-settlement.js')).settlePvpLegacyProgress(published);
+        const credited = await kv.get<Record<string, unknown>>(`legacy:stats:${attacker}`);
+        assert.equal(credited?.warPvpKills, 1, 'the actual attacker receives raid proof');
+        assert.equal(credited?.defensiveWins, undefined, 'the losing creator cannot reverse the winner into a defender');
+    } finally {
+        releasePublication(); releaseLosingProof(); kv.set = originalSet;
+        online.remove(attacker); online.remove(defender);
+        if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+        else process.env.ENABLE_LEGACY = previousFlag;
+    }
+});
+
+test('a guard publisher resumed after its lease expires cannot overwrite a successor proof', async () => {
+    const firstPlayer = 'guardexpiredfirst', successor = 'guardexpirednext';
+    const battleId = 'pvp-12345678-1234-4123-8123-123456789014';
+    const previousFlag = process.env.ENABLE_LEGACY;
+    const originalSet = kv.set, originalNow = Date.now;
+    let now = 1_800_000_000_000, release!: () => void, reached!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    const paused = new Promise<void>((resolve) => { reached = resolve; });
+    let pause = true;
+    Date.now = () => now;
+    process.env.ENABLE_LEGACY = '1';
+    kv.set = async (key, value, options) => {
+        if (pause && key === `legacy:guard-defense:${battleId}`) {
+            pause = false; reached(); await gate;
+        }
+        return originalSet(key, value, options);
+    };
+    try {
+        await seedPlayers(firstPlayer, successor);
+        for (const name of [firstPlayer, successor]) {
+            await kv.set(`guard:${name}`, { name, village: 'Leaf', level: 20, lastSeen: now });
+            online.upsert({ name, sector: 3, character: character(name) });
+        }
+        const request = (name: string, ip: string) => {
+            const req = createRequest(name, firstPlayer, successor, battleId, ip) as { body: Record<string, unknown> };
+            req.body = { ...req.body, useCurrentVitals: true, requireWorldCoLocation: true, rewardSector: 3 };
+            return req as never;
+        };
+        const stale = response(), winning = response();
+        const first = handler(request(firstPlayer, '127.0.0.24'), stale.res);
+        await paused;
+        now += 6000;
+        await handler(request(successor, '127.0.0.25'), winning.res);
+        assert.equal(winning.out.statusCode, 200, JSON.stringify(winning.out.body));
+        release(); await first;
+        assert.notEqual(stale.out.statusCode, 200);
+        assert.equal((await kv.get<import('./session.js').PvpSession>(`pvp:${battleId}`))?.worldAttacker?.name, successor);
+        assert.deepEqual(await kv.get(`legacy:guard-defense:${battleId}`), { defender: firstPlayer, attacker: successor });
+    } finally {
+        release(); kv.set = originalSet; Date.now = originalNow;
+        online.remove(firstPlayer); online.remove(successor);
+        if (previousFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = previousFlag;
+    }
+});
+
 test('ordinary PvP session fetch avoids a KV counter write while pending recovery keeps it', async () => {
     const creator = 'fastfetchcreator';
     const opponent = 'fastfetchopponent';

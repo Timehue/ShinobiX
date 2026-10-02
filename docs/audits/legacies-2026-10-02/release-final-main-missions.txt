@@ -1,0 +1,929 @@
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+[legacy-track] bump failed for legacyreceiptchurnloser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (11450.1509ms)
+✔ a guard challenge retains its server evidence through delayed terminal recovery (113.654ms)
+✔ guard proof must name both actual battle participants (34.8833ms)
+✔ guard proof cannot reverse the server-sealed attacker and defender (4.1905ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (4.469ms)
+✔ pending combat and war delivery retain their battle proof through later activity receipt churn (453.9237ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (198.1817ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.7936ms)
+▶ reward-settlement contract inventory
+  ✔ shop/settle.ts keeps its in-save-receipt idempotency mechanism (2.1274ms)
+  ✔ inventory/sell.ts keeps its in-save-receipt idempotency mechanism (0.2741ms)
+  ✔ craft/forge.ts keeps its in-save-receipt idempotency mechanism (0.2318ms)
+  ✔ craft/named.ts keeps its in-save-receipt idempotency mechanism (1.2761ms)
+  ✔ missions/report-ai-fight.ts keeps its in-save-receipt idempotency mechanism (17.814ms)
+  ✔ missions/claim-mission.ts keeps its in-save-receipt idempotency mechanism (21.3389ms)
+  ✔ missions/report-raid.ts keeps its single-use-token idempotency mechanism (0.8146ms)
+  ✔ missions/report-pet-event.ts keeps its single-use-token idempotency mechanism (0.3461ms)
+  ✔ missions/_progress.ts keeps its in-save-receipt idempotency mechanism (0.3533ms)
+  ✔ world/explore.ts keeps its in-save-receipt idempotency mechanism (0.3932ms)
+  ✔ world/open-chest.ts keeps its in-save-receipt idempotency mechanism (0.2521ms)
+  ✔ pet/befriend.ts keeps its in-save-receipt idempotency mechanism (0.2422ms)
+  ✔ pet/battle-result.ts keeps its single-use-token idempotency mechanism (0.5296ms)
+  ✔ pet/showdown.ts keeps its in-save-receipt idempotency mechanism (0.4161ms)
+  ✔ pet/gauntlet.ts keeps its in-save-receipt idempotency mechanism (0.2844ms)
+  ✔ story/settle.ts keeps its in-save-receipt idempotency mechanism (15.4601ms)
+  ✔ hollow-gate/settle.ts keeps its in-save-receipt idempotency mechanism (0.3194ms)
+  ✔ hollow-gate/combat-settle.ts keeps its nx-marker idempotency mechanism (0.4689ms)
+  ✔ hunter/rank-up.ts keeps its in-save-receipt idempotency mechanism (0.209ms)
+  ✔ pvp/claim-rewards.ts keeps its in-save-receipt idempotency mechanism (0.5185ms)
+  ✔ weekly-boss.ts keeps its nx-marker idempotency mechanism (0.5513ms)
+  ✔ towers/settle.ts keeps its nx-marker idempotency mechanism (16.7279ms)
+  ✔ festival/rally.ts keeps its in-save-receipt idempotency mechanism (0.67ms)
+  ✔ festival/caravan.ts keeps its in-save-receipt idempotency mechanism (0.3554ms)
+  ✔ events/claim.ts keeps its in-save-receipt idempotency mechanism (0.2071ms)
+  ✔ achievements/sync.ts keeps its in-save-receipt idempotency mechanism (0.1972ms)
+  ✔ player/daily-login.ts keeps its in-save-receipt idempotency mechanism (0.2002ms)
+  ✔ bank/claim-interest.ts keeps its in-save-receipt idempotency mechanism (0.1917ms)
+  ✔ clan/mission/claim.ts keeps its in-save-receipt idempotency mechanism (0.2214ms)
+  ✔ clan/mission/_settlement.ts keeps its in-save-receipt idempotency mechanism (0.2001ms)
+  ✔ clan/exchange/purchase.ts keeps its economy-tx idempotency mechanism (0.2129ms)
+  ✔ clan/exchange/_settlement.ts keeps its economy-tx idempotency mechanism (0.7569ms)
+  ✔ clan/treasury/transfer.ts keeps its state-machine idempotency mechanism (0.7161ms)
+  ✔ village/treasury/transfer.ts keeps its state-machine idempotency mechanism (0.362ms)
+  ✔ card-clash/open-pack.ts keeps its state-machine idempotency mechanism (0.265ms)
+  ✔ card-clash/ai-move.ts keeps its in-save-receipt idempotency mechanism (0.2458ms)
+  ✔ player/trade.ts keeps its economy-tx idempotency mechanism (0.2731ms)
+  ✔ cron/_ranked-season.ts keeps its in-save-receipt idempotency mechanism (0.2891ms)
+  ✔ _save-debit-saga.ts keeps its economy-tx idempotency mechanism (0.2775ms)
+  ✔ sector/shrine-offer.ts keeps its economy-tx idempotency mechanism (0.2876ms)
+  ✔ clan/treasury/donate.ts keeps its economy-tx idempotency mechanism (0.2498ms)
+  ✔ village/treasury/donate.ts keeps its economy-tx idempotency mechanism (0.2407ms)
+  ✔ pvp/bounty.ts keeps its state-machine idempotency mechanism (0.2639ms)
+  ✔ pvp/_bounty-settle.ts keeps its state-machine idempotency mechanism (0.2278ms)
+  ✔ pvp/_bounty-claim.ts keeps its in-save-receipt idempotency mechanism (0.2019ms)
+  ✔ tebex/webhook.ts keeps its in-save-receipt idempotency mechanism (0.3ms)
+  ✔ village/claim-daily-agenda.ts keeps its in-save-receipt idempotency mechanism (0.2287ms)
+  ✔ village/claim-map-control.ts keeps its in-save-receipt idempotency mechanism (0.2301ms)
+  ✔ clan/seal-pool/donate.ts keeps its economy-tx idempotency mechanism (0.2726ms)
+  ✔ clan/seal-pool/distribute.ts keeps its state-machine idempotency mechanism (0.2529ms)
+  ✔ _cross-key-settlement.ts keeps its state-machine idempotency mechanism (0.2337ms)
+  ✔ _war-tax-apply.ts keeps its economy-tx idempotency mechanism (0.2136ms)
+  ✔ village/_kage-inactivity.ts keeps its in-save-receipt idempotency mechanism (0.2601ms)
+  ✔ village/hollow-gate-unlock.ts keeps its economy-tx idempotency mechanism (0.182ms)
+  ✔ clan/war/declare.ts keeps its economy-tx idempotency mechanism (0.2294ms)
+  ✔ village/kage-challenge.ts keeps its economy-tx idempotency mechanism (0.3749ms)
+  ✔ a settled Showdown session survives its own response, so a dropped reply can be retried (0.5477ms)
+  ✔ every currency-mutating settlement passes failClosed to its lock (spot inventory) (1.4445ms)
+  ✔ server-owned journals on shared rows cannot be written by a client save (0.6266ms)
+✔ reward-settlement contract inventory (97.5319ms)
+[legacy/sage] Error: injected-accept-era-read-failure
+[legacy/sage] Error: injected acceptance save failure
+[legacy/trial] Error: injected trial delete failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+✔ first acceptance rejects disabled and under-level offers while a sealed retry stays valid (5265.5947ms)
+✔ flag-off canary: definitions 404s without ENABLE_LEGACY (0.5579ms)
+✔ definitions serves the full 100-legacy codex (2.7891ms)
+✔ verified server progress performs the Sage roll without a map-screen call (29.7822ms)
+✔ forced sage roll spawns a multi-choice offer (0.791ms)
+✔ accept rejects a legacy that was not offered (0.3775ms)
+✔ failed world authority cannot seal an acceptance with a guessed birth era (3.7398ms)
+✔ accept seals the path, auto-starts a DECORATED awaken trial, returns the intro (6.9084ms)
+✔ re-accepting the same legacy is idempotent — never a stage-1 reset (2.5581ms)
+✔ accepting a DIFFERENT legacy after sealing → 409 sealed (one legacy forever) (1.5396ms)
+✔ ordinary stats GET repairs an expired marker-only accept exactly once across save, trial, Chronicle, and world receipts (13.7147ms)
+✔ awaken completion survives save→delete and delete→effects failures, then replays exactly once (108.9662ms)
+✔ re-accept AFTER progression still returns the CURRENT stage (66.4363ms)
+✔ bind trial: start (variant 0) → reroll swaps the ask (attempt 2, variant 1) → stage 3 (11.261ms)
+✔ real Proven and summit trials grant their titles and open the matching era admission (134.5232ms)
+✔ the summit is permanent history: hall entries minted, no further trials (0.4162ms)
+✔ status endpoint reflects the finished journey (stage 5, 3 titles, category resolved) (3.7312ms)
+▶ AI-fight companion settlement cost
+  ✔ charges only the sealed summoned pet gear and consumable (3.3737ms)
+  ✔ does not spend a newly changed loadout that differs from terminal evidence (0.2236ms)
+✔ AI-fight companion settlement cost (5.6751ms)
+▶ loadAiFightProfile
+  ✔ resolves a built-in AI from the generated mirror (1.7651ms)
+  ✔ rejects malformed ids without a storage lookup (0.4519ms)
+✔ loadAiFightProfile (3.6535ms)
+▶ resolveAiFightOutcome — the session is the authority
+  ✔ reads a squad win as a win (1.0259ms)
+  ✔ reads an enemy win as a loss and a tie as a draw (0.1971ms)
+  ✔ reads an UNRESOLVED session as a forfeit, not a no-op (0.1521ms)
+  ✔ reads a MISSING session as unknown — neither pays nor punishes (0.1324ms)
+  ✔ reads the discriminated solo-PvE winner without Tower semantics (1.1535ms)
+  ✔ reads item use only from the authoritative runtime session (0.9961ms)
+✔ resolveAiFightOutcome — the session is the authority (5.3526ms)
+▶ aiFightPaysReward — only a win pays, and practice never does
+  ✔ pays a real win (0.3208ms)
+  ✔ never pays a practice bout — a sparring partner is not a faucet (0.1524ms)
+  ✔ never pays a loss, a draw, a forfeit or an unverifiable settle (0.1804ms)
+  ✔ treats a missing battleKind as payable for legacy token compatibility (0.2038ms)
+  ✔ finds the human fighter, never the AI or a summoned companion (0.2387ms)
+✔ aiFightPaysReward — only a win pays, and practice never does (1.5508ms)
+▶ applyAiFightOutcomeToCharacter — a fight costs the same on either engine
+  ✔ carries the surviving HP back on a win (0.5116ms)
+  ✔ hospitalizes when the player is DOWN, matching the local Arena KO paths (0.182ms)
+  ✔ does NOT hospitalize a player who lost but SURVIVED (0.143ms)
+  ✔ a forfeit costs the HP you walked out with, not a hospital bed (0.1203ms)
+  ✔ leaves the character untouched when the outcome is unknown (0.1363ms)
+  ✔ leaves the character untouched when there is no actor to read (0.0898ms)
+  ✔ clamps surviving HP to the SAVE maxHp, never the stale session one (0.1217ms)
+  ✔ never leaves a survivor on 0 HP — 1 HP is the floor for anyone still up (0.1195ms)
+  ✔ re-applying a defeat PUSHES the hospital stay out — which is why the receipt exists (0.2154ms)
+✔ applyAiFightOutcomeToCharacter — a fight costs the same on either engine (2.0826ms)
+▶ isPveFightMember — a client-supplied runId must be your own
+  ✔ accepts the player who actually fought (0.1723ms)
+  ✔ refuses a stranger's run — on a WIN that would be a free heal (0.1131ms)
+  ✔ never matches on the enemy side (0.1214ms)
+✔ isPveFightMember — a client-supplied runId must be your own (0.5893ms)
+▶ settlementOwnsHpOnWin — who writes the winning HP
+  ✔ defers only for the Academy spar, whose settlement grants a scripted HP (0.1871ms)
+  ✔ leaves every other mode alone, so their wins still carry surviving HP back (0.1527ms)
+  ✔ is about the WIN only — a lost spar reports normally, and as a spar it writes nothing (0.3989ms)
+✔ settlementOwnsHpOnWin — who writes the winning HP (0.9275ms)
+▶ AI-fight redemption authority
+  ✔ preserves a live winning-token receipt through more than 100 loss receipts (92.5571ms)
+  ✔ does not burn the daily count on a precommit failure and recovers a committed save acknowledgement loss (0.971ms)
+  ✔ reserves after a racing legacy INCR so old and new workers cannot share an ordinal (14.5829ms)
+  ✔ requires exact reservation evidence after a lost counter acknowledgement (2.0142ms)
+  ✔ mirrors the legacy counter with exact CAS max across races and ambiguous acknowledgements (0.9758ms)
+  ✔ fails closed on a malformed legacy counter instead of overwriting it (1.0489ms)
+✔ AI-fight redemption authority (115.1109ms)
+▶ _ai-fight-reward — daily soft-cap (P0.2b)
+  ✔ first win of the day pays full ryo and zero xp (1.9443ms)
+  ✔ pays full ryo up to (and including) the soft cap (0.2015ms)
+  ✔ reduces the ryo past the soft cap (0.2073ms)
+  ✔ pays zero beyond the daily hard cap (0.1824ms)
+  ✔ clamps the per-fight base (anti-inflation) and ignores the claimed xp entirely (0.3171ms)
+  ✔ handles non-numeric / negative input safely (0.1728ms)
+✔ _ai-fight-reward — daily soft-cap (P0.2b) (4.7475ms)
+▶ _ai-fight-secondary
+  ✔ atomically grants the sealed defense reward and counters (2.9232ms)
+  ✔ grants raid counters and profession-neutral charm substitute (0.2975ms)
+  ✔ pays nothing for practice or after the hard ceiling (0.2301ms)
+  ✔ pays ordinary World encounter rewards without impersonating a village raid (0.2588ms)
+  ✔ only grants the Ironclad roll to a valid capstone owner (0.3136ms)
+✔ _ai-fight-secondary (6.373ms)
+✔ only eligible PvE victories credit the council win ledger in the authoritative save (2.0691ms)
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped Rill starter-universal-flicker
+▶ live generic-AI Solo-PvE encounter
+  ✔ seals the authored opponent, its resolved kit and a neutral battlefield (12.7009ms)
+  ✔ rebuilds level, stats and HP from server scaling without mutating the catalog (15.5417ms)
+  ✔ is deterministic for identical sealed inputs (2.5084ms)
+  ✔ seals the active carried pet and omits a companion when none is active (2.8669ms)
+  ✔ seals enemy mastery and the difficulty guard from the rebuilt level (35.7415ms)
+  ✔ honors the AI-fight difficulty rollback switch (0.912ms)
+  ✔ preserves authored pools, armor, boss identity and the full stat sheet (0.7291ms)
+  ✔ clamps hostile profile fields at the live Solo-PvE boundary (0.6439ms)
+  ✔ keeps an opponent actionable when no authored jutsu resolves (1.9045ms)
+  ✔ does not let the fallback signature validate a broken authored rule program (3.0806ms)
+✔ live generic-AI Solo-PvE encounter (80.143ms)
+▶ generic AI fight standalone-runtime contract
+  ✔ builds and persists a solo-pve session, never a Tower session (1.7694ms)
+  ✔ does not reintroduce the retired Tower generic-AI constructor anywhere in production (598.564ms)
+  ✔ returns a mandatory sessionId and session (1.4393ms)
+  ✔ binds the reward token to the explicit solo-pve runtime (0.6706ms)
+  ✔ ignores hostLoadout and derives scaling from server state (0.4879ms)
+  ✔ reconciles a matured travel receipt before validating a World encounter sector (0.5572ms)
+✔ generic AI fight standalone-runtime contract (605.9801ms)
+[kv] isolated in-memory QA backend active
+[pvp-loadout] unlearned equipped jutsu id(s) dropped travelfightarrival starter-universal-flicker
+✔ World fight start accepts the destination when its travel lease matured before the save heartbeat (38266.26ms)
+✔ a recovery-only probe does not settle travel without returning a save version (1.0043ms)
+▶ _ai-fight-token
+  ✔ creates a bounded token record (1.8637ms)
+  ✔ normalizes unknown battle kinds to non-paying practice (0.2496ms)
+  ✔ seals reconstructed World context separately from client reward fields (0.9763ms)
+  ✔ cleans token ids for key use (0.4171ms)
+  ✔ accepts claims at or below the sealed ceiling (0.3861ms)
+  ✔ uses server-sealed rewards when present instead of client-submitted amounts (0.195ms)
+  ✔ computes AI fight base rewards from the active pet trait (0.3111ms)
+  ✔ carries a separately discriminated solo-PvE session binding (0.2307ms)
+  ✔ carries the server-authored field mission identity into the sealed fight token (0.235ms)
+  ✔ never stamps a solo runtime without a valid solo session id (0.3368ms)
+  ✔ rejects claims that exceed the sealed ceiling (0.2145ms)
+✔ _ai-fight-token (7.9072ms)
+▶ apex catalog parity with the client mirror
+  ✔ rosters match exactly, in order (1.2283ms)
+  ✔ gates match (0.3683ms)
+  ✔ purse matches (22.9552ms)
+  ✔ HP stays at or under the approved 12,500 ceiling (0.5265ms)
+✔ apex catalog parity with the client mirror (26.6517ms)
+▶ apex week keys
+  ✔ matches known ISO-8601 weeks (0.2978ms)
+  ✔ previousWeekKey steps back exactly one week, across a year boundary (0.1995ms)
+✔ apex week keys (0.727ms)
+▶ apex claim window
+  ✔ accepts this week and the one before, newest first (1.0895ms)
+  ✔ lets a Sunday-night kill settle on Monday morning (0.268ms)
+  ✔ does not reach back two weeks (0.1895ms)
+✔ apex claim window (1.9331ms)
+▶ apex eligibility
+  ✔ requires max hunter rank AND the level floor (0.569ms)
+  ✔ only accepts the beast actually on offer that week (0.3148ms)
+  ✔ tracks the weekly claim per week key (0.9006ms)
+  ✔ scopes the receipt key per player and week (0.1418ms)
+✔ apex eligibility (2.2117ms)
+[pvp-loadout] unresolved equipped jutsu id(s) MissionTester starter-universal-flicker
+▶ authored ordinary mission scope and sealing
+  ✔ changes only selected mission kits and finite resources, retaining all baseline stats (260.7207ms)
+  ✔ reports any missing required move; built-in content precedence remains intact (79.0905ms)
+  ✔ clones programs and preserves sealed old and new encounters across JSON persistence (132.8336ms)
+✔ authored ordinary mission scope and sealing (474.0922ms)
+▶ distinct actual rule execution
+  ✔ Ember creates a real opening then pays for its heavy attack; movement reduces the combo budget (17.8708ms)
+  ✔ Frost protects itself and weakens attacks; Clear and Cleanse affect different fighters (44.3823ms)
+  ✔ Shadow holds range after poisoning; closing suppresses its cast and Cleanse removes the tax (88.1995ms)
+  ✔ Champion uses a shield/setup at range and a limited Reflect attack when approached (32.4117ms)
+✔ distinct actual rule execution (183.6499ms)
+▶ mission legality, budgets, and progression
+  ✔ ends safely at edges, with occupied movement, sealed elements, Lag, and exhausted resources (385.6089ms)
+  ✔ retains per-hit and per-turn guards; no enemy kit obtains unlimited healing or permanent control (266.6916ms)
+  ✔ admits ordinary earned-stat builds across four disciplines and rewards later progression (2893.7613ms)
+  ✔ shows measured benefits from responses with identical loadouts and starting conditions (606.4266ms)
+✔ mission legality, budgets, and progression (4153.1059ms)
+✔ sealed mission binding accepts only its completed winning solo-PvE session (1.6665ms)
+✔ mission binding rejects wrong player, mission, run, expiry, unfinished and losing sessions (0.3573ms)
+✔ mission binding rejects non-member settlement, encounter drift, reward drift, and replay (0.7029ms)
+✔ mission start recovery reuses only a coherent active unsettled session (0.5166ms)
+✔ mission start recovery keeps a terminal win but releases a reconciled non-win for retry (0.4223ms)
+✔ a settled mission validates as durable proof for lost-response replay only (0.8893ms)
+✔ Hollow Gate Warden missions normalize to level 100 plus Hollow Gate access (1.8844ms)
+✔ level 20 players cannot receive level 100 endgame objectives (0.5551ms)
+✔ level 100 players still need Hollow Gate access for Warden objectives (0.2698ms)
+✔ level 100 players can receive Warden objectives only with Hollow Gate unlocked (0.179ms)
+✔ profession, pet, and ranked gates return machine-readable reasons (0.2552ms)
+✔ claim rejects ineligible weekly Warden mission even if posted manually (0.203ms)
+✔ creator mission validation blocks Warden publishing below level 100 (0.2594ms)
+▶ _field-raid-progress
+  ✔ REGRESSION: server-owned AI raid wins stamp the field receipt at settlement (1.8148ms)
+  ✔ REGRESSION: reads accepted ids off the save record, level off its character (5.7721ms)
+  ✔ derives a receipt-legal, stable, proof-specific evidence id (0.4287ms)
+  ✔ selects only accepted fetch missions that actually ask for raids (3.1795ms)
+  ✔ credits accepted fetch contracts from rival village outskirts, never from home or their wilderness targets (0.7385ms)
+  ✔ excludes hunts, unaccepted missions, and level-ineligible fetches (0.3482ms)
+  ✔ dedupes a mission accepted twice (0.2448ms)
+  ✔ REGRESSION: explores alone leave a fetch mission unclaimable; the raid completes it (0.6168ms)
+  ✔ a replayed raid proof cannot double-count raidCount (0.2673ms)
+  ✔ every builtin fetch mission stays inside the 32-evidence receipt cap (0.3188ms)
+✔ _field-raid-progress (43.1438ms)
+▶ generic AI fight authority
+  ✔ varies explore opponents while keeping their effective level at or below the player (3.0909ms)
+  ✔ chooses a village-themed raid guard at the nearest eligible level tier (0.3244ms)
+  ✔ derives an explore opponent from the server level band and exact sector receipt (1.4612ms)
+  ✔ binds raid AI to the exact still-live raid token target (1.2141ms)
+  ✔ copies the mission identity from the server raid token, never the client body (0.6035ms)
+  ✔ allows only this week's Apex and rejects generic dedicated-mode forgery (0.6346ms)
+✔ generic AI fight authority (9.0036ms)
+▶ mission catalog matches the client reward tables
+  ✔ COMBAT_MISSIONS — same set, same rewards, same AI (1.5949ms)
+  ✔ FIELD_MISSIONS — same set, same rewards (incl. currency) (0.4195ms)
+  ✔ HUNT_MISSION_IDS = exactly the hunt-* entries (those carrying itemRewards) (0.28ms)
+  ✔ Academy Trial is tiny, one-time, no premium currency (0.1395ms)
+✔ mission catalog matches the client reward tables (3.8936ms)
+▶ reward-bonus math mirrors the client
+  ✔ boostAmount = floor(amount * (1 + pct/100)), never negative (0.2418ms)
+  ✔ missionRewardBonusPct = missionHall(level×0.5) + auraSphere(equipped) (0.2824ms)
+✔ reward-bonus math mirrors the client (0.7264ms)
+▶ daily-cap accounting matches character-progress.ts
+  ✔ hasDailyMissionSlot honours the 20/day cap keyed on lastDailyReset (0.2827ms)
+  ✔ markMissionCompletedFields bumps total + daily + clan, stamps day/month (0.2259ms)
+✔ daily-cap accounting matches character-progress.ts (0.7979ms)
+▶ hunt daily-cap accounting matches character-progress.ts (hunt pool)
+  ✔ hasDailyHuntSlot honours the 20/day cap keyed on lastHuntReset (independent of missions) (0.3392ms)
+  ✔ dailyHuntCap adds +1 per Hunter Rank (20 base → 25 at Warden), clamped to 0..5 (0.3152ms)
+  ✔ markHuntCompletedFields bumps the hunt counter + clan/lifetime totals, stamps day/month (0.231ms)
+✔ hunt daily-cap accounting matches character-progress.ts (hunt pool) (1.1327ms)
+▶ reward application helpers
+  ✔ grantItemsToInventory appends literal item ids, dropping blanks/non-strings (0.2814ms)
+  ✔ applyCurrencyRewardFields adds only positive amounts onto existing balances (0.3715ms)
+  ✔ keeps every normal mission Territory Scroll reward disabled (0.1917ms)
+✔ reward application helpers (1.0209ms)
+▶ _mission-progress-receipt save readers
+  ✔ REGRESSION: reads accepted missions off the RECORD, not the character (1.963ms)
+  ✔ still reads a bare character, so a caller holding only that works (0.2109ms)
+  ✔ prefers the record over a nested character when both carry the field (0.2111ms)
+  ✔ is total on missing, null and malformed saves (0.2565ms)
+✔ _mission-progress-receipt save readers (4.2896ms)
+▶ _mission-progress-receipt
+  ✔ cleans supported progress event kinds (0.4502ms)
+  ✔ server producer flow: N-1 tracks + a kill build a claimable hunt receipt (0.7081ms)
+  ✔ increments field progress only to the sealed requirements (0.3296ms)
+  ✔ requires a tracked hunt kill before hunt payout (0.2783ms)
+  ✔ a verified kill completes a hunt even when every tracking ping was dropped (0.1875ms)
+  ✔ requires server evidence ids even when legacy counters claim completion (0.2282ms)
+  ✔ does not increment twice when the same evidence is replayed (0.1736ms)
+  ✔ validates a private server evidence record and rejects wrong/expired evidence (0.3838ms)
+  ✔ rejects missing and caller-shaped evidence tokens (0.1526ms)
+  ✔ derives a stable consumed-bundle key independent of evidence order (0.2662ms)
+✔ _mission-progress-receipt (3.8759ms)
+▶ open-world combat settles continuously
+  ✔ puts the player back with the HP, chakra and stamina the fight left them (1.701ms)
+  ✔ holds on a loss, alongside the admission (0.2078ms)
+✔ open-world combat settles continuously (3.6229ms)
+▶ instanced and practice fights stay fresh-start
+  ✔ does NOT write chakra or stamina without the continuity flag (0.2357ms)
+  ✔ is the case that makes the faucet obvious (0.1819ms)
+✔ instanced and practice fights stay fresh-start (0.7197ms)
+▶ the carry-back can only ever cost, never mint
+  ✔ clamps decrease-only even when flagged continuous (0.2737ms)
+  ✔ treats an unmodelled or non-numeric vital as no evidence (0.2636ms)
+  ✔ never writes a negative vital (0.1641ms)
+  ✔ still leaves the character untouched with no actor, or an unresolved outcome (0.519ms)
+✔ the carry-back can only ever cost, never mint (1.6323ms)
+▶ which fights are open-world
+  ✔ includes the ones a player meets in the world (0.2546ms)
+  ✔ excludes instanced runs and consensual practice (0.2507ms)
+✔ which fights are open-world (0.707ms)
+▶ the flag survives storage on the session
+  ✔ reads back off the stored encounter, not off a request field (0.2185ms)
+✔ the flag survives storage on the session (0.343ms)
+✔ saved expedition seal survives cache loss only for its exact lease token (2.4237ms)
+✔ legacy protected leases recover conservatively and malformed leases do not (0.2917ms)
+✔ start persists fallback authority and settlement rechecks the exact saved token (0.8595ms)
+▶ getMissionPool
+  ✔ healer pool has at least 8 missions (1.0939ms)
+  ✔ vanguard pool has at least 8 missions (0.1829ms)
+  ✔ petTamer pool has at least 3 missions (0.1735ms)
+  ✔ every petTamer mission is profession=petTamer (0.2238ms)
+  ✔ every healer mission is profession=healer (0.1816ms)
+  ✔ every vanguard mission is profession=vanguard (0.201ms)
+✔ getMissionPool (3.8612ms)
+▶ pickDailyMissions
+  ✔ returns 3 missions by default (2.1086ms)
+  ✔ is deterministic per (player, date) (1.4916ms)
+  ✔ picks are unique within a day (no duplicates) (0.2899ms)
+  ✔ returns 3 missions for petTamer (0.2802ms)
+  ✔ different players on the same day usually get different picks (0.2701ms)
+✔ pickDailyMissions (4.9599ms)
+▶ pickDailyMissionsForPlayer eligibility filtering
+  ✔ level 1 players cannot receive profession daily objectives (1.4501ms)
+  ✔ rank 1 healers get eligible fallback picks instead of high-rank objectives (0.4211ms)
+  ✔ players without pets cannot receive pet-training missions (0.4657ms)
+  ✔ players without PvP unlock cannot receive Vanguard missions (0.3417ms)
+  ✔ profession mismatch cannot receive another profession pool (0.1793ms)
+✔ pickDailyMissionsForPlayer eligibility filtering (3.2435ms)
+▶ pickNewbieMissions
+  ✔ returns exactly one battle task and one mission task (0.2898ms)
+  ✔ is deterministic per (player, date) (0.1543ms)
+  ✔ every newbie mission pays ryo (> 0) and has a positive target (0.132ms)
+  ✔ can vary across days for the same player (0.4454ms)
+✔ pickNewbieMissions (1.2384ms)
+✔ stored impossible mission is replaced on mission load (50.6988ms)
+✔ completed and claimed missions remain untouched during repair (0.6036ms)
+✔ claimed impossible mission does not become claimable again (0.3334ms)
+✔ stored impossible mission replacement is deterministic (0.3981ms)
+[kv] isolated in-memory QA backend active
+▶ settleRaidProgressionWithDailyCap — the claim-rewards entry point
+  ✔ settles a world-PvP win in a sector that has no territory row (222.868ms)
+  ✔ is idempotent across the retries a 503 would have produced (50.2322ms)
+✔ settleRaidProgressionWithDailyCap — the claim-rewards entry point (5709.6081ms)
+▶ daily raid cap
+  ✔ is defined in exactly one place across api/ (433.1589ms)
+✔ daily raid cap (433.4519ms)
+[kv] isolated in-memory QA backend active
+▶ settleRaidTerritoryDamage — sector with no territory row yet
+  ✔ creates the row instead of CAS-ing against a row that was never stored (5.9407ms)
+  ✔ replays the same proof idempotently once the row exists (1.3148ms)
+  ✔ still settles with no sealed evidence (the AI-raid path) (1.9354ms)
+✔ settleRaidTerritoryDamage — sector with no territory row yet (406.0261ms)
+✔ PvP win reports use authenticated player limits with recovery headroom (1.3777ms)
+▶ save-field shape contract
+  ✔ pins the three fields as TOP-LEVEL save fields, per the ownership manifest (9.8583ms)
+  ✔ REGRESSION: every progress producer reads accepted missions off the record (1.6751ms)
+  ✔ no api/ handler reads a top-level save field off a character (1042.8667ms)
+✔ save-field shape contract (1055.8123ms)
+[kv] isolated in-memory QA backend active
+[pvp-loadout] unlearned equipped jutsu id(s) dropped akira starter-universal-flicker
+▶ sessionIsSpar — read from the sealed session
+  ✔ recognises the Academy spar by its encounter kind (42.5717ms)
+  ✔ recognises a practice bout by the flag ai-fight-start seals on it (0.4439ms)
+  ✔ never mistakes a real fight for a spar (0.7831ms)
+✔ sessionIsSpar — read from the sealed session (68.844ms)
+▶ applyAiFightOutcomeToCharacter — a spar writes nothing
+  ✔ a knockout in a spar neither hospitalizes nor zeroes HP (1.6704ms)
+  ✔ winning a spar does not cost HP either, so losing is never the cheaper result (0.2568ms)
+  ✔ walking out of a spar costs nothing physical (the loss still counts where losses are recorded) (0.3183ms)
+  ✔ a real fight still sends a knocked-out player to the hospital (1.5205ms)
+✔ applyAiFightOutcomeToCharacter — a spar writes nothing (4.6241ms)
+▶ the PvE outcome settlement (Academy spar, lapse reconciler)
+  ✔ settles a lost Academy spar with a receipt but no hospital stay (1.9357ms)
+  ✔ settles a lapsed practice bout without a physical consequence (0.5423ms)
+  ✔ still hospitalizes a lost story boss — a story fight is not a spar (0.3991ms)
+✔ the PvE outcome settlement (Academy spar, lapse reconciler) (3.2425ms)
+▶ buildSoloPveAiEncounter — the spar flag rides on the encounter
+  ✔ stamps spar without disturbing any other encounter field (15.1232ms)
+  ✔ merges with continuity and with a caller-supplied metadata record (0.4941ms)
+✔ buildSoloPveAiEncounter — the spar flag rides on the encounter (15.8097ms)
+▶ a real practice bout through ai-fight-start and report-ai-fight
+  ✔ seals the bout as a spar, and a knockout in it leaves the player out of the hospital (46.0402ms)
+✔ a real practice bout through ai-fight-start and report-ai-fight (8200.6055ms)
+✔ weekKey is stable within a week and advances across the Monday boundary (1.5459ms)
+✔ pickWeeklyBoard is deterministic per week and the right size (1.1544ms)
+✔ pickWeeklyBoard returns distinct missions (0.2338ms)
+✔ different weeks generally yield different boards (0.2589ms)
+✔ every board mission references a real tracked counter (0.3309ms)
+✔ low-level players are never assigned Hollow Gate Warden missions (9.9265ms)
+✔ low-level players get eligible weekly replacements and fallbacks (0.7481ms)
+✔ level 100 players can see Hollow Gate Warden if Hollow Gate is unlocked (0.2944ms)
+✔ computeProgress diffs current vs baseline, floored at 0 (0.2717ms)
+✔ snapshotCounters captures exactly the tracked counters as numbers (0.3341ms)
+▶ World AI fight authority
+  ✔ routes every built-in hunt through formations while preserving its exact target identity (27.0114ms)
+  ✔ does not revive old hunt chains after abandoning or reaccepting the contract (1.2805ms)
+  ✔ rejects unrelated chain/decision fields and off-map sectors (0.9319ms)
+  ✔ keeps world token/pointer lifetime coherent with the active solo-PvE session (0.1565ms)
+  ✔ binds an encoded natural wanderer to its visible sector (2.1502ms)
+  ✔ keeps authored hunt signs on sectors 1..60 while general world descriptors allow expansion sectors (0.7957ms)
+  ✔ derives hunt opening from the server trail and ignores any local opponent payload (0.5264ms)
+  ✔ derives a nonzero Quest Book boss stage from the durable seal when request omits stage (1.274ms)
+  ✔ blocks a target while its sealed pack decision is unsettled (20.9701ms)
+  ✔ starts an early hunt-pack only for its exact decision and sector, then settles loss once (40.9498ms)
+  ✔ settles the final pack win once and leaves the hunt trail ready to continue (2.9845ms)
+  ✔ a night ninja fight never moves the bandit streak or creates a road nemesis (0.4869ms)
+  ✔ allows a hunt rematch after loss but rejects another target after the sealed win (0.7912ms)
+  ✔ keeps every world authority field in all sanitizer-owned groups (0.4526ms)
+  ✔ heals a chained wave once and only for a proof bound to kind/source/sector (0.5031ms)
+  ✔ enforces a single-flight chain cursor and idempotent settlement (26.7582ms)
+✔ World AI fight authority (146.8081ms)
+[kv] isolated in-memory QA backend active
+▶ production-mounted ordinary mission journey (normal player authority)
+  ✔ enforces authentication, ownership, real admission, and rejects unearned rewards (21.9344ms)
+  ✔ combat-c-patrol: startup, recovery, actual actions, vitals and exactly-once reward settlement (81.8389ms)
+  ✔ combat-b-escort: startup, recovery, actual actions, vitals and exactly-once reward settlement (84.3689ms)
+  ✔ combat-a-hunt: startup, recovery, actual actions, vitals and exactly-once reward settlement (75.1928ms)
+  ✔ combat-s-crisis: startup, recovery, actual actions, vitals and exactly-once reward settlement (544.1528ms)
+  ✔ flee and actual loss settle physical consequences without paying a mission reward (129.6938ms)
+  ✔ a lapsed authored encounter settles the normal abandon cost once on reconnect (24.6612ms)
+✔ production-mounted ordinary mission journey (normal player authority) (29335.7573ms)
+✔ applyClaimedMissionState clears claimed field missions from accepted ids and progress (67.4559ms)
+✔ applyClaimedMissionState clears claimed hunts without touching unrelated progress (0.2049ms)
+✔ applyClaimedMissionState leaves combat claims alone (0.1184ms)
+✔ clearStalePendingCombatClaim drops the stale key and reports cleared (0.2086ms)
+✔ clearStalePendingCombatClaim is a no-op (same ref) when the key is absent (6.8575ms)
+✔ clearStalePendingCombatClaim tolerates a missing/invalid pending list (0.2339ms)
+✔ Legacy mission progress is derived from committed save receipts (23.5057ms)
+[kv] isolated in-memory QA backend active
+✔ concurrent starts for one pet commit one lease and consume one daily allowance (3309.2688ms)
+✔ lost-response retry with the same launchId returns the exact launch without another write or charge (236.4444ms)
+✔ cap boundary allows one committed launch and a losing concurrent launch consumes nothing (44.7478ms)
+✔ an invalid retry id fails before any allowance or pet mutation (0.5961ms)
+✔ deployment migration honors today's higher legacy KV allowance without writing it again (3.5387ms)
+✔ the saved pet level is sealed even when a client submits a forged level (3.5977ms)
+✔ a provision is consumed exactly once and replay keeps the sealed route setup (6.4628ms)
+✔ bold routes require enough saved happiness and consume no allowance on rejection (2.9215ms)
+[kv] isolated in-memory QA backend active
+[missions/expedition-start] Error: injected expedition save CAS failure
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start-cas.test.ts:105:19)
+    at writeVersionedPlayerSaveWithStore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_mutate-player-save.ts:101:39)
+    at async writeVersionedPlayerSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_mutate-player-save.ts:119:17)
+    at async withKvLock.failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_mutate-player-save.ts:287:19)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async mutatePlayerSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_mutate-player-save.ts:200:12)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start.ts:135:26)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start-cas.test.ts:112:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+[missions/expedition-start] Error: injected token publication failure
+    at Object.kv.set (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start-cas.test.ts:184:19)
+    at handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start.ts:312:18)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\expedition-start-cas.test.ts:191:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ a definitive save CAS failure consumes neither the save-native allowance nor token (1962.1063ms)
+✔ a busy-pet validation rejection leaves the exact predecessor untouched (16.4943ms)
+✔ a committed save whose CAS acknowledgement is lost is read back exactly (16.3331ms)
+✔ a lost token-cache publication replays the committed launch without another save bump (31.3985ms)
+[kv] isolated in-memory QA backend active
+▶ authoritative field mission lifecycle
+  ✔ keeps state-read throttling from blocking a contract abandonment (325.5224ms)
+  ✔ accepts exactly once and legacy state recovery starts a neutral server run (8.4542ms)
+  ✔ allows field mission acceptance through 19 daily claims and blocks new work at 20 (78.635ms)
+  ✔ binds explore evidence to the exact run and replays the final ACK (9.7657ms)
+  ✔ rejects stale runs, pays a completed run once, and clears acceptance authority (94.7018ms)
+✔ authoritative field mission lifecycle (15251.1387ms)
+[kv] isolated in-memory QA backend active
+[missions/queue-combat-claim] Error: kv-compare-set-unconfirmed:missions:combat-claim:missionsagatokennull:combat-c-patrol
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async publishCombatMissionClaimRows (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:542:5)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:287:13)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async outcome.failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:320:28)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:304:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:453:24)
+[missions/queue-combat-claim] Error: kv-compare-set-unconfirmed:save:missionsagasavenull
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async publishCombatMissionClaimRows (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:545:5)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:287:13)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async outcome.failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:320:28)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\queue-combat-claim.ts:304:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:472:24)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagaendgame0
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:25)
+    at async confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:9)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:29)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:574:34)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagaendgame1
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:25)
+    at async confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:9)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:29)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:574:34)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagaerarecovery
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:25)
+    at async confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:9)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:29)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:603:38)
+[missions/claim-mission] Error: simulated token read outage
+    at Object.kv.get (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:629:23)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:830:43)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:635:22)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagastaleheal
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1045:25)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:690:22)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:31)
+    at confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:22)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:35)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+[missions/claim-mission] Error: simulated active-pointer read outage
+    at Object.kv.get (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:803:23)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:945:48)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:809:24)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:31)
+    at confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:22)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:35)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagaclaimnull
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:25)
+    at async confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:9)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:29)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:906:28)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:31)
+    at confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:22)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:35)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+[missions/claim-mission] Error: kv-compare-set-unconfirmed:save:missionsagacasfence
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:529:11)
+    at async Object.write (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1337:25)
+    at async confirmCombatMissionClaimSave (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:564:9)
+    at async failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1335:29)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async retryOnSaveVersionConflict (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\save\_projected-write.ts:43:20)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:815:25)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1002:22)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:380:15)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async completeCombatMissionPostEffects (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:415:25)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1390:32)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1087:29)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:380:15)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async completeCombatMissionPostEffects (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:415:25)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1390:32)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1122:24)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:380:15)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async completeCombatMissionPostEffects (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:415:25)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1390:32)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1162:29)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:380:15)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async completeCombatMissionPostEffects (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:462:25)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1390:32)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1294:28)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at compareSetExactKvRow (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:522:21)
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:380:15)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\_lock.ts:129:16)
+    at async completeCombatMissionPostEffects (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:481:25)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1390:32)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1337:28)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at retireCombatMissionClaimToken (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:253:38)
+    at handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1402:23)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1430:24)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7)
+[missions/claim-mission] Error: simulated compare-set rejection
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:301:55)
+    at retireCombatMissionClaimToken (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\_combat-claim-authority.ts:253:38)
+    at handler (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\claim-mission.ts:1402:23)
+    at async post (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:105:5)
+    at async withSetFault (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:309:24)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\missions\mission-combat-claim-saga.test.ts:1458:24)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Suite.processPendingSubtests (node:internal/test_runner/test:974:7)
+▶ mission claim authority shape and retention
+  ✔ accepts the previous rolling-deploy token shape but keeps run + mission binding (3.4505ms)
+  ✔ preserves all 40 possible live-token markers and bounds only expired history (4.2244ms)
+  ✔ never evicts an unfinished effect saga after its token horizon (3.3576ms)
+  ✔ fails closed when token retirement cannot distinguish read failure from absence (0.8079ms)
+✔ mission claim authority shape and retention (14025.2224ms)
+▶ mission queue publication recovery
+  ✔ accepts a committed token acknowledgement loss only after exact readback (92.771ms)
+  ✔ fails closed on null token publication and retries from the completed run (48.0746ms)
+  ✔ does not finalize metadata when the pending-save row is null, then repairs it (38.0585ms)
+  ✔ repairs either publication row from settled session + binding authority (122.8377ms)
+  ✔ does not let a second completed run replace an earlier unpaid token (36.118ms)
+  ✔ does not overwrite corrupt non-null authority while an earlier payout may be pending (108.6721ms)
+✔ mission queue publication recovery (466.8927ms)
+▶ mission payout receipt recovery
+  ✔ S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write (203.2683ms)
+  ✔ qualified era proof commits with combat rewards, including reservation recovery, and replays once (21.36ms)
+  ✔ fails closed when the token read throws and never clears the pending claim (10.6331ms)
+  ✔ treats only an authoritative null as absence and preserves pending on corrupt authority (13.9443ms)
+  ✔ fences an expired-lock stale-heal writer with exact save CAS (8.2292ms)
+  ✔ recovers an old-worker delete then pre-save crash only after CAS fencing null to paying (37.1128ms)
+  ✔ does not recover or repay after the old-worker payout save already cleared pending (6.3ms)
+  ✔ fails closed on a non-null mismatched old-delete recovery triplet (5.1856ms)
+  ✔ fails closed when old-delete recovery evidence cannot be read (5.4079ms)
+  ✔ recovers commit-then-throw and replays the exact reward/character without a second payout (26.4095ms)
+  ✔ fences the old worker before a payout commit whose acknowledgement is lost (12.7992ms)
+  ✔ throw-before-commit leaves the sole token retryable and pays once (12.1246ms)
+  ✔ null-before-commit leaves the sole token retryable and pays once (13.5357ms)
+  ✔ repairs an old worker pending-clear from the durable pre-commit payment reservation (12.9735ms)
+  ✔ fences an expired-lock writer when an intervening save wins the CAS (10.7701ms)
+  ✔ a lost HTTP response replays from the atomic marker without changing the save (50.7761ms)
+  ✔ an old run token can only replay its old receipt and cannot pay a later queued run (25.1645ms)
+  ✔ does not let a successor run overlap unfinished effects from the prior payout (49.5246ms)
+  ✔ helps a newbie reward forward after crashing between progress and save credit (26.95ms)
+  ✔ honors pinned newbie Ryo when a profession is chosen after the target marker commits (14.5654ms)
+  ✔ help-forwards an unstaged receipt instead of silently declaring its post-effects complete (20.6513ms)
+  ✔ helps Legacy counters forward after crashing between target CAS and save stamp (15.6299ms)
+  ✔ helps the Era contribution forward after crashing between target CAS and save stamp (37.4741ms)
+  ✔ terminal target-row run IDs fence callers paused until after acknowledgement (39.8677ms)
+  ✔ a successor queue helps a completed paying row through lost retirement acknowledgement (63.7434ms)
+  ✔ retries token retirement after every effect is durable without replaying any payout (9.0198ms)
+✔ mission payout receipt recovery (756.2879ms)
+[kv] isolated in-memory QA backend active
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqacontended',
+  grantId: 'mxp_51a1eacf9ed34089b9e91ecdd8fa414c',
+  error: 'Could not acquire lock for "save:missiongrantqacontended" — contended or KV unavailable.'
+}
+▶ a daily mission reward is paid exactly once even when its first credit fails
+  ✔ pays profession XP left owed by a contended save lock on the next report, once (542.5545ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqapanel',
+  grantId: 'mxp_32553fc7394d4ea2855c8bfa4b6e02dc',
+  error: 'Could not acquire lock for "save:missiongrantqapanel" — contended or KV unavailable.'
+}
+  ✔ pays it on the daily panel read and tells the player the version that read committed (443.4999ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqaadminread',
+  grantId: 'mxp_225733a643e14082ac26c4e8b07ff817',
+  error: 'Could not acquire lock for "save:missiongrantqaadminread" — contended or KV unavailable.'
+}
+  ✔ never hands an admin the player's save version when the admin's read pays the grant (576.2668ms)
+[missions] newbie ryo grant deferred {
+  playerName: 'missiongrantqanewbie',
+  grantId: 'nry_6db695ce11574fb8ae773cb9d196a53d',
+  error: 'Could not acquire lock for "save:missiongrantqanewbie" — contended or KV unavailable.'
+}
+  ✔ pays newbie ryo left owed by a contended save lock on the next report, once (558.7605ms)
+[missions] newbie ryo grant deferred {
+  playerName: 'missiongrantqachose',
+  grantId: 'nry_a35af1ab677741719cfc9249e9d79cea',
+  error: 'Could not acquire lock for "save:missiongrantqachose" — contended or KV unavailable.'
+}
+  ✔ still pays newbie ryo owed from before the player chose a profession (672.7305ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqacleanup',
+  grantId: 'mxp_ccc8047bccf84a83adadaf1742dbb573',
+  error: 'Could not acquire lock for "save:missiongrantqacleanup" — contended or KV unavailable.'
+}
+[missions] profession XP grant cleanup deferred {
+  playerName: 'missiongrantqacleanup',
+  grantIds: [ 'mxp_ccc8047bccf84a83adadaf1742dbb573' ],
+  error: 'Could not acquire lock for "missions:daily:missiongrantqacleanup" — contended or KV unavailable.'
+}
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqalostreply',
+  grantId: 'mxp_8cdc7b7ba2434a6fb2b4578edfb8a968',
+  error: 'simulated lost reply after the credit committed'
+}
+  ✔ pays nothing twice when the credit landed but clearing the owed grant failed (1221.3668ms)
+  ✔ pays nothing twice when the credit committed but its writer lost the reply (8.0288ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqaswitched',
+  grantId: 'mxp_26b37166240546f3bbe56cbffba04e3b',
+  error: 'Could not acquire lock for "save:missiongrantqaswitched" — contended or KV unavailable.'
+}
+[missions] profession XP grant void {
+  playerName: 'missiongrantqaswitched',
+  grant: {
+    id: 'mxp_26b37166240546f3bbe56cbffba04e3b',
+    profession: 'vanguard',
+    xp: 50,
+    missionIds: [ 'vanguard-skirmish:2026-10-02' ],
+    at: 1790962084410
+  },
+  reason: 'the player changed profession'
+}
+  ✔ credits no XP to a different profession than the one that earned it (610.6959ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqaagedout',
+  grantId: 'mxp_43e89e6daadb4b4081f9c86f92541367',
+  error: 'Could not acquire lock for "save:missiongrantqaagedout" — contended or KV unavailable.'
+}
+[missions] profession XP grant needs reconciliation; it was not paid {
+  playerName: 'missiongrantqaagedout',
+  grant: {
+    id: 'mxp_43e89e6daadb4b4081f9c86f92541367',
+    profession: 'vanguard',
+    xp: 50,
+    missionIds: [ 'vanguard-skirmish:2026-10-02' ],
+    at: 1790962085022
+  },
+  reason: 'the receipt may have aged out'
+}
+  ✔ refuses to pay when the receipt list may have evicted the proof of an earlier credit (693.0827ms)
+[missions] profession XP grant deferred {
+  playerName: 'missiongrantqarollover',
+  grantId: 'mxp_ef3bd8adca7f4fc5854f38915bad88e6',
+  error: 'Could not acquire lock for "save:missiongrantqarollover" — contended or KV unavailable.'
+}
+  ✔ carries owed XP onto the next day's missions and pays it there (598.9232ms)
+  ✔ records no grant for a caller that settles the XP itself (the raid progression saga) (1.0739ms)
+✔ a daily mission reward is paid exactly once even when its first credit fails (6653.3498ms)
+[kv] isolated in-memory QA backend active
+[pvp-loadout] unlearned equipped jutsu id(s) dropped missionretryjourney starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped missionretryjourney starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped missionretryjourney starter-universal-flicker
+▶ mission terminal retry handler
+  ✔ retires loss/forfeit authority, but keeps a won run recoverable for exact queue replay (148.055ms)
+✔ mission terminal retry handler (7725.4542ms)
+[kv] isolated in-memory QA backend active
+✔ lost queue response replays the exact authoritative surviving HP and save version (6951.0331ms)
+[kv] isolated in-memory QA backend active
+▶ sealed raid authority
+  ✔ computes the next reset from UTC midnight (2.3215ms)
+  ✔ rejects Sunscar as a field raid destination (2.8406ms)
+  ✔ seals a village-themed, attacker-level AI when no defender is queued (5.9819ms)
+  ✔ routes field raid objectives through village garrisons, not wilderness mission outposts (16.0459ms)
+  ✔ a legacy wilderness outpost proof does not stamp village raid progress (19.9578ms)
+  ✔ does not credit a replacement contract run from an older mission raid (1.5041ms)
+  ✔ replays one launch before throttling and reconstructs its exact missing token (85.567ms)
+  ✔ returns the UTC reset deadline when the daily launch cap is reached (4.2053ms)
+  ✔ binds PvP raid credit to the sealed creator side, not fighter ordering (103.9645ms)
+  ✔ acknowledges a Death's Gate win without field-raid credit, even after the live row expires (48.8802ms)
+  ✔ never damages self-controlled territory and returns the post-Legacy save projection (12.6934ms)
+  ✔ replays the original amount after more than 160 cross-player sector receipts evict its audit row (532.3998ms)
+  ✔ helps a crash-pinned HP mutation forward before 161 later raids can evict and replay it (502.4741ms)
+  ✔ recovers a committed terminal-proof write whose acknowledgement is lost (1.3733ms)
+  ✔ pins and help-forwards a rolling-upgrade audit receipt before backfilling its terminal key (0.9948ms)
+  ✔ preserves a zero-damage self-owned result after audit eviction and an ownership change (365.3541ms)
+  ✔ uses sealed target identity after the fighter switches clan and records target replacement as exact zero (1.4347ms)
+  ✔ opens a fixed breach at zero HP instead of instantly erasing clan ownership (1.7299ms)
+  ✔ rejects a stale territory holder without erasing a concurrent row update, then retries exactly (16.8997ms)
+✔ sealed raid authority (7948.7447ms)
+[kv] isolated in-memory QA backend active
+✔ return settlement uses the sealed setup, records world story, charges bold happiness, and replays exactly (2820.0643ms)
+✔ claim cap leaves the completed lease ready and rejects invalid choices (2.8185ms)
+✔ clearStuckExpeditionLease frees the pet matching the lease token (1.463ms)
+✔ clearStuckExpeditionLease frees a tokenless legacy lease by petId (0.1754ms)
+✔ clearStuckExpeditionLease is a no-op when nothing matches (double-claim / already cleared) (0.1531ms)
+✔ clearStuckExpeditionLease tolerates a missing/invalid pets array and empty match (0.7894ms)
+✔ only Boonbringer doubles authoritative expedition Ryo and pet XP (0.1751ms)
+[kv] isolated in-memory QA backend active
+▶ weekly board claim
+  ✔ takes the claim back when the payout loses its compare-and-set, so the retry pays once (199.8602ms)
+✔ weekly board claim (1518.9296ms)
+[kv] isolated in-memory QA backend active
+[pvp-loadout] unlearned equipped jutsu id(s) dropped huntjourneyactiveabandon starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped huntjourneycomplete starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped huntjourneycomplete starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped huntjourneycomplete starter-universal-flicker
+[pvp-loadout] unlearned equipped jutsu id(s) dropped huntjourneypackwin starter-universal-flicker
+▶ sealed hunt handler journey
+  ✔ closes active combat when abandoning and cannot apply its late result to a reaccepted hunt (143.092ms)
+  ✔ abandons a hunt by clearing its accepted run, progress, trail, and receipt (17.076ms)
+  ✔ accepts repeat hunts while keeping each kill claim idempotent (158.3748ms)
+  ✔ rejects a forged generic hunt-kill receipt without the sealed trail target proof (25.1192ms)
+  ✔ recovers one sealed pack encounter and settles the whole formation only once (78.6394ms)
+✔ sealed hunt handler journey (6826.697ms)
+ℹ tests 441
+ℹ suites 59
+ℹ pass 441
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 51634.5511

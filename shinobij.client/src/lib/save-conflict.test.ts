@@ -243,6 +243,35 @@ describe("save-conflict drafts", () => {
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Server-managed progress"]);
     });
 
+    for (const [field, localValue, serverValue] of [
+        ["relicRosterVersion", 0, 1],
+        ["relicRewardLedger", [], [{ day: "2026-10-02", pvp: [{ id: "settled-battle", itemId: "relic-pvp" }], tower: [] }]],
+    ] as const) {
+        it(`drops a draft confined to authoritative ${field} after the server responds`, async () => {
+            const storage = new MemoryStorage();
+            const visible: Array<number | null> = [];
+            const store = createSaveConflictDraftStore({
+                storage,
+                activeAccountKey: () => saveConflictAccountKey("Kaya"),
+                onVisibleDraft: (draft) => visible.push(draft?.revisions.length ?? null),
+                reportStorageFailure: assert.fail,
+            });
+            const local = { character: { name: "Kaya", [field]: localValue } };
+            const server = { character: { name: "Kaya", [field]: serverValue } };
+            store.capture("Kaya", local);
+            assert.equal(storage.length, 1);
+            assert.equal(await store.rehydrate("Kaya", server), null);
+            assert.equal(storage.length, 0, "a server correction must not keep an unusable recovery draft");
+            assert.equal(store.load("Kaya"), null);
+            assert.equal(visible.at(-1), null);
+            assert.deepEqual(
+                detectSaveConflictAreas({ ...local, currentBiome: "forest" }, { ...server, currentBiome: "desert" }),
+                ["Travel & world position"],
+                "the same draft must still protect genuinely restorable local progress",
+            );
+        });
+    }
+
     it("reports cohesive story, pet, and Chronicle areas for client-owned divergence", () => {
         const local = {
             character: {

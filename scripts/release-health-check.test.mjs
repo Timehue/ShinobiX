@@ -29,7 +29,7 @@ async function probe({ shallow = {}, deep = {}, status = 200, env = {}, hang = f
             cwd: root, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'],
             env: { ...process.env, HEALTH_DEEP_TOKEN: token, EXPECTED_COMMIT: commit,
                 EXPECTED_SAVE_STORE: 'base-store', REQUIRE_KNOWN_COMMIT: '1', REQUIRE_EXPECTED_COMMIT: '1',
-                REQUIRE_FRESH_BACKUP: '1', REQUIRE_DISK_OVERLAY: '0', HEALTH_REQUEST_TIMEOUT_MS: '1000', ...env },
+                REQUIRE_FRESH_BACKUP: '1', HEALTH_REQUEST_TIMEOUT_MS: '1000', ...env },
         });
         child.stdout.on('data', data => { output += data; });
         child.stderr.on('data', data => { output += data; });
@@ -110,7 +110,7 @@ test('release probe preserves default readiness and opt-in exit semantics over r
             const child = spawn(process.execPath, [fileURLToPath(new URL('./release-health-check.mjs', import.meta.url)),
                 `http://127.0.0.1:${server.address().port}`], {
                 env: { ...process.env, HEALTH_DEEP_TOKEN: 'local-test-token', EXPECTED_COMMIT: commit, REQUIRE_EXPECTED_COMMIT: '1',
-                    EXPECTED_SAVE_STORE: 'test-memory', REQUIRE_KNOWN_COMMIT: '1', REQUIRE_DISK_OVERLAY: '',
+                    EXPECTED_SAVE_STORE: 'test-memory', REQUIRE_KNOWN_COMMIT: '1',
                     REQUIRE_FRESH_BACKUP: '', REQUIRE_REQUEST_SLO: scenario.enabled ? '1' : '' },
                 windowsHide: true,
             });
