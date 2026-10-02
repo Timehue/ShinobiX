@@ -361,10 +361,7 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'player/trade.ts': 2,
 
     // ── Being moved onto mutatePlayerSave ───────────────────────────────────
-    '_anbu-infiltration-store.ts': 3,
-    '_sector-war-garrison-store.ts': 1,
     'admin/bloodline-review.ts': 1,
-    'pvp/_vitals-settlement.ts': 1,
     'towers/_entry-recovery.ts': 1,
     'towers/_records.ts': 1,
     'towers/_tower-store.ts': 4,
