@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
-import { cors, mergePreservingImages } from './_utils.js';
+import { cors } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { LockContendedError, withKvLock } from './_lock.js';
-import { isIncapacitated } from './_elapsed-state.js';
+import { battleLockedFor, isIncapacitated, settleVitalsRegen } from './_elapsed-state.js';
 import { applyDerivedLevel, type XpCharacter } from './_xp-engine.js';
-import { bumpSaveVersion } from './save/_save-version.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from './save/_projected-write.js';
 import { bumpLegacyStats } from './_legacy-track.js';
 import { bumpEraContribution } from './_era.js';
 import { announce } from './_announce.js';
@@ -640,34 +640,31 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     for (const entry of summary as WeeklyBossRewardEntry[]) {
         if (alreadyCredited.has(entry.name)) continue;
         try {
-            const did = await withKvLock(saveKeyCreditScope(entry.name), async () => {
-                const saveKey = `save:${entry.name}`;
-                const fresh = await kv.get<Record<string, unknown>>(saveKey);
-                const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                if (!fresh || !freshChar) return { complete: true, newlyApplied: false, character: null }; // no save → nothing to credit; count as done
-
-                // Exactly-once is proven by a receipt committed in the same
-                // save write as the payout. A separate NX reservation is not
-                // sufficient: a process stop between that reservation and this
-                // write permanently burns the reward.
-                // Character XP is retired: contributors receive a flat weekly
-                // stat-pool grant. The helper commits that grant, items, ryo,
-                // and its idempotency receipt in this one player-save write.
-                const applied = applyWeeklyBossReward(
-                    freshChar,
-                    weekKey,
-                    finalBoss.aiId,
-                    entry,
-                    Date.now(),
-                );
-                if (applied.alreadyApplied) return { complete: true, newlyApplied: false, character: freshChar };
-                const updated = {
-                    ...fresh,
-                    character: applied.character,
-                };
-                await kv.set(saveKey, mergePreservingImages(bumpSaveVersion(updated, { previousCharacter: freshChar }), fresh));
-                return { complete: true, newlyApplied: true, character: applied.character };
-            }, { failClosed: true });
+            // Exactly-once is proven by a receipt committed in the same save
+            // write as the payout. A separate NX reservation is not sufficient:
+            // a process stop between that reservation and this write
+            // permanently burns the reward. The same receipt makes re-running
+            // the credit after a lost compare-and-set pay it once.
+            const did = await retryOnSaveVersionConflict(async () => {
+                const credited = await mutatePlayerSave<{ newlyApplied: boolean }>(entry.name, ({ character: freshChar }) => {
+                    // Character XP is retired: contributors receive a flat weekly
+                    // stat-pool grant. The helper commits that grant, items, ryo,
+                    // and its idempotency receipt in this one player-save write.
+                    const applied = applyWeeklyBossReward(
+                        freshChar,
+                        weekKey,
+                        finalBoss.aiId,
+                        entry,
+                        Date.now(),
+                    );
+                    if (applied.alreadyApplied) return { ok: true, write: false, character: freshChar, value: { newlyApplied: false } };
+                    return { ok: true, character: applied.character, value: { newlyApplied: true } };
+                });
+                // No save → nothing to credit; count as done.
+                return credited.ok
+                    ? { complete: true, newlyApplied: credited.value.newlyApplied, character: credited.character as Record<string, unknown> | null }
+                    : { complete: true, newlyApplied: false, character: null };
+            });
             if (did.complete) {
                 // Legacy tracking (ENABLE_LEGACY): the weekly boss is the live
                 // source for boss/event legacy proof — contribution damage,
@@ -722,13 +719,6 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
     return finalBoss;
 }
 
-// The per-player save credit serializes on the same logical lock target as
-// the save endpoint's own lock so a weekly-boss credit and a concurrent
-// player autosave don't interleave a lost update. (save endpoint locks on
-// `save:<name>`; we mirror that target string here.)
-function saveKeyCreditScope(name: string): string {
-    return `save:${name}`;
-}
 
 type WeeklyBossResetOutcome =
     | { kind: 'spawned'; boss: WeeklyBossState }
@@ -1011,7 +1001,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         } };
                     }
 
-                    const actorSave = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${actorName}`));
+                    // Validate and seed the fight against the save with its idle
+                    // recovery projected (F13). The stored row trails the player's
+                    // real vitals by however long it has been since their last
+                    // save, so a raw read refused a challenger who had already
+                    // regained the stamina and started them on stale HP. The
+                    // locked stamina charge below settles the same recovery.
+                    const storedActorSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
+                    const actorSave = await augmentSaveWithForgedDefs(storedActorSave
+                        ? settleVitalsRegen(storedActorSave, { now: Date.now(), battleLocked: await battleLockedFor(actorName) }).record
+                        : storedActorSave);
                     const actorChar = actorSave?.character as Record<string, unknown> | undefined;
                     if (!actorSave || !actorChar) return { status: 404 as const, body: { error: 'Player save not found.' } };
 
@@ -1134,35 +1133,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     let updatedCharacter = actorChar;
                     let saveVersion = Number(actorSave._saveVersion ?? 0);
                     if (!identity.admin) {
-                        const staminaCharge = await withKvLock(`save:${actorName}`, async () => {
-                            const freshSave = await kv.get<Record<string, unknown>>(`save:${actorName}`);
-                            const freshChar = freshSave?.character as Record<string, unknown> | undefined;
-                            if (!freshSave || !freshChar) return null;
-                            const startReceiptId = `weekly-start-${run!.runId}`;
-                            const startFingerprint = `${run!.weekKey}:${run!.aiId}:${run!.bossStartedAt}`;
-                            const inspected = inspectSettlementReceipt(freshChar, startReceiptId, startFingerprint);
-                            if (inspected.status === 'replay') {
-                                return { character: freshChar, saveVersion: Number(freshSave._saveVersion ?? 0) };
-                            }
-                            if (inspected.status !== 'fresh') return null;
-                            if (Number(freshChar.stamina ?? 0) < 20) return null;
-                            const nextChar = appendSettlementReceipt(
-                                { ...freshChar, stamina: Number(freshChar.stamina ?? 0) - 20 },
-                                inspected.receipts,
-                                {
-                                    requestId: startReceiptId,
-                                    fingerprint: startFingerprint,
-                                    value: { kind: 'weekly-boss-start', stamina: 20 },
-                                    settledAt: Date.now(),
-                                },
-                            );
-                            const updated = bumpSaveVersion({
-                                ...freshSave,
-                                character: nextChar,
+                        // The stamina check reads the save with its idle recovery
+                        // settled, so stamina regained since the last save counts.
+                        // The start receipt commits with the debit, so re-running
+                        // the charge after a lost compare-and-set debits once.
+                        const staminaCharge = await retryOnSaveVersionConflict(async () => {
+                            const charged = await mutatePlayerSave<null>(actorName, ({ character: freshChar }) => {
+                                const startReceiptId = `weekly-start-${run!.runId}`;
+                                const startFingerprint = `${run!.weekKey}:${run!.aiId}:${run!.bossStartedAt}`;
+                                const inspected = inspectSettlementReceipt(freshChar, startReceiptId, startFingerprint);
+                                if (inspected.status === 'replay') return { ok: true, write: false, character: freshChar, value: null };
+                                if (inspected.status !== 'fresh') return { ok: false, status: 409, error: 'The start receipt is unreadable.' };
+                                if (Number(freshChar.stamina ?? 0) < 20) return { ok: false, status: 409, error: 'Not enough stamina.' };
+                                const nextChar = appendSettlementReceipt(
+                                    { ...freshChar, stamina: Number(freshChar.stamina ?? 0) - 20 },
+                                    inspected.receipts,
+                                    {
+                                        requestId: startReceiptId,
+                                        fingerprint: startFingerprint,
+                                        value: { kind: 'weekly-boss-start', stamina: 20 },
+                                        settledAt: Date.now(),
+                                    },
+                                );
+                                return { ok: true, character: nextChar, value: null };
                             });
-                            await kv.set(`save:${actorName}`, mergePreservingImages(updated, freshSave));
-                            return { character: nextChar, saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0) };
-                        }, { failClosed: true });
+                            return charged.ok ? { character: charged.character, saveVersion: charged._saveVersion } : null;
+                        });
                         if (!staminaCharge) {
                             await withKvLock(WEEKLY_BOSS_STATE_KEY, async () => {
                                 const fresh = await kv.get<WeeklyBossState>(WEEKLY_BOSS_STATE_KEY);
@@ -1302,6 +1298,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(400).json({ error: 'Unknown kind.' });
         } catch (err) {
+            // A start interrupted by a lost race resumes as a prepared run.
+            if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
             console.error('[weekly-boss]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }

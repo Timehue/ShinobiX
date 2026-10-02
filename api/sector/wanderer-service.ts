@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import {
     claimWandererUseCooldown,
     currentWandererCooldownUntil,
@@ -66,6 +67,19 @@ function sectorFrom(v: unknown): number {
     return Math.max(1, Math.min(MAX_WILD_SECTOR, int(v) || 1));
 }
 
+/** A service reply, and whether it acknowledges the save version it reflects. */
+type Reply = { body: Record<string, unknown>; echo?: boolean };
+
+function replyFor(committed: PlayerSaveMutationResult<Reply>): { status: number; body: Record<string, unknown> } {
+    if (!committed.ok) {
+        return committed.status === 404
+            ? { status: 404, body: { error: 'Your save was not found.' } }
+            : { status: committed.status, body: { error: committed.error } };
+    }
+    const { body, echo } = committed.value;
+    return { status: 200, body: echo ? { ...body, _saveVersion: committed._saveVersion } : body };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -109,28 +123,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const sector = sectorFrom(body.sector);
             let legacyWandererId = '';
 
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+                const answer = (reply: Record<string, unknown>) => ({ ok: true as const, write: false, character: char, value: { body: reply } });
                 const now = Date.now();
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
                 const saveCooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
                 if (saveCooldownUntil) {
                     if (await kv.get(wandererUseCooldownKey(playerName, wandererId))) {
                         legacyWandererId = wandererId;
                     }
-                    return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil } };
+                    return answer({ ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil });
                 }
+
+                // Every service below claims the wanderer's hard cooldown row
+                // ahead of its save write. A write that loses its compare-and-set
+                // committed nothing, so each one hands that row back (and undoes
+                // whatever else it wrote first) for the player's retry.
+                const releaseCooldown = (cooldownUntil: number | undefined) =>
+                    kv.delIfEqual(wandererUseCooldownKey(playerName, wandererId), { cooldownUntil }).then(() => undefined);
 
                 if (action === 'merchant') {
                     const offer = wandererMerchantOffer(char.level, wandererId);
                     if (num(char.ryo) < offer.cost) {
-                        return { status: 200, body: { ok: false, reason: 'no-ryo', offer } };
+                        return answer({ ok: false, reason: 'no-ryo', offer });
                     }
                     const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
                     if (!hardCooldown.ok) {
-                        return { status: 200, body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil } };
+                        return answer({ ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil });
                     }
                     const spent = {
                         ...char,
@@ -138,33 +157,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         boneCharms: num(char.boneCharms) + offer.boneCharms,
                     };
                     const used = withWandererUseState(spent, wandererId, now, sector);
-                    legacyWandererId = wandererId;
-                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character }, { previousCharacter: char });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
-                        status: 200,
-                        body: {
-                            ok: true,
-                            offer,
-                            totals: { ryo: used.character.ryo, boneCharms: used.character.boneCharms },
-                            cooldownUntil: used.cooldownUntil,
-                            moveToSector: used.moveToSector,
-                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                        ok: true,
+                        character: used.character,
+                        value: {
+                            body: {
+                                ok: true,
+                                offer,
+                                totals: { ryo: used.character.ryo, boneCharms: used.character.boneCharms },
+                                cooldownUntil: used.cooldownUntil,
+                                moveToSector: used.moveToSector,
+                            },
+                            echo: true,
                         },
+                        onConflict: () => releaseCooldown(hardCooldown.cooldownUntil),
                     };
                 }
 
                 if (action === 'medic') {
                     const offer = wandererMedicOffer(char.level, char.hp, char.maxHp, char.chakra, char.maxChakra, char.stamina, char.maxStamina);
                     if (offer.missingHp + offer.missingChakra + offer.missingStamina <= 0) {
-                        return { status: 200, body: { ok: false, reason: 'already-well', offer } };
+                        return answer({ ok: false, reason: 'already-well', offer });
                     }
                     if (num(char.ryo) < offer.cost) {
-                        return { status: 200, body: { ok: false, reason: 'no-ryo', offer } };
+                        return answer({ ok: false, reason: 'no-ryo', offer });
                     }
                     const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
                     if (!hardCooldown.ok) {
-                        return { status: 200, body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil } };
+                        return answer({ ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil });
                     }
                     const healed = {
                         ...char,
@@ -174,24 +194,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         stamina: Math.max(num(char.stamina), num(char.maxStamina)),
                     };
                     const used = withWandererUseState(healed, wandererId, now, sector);
-                    legacyWandererId = wandererId;
-                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
-                        status: 200,
-                        body: {
-                            ok: true,
-                            offer,
-                            totals: {
-                                ryo: used.character.ryo,
-                                hp: used.character.hp,
-                                chakra: used.character.chakra,
-                                stamina: used.character.stamina,
+                        ok: true,
+                        character: used.character,
+                        value: {
+                            body: {
+                                ok: true,
+                                offer,
+                                totals: {
+                                    ryo: used.character.ryo,
+                                    hp: used.character.hp,
+                                    chakra: used.character.chakra,
+                                    stamina: used.character.stamina,
+                                },
+                                cooldownUntil: used.cooldownUntil,
+                                moveToSector: used.moveToSector,
                             },
-                            cooldownUntil: used.cooldownUntil,
-                            moveToSector: used.moveToSector,
-                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                            echo: true,
                         },
+                        onConflict: () => releaseCooldown(hardCooldown.cooldownUntil),
                     };
                 }
 
@@ -200,15 +221,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // the sector the player is in (relocation honoured).
                     const tracker = resolveNaturalWanderer(wandererId, now, char, sector);
                     if (tracker?.verb !== 'tracker') {
-                        return { status: 200, body: { ok: false, reason: 'invalid-wanderer' } };
+                        return answer({ ok: false, reason: 'invalid-wanderer' });
                     }
                     const existingTrail = await loadTrackerTrail(playerName);
                     if (existingTrail && await trackerTrailInProgress(playerName, existingTrail, now)) {
-                        return { status: 200, body: { ok: false, reason: 'busy', trail: existingTrail } };
+                        return answer({ ok: false, reason: 'busy', trail: existingTrail });
                     }
                     const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
                     if (!hardCooldown.ok) {
-                        return { status: 200, body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil } };
+                        return answer({ ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil });
                     }
                     const trailId = `trail-${wandererId}-${now}`;
                     const trail: TrackerTrail = {
@@ -222,17 +243,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                     await saveTrackerTrail(playerName, trail, now);
                     const used = withWandererUseState({ ...char, activeTrackerTrail: trail }, wandererId, now, sector);
-                    legacyWandererId = wandererId;
-                    const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                     return {
-                        status: 200,
-                        body: {
-                            ok: true,
-                            trail,
-                            cooldownUntil: used.cooldownUntil,
-                            moveToSector: used.moveToSector,
-                            _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                        ok: true,
+                        character: used.character,
+                        value: {
+                            body: {
+                                ok: true,
+                                trail,
+                                cooldownUntil: used.cooldownUntil,
+                                moveToSector: used.moveToSector,
+                            },
+                            echo: true,
+                        },
+                        onConflict: async () => {
+                            await releaseCooldown(hardCooldown.cooldownUntil);
+                            if ((await loadTrackerTrail(playerName))?.id === trail.id) await kv.del(trackerTrailKey(playerName));
                         },
                     };
                 }
@@ -240,13 +265,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const favorKey = favorKeyFor(playerName);
                 const existing = await kv.get<FavorRecord>(favorKey);
                 if (existing && num(existing.expiresAt) > now) {
-                    return { status: 200, body: { ok: false, reason: 'busy', favor: { ...existing, targetSector: playableFieldObjectiveSector(existing.targetSector) } } };
+                    return answer({ ok: false, reason: 'busy', favor: { ...existing, targetSector: playableFieldObjectiveSector(existing.targetSector) } });
                 }
                 if (existing) await kv.del(favorKey).catch(() => undefined);
 
                 const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
                 if (!hardCooldown.ok) {
-                    return { status: 200, body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil } };
+                    return answer({ ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil });
                 }
                 const favor: FavorRecord = {
                     id: `favor-${wandererId}-${now}`,
@@ -257,20 +282,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
                 await kv.set(favorKey, favor, { ex: FAVOR_TTL_SECONDS });
                 const used = withWandererUseState({ ...char, activeWandererFavor: favor }, wandererId, now, sector);
-                legacyWandererId = wandererId;
-                const nextRecord = bumpSaveVersion({ ...rec, character: used.character });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
-                    status: 200,
-                    body: {
-                        ok: true,
-                        favor,
-                        cooldownUntil: used.cooldownUntil,
-                        moveToSector: used.moveToSector,
-                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                    ok: true,
+                    character: used.character,
+                    value: {
+                        body: {
+                            ok: true,
+                            favor,
+                            cooldownUntil: used.cooldownUntil,
+                            moveToSector: used.moveToSector,
+                        },
+                        echo: true,
+                    },
+                    onConflict: async () => {
+                        await releaseCooldown(hardCooldown.cooldownUntil);
+                        await kv.delIfEqual(favorKey, favor);
                     },
                 };
-            }, { failClosed: true });
+            });
+            if (committed.ok && committed.value.body.ok === true) legacyWandererId = wandererId;
+            const out = replyFor(committed);
 
             if (legacyWandererId) {
                 const receiptId = `wanderer-discovery:${legacyWandererId}`;
@@ -291,31 +322,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const sector = sectorFrom(body.sector);
             if (!favorId) return res.status(400).json({ error: 'Missing favorId.' });
 
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+                const answer = (reply: Record<string, unknown>, echo = false) => ({ ok: true as const, write: false, character: char, value: { body: reply, echo } });
                 const now = Date.now();
                 const favorKey = favorKeyFor(playerName);
                 const favor = await kv.get<FavorRecord>(favorKey);
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
                 if (!favor || favor.id !== favorId) {
-                    if (!char.activeWandererFavor) {
-                        return { status: 200, body: { ok: false, reason: 'none', _saveVersion: Number(rec._saveVersion ?? 0) } };
-                    }
-                    const cleared = { ...char, activeWandererFavor: null };
-                    const nextRecord = bumpSaveVersion({ ...rec, character: cleared });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                    return { status: 200, body: { ok: false, reason: 'none', _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                    if (!char.activeWandererFavor) return answer({ ok: false, reason: 'none' }, true);
+                    return { ok: true, character: { ...char, activeWandererFavor: null }, value: { body: { ok: false, reason: 'none' }, echo: true } };
                 }
                 if (num(favor.expiresAt) <= now) {
                     await kv.del(favorKey).catch(() => undefined);
-                    const cleared = { ...char, activeWandererFavor: null };
-                    const nextRecord = bumpSaveVersion({ ...rec, character: cleared });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                    return { status: 200, body: { ok: false, reason: 'expired', _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                    return { ok: true, character: { ...char, activeWandererFavor: null }, value: { body: { ok: false, reason: 'expired' }, echo: true } };
                 }
                 if (sector !== playableFieldObjectiveSector(favor.targetSector)) {
-                    return { status: 200, body: { ok: false, reason: 'wrong-sector', favor: { ...favor, targetSector: playableFieldObjectiveSector(favor.targetSector) } } };
+                    return answer({ ok: false, reason: 'wrong-sector', favor: { ...favor, targetSector: playableFieldObjectiveSector(favor.targetSector) } });
                 }
                 const reward = wandererFavorReward(char.level, favor.id);
                 await kv.del(favorKey).catch(() => undefined);
@@ -325,18 +346,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
                     activeWandererFavor: null,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
-                    status: 200,
-                    body: {
-                        ok: true,
-                        reward,
-                        totals: { ryo: updated.ryo, boneCharms: updated.boneCharms },
-                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                    ok: true,
+                    character: updated,
+                    value: {
+                        body: {
+                            ok: true,
+                            reward,
+                            totals: { ryo: updated.ryo, boneCharms: updated.boneCharms },
+                        },
+                        echo: true,
+                    },
+                    // The favor row was consumed ahead of the payout. A payout
+                    // that loses its compare-and-set paid nothing, so the favor
+                    // goes back for the player's retry.
+                    onConflict: async () => {
+                        const ttlSeconds = Math.ceil((num(favor.expiresAt) - Date.now()) / 1000);
+                        if (ttlSeconds > 0 && !(await kv.get(favorKey))) await kv.set(favorKey, favor, { ex: ttlSeconds });
                     },
                 };
-            }, { failClosed: true });
+            });
+            const out = replyFor(committed);
             // The encounter itself was credited at favor-start. Delivering the
             // parcel is not a second NPC discovery; counting both made one
             // wanderer worth two sector discoveries and had no replay-safe
@@ -348,19 +378,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const trailId = typeof body.trailId === 'string' ? body.trailId.trim() : '';
             if (!trailId) return res.status(400).json({ error: 'Missing trailId.' });
 
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+                const answer = (reply: Record<string, unknown>, echo = false) => ({ ok: true as const, write: false, character: char, value: { body: reply, echo } });
                 const now = Date.now();
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
                 const trail = await loadTrackerTrail(playerName);
                 // Clears the display mirror (and the row, when it is this one).
+                // A cleared mirror that loses its compare-and-set self-heals: the
+                // retry finds no row and clears it then.
                 const clear = async (reason: string, deleteRow: boolean) => {
                     if (deleteRow) await kv.del(trackerTrailKey(playerName)).catch(() => undefined);
-                    if (!char.activeTrackerTrail) return { status: 200, body: { ok: action === 'tracker-trail-abandon', reason, _saveVersion: Number(rec._saveVersion ?? 0) } };
-                    const nextRecord = bumpSaveVersion({ ...rec, character: { ...char, activeTrackerTrail: null } });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                    return { status: 200, body: { ok: action === 'tracker-trail-abandon', reason, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                    const reply = { ok: action === 'tracker-trail-abandon', reason };
+                    if (!char.activeTrackerTrail) return answer(reply, true);
+                    return { ok: true as const, character: { ...char, activeTrackerTrail: null }, value: { body: reply, echo: true } };
                 };
 
                 if (!trail || trail.id !== trailId) return clear('none', false);
@@ -368,28 +397,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (action === 'tracker-trail-abandon') {
                     // Never pull the proof out from under a live capture battle.
                     if (await trackerTrailEncounterLive(playerName, trail)) {
-                        return { status: 200, body: { ok: false, reason: 'in-battle', trail } };
+                        return answer({ ok: false, reason: 'in-battle', trail });
                     }
                     return clear('abandoned', true);
                 }
 
                 if (!trail.flushedAt && trail.expiresAt <= now) return clear('expired', true);
-                if (trail.step === 1) return { status: 200, body: { ok: true, trail } };
+                if (trail.step === 1) return answer({ ok: true, trail });
                 if (sectorFrom(body.sector) !== trail.sectors[0]) {
-                    return { status: 200, body: { ok: false, reason: 'wrong-sector', trail } };
+                    return answer({ ok: false, reason: 'wrong-sector', trail });
                 }
                 const advanced: TrackerTrail = { ...trail, step: 1 };
                 await saveTrackerTrail(playerName, advanced, now);
-                const nextRecord = bumpSaveVersion({ ...rec, character: { ...char, activeTrackerTrail: advanced } });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                return { status: 200, body: { ok: true, trail: advanced, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, activeTrackerTrail: advanced },
+                    value: { body: { ok: true, trail: advanced }, echo: true },
+                    // The row advanced ahead of the mirror. A mirror write that
+                    // loses its compare-and-set leaves the row a step ahead, so
+                    // the retry would never write the mirror; step the row back.
+                    onConflict: async () => {
+                        const current = await loadTrackerTrail(playerName);
+                        if (current?.id === trail.id && current.step === 1) await saveTrackerTrail(playerName, trail, Date.now());
+                    },
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'The road is busy - please retry.' });
         }
         console.error('[sector/wanderer-service]', safeLogValue(err));

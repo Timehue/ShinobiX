@@ -29,10 +29,9 @@
  * move.
  */
 
-import { kv } from './_storage.js';
-import { withKvLock } from './_lock.js';
-import { bumpSaveVersion } from './save/_save-version.js';
-import { mergePreservingImages, safeName } from './_utils.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from './save/_projected-write.js';
+import { safeName } from './_utils.js';
 import { isPatreonSubscriber } from './_entitlements.js';
 
 // ─── Entitlement shape ────────────────────────────────────────────────────────
@@ -120,17 +119,15 @@ export async function applyEntitlementToSave(
     sourceId: string,
     ent: Entitlement,
 ): Promise<EntitlementWrite> {
-    const key = `save:${safeName(playerName)}`;
-    return await withKvLock<EntitlementWrite>(key, async () => {
-        const rec = await kv.get<Record<string, unknown>>(key);
-        const char = (rec?.character ?? null) as Record<string, unknown> | null;
-        if (!rec || !char) return { outcome: 'no-save' };
-
+    // The entitlement is a value, not a delta, so re-running the whole write
+    // after a lost compare-and-set lands the same flag once.
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<EntitlementWrite>(safeName(playerName), ({ character: char }) => {
+        const unwritten = (value: EntitlementWrite) => ({ ok: true as const, write: false, character: char, value });
         const now = Date.now();
         const prev = (char.patreon ?? null) as Record<string, unknown> | null;
         if (!ent.active) {
             const refused = revokeRefusal(char, prev, sourceId);
-            if (refused) return refused;
+            if (refused) return unwritten(refused);
         }
         // Skip the write when nothing meaningful changed — makes re-delivery a
         // free no-op instead of a redundant version bump. Only a plain provider
@@ -146,13 +143,13 @@ export async function applyEntitlementToSave(
             && Number(prev.entitledCents) === ent.entitledCents
             && prev.source === undefined
             && prev.expiresAt === undefined) {
-            return { outcome: 'applied' };
+            return unwritten({ outcome: 'applied' });
         }
         // Preserve the original "since" while active; clear tracking on lapse.
         const prevSince = prev && Number(prev.since) > 0 ? Number(prev.since) : 0;
         const since = ent.active ? (prevSince || now) : (prevSince || undefined);
 
-        char.patreon = {
+        const patreon = {
             userId: sourceId,
             tier: ent.tier,
             active: ent.active,
@@ -160,10 +157,9 @@ export async function applyEntitlementToSave(
             since,
             updatedAt: now,
         };
-        const record = bumpSaveVersion({ ...rec, character: char });
-        await kv.set(key, mergePreservingImages(record, rec));
-        return { outcome: 'applied' };
-    }, { failClosed: true });
+        return { ok: true, character: { ...char, patreon }, value: { outcome: 'applied' } };
+    }));
+    return out.ok ? out.value : { outcome: 'no-save' };
 }
 
 // ─── Admin comp grant (manual subscription, no payment) ───────────────────────
@@ -194,12 +190,9 @@ export async function applyAdminSubscription(
     playerName: string,
     opts: { active: boolean; days?: number },
 ): Promise<AdminSubResult | null> {
-    const key = `save:${safeName(playerName)}`;
-    return await withKvLock<AdminSubResult | null>(key, async () => {
-        const rec = await kv.get<Record<string, unknown>>(key);
-        const char = (rec?.character ?? null) as Record<string, unknown> | null;
-        if (!rec || !char) return null;
-
+    // A comp is a value, not a delta, so re-running the whole write after a
+    // lost compare-and-set lands it once.
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<AdminSubResult>(safeName(playerName), ({ character: char }) => {
         const now = Date.now();
         const prev = (char.patreon ?? null) as Record<string, unknown> | null;
         const prevUserId = typeof prev?.userId === 'string' ? prev.userId : '';
@@ -229,11 +222,13 @@ export async function applyAdminSubscription(
                 source: 'admin',
             };
         }
-        char.patreon = flag;
-        const record = bumpSaveVersion({ ...rec, character: char });
-        await kv.set(key, mergePreservingImages(record, rec));
-        return { active: opts.active, tier: String(flag.tier), expiresAt: (flag.expiresAt as number | undefined) ?? null };
-    }, { failClosed: true });
+        return {
+            ok: true,
+            character: { ...char, patreon: flag },
+            value: { active: opts.active, tier: String(flag.tier), expiresAt: (flag.expiresAt as number | undefined) ?? null },
+        };
+    }));
+    return out.ok ? out.value : null;
 }
 
 // ─── Pure read helpers ────────────────────────────────────────────────────────

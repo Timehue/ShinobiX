@@ -214,6 +214,65 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
         assert.equal(out.body?._saveVersion, stored._saveVersion);
     });
 
+    it('mission profession XP', async () => {
+        const name = `${PREFIX}missionxp`;
+        await seedTired(name, { profession: 'vanguard', professionXp: 0, professionRank: 1 });
+        const { awardProfessionXp } = await import('../missions/_progress.js');
+        const out = await awardProfessionXp(name, 'vanguard', 40);
+
+        assert.equal(out?.xp, 40);
+        const stored = await assertStoredRecovered(name, 'mission profession XP');
+        assert.equal((stored.character as Json).professionXp, 40);
+    });
+
+    it('clan boss operation profession XP', async () => {
+        const name = `${PREFIX}operationxp`;
+        await seedTired(name, { profession: 'healer', professionXp: 0, professionRank: 1 });
+        const { awardOperationProfessionXp } = await import('../clan-boss/_profession.js');
+        const out = await awardOperationProfessionXp({
+            playerName: name,
+            runId: `${PREFIX}-run`,
+            contribution: { actions: 5, damage: 0, healing: 0, shielding: 0, cleanses: 0, objective: 0, score: 250, active: true, survived: true, threshold: 'veteran' },
+        });
+
+        assert.ok(out.awarded > 0);
+        assertRecovered(out.character, 'operation XP reply');
+        await assertStoredRecovered(name, 'operation profession XP');
+    });
+
+    it('clan points', async () => {
+        const name = `${PREFIX}clanpoints`;
+        await seedTired(name, { clan: `${PREFIX} Clan` });
+        const { awardClanPointsToPlayerSave } = await import('../_clan-points.js');
+        const out = await awardClanPointsToPlayerSave(name, 'guardDuty', 10, { eventId: `${PREFIX}-guard` });
+
+        assert.equal(out.awarded, 10);
+        assertRecovered(out.character as Json, 'clan points reply');
+        const stored = await assertStoredRecovered(name, 'clan points');
+        assert.equal(out._saveVersion, stored._saveVersion);
+    });
+
+    it('admin supporter comp', async () => {
+        const name = `${PREFIX}admincomp`;
+        await seedTired(name);
+        const { applyAdminSubscription } = await import('../_subscription.js');
+        const out = await applyAdminSubscription(name, { active: true, days: 7 });
+
+        assert.equal(out?.active, true);
+        await assertStoredRecovered(name, 'admin supporter comp');
+    });
+
+    it('billing entitlement', async () => {
+        const name = `${PREFIX}entitlement`;
+        await seedTired(name);
+        const { applyEntitlementToSave, SUBSCRIBER_TIER } = await import('../_subscription.js');
+        const out = await applyEntitlementToSave(name, `${PREFIX}-buyer`, { active: true, tier: SUBSCRIBER_TIER, entitledCents: 500 });
+
+        assert.deepEqual(out, { outcome: 'applied' });
+        const stored = await assertStoredRecovered(name, 'billing entitlement');
+        assert.equal(((stored.character as Json).patreon as Json).active, true);
+    });
+
     it('village tax day (no treasury share)', async () => {
         const name = `${PREFIX}tax`;
         // No seated Kage forces the rate to zero, so the day is only stamped:

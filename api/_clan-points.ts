@@ -1,8 +1,7 @@
 import { kv } from './_storage.js';
-import { withKvLock } from './_lock.js';
-import { mergePreservingImages, safeName } from './_utils.js';
-import { bumpSaveVersion } from './save/_save-version.js';
-import { writeVersionedPlayerSave } from './save/_mutate-player-save.js';
+import { safeName } from './_utils.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 
 export const CLAN_POINTS_WEEKLY_CAP = 1_000;
 export const CLAN_POINT_HISTORY_LIMIT = 30;
@@ -169,42 +168,30 @@ export async function awardClanPointsToPlayerSave(
         const weekKey = clanPointWeekKey();
         return { playerName, found: false, character: {}, awarded: 0, requested: 0, weekKey, weeklyEarned: 0, weeklyCap: CLAN_POINTS_WEEKLY_CAP, reason: 'invalid-amount' };
     }
-    return await withKvLock(`save:${playerName}`, async () => {
-        const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const character = (record?.character ?? null) as Record<string, unknown> | null;
-        if (!record || !character) {
-            const weekKey = clanPointWeekKey();
-            return { playerName, found: false, character: {}, awarded: 0, requested: 0, weekKey, weeklyEarned: 0, weeklyCap: CLAN_POINTS_WEEKLY_CAP };
-        }
+    // The award's event id lands in clanPointHistory (and, for a sealed mission,
+    // clanMissionPointReceipts) in the same write as the points, so re-running
+    // the whole award after a lost compare-and-set credits it once.
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<ClanPointAwardResult>(playerName, ({ character }) => {
         const result = awardClanPoints(character, source, amount, metadata, new Date(Date.now()));
-        const changed = result.character !== character;
-        let saveVersion = Number(record._saveVersion ?? 0);
-        if (changed) {
-            if (metadata.missionReceiptVersion === 1) {
-                const saved = await writeVersionedPlayerSave(`save:${playerName}`, record, result.character);
-                saveVersion = saved._saveVersion;
-            } else {
-                const nextRecord = bumpSaveVersion({ ...record, character: result.character });
-                await kv.set(
-                    `save:${playerName}`,
-                    mergePreservingImages(nextRecord, record),
-                );
-                // Return the stamp from the exact record written while this save lock
-                // is held. Callers must never re-read after releasing the lock to
-                // guess which concurrent version their response should acknowledge.
-                saveVersion = Number(nextRecord._saveVersion ?? 0);
-            }
-        }
-        if (result.awarded > 0) {
-            await kv.set(`audit:clan-points:${playerName}:${Date.now()}`, {
-                ts: Date.now(),
-                playerName,
-                source,
-                amount: result.awarded,
-                weekKey: result.weekKey,
-                metadata,
-            }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
-        }
-        return { ...result, playerName, found: true, _saveVersion: saveVersion };
-    }, { failClosed: true });
+        return { ok: true, write: result.character !== character, character: result.character, value: result };
+    }));
+    if (!out.ok) {
+        const weekKey = clanPointWeekKey();
+        return { playerName, found: false, character: {}, awarded: 0, requested: 0, weekKey, weeklyEarned: 0, weeklyCap: CLAN_POINTS_WEEKLY_CAP };
+    }
+    const result = out.value;
+    if (result.awarded > 0) {
+        await kv.set(`audit:clan-points:${playerName}:${Date.now()}`, {
+            ts: Date.now(),
+            playerName,
+            source,
+            amount: result.awarded,
+            weekKey: result.weekKey,
+            metadata,
+        }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+    }
+    // The stamp is the exact committed record's (the stored one when nothing
+    // changed). Callers must never re-read after the lock is released to guess
+    // which concurrent version their response should acknowledge.
+    return { ...result, character: out.character, playerName, found: true, _saveVersion: out._saveVersion };
 }

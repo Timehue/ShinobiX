@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { decideWandererGift, rollWandererGift, WANDERER_GIFTS_PER_DAY } from './_wanderer-gift.js';
 import {
     claimWandererUseCooldown,
@@ -72,11 +73,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const dayKey = `wanderer-gift:${playerName}:${utcDateKey()}`;
         let legacyWandererId = '';
 
-        const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+        type Reply = Record<string, unknown>;
+        const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+            const refuse = (body: Reply) => ({ ok: true as const, write: false, character: char, value: body });
             const now = Date.now();
-            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
             const saveCooldownUntil = currentWandererCooldownUntil(char, wandererId, now);
             if (saveCooldownUntil) {
@@ -86,21 +86,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (await kv.get(wandererUseCooldownKey(playerName, wandererId))) {
                     legacyWandererId = wandererId;
                 }
-                return { status: 200, body: { ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil } };
+                return refuse({ ok: false, reason: 'cooldown', cooldownUntil: saveCooldownUntil });
             }
 
             const claimsSoFar = Math.max(0, Number((await kv.get<number>(dayKey)) ?? 0));
             const decision = decideWandererGift(claimsSoFar);
             if (!decision.ok) {
-                return { status: 200, body: { ok: false, reason: decision.reason, claimsLeft: 0 } };
+                return refuse({ ok: false, reason: decision.reason, claimsLeft: 0 });
             }
 
             const hardCooldown = await claimWandererUseCooldown(kv, playerName, wandererId, now);
             if (!hardCooldown.ok) {
-                return {
-                    status: 200,
-                    body: { ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil },
-                };
+                return refuse({ ok: false, reason: hardCooldown.reason, cooldownUntil: hardCooldown.cooldownUntil });
             }
 
             // Burn the daily slot after save/cooldown eligibility is verified.
@@ -117,22 +114,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
             const used = withWandererUseState(rewarded, wandererId, now, sector);
             const updated = used.character;
-            legacyWandererId = wandererId;
-            const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
-            await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
-                status: 200,
-                body: {
+                ok: true,
+                character: updated,
+                value: {
                     ok: true,
                     gift,
                     totals: { ryo: updated.ryo, fateShards: updated.fateShards, boneCharms: updated.boneCharms },
                     claimsLeft: Math.max(0, WANDERER_GIFTS_PER_DAY - countAfter),
                     cooldownUntil: used.cooldownUntil,
                     moveToSector: used.moveToSector,
-                    _saveVersion: Number(record._saveVersion ?? 0),
+                },
+                // A gift that loses its compare-and-set paid nothing: hand back
+                // the wanderer cooldown and the daily slot it spent, so the
+                // player's retry is a fresh claim rather than "cooldown". Only
+                // this player's gift path touches either key, always under this
+                // save lock.
+                onConflict: async () => {
+                    await kv.delIfEqual(wandererUseCooldownKey(playerName, wandererId), { cooldownUntil: hardCooldown.cooldownUntil });
+                    if (await kv.get<number>(dayKey) === countAfter) await kv.set(dayKey, countAfter - 1, { ex: 25 * 60 * 60 });
                 },
             };
-        }, { failClosed: true });
+        });
+        if (!committed.ok) {
+            if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+            return res.status(committed.status).json({ error: committed.error });
+        }
+        const out = { status: 200, body: committed.value };
+        if (committed.value.ok === true) {
+            legacyWandererId = wandererId;
+            committed.value._saveVersion = committed._saveVersion;
+        }
 
         // Legacy tracking (ENABLE_LEGACY): a wanderer encounter is a sector
         // discovery. Rides the same daily cap as the gift itself.
@@ -149,7 +161,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(out.status).json(out.body);
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Could not grant the gift — please retry.' });
         }
         console.error('[sector/wanderer-gift]', safeLogValue(err));

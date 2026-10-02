@@ -55,32 +55,30 @@ const ECHOES_VERSION = new Set([
     // client-owned and an unadopted debit would be undone by the next autosave.
     '_war-tax-apply.ts',
     'admin/content-publish.ts',
-    'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
     'clan/exchange/purchase.ts',
     'clan/mentor.ts',
     'clan/war/declare.ts',
     'clan/seal-pool/donate.ts',
-    'festival/black-market.ts',
     'hollow-gate/combat-settle.ts',
     'hollow-gate/event.ts',
     'hollow-gate/settle.ts',
-    'hollow-gate/step.ts',
     'hollow-gate/use-consumable.ts',
     // jutsu/speedup.ts now commits through mutatePlayerSave, so the
     // "every mutatePlayerSave route acknowledges the committed version" test
     // below covers it (it used to echo the pre-bump version — a stale ack).
     // jutsu/train-with-seals.ts no longer writes: Seal levels are timed lessons
     // through training/jutsu-ryo.ts (payWith: 'honorSeals'), which echoes.
-    'legacy/trial.ts',
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
-    'missions/report-pet-event.ts',
     'missions/report-raid.ts',
     'pet/battle-result.ts',
-    'pet/gauntlet.ts',
     'pet/showdown.ts',
     'player/_cross-heal-settlement.ts',
-    'player/heal.ts',
+    // battle/lock.ts (every PvE defeat — the hottest path of all),
+    // hollow-gate/step.ts, legacy/trial.ts, missions/report-pet-event.ts,
+    // pet/gauntlet.ts, player/heal.ts and weekly-boss.ts now commit through
+    // mutatePlayerSave, so the "every mutatePlayerSave route acknowledges the
+    // committed version" test below covers them.
     // bank/claim-interest.ts, missions/weekly-board.ts, pet/evolve.ts,
     // player/daily-login.ts, profession/choose.ts, village/claim-daily-agenda.ts
     // and village/claim-war-crate.ts now commit through mutatePlayerSave, so the
@@ -92,24 +90,17 @@ const ECHOES_VERSION = new Set([
     'sector/shrine-offer.ts',
     'clan/treasury/donate.ts',
     'village/treasury/donate.ts',
-    // Sector Contracts. The claim pays ryo, which is client-owned, so the
-    // response echoes the committed `_saveVersion` and the client adopts the
-    // server's `totalRyo` — without both, the next autosave would undo the
-    // bounty it just collected.
-    'sector/contract.ts',
-    'sector/questbook.ts',
-    'sector/rift-quest.ts',
-    'sector/story-reckoning.ts',
-    'sector/wanderer-ambush.ts',
-    'sector/wanderer-gift.ts',
-    'sector/wanderer-quest.ts',
-    'sector/wanderer-service.ts',
+    // The sector quests and wanderer services (sector/contract.ts — whose claim
+    // pays client-owned ryo, so the client must adopt the committed version and
+    // `totalRyo` together — plus questbook, rift-quest, story-reckoning,
+    // wanderer-ambush, -gift, -quest and -service) and festival/black-market.ts
+    // now commit through mutatePlayerSave, so the "every mutatePlayerSave route
+    // acknowledges the committed version" test below covers them.
     'towers/start.ts',
     'village/claim-map-control.ts',
     'village/hollow-gate-unlock.ts',
     'village/kage-challenge.ts',
     'village/hire-mercenary.ts',
-    'weekly-boss.ts',
 ]);
 
 // These routes mutate through a versioned shared settlement helper rather than
@@ -225,22 +216,14 @@ const EXEMPT = new Set([
     '_war-declaration-funding.ts',
     '_war-mercenary-hire.ts',
     'admin/bloodline-review.ts',
-    'admin/economy-reconcile.ts',
-    'admin/legacy.ts',
     'cron/_ranked-season.ts',
-    // Weekly boss settlement credits MANY members' saves at once, from a timer with no
-    // request to echo into. The bump is deliberate and load-bearing: it is what stops a
-    // rewarded player's next full-character autosave from overwriting the credit — that
-    // client 409s and refetches the reward instead.
-    'cron/_clan-boss-weekly.ts',
-    // Subscription entitlement writer (was patreon/_patreon.ts until the Patreon
-    // rail was removed). Writes the server-owned perk flag from an admin comp or
-    // a billing-provider callback — never from a request the affected player
-    // made, so there is no response of theirs in flight to carry a version.
-    '_subscription.ts',
+    // cron/_clan-boss-weekly.ts (many members' saves, from a timer), _subscription.ts
+    // (billing callbacks and admin comps), missions/_progress.ts, clan-boss/_profession.ts
+    // (multi-member), _clan-points.ts and _era.ts used to be listed here. They now commit
+    // through mutatePlayerSave and no longer name a BUMP_MARKER; they still bump, and
+    // still have no single response of the affected player's to echo into.
     'clan/seal-pool/distribute.ts',
     'player/trade.ts',
-    'missions/_progress.ts',
     // Shared two-save ranked helper. pet/battle-result settles both fighters,
     // then rereads and echoes only the requesting player's final `_saveVersion`;
     // exposing either side's version from this helper would be ambiguous.
@@ -260,9 +243,6 @@ const EXEMPT = new Set([
     // no HTTP response to echo a version into; the challenger's next load adopts
     // the bumped `_saveVersion` and they are told via an offline notice.
     'village/_kage-inactivity.ts',
-    // Shared multi-member operation helper; assault-settle rereads and echoes the
-    // requesting member's final `_saveVersion` after all reward helpers complete.
-    'clan-boss/_profession.ts',
     // Shared crash-recovery helper. Direct recovery changes the caller, while a
     // party lifecycle repair can refund the host on another member's request;
     // exposing the host's version from the helper would be ambiguous and unsafe.
@@ -276,12 +256,22 @@ const EXEMPT = new Set([
     // Honor Seal debit, live only when the war map is disabled — echoes the
     // declaring Kage's committed `_saveVersion` (_world-war-declaration.test.ts).
     'world-state.ts',
-    '_clan-points.ts',
-    // Shared acceptance writer; sage.ts and stats.ts return the exact record
-    // stamp from this helper to the requesting player.
-    'legacy/_acceptance.ts',
+    // (legacy/_acceptance.ts, the shared acceptance writer, used to be listed here.
+    // It now commits through mutatePlayerSave, and sage.ts and stats.ts still return
+    // its exact record stamp to the requesting player.)
     '_elapsed-state.ts',
-    '_era.ts',
+]);
+
+/**
+ * Admin routes that mutate ANOTHER player's save through mutatePlayerSave. They
+ * must never echo that version: authFetch adopts any `_saveVersion` in a
+ * response for the signed-in account, so the admin's own client would take the
+ * target player's version as its base and 409 its next autosave. The target
+ * adopts the bump from their own next load.
+ */
+const ADMIN_TARGET_MUTATION_ROUTES = new Set([
+    'admin/economy-reconcile.ts',
+    'admin/legacy.ts',
 ]);
 
 function collect(dir: string, out: string[] = []): string[] {
@@ -362,11 +352,20 @@ test('sector-war declarations never fund from a player save', () => {
 
 test('every mutatePlayerSave route acknowledges the committed version', () => {
     for (const rel of helperMutationRoutes) {
+        if (ADMIN_TARGET_MUTATION_ROUTES.has(rel)) continue;
         const src = readFileSync(join(API_DIR, rel), 'utf8');
         assert.match(
             src,
             /_saveVersion/,
             `${rel} uses mutatePlayerSave but never returns its exact _saveVersion`,
         );
+    }
+});
+
+test('admin routes never hand the admin a target player\'s save version', () => {
+    for (const rel of ADMIN_TARGET_MUTATION_ROUTES) {
+        assert.ok(helperMutationRoutes.includes(rel), `${rel} no longer mutates through mutatePlayerSave — update ADMIN_TARGET_MUTATION_ROUTES`);
+        const src = readFileSync(join(API_DIR, rel), 'utf8');
+        assert.doesNotMatch(src, /_saveVersion/, `${rel} must not echo another player's _saveVersion to the admin`);
     }
 });
