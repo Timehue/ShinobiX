@@ -149,6 +149,12 @@ const _noCachePrefixes = [
     // history. Each choice appends under a distributed lock and must read the
     // latest lane tally written by any worker.
     'story:',
+    // Player trades are finished from their nonce markers, journals and the
+    // recovery sweep's pending pointers, read under both save locks by the
+    // player's retry, the admin reconcile and the sweep
+    // (api/player/_trade-settlement.ts). A worker-local snapshot of a marker
+    // another worker released could re-run a debit that worker already ran.
+    'trade:', 'economy-tx:player-trade:',
 ];
 
 function _shouldCache(key: string): boolean {

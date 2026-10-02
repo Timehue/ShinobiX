@@ -60,7 +60,10 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'village/treasury/transfer.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
     { file: 'card-clash/open-pack.ts', mechanism: 'state-machine', markers: ['mutatePlayerSave'] },
     { file: 'card-clash/ai-move.ts', mechanism: 'in-save-receipt', markers: ['redeemedCardClashAiSessions'] },
-    { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'trade:nonce:'] },
+    { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'tradeNonceKey'] },
+    // A trade's two writes each carry an in-save receipt, which is what lets a
+    // retry of its nonce, or the admin reconcile, finish it exactly once.
+    { file: 'player/_trade-settlement.ts', mechanism: 'in-save-receipt', markers: ['trade:nonce:', 'inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
     { file: 'cron/_ranked-season.ts', mechanism: 'in-save-receipt', markers: ['SEASON_SETTLEMENT_RECEIPTS_FIELD', 'settleRankedSeasonCharacter'] },
     // Retry-safe save->shared settlements (issue #179, api/_save-debit-saga.ts):
     // an in-save receipt on the debit, a shared-record receipt on the credit,

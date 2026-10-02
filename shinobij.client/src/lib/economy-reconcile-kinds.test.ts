@@ -20,5 +20,15 @@ test('a saga journal is reconcilable until it finishes; other kinds only when th
     assert.equal(canReconcileEconomyTx({ state: 'needs-reconcile', kind: 'kage-challenge-declare', resource: 'honorSeals' }), false);
     assert.equal(canReconcileEconomyTx({ state: 'debit-applied', kind: 'hollow-gate-unlock', resource: 'honorSeals' }), false);
     assert.equal(canReconcileEconomyTx({ state: 'needs-reconcile', kind: 'clan-territory-collect-supply', resource: 'warSupply' }), true);
+});
+
+test('a player trade is reconcilable until it finishes, and only when its writes carry receipts', () => {
+    const backed = { receiptBacked: true };
+    assert.equal(canReconcileEconomyTx({ state: 'needs-reconcile', kind: 'player-trade', resource: 'ryo', meta: backed }), true);
+    assert.equal(canReconcileEconomyTx({ state: 'debit-applied', kind: 'player-trade', resource: 'fateShards', meta: backed }), true);
+    assert.equal(canReconcileEconomyTx({ state: 'complete', kind: 'player-trade', resource: 'ryo', meta: backed }), false);
+    assert.equal(canReconcileEconomyTx({ state: 'refunded', kind: 'player-trade', resource: 'ryo', meta: backed }), false);
+    // Journalled before trade receipts: its saves cannot prove what moved.
     assert.equal(canReconcileEconomyTx({ state: 'needs-reconcile', kind: 'player-trade', resource: 'ryo' }), false);
+    assert.equal(canReconcileEconomyTx({ state: 'needs-reconcile', kind: 'player-trade', resource: 'ryo', meta: { credit: 4500 } }), false);
 });
