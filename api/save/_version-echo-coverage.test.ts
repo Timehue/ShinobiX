@@ -225,22 +225,14 @@ const EXEMPT = new Set([
     '_war-declaration-funding.ts',
     '_war-mercenary-hire.ts',
     'admin/bloodline-review.ts',
-    'admin/economy-reconcile.ts',
-    'admin/legacy.ts',
     'cron/_ranked-season.ts',
-    // Weekly boss settlement credits MANY members' saves at once, from a timer with no
-    // request to echo into. The bump is deliberate and load-bearing: it is what stops a
-    // rewarded player's next full-character autosave from overwriting the credit — that
-    // client 409s and refetches the reward instead.
-    'cron/_clan-boss-weekly.ts',
-    // Subscription entitlement writer (was patreon/_patreon.ts until the Patreon
-    // rail was removed). Writes the server-owned perk flag from an admin comp or
-    // a billing-provider callback — never from a request the affected player
-    // made, so there is no response of theirs in flight to carry a version.
-    '_subscription.ts',
+    // cron/_clan-boss-weekly.ts (many members' saves, from a timer), _subscription.ts
+    // (billing callbacks and admin comps), missions/_progress.ts, clan-boss/_profession.ts
+    // (multi-member), _clan-points.ts and _era.ts used to be listed here. They now commit
+    // through mutatePlayerSave and no longer name a BUMP_MARKER; they still bump, and
+    // still have no single response of the affected player's to echo into.
     'clan/seal-pool/distribute.ts',
     'player/trade.ts',
-    'missions/_progress.ts',
     // Shared two-save ranked helper. pet/battle-result settles both fighters,
     // then rereads and echoes only the requesting player's final `_saveVersion`;
     // exposing either side's version from this helper would be ambiguous.
@@ -260,9 +252,6 @@ const EXEMPT = new Set([
     // no HTTP response to echo a version into; the challenger's next load adopts
     // the bumped `_saveVersion` and they are told via an offline notice.
     'village/_kage-inactivity.ts',
-    // Shared multi-member operation helper; assault-settle rereads and echoes the
-    // requesting member's final `_saveVersion` after all reward helpers complete.
-    'clan-boss/_profession.ts',
     // Shared crash-recovery helper. Direct recovery changes the caller, while a
     // party lifecycle repair can refund the host on another member's request;
     // exposing the host's version from the helper would be ambiguous and unsafe.
@@ -276,12 +265,22 @@ const EXEMPT = new Set([
     // Honor Seal debit, live only when the war map is disabled — echoes the
     // declaring Kage's committed `_saveVersion` (_world-war-declaration.test.ts).
     'world-state.ts',
-    '_clan-points.ts',
     // Shared acceptance writer; sage.ts and stats.ts return the exact record
     // stamp from this helper to the requesting player.
     'legacy/_acceptance.ts',
     '_elapsed-state.ts',
-    '_era.ts',
+]);
+
+/**
+ * Admin routes that mutate ANOTHER player's save through mutatePlayerSave. They
+ * must never echo that version: authFetch adopts any `_saveVersion` in a
+ * response for the signed-in account, so the admin's own client would take the
+ * target player's version as its base and 409 its next autosave. The target
+ * adopts the bump from their own next load.
+ */
+const ADMIN_TARGET_MUTATION_ROUTES = new Set([
+    'admin/economy-reconcile.ts',
+    'admin/legacy.ts',
 ]);
 
 function collect(dir: string, out: string[] = []): string[] {
@@ -362,11 +361,20 @@ test('sector-war declarations never fund from a player save', () => {
 
 test('every mutatePlayerSave route acknowledges the committed version', () => {
     for (const rel of helperMutationRoutes) {
+        if (ADMIN_TARGET_MUTATION_ROUTES.has(rel)) continue;
         const src = readFileSync(join(API_DIR, rel), 'utf8');
         assert.match(
             src,
             /_saveVersion/,
             `${rel} uses mutatePlayerSave but never returns its exact _saveVersion`,
         );
+    }
+});
+
+test('admin routes never hand the admin a target player\'s save version', () => {
+    for (const rel of ADMIN_TARGET_MUTATION_ROUTES) {
+        assert.ok(helperMutationRoutes.includes(rel), `${rel} no longer mutates through mutatePlayerSave — update ADMIN_TARGET_MUTATION_ROUTES`);
+        const src = readFileSync(join(API_DIR, rel), 'utf8');
+        assert.doesNotMatch(src, /_saveVersion/, `${rel} must not echo another player's _saveVersion to the admin`);
     }
 });

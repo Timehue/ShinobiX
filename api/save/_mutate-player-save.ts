@@ -43,6 +43,14 @@ export type PlayerSaveMutation<T> =
          * itself is still what the caller sees.
          */
         onConflict?: () => Promise<void> | void;
+        /**
+         * Writes that must follow this decision's COMMITTED save while the save
+         * lock is still held: a mirror that must never get ahead of the save,
+         * or a marker another save-locked writer reads. Runs only after the
+         * commit succeeded. A throw reaches the caller with the save already
+         * committed, exactly as a raw writer's second write behaved.
+         */
+        afterCommit?: (committed: { record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number }) => Promise<void> | void;
     }
     | { ok: false; status: number; error: string };
 
@@ -287,12 +295,12 @@ export async function mutatePlayerSave<T>(
             }
             throw error;
         }
-        return {
-            ok: true as const,
-            value: decision.value,
+        const committed = {
             record: out.record,
             character: out.record.character as PlayerCharacter,
             _saveVersion: out._saveVersion,
         };
+        if (decision.afterCommit) await decision.afterCommit(committed);
+        return { ok: true as const, value: decision.value, ...committed };
     }, { failClosed: true });
 }
