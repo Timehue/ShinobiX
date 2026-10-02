@@ -148,17 +148,19 @@ test('insufficient funds and a failed save write do not debit or discharge', { c
     assert.deepEqual(await kv.get(SAVE_KEY), poor);
 
     await kv.set(SAVE_KEY, save);
-    const originalSet = kv.set;
-    kv.set = (async (key: string, ...args: unknown[]) => {
+    // The discharge commits with an exact compare-and-set; this one fails
+    // without committing (its read-back finds the save unchanged).
+    const originalCompareSet = kv.compareSet;
+    kv.compareSet = (async (key: string, ...args: unknown[]) => {
         if (key === SAVE_KEY) throw new Error('injected recovery write failure');
-        return (originalSet as Function).call(kv, key, ...args);
-    }) as typeof kv.set;
+        return (originalCompareSet as Function).call(kv, key, ...args);
+    }) as typeof kv.compareSet;
     try {
         const failed = response();
         await handler(request(), failed.res);
         assert.equal(failed.out.statusCode, 500);
         assert.deepEqual(await kv.get(SAVE_KEY), save);
-    } finally { kv.set = originalSet; }
+    } finally { kv.compareSet = originalCompareSet; }
     const retry = response();
     await handler(request(), retry.res);
     assert.equal(retry.out.body?.chargedRyo, 2500);

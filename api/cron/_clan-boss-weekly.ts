@@ -20,8 +20,8 @@ import {
     clanBossWeekId, clanBossWeekKey, clanSlug,
     rankClanBoss, type ClanBossProgress, type ClanBossWeek,
 } from '../clan-boss/_storage.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { mergePreservingImages } from '../_utils.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { clanBossEnabled } from '../_release-flags.js';
 import { safeLogValue } from '../_safe-log.js';
 
@@ -170,16 +170,15 @@ async function creditMemberRewards(progress: ClanBossProgress, weekId: string): 
     const rewards = clanBossMemberRewards(progress);
     for (const reward of rewards) {
         if (reward.ryo <= 0 && reward.fateShards <= 0) continue;
-        const saveKey = `save:${reward.slug}`;
-        const ok = await withKvLock(saveKey, async () => {
-            const rec = await kv.get<Record<string, unknown>>(saveKey);
-            const character = rec?.character as Record<string, unknown> | undefined;
-            // A member who left the game (no save) is skipped, not retried forever.
-            if (!rec || !character) return true;
+        // The week stamp commits with the payout, so re-running a member's
+        // credit after a lost compare-and-set pays them once. A member who
+        // left the game (no save) answers 404 and is skipped, not retried
+        // forever; anything thrown keeps the week open for the next pass.
+        await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(reward.slug, ({ character }) => {
             const claimed = Array.isArray(character.clanBossWeeksPaid)
                 ? (character.clanBossWeeksPaid as unknown[]).filter((v): v is string => typeof v === 'string')
                 : [];
-            if (claimed.includes(weekId)) return true;
+            if (claimed.includes(weekId)) return { ok: true, write: false, character, value: null };
             const nextChar = {
                 ...character,
                 ryo: Math.max(0, Number(character.ryo) || 0) + reward.ryo,
@@ -187,11 +186,8 @@ async function creditMemberRewards(progress: ClanBossProgress, weekId: string): 
                 // Keep the last few weeks only — this is a dedupe ledger, not history.
                 clanBossWeeksPaid: [...claimed, weekId].slice(-8),
             };
-            const versioned = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar }, { previousCharacter: character });
-            await kv.set(saveKey, mergePreservingImages(versioned, rec));
-            return true;
-        }, { failClosed: true });
-        if (!ok) return false;
+            return { ok: true, character: nextChar, value: null };
+        }));
     }
     return true;
 }

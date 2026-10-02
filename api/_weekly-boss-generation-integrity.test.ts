@@ -223,20 +223,22 @@ test('reset returns 409 and preserves expired authority when a contributor canno
     await kv.set(BOSS_KEY, originalBoss);
     await kv.set(SAVE_KEY, originalSave);
 
-    const originalSet = kv.set.bind(kv);
+    // The contributor's credit commits with an exact compare-and-set; this one
+    // fails without committing (its read-back finds the save unchanged).
+    const originalCompareSet = kv.compareSet.bind(kv);
     const originalWarn = console.warn;
     const warnings: unknown[][] = [];
-    kv.set = (async (key, value, options) => {
+    kv.compareSet = (async (key, expected, value, options) => {
         if (key === SAVE_KEY) throw new Error('injected Weekly Boss player-credit outage');
-        return originalSet(key, value, options);
-    }) as typeof kv.set;
+        return originalCompareSet(key, expected, value, options);
+    }) as typeof kv.compareSet;
     console.warn = (...args: unknown[]) => { warnings.push(args); };
     let rejected: Out;
     try {
         rejected = await invoke('POST', { kind: 'reset', expectedSpawnId: spawnA, requestedSpawnId: REQUEST_PENDING_B });
     } finally {
         console.warn = originalWarn;
-        kv.set = originalSet as typeof kv.set;
+        kv.compareSet = originalCompareSet as typeof kv.compareSet;
     }
 
     assert.equal(rejected.statusCode, 409);

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
-import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { appendLegacyEvent, getLegacyStats } from '../_legacy-track.js';
 import { currentEraNumber } from '../_era.js';
 import {
@@ -90,13 +90,14 @@ export async function commitLegacyAcceptance(
     auraReward: number,
     now: number,
 ): Promise<AcceptanceSaveResult> {
-    return withKvLock<AcceptanceSaveResult>(`save:${playerName}`, async () => {
-        const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const character = (record?.character ?? null) as Record<string, unknown> | null;
-        if (!record || !character) return { status: 'missing' };
-
+    type Decided =
+        | { status: 'conflict' }
+        | { status: 'ok'; legacy: CharacterLegacy; receipt: LegacyAcceptanceReceipt; changed: boolean };
+    // The acceptance receipt commits with the Aura Stone payout, so re-running
+    // the whole acceptance after a lost compare-and-set pays it once.
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<Decided>(playerName, async ({ character }) => {
         const current = (character.legacy ?? null) as CharacterLegacy | null;
-        if (current && current.legacyId !== seed.legacyId) return { status: 'conflict' };
+        if (current && current.legacyId !== seed.legacyId) return { ok: true, write: false, character, value: { status: 'conflict' } };
         const established = current?.legacyId === seed.legacyId;
         const baseLegacy: CharacterLegacy = established ? { ...current } : seed;
         const priorReceipt = baseLegacy.acceptanceReceipt?.legacyId === seed.legacyId
@@ -141,30 +142,20 @@ export async function commitLegacyAcceptance(
             || chronicle.granted.length > 0
             || receiptCards.length !== priorCards.length;
         if (!changed) {
-            return {
-                status: 'ok',
-                record,
-                character,
-                legacy: baseLegacy,
-                receipt,
-                changed: false,
-            };
+            return { ok: true, write: false, character, value: { status: 'ok', legacy: baseLegacy, receipt, changed: false } };
         }
-
-        const written = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: finalCharacter }, { previousCharacter: character }),
-            record,
-        ) as Record<string, unknown>;
-        await kv.set(`save:${playerName}`, written);
-        return {
-            status: 'ok',
-            record: written,
-            character: finalCharacter,
-            legacy: finalLegacy,
-            receipt,
-            changed: true,
-        };
-    }, { failClosed: true });
+        return { ok: true, character: finalCharacter, value: { status: 'ok', legacy: finalLegacy, receipt, changed: true } };
+    }));
+    if (!out.ok) return { status: 'missing' };
+    if (out.value.status === 'conflict') return { status: 'conflict' };
+    return {
+        status: 'ok',
+        record: out.record,
+        character: out.character,
+        legacy: out.value.legacy,
+        receipt: out.value.receipt,
+        changed: out.value.changed,
+    };
 }
 
 /** Create the initial trial under the same lock used by trial start/reroll. */

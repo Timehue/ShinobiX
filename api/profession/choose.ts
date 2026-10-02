@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { LockContendedError, withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import {
     PROFESSION_CHANGE_APPROVAL_ID,
     PROFESSION_CHANGE_APPROVAL_NAME,
@@ -55,56 +55,39 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only choose a profession for yourself.' });
         }
 
-        const key = `save:${playerName}`;
-        // Wrap the whole read-check-write in a lock — without it two concurrent
-        // POSTs both read profession=undefined, both pass the "already chosen"
-        // check, both write a different profession, and last-writer-wins. Also
-        // serializes against any concurrent /api/save auto-save so the
-        // profession flip doesn't get clobbered by a stale character body.
-        const outcome = await withKvLock(key, async () => {
-            const existing = await kv.get<Record<string, unknown>>(key);
-            if (!existing) return { status: 404 as const, body: { error: 'Player not found.' } };
-
-            const char = existing.character as Record<string, unknown> | undefined;
-            if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
+        // The whole read-check-write commits through mutatePlayerSave — the save
+        // lock and an exact compare-and-set. Without it two concurrent POSTs both
+        // read profession=undefined, both pass the "already chosen" check, both
+        // write a different profession, and last-writer-wins. It also serializes
+        // against any concurrent /api/save auto-save so the profession flip
+        // doesn't get clobbered by a stale character body. The profession itself
+        // is the receipt, so re-running the whole choice after a lost
+        // compare-and-set cannot consume a second approval.
+        type Reply = { status: 200 | 403 | 409; body: Record<string, unknown> };
+        const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<Reply>(playerName, ({ character: char }) => {
+            const reply = (status: Reply['status'], body: Record<string, unknown>) =>
+                ({ ok: true as const, write: false, character: char, value: { status, body } });
 
             const level = Number(char.level ?? 0);
             if (level < PROFESSION_UNLOCK_LEVEL) {
-                return { status: 403 as const, body: { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` } };
+                return reply(403, { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` });
             }
 
-            if (char.profession === profession) {
-                return {
-                    status: 200 as const,
-                    body: {
-                        ok: true,
-                        profession,
-                        idempotent: true,
-                        character: char,
-                        ...(Number.isFinite(Number(existing._saveVersion)) ? { _saveVersion: Number(existing._saveVersion) } : {}),
-                    },
-                };
-            }
+            if (char.profession === profession) return reply(200, { ok: true, profession, idempotent: true });
             if (char.profession) {
                 if (!respecRequested) {
-                    return {
-                        status: 409 as const,
-                        body: {
-                            error: `Profession already chosen. A ${PROFESSION_CHANGE_APPROVAL_NAME} is required to change it.`,
-                            current: char.profession,
-                            requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
-                        },
-                    };
+                    return reply(409, {
+                        error: `Profession already chosen. A ${PROFESSION_CHANGE_APPROVAL_NAME} is required to change it.`,
+                        current: char.profession,
+                        requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
+                    });
                 }
                 if (!consumeProfessionApproval(char)) {
-                    return {
-                        status: 409 as const,
-                        body: {
-                            error: `You need a ${PROFESSION_CHANGE_APPROVAL_NAME} from the Grand Marketplace.`,
-                            current: char.profession,
-                            requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
-                        },
-                    };
+                    return reply(409, {
+                        error: `You need a ${PROFESSION_CHANGE_APPROVAL_NAME} from the Grand Marketplace.`,
+                        current: char.profession,
+                        requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
+                    });
                 }
             }
 
@@ -118,33 +101,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 professionChosenAt: Date.now(),
                 ...(changingProfession ? { masterySpec: {} } : {}),
             };
-            const updated = {
-                ...existing,
-                character: nextCharacter,
-            };
-
-            // Echo the new version. Bumping it silently leaves the client's
-            // `_baseSaveVersion` stale, so its next autosave 409s and the conflict path
-            // replaces local state with the server snapshot — progress reverts.
-            // authFetch adopts any `_saveVersion` in a response body monotonically.
-            const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
-            await kv.set(key, mergePreservingImages(versioned, existing));
-            const nextVersion = Number(versioned._saveVersion);
             return {
-                status: 200 as const,
-                body: {
-                    ok: true,
-                    profession,
-                    approvalConsumed: changingProfession,
-                    character: nextCharacter,
-                    ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
-                },
+                ok: true,
+                character: nextCharacter,
+                value: { status: 200, body: { ok: true, profession, approvalConsumed: changingProfession } },
             };
-        }, { failClosed: true });
+        }));
 
+        if (!committed.ok) {
+            if (committed.status === 404) {
+                return res.status(404).json({ error: committed.code === 'character-not-found' ? 'Character not found.' : 'Player not found.' });
+            }
+            return res.status(committed.status).json({ error: committed.error });
+        }
+        const outcome = committed.value;
+        if (outcome.status === 200) {
+            // Echo the version. Bumping it silently leaves the client's
+            // `_baseSaveVersion` stale, so its next autosave 409s and the conflict
+            // path replaces local state with the server snapshot — progress
+            // reverts. authFetch adopts any `_saveVersion` in a response body
+            // monotonically. An idempotent repeat echoes the version it found.
+            outcome.body.character = committed.character;
+            outcome.body._saveVersion = committed._saveVersion;
+        }
         return res.status(outcome.status).json(outcome.body);
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(409).json({ error: 'Profession choice is busy; no change was written. Please retry.' });
         }
         console.error('[profession/choose]', err);
