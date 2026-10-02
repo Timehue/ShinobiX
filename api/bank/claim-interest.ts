@@ -1,11 +1,11 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { computeBankInterest, BANK_INTEREST_WINDOW_MS } from '../_bank-interest.js';
 import { recordEconomyTxn } from '../_economy.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
@@ -20,11 +20,13 @@ import { recordBetaMetric } from '../_beta-metrics.js';
  * leaves `bankRyo` uncapped, so a crafted client could mint arbitrary banked
  * ryo through the interest claim.
  *
- * This endpoint OWNS the claim end-to-end: under `lock:save:<name>` (the
- * autosave's lock) it reads the saved `bankRyo` + bank-upgrade rate, recomputes
- * the interest with the verbatim-ported `computeBankInterest` (server clock for
- * the 24h gate → no clock-rollback repeat), credits `bankRyo` and stamps
- * `lastBankInterestAt` atomically, `failClosed` → 503/retry. The client adds the
+ * This endpoint OWNS the claim end-to-end: through mutatePlayerSave (the
+ * autosave's `lock:save:<name>`, fail-closed, and an exact compare-and-set) it
+ * reads the saved `bankRyo` + bank-upgrade rate, recomputes the interest with
+ * the verbatim-ported `computeBankInterest` (server clock for the 24h gate → no
+ * clock-rollback repeat), credits `bankRyo` and stamps `lastBankInterestAt`
+ * atomically, contention → 503/retry. The same write settles the idle recovery
+ * earned since the player's last save instead of discarding it. The client adds the
  * returned `claimed` delta to its OWN `bankRyo` (preserving concurrent deposits/
  * withdrawals) and re-asserts via autosave; the two converge. There is no
  * separate completion to verify — claiming interest IS the action, fully owned
@@ -51,34 +53,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'bank-claim-interest', 30, 60_000, identity.name))) return;
 
         const now = Date.now();
-        const saveKey = `save:${playerName}`;
 
-        type Out =
-            | { error: 'no-save' }
-            | { credited: false; reason: string; nextClaimAt: number; saveVersion: number }
-            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number; saveVersion: number; level: number };
-        let out: Out;
+        type Decision =
+            | { credited: false; reason: string; nextClaimAt: number }
+            | { credited: true; interest: number; bankRyo: number; nextClaimAt: number; level: number };
+        let committed: PlayerSaveMutationResult<Decision>;
         try {
-            out = await withKvLock(saveKey, async (): Promise<Out> => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { error: 'no-save' };
+            // `lastBankInterestAt` commits with the credit, so re-running the
+            // whole claim after a lost compare-and-set can pay at most once.
+            committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<Decision>(playerName, ({ character: char }) => {
                 const result = computeBankInterest(char, now);
                 if (!result.eligible) {
-                    return { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt, saveVersion: Number(rec._saveVersion ?? 0) };
+                    return { ok: true, write: false, character: char, value: { credited: false, reason: result.reason, nextClaimAt: result.nextClaimAt } };
                 }
                 const nextBankRyo = (Number(char.bankRyo) || 0) + result.interest;
                 const nextChar = { ...char, bankRyo: nextBankRyo, lastBankInterestAt: now };
-                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar });
-                await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-                return { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS, saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0), level: Number(char.level ?? 0) };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: nextChar,
+                    value: { credited: true, interest: result.interest, bankRyo: nextBankRyo, nextClaimAt: now + BANK_INTEREST_WINDOW_MS, level: Number(char.level ?? 0) },
+                };
+            }));
         } catch (e) {
             console.error('[bank/claim-interest] credit failed', e);
             return res.status(503).json({ error: 'Could not claim bank interest — please retry.' });
         }
 
-        if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
+        if (!committed.ok) {
+            if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+            return res.status(committed.status).json({ error: committed.error });
+        }
+        const out = { ...committed.value, saveVersion: committed._saveVersion };
         if (!out.credited) {
             return res.status(200).json({ ok: true, eligible: false, claimed: 0, reason: out.reason, nextClaimAt: out.nextClaimAt, _saveVersion: out.saveVersion });
         }

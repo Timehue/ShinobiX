@@ -2,13 +2,14 @@ import { safeLogValue } from '../_safe-log.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { invalidateProcCache } from '../_proc-cache.js';
 import { seededVillageAgenda, verifyAgendaCompletion } from '../_village-agenda.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
 
 /*
@@ -27,9 +28,11 @@ import { MERIT_DAILY_AGENDA, meritNum } from './_village-merit.js';
  *
  * It ALSO credits the player's own fixed PERSONAL reward (audit #7 / Stage 3
  * Phase 2): +750 ryo, +1 boneCharm, +8 honorSeals (Vanguard only). That credit
- * runs under lock:save:<name> (the same lock the autosave takes) with its OWN
- * in-save day receipt committed with the reward — exactly-once, failClosed →
- * 503/retry — so the player save can no longer be raced and a crafted client
+ * commits through mutatePlayerSave (lock:save:<name>, the same lock the autosave
+ * takes, and an exact compare-and-set) with its OWN in-save day receipt
+ * committed with the reward — exactly-once, failClosed → 503/retry, and the
+ * idle recovery earned since the last save settled rather than discarded — so
+ * the player save can no longer be raced and a crafted client
  * can no longer claim the personal reward repeatedly or inflate it. The client
  * still adds the returned `granted` delta to its OWN balance (preserving
  * concurrent ryo gains) and re-asserts via autosave; the two converge. The
@@ -193,30 +196,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // cannot leave a partial personal payout. The client adds the returned
         // `granted` delta to its OWN balance (not the absolute — so concurrent ryo
         // gains elsewhere survive) and re-asserts via autosave; the two converge.
-        let personal: { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; isVanguard: boolean; balances: { ryo: number; boneCharms: number; honorSeals: number }; saveVersion: number };
+        type Personal = { alreadyClaimed: boolean; granted: { ryo: number; boneCharms: number; honorSeals: number }; isVanguard: boolean; balances: { ryo: number; boneCharms: number; honorSeals: number } };
+        let personal: Personal & { saveVersion: number };
         try {
-            const out = await withKvLock(`save:${playerName}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { error: 'no-save' as const };
+            // The day receipt commits with the reward, so re-running the whole
+            // personal credit after a lost compare-and-set pays at most once.
+            const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<Personal>(playerName, ({ character: char }) => {
                 const applied = applyAgendaPersonalReward(char, date);
                 const nextChar = applied.character;
-                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
-                if (!applied.alreadyClaimed) await kv.set(`save:${playerName}`, mergePreservingImages(next, rec));
                 return {
-                    alreadyClaimed: applied.alreadyClaimed,
-                    granted: applied.granted,
-                    // `profession` is server-owned (locked to stored by the save
-                    // sanitizer), so the tithe cannot be claimed by a forged save.
-                    isVanguard: char.profession === 'vanguard',
-                    balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
-                    saveVersion: applied.alreadyClaimed
-                        ? Number(rec._saveVersion ?? 0)
-                        : Number((next as Record<string, unknown>)._saveVersion ?? 0),
+                    ok: true,
+                    write: !applied.alreadyClaimed,
+                    character: nextChar,
+                    value: {
+                        alreadyClaimed: applied.alreadyClaimed,
+                        granted: applied.granted,
+                        // `profession` is server-owned (locked to stored by the save
+                        // sanitizer), so the tithe cannot be claimed by a forged save.
+                        isVanguard: char.profession === 'vanguard',
+                        balances: { ryo: num(nextChar.ryo), boneCharms: num(nextChar.boneCharms), honorSeals: num(nextChar.honorSeals) },
+                    },
                 };
-            }, { failClosed: true });
-            if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
-            personal = out;
+            }));
+            if (!out.ok) {
+                if (out.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+                return res.status(out.status).json({ error: out.error });
+            }
+            personal = { ...out.value, saveVersion: out._saveVersion };
         } catch (e) {
             console.error('[village/claim-daily-agenda] personal credit failed', e);
             return res.status(503).json({ error: 'Could not credit your daily reward — please retry.' });
