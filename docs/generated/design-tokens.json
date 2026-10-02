@@ -2610,11 +2610,11 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 90
+            "line": 96
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 114
+            "line": 120
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -3086,11 +3086,11 @@
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 89
+            "line": 95
           },
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 99
+            "line": 105
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis80.css",
@@ -3973,7 +3973,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
-            "line": 91
+            "line": 97
           },
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
