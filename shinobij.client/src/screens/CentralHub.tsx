@@ -1,7 +1,7 @@
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { HOLLOW_GATE_KEY_DUNGEON_KEY_COST, HOLLOW_GATE_KEY_FATE_SHARD_COST } from "../lib/hollow-gate-prices";
 /* eslint-disable react-hooks/purity */
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { usePublicBloodlines } from "../lib/use-public-bloodlines";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
@@ -86,6 +86,7 @@ import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
 import { bloodlineTagPercentChoices, jutsuCountForRank, pointBudgetForRank } from "../lib/jutsu-points";
 import { CentralAwakeningCinematic } from "../components/CentralAwakeningCinematic";
+import { BloodlineAwakeningCinematic, type BloodlineRitualRank } from "../components/BloodlineAwakeningCinematic";
 import { playGameSfx, primeGameAudio } from "../lib/game-audio";
 import { primeCentralAwakeningArtwork } from "../lib/central-awakening-artwork";
 import { dailyMissionsCompleted } from "../lib/character-progress";
@@ -131,9 +132,9 @@ const DUNGEON_BIOME_ICON: Record<string, GameIconName> = {
 };
 
 const BLOODLINE_AWAKENING_TIERS = [
-    { rank: "B Rank", rankMark: "B", className: "rank-b", materialKey: "boneCharms", materialName: "Bone Charms", currencyIcon: "bone" },
-    { rank: "A Rank", rankMark: "A", className: "rank-a", materialKey: "auraStones", materialName: "Aura Stones", currencyIcon: "crystal" },
-    { rank: "S Rank", rankMark: "S", className: "rank-s", materialKey: "mythicSeals", materialName: "Mythic Seals", currencyIcon: "sigil" },
+    { rank: "B Rank", rankMark: "B", className: "rank-b", materialKey: "boneCharms", materialName: "Bone Charms", currencyIcon: "bone", artwork: "/assets/awakening-bone-altar-v1.webp" },
+    { rank: "A Rank", rankMark: "A", className: "rank-a", materialKey: "auraStones", materialName: "Aura Stones", currencyIcon: "crystal", artwork: "/assets/awakening-aura-altar-v1.webp" },
+    { rank: "S Rank", rankMark: "S", className: "rank-s", materialKey: "mythicSeals", materialName: "Mythic Seals", currencyIcon: "sigil", artwork: "/assets/awakening-mythic-altar-v1.webp" },
 ] as const;
 
 // Material rarity band from its craft-point value → chip accent colour.
@@ -273,6 +274,16 @@ export function CentralHub({
     const [craftBusy, setCraftBusy] = useState(false);
     const [awakeningBusy, setAwakeningBusy] = useState(false);
     const [bloodlineForgeBusy, setBloodlineForgeBusy] = useState(false);
+    const [bloodlineCinematic, setBloodlineCinematic] = useState<{
+        rank: BloodlineRitualRank;
+        element: string;
+        resumed: boolean;
+    } | null>(null);
+    const awakeningRequestRef = useRef(false);
+    const ritualBusy = awakeningBusy || bloodlineForgeBusy || Boolean(awakeningCinematic) || Boolean(bloodlineCinematic);
+    useEffect(() => {
+        if (awakeningOpen) primeCentralAwakeningArtwork();
+    }, [awakeningOpen]);
     function beginCraft(): boolean {
         if (craftBusy) return false;
         setCraftBusy(true);
@@ -530,7 +541,8 @@ export function CentralHub({
             : null;
 
     async function rollAwakening(kind: string) {
-        if (awakeningBusy) return;
+        if (awakeningRequestRef.current || ritualBusy) return;
+        awakeningRequestRef.current = true;
         setAwakeningBusy(true);
         try {
             const previous = getCharacterElements(character);
@@ -556,6 +568,7 @@ export function CentralHub({
         } catch (error) {
             setAwakeningMsg(`Error: ${error instanceof Error ? error.message : "Elemental awakening failed."}`);
         } finally {
+            awakeningRequestRef.current = false;
             setAwakeningBusy(false);
         }
     }
@@ -584,13 +597,14 @@ export function CentralHub({
         void rollAwakening(AWAKENING_PAID_BOTH_ID);
     }
 
-    async function awakeningCreateBloodline(rank: Rank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number, resumeOnly = false) {
-        if (bloodlineForgeBusy) return;
+    async function awakeningCreateBloodline(rank: BloodlineRitualRank, materialKey: "boneCharms" | "auraStones" | "mythicSeals", cost: number, resumeOnly = false) {
+        if (awakeningRequestRef.current || ritualBusy) return;
         if (!resumeOnly && (character[materialKey] ?? 0) < cost) {
             const label = materialKey === "boneCharms" ? "Bone Charms" : materialKey === "auraStones" ? "Aura Stones" : "Mythic Seals";
             setAwakeningMsg(`Error: Not enough ${label} — you need ${cost}.`);
             return;
         }
+        awakeningRequestRef.current = true;
         setBloodlineForgeBusy(true);
         try {
             const result = await purchaseBloodlineForge(character.name, rank, resumeOnly);
@@ -599,10 +613,11 @@ export function CentralHub({
             if (!commitServerCharacter(result.character, result._saveVersion)) return;
             closeAwakening();
             setCentralLog(`${rank} Bloodline Awakening ${result.resumed ? "resumed" : "attuned"}. Finish shaping your legacy in Bloodline Awakening.`);
-            onOpenBloodlineMaker(rank, getCharacterElements(result.character)[0] ?? "");
+            setBloodlineCinematic({ rank, element: getCharacterElements(result.character)[0] ?? "", resumed: Boolean(result.resumed) });
         } catch (error) {
             setAwakeningMsg(`Error: ${error instanceof Error ? error.message : "Bloodline Awakening is unavailable."}`);
         } finally {
+            awakeningRequestRef.current = false;
             setBloodlineForgeBusy(false);
         }
     }
@@ -902,6 +917,14 @@ export function CentralHub({
     ] as const;
     return (
         <div className="central-hub">
+            {bloodlineCinematic && (
+                <BloodlineAwakeningCinematic rank={bloodlineCinematic.rank} resumed={bloodlineCinematic.resumed}
+                    onFinished={() => {
+                        const { rank, element } = bloodlineCinematic;
+                        setBloodlineCinematic(null);
+                        onOpenBloodlineMaker(rank, element);
+                    }} />
+            )}
             {awakeningCinematic && (
                 <CentralAwakeningCinematic
                     elements={awakeningCinematic.elements}
@@ -1284,7 +1307,7 @@ export function CentralHub({
                             </div>
                             <div className="aw-roll-row">
                                 {hasFreeRoll ? (
-                                    <button className="aw-free-btn" onClick={awakeningFreeRoll} disabled={awakeningBusy}>
+                                    <button className="aw-free-btn" onClick={awakeningFreeRoll} disabled={ritualBusy}>
                                         <span className="aw-action-seal"><GiSparkles /></span>
                                         <span className="aw-action-copy">
                                             <strong>{awakeningBusy ? "Awakening..." : "Awaken Element"}</strong>
@@ -1297,7 +1320,7 @@ export function CentralHub({
                                         <button
                                             className="aw-paid-btn"
                                             onClick={awakeningPaidRoll}
-                                            disabled={character.fateShards < 10 || awakeningBusy}
+                                            disabled={character.fateShards < 10 || ritualBusy}
                                             title={character.fateShards < 10 ? "Not enough Fate Shards" : "Reroll your primary element and preserve the other"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
@@ -1310,7 +1333,7 @@ export function CentralHub({
                                         <button
                                             className="aw-paid-btn aw-paid-btn--both"
                                             onClick={awakeningPaidBothRoll}
-                                            disabled={awakenedElements.length < 2 || character.fateShards < 15 || awakeningBusy}
+                                            disabled={awakenedElements.length < 2 || character.fateShards < 15 || ritualBusy}
                                             title={awakenedElements.length < 2 ? "Awaken your second element first" : character.fateShards < 15 ? "Not enough Fate Shards" : "Reroll both elements"}
                                         >
                                             <span className="aw-action-seal"><GameIcon name="dice" size={20} /></span>
@@ -1371,6 +1394,9 @@ export function CentralHub({
                                     const percentChoices = bloodlineTagPercentChoices(tier.rank);
                                     return (
                                         <article className={`aw-forge-card ${tier.className}${isReady ? " is-ready" : " is-locked"}`} key={tier.rank}>
+                                            <div className="aw-forge-artwork" aria-hidden="true">
+                                                <img src={tier.artwork} alt="" width={768} height={512} decoding="async" />
+                                            </div>
                                             <div className="aw-forge-card-header">
                                                 <span className="aw-forge-tier">{tier.rankMark}</span>
                                                 <div><small>Bloodline grade</small><div className="aw-forge-rank">{tier.rank}</div></div>
@@ -1391,7 +1417,7 @@ export function CentralHub({
                                             <button
                                                 className="aw-forge-btn"
                                                 onClick={() => awakeningCreateBloodline(tier.rank, tier.materialKey, 100, !isReady)}
-                                                disabled={bloodlineForgeBusy}
+                                                disabled={ritualBusy}
                                             >
                                                 <span>{bloodlineForgeBusy ? "Attuning..." : isReady ? `Awaken ${tier.rank}` : "Resume paid ritual"}</span>
                                                 <small>{isReady ? "Enter Bloodline Awakening" : `Collect ${remaining} more to begin a new ritual`}</small>

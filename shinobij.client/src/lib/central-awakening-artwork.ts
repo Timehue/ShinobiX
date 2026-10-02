@@ -6,6 +6,9 @@ const AWAKENING_ARTWORK = [
     "/assets/awakening-element-wind-v1.webp",
     "/assets/awakening-element-earth-v1.webp",
     "/assets/awakening-element-lightning-v1.webp",
+    "/assets/awakening-bone-altar-v1.webp",
+    "/assets/awakening-aura-altar-v1.webp",
+    "/assets/awakening-mythic-altar-v1.webp",
 ];
 
 let artworkPrimed = false;

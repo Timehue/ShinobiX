@@ -2628,7 +2628,30 @@
 
 .ui-modal-card.dlg-aw .aw-forge-card.rank-a { --forge-rgb: 83, 159, 235; --forge-color: #68aff4; }
 .ui-modal-card.dlg-aw .aw-forge-card.rank-s { --forge-rgb: 241, 202, 73; --forge-color: #f1ca49; }
-.ui-modal-card.dlg-aw .aw-forge-card::after { content: ""; position: absolute; z-index: -1; top: -76px; right: -58px; width: 150px; height: 150px; border: 1px solid rgba(var(--forge-rgb), .13); border-radius: 50%; box-shadow: inset 0 0 0 17px rgba(var(--forge-rgb), .018), inset 0 0 0 35px rgba(var(--forge-rgb), .013); }
+.ui-modal-card.dlg-aw .aw-forge-artwork {
+    position: relative;
+    flex: 0 0 auto;
+    margin: -15px -15px 0;
+    aspect-ratio: 16 / 9;
+    overflow: hidden;
+    background: #080e18;
+    border-bottom: 1px solid rgba(var(--forge-rgb), .25);
+}
+.ui-modal-card.dlg-aw .aw-forge-artwork img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 48%;
+}
+.ui-modal-card.dlg-aw .aw-forge-artwork::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(0deg, rgba(6, 12, 23, .65), transparent 35%);
+    box-shadow: inset 0 1px rgba(255, 255, 255, .07);
+}
 .ui-modal-card.dlg-aw .aw-forge-card-header { display: flex; align-items: center; gap: 10px; }
 .ui-modal-card.dlg-aw .aw-forge-card-header > div { display: grid; gap: 3px; }
 .ui-modal-card.dlg-aw .aw-forge-card-header small { color: #66788d; font: 750 7px/1 Inter, sans-serif; letter-spacing: .15em; text-transform: uppercase; }
