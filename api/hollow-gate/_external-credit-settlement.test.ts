@@ -82,6 +82,43 @@ async function preparedWallet(label: string) {
     return { playerName, token, runKey, saveKey, run, amounts, external, keys: HG_CLAWBACK_KEYS };
 }
 
+test('full five-floor era proof is atomic with extraction and retries; shorter, old and abandoned runs fail', async () => {
+    const priorFlag = process.env.ENABLE_LEGACY;
+    process.env.ENABLE_LEGACY = '1';
+    try {
+        for (const [eraIndex, eraId] of ['hollow-gate-opens', 'world-boss-awakening', 'mythic-legacies'].entries()) for (const kind of ['full', 'short', 'early-floor', 'old', 'abandon']) {
+            const f = await preparedWallet(`era${eraIndex}${kind.replace('-', '')}`);
+            f.run.currentFloor = kind === 'early-floor' ? 4 : kind === 'short' ? 3 : 5;
+            f.run.floorDepth = kind === 'short' ? 3 : 5;
+            f.run.resolvedEncounterIds = [`${f.run.floorDepth}:boss:sealed-final`];
+            f.run.mintedAt = kind === 'old' ? 999 : Date.now();
+            await kv.set(f.runKey, f.run);
+            const saved = (await kv.get<Save>(f.saveKey))!;
+            saved.character.eraJourneys = { [eraId]: { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 0, stageStartedAt: 1000, stageCounts: {}, completedStages: [], proofReceipts: [] } };
+            await kv.set(f.saveKey, saved);
+            const request = { playerName: f.playerName, token: f.token, action: kind === 'abandon' ? 'abandon' : 'extract' };
+            if (kind === 'full') {
+                const original = kv.compareSet.bind(kv);
+                let injected = false;
+                kv.compareSet = async (...args: Parameters<typeof kv.compareSet>) => {
+                    if (args[0] === f.saveKey && !injected) { injected = true; throw new Error('era proof precommit failure'); }
+                    return original(...args);
+                };
+                try { assert.equal((await call(settle, f.playerName, request)).status, 500); } finally { kv.compareSet = original; }
+                assert.equal(injected, true);
+                assert.deepEqual((await kv.get<Save>(f.saveKey))!.character.eraJourneys, saved.character.eraJourneys);
+            }
+            const ended = await call(settle, f.playerName, request);
+            assert.equal(ended.status, 200, String(ended.body?.error));
+            const committed = (await kv.get<Save>(f.saveKey))!;
+            const journey = (committed.character.eraJourneys as any)[eraId];
+            assert.equal(journey.stageCounts['full-gate'] ?? 0, kind === 'full' ? 1 : 0);
+            assert.equal((await call(settle, f.playerName, request)).status, 200);
+            assert.deepEqual((await kv.get<Save>(f.saveKey))!.character.eraJourneys, committed.character.eraJourneys);
+        }
+    } finally { if (priorFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = priorFlag; }
+});
+
 test('external credit racing abandonment is retained in either save-lock order', async () => {
     for (const creditFirst of [false, true]) {
         const f = await preparedWallet(creditFirst ? 'racecredit' : 'racesettle');

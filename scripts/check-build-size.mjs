@@ -763,7 +763,21 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // instrumentation delta, the candidate is expected near 9,053,150 B. Allow
 // 16,850 B of measured headroom at 9.07 MB. Startup, per-chunk, CSS, and gzip
 // gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_070_000;
+// 2026-10-01 RELEASE AUDIT (PR #232): live main 69e9ed520 already measures
+// 9,069,723 B in its production image, 277 B under 9.07 MB, so any growth trips
+// it. Slim player saves add their lazily loaded admin-content device cache plus
+// compare-and-set and unload-save handling: the production image measured
+// 9,073,270 B at 0231a74c9 (+3,547 B over main), and the follow-up adds 279 B
+// locally (~9,073,549 B expected). The Hollow Gate reload rebuild moved OFF the
+// initial graph in the same PR (local initial gzip 393,919 -> 392,943 B).
+// Allow 9.08 MB, leaving ~6.4 KB of measured headroom. Startup, per-chunk, CSS
+// and gzip gates remain unchanged.
+// 2026-10-02 BLOODLINE AWAKENING: rank artwork framing, the ancestral ritual
+// presentation and shared purchase guards add about 9.8 KB of product JS/CSS.
+// With Production Image's public VITE_* settings, the candidate measures
+// 9,083,365 B. Allow 9.09 MB, retaining ~6.6 KB of measured headroom. Entry,
+// initial-graph, per-chunk, CSS and gzip limits remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_090_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

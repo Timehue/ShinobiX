@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { CARD_PACK_TYPES } from '../../../api/card-clash/_pack';
 import {
     packArtUrl,
     packParticles,
@@ -61,6 +62,10 @@ test("packTheme labels every Card Hall pack", () => {
     }
     assert.equal(packTheme("epic").label, "Elite Pack");
     assert.equal(packTheme("legendary").label, "Legendary Pack");
+    assert.equal(packTheme("epic-five").label, "Epic Quintet Pack");
+    assert.equal(packTheme("legendary-five").label, "Legendary Quintet Pack");
+    assert.equal(packTheme("snare").label, "Snare Pack");
+    assert.equal(packTheme("jutsu").label, "Jutsu Pack");
 });
 
 test("pack wrapper art maps every Card Hall pack", () => {
@@ -70,7 +75,9 @@ test("pack wrapper art maps every Card Hall pack", () => {
     }
     assert.equal(packArtUrl("epic"), "/chronicle/packs/elite-cardgame.webp");
     assert.equal(packArtUrl("legendary"), "/chronicle/packs/legendary-cardgame.webp");
-    for (const type of ["standard", "fire", "water", "earth", "wind", "lightning", "epic", "legendary"] as const) {
+    assert.equal(packArtUrl("epic-five"), "/chronicle/packs/epic-five.webp");
+    assert.equal(packArtUrl("legendary-five"), "/chronicle/packs/legendary-five.webp");
+    for (const type of CARD_PACK_TYPES) {
         const asset = new URL(`../../public${packArtUrl(type)}`, import.meta.url);
         assert.equal(existsSync(fileURLToPath(asset)), true, `${type} wrapper art must ship`);
     }

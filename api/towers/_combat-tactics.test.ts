@@ -7,6 +7,102 @@ import { getFloor } from './_floor-catalog.js';
 import { buildTowerEncounter } from './_encounter.js';
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { isTowerActionType } from './_action-types.js';
+import { hexDistance } from '../combat-core/grid.js';
+import { getSpireFloor, spireBossForFloor } from './_spire-catalog.js';
+import { resolveAscensionModifiers } from './_modifiers.js';
+
+test('the four authored campaign examination floors provide their required tactical opportunities', () => {
+    for (const floorId of [5, 7, 9, 10]) {
+        const floor = getFloor(floorId)!;
+        const session = buildTowerEncounter({ floor, runId: `era-mechanics-${floorId}`, seed: 51, partySize: 1, now: 1000,
+            squad: [{ id: 'sq', name: 'Rill', ownerSlug: 'rill', ai: false, character: { maxHp: 1000 } }] });
+        const player = session.actors.find(a => a.id === 'sq')!;
+        const boss = session.actors.find(a => a.id === session.phaseState.bossId)!;
+        const pylon = session.map.features!.find(feature => feature.kind === 'pylon')!;
+        assert.ok(pylon, `floor ${floorId} needs an actual pylon`);
+        const legalTiles = Array.from({ length: session.map.width * session.map.height }, (_, tile) => tile)
+            .filter(tile => !session.map.blockedTiles.includes(tile) && !session.actors.some(a => a.id !== player.id && a.pos === tile));
+        const adjacent = legalTiles.find(tile => hexDistance(tile, pylon.tiles[0]!, session.map.width) <= 1);
+        assert.notEqual(adjacent, undefined, `floor ${floorId} pylon must be approachable`);
+        player.pos = adjacent!;
+        session.turnQueue = [player.id]; session.activeIndex = 0; session.activeAp = 100; session.actionsThisTurn = 0; session.round = 2;
+        assert.equal(applyAction(session, floor, { actorId: player.id, type: 'disrupt', tile: pylon.tiles[0]! }, () => .5).applied, true);
+        assert.equal(session.towerTactics!.disruptedPylons.length, 1);
+        if (floorId === 5) continue;
+        // Controlled positions isolate opportunity from gear, AI and win-rate tuning.
+        // Commander marks begin after a real boss phase; they are not a turn-two ground strike.
+        if (floorId === 9) session.phaseState.triggeredPhases = [66];
+        session.round = 5;
+        delete session.towerTactics!.lastSignatureRound;
+        if (floorId === 10) {
+            let target: number | undefined;
+            for (const tile of legalTiles) {
+                player.pos = tile; delete session.towerTactics!.lastSignatureRound;
+                primeTowerSignature(session);
+                if (session.bossStrike?.tiles.some(mark => session.map.blockedTiles.includes(mark))) { target = tile; break; }
+            }
+            assert.notEqual(target, undefined, 'the authored floor 10 pillars permit charge baiting');
+            resolveTowerSignature(session);
+            assert.equal(session.towerTactics!.chargeBaits, 1);
+        } else {
+            primeTowerSignature(session);
+            assert.ok(session.bossStrike, `floor ${floorId} can produce its required signature`);
+            const safe = legalTiles.find(tile => tile !== boss.pos && !session.bossStrike!.tiles.includes(tile));
+            assert.notEqual(safe, undefined, 'signature has safe ground');
+            player.pos = safe!;
+            resolveTowerSignature(session);
+            assert.equal(session.towerTactics!.avoidedStrikes, 1);
+        }
+        assert.ok(session.round <= floor.roundBudget, 'mechanical timing alone does not exceed examination par');
+        assert.deepEqual(session.towerTactics!.squadKnockouts, []);
+    }
+});
+
+test('every Master and Grandmaster Spire examination has an executable pylon and required signature feat', () => {
+    for (const tier of [12, 15, 16, 17, 18, 20]) {
+        const floor = getSpireFloor(tier)!;
+        const session = buildTowerEncounter({ floor, runId: `era-spire-mechanics-${tier}`, seed: 51, partySize: 4, now: 1000,
+            ascension: resolveAscensionModifiers(tier, spireBossForFloor(tier)!, floor.roundBudget),
+            squad: Array.from({ length: 4 }, (_, n) => ({ id: `sq-${n}`, name: `Rill ${n}`, ownerSlug: `rill${n}`, ai: false, character: { maxHp: 10000 } })) });
+        const player = session.actors.find(actor => actor.id === 'sq-0')!;
+        const boss = session.actors.find(actor => actor.id === session.phaseState.bossId)!;
+        const pylon = session.map.features!.find(feature => feature.kind === 'pylon')!;
+        assert.ok(pylon, `Spire ${tier} has a pylon`);
+        const legalTiles = Array.from({ length: session.map.width * session.map.height }, (_, tile) => tile)
+            .filter(tile => !session.map.blockedTiles.includes(tile) && !session.actors.some(actor => actor.id !== player.id && actor.pos === tile));
+        const adjacent = legalTiles.find(tile => hexDistance(tile, pylon.tiles[0]!, session.map.width) <= 1);
+        assert.notEqual(adjacent, undefined);
+        player.pos = adjacent!;
+        session.turnQueue = [player.id]; session.activeIndex = 0; session.activeAp = 100; session.actionsThisTurn = 0; session.round = 2;
+        assert.equal(applyAction(session, floor, { actorId: player.id, type: 'disrupt', tile: pylon.tiles[0]! }, () => .5).applied, true);
+        // Isolate opportunity, not full-run win rate: commanders need a boss phase before marking.
+        session.phaseState.triggeredPhases = [floor.boss!.phases![0]!];
+        session.round = 5;
+        if (tier === 15) {
+            let found = false;
+            // One target isolates the authored charge lane from other fighters' target priority.
+            for (const ally of session.actors.filter(actor => actor.side === 'squad' && actor.id !== player.id)) ally.hp = 0;
+            for (const tile of legalTiles) {
+                player.pos = tile; delete session.towerTactics!.lastSignatureRound;
+                primeTowerSignature(session);
+                if (session.bossStrike?.tiles.some(mark => session.map.blockedTiles.includes(mark))) { found = true; break; }
+            }
+            assert.ok(found, 'Spire 15 terrain permits the required charge bait');
+            resolveTowerSignature(session);
+            assert.equal(session.towerTactics!.chargeBaits, 1);
+        } else {
+            primeTowerSignature(session);
+            assert.ok(session.bossStrike, `Spire ${tier} exposes its signature`);
+            const safe = legalTiles.find(tile => tile !== boss.pos && !session.bossStrike!.tiles.includes(tile));
+            assert.notEqual(safe, undefined);
+            for (const ally of session.actors.filter(actor => actor.side === 'squad')) ally.pos = safe!;
+            resolveTowerSignature(session);
+            assert.equal(session.towerTactics!.avoidedStrikes, 1);
+        }
+        assert.equal(session.towerTactics!.disruptedPylons.length, 1);
+        assert.ok(session.round <= floor.roundBudget, 'required timing fits the score par');
+    }
+});
 
 function actor(id: string, side: TowerActor['side'], pos: number): TowerActor {
     return { id, name:id, side, pos, ai:side==='enemy', ownerSlug:side==='squad'?'rill':null, hp:1000,maxHp:1000,chakra:100,maxChakra:100,stamina:100,maxStamina:100,shield:0,statuses:[],cooldowns:{},character:{ specialty:'Taijutsu',stats:{},mechanic:'enrage' } };

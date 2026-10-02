@@ -23,7 +23,7 @@ import {
     type RitePlan,
 } from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -949,7 +949,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // short battle token is retired, so a lost response can replay safely.
         if (dungeonPetBinding && casualBattleTokenKey) {
             try {
-                const dungeonResult = await withKvLock(saveKey, async () => {
+                const dungeonResult = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     if (!record) return { ok: false as const, status: 404, error: 'Your save is unavailable.' };
                     const character = characterFromSave(record);
@@ -1002,7 +1002,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         character: finalCharacter,
                         _saveVersion: Number(finalRecord._saveVersion ?? record._saveVersion ?? 0),
                     };
-                }, { failClosed: true });
+                }, { failClosed: true }));
                 if (!dungeonResult.ok) {
                     return res.status(dungeonResult.status).json({ error: dungeonResult.error });
                 }
@@ -1461,11 +1461,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // Apply under a per-player lock so simultaneous result POSTs (e.g.
         // double-clicked Confirm) can't both award ryo + increment counters.
-        const result = await withKvLock(saveKey, async () => {
+        // A lost commit race re-runs the whole block once: it re-reads the save,
+        // and the token receipt keeps the re-run from paying twice.
+        const result = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             if (!record) return { error: 'no-save' as const };
             const char = record.character as Record<string, unknown> | undefined;
             if (!char) return { error: 'no-character' as const };
+            // Never mutate `record`/`char`: the writes below commit with
+            // compare-and-set against `record`, so an in-place change would make
+            // the stored row never match and every report would fail.
+            let receiptChar: Record<string, unknown> = char;
             if (casualBattleTokenKey) {
                 const receipts = Array.isArray(char.redeemedPetBattleTokens)
                     ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-(RECEIPT_HISTORY - 1))
@@ -1498,9 +1504,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         character: char,
                     };
                 }
-                char.redeemedPetBattleTokens = [...receipts, casualBattleReceipt];
+                receiptChar = { ...char, redeemedPetBattleTokens: [...receipts, casualBattleReceipt] };
             }
-            const spentChar = spendSealedCasualConsumables(char, casualPetIds, casualPvePlayerPets);
+            const spentChar = spendSealedCasualConsumables(receiptChar, casualPetIds, casualPvePlayerPets);
 
             const today = utcDateKey();
             const lastReset = String(char.lastDailyReset ?? '');
@@ -1626,7 +1632,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
                 character: updatedChar,
             };
-        }, { failClosed: true });
+        }, { failClosed: true }));
 
         if ('error' in result) {
             const code = result.error === 'no-save' || result.error === 'no-character' ? 404 : 500;
@@ -1659,6 +1665,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(result);
     } catch (err) {
+        // Nothing was written; the battle token is still unspent, so retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[pet/battle-result]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

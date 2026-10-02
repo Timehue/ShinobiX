@@ -46,6 +46,7 @@ import { useEndlessTowerActions } from "./lib/use-endless-tower-actions";
 import { clearSavePreview, readSavePreview, writeSavePreview } from "./lib/save-preview";
 import { setBootKind as perfSetBootKind, notifyScreen as perfNotifyScreen, notifyRestoreComplete as perfNotifyRestoreComplete } from "./lib/perfTelemetry";
 import { lazyWithRetry, retryDynamicImport } from "./lib/lazyWithRetry";
+import { pullSharedAdminSnapshots, rememberSharedAdminItems } from "./lib/shared-admin-items";
 import { runSingleFlight } from "./lib/single-flight";
 import { adoptSaveVersion } from "./lib/save-version";
 import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTravel, rememberAccountToken, savePlayerAccounts } from "./lib/player-accounts";
@@ -501,8 +502,7 @@ import {
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
 import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
-import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
-import { recoverHollowGateRun } from "./lib/hollow-gate-recovery";
+import { enterHollowGateShrineFlow, recoverHollowGateRunLazily, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -2486,7 +2486,7 @@ export default function App() {
             const p1Character = challenger;
             const p2Character = p2CombatSave?.character ?? acceptingCharacter;
             const p1AllItems = getAllItems(creatorItems);
-            const p2AllItems = getAllItems(p2CombatSave?.creatorItems ?? creatorItems);
+            const p2AllItems = getAllItems(p2CombatSave?.creatorItems ? [...p2CombatSave.creatorItems, ...creatorItems] : creatorItems); // opponent's own entries first (find() = first wins); local admin content fills ids a slimmed save no longer copies
             const p1Jutsus = challenge.challengerJutsus?.length
                 ? challenge.challengerJutsus.map(normalizeJutsu)
                 : getPvpJutsuLoadout(p1SavedBloodlines, p1CreatorJutsus, p1Character);
@@ -2619,7 +2619,7 @@ export default function App() {
             // save holds only the server's projection). Rebuild it from the server.
             const recoverBoardlessHollowGateRun = () => {
                 if (normalized.hollowGateRun || !normalized.lastHollowGateStart?.token || normalized.hospitalized) return;
-                void recoverHollowGateRun({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
+                void recoverHollowGateRunLazily({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
                     setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
             };
             scopeSaveAuthorityToAccount(snap.character.name);
@@ -3280,7 +3280,7 @@ export default function App() {
             setCreatorRaids([]);
         }
         if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
-        if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
+        if (snap.creatorItems) { rememberSharedAdminItems(snap.creatorItems as GameItem[]); setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[])); }
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
         // Event-gate config: recency-merged like the other shared content so
@@ -3294,11 +3294,8 @@ export default function App() {
     }
 
     async function pullSharedAdminContent() {
-        const snapshots = await Promise.all([
-            pullSaveFromServer("Admin 1"),
-            pullSaveFromServer("Admin 2"),
-        ]);
-        const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
+        // Cached fallbacks first, live reads last (later wins); see the module.
+        const available = await pullSharedAdminSnapshots(pullSaveFromServer); // lazy device cache; live-only if its chunk fails
         if (!available.length) return;
         const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
@@ -6049,7 +6046,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
-                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} />}
+                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} onOpenCardPacks={() => { try { sessionStorage.setItem("cardHall.initialTab", "packs"); } catch { /* Card Hall still opens at Collection */ } setScreen("shinobiTiles"); }} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (

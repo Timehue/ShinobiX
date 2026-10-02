@@ -2544,7 +2544,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2840
+            "line": 2863
           },
           {
             "source": "shinobij.client/src/styles/index/14-menu-panels-bloodline-vn.css",
@@ -2619,6 +2619,10 @@
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
             "line": 4239
+          },
+          {
+            "source": "shinobij.client/src/styles/bloodline-ritual.css",
+            "line": 73
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -2854,7 +2858,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-hub-forge.css",
-            "line": 599
+            "line": 610
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -2862,7 +2866,7 @@
           },
           {
             "source": "shinobij.client/src/styles/chronicle-packs.css",
-            "line": 191
+            "line": 193
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
@@ -2984,6 +2988,10 @@
         "axis": "width",
         "valuePx": 600,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/bloodline-ritual.css",
+            "line": 67
+          },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
             "line": 1462
@@ -3533,7 +3541,7 @@
           },
           {
             "source": "shinobij.client/src/styles/central-skin.css",
-            "line": 2804
+            "line": 2827
           },
           {
             "source": "shinobij.client/src/styles/chronicle-duel.css",
@@ -3947,7 +3955,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/chronicle-packs.css",
-            "line": 185
+            "line": 187
           }
         ]
       },

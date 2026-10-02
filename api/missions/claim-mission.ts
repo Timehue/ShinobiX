@@ -5,6 +5,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordEraCampaignEvidence } from '../_era-campaign.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
@@ -35,7 +36,7 @@ import {
 } from './_mission-progress-receipt.js';
 import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
@@ -732,6 +733,7 @@ async function applyReservedCombatMissionPayout(params: {
     }).character as SaveChar;
     next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
     next = appendCombatMissionClaimSettlement(next, settlement);
+    next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${settlement.runId}`, missionId: settlement.missionId, at: params.reservation.wonAt });
 
     next = creditElderWinDeltas((params.record.character ?? {}) as Record<string, unknown>, next);
     const updated = bumpSaveVersion<Record<string, unknown>>({
@@ -803,7 +805,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Currency path: persist under the SAME lock the save endpoint uses so a
         // concurrent auto-save can't clobber the credit, and so two rapid claims
         // can't both slip past the one-time / daily-cap / pending checks.
-        const outcome = await withKvLock<ClaimOutcome>(saveKey, async () => {
+        //
+        // A lost commit race (writeSaveProjected) re-runs the whole block once:
+        // it re-reads the save, and every receipt is deleted only after the
+        // write, so the re-run claims exactly once.
+        const outcome = await retryOnSaveVersionConflict(() => withKvLock<ClaimOutcome>(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { applied: false, reason: 'no-save' };
@@ -1275,6 +1281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let combatSettlement: CombatMissionClaimSettlement | null = null;
             if (combat && combatToken) {
+                next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${combatToken.runId}`, missionId: combatToken.missionId, at: combatToken.wonAt });
                 next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
                 const result: CombatMissionClaimResult = { reward, combat, completion: 'daily' };
                 combatSettlement = {
@@ -1365,7 +1372,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
                 ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
-        }, { failClosed: true });
+        }, { failClosed: true }));
 
         // New-shinobi dailies: a successful mission claim is the main activity
         // signal for pre-profession players. reportNewbieEvent no-ops for anyone
@@ -1486,6 +1493,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: Number(recoveryRecord?._saveVersion ?? 0),
         });
     } catch (err) {
+        // Nothing was written and no receipt was spent, so a retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[missions/claim-mission]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

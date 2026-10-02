@@ -23,8 +23,9 @@
  * Arena characterCombatStats build. The owner has confirmed this scoped clamp
  * (2026-07-31): a player's own creatorItems are budgeted to the built-in
  * legendary baseline in every server fight; admin-authored gear stays exempt as
- * above. The ceiling includes both built-in legendary gear and the legitimate
- * Named Armor forge ranges.
+ * above. The ceiling includes legitimate named forge ranges. Owner ruling
+ * 2026-10-01: named weapons keep their rolled 168–180 in all four offenses;
+ * their 720-point budget supersedes the generic hand-item budget for that tier.
  *
  * Baselines (see _item-catalog.ts legendary tiers):
  *   passive %s (damage/absorb/reflect/lifesteal) ≤ 2   (Named Armor rolls up to 2%)
@@ -32,8 +33,11 @@
  *   vitals (maxHp/maxChakra/maxStamina) ≤ 150           (no built-in grants these
  *     any more — pools come from LEVEL alone, so a vitals bonus is inert; the
  *     clamp stays only so a custom/admin item can't author an absurd one)
- *   specialty-stat TOTAL per slot: armor 280 (8×35 Named Armor), hand 420 (gloves 4×75+4×30)
+ *   specialty-stat TOTAL: armor 280, hand 420, named weapon 720 (4×180)
  */
+
+import { NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
+import { FORGED_ITEM_ID } from './save/_forged-items.js';
 
 const PASSIVE_PCT_FIELDS = new Set(['damagePercent', 'absorbPercent', 'reflectPercent', 'lifeStealPercent']);
 // PvE-only relic power (see api/pvp/_multipliers.ts derivePveBonuses). These sit
@@ -49,8 +53,12 @@ const MAX_VITAL = 150;
 const ARMOR_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'armor']);
 // Specialty-stat (offense/defense) total budget per slot. Unknown slot → loosest
 // (hand) so a legit item of an unanticipated slot is never clipped.
-function specialtyBudgetForSlot(slot: unknown): number {
-    return ARMOR_SLOTS.has(String(slot)) ? 280 : 420;
+function specialtyBudgetForItem(item: Record<string, unknown>): number {
+    const id = String(item.id ?? '');
+    if (item.slot === 'hand' && /^named-weapon-/i.test(id) && FORGED_ITEM_ID.test(id)) {
+        return 4 * NAMED_WEAPON_OFFENSE.max;
+    }
+    return ARMOR_SLOTS.has(String(item.slot)) ? 280 : 420;
 }
 
 /**
@@ -82,7 +90,7 @@ export function budgetItemBonuses<T extends Record<string, unknown>>(item: T): T
     );
     let total = 0;
     for (const k of specialtyKeys) if (out[k] > 0) total += out[k];
-    const budget = specialtyBudgetForSlot(item.slot);
+    const budget = specialtyBudgetForItem(item);
     if (total > budget && total > 0) {
         const scale = budget / total;
         for (const k of specialtyKeys) if (out[k] > 0) out[k] = Math.floor(out[k] * scale);

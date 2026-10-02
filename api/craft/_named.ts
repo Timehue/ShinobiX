@@ -1,22 +1,18 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
-import { debitNamedForgeWallet, NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
+import { debitNamedForgeWallet } from '../../shared/named-forge-economy.js';
+import {
+    NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX, NAMED_WEAPON_TAGS as WEAPON_TAGS,
+    NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
+    NAMED_ARMOR_STATS, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS,
+    NAMED_ARMOR_SLOTS as SLOTS,
+} from '../../shared/named-forge-roll.js';
 import { WEAPON_POISON_TAG_CAP } from '../combat-core/formulas.js';
 
 // The named forge's weapon EP roll, inclusive at both ends.
-export const NAMED_WEAPON_EP_MIN = 24;
-export const NAMED_WEAPON_EP_MAX = 27;
+export { NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX } from '../../shared/named-forge-roll.js';
 
 export { NAMED_FORGE_COST } from '../../shared/named-forge-economy.js';
-const WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'];
-const ARMOR_SPECIALS = [
-    { kind: 'Absorb', bonusKey: 'absorbPercent', min: 0.08, max: 2, decimals: 2 },
-    { kind: 'Shield', bonusKey: 'shield', min: 75, max: 150, decimals: 0 },
-    { kind: 'Reflect', bonusKey: 'reflectPercent', min: 0.08, max: 2, decimals: 2 },
-    { kind: 'Life Steal', bonusKey: 'lifeStealPercent', min: 0.08, max: 2, decimals: 2 },
-    { kind: 'Increase Damage', bonusKey: 'damagePercent', min: 0.75, max: 1.5, decimals: 2 },
-] as const;
-const SLOTS = ['head', 'body', 'waist', 'legs', 'feet', 'hand'] as const;
 
 /**
  * Receipts stay string-only for save-schema compatibility, but new entries also
@@ -82,17 +78,19 @@ const forgedTag = (name: string, percent: number) => ({ name, percent: name === 
 export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): NamedRoll {
     if (kind === 'weapon') {
         const tags = shuffled(WEAPON_TAGS);
-        const single = randomInt(2) === 0;
+        const tagCount = pick(NAMED_WEAPON_TAG_COUNTS);
+        const single = tagCount === 1;
         // 24-27 EP (owner ruling 2026-09-25): around the mythic tier's 25, so a
         // named blade lands 73-80% of a fully maxed 60-AP jutsu. Named weapons
         // forged before this keep their 32-34 EP until the reset, which is why
         // WEAPON_EP_CEILING (36) still bounds a player's saved weapon.
-        return { kind, ep: randomInt(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX + 1), range: pick([3, 4, 5] as const), offenseVal: randomInt(168, 181), tags: single ? [forgedTag(tags[0], randomInt(35, 41))] : [forgedTag(tags[0], randomInt(15, 21)), forgedTag(tags[1], randomInt(15, 21))] };
+        const strength = single ? NAMED_WEAPON_TAG_STRENGTH.single : NAMED_WEAPON_TAG_STRENGTH.dual;
+        return { kind, ep: randomInt(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX + 1), range: pick(NAMED_WEAPON_RANGES), offenseVal: randomInt(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max + 1), tags: tags.slice(0, tagCount).map((name) => forgedTag(name, randomInt(strength.min, strength.max + 1))) };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);
     const raw = special.decimals === 0 ? randomInt(special.min, special.max + 1) : special.min + (randomInt(1_000_000) / 1_000_000) * (special.max - special.min);
-    return { kind, slot, armorQuality: pick(['Elite', 'Legendary', 'Mythic'] as const), offenseVal: randomInt(25, 36), defenseVal: randomInt(25, 36), special: { kind: special.kind, bonusKey: special.bonusKey, value: Number(raw.toFixed(special.decimals)) } };
+    return { kind, slot, armorQuality: pick(NAMED_ARMOR_QUALITIES), offenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), defenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), special: { kind: special.kind, bonusKey: special.bonusKey, value: Number(raw.toFixed(special.decimals)) } };
 }
 
 export function debitNamedForge(character: Record<string, unknown>): Record<string, unknown> | null {

@@ -144,7 +144,7 @@ export function Profile({
                 const apply = async (img: string) => {
                     const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
                     if (!ok) {
-                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
+                        alert("Your avatar couldn't be saved to the server. The image may be too large, or you have uploaded many images recently. Try a smaller image, or wait a few minutes and try again.");
                         return;
                     }
                     updateCharacter((prev) => prev ? ({ ...prev, avatarImage: img }) : prev);

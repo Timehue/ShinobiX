@@ -156,8 +156,8 @@ async function seedPlayer(playerName: string, ryo = 100, profession: string | nu
     });
 }
 
-async function seedWonRun(playerName: string, suffix: string): Promise<string> {
-    const mission = missionByKey(MISSION_ID)!;
+async function seedWonRun(playerName: string, suffix: string, missionId: string = MISSION_ID): Promise<string> {
+    const mission = missionByKey(missionId)!;
     const runId = `missionsaga${suffix}`;
     const now = Date.now();
     const base = createSession({
@@ -554,6 +554,66 @@ describe('mission queue publication recovery', { concurrency: false }, () => {
 });
 
 describe('mission payout receipt recovery', { concurrency: false }, () => {
+    it('S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write', async () => {
+        const priorFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            for (const [index, eraId] of ['world-boss-awakening', 'mythic-legacies'].entries()) {
+                const player = `missionsagaendgame${index}`;
+                await seedPlayer(player);
+                const saved = (await kv.get<any>(`save:${player}`))!;
+                saved.character.level = 100;
+                saved.character.eraJourneys = { [eraId]: { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 0, stageStartedAt: 1000, stageCounts: {}, completedStages: [], proofReceipts: [] } };
+                await kv.set(`save:${player}`, saved);
+                const missionId = 'combat-s-crisis';
+                const runId = await seedWonRun(player, `endgame${index}`, missionId);
+                assert.equal((await post(queueHandler, player, { missionId, runId })).statusCode, 200);
+                const claimS = () => post(claimHandler, player, { missionType: 'combat', missionId });
+                const before = await savedCharacter(player);
+                const rejected = await withSetFault((key, value) => key === `save:${player}` && hasPayoutReceipt(value), 'null-before-commit', claimS);
+                assert.equal(rejected.statusCode, 500);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, before.eraJourneys);
+                assert.equal((await claimS()).statusCode, 200);
+                const committed = await savedCharacter(player);
+                assert.equal((committed.eraJourneys as any)[eraId].stageCounts['missions-S'], 1);
+                assert.deepEqual((committed.eraJourneys as any)[eraId].proofReceipts, [`mission:${runId}`]);
+                assert.equal((await claimS()).statusCode, 200);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, committed.eraJourneys);
+                assert.equal((await savedCharacter(player)).ryo, committed.ryo);
+            }
+        } finally { if (priorFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = priorFlag; }
+    });
+    it('qualified era proof commits with combat rewards, including reservation recovery, and replays once', async () => {
+        const priorFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            for (const recover of [false, true]) {
+                const suffix = recover ? 'erarecovery' : 'eraregular';
+                const player = `missionsaga${suffix}`;
+                await seedPlayer(player);
+                const saved = (await kv.get<any>(`save:${player}`))!;
+                saved.character.eraJourneys = { 'shinobi-awakening': { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 0, stageStartedAt: 1000, stageCounts: {}, completedStages: [], proofReceipts: [] } };
+                await kv.set(`save:${player}`, saved);
+                const runId = await seedWonRun(player, suffix);
+                assert.equal((await queue(player, runId)).statusCode, 200);
+                const before = await savedCharacter(player);
+                assert.deepEqual((before.eraJourneys as any)['shinobi-awakening'].stageCounts, {});
+                if (recover) {
+                    const rejected = await withSetFault((key, value) => key === `save:${player}` && hasPayoutReceipt(value), 'null-before-commit', () => claim(player));
+                    assert.equal(rejected.statusCode, 500);
+                    assert.deepEqual((await savedCharacter(player)).eraJourneys, before.eraJourneys);
+                }
+                assert.equal((await claim(player)).statusCode, 200);
+                const committed = await savedCharacter(player);
+                assert.equal((committed.eraJourneys as any)['shinobi-awakening'].stageCounts['missions-C'], 1);
+                assert.deepEqual((committed.eraJourneys as any)['shinobi-awakening'].proofReceipts, [`mission:${runId}`]);
+                assert.ok(Number(committed.ryo) > Number(before.ryo));
+                assert.equal((await claim(player)).statusCode, 200);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, committed.eraJourneys);
+                assert.equal((await savedCharacter(player)).ryo, committed.ryo);
+            }
+        } finally { if (priorFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = priorFlag; }
+    });
     it('fails closed when the token read throws and never clears the pending claim', async () => {
         const player = 'missionsagatokenread';
         await seedPlayer(player);

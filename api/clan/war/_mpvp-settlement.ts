@@ -118,6 +118,13 @@ export async function settleClanWar2v2Match(
         }
         const war = await kv.get<ClanWar>(warKey);
         if (war) await ensureCooldown(war);
+        // The first pass may have left some members' item charges owed (a busy
+        // save, a lost commit race). Receipt-guarded per save, so charging again
+        // here takes only what is still owed — without it, a replay returned
+        // early and those members kept their consumables for free.
+        await settleClanWar2v2Consumables(match).catch(error => {
+            console.warn('[clan-war 2v2] consumable settlement deferred on replay', error);
+        });
         return {
             outcome: prior.outcome,
             replayed: true,

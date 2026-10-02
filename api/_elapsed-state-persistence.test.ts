@@ -122,3 +122,46 @@ test('a DURABLE settle still publishes a version the client must adopt', async (
         await kv.del(key);
     }
 });
+
+test('an owner-read settle cannot revert a reward committed while it was settling', async (t) => {
+    // The settle's lock is not failClosed and its TTL is not renewed, so another
+    // writer can commit between its locked read and its write. Inject exactly that
+    // at the in-lock battle-lock probe (the second mget of the call).
+    const playerName = 'ElapsedSettleRace';
+    const key = 'save:elapsedsettlerace';
+    const now = 1_000_000;
+    const seed = {
+        _saveVersion: 7,
+        _saveAt: now - 60_000,
+        worldGeoV: WORLD_GEO_VERSION,
+        currentSector: 40,
+        currentBiome: 'central',
+        character: {
+            name: playerName,
+            petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+            ryo: 0,
+            hp: 0, maxHp: 100,
+            chakra: 0, maxChakra: 100,
+            stamina: 0, maxStamina: 100,
+        },
+    };
+    await kv.set(key, seed);
+    const realMget = kv.mget.bind(kv);
+    let lockProbes = 0;
+    t.mock.method(kv, 'mget', async (...keys: string[]) => {
+        if (keys.some((k) => k.endsWith('elapsedsettlerace')) && ++lockProbes === 2) {
+            await kv.set(key, { ...seed, _saveVersion: 8, character: { ...seed.character, ryo: 1000 } });
+        }
+        return realMget(...keys);
+    });
+
+    try {
+        await settleSaveRecordForRead(playerName, structuredClone(seed), { persist: true, now });
+        assert.equal(lockProbes >= 2, true, 'the test must reach the in-lock probe');
+        const durable = await kv.get<Record<string, any>>(key);
+        assert.equal(durable?.character.ryo, 1000, 'the reward committed mid-settle survives');
+        assert.equal(durable?._saveVersion, 8);
+    } finally {
+        await kv.del(key);
+    }
+});

@@ -23,6 +23,14 @@ import { villageWarKey } from './_war-state.js';
 import { clanPointWeekKey } from './_clan-points.js';
 import { CACHE_ITEM_IDS, RAID_RYO_REWARD, type DailyLossLedger } from './_anbu-infiltration.js';
 
+// The store helpers take an injected kv, but sealing a defender snapshot loads
+// the admin combat catalog from the GLOBAL kv. Give that one the in-memory
+// backend: combat now refuses an admin catalog that failed to load (it used to
+// fall back to empty silently, which is what this suite was relying on). The
+// global backend is chosen lazily on first use, so setting it here is in time.
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
+
 const NOW = Date.UTC(2026, 6, 10, 12, 0, 0);
 const TODAY = '2026-07-10';
 const now = () => NOW;

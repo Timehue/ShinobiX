@@ -212,6 +212,49 @@ describe('Clan War 2v2 settlement', { concurrency: false }, () => {
         assert.deepEqual(clanWar2v2ItemsUsed(match, TO[0]), {}, 'no sealed budget means nothing owed');
     });
 
+    it('a member whose item charge failed on the first settle is charged on the replay, exactly once', async (t) => {
+        // The first pass swallows a charge failure (it must not block the war
+        // result) and commits the match receipt. Replays used to return early on
+        // that receipt without charging again, so the member kept the potions
+        // for free. Force both commit attempts to lose their race, then replay.
+        const saveKey = `save:${FROM[0]}`;
+        const save = await kv.get<Record<string, any>>(saveKey);
+        await kv.set(saveKey, { ...save, character: { ...save!.character, itemStacks: [{ itemId: 'potion', count: 3 }] } });
+        const started = await startClanWar2v2Match({ warId: WAR_ID, challengeId: CHALLENGE_ID, actor: FROM[0] });
+        assert.ok(started.ok);
+        if (!started.ok) return;
+        const match = { ...started.match, status: 'done' as const, winner: 'amber' as const, updatedAt: Date.now() };
+        match.sealedItemCharges = { [FROM[0]]: { potion: 2 } };
+        const member = match.roster.find(m => m.slug === FROM[0])!;
+        match.combat.actors.find(a => a.id === member.actorId)!.itemCharges = { potion: 0 };
+
+        const realCompareSet = kv.compareSet.bind(kv);
+        // Lose only the item-charge commit (its receipt fingerprint), not the
+        // war-point award that writes the same save through another helper.
+        const losing = t.mock.method(kv, 'compareSet', async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => (
+            key === saveKey && JSON.stringify(value).includes('clan-war-2v2-consumables')
+                ? false
+                : realCompareSet(key, expected, value, options)
+        ));
+        assert.equal((await settleClanWar2v2Match(match))?.outcome, 'applied', 'the war result never waits on an item charge');
+        const potions = async () => (await kv.get<Record<string, any>>(saveKey))!.character.itemStacks?.[0]?.count ?? 0;
+        assert.equal(await potions(), 3, 'both commit attempts lost, so nothing was charged yet');
+
+        losing.mock.restore();
+        assert.equal((await settleClanWar2v2Match(match))?.replayed, true);
+        assert.equal(await potions(), 1, 'the replay charges the two potions still owed');
+        await settleClanWar2v2Match(match);
+        assert.equal(await potions(), 1, 'and never charges them twice');
+
+        // The in-save receipt window keeps only the newest receipts. Even with
+        // this match's receipt evicted, a late teammate's replay must not charge
+        // the member a second time from whatever they hold now.
+        const charged = await kv.get<Record<string, any>>(saveKey);
+        await kv.set(saveKey, { ...charged, character: { ...charged!.character, serverSettlementReceipts: [], itemStacks: [{ itemId: 'potion', count: 5 }] } });
+        await settleClanWar2v2Match(match);
+        assert.equal(await potions(), 5, 'the durable charged marker blocks a re-charge after receipt eviction');
+    });
+
     it('refuses to settle a match that has not ended', async () => {
         const started = await startClanWar2v2Match({ warId: WAR_ID, challengeId: CHALLENGE_ID, actor: FROM[0] });
         assert.ok(started.ok);

@@ -25,7 +25,7 @@ test('era contribution reads use one live batch with identical raw, receipted, a
     assert.equal(result.discoveries, 0);
     assert.equal(result.pvpWins, 0);
     assert.equal(batch.mock.callCount(), 1);
-    assert.equal(batch.mock.calls[0].arguments.length, 15);
+    assert.equal(batch.mock.calls[0].arguments.length, 17);
     assert.equal(get.mock.callCount(), 0);
     await kv.set('era:contrib:missions', 20);
     assert.equal((await readEraContributions()).missions, 32, 'a new authoritative contribution is visible immediately');

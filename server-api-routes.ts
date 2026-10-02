@@ -272,6 +272,7 @@ import legacyEvaluateHandler          from './api/legacy/evaluate.js';
 import legacySageHandler              from './api/legacy/sage.js';
 import legacyTrialHandler             from './api/legacy/trial.js';
 import erasHandler                    from './api/eras.js';
+import eraJourneyHandler              from './api/eras/journey.js';
 import announcementsHandler           from './api/announcements.js';
 import worldCrisisHandler              from './api/world-crisis.js';
 import worldCrisis80Handler            from './api/world-crisis-80.js';
@@ -329,6 +330,8 @@ import adminAuditLogHandler from './api/admin/audit-log.js';
 import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 import adminEconomySettlementsHandler from './api/admin/economy-settlements.js';
+// Admin: verify (dry run) then apply the slim-player-save migration
+import adminSlimPlayerSavesHandler from './api/admin/slim-player-saves.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 import adminClanBossOperationsHandler from './api/admin/clan-boss-operations.js';
 
@@ -744,6 +747,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/legacy/sage',               legacySageHandler);
     route('/legacy/trial',              legacyTrialHandler);
     route('/eras',                      erasHandler);
+    route('/eras/journey',              eraJourneyHandler);
     route('/announcements',             announcementsHandler);
     route('/world-crisis',              worldCrisisHandler);
     route('/world-crisis-80',           worldCrisis80Handler);
@@ -819,6 +823,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/economy', adminEconomyHandler);
     route('/admin/economy-reconcile', adminEconomyReconcileHandler);
     route('/admin/economy-settlements', adminEconomySettlementsHandler);
+    route('/admin/slim-player-saves', adminSlimPlayerSavesHandler);
     route('/admin/beta-metrics', adminBetaMetricsHandler);
     route('/admin/clan-boss-operations', adminClanBossOperationsHandler);
 

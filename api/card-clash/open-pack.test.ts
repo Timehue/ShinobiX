@@ -80,7 +80,16 @@ test('pack telemetry counts the rarity of the card ID actually awarded', async (
 for (const [packType, currency, cost, count] of [
     ['standard', 'chroniclePoints', 100, 5],
     ['fire', 'chroniclePoints', 100, 5],
+    ['water', 'chroniclePoints', 100, 5],
+    ['earth', 'chroniclePoints', 100, 5],
+    ['wind', 'chroniclePoints', 100, 5],
+    ['lightning', 'chroniclePoints', 100, 5],
+    ['snare', 'chroniclePoints', 100, 5],
+    ['jutsu', 'chroniclePoints', 100, 5],
     ['epic', 'fateShards', 10, 1],
+    ['legendary', 'fateShards', 30, 1],
+    ['epic-five', 'fateShards', 35, 5],
+    ['legendary-five', 'fateShards', 100, 5],
 ] as const) {
     test(`${packType}: lost committed response retries the original cards and spends once`, async () => {
         const initial = await stored();
