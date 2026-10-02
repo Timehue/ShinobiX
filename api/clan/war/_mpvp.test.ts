@@ -192,6 +192,43 @@ describe('Clan War 2v2 settlement', { concurrency: false }, () => {
         assert.equal(afterAll?.hp.beta, 940, 'war HP never moves twice for one duel');
     });
 
+    it('pays the duel once when the war write lands but its reply is lost', async (t) => {
+        // The settle used to reject on the lost reply. A retry then found the
+        // challenge completed, recorded it as superseded and skipped the war
+        // points, so none of the four fighters was ever paid.
+        for (const [slug, clan] of [[FROM[0], 'alpha'], [FROM[1], 'alpha'], [TO[0], 'beta'], [TO[1], 'beta']] as const) {
+            const save = await kv.get<Record<string, any>>(`save:${slug}`);
+            await kv.set(`save:${slug}`, { ...save, character: { ...save!.character, clan } });
+        }
+        const started = await startClanWar2v2Match({ warId: WAR_ID, challengeId: CHALLENGE_ID, actor: FROM[0] });
+        assert.ok(started.ok);
+        if (!started.ok) return;
+        const terminal = { ...started.match, status: 'done' as const, winner: 'amber' as const, updatedAt: Date.now() };
+        const warKey = `clan-war:${WAR_ID}`;
+        const realCompareSet = kv.compareSet.bind(kv);
+        let lostReplies = 0;
+        const lossy = t.mock.method(kv, 'compareSet', async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            const landed = await realCompareSet(key, expected, value, options);
+            if (key !== warKey || !landed || lostReplies > 0) return landed;
+            lostReplies += 1;
+            throw new Error('Connection terminated unexpectedly');
+        });
+        const first = await settleClanWar2v2Match(terminal).then(value => value, (error: Error) => error);
+        lossy.mock.restore();
+        assert.equal(lostReplies, 1, 'the war write landed and only its reply was lost');
+        // A member whose settle failed settles again.
+        const settled = first instanceof Error ? await settleClanWar2v2Match(terminal) : first;
+        assert.equal(settled?.outcome, 'applied', 'the duel that moved war HP is settled as applied');
+
+        const clanPoints = async () => Promise.all(ALL.map(async slug => (
+            (await kv.get<Record<string, any>>(`save:${slug}`))!.character.clanPoints ?? 0
+        )));
+        assert.deepEqual(await clanPoints(), [50, 50, 25, 25], 'winners earn participation and the win, losers participation');
+        assert.equal((await settleClanWar2v2Match(terminal))?.replayed, true);
+        assert.deepEqual(await clanPoints(), [50, 50, 25, 25], 'a later settle never pays twice');
+        assert.equal((await kv.get<ClanWar>(warKey))?.hp.beta, 940, 'war HP moved exactly once');
+    });
+
     it('charges spent consumables so a potion costs the same as it does in 1v1', async () => {
         // The engine spends from a sealed in-memory budget; without settlement the
         // item is never removed and a clan-war duel hands out FREE potions —
