@@ -5452,7 +5452,7 @@ export default function App() {
                 }}
             >
                 {/* Suspense for lazy screens; the per-screen ErrorBoundary (keyed by screen) isolates a render crash to one view so the nav stays usable and navigating away clears it. */}
-                <Suspense fallback={<ScreenLoadingFallback screen={screen} />}>
+                <Suspense fallback={<ScreenLoadingFallback screen={screen} travelingUntil={isTraveling ? travelingUntil : 0} />}>
                 <ScreenErrorBoundary key={screen}>
                 {character && ['home', 'pets', 'inventory', 'shinobiTiles'].includes(screen) && (
                     <ExchangeReturnPrompt key={character.name} account={character.name} onReturn={() => navigate('sunscarFestival')} />
