@@ -64,3 +64,21 @@ test('an expired stored offer cannot suppress a new Sage roll', async () => {
     assert.ok(result.offer?.offers.length);
     assert.ok(result.offer?.offers.every((entry) => !Object.prototype.hasOwnProperty.call(entry, 'rarity')));
 });
+
+test('declined offers eventually visit every eligible path without depending on event retention', async () => {
+    const { LEGACY_DEFS } = await import('./_legacy-defs.js');
+    const { evaluateAllLegacies } = await import('./_legacy-score.js');
+    const player = 'sagerotationcoverage';
+    const character = { name: player, level: 100, village: 'Stormveil' };
+    const stats = Object.fromEntries(LEGACY_DEFS.flatMap((def) => def.reqs.flatMap((req) => 'stat' in req ? [req.stat] : req.anyOf.map((r) => r.stat))).map((stat) => [stat, 10_000_000]));
+    const eligible = evaluateAllLegacies(stats, { level: 100, village: 'Stormveil' }).filter((ev) => ev.eligible);
+    const seen = new Set<string>();
+    for (let i = 0; i < Math.ceil(eligible.length / 3); i++) {
+        const result = await attemptSageRoll(player, { forced: true, character, stats, now: Date.now() + i * 86400_000 });
+        assert.ok(result.offer);
+        for (const offer of result.offer.offers) { seen.add(offer.legacyId); assert.ok(offer.trialActivities?.length); }
+        await kv.set(sageOfferKey(player), { ...result.offer, status: 'declined' });
+        await kv.del(`legacy:events:${player}`);
+    }
+    assert.deepEqual([...seen].sort(), eligible.map((ev) => ev.legacyId).sort());
+});

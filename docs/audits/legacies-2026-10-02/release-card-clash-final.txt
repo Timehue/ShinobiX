@@ -1,0 +1,23 @@
+[legacy-track] bump failed for alpha: injected Legacy write outage
+✔ Free-Play persists stopped attacks and attack counts through responses, polls, and rejected retries (721.7898ms)
+✔ Free-Play authenticates and rejects malformed or unknown match ids (41.7946ms)
+✔ a valid current selection is persisted atomically before PvP uses it (499.866ms)
+✔ Free-Play loads each persisted server deck and ignores a client replacement (10.7555ms)
+✔ an immediate Free-Play forfeit settles but grants no Legacy progress (9.1298ms)
+✔ a Free-Play duelist who misses two turns in a row forfeits, and it earns no Legacy progress (7.0127ms)
+✔ a move refused after the second missed turn still records the forfeit at once (143.2732ms)
+✔ a move refused after a first missed turn still records the passed turn (11.0703ms)
+✔ a sub-threshold natural finish remains progression-neutral (1.0183ms)
+✔ qualifying sealed play grants one exact-once Legacy Card Clash win (190.7163ms)
+✔ same-account repeat wins decay to zero after four credited legs and renew the next UTC day (11.2028ms)
+✔ a reciprocal repeat is progression-neutral (2.4486ms)
+✔ a failed Legacy delivery is repaired by polling and remains exact-once (2.4481ms)
+✔ Free-Play winner tracking has no external marker-before-write seam (0.413ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 14
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8332.5305
