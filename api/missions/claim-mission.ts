@@ -77,6 +77,7 @@ import {
 } from './_authoritative-combat-session.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { extractSoloPveLegacyDeltas, pveStyleDeltas } from '../_legacy-pve.js';
 import {
     appendCombatMissionClaimSettlement,
     combatMissionClaimPaymentMatches,
@@ -450,10 +451,12 @@ async function completeCombatMissionPostEffects(params: {
             totalAiKills: Math.max(0, Number(current.character.totalAiKills ?? 0) - 1),
             totalMissionsCompleted: Math.max(0, Number(current.character.totalMissionsCompleted ?? 0) - 1),
         };
+        const combatSession = await readSoloPveSession(params.runId);
+        const combatDeltas = combatSession ? extractSoloPveLegacyDeltas(combatSession) : pveStyleDeltas(current.character.specialty, 1);
         await bumpLegacyStatsForCombatRunOnce(
             params.playerName,
             params.runId,
-            { missionCompletions: 1, pveKills: 1 },
+            { missionCompletions: 1, pveKills: 1, ...combatDeltas },
             legacyBootstrapCharacter,
         );
         const receipt = await mutateCombatClaimSettlement({

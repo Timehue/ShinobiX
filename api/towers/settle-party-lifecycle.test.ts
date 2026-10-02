@@ -89,6 +89,65 @@ async function settle(runId: string): Promise<ResponseOut> {
 }
 
 describe('Tower party settlement lifecycle', { concurrency: false }, () => {
+    it('credits each human caster through real settlement and holds recovery leases until Legacy delivery succeeds', async () => {
+        const previousFlag = process.env.ENABLE_LEGACY;
+        const originalSet = kv.set;
+        process.env.ENABLE_LEGACY = '1';
+        const runId = 'tower-legacy-caster-recovery';
+        try {
+            await kv.del('legacy:stats:host', 'legacy:stats:alice');
+            await kv.set('save:host', save('host'));
+            await kv.set('save:alice', save('alice'));
+            await kv.set('legacy:stats:alice', { bootstrappedAt: Date.now() });
+            const session = completedSession(runId, '');
+            session.actors[0]!.character.specialty = 'Taijutsu';
+            session.actors[1]!.character.specialty = 'Ninjutsu';
+            session.actors.push({ ...actor('Boss', 2), id: 'enemy-boss', side: 'enemy', ai: true, ownerSlug: null, hp: 0 });
+            session.log = [
+                'host uses Storm → Boss.', '40 damage to Boss.',
+                'alice uses Lightning → Boss.', '90 damage to Boss.',
+                'Boss uses Claw → host.', '50 damage to host.',
+                'host uses Basic Heal, restoring 5 HP.', 'alice restores 15 HP to host.',
+                'Shield: host gains 20 shield.', "10 absorbed by host's shield.",
+            ];
+            await writeSession(session);
+            let fail = true;
+            kv.set = async (key, value, options) => {
+                if (fail && key === 'legacy:stats:alice') { fail = false; return null; }
+                return originalSet(key, value, options);
+            };
+            const partial = await settle(runId);
+            assert.equal(partial.statusCode, 200);
+            assert.equal(partial.body?.settled, false);
+            assert.notEqual(await kv.get('battle-lock:host'), null);
+            assert.notEqual(await kv.get('battle-lock:alice'), null);
+            kv.set = originalSet;
+            const recovered = await settle(runId);
+            assert.equal(recovered.statusCode, 200);
+            assert.equal(recovered.body?.settled, true);
+            const host = await kv.get<Record<string, unknown>>('legacy:stats:host');
+            const alice = await kv.get<Record<string, unknown>>('legacy:stats:alice');
+            assert.equal(host?.taijutsuKills, 1);
+            assert.equal(host?.taijutsuDamage, 40);
+            assert.equal(host?.healingDone, 5);
+            assert.equal(host?.shieldsApplied, 1);
+            assert.equal(host?.damageBlocked, 10);
+            assert.equal(alice?.ninjutsuKills, 1);
+            assert.equal(alice?.ninjutsuDamage, 90);
+            assert.equal(alice?.healingDone, 15);
+            assert.equal(await kv.get('legacy:stats:boss'), null);
+            assert.equal(await kv.get('battle-lock:host'), null);
+            assert.equal(await kv.get('battle-lock:alice'), null);
+            assert.equal((await settle(runId)).body?.settled, true);
+            assert.deepEqual(await kv.get('legacy:stats:host'), host);
+            assert.deepEqual(await kv.get('legacy:stats:alice'), alice);
+        } finally {
+            kv.set = originalSet;
+            if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+            else process.env.ENABLE_LEGACY = previousFlag;
+        }
+    });
+
     it('recovers final IV/V Spire proof through the actual endpoint before sealing the title', async () => {
         const previousFlag = process.env.ENABLE_LEGACY;
         const originalSet = kv.set;
