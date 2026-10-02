@@ -181,6 +181,38 @@ ryo is still paid after a profession is chosen, the rule the combat-claim saga
 already applies. Callers that credit the XP themselves (`deferXpAward`, the raid
 progression saga) record no grant. Amounts are unchanged.
 
+## Daily-mission events across a failed report and a new day (2026-10-02)
+
+A producer's mission EVENT is its own daily-row write, after the producer's
+settlement commits. A pet expedition settles its currency, log entry and
+`redeemedPetExpeditionTokens` receipt in one save write, and its
+`reportMissionEvent` follows. When that report failed (the
+`missions:daily:<player>` lock contended past its fail-closed acquire, as when
+several pets are collected at once, or the row write failing), the collect
+answered 500. The retry then replayed the spent receipt without reporting, so
+the expedition's mission progress was lost for good.
+
+- `report-pet-event` now reports under the receipt `pet-expedition:<token>`,
+  and both of its replay paths report again. The row matches a receipt by id
+  AND kind, so one id covers both kinds a 4-hour expedition reports, and the
+  re-report counts only what never landed. A kind the row already holds stays
+  out of the reply's `missionsCompleted`, so a replay never toasts a completion
+  twice.
+- The receipts live in the day's row, and a new UTC day starts a fresh row. A
+  replay therefore reports again only for an expedition settled on the current
+  UTC day, and it uses one clock reading for that check and the report. An
+  older expedition may already count in a row that is gone, so it stays lost
+  rather than count twice (loss-only). A replay after the player chose a
+  profession again (`professionChosenAt` later than the settle) reports nothing
+  either, because the board it would count toward is a fresh one.
+- `loadOrIssueDailyMissions` no longer replaces a stored board with a set for an
+  earlier UTC day. The raid saga reports at its proof time
+  (`now: new Date(proofAt)`), which can fall on the previous day. Issuing that
+  day's set overwrote the current board: its progress and event receipts were
+  wiped, and the next report reissued the day's missions, so ones already
+  completed and paid could pay again. Such a report now counts nothing
+  (loss-only).
+
 ## Current settlement notes and remaining trade-offs
 
 - `claim-mission.ts` consumes the combat token before the payout write:
@@ -226,6 +258,6 @@ progression saga) record no grant. Amounts are unchanged.
   acquire, a crash, a lost reply), the retry replayed the spent receipt and the
   XP was never paid. The amount, the Pet-Tamer-only rule and the rank
   multiplier are unchanged (`professionXpAfterAward`). The expedition's
-  daily-mission event still runs after the receipt commits, and a replay does
-  not re-run it, so a request that fails between the two loses that mission
-  progress (loss-only).
+  daily-mission event still runs after the receipt commits. A replay on the
+  same UTC day reports it again under its receipt (see "Daily-mission events
+  across a failed report and a new day" above).
