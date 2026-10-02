@@ -107,8 +107,10 @@
 .chronicle-pack--earth { --pack-glow: #9ac67d; }
 .chronicle-pack--wind { --pack-glow: #b4dccc; }
 .chronicle-pack--lightning { --pack-glow: #c3a0f5; }
-.chronicle-pack--epic { --pack-glow: #d391f2; }
-.chronicle-pack--legendary { --pack-glow: #e9c76c; }
+.chronicle-pack--epic,
+.chronicle-pack--epic-five { --pack-glow: #d391f2; }
+.chronicle-pack--legendary,
+.chronicle-pack--legendary-five { --pack-glow: #e9c76c; }
 
 .chronicle-pack__art {
   display: block;
