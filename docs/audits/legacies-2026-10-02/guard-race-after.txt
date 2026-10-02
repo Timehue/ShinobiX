@@ -1,0 +1,75 @@
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+[legacy-track] bump failed for legacyreceiptchurnloser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (6015.6852ms)
+✔ a guard challenge retains its server evidence through delayed terminal recovery (9221.7558ms)
+✔ guard proof must name both actual battle participants (7.5541ms)
+✔ guard proof cannot reverse the server-sealed attacker and defender (3.3009ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (5.36ms)
+✔ pending combat and war delivery retain their battle proof through later activity receipt churn (2296.4458ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (31.7716ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.4027ms)
+[kv] isolated in-memory QA backend active
+✔ new real-player casual sessions stamp v1 and expose zero consumable charges (2068.5811ms)
+[pvp/session] Error: legacy-guard-proof-publication-pending
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3164:54)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:129:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3139:17)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:128:13)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ world session creation seals the actual guard role and delivers defense credit without the map notification (600.0536ms)
+[pvp/session] Error: pvp-session-capability-conflict
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3207:39)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:129:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3139:17)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:215:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ overlapping world creates cannot replace the published battle guard roles (311.0444ms)
+[pvp/session] Error: pvp-session-capability-conflict
+    at failClosed (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3165:80)
+    at async withKvLeaseContext (C:\Users\Tyler R\source\repos\NinjaK\api\_kv-lock-context.ts:59:16)
+    at async withLockCore (C:\Users\Tyler R\source\repos\NinjaK\api\_lock.ts:129:16)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3139:17)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:269:20)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[forged-registry] recovered equipped forged definition(s) gearcreator named-weapon-00000000-0000-4000-8000-000000000061
+[forged-registry] recovered equipped forged definition(s) gearopponent named-armor-00000000-0000-4000-8000-000000000062
+[pvp-items] unresolved equipped item id(s) missingarmoropponent named-armor-00000000-0000-4000-8000-000000000063
+[pvp/session] refusing incomplete named gear loadout missingarmorcreator  missingarmoropponent named-armor-00000000-0000-4000-8000-000000000063
+[pvp-items] unresolved equipped item id(s) readfailurecreator named-weapon-00000000-0000-4000-8000-000000000064
+[pvp/session] refusing incomplete named gear loadout readfailurecreator named-weapon-00000000-0000-4000-8000-000000000064 readfailureopponent
+[pvp/session] pending-session activation failed Error: forced-pointer-activation-precommit
+    at Object.kv.compareSet (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:441:23)
+    at activatePvpPendingSessionPointer (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_pending-session.ts:345:29)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3297:21)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:448:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+[pvp/session] pending-session activation failed Error: pvp-pending-session-publication-ownership-lost
+    at requirePvpPendingSessionOwnership (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_pending-session.ts:305:15)
+    at async handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3295:25)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:504:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async Test.processPendingSubtests (node:internal/test_runner/test:974:7)
+✔ a guard publisher resumed after its lease expires cannot overwrite a successor proof (121.2332ms)
+✔ ordinary PvP session fetch avoids a KV counter write while pending recovery keeps it (3.8009ms)
+✔ PvP restores equipped named weapons and armor before publishing the battle (4.284ms)
+✔ PvP refuses to publish a battle with unresolved equipped named armor (3.5001ms)
+✔ real player duels refuse a missing opponent save instead of sealing an NPC fallback (1.0176ms)
+✔ a temporary named-gear registry read failure cannot publish an incomplete battle (5.2112ms)
+✔ a stable create capability resumes one session and never indexes the unsolicited opponent (5.0466ms)
+✔ pointer activation failure rolls back to a same-capability replaceable tombstone (71.3246ms)
+✔ a creator paused past its pointer lease cannot leave an orphan after a successor wins (82.5459ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 31493.4412

@@ -1,0 +1,83 @@
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+[legacy-track] bump failed for legacyreceiptchurnloser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (1762.3055ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (7.7629ms)
+✔ pending combat and war delivery retain their battle proof through later activity receipt churn (307.4308ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (18.6583ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.34ms)
+✔ finite story milestone receipts survive rolling activity eviction (12.422ms)
+✔ durable and rolling receipt checks share one exact-once gate (0.3129ms)
+✔ recovery receipts expire by day without retiring permanent milestone or war receipts (0.3296ms)
+[legacy-track] bump failed for alpha: injected Legacy write outage
+✔ Free-Play persists stopped attacks and attack counts through responses, polls, and rejected retries (425.7333ms)
+✔ Free-Play authenticates and rejects malformed or unknown match ids (0.5804ms)
+✔ a valid current selection is persisted atomically before PvP uses it (112.0351ms)
+✔ Free-Play loads each persisted server deck and ignores a client replacement (27.8179ms)
+✔ an immediate Free-Play forfeit settles but grants no Legacy progress (7.1589ms)
+✔ a Free-Play duelist who misses two turns in a row forfeits, and it earns no Legacy progress (7.3137ms)
+✔ a move refused after the second missed turn still records the forfeit at once (9.1793ms)
+✔ a move refused after a first missed turn still records the passed turn (14.5385ms)
+✔ a sub-threshold natural finish remains progression-neutral (1.4547ms)
+✔ qualifying sealed play grants one exact-once Legacy Card Clash win (31.8923ms)
+✔ same-account repeat wins decay to zero after four credited legs in one UTC day (6.4565ms)
+✔ a reciprocal repeat is progression-neutral (3.0831ms)
+✔ a failed Legacy delivery is repaired by polling and remains exact-once (3.441ms)
+✔ Free-Play winner tracking has no external marker-before-write seam (0.3733ms)
+✔ applyClaimedMissionState clears claimed field missions from accepted ids and progress (2.6295ms)
+✔ applyClaimedMissionState clears claimed hunts without touching unrelated progress (0.2577ms)
+✔ applyClaimedMissionState leaves combat claims alone (0.1705ms)
+✔ clearStalePendingCombatClaim drops the stale key and reports cleared (0.289ms)
+✔ clearStalePendingCombatClaim is a no-op (same ref) when the key is absent (0.1937ms)
+✔ clearStalePendingCombatClaim tolerates a missing/invalid pending list (0.1648ms)
+✔ Legacy mission progress is derived from committed save receipts (0.4991ms)
+[kv] isolated in-memory QA backend active
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-1","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790950595899","battleId":"pvp-cont-1","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-2","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790950595920","battleId":"pvp-cont-2","attackerWon":false,"points":5,"attackerPoints":200,"defenderPoints":5,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-3","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790950595928","battleId":"pvp-cont-3","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-4","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790950595939","battleId":"pvp-cont-4","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-6","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-skipped","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790950595945","battleId":"pvp-cont-6","reason":"superseded"}
+[war-event] {"kind":"pvp-resolution","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-6","outcome":"superseded","reason":"superseded"}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-7","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-scored","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790691395947","battleId":"pvp-cont-7","attackerWon":true,"points":5,"attackerPoints":205,"defenderPoints":0,"garrison":false}
+[war-event] {"kind":"battle-registered","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-8","sector":23,"winCondition":"combat"}
+[war-event] {"kind":"battle-skipped","contestId":"23:moonshadowvillage-vs-frostfangvillage","instance":"g1.s1790691395947","battleId":"pvp-cont-8","reason":"superseded"}
+[war-event] {"kind":"pvp-resolution","contestId":"23:moonshadowvillage-vs-frostfangvillage","battleId":"pvp-cont-8","outcome":"superseded","reason":"superseded"}
+▶ world PvP sector continuation past the old 200-receipt ceiling
+  ✔ scores the 201st battle of a war (it used to throw and stall both fighters' rewards) (20.788ms)
+  ✔ a defender kill counts for the defence, attributed to the defender (8.0345ms)
+✔ world PvP sector continuation past the old 200-receipt ceiling (1086.6497ms)
+▶ world PvP sector continuation: crash recovery by keyed reads
+  ✔ recovers a score whose resolution receipt was lost, without re-applying it (10.6388ms)
+  ✔ proves an applied battle after its contest row has expired (the receipt outlives the row) (5.5234ms)
+  ✔ does not scan every war on the normal path (0.6461ms)
+✔ world PvP sector continuation: crash recovery by keyed reads (17.1369ms)
+▶ world PvP sector continuation: eligibility
+  ✔ a battle begun before this contest instance started never scores it (1.3254ms)
+  ✔ a battle that ended before endsAt still scores after endsAt until settlement stamps the war (9.726ms)
+✔ world PvP sector continuation: eligibility (11.3257ms)
+✔ generated Legacy roster matches the canonical identities and all trial variants (63.7359ms)
+✔ craft dungeon first pages retain their own biome scenes (1.2689ms)
+✔ early system events stay valid away from a village meeting (0.6219ms)
+✔ public cultural lore identifies the record making each claim (0.3349ms)
+✔ every gathering biome and branch variant is part of the live story tone gates (1.2868ms)
+✔ story narration suppresses every generic Player portrait across the catalog (3.5938ms)
+✔ story and event copy uses shinobi-world language instead of generic fantasy or raw game terms (6.9871ms)
+✔ all live visual-novel copy follows the zero-dash punctuation rule (3.9642ms)
+✔ authored narrative avoids stock AI-mysticism and retired village labels (8.7022ms)
+✔ rift givers speak as people instead of narrating themselves (2.3929ms)
+✔ adjacent world lore, wanderers, shrines, and era events expose no pilgrim terminology (20.621ms)
+✔ server availability is authoritative across the Legacy preference matrix (0.9198ms)
+ℹ tests 48
+ℹ suites 3
+ℹ pass 48
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2963.4671

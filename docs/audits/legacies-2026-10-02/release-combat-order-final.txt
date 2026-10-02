@@ -1,0 +1,23 @@
+✔ solo PvE uses applied HP, shield and damage facts, excluding overheal and companion damage (3.502ms)
+✔ real combat healing log and Legacy credit match applied HP, including full-health casts (6.7896ms)
+✔ Tower attribution respects multiple human and enemy casters (1.2732ms)
+✔ expired shield pools never count as damage dealt or damage blocked (0.3095ms)
+▶ resolution order matches the engine source
+  ✔ resolveJutsu runs its phases in JUTSU_RESOLUTION_PHASES order (2.363ms)
+  ✔ resolvePostDamage applies its effects in POST_DAMAGE_ORDER (0.4063ms)
+  ✔ Wound and Siphon both resolve inside the authored-order tag loop (0.2213ms)
+  ✔ endTurn hands off in TURN_HANDOFF_ORDER (0.2508ms)
+  ✔ every listed step is unique (0.211ms)
+✔ resolution order matches the engine source (5.7033ms)
+▶ resolution order is visible in real casts
+  ✔ Siphon heals before Recoil and Lifesteal, so a full-HP caster wastes the Siphon (8.2475ms)
+  ✔ Absorb cannot revive a defender the hit already killed (0.572ms)
+✔ resolution order is visible in real casts (9.1338ms)
+ℹ tests 11
+ℹ suites 2
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 16243.8952
