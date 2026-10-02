@@ -1,31 +1,26 @@
 import assert from 'node:assert/strict';
-import { readdir, rm, stat } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { describe, it } from 'node:test';
 import {
+    assertBaseOnlyRestore,
+    assertNoLegacyOverlayExport,
     backupStorageTopology,
     captureBracketedStores,
     digestOverlay,
     digestRows,
-    prepareRestoreOverlay,
-    readOverlayDirectory,
     representativeRecords,
-    resolveOverlayExportPlan,
     restoreApplicationStoragePlan,
     sameConnection,
     sameDatabaseIdentity,
     validatePayload,
     validateTargetSchemaEvidence,
-    validatedProxyBase,
     verifyRestoreRepresentatives,
-    withPreparedRestoreOverlay,
-    writeOverlayDirectory,
 } from './kv-backup.mjs';
 
 const baseRows = [
     { key: 'pvp:battle-1', value: { winner: 'alice' }, expires_at: null, updated_at: '2026-07-12T00:00:02.000Z' },
     { key: 'receipt:shop:1', value: { amount: 10 }, expires_at: null, updated_at: '2026-07-12T00:00:03.000Z' },
 ];
+// The overlay section of a backup captured before the 2026-07-17 cutover.
 const overlayEntries = [
     { key: 'save:alice', value: { character: { level: 3 } } },
     { key: 'save:clan-leaf', value: { members: ['alice'] } },
@@ -50,12 +45,6 @@ function baseOnlyPayload() {
         base: { rowCount: rows.length, rows, sha256: digestRows(rows) },
         overlay: { patterns: ['save:*', 'shared:images*', 'shared:imgfields*'], keyCount: 0, entries: [], sha256: digestOverlay([]) },
     };
-}
-
-async function managedOverlayDirectories() {
-    return new Set((await readdir(tmpdir(), { withFileTypes: true }))
-        .filter((entry) => entry.isDirectory() && entry.name.startsWith('shinobix-restore-overlay-'))
-        .map((entry) => entry.name));
 }
 
 describe('hybrid KV backup evidence helpers', () => {
@@ -141,17 +130,14 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.throws(() => validatePayload(baseWithImageOnly), /hide 1 base-only disk-routed key/i);
     });
 
-    it('validates current base-only saves from PostgreSQL without enabling an empty overlay', async () => {
-        // Since the cPanel overlay retirement (2026-07-17) exportStableOverlay
-        // records zero overlay entries and saves live in the base rows — the
-        // v2 validator must accept that shape, create no disk directory, and
-        // verify representative saves by reading the restored target database.
+    it('validates current base-only saves from PostgreSQL and restores them from the base store', async () => {
+        // Since the cPanel overlay retirement (2026-07-17) every export records
+        // zero overlay entries and saves live in the base rows; representative
+        // saves are verified by reading the restored target database.
         const baseOnly = baseOnlyPayload();
         assert.equal(validatePayload(baseOnly), baseOnly);
-        const overlayRoot = await prepareRestoreOverlay(baseOnly.overlay.entries);
-        assert.equal(overlayRoot, null);
 
-        const plan = restoreApplicationStoragePlan(baseOnly.base.rows, baseOnly.overlay.entries, 'ignored-empty-overlay-path');
+        const plan = restoreApplicationStoragePlan(baseOnly.base.rows, baseOnly.overlay.entries);
         assert.deepEqual(plan, {
             expectedSaveStore: 'base-store',
             enableDiskOverlay: false,
@@ -176,7 +162,7 @@ describe('hybrid KV backup evidence helpers', () => {
                 return { rowCount: row ? 1 : 0, rows: row ? [{ value: row.value }] : [] };
             },
         };
-        const samples = await verifyRestoreRepresentatives(target, overlayRoot, baseOnly, ['save:alice']);
+        const samples = await verifyRestoreRepresentatives(target, baseOnly, ['save:alice']);
         assert.equal(samples.length, 1);
         assert.equal(samples[0].category, 'player-save');
         assert.equal(samples[0].store, 'base');
@@ -184,6 +170,7 @@ describe('hybrid KV backup evidence helpers', () => {
     });
 
     it('selects redacted representatives with live saves sourced from the overlay', () => {
+        // Inspecting a pre-cutover file still reports where each sample lived.
         const records = [
             ...overlayEntries.map((entry) => ({ ...entry, store: 'overlay' })),
             ...baseRows.map((row) => ({ ...row, store: 'base' })),
@@ -205,61 +192,22 @@ describe('hybrid KV backup evidence helpers', () => {
         assert.ok(samples.every((sample) => !JSON.stringify(sample).includes('alice')));
     });
 
-    it('keeps retired-overlay backups authoritative and application-validatable', async () => {
-        const root = await prepareRestoreOverlay(overlayEntries);
-        assert.ok(root);
-        try {
-            const restored = await readOverlayDirectory(root);
-            assert.equal(digestOverlay(restored), digestOverlay(overlayEntries));
-            const plan = restoreApplicationStoragePlan(baseRows, restored, root);
-            assert.equal(plan.expectedSaveStore, 'disk');
-            assert.equal(plan.enableDiskOverlay, true);
-            assert.equal(plan.applicationValidation.requireDiskOverlay, true);
-            assert.equal(plan.targetOverlay.kind, 'disk');
-            assert.equal(plan.targetOverlayDir, root);
-            assert.equal(plan.saveCount, 2);
-            assert.equal(plan.baseSaveCount, 0);
-            assert.equal(plan.overlaySaveCount, 2);
-
-            const samples = await verifyRestoreRepresentatives(
-                { async query() { throw new Error('overlay representative must not read the base store'); } },
-                root,
+    it('refuses to restore a pre-cutover overlay backup the server can no longer serve', async () => {
+        // The file is still valid v2 evidence and can be inspected...
+        assert.equal(validatePayload(payload()).overlay.keyCount, overlayEntries.length);
+        // ...but restoring only its base rows would silently drop the saves that
+        // lived on the overlay, so every restore entry point refuses it.
+        assert.throws(() => assertBaseOnlyRestore(overlayEntries), /3 record\(s\) from the retired cPanel overlay/);
+        assert.throws(() => restoreApplicationStoragePlan(baseRows, overlayEntries), /retired cPanel overlay/);
+        assert.doesNotThrow(() => assertBaseOnlyRestore([]));
+        await assert.rejects(
+            () => verifyRestoreRepresentatives(
+                { async query() { throw new Error('an overlay sample must not be read from the base store'); } },
                 payload(),
                 ['save:alice'],
-            );
-            assert.equal(samples.length, 1);
-            assert.equal(samples[0].store, 'overlay');
-        } finally {
-            await rm(root, { recursive: true, force: true });
-        }
-        assert.throws(
-            () => restoreApplicationStoragePlan(baseRows, overlayEntries, null),
-            /requires a restored overlay directory/i,
+            ),
+            /is not a base-store record/,
         );
-    });
-
-    it('removes partial overlay staging and a completed overlay when downstream restore work fails', async () => {
-        const before = await managedOverlayDirectories();
-        await assert.rejects(
-            () => writeOverlayDirectory([
-                overlayEntries[0],
-                { key: 'save:..', value: { shouldNotWrite: true } },
-            ]),
-            /unsafe overlay key segment/i,
-        );
-        assert.deepEqual(await managedOverlayDirectories(), before);
-
-        let stagedRoot;
-        await assert.rejects(
-            () => withPreparedRestoreOverlay(overlayEntries, async (overlayRoot) => {
-                stagedRoot = overlayRoot;
-                throw new Error('simulated restore verification failure');
-            }),
-            /simulated restore verification failure/i,
-        );
-        assert.ok(stagedRoot);
-        await assert.rejects(() => stat(stagedRoot), (error) => error?.code === 'ENOENT');
-        assert.deepEqual(await managedOverlayDirectories(), before);
     });
 
     it('reports authoritative save counts from the selected store instead of adding stale copies', () => {
@@ -337,25 +285,9 @@ describe('hybrid KV backup evidence helpers', () => {
         );
     });
 
-    it('maps only the reviewed legacy proxy destinations to literal URLs', () => {
-        assert.equal(validatedProxyBase('https://theravensark.com/api/kv'), 'https://theravensark.com/api/kv');
-        assert.equal(validatedProxyBase('https://www.theravensark.com/api/kv/'), 'https://www.theravensark.com/api/kv');
-        for (const value of ['http://theravensark.com/api/kv', 'https://evil.example/api/kv', 'https://theravensark.com/api/kv?next=evil', 'https://theravensark.com:444/api/kv']) {
-            assert.throws(() => validatedProxyBase(value), /approved|must not/i);
-        }
-    });
-
-    it('requires explicit legacy-overlay intent before a configured proxy can affect an export', () => {
-        assert.deepEqual(resolveOverlayExportPlan('', false), { kind: 'base-only' });
-        assert.throws(
-            () => resolveOverlayExportPlan('https://theravensark.com/api/kv', false),
-            /without explicit legacy-overlay export intent/i,
-        );
-        assert.throws(() => resolveOverlayExportPlan('', true), /requires KV_PROXY_URL/i);
-        assert.deepEqual(resolveOverlayExportPlan('https://theravensark.com/api/kv', true), {
-            kind: 'legacy-overlay',
-            proxyBase: 'https://theravensark.com/api/kv',
-        });
+    it('refuses the retired --legacy-overlay export instead of silently ignoring it', () => {
+        assert.throws(() => assertNoLegacyOverlayExport(true), /--legacy-overlay was removed/);
+        assert.doesNotThrow(() => assertNoLegacyOverlayExport(false));
     });
 
     it('requires the hardened Supabase table, indexes, RLS policy, and read-only anon grant', () => {

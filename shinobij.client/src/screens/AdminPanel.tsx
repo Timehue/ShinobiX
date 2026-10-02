@@ -913,7 +913,7 @@ export function AdminPanel({
     // tab switcher AND clamped at state level so a refresh / stale session-
     // storage / manual setState can't slip them in. Server-side, the
     // matching endpoints (admin/players, admin/moderation, admin/server-reset,
-    // admin/migrate-kv, game-state arenaTournament/weeklyBossOverride, and the
+    // game-state arenaTournament/weeklyBossOverride, and the
     // weekly-boss reset operation) gate on isFullAdmin — so even if a content
     // admin somehow reached the controls, the underlying actions reject them.
     const CONTENT_ADMIN_FORBIDDEN_TABS = new Set<string>(['playerManagement', 'hollowGate', 'relicDungeons', 'worldEvents', 'moderation', 'legacy']);
