@@ -1,3 +1,4 @@
+import { settleRankedRelicReward } from './_relic-reward.js';
 import { kv } from '../_storage.js';
 import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { withKvLock } from '../_lock.js';
@@ -186,6 +187,7 @@ async function runCommittedPvpTerminalEffects(
     // publish history and a crash after combat CAS remains repairable.
     await replayCommittedPvpActionReceipt(kv, session);
     await settlePvpLegacyProgress(session);
+    await settleRankedRelicReward(session);
 
     // What the fight cost the two bodies. Settled HERE rather than in
     // claim-rewards so a continuous engagement still charges its damage when
