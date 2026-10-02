@@ -171,6 +171,7 @@ import { runSingleFlight } from "../lib/single-flight";
 import { drainPendingWorldRewardOperations, type WorldRecoveryResult } from "../lib/world-reward-drain";
 import { ambushRewardFailureMessage } from "../lib/ambush-reward-feedback";
 import { petCardImage } from "../lib/pet-battle-anim";
+import { roadBeastReadyPets, withRoadBeastIdentity } from "../lib/road-beast";
 import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
 import { canonicalNarrativeEvent } from "../lib/canonical-narrative";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
@@ -805,7 +806,15 @@ function WorldMapContent({
     // <SectorWanderer>. When an "attack" wanderer reaches the player it calls
     // startWandererAttack (the canonical server-sealed Solo-PvE host). Used and
     // moved-away NPCs are hidden, and night ninjas join after dark (lib/wanderers).
-    const sectorWanderers = useSectorWanderers(selectedSector, character.wandererCooldowns, character.wandererMoves);
+    const naturalWanderers = useSectorWanderers(selectedSector, character.wandererCooldowns, character.wandererMoves);
+    // A beast is per player: it locks onto one of your ready pets and is a wild
+    // pet of that rarity, the same rule the server fields (lib/road-beast.ts).
+    // Dressing it here gives the billboard, the dialog and the duel one name.
+    const roadBeastPets = useMemo(() => roadBeastReadyPets(character), [character]);
+    const sectorWanderers = useMemo(
+        () => naturalWanderers.map((wanderer) => withRoadBeastIdentity(wanderer, roadBeastPets, sharedImages)),
+        [naturalWanderers, roadBeastPets, sharedImages],
+    );
     const [bountyBoard, setBountyBoard] = useState<BountyEntry[]>([]);
     useEffect(() => {
         // The board feeds the global view AND the Contract Hunters on the sector
@@ -2190,7 +2199,9 @@ function WorldMapContent({
         // This is only a navigation marker. The Showdown endpoint validates the
         // exact wanderer and chooses the format, both teams and seed itself.
         setPendingPetBattleOpponent({
-            owner: "Roaming AI",
+            // The beast as this player met it (lib/road-beast.ts). The Colosseum
+            // shows the server's own name for it, which is the same one.
+            owner: w.name,
             // PetArenaOpponent is the existing navigation envelope. This pet
             // is never shown or sent to Showdown; the server draws the real team.
             pet: genericPetArenaOpponents[0].pet,

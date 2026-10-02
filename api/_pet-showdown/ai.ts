@@ -114,7 +114,15 @@ export function buildShowdownAiTeam(
     size: number,
     tier: ShowdownTier,
     seed: number,
-    opts?: { mirrorLevels?: boolean; mirrorRarities?: boolean; roster?: ShowdownRosterSpec },
+    opts?: {
+        mirrorLevels?: boolean;
+        mirrorRarities?: boolean;
+        roster?: ShowdownRosterSpec;
+        /** Sparring only: the species that must stand in slot 0 (a road beast,
+         *  shared/wanderer-beast.ts). Honoured only from inside slot 0's own
+         *  rarity-matched pool, so it never changes the opposition's rarity. */
+        leadTemplateId?: string;
+    },
 ): { pets: Pet[]; teamName: string } {
     const rand = makeRand(seed);
     const clampLevel = (n: number): number => Math.max(1, Math.min(100, Math.round(n)));
@@ -195,7 +203,13 @@ export function buildShowdownAiTeam(
             const candidates = Object.values(PET_CATALOG).filter(tpl => tpl.rarity === rarity
                 && tpl.wildSpawnable !== false && Array.isArray(tpl.jutsus) && !taken.has(String(tpl.id)));
             if (!candidates.length) break;
-            const chosen = candidates[Math.floor(rand() * candidates.length)];
+            // The roll is drawn even when a named lead replaces it, so every
+            // later slot, trait and gear pick samples exactly as it would have.
+            const roll = rand();
+            const named = slot === 0 && opts.leadTemplateId
+                ? candidates.find((tpl) => String(tpl.id) === opts.leadTemplateId)
+                : undefined;
+            const chosen = named ?? candidates[Math.floor(roll * candidates.length)];
             taken.add(String(chosen.id));
             picked.push(outfit(chosen, slot));
         }
@@ -258,8 +272,19 @@ export function buildShowdownAiTeam(
  * derivation as owned pets. The campaign builder above retains its authored
  * difficulty curve; changing that curve would also retune First Pact bosses.
  * Sparring matches rarity and level; explicit tiers keep their named pools. */
-export function buildColosseumAiTeam(playerPets: Pet[], size: number, tier: ShowdownTier, seed: number, sparring = false) {
-    const team = buildShowdownAiTeam(playerPets, size, tier, seed, { mirrorLevels: sparring, mirrorRarities: sparring });
+export function buildColosseumAiTeam(
+    playerPets: Pet[],
+    size: number,
+    tier: ShowdownTier,
+    seed: number,
+    sparring = false,
+    opts?: { leadTemplateId?: string },
+) {
+    const team = buildShowdownAiTeam(playerPets, size, tier, seed, {
+        mirrorLevels: sparring,
+        mirrorRarities: sparring,
+        leadTemplateId: opts?.leadTemplateId,
+    });
     return {
         ...team,
         pets: team.pets.map((pet, index) => {

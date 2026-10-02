@@ -196,8 +196,8 @@ export function WorldWandererDialog({
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "petDuel" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                    {/* No "Ask about the road": a wild beast cannot answer. */}
                     <button onClick={() => startWandererPetDuel(wandererDialog.w)}>Send out your pet</button>
-                    <button onClick={() => askRoadRumor(wandererDialog.w)}>Ask about the road</button>
                     <button onClick={closeWandererDialog}>Leave</button>
                 </div>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "gamble" ? (
