@@ -14,6 +14,45 @@ let sequence = 0;
 let player: string;
 const requestId = 'dungeonrecoveryprobe01';
 
+test('verified dungeon clear repairs interrupted Legacy delivery without repeating rewards', async () => {
+    process.env.ENABLE_LEGACY = '1';
+    const token = 'legacydungeonclearproof';
+    const now = Date.now();
+    await seed({ activeDungeonRun: {
+        token, entry: 'key', startedAt: now - 60_000,
+        combatAuthorityVersion: 1, wardenDefeated: true, wardenProofId: 'wardenproof123',
+        cardAuthorityVersion: 1, cardDefeated: true, cardLastOutcome: 'player', cardSettledAt: now,
+        cardDefeatedAt: now, cardProofId: 'cardproof123', cardLastProofId: 'cardproof123',
+        petAuthorityVersion: 1, petDefeated: true, petLastOutcome: 'win', petSettledAt: now,
+        petDefeatedAt: now, petProofId: 'petproof123', petLastProofId: 'petproof123', petLastPetIds: ['pet-one'],
+    } });
+    await kv.set(`legacy:stats:${player}`, { bootstrappedAt: now });
+    const invoke = async () => {
+        const output = { status: 200, body: {} as Json };
+        const res = { setHeader: () => res, status: (status: number) => { output.status = status; return res; },
+            json: (body: Json) => { output.body = body; return res; }, end: () => res };
+        await handler({ method: 'POST', body: { action: 'settle', playerName: player, token },
+            headers: { 'x-player-token': issuePlayerToken(player) }, socket: { remoteAddress: '203.0.113.121' } } as never, res as never);
+        return output;
+    };
+    const original = kv.set;
+    let fail = true;
+    kv.set = async (key, value, options) => {
+        if (fail && key === `legacy:stats:${player}`) { fail = false; return null; }
+        return original(key, value, options);
+    };
+    try {
+        assert.equal((await invoke()).status, 503);
+        const rewarded = await storedCharacter();
+        assert.equal(rewarded.auraStones, 5);
+        kv.set = original;
+        assert.equal((await invoke()).status, 200);
+        assert.equal((await invoke()).status, 200);
+        assert.equal((await storedCharacter()).auraStones, 5);
+        assert.equal((await kv.get<Json>(`legacy:stats:${player}`))?.dungeonClears, 1);
+    } finally { kv.set = original; delete process.env.ENABLE_LEGACY; }
+});
+
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));

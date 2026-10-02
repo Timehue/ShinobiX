@@ -124,6 +124,8 @@ export type ActionResult = { applied: boolean; reason?: string };
 type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
+    /** Bloodline weather affinity; the weather term reads it before `element`. */
+    weatherElement?: string;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
     bloodlineRank?: string;
     // Weapon synth sets this when the wielder lacks the weapon's element → the swing
@@ -1507,13 +1509,17 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
 // (chakra/stamina) + cooldown bookkeeping is the caller's job (it differs per action).
-// Sealed-weather term (combat missions): +5% matching-element / −2% opposed-element
-// on the attacker's OUTGOING jutsu, mirroring the Arena's weather rule. session.weather
-// is absent for every other tower/spire/clan-boss run → ×1, byte-identical.
+// Sealed-weather term: +5% matching-element / −2% opposed-element on the attacker's
+// OUTGOING jutsu, mirroring the Arena's weather rule. Hunt encounters copy their Solo
+// session's sealed weather onto the battle (api/solo-pve/_hunt-combat.ts); every
+// other tower/spire/clan-boss run leaves session.weather absent → ×1, byte-identical.
+// A bloodline technique's explicit weatherElement (a base element, or "None" to opt
+// out) outranks its cosmetic element, exactly as in PvP (api/pvp/move.ts), Solo PvE
+// (api/solo-pve/_engine.ts) and the client's weatherElementOf (lib/elements.ts).
 function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     const w = session.weather;
     if (!w) return 1;
-    return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
+    return weatherMultiplier(String(jutsu.weatherElement ?? jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
 /**
@@ -2423,6 +2429,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cut = healcutPct(session);
             if (cut > 0) healAmt = Math.max(0, Math.floor(healAmt * (1 - cut / 100)));
         }
+        healAmt = Math.min(Math.max(0, actor.maxHp - actor.hp), healAmt);
         actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
         actor.chakra = Math.max(0, actor.chakra - HEAL_CHAKRA);
         actor.cooldowns['basicHeal'] = HEAL_CD;
