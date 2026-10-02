@@ -26,3 +26,18 @@ test('durable and rolling receipt checks share one exact-once gate', () => {
     assert.equal(hasLegacyActivityReceipt(stats, 'pet-ranked:match-1'), true);
     assert.equal(hasLegacyActivityReceipt(stats, 'missing'), false);
 });
+
+test('recovery receipts expire by day without retiring permanent milestone or war receipts', () => {
+    const day = Math.floor(Date.now() / 86_400_000);
+    const stats: LegacyStats = { durableActivityReceipts: [
+        'story:permanent', 'sector-war:permanent',
+        `pvp-recovery:${day - 4}:pvp:expired:winner`,
+        `pvp-recovery:${day - 2}:pvp:recoverable:winner`,
+    ] };
+    const next = appendLegacyActivityReceipt(stats, 'next-mission');
+    assert.equal(hasLegacyActivityReceipt(next, 'pvp:expired:winner'), false);
+    assert.equal(hasLegacyActivityReceipt(next, 'pvp:recoverable:winner'), true);
+    assert.equal(hasLegacyActivityReceipt(next, 'story:permanent'), true);
+    assert.equal(hasLegacyActivityReceipt(next, 'sector-war:permanent'), true);
+    assert.equal(stats.durableActivityReceipts?.length, 4, 'pruning is immutable');
+});
