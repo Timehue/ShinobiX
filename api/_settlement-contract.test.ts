@@ -146,9 +146,10 @@ describe('reward-settlement contract inventory', () => {
     it('every currency-mutating settlement passes failClosed to its lock (spot inventory)', () => {
         // The full lock audit lives in docs/audits/concurrency-and-locking-audit.md;
         // this pins the currency-path convention on the highest-value endpoints.
-        for (const rel of ['player/trade.ts', 'pvp/claim-rewards.ts']) {
-            assert.match(read(rel), /failClosed:\s*true/, `${rel} must lock failClosed`);
-        }
+        assert.match(read('pvp/claim-rewards.ts'), /failClosed:\s*true/, 'pvp/claim-rewards.ts must lock failClosed');
+        // player/trade.ts takes both save locks through mutatePlayerSaves.
+        assert.match(read('player/trade.ts'), /mutatePlayerSaves</, 'player/trade.ts must lock both saves through mutatePlayerSaves');
+        assert.match(read('save/_mutate-player-save.ts'), /const lockOptions = \{ failClosed: true/, 'mutatePlayerSaves must lock failClosed');
         for (const rel of ['clan/treasury/transfer.ts', 'village/treasury/transfer.ts']) {
             assert.match(read(rel), /settleCrossKeyTransfer/, `${rel} must use the shared cross-key settlement lock`);
         }
