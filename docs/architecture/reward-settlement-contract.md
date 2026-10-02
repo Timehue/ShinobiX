@@ -205,6 +205,18 @@ the expedition's mission progress was lost for good.
   rather than count twice (loss-only). A replay after the player chose a
   profession again (`professionChosenAt` later than the settle) reports nothing
   either, because the board it would count toward is a fresh one.
+- A pet training (`pet/progress`, Collect or Start's self-heal) had the same
+  gap, and its retry could not replay at all: the session was already
+  collected, so it only answered "Training is not complete." The settle's
+  `afterCommit` now lists the event under `pet-train-missions:<player>` (36 h
+  TTL, at most 8 events) before the report runs, and a report that lands clears
+  it. The player's next Collect or Start, on any pet, reports what is still
+  listed under the receipt `pet-train:<petId>:<startedAt>:<endsAt>`, with the
+  same day and profession rules. A failed report no longer fails the collect,
+  whose session has settled. The listing never throws, because the handler's
+  catch would hand back a Prodigy claim whose session already committed. The
+  reply re-reads the save after a report, since the profession XP it pays
+  moves the save version past the one the settle committed.
 - `loadOrIssueDailyMissions` no longer replaces a stored board with a set for an
   earlier UTC day. The raid saga reports at its proof time
   (`now: new Date(proofAt)`), which can fall on the previous day. Issuing that
