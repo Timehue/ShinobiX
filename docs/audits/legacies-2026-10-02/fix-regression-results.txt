@@ -1,0 +1,68 @@
+✔ a path qualifying without PvP keeps every trial variant free of mandatory PvP (5.3665ms)
+✔ post-settlement mirror snapshots are rewound before first-touch bootstrap (0.9573ms)
+✔ roster has exactly 100 legacies with the design rarity split (0.2169ms)
+✔ ids are unique kebab-case slugs and the map covers all of them (0.5896ms)
+✔ names and titles are present, distinct enough, and flavored (0.3859ms)
+✔ Sage-facing Legacy flavor reads as concise witness evidence, not slogans or game UI (0.6588ms)
+✔ multi-proof rule holds per rarity (0.5254ms)
+✔ same-tier identities are not strict requirement upgrades of one another (1.878ms)
+✔ all 100 badge and wearable-title links resolve without identity collisions (17.1393ms)
+✔ requirement breadth follows the intended basic-to-mythic effort curve (1.0817ms)
+✔ a genuine level-50 villager always has an attainable basic fallback (0.5121ms)
+✔ all requirement stats are known counters and thresholds are sane (0.4635ms)
+✔ rarity thresholds escalate: a mythic is never cheaper than a basic on shared stats (0.3496ms)
+✔ basic proofs stay below every higher-tier use of the same stat (0.3956ms)
+✔ weighted primary mastery floors strictly increase between tiers (0.5162ms)
+✔ mythics are calendar-scale but remain possible within bounded earning cadences (0.3296ms)
+✔ fresh-delta trials never demand more than 30 standard days from a capped faucet (9.0183ms)
+✔ every requirement stat has a write path (no dead-stat legacies) (1.774ms)
+✔ trial objectives only use strictly LIVE stats (mirrors move once a day at best) (44.6533ms)
+✔ trial variants differ, later kinds add breadth, and the client labels every trial stat (8.9343ms)
+✔ legendary and mythic tiers cannot be fully covered by bootstrap-seeded counters (0.4045ms)
+✔ village affinities only reference real villages (0.1611ms)
+✔ no legacy uses the internal "mythic" identity category (it would leak the hidden rarity) (0.1451ms)
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (6384.4782ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (47.364ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (255.1498ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.4448ms)
+✔ rank bands mirror the level thresholds (1.1101ms)
+✔ extract parses the battle log with exact move.ts line formats (1.0924ms)
+✔ comeback, upset, and ranked flags (0.2202ms)
+✔ guardDefenseDeltas — queue-defense faucet (defender wins, attacker wins, no marker) (0.9811ms)
+✔ level-cap ranked upsets remain earnable from sealed rating snapshots (0.2645ms)
+✔ basic, siphon and lifesteal healing count for either fighter (0.23ms)
+[kv] isolated in-memory QA backend active
+✔ an expired stored offer cannot suppress a new Sage roll (460.2436ms)
+✔ declined offers eventually visit every eligible path without depending on event retention (235.6658ms)
+[legacy/sage] Error: injected-accept-era-read-failure
+[legacy/sage] Error: injected acceptance save failure
+[legacy/trial] Error: injected trial delete failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+[era] receipt contribution failed (legaciesAwakened): injected world-effect failure
+✔ first acceptance rejects disabled and under-level offers while a sealed retry stays valid (3098.4363ms)
+✔ flag-off canary: definitions 404s without ENABLE_LEGACY (0.3538ms)
+✔ definitions serves the full 100-legacy codex (76.5603ms)
+✔ verified server progress performs the Sage roll without a map-screen call (130.699ms)
+✔ forced sage roll spawns a multi-choice offer (2.7643ms)
+✔ accept rejects a legacy that was not offered (0.3906ms)
+✔ failed world authority cannot seal an acceptance with a guessed birth era (6.4057ms)
+✔ accept seals the path, auto-starts a DECORATED awaken trial, returns the intro (2.7653ms)
+✔ re-accepting the same legacy is idempotent — never a stage-1 reset (0.5926ms)
+✔ accepting a DIFFERENT legacy after sealing → 409 sealed (one legacy forever) (0.2897ms)
+✔ ordinary stats GET repairs an expired marker-only accept exactly once across save, trial, Chronicle, and world receipts (9.7208ms)
+✔ awaken completion survives save→delete and delete→effects failures, then replays exactly once (108.8673ms)
+✔ re-accept AFTER progression still returns the CURRENT stage (0.8178ms)
+✔ bind trial: start (variant 0) → reroll swaps the ask (attempt 2, variant 1) → stage 3 (3.7866ms)
+✔ real Proven and summit trials grant their titles and open the matching era admission (9.6973ms)
+✔ the summit is permanent history: hall entries minted, no further trials (0.5782ms)
+✔ status endpoint reflects the finished journey (stage 5, 3 titles, category resolved) (1.4243ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 52
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 17610.6622

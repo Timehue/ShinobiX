@@ -1,5 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { projectAuthoritativeCombatEvent } from '../combat-core/events.js';
 import {
     COMBAT_MISSION_CLAIM_TOKEN_TTL_MS,
     appendCombatMissionClaimSettlement,
@@ -1270,6 +1271,25 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         try {
             await seedPlayer(player);
             const runId = await seedWonRun(player, 'legacyeffect');
+            const session = (await readSession(runId))!;
+            const before = {
+                player: { ...session.player, hp: 390 }, enemy: { ...session.enemy, hp: 90 },
+                ap: session.ap, cooldowns: session.cooldowns, groundEffects: session.groundEffects,
+                itemCharges: session.itemCharges, itemsUsed: session.itemsUsed,
+            };
+            const after = structuredClone(before);
+            after.player.hp = 420; after.player.shield = 20; after.enemy.hp = 0;
+            session.player.shield = 20;
+            session.events = [{
+                kind: 'action', seq: 1, round: 1, actor: 'player', target: 'enemy', action: 'jutsu',
+                before, after, log: [], vfx: [], status: 'done', winner: 'player', outcome: 'win',
+                combat: projectAuthoritativeCombatEvent({
+                    runtime: 'solo-pve', mode: 'mission', sessionId: runId, sequence: 1,
+                    roundBefore: 1, roundAfter: 1, actor: 'player', target: 'enemy', actionType: 'jutsu',
+                    applied: true, before, after, resolution: { healing: 30 }, status: 'done', winner: 'player', outcome: 'win',
+                }),
+            }];
+            await writeSession(session);
             assert.equal((await queue(player, runId)).statusCode, 200);
             const failed = await withSetFault(
                 (key, value) => key === `save:${player}` && hasSettlementEffect(value, 'legacyAppliedAt'),
@@ -1280,12 +1300,20 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             const afterCrash = await kv.get<Record<string, unknown>>(`legacy:stats:${player}`);
             assert.equal(afterCrash?.missionCompletions, 1);
             assert.equal(afterCrash?.pveKills, 1);
+            assert.equal(afterCrash?.taijutsuKills, 1);
+            assert.equal(afterCrash?.taijutsuDamage, 90);
+            assert.equal(afterCrash?.healingDone, 30);
+            assert.equal(afterCrash?.shieldsApplied, 1);
             assert.equal(Array.isArray(afterCrash?.combatMissionEffects), true);
 
             assert.equal((await claim(player)).statusCode, 200);
             const afterRetry = await kv.get<Record<string, unknown>>(`legacy:stats:${player}`);
             assert.equal(afterRetry?.missionCompletions, 1);
             assert.equal(afterRetry?.pveKills, 1);
+            assert.equal(afterRetry?.taijutsuKills, 1);
+            assert.equal(afterRetry?.taijutsuDamage, 90);
+            assert.equal(afterRetry?.healingDone, 30);
+            assert.equal(afterRetry?.shieldsApplied, 1);
             assert.equal(Array.isArray(afterRetry?.combatMissionEffects), true);
             assert.ok(Number((afterRetry?.combatMissionEffects as Array<Record<string, unknown>>)?.[0]?.acknowledgedAt) > 0);
             assert.equal((await claim(player)).statusCode, 200);

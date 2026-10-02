@@ -1,0 +1,46 @@
+✖ qualifying sealed play grants one exact-once Legacy Card Clash win (1038.7743ms)
+✖ same-account repeat wins decay to zero after four credited legs (96.1695ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5616.1274
+
+✖ failing tests:
+
+test at api\card-clash\match.test.ts:2:15896
+✖ qualifying sealed play grants one exact-once Legacy Card Clash win (1038.7743ms)
+  AssertionError [ERR_ASSERTION]: the opponent account drives anti-farm decay
+
+  undefined !== 1
+
+      at TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\card-clash\match.test.ts:477:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at api\card-clash\match.test.ts:2:16605
+✖ same-account repeat wins decay to zero after four credited legs (96.1695ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+  undefined !== 5
+
+      at TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\.codex-worktrees\legacy-acquisition-live-main\api\card-clash\match.test.ts:502:10)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:974:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: 5,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
