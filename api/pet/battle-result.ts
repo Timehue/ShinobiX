@@ -1,6 +1,7 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { cors, safeName, mergePreservingImages } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
@@ -882,7 +883,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     || casualPveSeal.playerPets.length !== 1
                     || casualPveSeal.opponentPets.length !== 1
                     || casualPveSeal.opponentPets[0]?.id !== DUNGEON_RARE_BEAST_ID
-                    || JSON.stringify(casualPveSeal.opponentPets[0]) !== JSON.stringify(fixedOpponent)) {
+                    // The token is read back from jsonb, which reorders object
+                    // keys, so compare values rather than JSON text.
+                    || !storedValueEquals(casualPveSeal.opponentPets[0], fixedOpponent)) {
                     return res.status(409).json({ error: 'Dungeon pet token lacks its fixed authoritative combat snapshot.' });
                 }
             } else if (!Number.isSafeInteger(tokenReward) || tokenReward < 20 || tokenReward > 250) {

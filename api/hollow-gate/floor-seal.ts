@@ -1,6 +1,7 @@
 import { recoverHollowGatePendingOperation } from './_pending-operation.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -65,7 +66,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
             if (!validation.ok) return { status: 409, body: { error: `Invalid Hollow Gate floor: ${validation.reason}.` } };
             if (existing) {
-                if (JSON.stringify(existing) !== JSON.stringify(validation.manifest)) {
+                // `existing` is read back from jsonb, which reorders object keys,
+                // so compare values rather than JSON text.
+                if (!storedValueEquals(existing, validation.manifest)) {
                     return { status: 409, body: { error: 'The floor manifest is already sealed.' } };
                 }
                 return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, detour: existing.detour ?? null, riftSignal: existing.riftSignal ?? null, position: run.position, pendingAmbush: run.pendingAmbush ?? null } };
