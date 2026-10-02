@@ -123,7 +123,7 @@ test('a transfer completed after the initial save read makes the old village cla
     const previousAdmin = process.env.ADMIN_PASSWORD;
     process.env.ADMIN_PASSWORD = 'kage-claim-transfer-race-test';
     try {
-        const transfer = (await import('./transfer.js')).default;
+        const transfer = (await import('./transfer.js')).default as unknown as (req: never, res: never) => Promise<unknown>;
         let status = 200;
         const res = {
             setHeader() { return this; },
