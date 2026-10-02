@@ -235,7 +235,7 @@ describe('pet bond decay — PvE summon ONLY', () => {
         'api/_pet-showdown/engine.ts',
         'api/pet/_pvp-duel.ts',
         'api/pet/_ranked-engine.ts',
-        'api/pet/_wanderer-duel.ts',
+        'api/pet/_wanderer-showdown.ts',
         'api/pet/_dungeon-battle.ts',
         'api/pet/warfront-start.ts',
     ];

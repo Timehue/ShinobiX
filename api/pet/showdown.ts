@@ -103,7 +103,9 @@ import {
  *             from the catalog, and mint an unpaid practice KV session. The
  *             ENGINE RUNS ONLY HERE on the server; the client is presentation.
  *   wanderer — validate a natural road beast, roll a fieldable 1v1/2v2/3v3
- *             format and random AI team, and enter an unpaid interactive fight.
+ *             format led by the pet the beast picked out, against a sparring
+ *             team led by the beast's own species (shared/wanderer-beast.ts),
+ *             and enter an unpaid interactive fight.
  *   hollow-gate — open or resume the Showdown duel a Pet-mode Hollow Gate
  *             encounter names: the road draw's random 1v1/2v2/3v3 against the
  *             run's own Hounds, unpaid here and settled by the Gate.
