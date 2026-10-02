@@ -25,6 +25,7 @@ import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../li
 
 import { memo, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
+import { useBlackMarketUsage, utcDay, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
 import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
 
 import { levelProgress } from "../lib/character-progress";
@@ -135,6 +136,8 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     const now = serverNow();
     const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
     const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
+    // Today's Broker crates at the Sunscar Festival; null until the count loads.
+    const sealedCrates = useBlackMarketUsage(character.name, utcDay(now));
 
     return (
         <>
@@ -198,12 +201,14 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
                     <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="dice" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Fate Spins</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "var(--danger)" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
-                    </div>
-                    <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
                         <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
+                    </div>
+                    {/* Last and full-width: the name is too long for a half-width
+                        cell in the desktop rail, and it fills the grid's odd slot. */}
+                    <div className="left-caps-cell" style={{ gridColumn: "1 / -1" }} title="Sealed crates bought from the Broker at the Sunscar Festival today">
+                        <span className="left-caps-label"><GameIcon name="gift" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
+                        <span className="left-caps-value" style={{ color: (sealedCrates ?? 0) >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCrates ?? "–"}/{BLACK_MARKET_DAILY_CAP}</span>
                     </div>
                 </div>
             </div>
