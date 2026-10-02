@@ -2,6 +2,7 @@ import { useEffect } from "react";
 
 import { notifyScreen } from "../lib/perfTelemetry";
 import type { Screen } from "../types/core";
+import { TravelingOverlay } from "./TravelingOverlay";
 
 const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     adminLogin: "Loading Admin Login",
@@ -33,8 +34,14 @@ const SCREEN_MESSAGES: Partial<Record<Screen, string>> = {
     pvpBattle: "Restoring Battle",
 };
 
-export function ScreenLoadingFallback({ screen }: { screen: Screen }) {
+export function ScreenLoadingFallback({ screen, travelingUntil = 0 }: { screen: Screen; travelingUntil?: number }) {
     useEffect(() => { notifyScreen(screen); }, [screen]);
+
+    // A refresh mid-trip reopens the World Map, but the map is a lazy chunk and
+    // the trip keeps running in real time while it downloads. The mask lives in
+    // WorldMap, so a slow load used to spend the whole remaining trip on this
+    // generic card and never show "Traveling" at all. Show the mask here too.
+    if (screen === "worldMap" && travelingUntil > 0) return <TravelingOverlay arrivalAt={travelingUntil} />;
 
     return (
         <div
