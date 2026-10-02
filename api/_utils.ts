@@ -62,6 +62,9 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // previous save and can strand or repay a completed contract.
     'serverHuntTrails',
     'serverFieldMissionRuns',
+    // Era stage transitions reset counters and replace historical short-chapter
+    // completion. Generic saves preserve this server-owned map before merging.
+    'eraJourneys',
     // A sanctify checkpoint/new dive resets the protected currency map.
     // Union-merging it would resurrect the previous external-credit amounts.
     'hollowGateExternalCredits',

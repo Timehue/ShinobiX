@@ -319,7 +319,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await withKvLock(ERA_STATE_KEY, async () => {
                 const state = await getEraState();
                 state.overrides[eraId] = { ...state.overrides[eraId], status: status as EraStatus };
-                await kv.set(ERA_STATE_KEY, state);
+                if (await kv.set(ERA_STATE_KEY, state) !== 'OK') throw new Error('Era status was not committed.');
             }, { failClosed: true });
             await recordAudit({ actor: 'admin', domain: 'legacy', action: 'era.set-status', entityType: 'era', entityId: eraId, after: status });
             return res.status(200).json({ ok: true });
@@ -340,7 +340,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...prev,
                     milestoneOverrides: { ...prev.milestoneOverrides, [metric]: required },
                 };
-                await kv.set(ERA_STATE_KEY, state);
+                if (await kv.set(ERA_STATE_KEY, state) !== 'OK') throw new Error('Era milestone was not committed.');
             }, { failClosed: true });
             await recordAudit({ actor: 'admin', domain: 'legacy', action: 'era.set-milestone', entityType: 'era', entityId: eraId, after: { metric, required } });
             // Lowering a floor may complete the era right away.

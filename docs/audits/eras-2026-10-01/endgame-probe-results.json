@@ -1,0 +1,560 @@
+{
+  "status": "research; no tuning promoted",
+  "generatedAt": "2026-10-02T02:16:22.747Z",
+  "spireCatalog": "endless-spire-v8",
+  "limitations": [
+    "Fixed deterministic seeds; one blessing; policy/gear fixtures are not real player cohorts.",
+    "Win percentages are rounded; no clean-clear probability measured.",
+    "Solo uses the same geared fixture with one member; it does not establish a fair solo challenge.",
+    "Pacing is arithmetic sensitivity, not observed calendar duration or telemetry.",
+    "Existing world counters have lifetime progress; the community example assumes fresh zero."
+  ],
+  "knobs": {
+    "maxHp": 12000,
+    "maxChakra": 2200,
+    "maxStamina": 2200,
+    "stat": 2500,
+    "bloodlineMult": 1.4,
+    "armorRawDR": 1,
+    "itemDamagePct": 30,
+    "itemAbsorbPct": 12,
+    "itemReflectPct": 8,
+    "itemLifeStealPct": 10,
+    "itemShield": 2000,
+    "healAtPct": 0.34,
+    "jutsu": [
+      {
+        "id": "j-nuke",
+        "name": "Spirit Bomb",
+        "effectPower": 52,
+        "ap": 60,
+        "range": 4,
+        "type": "Ninjutsu",
+        "chakraCost": 22
+      },
+      {
+        "id": "j-strike",
+        "name": "Fang Barrage",
+        "effectPower": 42,
+        "ap": 40,
+        "range": 2,
+        "type": "Bukijutsu",
+        "staminaCost": 12
+      },
+      {
+        "id": "j-jab",
+        "name": "Palm Strike",
+        "effectPower": 30,
+        "ap": 30,
+        "range": 1,
+        "type": "Taijutsu",
+        "staminaCost": 6
+      }
+    ]
+  },
+  "spire": [
+    {
+      "fixture": "geared-four",
+      "floor": 12,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 89,
+      "avgRounds": 19.4,
+      "avgSurv": 4,
+      "timeout": 11,
+      "bossLeft": 4,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-four",
+      "floor": 15,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 72,
+      "avgRounds": 22.5,
+      "avgSurv": 4,
+      "timeout": 28,
+      "bossLeft": 4,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-four",
+      "floor": 18,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 63,
+      "avgRounds": 20.1,
+      "avgSurv": 4,
+      "timeout": 38,
+      "bossLeft": 10,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-four",
+      "floor": 20,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 42,
+      "avgRounds": 22,
+      "avgSurv": 3.9,
+      "timeout": 56,
+      "bossLeft": 15,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-three",
+      "floor": 12,
+      "members": 3,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 26,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-three",
+      "floor": 15,
+      "members": 3,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 24,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-three",
+      "floor": 18,
+      "members": 3,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 32,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-three",
+      "floor": 20,
+      "members": 3,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 26,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-solo",
+      "floor": 12,
+      "members": 1,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 74,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-solo",
+      "floor": 15,
+      "members": 1,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 80,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-solo",
+      "floor": 18,
+      "members": 1,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 75,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "geared-solo",
+      "floor": 20,
+      "members": 1,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 0,
+      "avgRounds": 0,
+      "avgSurv": 0,
+      "timeout": 100,
+      "bossLeft": 72,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "stronger-four",
+      "floor": 15,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 100,
+      "avgRounds": 16,
+      "avgSurv": 4,
+      "timeout": 0,
+      "bossLeft": 0,
+      "failCause": ""
+    },
+    {
+      "fixture": "stronger-four",
+      "floor": 18,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 98,
+      "avgRounds": 15.4,
+      "avgSurv": 4,
+      "timeout": 2,
+      "bossLeft": 2,
+      "failCause": "timeout"
+    },
+    {
+      "fixture": "stronger-four",
+      "floor": 20,
+      "members": 4,
+      "seeds": 64,
+      "blessingWeek": 0,
+      "win": 100,
+      "avgRounds": 15.8,
+      "avgSurv": 4,
+      "timeout": 0,
+      "bossLeft": 0,
+      "failCause": ""
+    }
+  ],
+  "trials": [
+    {
+      "id": "hollow-seeker",
+      "rarity": "rare",
+      "category": "pve",
+      "variant": 0,
+      "stages": [
+        {
+          "kind": "awaken",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 18
+            },
+            {
+              "stat": "pveKills",
+              "delta": 70
+            }
+          ]
+        },
+        {
+          "kind": "bind",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 26
+            },
+            {
+              "stat": "pveKills",
+              "delta": 105
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 4
+            }
+          ]
+        },
+        {
+          "kind": "prove",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 44
+            },
+            {
+              "stat": "pveKills",
+              "delta": 175
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 4
+            }
+          ]
+        },
+        {
+          "kind": "mythic",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 70
+            },
+            {
+              "stat": "pveKills",
+              "delta": 280
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 6
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gatebreaker",
+      "rarity": "legendary",
+      "category": "pve",
+      "variant": 0,
+      "stages": [
+        {
+          "kind": "awaken",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 30
+            },
+            {
+              "stat": "pveKills",
+              "delta": 120
+            }
+          ]
+        },
+        {
+          "kind": "bind",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 45
+            },
+            {
+              "stat": "pveKills",
+              "delta": 180
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 6
+            }
+          ]
+        },
+        {
+          "kind": "prove",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 75
+            },
+            {
+              "stat": "pveKills",
+              "delta": 300
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 8
+            }
+          ]
+        },
+        {
+          "kind": "mythic",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 120
+            },
+            {
+              "stat": "pveKills",
+              "delta": 480
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 11
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 11
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gate-opener",
+      "rarity": "mythic",
+      "category": "pve",
+      "variant": 0,
+      "stages": [
+        {
+          "kind": "awaken",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 45
+            },
+            {
+              "stat": "pveKills",
+              "delta": 180
+            }
+          ]
+        },
+        {
+          "kind": "bind",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 68
+            },
+            {
+              "stat": "pveKills",
+              "delta": 270
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 9
+            }
+          ]
+        },
+        {
+          "kind": "prove",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 113
+            },
+            {
+              "stat": "pveKills",
+              "delta": 450
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 11
+            }
+          ]
+        },
+        {
+          "kind": "mythic",
+          "objectives": [
+            {
+              "stat": "missionCompletions",
+              "delta": 180
+            },
+            {
+              "stat": "pveKills",
+              "delta": 720
+            },
+            {
+              "stat": "sectorDiscoveries",
+              "delta": 16
+            },
+            {
+              "stat": "dungeonClears",
+              "delta": 16
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "missionPacing": [
+    {
+      "required": 5,
+      "playDaysAt2": 3,
+      "playDaysAt5": 1,
+      "playDaysAt10": 1,
+      "minimumDaysAtCurrent20ClaimCap": 1
+    },
+    {
+      "required": 60,
+      "playDaysAt2": 30,
+      "playDaysAt5": 12,
+      "playDaysAt10": 6,
+      "minimumDaysAtCurrent20ClaimCap": 3
+    },
+    {
+      "required": 100,
+      "playDaysAt2": 50,
+      "playDaysAt5": 20,
+      "playDaysAt10": 10,
+      "minimumDaysAtCurrent20ClaimCap": 5
+    },
+    {
+      "required": 120,
+      "playDaysAt2": 60,
+      "playDaysAt5": 24,
+      "playDaysAt10": 12,
+      "minimumDaysAtCurrent20ClaimCap": 6
+    },
+    {
+      "required": 200,
+      "playDaysAt2": 100,
+      "playDaysAt5": 40,
+      "playDaysAt10": 20,
+      "minimumDaysAtCurrent20ClaimCap": 10
+    },
+    {
+      "required": 240,
+      "playDaysAt2": 120,
+      "playDaysAt5": 48,
+      "playDaysAt10": 24,
+      "minimumDaysAtCurrent20ClaimCap": 12
+    },
+    {
+      "required": 400,
+      "playDaysAt2": 200,
+      "playDaysAt5": 80,
+      "playDaysAt10": 40,
+      "minimumDaysAtCurrent20ClaimCap": 20
+    },
+    {
+      "required": 600,
+      "playDaysAt2": 300,
+      "playDaysAt5": 120,
+      "playDaysAt10": 60,
+      "minimumDaysAtCurrent20ClaimCap": 30
+    }
+  ],
+  "communityMissionPacing": [
+    {
+      "activePlayers": 5,
+      "assumedQualifyingClaimsPerPlayerPerDay": 10,
+      "required": 5000,
+      "freshZeroBaselineDays": 100
+    },
+    {
+      "activePlayers": 25,
+      "assumedQualifyingClaimsPerPlayerPerDay": 10,
+      "required": 5000,
+      "freshZeroBaselineDays": 20
+    },
+    {
+      "activePlayers": 100,
+      "assumedQualifyingClaimsPerPlayerPerDay": 10,
+      "required": 5000,
+      "freshZeroBaselineDays": 5
+    }
+  ]
+}

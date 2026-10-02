@@ -786,6 +786,8 @@ wording.
 
 ## 14. Era system
 
+Current working-tree implementation extension: [World Era Chapters](era-chapters.md) gives all five eras sequential personal campaigns with rank-qualified combat missions, full Gate victories and same-run examinations. I–III use Story Tower examinations; IV/V add Master/Grandmaster workloads and public four-player Spire examinations, with level and any-rarity Legacy-stage admission. Historical short-chapter titles do not satisfy the campaigns or unlock a successor. World V separately gates its Survey, while existing gameplay and Legacy trials retain their admission rules. Unlock delivery checks receipt-backed announcement, Hall and title completion before marking effects done. The chapter document owns these rules; this section retains the original world-effort design. Production deployment is separate from these local changes.
+
 ### 14.1 Definitions & state
 
 Five eras per handoff (Shinobi Awakening / Hollow Gate Opens / Village

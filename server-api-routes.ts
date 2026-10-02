@@ -272,6 +272,7 @@ import legacyEvaluateHandler          from './api/legacy/evaluate.js';
 import legacySageHandler              from './api/legacy/sage.js';
 import legacyTrialHandler             from './api/legacy/trial.js';
 import erasHandler                    from './api/eras.js';
+import eraJourneyHandler              from './api/eras/journey.js';
 import announcementsHandler           from './api/announcements.js';
 import worldCrisisHandler              from './api/world-crisis.js';
 import worldCrisis80Handler            from './api/world-crisis-80.js';
@@ -746,6 +747,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/legacy/sage',               legacySageHandler);
     route('/legacy/trial',              legacyTrialHandler);
     route('/eras',                      erasHandler);
+    route('/eras/journey',              eraJourneyHandler);
     route('/announcements',             announcementsHandler);
     route('/world-crisis',              worldCrisisHandler);
     route('/world-crisis-80',           worldCrisis80Handler);

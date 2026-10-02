@@ -143,6 +143,14 @@ describe('isMalformedJsonBodyError', () => {
 });
 
 describe('mergePreservingImages', () => {
+    it('campaign stage transitions clear spent counters and migration drops the old completion', () => {
+        const existing = { character: { eraJourneys: { 'shinobi-awakening': { completedAt: 1000, stageCounts: { 'missions-C': 30 } } } } };
+        const incoming = { character: { eraJourneys: { 'shinobi-awakening': { version: 2, stageIndex: 1, stageCounts: {} } } } };
+        const merged = mergePreservingImages(incoming, existing) as typeof incoming;
+        assert.deepEqual(merged.character.eraJourneys, incoming.character.eraJourneys);
+        const partial = mergePreservingImages({ character: { ryo: 1 } }, existing) as typeof existing;
+        assert.deepEqual(partial.character.eraJourneys, existing.character.eraJourneys);
+    });
     it('returns incoming for non-object types', () => {
         assert.equal(mergePreservingImages('foo', { existing: 'val' }), 'foo');
         assert.equal(mergePreservingImages(42, {}), 42);

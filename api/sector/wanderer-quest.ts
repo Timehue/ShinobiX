@@ -9,7 +9,7 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import { WANDERER_QUESTS, isWandererQuestId, wandererQuestRyo, wandererQuestComplete, parseWandererQuestSeal, RESET_ON_ACCEPT_METRICS, SURVEY_RESET_FIELDS, type WandererQuestSeal } from './_wanderer-quest.js';
 import { currentWandererCooldownUntil, naturalWandererOffers, parseNaturalWandererId, withWandererUseState } from './_wanderer-encounter.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
-import { bumpEraContributionOnce } from '../_era.js';
+import { bumpEraDiscoveryContribution } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import { MAX_WILD_SECTOR } from '../../shared/sector-geo.js';
 
@@ -206,14 +206,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     receiptId,
                     characterForBootstrap: (out.body as { character?: Record<string, unknown> }).character ?? null,
                 });
-                if (!delivered) {
+                if (!delivered || !(await bumpEraDiscoveryContribution(playerName, receiptId))) {
                     return res.status(503).json({
                         error: 'The quest reward is safe, but its Legacy record is still being sealed. Retry the same claim.',
                         code: 'legacy-delivery-pending',
                         retryable: true,
                     });
                 }
-                await bumpEraContributionOnce('discoveries', receiptId);
             }
             return res.status(out.status).json(out.body);
         }

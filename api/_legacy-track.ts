@@ -283,6 +283,7 @@ export async function getLegacyStats(
     if (claimed !== 'OK') {
         const raced = await kv.get<LegacyStats>(key);
         if (raced && typeof raced === 'object') return raced;
+        throw new Error('Legacy activity baseline was not committed.');
     }
     return seeded;
 }
@@ -403,7 +404,7 @@ export async function bumpLegacyStats(
             if (receiptId) {
                 next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true);
             }
-            await kv.set(legacyStatsKey(playerName), next);
+            if (await kv.set(legacyStatsKey(playerName), next) !== 'OK') throw new Error('Legacy activity receipt was not committed.');
             writtenStats = next;
             // Surface flagged players on the admin suspects queue (dedup,
             // newest-first, capped). Own lock on the GLOBAL list — two

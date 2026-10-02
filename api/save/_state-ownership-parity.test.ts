@@ -99,7 +99,7 @@ const FROZEN = {
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
         // Echoes of War campaign record — non-combat bookkeeping.
-        'echoesOfWar', 'echoesWitnessChoices',
+        'echoesOfWar', 'echoesWitnessChoices', 'eraJourneys',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
@@ -210,7 +210,7 @@ const FROZEN = {
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
-        'echoesOfWar', 'echoesWitnessChoices',
+        'echoesOfWar', 'echoesWitnessChoices', 'eraJourneys',
         'riftFirstClears', 'riftQuestBossReceipt',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
