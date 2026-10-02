@@ -1,8 +1,7 @@
 import { kv } from '../_storage.js';
 import { hospitalDischargeRestoresHpOnly } from '../_release-flags.js';
-import { withKvLock } from '../_lock.js';
-import { mergePreservingImages } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSaves, PlayerSavesPartialCommitError, type PlayerSavesSide } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import {
     beginDurableSettlement,
     cancelDurableSettlement,
@@ -83,42 +82,50 @@ export async function settleCrossPlayerHeal(options: {
         return { result: await refreshResult(started.record.result as CrossHealResult), replayed: true };
     }
 
-    const [firstKey, secondKey] = [healerKey, targetKey].sort();
-    return withKvLock(firstKey, () => withKvLock(secondKey, async () => {
-        const current = await beginDurableSettlement(input, { kv });
-        if (current.status === 'conflict') throw new CrossHealSettlementError(409, 'That heal request ID is already bound to another action.');
-        if (current.record.state === 'completed' && current.record.result) {
-            return { result: await refreshResult(current.record.result as CrossHealResult), replayed: true };
-        }
+    type Settled =
+        | { replay: CrossHealResult }
+        | { core: Omit<CrossHealResult, '_saveVersion'>; replayed: boolean };
+    // Both saves are locked (one sorted order, fail-closed) and must exist
+    // before either is written. The healer write commits first; each side's
+    // receipt rides in its own write, so a retry resumes from whichever exists.
+    let mutationObserved = false;
+    let settled: Awaited<ReturnType<typeof mutatePlayerSaves<Settled>>>;
+    try {
+        settled = await retryOnSaveVersionConflict(() => mutatePlayerSaves<Settled>([options.actorName, options.targetName], async (sides) => {
+            mutationObserved = false;
+            const current = await beginDurableSettlement(input, { kv });
+            if (current.status === 'conflict') throw new CrossHealSettlementError(409, 'That heal request ID is already bound to another action.');
+            const healer = sides[options.actorName]!.character;
+            const target = sides[options.targetName]!.character;
+            const untouched = {
+                [options.actorName]: { write: false, character: healer },
+                [options.targetName]: { write: false, character: target },
+            };
+            if (current.record.state === 'completed' && current.record.result) {
+                return { ok: true, value: { replay: current.record.result as CrossHealResult }, sides: untouched };
+            }
 
-        const healerRecord = await kv.get<Record<string, unknown>>(healerKey);
-        const targetRecord = await kv.get<Record<string, unknown>>(targetKey);
-        const healer = healerRecord?.character as Record<string, unknown> | undefined;
-        const target = targetRecord?.character as Record<string, unknown> | undefined;
-        if (!healerRecord || !healer) throw new CrossHealSettlementError(404, 'Healer not found.');
-        if (!targetRecord || !target) throw new CrossHealSettlementError(404, 'Target not found.');
+            const healerReceipt = inspectSettlementReceipt(healer, transactionId, fingerprint);
+            const targetReceipt = inspectSettlementReceipt(target, transactionId, fingerprint);
+            if (healerReceipt.status === 'conflict' || healerReceipt.status === 'invalid'
+                || targetReceipt.status === 'conflict' || targetReceipt.status === 'invalid') {
+                await updateDurableSettlement(transactionId, {
+                    state: 'reconciliation-required',
+                    failureReason: 'Conflicting cross-heal receipt.',
+                }, { kv }).catch(() => undefined);
+                throw new CrossHealSettlementError(409, 'This heal has a conflicting settlement receipt.');
+            }
+            if (healerReceipt.status === 'fresh' && targetReceipt.status === 'replay') {
+                await updateDurableSettlement(transactionId, {
+                    state: 'reconciliation-required',
+                    failureReason: 'Target heal exists without healer debit.',
+                }, { kv }).catch(() => undefined);
+                throw new CrossHealSettlementError(409, 'This heal requires settlement reconciliation.');
+            }
 
-        const healerReceipt = inspectSettlementReceipt(healer, transactionId, fingerprint);
-        const targetReceipt = inspectSettlementReceipt(target, transactionId, fingerprint);
-        if (healerReceipt.status === 'conflict' || healerReceipt.status === 'invalid'
-            || targetReceipt.status === 'conflict' || targetReceipt.status === 'invalid') {
-            await updateDurableSettlement(transactionId, {
-                state: 'reconciliation-required',
-                failureReason: 'Conflicting cross-heal receipt.',
-            }, { kv }).catch(() => undefined);
-            throw new CrossHealSettlementError(409, 'This heal has a conflicting settlement receipt.');
-        }
-        if (healerReceipt.status === 'fresh' && targetReceipt.status === 'replay') {
-            await updateDurableSettlement(transactionId, {
-                state: 'reconciliation-required',
-                failureReason: 'Target heal exists without healer debit.',
-            }, { kv }).catch(() => undefined);
-            throw new CrossHealSettlementError(409, 'This heal requires settlement reconciliation.');
-        }
-
-        let mutationObserved = healerReceipt.status === 'replay' || targetReceipt.status === 'replay';
-        try {
+            mutationObserved = healerReceipt.status === 'replay' || targetReceipt.status === 'replay';
             let coreResult: Omit<CrossHealResult, '_saveVersion'>;
+            let healerSide: PlayerSavesSide = untouched[options.actorName]!;
             if (healerReceipt.status === 'fresh') {
                 if (!options.core) {
                     throw new CrossHealSettlementError(409, 'This heal has no recoverable source receipt.');
@@ -153,64 +160,87 @@ export async function settleCrossPlayerHeal(options: {
                 const professionRank = professionRankForXp('healer', professionXp);
                 coreResult = { ...options.core, professionXp, professionRank };
                 await updateDurableSettlement(transactionId, { state: 'reserved' }, { kv });
-                const nextHealer = appendSettlementReceipt({
-                    ...healer,
-                    chakra: have - options.core.chakraCost,
-                    professionXp,
-                    professionRank,
-                }, healerReceipt.receipts, {
-                    requestId: transactionId,
-                    fingerprint,
-                    value: coreResult,
-                    settledAt: Date.now(),
-                });
-                await kv.set(healerKey, mergePreservingImages(bumpSaveVersion({ ...healerRecord, character: nextHealer }), healerRecord));
-                mutationObserved = true;
-                await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
+                healerSide = {
+                    character: appendSettlementReceipt({
+                        ...healer,
+                        chakra: have - options.core.chakraCost,
+                        professionXp,
+                        professionRank,
+                    }, healerReceipt.receipts, {
+                        requestId: transactionId,
+                        fingerprint,
+                        value: coreResult,
+                        settledAt: Date.now(),
+                    }),
+                    afterCommit: async () => {
+                        mutationObserved = true;
+                        await updateDurableSettlement(transactionId, { state: 'debit-applied' }, { kv });
+                    },
+                };
             } else {
                 coreResult = healerReceipt.receipt.value as Omit<CrossHealResult, '_saveVersion'>;
             }
 
+            let targetSide: PlayerSavesSide = untouched[options.targetName]!;
             if (targetReceipt.status === 'fresh') {
                 // A Healer mends INJURY, on someone else exactly as on themselves.
                 // Restoring chakra and stamina here too would just move the free
                 // full-refill loop one player sideways — "find a Healer" instead
                 // of "die". (MMORPG behavior audit F1.)
                 const restoresHpOnly = hospitalDischargeRestoresHpOnly();
-                const nextTarget = appendSettlementReceipt({
-                    ...target,
-                    hp: target.maxHp,
-                    ...(restoresHpOnly ? {} : {
-                        chakra: target.maxChakra,
-                        stamina: target.maxStamina,
+                targetSide = {
+                    character: appendSettlementReceipt({
+                        ...target,
+                        hp: target.maxHp,
+                        ...(restoresHpOnly ? {} : {
+                            chakra: target.maxChakra,
+                            stamina: target.maxStamina,
+                        }),
+                        hospitalized: false,
+                        hospitalizedUntil: 0,
+                        hospitalizedAt: 0,
+                        ...(coreResult.targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
+                    }, targetReceipt.receipts, {
+                        requestId: transactionId,
+                        fingerprint,
+                        value: coreResult,
+                        settledAt: Date.now(),
                     }),
-                    hospitalized: false,
-                    hospitalizedUntil: 0,
-                    hospitalizedAt: 0,
-                    ...(coreResult.targetHospitalized ? { lastDischargeAt: Date.now() } : {}),
-                }, targetReceipt.receipts, {
-                    requestId: transactionId,
-                    fingerprint,
-                    value: coreResult,
-                    settledAt: Date.now(),
-                });
-                await kv.set(targetKey, mergePreservingImages(bumpSaveVersion({ ...targetRecord, character: nextTarget }), targetRecord));
-                mutationObserved = true;
-                await updateDurableSettlement(transactionId, { state: 'credit-applied' }, { kv });
+                    afterCommit: async () => {
+                        mutationObserved = true;
+                        await updateDurableSettlement(transactionId, { state: 'credit-applied' }, { kv });
+                    },
+                };
             }
 
-            const finalHealer = await kv.get<Record<string, unknown>>(healerKey);
-            const result: CrossHealResult = { ...coreResult, _saveVersion: Number(finalHealer?._saveVersion ?? 0) };
-            await completeDurableSettlement(transactionId, result, { kv });
-            return { result, replayed: healerReceipt.status === 'replay' || targetReceipt.status === 'replay' };
-        } catch (error) {
-            if (mutationObserved) {
-                await updateDurableSettlement(transactionId, {
-                    state: 'reconciliation-required',
-                    failureReason: error instanceof Error ? error.message : String(error),
-                }, { kv }).catch(() => undefined);
-            }
-            throw error;
+            return {
+                ok: true,
+                value: { core: coreResult, replayed: healerReceipt.status === 'replay' || targetReceipt.status === 'replay' },
+                sides: { [options.actorName]: healerSide, [options.targetName]: targetSide },
+                // Complete under both locks, with the healer's exact committed version.
+                afterCommit: async (saves) => {
+                    await completeDurableSettlement(transactionId, {
+                        ...coreResult,
+                        _saveVersion: saves[options.actorName]!._saveVersion,
+                    } satisfies CrossHealResult, { kv });
+                },
+            };
+        }));
+    } catch (error) {
+        if (mutationObserved || error instanceof PlayerSavesPartialCommitError) {
+            await updateDurableSettlement(transactionId, {
+                state: 'reconciliation-required',
+                failureReason: error instanceof Error ? error.message : String(error),
+            }, { kv }).catch(() => undefined);
         }
-    }, { failClosed: true }), { failClosed: true });
+        throw error;
+    }
+    if (!settled.ok) {
+        throw new CrossHealSettlementError(404, settled.playerName === options.targetName ? 'Target not found.' : 'Healer not found.');
+    }
+    if ('replay' in settled.value) return { result: await refreshResult(settled.value.replay), replayed: true };
+    return {
+        result: { ...settled.value.core, _saveVersion: settled.saves[options.actorName]!._saveVersion },
+        replayed: settled.value.replayed,
+    };
 }
