@@ -45,6 +45,14 @@ test("story reckoning rewards and item ownership are stable", () => {
     assert.equal(ownedItemCount({ inventory: ["event-kesa-marker"], itemStacks: [{ itemId: "event-kesa-marker", count: 2 }] }, "event-kesa-marker"), 3);
 });
 
+test('each village keepsake remains owned while equipped instead of in the backpack', () => {
+    for (const id of ['event-kesa-storm-seal', 'event-struck-nameplate', 'event-struck-warmth-token', 'event-sealed-file']) {
+        assert.equal(ownedItemCount({ inventory: [], itemStacks: [], equipment: { relic: id } }, id), 1, id);
+        assert.equal(ownedItemCount({ inventory: [], equipment: { relic: 'unrelated' } }, id), 0, id);
+        assert.equal(ownedItemCount({ inventory: [], equipment: [id] }, id), 0, 'malformed equipment is not ownership');
+    }
+});
+
 test("story reckoning durable seals validate id, stage, and baseline", () => {
     assert.deepEqual(parseStoryReckoningSeal({ id: "story-reckoning-mira-marker", stage: "task", baseline: 7, at: 9 }), {
         id: "story-reckoning-mira-marker", stage: "task", baseline: 7, at: 9,

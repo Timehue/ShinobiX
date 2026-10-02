@@ -50,9 +50,10 @@ function character(name: string): Json {
         equipment: {},
         earnedTitles: [],
         serverTitles: [],
-        // Stamped so the one-time pet migration cannot be what moves the version —
-        // that IS durable and legitimately bumps, which would mask the real answer.
+        // Existing pet/relic conversions are durable and legitimately bump.
+        // Stamp both so this fixture isolates a projection-only owner read.
         petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+        relicRosterVersion: 1,
         hp: 0, maxHp: 100,
         chakra: 0, maxChakra: 100,
         stamina: 0, maxStamina: 100,

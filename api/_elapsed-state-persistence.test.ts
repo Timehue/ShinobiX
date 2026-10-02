@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 let kv: typeof import('./_storage.js').kv;
 let settleSaveRecordForRead: typeof import('./_elapsed-state.js').settleSaveRecordForRead;
-// Both fixtures below stamp this. A character missing it makes
+// The fixtures below stamp this. A character missing it makes
 // migrateCharacterOwnedPets report a change, which is a genuine one-time durable
 // migration and DOES publish a version — correct, but it would mask whether the
 // projection-only path bumps, which is the whole point of the first test.
@@ -35,6 +35,7 @@ test('owner read durably settles regenerated vitals for later authoritative muta
         character: {
             name: playerName,
             petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+            relicRosterVersion: 1,
             hp: 0,
             maxHp: 100,
             chakra: 0,
@@ -100,6 +101,7 @@ test('a DURABLE settle still publishes a version the client must adopt', async (
         character: {
             name: playerName,
             petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+            relicRosterVersion: 1,
             hp: 100, maxHp: 100,
             chakra: 100, maxChakra: 100,
             stamina: 100, maxStamina: 100,
@@ -118,6 +120,30 @@ test('a DURABLE settle still publishes a version the client must adopt', async (
         assert.equal(durable?.pendingTravel, null);
         assert.equal(durable?._saveVersion, 8, 'novel state MUST publish a version');
         assert.equal(settled.record._saveVersion, 8, 'and the owner response carries it for adoption');
+    } finally {
+        await kv.del(key);
+    }
+});
+
+test('a one-time relic conversion publishes exactly one durable version, then later owner reads remain stable', async () => {
+    const name = 'elapsedrelicmigration';
+    const key = `save:${name}`;
+    const now = 1_000_000;
+    await kv.set(key, {
+        _saveVersion: 7, _saveAt: now, worldGeoV: WORLD_GEO_VERSION,
+        currentSector: 12, currentBiome: 'central',
+        character: {
+            name, petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
+            hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+        },
+    });
+    try {
+        const first = await settleSaveRecordForRead(name, await kv.get<Record<string, unknown>>(key) as Record<string, unknown>, { persist: true, now });
+        assert.equal(first.record._saveVersion, 8);
+        assert.equal((first.record.character as Record<string, unknown>).relicRosterVersion, 1);
+        const second = await settleSaveRecordForRead(name, await kv.get<Record<string, unknown>>(key) as Record<string, unknown>, { persist: true, now: now + 10_000 });
+        assert.equal(second.record._saveVersion, 8, 'the completed migration cannot publish another version');
+        assert.equal((await kv.get<Record<string, unknown>>(key))?._saveVersion, 8);
     } finally {
         await kv.del(key);
     }

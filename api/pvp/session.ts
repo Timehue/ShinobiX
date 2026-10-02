@@ -1442,6 +1442,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
         const pve = derivePveBonuses(saveCharacter, save, admin?.items ?? null);
         merged.pveDamagePct      = clampNumber(pve.pveDamagePct,      0, 100, 0);
         merged.pveDamageTakenPct = clampNumber(pve.pveDamageTakenPct, 0, 75, 0);
+        merged.pveSpecialistBonuses = pve.pveSpecialistBonuses;
     }
     // Vitals defense-in-depth. A tampered save could ship a huge maxHp
     // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's

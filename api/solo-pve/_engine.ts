@@ -1,3 +1,4 @@
+import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
 import {
@@ -154,7 +155,7 @@ function pvePct(value: PvpFighter, field: 'pveDamagePct' | 'pveDamageTakenPct'):
     return Math.max(0, Number(value.character?.[field]) || 0);
 }
 
-function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide): number {
+function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide, attack?: { type?: unknown; element?: unknown }): number {
     const directive = hollowGateDirective(session);
     const hollowGate = directive
         ? side === 'player' ? directive.outgoingDamageMultiplier : directive.incomingDamageMultiplier
@@ -169,7 +170,7 @@ function soloPveDamageMultiplier(session: SoloPveSession, side: SoloPveSide): nu
     // them (the enemy's cast is always aimed at the player in a 1v1 solo fight).
     const player = session.player;
     const relic = side === 'player'
-        ? 1 + pvePct(player, 'pveDamagePct') / 100
+        ? 1 + (pvePct(player, 'pveDamagePct') + pveSpecialistDamagePercent(player.character?.pveSpecialistBonuses, attack)) / 100
         : Math.max(0.25, 1 - pvePct(player, 'pveDamageTakenPct') / 100);
     return hollowGate * weeklyBoss * relic;
 }
@@ -915,7 +916,7 @@ function applyCast(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJut
         self,
         opponent,
         jutsu as Parameters<typeof applyJutsu>[2],
-        weatherMult(session, jutsu) * soloPveDamageMultiplier(session, side),
+        weatherMult(session, jutsu) * soloPveDamageMultiplier(session, side, jutsu),
         session.environment.biome,
         session.round,
         effectiveDamageCap,
