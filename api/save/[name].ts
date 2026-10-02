@@ -469,11 +469,8 @@ async function validateClanAndVillageIdentity(
     const exChar = (existing?.character as Record<string, unknown> | undefined) ?? {};
     const out: Record<string, unknown> = { ...inChar };
 
-    // Village: locked. Set at registration; no relocation flow exists today.
-    // If the client tries to change village post-registration, revert to the
-    // server-side value. (If a relocate endpoint is ever added, it should
-    // mutate the save server-side and this check will still pass because
-    // exChar.village will already reflect the new value.)
+    // Village transfers write through /api/village/transfer. Generic saves
+    // always retain the stored membership, including after a paid transfer.
     if (exChar.village && out.village !== exChar.village) {
         out.village = exChar.village;
     }

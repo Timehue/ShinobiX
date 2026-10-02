@@ -95,6 +95,61 @@ test('an eligible villager claims the vacant seat: reign opened, grace set, hera
     assert.equal((await announcements()).length, 1);
 });
 
+test('a transfer completed after the initial save read makes the old village claim ineligible', async (t) => {
+    const key = settle.kageKey(VILLAGE);
+    const destination = 'Ashen Leaf Village';
+    await kv.set(key, vacant());
+    await kv.set('save:alpha', eligible('Alpha', {
+        level: 100, storyProgress: 9, fateShards: 500,
+        inventory: ['village-transfer-scroll'],
+    }));
+    let readReached!: () => void;
+    let resumeRead!: () => void;
+    const initialRead = new Promise<void>(resolve => { readReached = resolve; });
+    const continueRead = new Promise<void>(resolve => { resumeRead = resolve; });
+    const originalGet = kv.get.bind(kv);
+    let paused = false;
+    t.mock.method(kv, 'get', async (readKey: string) => {
+        const value = await originalGet(readKey);
+        if (readKey === 'save:alpha' && !paused) {
+            paused = true;
+            readReached();
+            await continueRead;
+        }
+        return value;
+    });
+    const claim = mod.claimVacantKageSeat(VILLAGE, 'Alpha', NOW);
+    await initialRead;
+    const previousAdmin = process.env.ADMIN_PASSWORD;
+    process.env.ADMIN_PASSWORD = 'kage-claim-transfer-race-test';
+    try {
+        const transfer = (await import('./transfer.js')).default;
+        let status = 200;
+        const res = {
+            setHeader() { return this; },
+            status(code: number) { status = code; return this; },
+            json() { return this; }, end() { return this; },
+        };
+        await transfer({
+            method: 'POST', headers: { 'x-admin-password': process.env.ADMIN_PASSWORD },
+            socket: { remoteAddress: '127.0.0.1' },
+            body: { playerName: 'Alpha', fromVillage: VILLAGE, village: destination, requestId: 'kage-transfer-race-0001' },
+        } as never, res as never);
+        assert.equal(status, 200, 'the paid transfer completes while the claim still holds its old pre-lock snapshot');
+        assert.equal((await originalGet<{ character: { village: string } }>('save:alpha'))?.character.village, destination);
+    } finally {
+        if (previousAdmin === undefined) delete process.env.ADMIN_PASSWORD;
+        else process.env.ADMIN_PASSWORD = previousAdmin;
+        resumeRead();
+    }
+    const result = await claim;
+    assert.equal(result.ok, false, 'an outgoing player cannot claim using membership read before the transfer');
+    assert.equal(!result.ok && result.status, 403);
+    assert.equal(!result.ok && result.error, 'You are not a member of this village.');
+    assert.deepEqual(await kv.get(key), vacant(), 'no new reign or seat may be published');
+    assert.equal((await announcements()).length, 0);
+});
+
 test('claim is refused for a seated seat, a sealed village, a wrong-village player and an ineligible villager', async () => {
     await kv.set('save:alpha', eligible('Alpha'));
     await kv.set('save:outsider', eligible('Outsider', { village: WAR_VILLAGES[2] }));
