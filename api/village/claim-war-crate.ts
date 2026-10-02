@@ -1,11 +1,11 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 
 /*
@@ -115,26 +115,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             war = c ? { endedAt: c.endedAt, warCrateId: c.warCrateId, winner: c.winnerClan } : null;
         }
 
-        // Decide + grant under the save lock. The claimant's SIDE (their village for a
-        // village crate, their clan for a clan crate) and claimedWarCrateIds are re-read
-        // fresh; the crate is appended only on a granted decision. failClosed — this
-        // mints a legendary item, so we abort rather than race an unlocked write.
-        const saveKey = `save:${playerName}`;
-        const outcome = await withKvLock(saveKey, async () => {
-            const fresh = await kv.get<Record<string, unknown>>(saveKey);
-            const c = (fresh?.character ?? null) as Record<string, unknown> | null;
-            if (!fresh || !c) return { granted: false as const, reason: 'no-save', legacyEligible: false, character: null };
+        // Decide + grant through mutatePlayerSave (the save lock, fail-closed, and
+        // an exact compare-and-set). The claimant's SIDE (their village for a
+        // village crate, their clan for a clan crate) and claimedWarCrateIds are
+        // re-read fresh; the crate is appended only on a granted decision. This
+        // mints a legendary item, so contention aborts rather than racing an
+        // unlocked write, and claimedWarCrateIds commits with the crate, so
+        // re-running the whole claim after a lost compare-and-set grants it once.
+        type Outcome = { granted: boolean; reason: string; legacyEligible: boolean };
+        const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<Outcome>(playerName, ({ character: c }) => {
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
             const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
             if (!decision.granted) return {
-                ...decision,
-                // A prior exact crate claim is still durable proof of the same
-                // won war, so a retry can repair Legacy delivery without
-                // minting another crate.
-                legacyEligible: decision.reason === 'already-claimed',
+                ok: true,
+                write: false,
                 character: c,
-                _saveVersion: Number(fresh._saveVersion ?? 0),
+                value: {
+                    ...decision,
+                    // A prior exact crate claim is still durable proof of the same
+                    // won war, so a retry can repair Legacy delivery without
+                    // minting another crate.
+                    legacyEligible: decision.reason === 'already-claimed',
+                },
             };
             // ⛔ NOT capacity-gated, deliberately, and it was gated for a few hours
             // on 2026-09-08 before this was reverted. A war crate is an ALREADY
@@ -158,19 +161,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 claimedWarCrateIds: [...claimed, warCrateId],
                 warsWon: Math.max(0, Number(c.warsWon ?? 0)) + 1,
             };
-            const updated = bumpSaveVersion({
-                ...fresh,
-                character: nextCharacter,
-            });
-            await kv.set(saveKey, mergePreservingImages(updated, fresh));
-            return {
-                granted: true as const,
-                reason: 'granted',
-                legacyEligible: true,
-                character: nextCharacter,
-                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
-            };
-        }, { failClosed: true });
+            return { ok: true, character: nextCharacter, value: { granted: true, reason: 'granted', legacyEligible: true } };
+        }));
+        // A missing save never had a crate to grant; it answers exactly as before.
+        const outcome = committed.ok
+            ? { ...committed.value, character: committed.character as Record<string, unknown> | null, _saveVersion: committed._saveVersion }
+            : { granted: false, reason: 'no-save', legacyEligible: false, character: null };
 
         // The tracker's own durable receipt is the one-time marker. Unlike the
         // old pre-claimed NX key, it is committed atomically with the counter;
@@ -195,6 +191,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { legacyEligible: _legacyEligible, ...publicOutcome } = outcome;
         return res.status(200).json({ ok: true, ...publicOutcome });
     } catch (err) {
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[village/claim-war-crate]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }

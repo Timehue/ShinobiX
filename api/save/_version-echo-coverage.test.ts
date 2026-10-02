@@ -55,7 +55,6 @@ const ECHOES_VERSION = new Set([
     // client-owned and an unadopted debit would be undone by the next autosave.
     '_war-tax-apply.ts',
     'admin/content-publish.ts',
-    'bank/claim-interest.ts',
     'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
     'clan/exchange/purchase.ts',
     'clan/mentor.ts',
@@ -77,15 +76,16 @@ const ECHOES_VERSION = new Set([
     'missions/queue-combat-claim.ts',
     'missions/report-pet-event.ts',
     'missions/report-raid.ts',
-    'missions/weekly-board.ts',
     'pet/battle-result.ts',
-    'pet/evolve.ts',
     'pet/gauntlet.ts',
     'pet/showdown.ts',
-    'player/daily-login.ts',
     'player/_cross-heal-settlement.ts',
     'player/heal.ts',
-    'profession/choose.ts',
+    // bank/claim-interest.ts, missions/weekly-board.ts, pet/evolve.ts,
+    // player/daily-login.ts, profession/choose.ts, village/claim-daily-agenda.ts
+    // and village/claim-war-crate.ts now commit through mutatePlayerSave, so the
+    // "every mutatePlayerSave route acknowledges the committed version" test
+    // below covers them.
     'pvp/bounty.ts',
     'pvp/claim-rewards.ts',
     'save/_mutate-player-save.ts',
@@ -105,9 +105,7 @@ const ECHOES_VERSION = new Set([
     'sector/wanderer-quest.ts',
     'sector/wanderer-service.ts',
     'towers/start.ts',
-    'village/claim-daily-agenda.ts',
     'village/claim-map-control.ts',
-    'village/claim-war-crate.ts',
     'village/hollow-gate-unlock.ts',
     'village/kage-challenge.ts',
     'village/hire-mercenary.ts',
@@ -156,6 +154,10 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     // The daily reward and its day stamp now commit together through
     // writeVersionedPlayerSave; the route still echoes that version.
     'village/claim-map-control.ts',
+    // The no-treasury-share tax day commits through mutatePlayerSave (the
+    // treasury-share day already ran through the debit saga), and the helper
+    // still returns that `_saveVersion` for village/tax.ts to echo.
+    '_war-tax-apply.ts',
 ]);
 
 /**
