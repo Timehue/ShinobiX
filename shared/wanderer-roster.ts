@@ -142,7 +142,12 @@ export const WANDERER_ARCHETYPES: Record<WandererArchetypeId, WandererArchetypeM
         verb: "petDuel",
         weight: 0.16,
         tellTint: "#9bf0a6",
-        names: ["Wild Emberlynx", "Stray Oni-Hound", "Feral Stormcrow", "Rogue Guardhound", "Lone Sparrowhawk"],
+        // Species-neutral on purpose. The species is per player: the beast
+        // locks onto one of your pets and becomes a wild pet of its rarity, and
+        // "Beast" is swapped for that species on the map and in the fight
+        // (shared/wanderer-beast.ts). These names used to promise an Oni-Hound
+        // or an Emberlynx the fight never fielded.
+        names: ["Wild Beast", "Stray Beast", "Feral Beast", "Rogue Beast", "Lone Beast"],
         greetings: [
             "A wild beast bars your path, hackles raised.",
             "It locks eyes with your pet. It wants a fight.",

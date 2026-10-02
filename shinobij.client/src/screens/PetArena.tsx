@@ -266,13 +266,10 @@ type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
 };
 
 /*
- * What /api/pet/battle-start hands back. One shape now, because every fight this
- * screen starts is resolved by the server:
- *
- *   - a PLAYER CHALLENGE was decided once, for both participants, when the
- *     responder accepted (`api/pet/_pvp-duel.ts`);
- *   - a SECTOR WANDERER duel is decided at mint, against a beast the server
- *     picks from the caller's own saved level (`api/pet/_wanderer-duel.ts`).
+ * What /api/pet/battle-start hands back for a PLAYER CHALLENGE, which was
+ * decided once, for both participants, when the responder accepted
+ * (`api/pet/_pvp-duel.ts`). Road beasts are not fought here: they open the
+ * Colosseum (screens/PetShowdown), which fields the species the map showed.
  *
  * `script` IS the fight. `outcome` is the CALLER's side of the verdict, decided
  * by the server rather than worked out here from `winnerName`: account names are
@@ -288,17 +285,6 @@ type CasualPetBattleSeal = {
     script: ShowdownReplayScript;
     outcome: "win" | "loss";
     winnerName?: string;
-    // Sector-wanderer kickoffs only. That entry is its own sealed session: the
-    // server resolves the ACTUAL roaming beast from the world roster (not the
-    // arena-template preview this screen was handed), and the same response
-    // carries the save it wrote — the per-encounter use cooldown and the
-    // wanderer's relocation. Both have to be read back, or the player watches a
-    // fight against a pet that is not the one the script resolved, and the world
-    // never registers that the encounter happened.
-    opponentPets?: Pet[];
-    wandererName?: string;
-    character?: Character;
-    saveVersion?: number;
 };
 
 type PetSettlementStatus = "pending" | "error" | "settled";
@@ -1309,59 +1295,32 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             const r = await fetch("/api/pet/battle-start", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                // A sector wanderer is a DIFFERENT request, not the ordinary one
-                // with an extra field. Its kickoff authority accepts the wanderer
-                // selector and nothing else: it fails closed on any opponent, PvP,
-                // ranked, Hollow Gate or Dungeon context in the same body, because
-                // a duel whose opponent the server resolves from the world roster
-                // must not also be told who it is fighting. It needs the SECTOR
-                // alongside the id — the encounter is validated against the sector
-                // the save says you stand in — so sending `{ id }` alone is
-                // rejected outright.
-                body: JSON.stringify(opponent.wanderer
-                    ? {
-                        playerName: scope.playerName,
-                        mode,
-                        playerPetIds: playerPets.map((pet) => pet.id),
-                        // The exact natural context, forwarded whole: the id AND
-                        // the sector. The session validates the encounter against
-                        // the sector the save says you stand in, so an id alone is
-                        // refused.
-                        ...(opponent.wanderer ? { wanderer: opponent.wanderer } : {}),
-                    }
-                    : {
-                        playerName: scope.playerName,
-                        opponentName: opponent.owner,
-                        opponentLevel: opponent.pet.level,
-                        mode,
-                        playerPetIds: playerPets.map((pet) => pet.id),
-                        opponentPetIds: opponentPets.map((pet) => pet.id),
-                        ...(opponent.pvpChallengeId ? { pvpChallengeId: opponent.pvpChallengeId } : {}),
-                    }),
+                body: JSON.stringify({
+                    playerName: scope.playerName,
+                    opponentName: opponent.owner,
+                    opponentLevel: opponent.pet.level,
+                    mode,
+                    playerPetIds: playerPets.map((pet) => pet.id),
+                    opponentPetIds: opponentPets.map((pet) => pet.id),
+                    ...(opponent.pvpChallengeId ? { pvpChallengeId: opponent.pvpChallengeId } : {}),
+                }),
             });
             if (!r.ok) return null;
             const data = await r.json().catch(() => null) as {
                 token?: unknown; seed?: unknown; reportKey?: unknown;
                 showdownScript?: unknown; winnerName?: unknown; outcome?: unknown;
-                opponentPets?: unknown; wanderer?: { name?: unknown };
-                character?: unknown; _saveVersion?: unknown;
             } | null;
             if (typeof data?.token !== "string"
                 || !Number.isSafeInteger(Number(data.seed))
                 || typeof data.reportKey !== "string") return null;
-            // The server's fight, or nothing. Both entries that reach here are
-            // resolved server-side, so a response without a script is a failure
-            // to be retried — never a licence to simulate one.
+            // The server's fight, or nothing. A challenge is resolved server-side,
+            // so a response without a script is a failure to be retried — never
+            // a licence to simulate one.
             const script = data.showdownScript && typeof data.showdownScript === "object"
                 ? data.showdownScript as ShowdownReplayScript
                 : null;
             const outcome = data.outcome === "win" || data.outcome === "loss" ? data.outcome : null;
             if (!script || !outcome) return null;
-            // Wanderer extras. Left undefined for every other entry, so nothing
-            // below this changes for a player challenge.
-            const sealedOpponentPets = Array.isArray(data.opponentPets) && data.opponentPets.length > 0
-                ? data.opponentPets as Pet[]
-                : undefined;
             return {
                 token: data.token,
                 seed: Number(data.seed),
@@ -1369,10 +1328,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 script,
                 outcome,
                 ...(typeof data.winnerName === "string" && data.winnerName ? { winnerName: data.winnerName } : {}),
-                ...(sealedOpponentPets ? { opponentPets: sealedOpponentPets } : {}),
-                ...(typeof data.wanderer?.name === "string" && data.wanderer.name ? { wandererName: data.wanderer.name } : {}),
-                ...(data.character && typeof data.character === "object" ? { character: data.character as Character } : {}),
-                ...(Number.isSafeInteger(Number(data._saveVersion)) ? { saveVersion: Number(data._saveVersion) } : {}),
             };
         } catch {
             return null;
@@ -1381,26 +1336,6 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
     async function startBattle(opponentOverride?: PetArenaOpponent) {
         if (recoverQueuedWarfront(capturePlayerScope())) return;
-        // Releases the World Map's pending wanderer context, and ONLY once the
-        // duel has actually started. A wanderer encounter is a one-shot piece of
-        // world state: clear it up front, as an ordinary challenge can, and a
-        // kickoff that fails on a dropped connection leaves the player with no
-        // fight, no cooldown spent, and no way back to the beast they walked
-        // into. Every other entry clears immediately in the effect below.
-        //
-        // The identity check is exact because this only releases the encounter
-        // it was called for — a different pending wanderer must survive.
-        const finishStarted = (): true => {
-            if (opponentOverride?.wanderer && pendingPetBattleOpponent?.wanderer
-                && opponentOverride.owner === pendingPetBattleOpponent.owner
-                && opponentOverride.pet.id === pendingPetBattleOpponent.pet.id
-                && opponentOverride.battleSeed === pendingPetBattleOpponent.battleSeed
-                && opponentOverride.wanderer?.id === pendingPetBattleOpponent.wanderer?.id
-                && opponentOverride.wanderer?.sector === pendingPetBattleOpponent.wanderer?.sector) {
-                onPendingPetBattleStarted?.();
-            }
-            return true;
-        };
         const battleScope = capturePlayerScope();
         // Every duel that reaches this screen arrives as an accepted challenge.
         // There is no opponent picker any more: the built-in AI exhibition moved
@@ -1548,9 +1483,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         }
 
         /*
-         * ── Everything else: a player challenge, or a sector wanderer ────
+         * ── Everything else: a player challenge ────
          *
-         * BOTH ARE WATCHED, for the reason ranked is. This branch used to mint a
+         * IT IS WATCHED, for the reason ranked is. This branch used to mint a
          * token, take the seed that came back, and run the cinematic locally —
          * while the server had already sealed its own verdict from that seed
          * using a different engine. Worse, for a challenge each participant
@@ -1558,11 +1493,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
          * were rated on unrelated fights and both could be told they had won.
          *
          * A challenge is now sealed against the challenge id when it is accepted
-         * (api/pet/_pvp-duel.ts): one seed, both rosters, one verdict. A
-         * wanderer duel is resolved at mint (api/pet/_wanderer-duel.ts) against a
-         * beast the SERVER picks from the caller's own saved level. Either way
-         * the call below returns the fight, and the outcome posted back is the
-         * server's own.
+         * (api/pet/_pvp-duel.ts): one seed, both rosters, one verdict. The call
+         * below returns that fight, and the outcome posted back is the server's
+         * own.
          *
          * This is the last local fight on the screen, and it is gone: no
          * `runPetDuelCinematic`, no `createLiveDuel`, no `PetColiseumDuel`.
@@ -1596,29 +1529,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             return;
         }
         const myOutcome = battleSeal.outcome;
-        // A wanderer duel is shown as the server resolved it, not as the World
-        // Map previewed it. The card that opened this screen carried a cosmetic
-        // arena-template stand-in; the beast in the script is the one the world
-        // roster actually fields, so swap it in before anything renders or the
-        // player watches a name and portrait that never fought.
-        const sealedWandererPet = opponent.wanderer ? battleSeal.opponentPets?.[0] : undefined;
-        const shownOpponent = sealedWandererPet
-            ? { ...opponent, owner: "Roaming AI", pet: sealedWandererPet }
-            : opponent;
-        // The same response carried the save the kickoff wrote — the encounter's
-        // use cooldown and the wanderer's relocation. Adopt it through the normal
-        // versioned boundary (which rejects a foreign or stale account) so the
-        // World Map reflects that this encounter was spent.
-        if (opponent.wanderer && battleSeal.character) {
-            receivePetBattleSettlement(
-                { character: battleSeal.character, _saveVersion: battleSeal.saveVersion } as PetBattleSettlementResponse,
-                battleScope,
-                battleSeal.character,
-            );
-            if (!playerAuthorityIsActive(battleScope)) return;
-        }
         startBattleMusic();
-        setBattleOpponent(shownOpponent);
+        setBattleOpponent(opponent);
         setBattleReady(true);
         setWatchedDuel({ script: battleSeal.script, playerPets: myPets, id: nextDuelId });
         setBattleLog([]);
@@ -1641,26 +1553,12 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         beginPetSettlement({
             id: `${isParty ? "party" : "casual"}:${battleToken}:${reportKey}`,
             kind: isParty ? "party" : "casual",
-            // A wanderer duel is named for what it is. It settles through the
-            // same endpoint, but it pays nothing — its token is sealed
-            // casual-no-progression — so calling it a "Pet Colosseum result"
-            // would tell the player a purse was involved when none was.
-            label: opponent.wanderer
-                ? "Natural wanderer pet duel"
-                : isParty ? "2v2 Pet Colosseum result" : "Pet Colosseum result",
+            label: isParty ? "2v2 Pet Colosseum result" : "Pet Colosseum result",
             scope: battleScope,
             run: async () => {
                 const data = await postPetBattleSettlement(settlementBody);
                 if (!playerScopeIsActive(battleScope)) return false;
-                // A wanderer duel spends NO consumables, so it clears none. The
-                // server already agrees — the pets it sealed on the token carry
-                // an emptied consumable slot, making its own spend step a no-op —
-                // and passing the fought pets here anyway would clear them on the
-                // client alone: items gone locally, still held server-side, on a
-                // fight that paid nothing to begin with.
-                const applied = opponent.wanderer
-                    ? applyPetBattleSettlement(data, battleScope, [])
-                    : applyPetBattleSettlement(data, battleScope, myPets.map((pet) => pet.id));
+                const applied = applyPetBattleSettlement(data, battleScope, myPets.map((pet) => pet.id));
                 if (applied && data.capped) {
                     setBattleLog(["Daily Pet Colosseum reward cap reached — wins still count, but no more ryo today."]);
                 }
@@ -1668,18 +1566,14 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             },
         });
         if (pendingClanPetBattle) savePendingClanPetBattle(null);
-        return finishStarted();
     }
 
     useEffect(() => {
-        if (!pendingPetBattleOpponent || !selectedPet) return;
+        // A road beast is never this screen's fight: it belongs to the
+        // Colosseum (screens/PetShowdown), and App does not hand one here.
+        if (!pendingPetBattleOpponent || pendingPetBattleOpponent.wanderer || !selectedPet) return;
         void startBattle(pendingPetBattleOpponent);
-        // Every entry but the wanderer releases its pending context here, the
-        // moment the fight is handed off. A natural wanderer waits for the start
-        // to succeed instead — startBattle's finishStarted() releases it — so a
-        // failed kickoff leaves the encounter intact and retryable rather than
-        // consuming a one-shot piece of world state on a dropped request.
-        if (!pendingPetBattleOpponent.wanderer) onPendingPetBattleStarted?.();
+        onPendingPetBattleStarted?.();
     }, [pendingPetBattleOpponent?.owner, pendingPetBattleOpponent?.pet.id, pendingPetBattleOpponent?.battleSeed, selectedPet?.id]);
 
     // Challenger side: the responder accepted + picked → launch the same match
@@ -2174,9 +2068,8 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
             {/* THE BATTLEFIELD. Every duel this screen starts is a replay of a
                 fight the SERVER resolved — ranked from its match token, a player
-                challenge from the duel sealed when it was accepted, a sector
-                wanderer from the beast the server picked. So there is ONE renderer
-                here rather than three, no onOutcome to honour (the settlement
+                challenge from the duel sealed when it was accepted. So there is ONE
+                renderer here, no onOutcome to honour (the settlement
                 already fired against the server's own verdict), and no "fight
                 again": these fights are spent when they resolve. The HD-2D
                 coliseum renderer and the continuous duel player are both gone. */}

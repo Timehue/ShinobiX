@@ -61,19 +61,18 @@ const SESSION_BREADCRUMB_KEY = "showdown.session.v1";
 // gone from KV and the crumb is noise.
 const SESSION_BREADCRUMB_TTL_MS = 45 * 60 * 1000;
 
-type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string; roadChallenge?: boolean; roadOpponentName?: string };
+type SessionBreadcrumb = { sessionId: string; petIds: string[]; playerName: string; roadChallenge?: boolean };
 
 function readSessionBreadcrumb(playerName: string): SessionBreadcrumb | null {
     try {
         const raw = localStorage.getItem(SESSION_BREADCRUMB_KEY);
         if (!raw) return null;
-        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; roadChallenge?: unknown; roadOpponentName?: unknown; savedAt?: unknown };
+        const parsed = JSON.parse(raw) as { sessionId?: unknown; petIds?: unknown; playerName?: unknown; roadChallenge?: unknown; savedAt?: unknown };
         if (typeof parsed.sessionId !== "string" || !Array.isArray(parsed.petIds)) return null;
         if (parsed.playerName !== playerName) return null;
         if (Date.now() - (Number(parsed.savedAt) || 0) > SESSION_BREADCRUMB_TTL_MS) return null;
         return { sessionId: parsed.sessionId, petIds: parsed.petIds.map(String), playerName,
-            roadChallenge: parsed.roadChallenge === true,
-            roadOpponentName: typeof parsed.roadOpponentName === "string" ? parsed.roadOpponentName : undefined };
+            roadChallenge: parsed.roadChallenge === true };
     } catch {
         return null;
     }
@@ -166,7 +165,6 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
     const [roadChallenge, setRoadChallenge] = useState(() => Boolean(
         pendingWanderer?.wanderer || (bout === "arena" && readSessionBreadcrumb(character.name)?.roadChallenge),
     ));
-    const [roadOpponentName, setRoadOpponentName] = useState(pendingWanderer?.owner ?? "Road Beast");
     const roadLaunchId = useRef<string | null>(null);
     const mounted = useRef(false);
     useEffect(() => {
@@ -227,13 +225,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             const state = await fetchShowdownState(character.name, crumb.sessionId);
             if (cancelled) return;
             if (state && !state.finished) {
-                if (crumb.roadChallenge) {
-                    setRoadChallenge(true);
-                    // Older breadcrumbs stored the wanderer's pet name in the
-                    // owner slot. Keep resumed battles on the correct identity:
-                    // the road encounter is owned by the roaming AI.
-                    setRoadOpponentName("Roaming AI");
-                }
+                if (crumb.roadChallenge) setRoadChallenge(true);
                 // A resumed fight mounts just as directly as a fresh one, so it
                 // needs the same warm-up — after a reload nothing is cached.
                 // The full roster here, not the picked team: `selected` is
@@ -316,7 +308,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         // before another autosave can restore the old cooldown or location.
         onVersionedCharacter?.(result.character as Character, result.saveVersion);
         writeSessionBreadcrumb({ sessionId: result.state.sessionId, petIds: result.petIds, playerName: character.name,
-            roadChallenge: true, roadOpponentName });
+            roadChallenge: true });
         // The server has committed the fight. Hold the navigation lock during
         // model loading too, before the fullscreen battle renderer mounts.
         setSignals(true, true);
@@ -349,10 +341,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             // The server renews its 45-minute session lease on each round.
             // Keep the refresh pointer on the same lease while this fight runs.
             writeSessionBreadcrumb({ sessionId: activeSession, petIds: selected, playerName: character.name,
-                ...(roadChallenge ? { roadChallenge: true, roadOpponentName } : {}) });
+                ...(roadChallenge ? { roadChallenge: true } : {}) });
         }
         return response;
-    }, [character.name, activeSession, selected, roadChallenge, roadOpponentName]);
+    }, [character.name, activeSession, selected, roadChallenge]);
 
     const handleFinished = useCallback((outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => {
         // Decided: release the nav lock; the fullscreen result panel stays up.
@@ -390,7 +382,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         return <div className="showdown-screen">
             <div className="showdown-header">
                 <h1>Pet Colosseum Challenge</h1>
-                <p className="showdown-tagline">{starting ? "Drawing your team and a random opponent…" : "The road beast is ready to fight."}</p>
+                <p className="showdown-tagline">{starting ? "Sending out your pets to meet the beast…" : "The road beast is ready to fight."}</p>
             </div>
             {error && <div className="showdown-error" role="alert">{error}</div>}
             {error && <div className="showdown-launch">
@@ -603,7 +595,7 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
                     onRematch={handleRematch}
                     hideRematch={roadChallenge}
                     exitLabel={roadChallenge ? "Return to the road" : undefined}
-                    eventLabel={roadChallenge ? roadOpponentName : rememberedCircuitTrial(character.name) === 'pets' ? 'Dojo Circuit' : undefined}
+                    eventLabel={!roadChallenge && rememberedCircuitTrial(character.name) === 'pets' ? 'Dojo Circuit' : undefined}
                     resultNote={!roadChallenge && rememberedCircuitTrial(character.name) === 'pets' ? outcome => outcome === 'win' ? 'Return to the Circuit scribe to record a qualifying rewarded victory.' : 'Your Circuit trial remains open. Try again when you are ready.' : undefined}
                 />
             )}
