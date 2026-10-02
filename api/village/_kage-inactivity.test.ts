@@ -277,28 +277,72 @@ async function ryoOf(slug: string): Promise<number> {
     return Number(((await kv.get<Record<string, unknown>>(`save:${slug}`))?.character as Record<string, unknown>).ryo);
 }
 
-test('a refund credit that lands but reports an error is paid once, not re-parked and paid again', async () => {
-    await owedOnce('landed-one', 'c-landed');
-    const originalSet = kv.set.bind(kv);
-    let armed = true;
-    kv.set = (async (key: string, value: unknown, options?: unknown) => {
-        const out = await originalSet(key, value, options as never);
-        if (armed && key === 'save:landed-one') {
-            armed = false;
+/** The save write commits, then its reply is lost; `readBackFails` also breaks the read that would confirm it. */
+async function withLostReply<T>(slug: string, readBackFails: boolean, run: () => Promise<T>): Promise<T> {
+    const originalCompareSet = kv.compareSet;
+    const originalGet = kv.get;
+    let replyLost = false;
+    kv.compareSet = async (key, expected, value, options) => {
+        const out = await originalCompareSet.call(kv, key, expected, value, options);
+        if (!replyLost && key === `save:${slug}`) {
+            replyLost = true;
             throw new Error('injected: the write committed but the reply was lost');
         }
         return out;
-    }) as typeof kv.set;
+    };
+    let readBackBroken = false;
+    kv.get = (async (key: string) => {
+        if (readBackFails && replyLost && !readBackBroken && key === `save:${slug}`) {
+            readBackBroken = true;
+            throw new Error('injected: the confirming read failed too');
+        }
+        return originalGet.call(kv, key);
+    }) as typeof kv.get;
     try {
-        assert.equal(await mod.drainKageStakeRefunds('landed-one', NOW), 0, 'the drain could not tell whether it paid');
+        return await run();
     } finally {
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
+        kv.get = originalGet;
+        assert.ok(replyLost, 'the lost reply was injected');
     }
+}
+
+test('a refund credit that lands but reports an error is paid once, not re-parked and paid again', async () => {
+    await owedOnce('landed-one', 'c-landed');
+    assert.equal(await withLostReply('landed-one', true, () => mod.drainKageStakeRefunds('landed-one', NOW)), 0,
+        'the drain could not tell whether it paid');
     assert.equal(await ryoOf('landed-one'), 251_000, 'the credit landed');
 
     assert.equal(await mod.drainKageStakeRefunds('landed-one', NOW), 0, 'the next drain finds the receipt and pays nothing');
     assert.equal(await ryoOf('landed-one'), 251_000, 'before the fix this was 501,000: 250,000 ryo created');
     assert.deepEqual(await mod.readPendingKageStakeRefunds('landed-one'), [], 'the settled entry leaves the queue');
+});
+
+test('a lost reply the read-back confirms is paid at once, with one notice', async () => {
+    await owedOnce('confirmed-one', 'c-confirmed');
+    assert.equal(await withLostReply('confirmed-one', false, () => mod.drainKageStakeRefunds('confirmed-one', NOW)), 250_000);
+    assert.equal(await ryoOf('confirmed-one'), 251_000);
+    assert.deepEqual(await mod.readPendingKageStakeRefunds('confirmed-one'), [], 'the paid entry leaves the queue');
+    assert.equal((await notices.takeOfflineNotices('confirmed-one')).length, 1);
+    assert.equal(await mod.drainKageStakeRefunds('confirmed-one', NOW), 0);
+    assert.equal(await ryoOf('confirmed-one'), 251_000);
+});
+
+test('a drained refund keeps the recovery the player earned since their last save', async () => {
+    // The raw paying write fenced the regeneration cursor to the write, so a
+    // player paid back from the queue lost every point recovered since.
+    await owedOnce('tired-one', 'c-tired');
+    const at = Date.now() - 30_000;
+    await kv.set('save:tired-one', {
+        _saveVersion: 1, _saveAt: at, _regenAt: at,
+        character: { name: 'tired-one', ryo: 1_000, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+    });
+    assert.equal(await mod.drainKageStakeRefunds('tired-one', NOW), 250_000);
+    const c = (await kv.get<Record<string, unknown>>('save:tired-one'))?.character as Record<string, unknown>;
+    assert.equal(c.ryo, 251_000);
+    assert.ok(Number(c.hp) >= 40, `hp ${c.hp} lost the idle recovery`);
+    assert.ok(Number(c.chakra) >= 50, `chakra ${c.chakra} lost the idle recovery`);
+    assert.ok(Number(c.stamina) >= 30, `stamina ${c.stamina} lost the idle recovery`);
 });
 
 test('a drain that fails before paying leaves the debt queued even when the queue cannot be rewritten', async () => {

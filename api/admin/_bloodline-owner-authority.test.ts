@@ -134,6 +134,30 @@ test('same-id player bloodlines remain bound to the exact requested owner', asyn
     assert.deepEqual(afterA?.savedImages, saveA.savedImages, 'save-scoped images must survive the locked merge');
 });
 
+test('an admin edit keeps the recovery the player earned since their last save', async () => {
+    // The raw admin write fenced the target's regeneration cursor to the edit,
+    // and the forced reload then handed the player a save without that recovery.
+    const at = Date.now() - 30_000;
+    const save = playerSave('Bloodline Owner A', 'Owner A Bloodline');
+    await kv.set(`save:${PLAYER_A}`, {
+        ...save, _saveAt: at, _regenAt: at,
+        character: { ...(save.character as Json), hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+    });
+
+    const deleted = await post({ action: 'delete', ownerKey: PLAYER_A, bloodlineId: BLOODLINE_ID }, '127.0.0.97');
+
+    assert.equal(deleted.statusCode, 200);
+    assert.equal(deleted.body?._saveVersion, undefined, "the admin is never handed the target's version");
+    const after = await kv.get<Json>(`save:${PLAYER_A}`);
+    assert.deepEqual(after?.savedBloodlines, [], 'the bloodline is gone from the record');
+    assert.equal(Number(after?._saveVersion), 8);
+    assert.equal(await kv.get(`reset-signal:${PLAYER_A}`), 1, 'the target is told to reload');
+    const character = after?.character as Json;
+    assert.ok(Number(character.hp) >= 40, `hp ${character.hp} lost the idle recovery`);
+    assert.ok(Number(character.chakra) >= 50, `chakra ${character.chakra} lost the idle recovery`);
+    assert.ok(Number(character.stamina) >= 30, `stamina ${character.stamina} lost the idle recovery`);
+});
+
 test('an absent owner-local id does not rewrite or signal that save', async () => {
     const saveA = playerSave('Bloodline Owner A', 'Different Bloodline');
     saveA.savedBloodlines = [{ ...(saveA.savedBloodlines as Json[])[0], id: 'different-id' }];
