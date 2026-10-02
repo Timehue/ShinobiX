@@ -91,6 +91,21 @@ test('without IndexedDB (this runner) the default cache is a no-op, not an error
     assert.deepEqual(await pullAdminSnapshotsWithDeviceCache<Snap>(async () => null, undefined, NO_WAIT), []);
 });
 
+test('the app-level pull returns live answers without waiting on the cache, and never fetches a slot twice', async () => {
+    const { pullSharedAdminSnapshots } = await import('./shared-admin-items');
+    const calls: string[] = [];
+    const both = await pullSharedAdminSnapshots<Snap>(async (slot) => { calls.push(slot); return { slot, v: 1 }; });
+    assert.deepEqual(both, [{ slot: 'Admin 1', v: 1 }, { slot: 'Admin 2', v: 1 }], 'live content, in slot order');
+    await tick();
+    await tick();
+    assert.deepEqual(calls, ['Admin 1', 'Admin 2'], 'the background cache write reuses the answers in hand');
+
+    calls.length = 0;
+    const one = await pullSharedAdminSnapshots<Snap>(async (slot) => { calls.push(slot); return slot === 'Admin 1' ? { slot, v: 2 } : null; });
+    assert.deepEqual(one, [{ slot: 'Admin 1', v: 2 }], 'no device copy in this runner: the live slot alone');
+    assert.deepEqual(calls, ['Admin 1', 'Admin 2'], 'the failed slot is not re-fetched immediately');
+});
+
 test('a save refetch keeps the admin items applied this page; admin definitions win a collision', () => {
     __resetSharedAdminItems();
     assert.deepEqual(withSharedAdminItems([{ id: 'own', v: 1 }]), [{ id: 'own', v: 1 }], 'nothing remembered yet: the save alone');

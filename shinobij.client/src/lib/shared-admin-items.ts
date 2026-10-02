@@ -32,17 +32,39 @@ export function withSharedAdminItems<T extends WithId>(saveItems: readonly T[]):
     return [...merged.values()];
 }
 
+type CacheModule = typeof import('./shared-admin-content-cache');
+type SlotFetch<T> = (slotName: string) => Promise<T | null>;
+let cacheModule: Promise<CacheModule | null> | null = null;
+// A failed chunk import is cached for the rest of the page, so null means "no
+// device cache this page" — never an unhandled rejection.
+const loadCacheModule = () => (cacheModule ??= import('./shared-admin-content-cache').catch(() => null));
+
 /**
- * Pull the shared admin slots through the device cache, loading that module on
- * demand. A failed chunk import is cached for the rest of the page, so on that
- * failure fall back to a plain live pull of both slots — today's behaviour
- * without the cache, never an unhandled rejection.
+ * Pull the shared admin slots. The live reads start at once and, when both
+ * answer, are returned at once — exactly as fast as before the device cache
+ * existed (a story beat or shop that opens right after login must see the live
+ * admin content, not wait on a chunk). The device cache, loaded on demand, then
+ * stores them in the background; it is awaited only when a live read failed and
+ * its last good copy is needed. The live answers already in hand are handed to
+ * it, so nothing is fetched twice; its own later retry still fetches fresh.
  */
-export async function pullSharedAdminSnapshots<T>(fetchSlot: (slotName: string) => Promise<T | null>): Promise<T[]> {
-    const cache = await import('./shared-admin-content-cache').catch(() => null);
-    if (cache) return cache.pullAdminSnapshotsWithDeviceCache(fetchSlot);
-    const live: (T | null)[] = await Promise.all(['Admin 1', 'Admin 2'].map((slot) => fetchSlot(slot).catch(() => null)));
-    return live.filter((snap): snap is T => Boolean(snap));
+export async function pullSharedAdminSnapshots<T>(fetchSlot: SlotFetch<T>): Promise<T[]> {
+    const slots = ['Admin 1', 'Admin 2'];
+    const live: (T | null)[] = await Promise.all(slots.map((slot) => fetchSlot(slot).catch(() => null)));
+    const answered = new Map(slots.map((slot, index) => [slot, live[index]]));
+    const reuseOnce: SlotFetch<T> = (slot) => {
+        if (!answered.has(slot)) return fetchSlot(slot);
+        const value = answered.get(slot) ?? null;
+        answered.delete(slot);
+        return Promise.resolve(value);
+    };
+    const present = live.filter((snap): snap is T => Boolean(snap));
+    if (present.length === slots.length) {
+        void loadCacheModule().then((cache) => cache?.pullAdminSnapshotsWithDeviceCache(reuseOnce)).catch(() => undefined);
+        return present;
+    }
+    const cache = await loadCacheModule();
+    return cache ? cache.pullAdminSnapshotsWithDeviceCache(reuseOnce) : present;
 }
 
 /** Test hook. */
