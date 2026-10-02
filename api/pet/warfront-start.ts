@@ -5,7 +5,7 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { WARFRONT_TPS } from '../_pet-sim/pet-warfront-sim.js';
+import { WARFRONT_TPS } from '../_pet-sim/pet-warfront-contract.js';
 import { runWarfrontRite } from '../_pet-sim/pet-warfront-rite.js';
 import { wfThemeForVillage, type WfTheme } from '../_pet-sim/pet-warfront-map.js';
 import { derivePetRole } from '../_pet-sim/pet-roles.js';
@@ -26,10 +26,10 @@ import { WARFRONT_KICKOFF_PACE_MS, warfrontKickoffWaitMs, warfrontNextStartKey }
  * replays the player's validated opening lanes and compact command log on this
  * same deterministic engine. A client reports choices, never the scored winner.
  *
- * Determinism: the Warfront sim meets the cross-engine contract (no
- * sin/cos/atan2/hypot — see its header), and warfront-parity.test.ts proves the
- * server re-sim === the client render (streamed) === this full-auto run, so a
- * Firefox player's win reproduces here byte-for-byte. The minted seed is returned
+ * Determinism: the Warfront Rite (pet-warfront-rite.ts, on the cinematic duel
+ * engine) meets the cross-engine contract, and warfront-rite-parity.test.ts plus
+ * warfront-integration-parity.test.ts prove the server re-sim === the client
+ * render, so a Firefox player's win reproduces here byte-for-byte. The minted seed is returned
  * to the renderer; one outstanding receipt plus the one-a-minute kickoff pace
  * (./_warfront-pace.ts) prevents seed shopping. vs-AI reward matches LOCK the buy to a deterministic policy (never interactive
  * "off"), matching the PvP/co-op rule, so the match is a pure function of the

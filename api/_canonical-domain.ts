@@ -3,7 +3,6 @@ export const DEFAULT_LEGACY_DUPLICATE_HOSTS = ['theravensark.com', 'www.theraven
 
 const STATIC_OR_OPERATIONAL_PREFIXES = [
     '/api',
-    '/kv',
     '/assets',
     '/badges',
     '/music',

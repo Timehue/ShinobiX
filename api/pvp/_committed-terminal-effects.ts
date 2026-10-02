@@ -34,6 +34,7 @@ import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
+import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
 
 export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
@@ -184,6 +185,7 @@ async function runCommittedPvpTerminalEffects(
     // capsule lives in the exact committed session, so no uncommitted move can
     // publish history and a crash after combat CAS remains repairable.
     await replayCommittedPvpActionReceipt(kv, session);
+    await settlePvpLegacyProgress(session);
 
     // What the fight cost the two bodies. Settled HERE rather than in
     // claim-rewards so a continuous engagement still charges its damage when
@@ -191,9 +193,7 @@ async function runCommittedPvpTerminalEffects(
     // trapped winners on the victory screen in 2026-09. Each fighter carries
     // its own durable receipt, so this replays safely; a transient storage
     // failure propagates and the next terminal reader retries it.
-    await settlePvpTerminalVitals(kv, session, {
-        lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
-    });
+    await settlePvpTerminalVitals(kv, session, {});
 
     // Receipt and history writers are battle-id idempotent. Indexing is retried
     // even when the receipt writer reports "already exists", which repairs a

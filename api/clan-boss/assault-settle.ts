@@ -18,6 +18,8 @@ import { announce } from '../_announce.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { recordTowerCombatUsage } from '../_combat-usage.js';
+import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 import { clanBossEnabled } from '../_release-flags.js';
 
 /*
@@ -202,6 +204,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         // Balance telemetry (api/_combat-usage.ts), once per run by its own gate.
         recordTowerCombatUsage(session, 'clan-boss');
+        for (const member of party) {
+            if (!contributions[member]?.active) continue;
+            const record = await kv.get<Record<string, unknown>>(`save:${member}`);
+            const deltas = extractTowerLegacyDeltas(session, member, result.won ? 1 : 0);
+            if (!(await bumpLegacyStats(member, deltas, {
+                characterForBootstrap: record?.character as Record<string, unknown> | undefined,
+                receiptId: `clan-boss-combat:${runId}:${member}`,
+            }))) return res.status(503).json({ error: 'Boss rewards are safe; Legacy combat credit is pending. Retry the same assault.', retryable: true });
+        }
 
         // Multiple idempotent helpers may have advanced the caller's save. Echo the
         // final authoritative version/character so the next autosave cannot collide

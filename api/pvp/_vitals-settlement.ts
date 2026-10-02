@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { RECEIPT_TTL_SEC } from '../_receipts.js';
-import { mergePreservingImages, safeName } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { safeName } from '../_utils.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import type { KvLike } from '../_storage.js';
 import type { PvpFighter, PvpSession } from './session.js';
@@ -174,11 +175,10 @@ export function pvpVitalsReceiptIdentity(session: PvpSession, side: 'p1' | 'p2')
     };
 }
 
-type VitalsStore = Pick<KvLike, 'get' | 'set' | 'compareSet' | 'del'>;
+/** Holds the lock-free receipt markers; the saves themselves commit through mutatePlayerSave. */
+type VitalsStore = Pick<KvLike, 'get' | 'set'>;
 
 export type PvpVitalsDeps = {
-    /** Must be fail-closed: a lock that silently no-ops would drop the write. */
-    lock: <T>(saveKey: string, action: () => Promise<T>) => Promise<T>;
     now?: number;
 };
 
@@ -186,13 +186,11 @@ async function settleFighterVitals(
     store: VitalsStore,
     session: PvpSession,
     side: 'p1' | 'p2',
-    deps: PvpVitalsDeps,
     now: number,
 ): Promise<void> {
     const fighter = side === 'p1' ? session.p1 : session.p2;
     const slug = safeName(fighter.name);
     if (!slug) return;
-    const saveKey = `save:${slug}`;
     const receiptKey = pvpVitalsReceiptKey(session.battleId, slug);
     // The finishing move usually settles these vitals; every later replay of
     // the saga (each player's claim, any recovery pass) used to take the
@@ -203,12 +201,13 @@ async function settleFighterVitals(
     // multi-hundred-KB read. A missing marker (expired, or its write failed)
     // just falls through to the locked path and the in-save receipt.
     if (await store.get(receiptKey)) return;
-    await deps.lock(saveKey, async () => {
-        const fresh = await store.get<Record<string, unknown>>(saveKey);
-        const freshChar = fresh?.character as Record<string, unknown> | undefined;
-        // No save row is an NPC guard or a deleted account — there is no body to
-        // mark. Not an error, and not something a retry could improve.
-        if (!freshChar) return;
+    // No save row (mutatePlayerSave's 404) is an NPC guard or a deleted account:
+    // there is no body to mark. Not an error, and not something a retry could
+    // improve. The vitals and their receipt commit in one write, so re-running
+    // after a lost compare-and-set applies them once. The fight's final vitals
+    // replace all three pools, so no idle recovery is credited here either way.
+    await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(slug, async ({ character: freshChar }) => {
+        const unwritten = { ok: true as const, write: false, character: freshChar, value: null };
 
         // The receipt is what stops a LATER replay from re-hospitalizing a
         // player who has since healed. The terminal session is frozen, so
@@ -226,15 +225,15 @@ async function settleFighterVitals(
         // together. The KV marker is written AFTER the save; it serves rows
         // settled by the previous generation and the lock-free check above.
         const legacyMarker = await store.get(receiptKey);
-        if (legacyMarker) return;
+        if (legacyMarker) return unwritten;
         const identity = pvpVitalsReceiptIdentity(session, side);
         const inspected = inspectSettlementReceipt(freshChar, identity.requestId, identity.fingerprint);
-        if (inspected.status === 'replay') return;
+        if (inspected.status === 'replay') return unwritten;
         if (inspected.status === 'conflict' || inspected.status === 'invalid') {
             // The same battle cannot legitimately present different vitals: the
             // session is terminal and frozen. Leave the save alone and say so.
             console.error('[pvp/vitals] receipt conflict', { battleId: session.battleId, slug, status: inspected.status });
-            return;
+            return unwritten;
         }
         const settled = appendSettlementReceipt(
             applyPvpVitalsToCharacter(freshChar, session, side, now),
@@ -246,15 +245,18 @@ async function settleFighterVitals(
                 settledAt: now,
             },
         );
-        const updated = { ...fresh, character: settled };
-        await store.set(saveKey, mergePreservingImages(bumpSaveVersion<Record<string, unknown>>(updated), fresh));
-        // The marker the lock-free check above reads (and readers of the
-        // previous generation). The save above is already durable, so a failure
-        // here changes nothing: the next replay takes the lock, finds the
-        // in-save receipt and stops there.
-        await store.set(receiptKey, { battleId: session.battleId, side, name: fighter.name, settledAt: now }, { ex: RECEIPT_TTL_SEC })
-            .catch(() => undefined);
-    });
+        return {
+            ok: true,
+            character: settled,
+            value: null,
+            // The marker the lock-free check above reads (and readers of the
+            // previous generation). The save is already durable, so a failure
+            // here changes nothing: the next replay takes the lock, finds the
+            // in-save receipt and stops there.
+            afterCommit: () => store.set(receiptKey, { battleId: session.battleId, side, name: fighter.name, settledAt: now }, { ex: RECEIPT_TTL_SEC })
+                .then(() => undefined, () => undefined),
+        };
+    }));
 }
 
 /**
@@ -277,6 +279,6 @@ export async function settlePvpTerminalVitals(
     if (session.status !== 'done') return;
     if (!pvpSessionCarriesVitals(session)) return;
     const now = deps.now ?? Date.now();
-    await settleFighterVitals(store, session, 'p1', deps, now);
-    await settleFighterVitals(store, session, 'p2', deps, now);
+    await settleFighterVitals(store, session, 'p1', now);
+    await settleFighterVitals(store, session, 'p2', now);
 }

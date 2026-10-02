@@ -359,16 +359,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'player/_cross-heal-settlement.ts': 2,
     'player/sleeper-kill.ts': 2,
     'player/trade.ts': 2,
-
-    // ── Being moved onto mutatePlayerSave ───────────────────────────────────
-    '_anbu-infiltration-store.ts': 3,
-    '_sector-war-garrison-store.ts': 1,
-    'admin/bloodline-review.ts': 1,
-    'pvp/_vitals-settlement.ts': 1,
-    'towers/_entry-recovery.ts': 1,
-    'towers/_records.ts': 1,
-    'towers/_tower-store.ts': 4,
-    'village/_kage-inactivity.ts': 1,
 };
 
 test('raw player-save writes only ever shrink', () => {

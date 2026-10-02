@@ -11,8 +11,9 @@
  *   - the whole drain is wrapped in a deterministic economy journal; its sealed
  *     debit phase lets a failed save credit resume without draining twice;
  *   - combat costs, caches, ryo, and an idempotency receipt are committed in one
- *     player-save write under the fail-closed save lock;
- *   - mergePreservingImages + bumpSaveVersion preserve the autosave contract.
+ *     player-save write through mutatePlayerSave (the fail-closed save lock, an
+ *     exact compare-and-set, and the idle recovery settled into the same write);
+ *   - its version bump preserves the autosave contract.
  *
  * Daily-loss ledgers live in their OWN keys (infil-loss:*) — deliberately NOT as
  * new fields on world:territory:* / the village-war record, because
@@ -26,15 +27,18 @@
  * skims 1% of THAT, and writes back the remainder with the advanced lastSupplyAt —
  * so the owner's later collect sees exactly (total − skim) + new accrual.
  *
- * kv / lock / now are INJECTABLE (default to the real ones) so the currency logic
- * is unit-testable with a fake in-memory store.
+ * kv / lock / now are INJECTABLE (default to the real ones) for the shared side:
+ * the pools, ledgers, journal, roster and run records. Player saves never go
+ * through them — they always commit through mutatePlayerSave on the shared KV,
+ * so a test drives those on its in-memory backend (SHINOBIX_QA_MEMORY_KV).
  */
 import { isDeepStrictEqual } from 'node:util';
 import { readVillageAnbu } from './village/_anbu.js';
 import { kv as realKv, type KvLike } from './_storage.js';
 import { withKvLock as realWithKvLock, type LockOptions } from './_lock.js';
-import { mergePreservingImages, safeName, setSafeRecordValue } from './_utils.js';
-import { bumpSaveVersion } from './save/_save-version.js';
+import { safeName, setSafeRecordValue } from './_utils.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { collectTerritorySupply } from './_territory-supply.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
 import {
@@ -68,9 +72,12 @@ import type { SoloPveSession } from './solo-pve/_session.js';
 import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
+/** The shared side's store and lock (see the header): never a player save. */
 export type InfilKv = Pick<KvLike, 'get' | 'set' | 'del' | 'compareSet'>;
 export type InfilLock = <T>(target: string, fn: () => Promise<T>, options?: LockOptions) => Promise<T>;
 export type StoreDeps = { kv?: InfilKv; lock?: InfilLock; now?: () => number };
+/** For a writer that touches nothing but the player's own save. */
+export type InfilSaveDeps = Pick<StoreDeps, 'now'>;
 function resolve(deps: StoreDeps) {
     return {
         kv: deps.kv ?? realKv,
@@ -242,6 +249,9 @@ export async function getOrSealAnbuSnapshot(village: string, anbuSlug: string, d
 }
 
 // ─── settlement (the currency heart) ─────────────────────────────────────────
+/** A settle callback's refusal of a receipt that names a different raid. */
+const RECEIPT_CONFLICT = 'receipt-conflict';
+
 export type SettleOutcome =
     | {
         ok: true;
@@ -361,28 +371,26 @@ export async function settleInfiltrationWin(
         const wrCaches = cachesForSkim(wrSkim);
 
         // ── Phase 2 (credit): mint caches + ryo together with usage/outcome and
-        // the replay receipt in one save write.
+        // the replay receipt in one save write. Keyed by that receipt, and
+        // nothing outside the save happens inside it, so a lost compare-and-set
+        // re-runs once against the fresh save.
         let overflowLost = 0;
         let saveVersion = 0;
         let character: Record<string, unknown> = {};
         let alreadySettled = false;
         try {
-            const out = await lock(`save:${run.raiderSlug}`, async () => {
-                const saveKey = `save:${run.raiderSlug}`;
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = rec?.character as Record<string, unknown> | undefined;
-                if (!rec || !char) return { error: 'no-save' as const };
+            const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ replayed: boolean; lost: number }>(run.raiderSlug, ({ character: char }) => {
                 const inspected = inspectSettlementReceipt(char, receiptId, fingerprint);
                 if (inspected.status === 'conflict' || inspected.status === 'invalid') {
-                    return { error: 'receipt-conflict' as const };
+                    return { ok: false, status: 409, error: RECEIPT_CONFLICT };
                 }
                 if (inspected.status === 'replay') {
                     const value = inspected.receipt.value;
                     return {
-                        replayed: true as const,
-                        lost: Math.max(0, Math.floor(num(value.overflowLost))),
-                        saveVersion: num(rec._saveVersion),
+                        ok: true,
+                        write: false,
                         character: char,
+                        value: { replayed: true, lost: Math.max(0, Math.floor(num(value.overflowLost))) },
                     };
                 }
                 const settled = session
@@ -428,21 +436,22 @@ export async function settleInfiltrationWin(
                     },
                     settledAt: t,
                 });
-                const next = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
-                await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, rec));
-                return { replayed: false as const, lost, saveVersion: num((next as Record<string, unknown>)._saveVersion), character: nextChar };
-            }, { failClosed: true });
-            if ('error' in out) {
+                return { ok: true, character: nextChar, value: { replayed: false, lost } };
+            }));
+            if (!out.ok) {
+                // Anything but the receipt refusal is a missing save (or a raider
+                // name that could never key one).
+                const error = out.error === RECEIPT_CONFLICT ? 'receipt-conflict' : 'no-save';
                 await markEconomyTx(txId, 'debit-applied', {
                     amount: supplySkim + wrSkim,
-                    error: out.error,
+                    error,
                     meta: { runId: run.runId, sector: run.sector, targetVillage: run.targetVillage, rolled, supplySkim, wrSkim, debitApplied: true },
                 }, { kv: kv as never });
-                return { ok: false, error: out.error === 'no-save' ? 'no-save' : 'credit-failed' };
+                return { ok: false, error: error === 'no-save' ? 'no-save' : 'credit-failed' };
             }
-            alreadySettled = out.replayed;
-            overflowLost = out.lost;
-            saveVersion = out.saveVersion;
+            alreadySettled = out.value.replayed;
+            overflowLost = out.value.lost;
+            saveVersion = num(out._saveVersion);
             character = out.character;
         } catch (creditErr) {
             console.error(`[anbu-infiltration] credit interrupted after debit; retry remains safe for ${run.raiderSlug}:`, creditErr);
@@ -486,66 +495,64 @@ export type SettleLossOutcome =
     | { ok: true; alreadySettled: boolean; saveVersion: number; character: Record<string, unknown> }
     | { ok: false; error: 'no-save' | 'receipt-conflict' };
 
-/** Persist terminal HP/hospital state and proven item usage for a failed raid. */
+/**
+ * Persist terminal HP/hospital state and proven item usage for a failed raid.
+ * The receipt rides in the same write, so a lost compare-and-set re-runs once
+ * and still applies the cost exactly once.
+ */
 export async function settleInfiltrationLoss(
     run: InfilRun,
     session: SoloPveSession,
-    deps: StoreDeps = {},
+    deps: InfilSaveDeps = {},
 ): Promise<SettleLossOutcome> {
-    const { kv, lock, now } = resolve(deps);
-    return lock(`save:${run.raiderSlug}`, async () => {
-        const saveKey = `save:${run.raiderSlug}`;
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const character = record?.character as Record<string, unknown> | undefined;
-        if (!record || !character) return { ok: false as const, error: 'no-save' as const };
-        const receiptId = `anbu-infiltration-${run.runId}`.slice(0, 80);
-        const fingerprint = `${run.raiderSlug}:${run.sector}:${run.targetVillage}:${run.anbuSlug}`;
+    const { now } = resolve(deps);
+    const receiptId = `anbu-infiltration-${run.runId}`.slice(0, 80);
+    const fingerprint = `${run.raiderSlug}:${run.sector}:${run.targetVillage}:${run.anbuSlug}`;
+    const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ alreadySettled: boolean }>(run.raiderSlug, ({ character }) => {
         const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
         if (inspected.status === 'conflict' || inspected.status === 'invalid') {
-            return { ok: false as const, error: 'receipt-conflict' as const };
+            return { ok: false, status: 409, error: RECEIPT_CONFLICT };
         }
         if (inspected.status === 'replay') {
-            return {
-                ok: true as const,
-                alreadySettled: true as const,
-                saveVersion: num(record._saveVersion),
-                character,
-            };
+            return { ok: true, write: false, character, value: { alreadySettled: true } };
         }
+        const settledAt = now();
         const settledCharacter = applyAiFightOutcomeToCharacter(
             applySoloPveUsageCosts(character, session),
             resolveAiFightOutcome(session),
             session.player,
-            now(),
+            settledAt,
         );
-        const nextCharacter = appendSettlementReceipt(settledCharacter, inspected.receipts, {
-            requestId: receiptId,
-            fingerprint,
-            value: { kind: 'anbu-infiltration-loss', outcome: session.outcome ?? 'loss' },
-            settledAt: now(),
-        });
-        const next = bumpSaveVersion({ ...record, character: nextCharacter });
-        await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, record));
         return {
-            ok: true as const,
-            alreadySettled: false as const,
-            saveVersion: num((next as Record<string, unknown>)._saveVersion),
-            character: nextCharacter,
+            ok: true,
+            character: appendSettlementReceipt(settledCharacter, inspected.receipts, {
+                requestId: receiptId,
+                fingerprint,
+                value: { kind: 'anbu-infiltration-loss', outcome: session.outcome ?? 'loss' },
+                settledAt,
+            }),
+            value: { alreadySettled: false },
         };
-    }, { failClosed: true });
+    }));
+    if (!result.ok) {
+        return { ok: false, error: result.error === RECEIPT_CONFLICT ? 'receipt-conflict' : 'no-save' };
+    }
+    return {
+        ok: true,
+        alreadySettled: result.value.alreadySettled,
+        saveVersion: num(result._saveVersion),
+        character: result.character,
+    };
 }
 
 // ─── turn-in (caches → standing points, type-locked) ─────────────────────────
+const TURN_IN_REFUSALS = ['not-in-clan', 'nothing-to-turn-in', 'cap-reached'] as const;
+type TurnInRefusal = typeof TURN_IN_REFUSALS[number];
+type TurnInCredit = { dest: 'clan' | 'village'; points: number; consumed: number; remaining: number };
+
 export type TurnInOutcome =
-    | { ok: false; error: 'no-save' | 'not-in-clan' | 'nothing-to-turn-in' | 'cap-reached' }
-    | {
-        ok: true;
-        dest: 'clan' | 'village';
-        points: number;
-        consumed: number;
-        remaining: number;
-        saveVersion: number;
-    };
+    | { ok: false; error: 'no-save' | TurnInRefusal }
+    | ({ ok: true; saveVersion: number } & TurnInCredit);
 
 /**
  * Convert held caches into standing points at the type-locked ratio (docs §8,
@@ -554,39 +561,39 @@ export type TurnInOutcome =
  * destination's caps FIRST and only that many caches are consumed — a dump can
  * never burn caches for zero credit. All under the save lock, failClosed.
  * `count` ≤ 0 means "turn in everything held".
+ *
+ * A turn-in consumes exactly what it credits from the save it read, and does
+ * nothing outside that save before the write, so a lost compare-and-set re-runs
+ * once against the fresh save rather than failing the player's click.
  */
 export async function turnInCachesForSave(
     params: { playerName: string; cache: WarPool; count?: number },
     deps: StoreDeps = {},
 ): Promise<TurnInOutcome> {
-    const { kv, lock, now } = resolve(deps);
+    const { kv, now } = resolve(deps);
     const t = now();
     const playerName = safeName(params.playerName);
     const itemId = cacheItemIdForPool(params.cache);
+    const refuse = (error: TurnInRefusal) => ({ ok: false as const, status: 409, error });
 
-    return await lock(`save:${playerName}`, async () => {
-        const saveKey = `save:${playerName}`;
-        const rec = await kv.get<Record<string, unknown>>(saveKey);
-        const char = rec?.character as Record<string, unknown> | undefined;
-        if (!rec || !char) return { ok: false as const, error: 'no-save' as const };
-
+    const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<TurnInCredit>(playerName, ({ character: char }) => {
         const stacks: Array<{ itemId: string; count: number }> = Array.isArray(char.itemStacks)
             ? (char.itemStacks as Array<{ itemId: string; count: number }>).map(s => ({ ...s }))
             : [];
         const stack = stacks.find(s => s.itemId === itemId);
         const held = stack ? Math.max(0, Math.floor(num(stack.count))) : 0;
         const want = params.count && params.count > 0 ? Math.min(Math.floor(params.count), held) : held;
-        if (want <= 0) return { ok: false as const, error: 'nothing-to-turn-in' as const };
+        if (want <= 0) return refuse('nothing-to-turn-in');
 
         const raw = turnInCaches(params.cache, want);
-        if (raw.points <= 0) return { ok: false as const, error: 'nothing-to-turn-in' as const };
+        if (raw.points <= 0) return refuse('nothing-to-turn-in');
 
         let nextChar: Record<string, unknown>;
         let points: number;
         let consumed: number;
 
         if (raw.dest === 'clan') {
-            if (!char.clan) return { ok: false as const, error: 'not-in-clan' as const };
+            if (!char.clan) return refuse('not-in-clan');
             // Clamp to the award pipe's caps BEFORE consuming caches: per-award 250
             // + the weekly 1000 headroom — never consume more than what credits.
             const weekKey = clanPointWeekKey(new Date(t));
@@ -594,10 +601,10 @@ export async function turnInCachesForSave(
                 ? Math.max(0, Math.floor(num(char.weeklyClanPoints))) : 0;
             const headroom = Math.max(0, CLAN_POINTS_WEEKLY_CAP - currentWeekly);
             points = Math.min(raw.points, MAX_CLAN_POINTS_AWARD, headroom);
-            if (points <= 0) return { ok: false as const, error: 'cap-reached' as const };
+            if (points <= 0) return refuse('cap-reached');
             consumed = points * CLAN_CACHES_PER_POINT;
             const award = awardClanPoints(char, 'clanRaid', points, { eventId: `infil-turnin:${playerName}:${t}` }, new Date(t));
-            if (award.awarded !== points) return { ok: false as const, error: 'cap-reached' as const };
+            if (award.awarded !== points) return refuse('cap-reached');
             nextChar = award.character;
         } else {
             points = Math.min(raw.points, VILLAGE_TURNIN_MAX_POINTS);
@@ -609,21 +616,21 @@ export async function turnInCachesForSave(
         // the array never accumulates zero-count entries.
         stack!.count = held - consumed;
         const nextStacks = stacks.filter(s => Math.max(0, Math.floor(num(s.count))) > 0);
-        nextChar = { ...nextChar, itemStacks: nextStacks };
-
-        const next = bumpSaveVersion({ ...rec, character: nextChar });
-        await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, rec));
-        await kv.set(`${AUDIT_LOG_PREFIX}turnin:${playerName}:${t}`, {
-            ts: t, playerName, cache: params.cache, dest: raw.dest, points, consumed,
-        }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
 
         return {
-            ok: true as const,
-            dest: raw.dest,
-            points,
-            consumed,
-            remaining: held - consumed,
-            saveVersion: num((next as Record<string, unknown>)._saveVersion),
+            ok: true,
+            character: { ...nextChar, itemStacks: nextStacks },
+            value: { dest: raw.dest, points, consumed, remaining: held - consumed },
+            afterCommit: () => kv.set(`${AUDIT_LOG_PREFIX}turnin:${playerName}:${t}`, {
+                ts: t, playerName, cache: params.cache, dest: raw.dest, points, consumed,
+            }, { ex: 30 * 24 * 60 * 60 }).then(() => undefined, () => undefined),
         };
-    }, { failClosed: true });
+    }));
+    if (!result.ok) {
+        // Anything but a turn-in refusal is a missing save (or a name that could
+        // never key one).
+        const refusal = TURN_IN_REFUSALS.find((error) => error === result.error);
+        return { ok: false, error: refusal ?? 'no-save' };
+    }
+    return { ok: true, ...result.value, saveVersion: num(result._saveVersion) };
 }

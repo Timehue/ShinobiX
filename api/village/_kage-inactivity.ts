@@ -13,8 +13,9 @@
  * threshold helpers live at the top so the cutoff is unit-testable without KV.
  */
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { safeName } from '../_utils.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { hollowGateCreditBasis, recordHollowGateExternalCredits } from '../hollow-gate/_external-credits.js';
 import { withKvLock } from '../_lock.js';
 import { announce } from '../_announce.js';
@@ -267,15 +268,12 @@ export async function drainKageStakeRefunds(slug: string, now: number = Date.now
     const owed = parsePendingStakeRefunds(await kv.get(key));
     if (owed.length === 0) return 0;
 
-    const saveKey = `save:${safe}`;
-    let outcome: { paid: PendingStakeRefund[]; settled: PendingStakeRefund[] } | null;
+    type Drained = { paid: PendingStakeRefund[]; settled: PendingStakeRefund[] };
+    let outcome: Drained | null;
     try {
-        outcome = await withKvLock(saveKey, async () => {
-            const rec = await kv.get<Record<string, unknown>>(saveKey);
-            const c = (rec?.character ?? null) as Record<string, unknown> | null;
-            // No save to credit yet (a fresh device, a mid-migration read):
-            // the debt stays owed and the next beat tries again.
-            if (!rec || !c) return null;
+        // Every payment and its receipt commit in one write, so a lost
+        // compare-and-set re-runs once against the fresh save.
+        const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<Drained>(safe, ({ character: c }) => {
             const paid: PendingStakeRefund[] = [];
             const settled: PendingStakeRefund[] = [];
             let nextChar = c;
@@ -307,14 +305,19 @@ export async function drainKageStakeRefunds(slug: string, now: number = Date.now
                 paid.push(entry);
                 settled.push(entry);
             }
-            if (paid.length > 0) {
-                // Each refund's provenance was folded above; the final stamp has
-                // zero wallet delta and preserves it in the single paying write.
-                const nextRec = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: nextChar });
-                await kv.set(saveKey, mergePreservingImages(nextRec, rec));
-            }
-            return { paid, settled };
-        }, { failClosed: true });
+            if (paid.length === 0) return { ok: true, write: false, character: c, value: { paid, settled } };
+            return {
+                ok: true,
+                character: nextChar,
+                value: { paid, settled },
+                // Each refund's provenance was folded above, under its own
+                // source; the paying write keeps that ledger as built.
+                hollowGateProvenanceRecorded: true,
+            };
+        }));
+        // No save to credit yet (a fresh device, a mid-migration read): the
+        // debt stays owed and the next beat tries again.
+        outcome = out.ok ? out.value : null;
     } catch (err) {
         console.warn(`[kage-inactivity] stake refund for ${safe} deferred:`, (err as Error).message);
         return 0;
