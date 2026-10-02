@@ -45,6 +45,8 @@ import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 import { openPetExpedition } from "../lib/pet-expedition-navigation";
 import { SectorSkyForecast } from "./SectorSkyForecast";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { getCharacterElements } from "../lib/elements";
 
 // The shared prop shape for the card body + its desktop host. Both read the
 // same slice of App state; keeping one type keeps the two call-sites in sync.
@@ -56,6 +58,7 @@ type ProfileCardProps = {
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
+    onOpenDailyBriefing?: (opener: HTMLButtonElement) => void;
 };
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
@@ -122,6 +125,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     setScreen,
     activeTraining,
     activeJutsuTraining,
+    onOpenDailyBriefing = (opener) => window.dispatchEvent(new CustomEvent("shinobix:open-daily-briefing", { detail: opener })),
 }: ProfileCardProps) {
     useSharedNow(); // sync to global timer so mobile timers match desktop
     // Falls back to the name-keyed shared image when the character field hasn't
@@ -231,6 +235,19 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     );
                 })()}
             </div>
+            {character.level >= 5 && normalizeOnboardingStep(character.onboardingStep) === "done" && getCharacterElements(character).length > 0 && (
+                <button
+                    type="button"
+                    className="left-daily-briefing-button"
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                        event.currentTarget.focus();
+                        onOpenDailyBriefing(event.currentTarget);
+                    }}
+                >
+                    Daily Briefing
+                </button>
+            )}
 
             {/* "What's next" breadcrumb, tucked under the XP bar (desktop rail).
                 The full hub-top banner is CSS-hidden on desktop so this is the only

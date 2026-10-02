@@ -2335,7 +2335,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 324
+            "line": 358
           },
           {
             "source": "shinobij.client/src/styles/pet-chronicle-ceremony.css",
@@ -2399,7 +2399,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 317
+            "line": 351
           },
           {
             "source": "shinobij.client/src/styles/index/39-civic-facilities.css",
@@ -2866,7 +2866,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 278
+            "line": 312
           },
           {
             "source": "shinobij.client/src/styles/index/06-combat-core.css",
@@ -3067,7 +3067,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/index/03-rails-daily-briefing.css",
-            "line": 338
+            "line": 372
           },
           {
             "source": "shinobij.client/src/styles/ui.css",
