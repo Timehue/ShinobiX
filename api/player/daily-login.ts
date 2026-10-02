@@ -1,12 +1,11 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL } from './_daily-login.js';
+import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
+import { computeLoginReward, daysUntilShardBonus, STREAK_SHARD_INTERVAL, type LoginReward } from './_daily-login.js';
 import { bumpLegacyStats, reconcileLegacyStatsFromSave } from '../_legacy-track.js';
 import { deliverPendingEconomyLegacyIntents } from '../_legacy-economy-outbox.js';
 
@@ -14,12 +13,13 @@ import { deliverPendingEconomyLegacyIntents } from '../_legacy-economy-outbox.js
  * /api/player/daily-login — POST only
  *
  * Server-authoritative daily login-streak reward. Grants level-scaled ryo once
- * per UTC day, plus 5 fate shards on every 7th consecutive day. Mirrors the
- * hardened claim-daily-agenda pattern: the read-modify-write runs INSIDE
- * withKvLock(save:<name>) with failClosed (currency path) so a concurrent
- * /api/save can't clobber the credit, and idempotency is the date stamp on the
- * save itself (char.lastLoginRewardDate) read inside the lock — claiming twice
- * in a day is a no-op that just echoes the current streak.
+ * per UTC day, plus 5 fate shards on every 7th consecutive day. The credit
+ * commits through mutatePlayerSave (the fail-closed save lock and an exact
+ * compare-and-set), so a concurrent /api/save can't clobber it, and the idle
+ * recovery the player earned since their last save is settled into the same
+ * write rather than discarded by it. Idempotency is the date stamp on the save
+ * itself (char.lastLoginRewardDate) read inside the lock — claiming twice in a
+ * day is a no-op that just echoes the current streak.
  *
  * The reward params are sealed server-side (api/player/_daily-login.ts) — the
  * client body carries no amounts. Both a first claim and a receipt retry return
@@ -56,13 +56,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const today = utcDateOffset(0);
         const yesterday = utcDateOffset(-1);
 
-        let out: { error: 'no-save' } | { alreadyClaimed: boolean; streak: number; ryo: number; fateShards: number; totalRyo: number; totalFateShards: number; saveVersion: number; legacyCharacter?: Record<string, unknown> | null };
+        let committed: PlayerSaveMutationResult<LoginReward>;
         try {
-            out = await withKvLock(`save:${playerName}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { error: 'no-save' as const };
-
+            // The day stamp commits in the same write as the reward, so running
+            // the whole mutation again after a lost compare-and-set pays at most
+            // once: the retry either finds today's stamp or re-reads a save the
+            // reward never reached.
+            committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<LoginReward>(playerName, ({ character: char }) => {
                 const reward = computeLoginReward({
                     lastDate: String(char.lastLoginRewardDate ?? ''),
                     prevStreak: num(char.loginStreak),
@@ -70,13 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     today,
                     yesterday,
                 });
-                if (reward.alreadyClaimed) return {
-                    ...reward,
-                    totalRyo: num(char.ryo),
-                    totalFateShards: num(char.fateShards),
-                    saveVersion: Number(rec._saveVersion ?? 0),
-                    legacyCharacter: char,
-                };
+                if (reward.alreadyClaimed) return { ok: true, write: false, character: char, value: reward };
 
                 const nextChar = {
                     ...char,
@@ -85,22 +79,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     loginStreak: reward.streak,
                     lastLoginRewardDate: today,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, character: nextChar }, { previousCharacter: char });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                return {
-                    ...reward,
-                    totalRyo: num(nextChar.ryo),
-                    totalFateShards: num(nextChar.fateShards),
-                    saveVersion: Number((nextRecord as Record<string, unknown>)._saveVersion ?? 0),
-                    legacyCharacter: nextChar,
-                };
-            }, { failClosed: true });
+                return { ok: true, character: nextChar, value: reward };
+            }));
         } catch (e) {
             console.error('[player/daily-login] credit failed', e);
             return res.status(503).json({ error: 'Could not grant your daily reward — please retry.' });
         }
 
-        if ('error' in out) return res.status(404).json({ error: 'Your save was not found.' });
+        if (!committed.ok) {
+            if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+            return res.status(committed.status).json({ error: committed.error });
+        }
+        const out = {
+            ...committed.value,
+            totalRyo: num(committed.character.ryo),
+            totalFateShards: num(committed.character.fateShards),
+            saveVersion: committed._saveVersion,
+            legacyCharacter: committed.character,
+        };
 
         // Legacy tracking (ENABLE_LEGACY): one tenure day per claimed login day
         // (already once-per-UTC-day by the alreadyClaimed gate above), plus the
