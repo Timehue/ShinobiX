@@ -151,6 +151,36 @@ balance check, the budget and the debit), and a villager could reset
 `agendaClaimReceipts` and collect the daily agenda's treasury tithe again.
 Both fields are now pinned for every blob writer, admin included.
 
+## Daily-mission rewards are receipted grants (2026-10-02)
+
+A daily mission's completion lives in its daily row (`missions:daily:<player>`,
+or `missions:newbie-daily:<player>` before a profession is chosen), and its
+reward lives in the save: profession XP, or newbie ryo. `reportMissionEvent`
+and `reportNewbieEvent` used to record the completion first and then credit
+the save once, with nothing to retry it. A contended save lock (an autosave
+under load trips the fail-closed acquire after about 0.5 s), a crash, or a lost
+reply left the mission complete and the reward unpaid for good.
+`report-pvp-win` makes that permanent: its NX marker answers the retry with
+`alreadyReported`.
+
+| Step | Written in ONE write | Proves |
+| --- | --- | --- |
+| Complete | the mission's progress + a `pendingXpGrants` / `pendingRyoGrants` entry (random id, amount, mission ids, time) | this completion is owed exactly this reward |
+| Credit | the XP or ryo + a `serverSettlementReceipts` entry keyed by the grant id | this grant is paid |
+| Clear | the grant removed from the daily row | nothing more to do |
+
+Every report settles what its row still owes, and so does `GET
+/api/missions/daily`, which echoes the committed `_saveVersion` to the player
+(never to an admin). A failed credit no longer fails the report: its completion
+has already committed, and the next report or read pays the grant. A missing
+receipt pays only while `receiptAbsenceProvable` holds; a grant whose proof may
+have aged out of the 50-entry list is logged for reconciliation and not paid.
+A row that owes a grant keeps no TTL and carries the grant across the day
+rollover. Profession XP is voided if the player changed profession first; newbie
+ryo is still paid after a profession is chosen, the rule the combat-claim saga
+already applies. Callers that credit the XP themselves (`deferXpAward`, the raid
+progression saga) record no grant. Amounts are unchanged.
+
 ## Current settlement notes and remaining trade-offs
 
 - `claim-mission.ts` consumes the combat token before the payout write:
