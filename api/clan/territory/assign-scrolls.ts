@@ -4,6 +4,7 @@ import { MAX_WILD_SECTOR, OUTSKIRTS_SECTORS } from '../../../shared/sector-geo.j
 import { safeLogValue } from '../../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
+import { storedValueEquals } from '../../_stored-value.js';
 import { cors, safeName, clanBareSlug, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
@@ -65,8 +66,10 @@ async function commitExact(key: string, before: unknown | null, after: unknown):
         if (await kv.compareSet(key, before, after)) return;
         throw new Error(`compare-set-conflict:${key}`);
     } catch (error) {
+        // A captured territory carries explicit undefined lifecycle fields; the
+        // read-back is the JSON form without them.
         const recovered = await kv.get<unknown>(key).catch(() => null);
-        if (isDeepStrictEqual(recovered, after)) return;
+        if (storedValueEquals(recovered, after)) return;
         throw error;
     }
 }
@@ -84,7 +87,9 @@ async function finishReservedReceipt(
     }
 
     const currentTerritory = await kv.get<AssignableTerritory>(territoryKey);
-    if (!isDeepStrictEqual(currentTerritory, receipt.territoryAfter)) {
+    // Within the receipt's cache TTL, `receipt` is the in-memory object this
+    // process wrote, explicit undefined fields and all.
+    if (!storedValueEquals(currentTerritory, receipt.territoryAfter)) {
         if (!isDeepStrictEqual(currentTerritory, receipt.territoryBefore)) {
             const clanNow = await kv.get<Record<string, unknown>>(clanKey);
             if (isDeepStrictEqual(clanNow, receipt.clanAfter)) {

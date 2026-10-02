@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { kv as realKv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock as realWithKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -150,8 +151,9 @@ async function requiredSet(kv: TowerKv, key: string, value: unknown, ex: number)
     } catch (error) {
         // A remote adapter may commit and then lose the acknowledgement. Exact
         // readback turns that into success instead of publishing duplicate matches.
+        // jsonb reorders object keys, so compare values rather than JSON text.
         const observed = await kv.get<unknown>(key).catch(() => null);
-        if (JSON.stringify(observed) === JSON.stringify(value)) return;
+        if (storedValueEquals(observed, value)) return;
         throw error;
     }
 }
@@ -198,7 +200,7 @@ async function publishNewTowerPvpMatch(match: StoredTowerPvpMatch, deps: Resolve
     } catch (error) {
         // Commit-then-throw recovery is safe only for this byte-identical match.
         const observed = await deps.kv.get<StoredTowerPvpMatch>(key).catch(() => null);
-        if (JSON.stringify(observed) === JSON.stringify(match)) return;
+        if (storedValueEquals(observed, match)) return;
         throw error;
     }
 }
