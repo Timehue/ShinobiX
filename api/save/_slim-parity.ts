@@ -16,7 +16,8 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { hydrateCharacterFromSave } from '../pvp/session.js';
 import { sealTowerFighter } from '../towers/_seal.js';
 import { buildItemLookup } from '../pvp/_multipliers.js';
-import type { AdminCombatContent } from '../_admin-content.js';
+import { loadAdminCombatContent, type AdminCombatContent } from '../_admin-content.js';
+import { SLIMMED_SHARED_FIELDS } from './_slim-player-save.js';
 
 type SaveRecord = Record<string, unknown>;
 
@@ -74,4 +75,62 @@ export async function checkSlimParity(original: SaveRecord, slimmed: SaveRecord,
         if (!isDeepStrictEqual(before.getItem(id), after.getItem(id))) diffs.push(`item:${id}`);
     }
     return { equal: diffs.length === 0, diffs };
+}
+
+/**
+ * True while the STORED row still carries the shared-content copies, i.e. this
+ * save has never been slimmed. Only that first slim removes anything a loader
+ * could conceivably have read; once a save is slim, later autosaves only drop
+ * re-sent copies of catalog items the player does not hold, which resolve
+ * identically by construction.
+ */
+export function isFirstSlim(stored: SaveRecord | null | undefined): boolean {
+    if (!stored || typeof stored !== 'object') return false;
+    return SLIMMED_SHARED_FIELDS.some((field) => Object.prototype.hasOwnProperty.call(stored, field));
+}
+
+// Saves whose first slim failed parity (or whose loaders threw on it) in this
+// process: kept full, logged once, and not re-checked on every autosave. A
+// restart re-checks them.
+const parityRefused = new Set<string>();
+
+/**
+ * The production gate for a save's FIRST slim: run the real fight loaders on
+ * the record about to be committed, full and slimmed, and allow the slim only
+ * when every fighter output is identical. Anything unexpected — a difference,
+ * a loader error, the admin catalog unavailable — keeps the save full. The
+ * check therefore runs once per player, on real data, with no switch to set.
+ */
+export async function firstSlimKeepsEveryFight(
+    saveKey: string,
+    full: SaveRecord,
+    slimmed: SaveRecord,
+    loadAdmin: () => Promise<AdminCombatContent> = loadAdminCombatContent,
+): Promise<boolean> {
+    if (parityRefused.has(saveKey)) return false;
+    let admin: AdminCombatContent;
+    try {
+        admin = await loadAdmin();
+    } catch (error) {
+        // Not this save's fault (e.g. the admin catalog is briefly unavailable):
+        // keep it full this time and try again on a later autosave.
+        console.warn(`[slim-save] ${saveKey} kept full: admin content unavailable`, error instanceof Error ? error.message : error);
+        return false;
+    }
+    try {
+        const parity = await checkSlimParity(full, slimmed, admin);
+        if (parity.equal) return true;
+        parityRefused.add(saveKey);
+        console.warn(`[slim-save] ${saveKey} kept full: the slim would change ${parity.diffs.slice(0, 10).join(', ')}`);
+        return false;
+    } catch (error) {
+        parityRefused.add(saveKey);
+        console.warn(`[slim-save] ${saveKey} kept full: parity check failed`, error instanceof Error ? error.message : error);
+        return false;
+    }
+}
+
+/** Test hook. */
+export function __resetSlimParityRefusals(): void {
+    parityRefused.clear();
 }

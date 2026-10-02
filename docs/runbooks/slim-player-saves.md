@@ -2,20 +2,19 @@
 
 Ordinary player saves (`save:<name>`) used to carry full copies of the shared
 admin content. Measured on production 2026-10-01: the character averaged ~10 KB
-of a ~280 KB median save; ~97% was copies (pet kits 139 KB, AIs, events, items,
-jutsu, cards). Those copies inflated every autosave, the owner GET, the nightly
-`save-snapshot:*` rows (~92% of the database), the roster read and the
-compare-and-set commit, and they decided no fight.
+of a ~280 KB median save; most of the rest was copies (pet kits 139 KB, AIs,
+events, cards, plus ~53 KB of item and ~26 KB of jutsu copies on average). Those
+copies inflated every autosave, the owner GET, the nightly `save-snapshot:*` rows
+(~92% of the database), the roster read and the compare-and-set commit. Removing
+the four never-read fields cuts the average save's JSON from ~360 KB to ~90 KB
+(measured over 170 production saves, 2026-10-01).
 
 ## What changes, and what deliberately does not
 
 | Field | Action | Why it is safe |
 |---|---|---|
 | `editablePets`, `creatorAis`, `creatorEvents`, `creatorCards` | removed | No server code reads a player's copy; the client pulls the admin slots at login and keeps a device copy (`lib/shared-admin-content-cache.ts`). |
-| `creatorItems` entries whose id the built-in `ITEM_CATALOG` defines, or the live admin catalog defines **and the player does not hold** | removed | Combat resolves `ITEM_CATALOG ?? admin ?? player copy` (`api/pvp/_multipliers.ts buildItemLookup`), so these copies can never be read. |
-| Copies of admin items the player holds (anywhere in the save: inventory, equipment, stacks, bank, pet gear) | **kept** | The Admin Panel deletes a custom item without a tombstone; after that, the player's copy is the only definition of gear they still own. |
-| Forged named gear (`named-weapon-*`, `named-armor-*`) | **kept** | The save is its only home. |
-| Any item neither catalog knows; admin-deleted ids | **kept** | Removing them could change resolution. |
+| `creatorItems` (every entry: admin copies, forged gear, unknown ids) | **kept** | Combat falls back to a player's copy when the admin catalog no longer defines an id, and the Admin Panel deletes custom items without a tombstone. A copy can be the last definition of gear the player holds, including gear held OUTSIDE the save row (an Exchange listing in escrow, a pending grant), so item copies are never slimmed. |
 | `creatorJutsus` | **kept** | PvP resolves a player's stored copy over the admin one; the owner chose zero PvP change. |
 | `character`, `savedBloodlines`, equipment, pets | untouched | |
 
@@ -39,24 +38,29 @@ never took them from the body), which ships on independently of the switch.
 
 ## Rollout
 
-1. Deploy with `SLIM_PLAYER_SAVES` unset (off). The client payload trim is live;
-   stored saves are unchanged.
-2. Dry run (read-only), as full admin, repeating with `nextCursor` until null:
-   `POST /api/admin/slim-player-saves` `{ "dryRun": true, "cursor": 0, "limit": 50 }`.
-   It runs the real fighter loaders (`checkSlimParity`: forged top-up,
-   `hydrateCharacterFromSave`, `sealTowerFighter`, and the item resolver for every
-   equipped and owned id) on each save before and after slimming.
-   **Proceed only if every batch reports `parityFailures: []`.**
-3. Set `SLIM_PLAYER_SAVES=1` on Railway. Active players slim on their next
-   autosave.
-4. Dormant saves: `{ "dryRun": false, ... }` with the same cursor loop. Writes are
-   compare-and-set under each save's lock, re-check parity on the fresh row, skip
-   any save whose parity fails, keep `_saveVersion`, and pause 250 ms between
-   writes. Re-running is idempotent.
+Slimming is **on by default** and needs no Railway setting.
+`SLIM_PLAYER_SAVES=0` exists only as an emergency kill switch.
+
+1. Deploy. Each active player's save is slimmed on their next autosave, but a
+   save's **first** slim is proven on that save's own data before it commits
+   (`firstSlimKeepsEveryFight` in `api/save/_slim-parity.ts`): the real fighter
+   loaders (`checkSlimParity`: forged top-up, `hydrateCharacterFromSave`,
+   `sealTowerFighter`, and the item resolver for every equipped and owned id)
+   run on the full and the slimmed record. Any difference, loader error or
+   unavailable admin catalog keeps that save full and logs
+   `[slim-save] save:<name> kept full: ...` once per process. Search the
+   Railway logs for `[slim-save]` after the first day.
+2. Optional, for dormant saves (players who do not log in): as full admin,
+   `POST /api/admin/slim-player-saves` `{ "dryRun": true, "cursor": 0, "limit": 50 }`,
+   repeating with `nextCursor` until null, reports what would change and any
+   `parityFailures`. `{ "dryRun": false, ... }` with the same cursor loop then
+   writes them: compare-and-set under each save's lock, parity re-checked on the
+   fresh row, a failing save never written, `_saveVersion` kept, 250 ms between
+   writes. Re-running is idempotent. Dormant saves left full are harmless.
 
 ## Rollback
 
-- Set `SLIM_PLAYER_SAVES=0` (or unset): no further saves are slimmed.
+- Set `SLIM_PLAYER_SAVES=0`: no further saves are slimmed.
 - Already-slim saves keep working; the removed content is a copy of what the
   admin slots hold (held admin items were never removed). The nightly `save-snapshot:*` rows keep 90 days of the
   original rows if a full restore is ever wanted.

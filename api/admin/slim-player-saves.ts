@@ -13,15 +13,15 @@ import { checkSlimParity } from '../save/_slim-parity.js';
  * /api/admin/slim-player-saves — POST (full admin)
  *
  * Verify, then apply, the slim-player-save migration (api/save/_slim-player-save.ts)
- * on stored saves. Active players are slimmed by their own next autosave once
- * SLIM_PLAYER_SAVES=1; this covers dormant accounts and, first, PROVES the slim
- * changes no fight.
+ * on stored saves. Active players are slimmed by their own next autosave (on by
+ * default; SLIM_PLAYER_SAVES=0 is the kill switch); this covers dormant accounts
+ * and PROVES, on the live rows, that the slim changes no fight.
  *
  * Body: { dryRun?: boolean = true, cursor?: number = 0, limit?: number = 25 (max 50) }
  *   - dryRun (default): read-only. For every save in the batch it runs the real
  *     fighter loaders on the original and the slimmed record (checkSlimParity)
  *     and reports any difference, plus the bytes the slim would save.
- *   - dryRun:false: requires SLIM_PLAYER_SAVES=1. Re-reads each save under its
+ *   - dryRun:false: refused while SLIM_PLAYER_SAVES=0. Re-reads each save under its
  *     lock, re-checks parity, and commits with compare-and-set, pausing between
  *     writes so the batch never floods the database. A save whose parity fails is
  *     NEVER written.
@@ -56,7 +56,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const cursor = Math.max(0, Math.floor(Number(body.cursor) || 0));
         const limit = Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(body.limit) || 25)));
         if (!dryRun && !slimPlayerSavesEnabled()) {
-            return res.status(409).json({ error: 'Set SLIM_PLAYER_SAVES=1 before writing; run the dry run first.' });
+            return res.status(409).json({ error: 'Slim saves are switched off (SLIM_PLAYER_SAVES=0); remove that setting before writing.' });
         }
 
         const admin = await loadAdminCombatContent();
@@ -79,7 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(key);
             if (!record || typeof record !== 'object' || !record.character) continue;
             report.scanned += 1;
-            const slim = slimPlayerSaveRecord(record, admin.items);
+            const slim = slimPlayerSaveRecord(record);
             report.bytesBefore += bytes(record);
             report.bytesAfter += bytes(slim.record);
             if (!slim.changed) { report.unchanged += 1; continue; }
@@ -94,7 +94,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const outcome = await withKvLock(key, async () => {
                 const fresh = await kv.get<Record<string, unknown>>(key);
                 if (!fresh || typeof fresh !== 'object' || !fresh.character) return 'gone' as const;
-                const freshSlim = slimPlayerSaveRecord(fresh, admin.items);
+                const freshSlim = slimPlayerSaveRecord(fresh);
                 if (!freshSlim.changed) return 'unchanged' as const;
                 const freshParity = await checkSlimParity(fresh, freshSlim.record, admin);
                 if (!freshParity.equal) return 'parity' as const;

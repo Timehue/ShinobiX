@@ -45,8 +45,9 @@ import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { readVillageUpgrades } from '../village/_upgrade.js';
 import { readPendingWorldRewards } from '../world/_pending-rewards.js';
 import { maxLoadout, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
-import { loadAdminItemObjects } from '../_admin-item-catalog.js';
-import { slimPlayerSaveRecord, slimPlayerSavesEnabled, type SlimAdminItems } from './_slim-player-save.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { slimPlayerSaveRecord, slimPlayerSavesEnabled } from './_slim-player-save.js';
+import { firstSlimKeepsEveryFight, isFirstSlim } from './_slim-parity.js';
 
 // Clan dissolution scans global territory/war indexes and detaches every
 // member. The ordinary five-second save lease is intentionally too short for
@@ -906,12 +907,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ))) return;
 
             // Slim player saves (api/save/_slim-player-save.ts): ordinary player
-            // rows stop storing copies of shared admin content. The admin item
-            // catalog decides which item copies are unreadable; load it BEFORE the
-            // lock (I/O). Never fails the save: an unavailable catalog only means
-            // fewer copies are dropped.
+            // rows stop storing copies of shared admin content. A save's first
+            // slim is proven with the fight loaders, which need the admin combat
+            // content: load it BEFORE the lock (I/O; memoized, so this is free on
+            // every later save). Never fails the save: if it cannot load, the
+            // first-slim gate keeps the save full.
             const slimSave = !isAdminSave && !isClanSave && !isAdminContentSlot(name) && slimPlayerSavesEnabled();
-            const slimAdminItems = slimSave ? await loadAdminItemObjects() : null;
+            const slimAdminContent = slimSave ? await loadAdminCombatContent().catch(() => null) : null;
 
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
             // silently drop the client auto-save so it can't overwrite admin changes.
@@ -1255,9 +1257,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // that commit. Compare-and-set refuses instead, and the client
                     // handles the 409 exactly like any other version conflict.
                     // Same pattern as writeVersionedPlayerSaveWithStore.
-                    const committedRecord = slimSave
-                        ? slimPlayerSaveRecord(payload as Record<string, unknown>, slimAdminItems as SlimAdminItems | null).record
-                        : payload;
+                    let committedRecord: unknown = payload;
+                    if (slimSave) {
+                        const slim = slimPlayerSaveRecord(payload as Record<string, unknown>);
+                        // A save's FIRST slim is proven on its own data with the real
+                        // fight loaders; any difference or error keeps it full.
+                        const allowed = !slim.changed
+                            || !isFirstSlim(existing as Record<string, unknown> | null)
+                            || (slimAdminContent !== null
+                                && await firstSlimKeepsEveryFight(key, payload as Record<string, unknown>, slim.record, async () => slimAdminContent));
+                        if (allowed) committedRecord = slim.record;
+                    }
                     const committed = await kv.compareSet(key, existing ?? null, committedRecord);
                     if (!committed) {
                         const current = await kv.get<Record<string, unknown>>(key).catch(() => null);

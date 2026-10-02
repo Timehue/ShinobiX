@@ -67,7 +67,7 @@ function playerSave(): Record<string, unknown> {
 describe('slimPlayerSaveRecord', () => {
     it('removes the shared-content copies and keeps creatorJutsus untouched (zero PvP change)', () => {
         const record = playerSave();
-        const out = slim.slimPlayerSaveRecord(record, adminContent().items);
+        const out = slim.slimPlayerSaveRecord(record);
         assert.equal(out.changed, true);
         for (const field of ['editablePets', 'creatorAis', 'creatorEvents', 'creatorCards']) {
             assert.equal(field in out.record, false, `${field} is removed`);
@@ -77,58 +77,75 @@ describe('slimPlayerSaveRecord', () => {
         assert.deepEqual(out.record.savedBloodlines, record.savedBloodlines);
     });
 
-    it('drops only item copies a catalog already defines and the player does not hold; forged, unknown, held and admin-deleted ids stay', () => {
-        const out = slim.slimPlayerSaveRecord(playerSave(), adminContent().items);
-        const kept = (out.record.creatorItems as Array<Record<string, unknown>>).map((item) => item.id ?? item.name);
-        assert.deepEqual(kept, [ADMIN_ARMOR.id, ADMIN_BLADE.id, FORGED, FORGED_ARMOR, 'mystery-relic', 'admin-retired-charm', 'no id']);
-        assert.equal(out.droppedItemCopies, 2, 'the unheld admin copy and the built-in copy');
-    });
-
-    it('a held admin item survives an untombstoned admin delete (the Admin Panel just filters it out)', async () => {
+    it('keeps every item copy, so item resolution cannot change (incl. gear held outside the save)', async () => {
         const record = playerSave();
-        const slimmed = slim.slimPlayerSaveRecord(record, adminContent().items).record;
-        // The admin later deletes Stormcutter outright: no tombstone, simply gone from the slot.
+        const out = slim.slimPlayerSaveRecord(record);
+        assert.deepEqual(out.record.creatorItems, record.creatorItems, 'creatorItems is never touched');
+        // A player lists Stormcutter on the Exchange (escrow: it leaves their
+        // inventory), then the admin deletes it without a tombstone. The copy in
+        // their save must still be the definition the returned item resolves to.
+        const listed: Record<string, unknown> = { ...out.record, character: { ...(out.record.character as Record<string, unknown>), inventory: [] } };
         const { buildAdminItemCatalog: build } = await import('../_admin-item-catalog.js');
         const afterDelete = build([{ creatorItems: [ADMIN_ARMOR, ADMIN_UNHELD] }]);
-        const parity = await checkSlimParity(record, slimmed, { items: afterDelete, jutsu: adminContent().jutsu });
-        assert.deepEqual(parity.diffs, [], 'the held blade still resolves from the player copy');
+        const { buildItemLookup } = await import('../pvp/_multipliers.js');
+        assert.equal(buildItemLookup(listed.creatorItems, afterDelete)(ADMIN_BLADE.id)?.name, 'Stormcutter');
     });
-
-    it('holding is judged anywhere in the save: itemStacks, bank, pet gear', () => {
-        const record = playerSave();
-        const character = record.character as Record<string, unknown>;
-        record.character = { ...character, inventory: [], equipment: {}, bank: { items: [{ itemId: ADMIN_BLADE.id }] } };
-        const kept = (slim.slimPlayerSaveRecord(record, adminContent().items).record.creatorItems as Array<Record<string, unknown>>).map((item) => item.id);
-        assert.equal(kept.includes(ADMIN_BLADE.id), true, 'a banked admin item keeps its copy');
-        assert.equal(kept.includes(ADMIN_ARMOR.id), false, 'an admin item no longer held is dropped');
-    });
-
     it('never mutates the record it was given', () => {
         const record = playerSave();
         const copy = structuredClone(record);
-        slim.slimPlayerSaveRecord(record, adminContent().items);
+        slim.slimPlayerSaveRecord(record);
         assert.deepEqual(record, copy);
     });
 
-    it('with no admin catalog only built-in copies are dropped (the safe direction)', () => {
-        const out = slim.slimPlayerSaveRecord(playerSave(), null);
-        const kept = (out.record.creatorItems as Array<Record<string, unknown>>).map((item) => item.id ?? item.name);
-        assert.equal(kept.includes(ADMIN_ARMOR.id), true);
-        assert.equal(kept.includes(ADMIN_BLADE.id), true);
-        assert.equal(kept.includes('bulwark-crown'), false);
-    });
-
     it('an already-slim record reports no change and returns the same object', () => {
-        const once = slim.slimPlayerSaveRecord(playerSave(), adminContent().items).record;
-        const twice = slim.slimPlayerSaveRecord(once, adminContent().items);
+        const once = slim.slimPlayerSaveRecord(playerSave()).record;
+        const twice = slim.slimPlayerSaveRecord(once);
         assert.equal(twice.changed, false);
         assert.equal(twice.record, once);
     });
 
-    it('is off unless SLIM_PLAYER_SAVES=1', () => {
-        assert.equal(slim.slimPlayerSavesEnabled({}), false);
-        assert.equal(slim.slimPlayerSavesEnabled({ SLIM_PLAYER_SAVES: '0' }), false);
+    it('is on by default; SLIM_PLAYER_SAVES=0 is the kill switch', () => {
+        assert.equal(slim.slimPlayerSavesEnabled({}), true, 'unset means on');
         assert.equal(slim.slimPlayerSavesEnabled({ SLIM_PLAYER_SAVES: '1' }), true);
+        assert.equal(slim.slimPlayerSavesEnabled({ SLIM_PLAYER_SAVES: '0' }), false);
+        assert.equal(slim.slimPlayerSavesEnabled({ SLIM_PLAYER_SAVES: ' 0 ' }), false, 'a padded Railway value still switches it off');
+    });
+});
+
+describe('first-slim production gate (no switch to set)', () => {
+    it('only a save still carrying the shared copies is a first slim', async () => {
+        const { isFirstSlim } = await import('./_slim-parity.js');
+        assert.equal(isFirstSlim(playerSave()), true);
+        assert.equal(isFirstSlim(slim.slimPlayerSaveRecord(playerSave()).record), false, 'already slim');
+        assert.equal(isFirstSlim(null), false, 'a brand-new account has nothing to prove');
+    });
+
+    it('allows the slim when every fighter output is identical', async () => {
+        const { firstSlimKeepsEveryFight, __resetSlimParityRefusals } = await import('./_slim-parity.js');
+        __resetSlimParityRefusals();
+        const record = playerSave();
+        const slimmed = slim.slimPlayerSaveRecord(record).record;
+        assert.equal(await firstSlimKeepsEveryFight('save:gate-ok', record, slimmed, async () => adminContent()), true);
+    });
+
+    it('keeps the save full when the slim would change a fight, and does not re-check it every autosave', async () => {
+        const { firstSlimKeepsEveryFight, __resetSlimParityRefusals } = await import('./_slim-parity.js');
+        __resetSlimParityRefusals();
+        const record = playerSave();
+        const broken = { ...record, creatorItems: (record.creatorItems as Array<Record<string, unknown>>).filter((item) => item.id !== FORGED) };
+        let loads = 0;
+        const loadAdmin = async () => { loads += 1; return adminContent(); };
+        assert.equal(await firstSlimKeepsEveryFight('save:gate-diff', record, broken, loadAdmin), false);
+        assert.equal(await firstSlimKeepsEveryFight('save:gate-diff', record, broken, loadAdmin), false);
+        assert.equal(loads, 1, 'a refused save is remembered, not re-proved on every autosave');
+    });
+
+    it('keeps the save full when the check itself cannot run (fail closed)', async () => {
+        const { firstSlimKeepsEveryFight, __resetSlimParityRefusals } = await import('./_slim-parity.js');
+        __resetSlimParityRefusals();
+        const record = playerSave();
+        const slimmed = slim.slimPlayerSaveRecord(record).record;
+        assert.equal(await firstSlimKeepsEveryFight('save:gate-err', record, slimmed, async () => { throw new Error('admin-item-catalog-unavailable'); }), false);
     });
 });
 
@@ -136,7 +153,7 @@ describe('checkSlimParity (real fighter loaders)', () => {
     it('a slimmed save loads the identical fighter: gear, forged items, bloodline, jutsu and stats', async () => {
         const admin = adminContent();
         const record = playerSave();
-        const slimmed = slim.slimPlayerSaveRecord(record, admin.items).record;
+        const slimmed = slim.slimPlayerSaveRecord(record).record;
         const parity = await checkSlimParity(record, slimmed, admin);
         assert.deepEqual(parity.diffs, []);
         assert.equal(parity.equal, true);

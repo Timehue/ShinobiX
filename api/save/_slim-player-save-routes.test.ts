@@ -82,8 +82,8 @@ beforeEach(async () => {
 });
 
 describe('autosave with SLIM_PLAYER_SAVES', () => {
-    it('off (the default): the stored row keeps its copies exactly as today', async () => {
-        delete process.env.SLIM_PLAYER_SAVES;
+    it('off (SLIM_PLAYER_SAVES=0, the kill switch): the stored row keeps its copies exactly as today', async () => {
+        process.env.SLIM_PLAYER_SAVES = '0';
         await kv.set('save:slimoff', bloated('slimoff'));
         await kv.set('auth:slimoff', { salt: 's', hash: 'scrypt:16384:8:1:00' });
         const saved = await autosave('slimoff', { character: bloated('slimoff').character, _baseSaveVersion: 4 });
@@ -97,17 +97,37 @@ describe('autosave with SLIM_PLAYER_SAVES', () => {
         for (const field of ['creatorAis', 'creatorEvents', 'creatorCards']) assert.ok(field in stored!, `${field} kept while off`);
     });
 
-    it('on: the stored row drops shared copies, keeps forged gear and the frozen jutsu copy', async () => {
-        process.env.SLIM_PLAYER_SAVES = '1';
+    it('on (the default, unset): the stored row drops shared copies, keeps forged gear and the frozen jutsu copy', async () => {
+        delete process.env.SLIM_PLAYER_SAVES;
         await kv.set('save:slimon', bloated('slimon'));
         await kv.set('auth:slimon', { salt: 's', hash: 'scrypt:16384:8:1:00' });
         const saved = await autosave('slimon', { character: bloated('slimon').character, _baseSaveVersion: 4 });
         assert.equal(saved.status, 200, JSON.stringify(saved.body));
         const stored = await kv.get<Record<string, any>>('save:slimon');
         for (const field of ['editablePets', 'creatorAis', 'creatorEvents', 'creatorCards']) assert.equal(field in stored!, false, field);
-        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, FORGED], 'unheld admin copy dropped; the equipped admin armour and forged gear kept');
+        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, ADMIN_SCROLL.id, FORGED], 'every item copy kept: admin, unheld admin and forged');
         assert.deepEqual(stored!.creatorJutsus, [{ id: 'frozen-copy', name: 'Frozen', power: 1 }]);
         assert.deepEqual(stored!.character.equipment, { hand: FORGED, body: ADMIN_ARMOR.id }, 'equipment untouched');
+    });
+});
+
+describe('first-slim gate through a real autosave', () => {
+    it('when the fight check cannot run, the save commits FULL and still succeeds', async (t) => {
+        delete process.env.SLIM_PLAYER_SAVES;
+        await kv.set('save:gatefull', bloated('gatefull'));
+        await kv.set('auth:gatefull', { salt: 's', hash: 'scrypt:16384:8:1:00' });
+        // The admin slots cannot be read, so the strict admin catalog never loads
+        // and parity cannot be proven.
+        const realMget = kv.mget.bind(kv);
+        t.mock.method(kv, 'mget', async (...keys: string[]) => {
+            if (keys.includes('save:admin1') || keys.includes('save:admin2')) throw new Error('database unavailable');
+            return realMget(...keys);
+        });
+        const saved = await autosave('gatefull', { character: bloated('gatefull').character, _baseSaveVersion: 4 });
+        assert.equal(saved.status, 200, `the player's save still succeeds: ${JSON.stringify(saved.body)}`);
+        t.mock.restoreAll();
+        const stored = await kv.get<Record<string, any>>('save:gatefull');
+        for (const field of ['editablePets', 'creatorAis', 'creatorEvents', 'creatorCards']) assert.ok(field in stored!, `${field} kept: unproven slims never commit`);
     });
 });
 
@@ -126,21 +146,21 @@ describe('/api/admin/slim-player-saves', () => {
         assert.equal(report.body?.nextCursor, null);
     });
 
-    it('refuses to write unless SLIM_PLAYER_SAVES=1', async () => {
-        delete process.env.SLIM_PLAYER_SAVES;
+    it('refuses to write while the kill switch is on (SLIM_PLAYER_SAVES=0)', async () => {
+        process.env.SLIM_PLAYER_SAVES = '0';
         const refused = await slimAdmin({ dryRun: false });
         assert.equal(refused.status, 409);
     });
 
-    it('with the switch on it slims dormant saves, keeps the version, and never touches admin slots', async () => {
-        process.env.SLIM_PLAYER_SAVES = '1';
+    it('by default it slims dormant saves, keeps the version, and never touches admin slots', async () => {
+        delete process.env.SLIM_PLAYER_SAVES;
         await kv.set('save:dormant', bloated('dormant'));
         const applied = await slimAdmin({ dryRun: false });
         assert.equal(applied.status, 200, JSON.stringify(applied.body));
         assert.equal(applied.body?.written, 1);
         const stored = await kv.get<Record<string, any>>('save:dormant');
         assert.equal('editablePets' in stored!, false);
-        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, FORGED]);
+        assert.deepEqual(stored!.creatorItems.map((item: { id: string }) => item.id), [ADMIN_ARMOR.id, ADMIN_SCROLL.id, FORGED], 'item copies are never slimmed');
         assert.equal(stored!._saveVersion, 4, 'nothing the player owns changed, so open clients are not forced to refetch');
         assert.deepEqual((await kv.get<Record<string, any>>('save:admin1'))!.creatorItems, [ADMIN_ARMOR, ADMIN_SCROLL]);
         const again = await slimAdmin({ dryRun: false });
