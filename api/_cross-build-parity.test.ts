@@ -276,8 +276,10 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
 
     it('states the draw rules before the purchase controls', () => {
         assert.match(GALLERY, /Pack odds:/);
-        assert.match(GALLERY, /every playable card is equally likely/i);
+        assert.match(GALLERY, /Within each eligible pool, every card is equally likely/i);
         assert.match(GALLERY, /Elemental packs draw only matching-element Monsters/);
+        assert.match(GALLERY, /drawn independently from the full eligible pool/);
+        assert.match(GALLERY, /duplicates can appear within a pack or across packs regardless of owned copies/);
     });
 
     it('shows the rarities and element restriction implemented by the server', () => {
@@ -293,7 +295,7 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
     });
 
     it('draws uniformly from eligible playable cards', () => {
-        assert.match(PACKS, /pickIndex\(usefulPool\.length\)/);
+        assert.match(PACKS, /pickIndex\(pool\.length\)/);
         assert.doesNotMatch(PACKS, /luckBonus|pityCounter|weightedPick/i);
     });
 });

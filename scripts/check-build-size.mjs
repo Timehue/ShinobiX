@@ -777,7 +777,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // With Production Image's public VITE_* settings, the candidate measures
 // 9,083,365 B. Allow 9.09 MB, retaining ~6.6 KB of measured headroom. Entry,
 // initial-graph, per-chunk, CSS and gzip limits remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_090_000;
+// 2026-10-02 NAMED FORGE AND ERA CAMPAIGNS: Production Image run
+// 36967312053 measures 9,108,286 B with production-length VITE_* settings.
+// Independent card draws, named-roll presentation and sequential era campaigns
+// add intentional product code after Awakening. Allow 9.13 MB for about 21 KB
+// of measured headroom. Entry, startup raw/gzip, CSS and chunk gates stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_130_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
