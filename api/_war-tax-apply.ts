@@ -29,8 +29,8 @@
 import { villageWarMapEnabled } from './_release-flags.js';
 
 import { kv } from './_storage.js';
-import { withKvLock } from './_lock.js';
-import { bumpSaveVersion } from './save/_save-version.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { applyPlayerTax, type PlayerTaxOutcome } from './_war-tax.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from './_war-state.js';
@@ -248,35 +248,36 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
             outcome = settled.result;
             savedVersion = settled._saveVersion || undefined;
         } else {
-            // No treasury share: the stamp (and any burn) is a save write alone.
-            // Currency path → failClosed, and the date stamp is re-read inside
-            // the lock so two concurrent calls can't both debit.
-            outcome = await withKvLock(saveKey, async (): Promise<PlayerTaxOutcome | null> => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return null;
-                if (String(char.lastTaxDate ?? '') === today) return null; // raced — already taxed
+            // No treasury share: the stamp (and any burn) is a save write alone,
+            // committed through mutatePlayerSave. Currency path → the lock fails
+            // closed, and the date stamp is re-read inside it so two concurrent
+            // calls can't both debit. The stamp commits with the debit, so
+            // re-running the whole assessment after a lost compare-and-set
+            // charges the day once.
+            const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<PlayerTaxOutcome | null>(name, ({ character: char }) => {
+                const unwritten = (value: PlayerTaxOutcome | null) => ({ ok: true as const, write: false, character: char, value });
+                if (String(char.lastTaxDate ?? '') === today) return unwritten(null); // raced — already taxed
 
                 const applied = assess(char);
-                if (applied.noWrite) return applied;
+                if (applied.noWrite) return unwritten(applied);
                 // The balance rose between the unlocked read and now, so this
                 // day does have a treasury share after all. It needs the
                 // settlement above; leave the day unstamped for the next call.
-                if (applied.toTreasury > 0) return null;
+                if (applied.toTreasury > 0) return unwritten(null);
 
-                const next: Record<string, unknown> = bumpSaveVersion({
-                    ...rec,
+                return {
+                    ok: true,
                     character: {
                         ...char,
                         ryo: applied.nextRyo,
                         bankRyo: applied.nextBankRyo,
                         lastTaxDate: applied.nextLastTaxDate,
                     },
-                });
-                await kv.set(saveKey, next);
-                savedVersion = Number(next._saveVersion) || undefined;
-                return applied;
-            }, { failClosed: true });
+                    value: applied,
+                };
+            }));
+            outcome = committed.ok ? committed.value : null;
+            if (committed.ok && committed.value && !committed.value.noWrite) savedVersion = committed._saveVersion || undefined;
         }
 
         if (!outcome) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0, kageSeated);
