@@ -219,3 +219,13 @@ progression saga) record no grant. Amounts are unchanged.
 - Tower/weekly-boss/HG NX receipts keep their rollback-in-catch shape; a hard
   process kill can still strand one (loss-only). Migration to mechanism 1 is
   future hardening, not P0-2.
+- A pet expedition's Tamer XP (`missions/report-pet-event.ts`, 2026-10-02) now
+  commits in the expedition's own write, beside `redeemedPetExpeditionTokens`.
+  It used to follow as a second save write (`awardProfessionXp`). When that
+  write failed (an autosave holding the save lock past the fail-closed
+  acquire, a crash, a lost reply), the retry replayed the spent receipt and the
+  XP was never paid. The amount, the Pet-Tamer-only rule and the rank
+  multiplier are unchanged (`professionXpAfterAward`). The expedition's
+  daily-mission event still runs after the receipt commits, and a replay does
+  not re-run it, so a request that fails between the two loses that mission
+  progress (loss-only).
