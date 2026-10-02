@@ -355,7 +355,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'pvp/_player-ranked-journal.ts': 1,
 
     // ── Two players' saves in one settlement (needs a two-save design) ──────
-    'player/sleeper-kill.ts': 2,
     'player/trade.ts': 2,
 };
 
