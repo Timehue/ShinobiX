@@ -9,6 +9,10 @@
  * - Two stake refunds whose automatic refund failed (`needs-reconcile`): the
  *   Hollow Gate unlock's Honor Seals and the Kage declaration's ryo.
  * - A clan territory War Supply collection (`needs-reconcile`).
+ * - A player trade whose writes carry receipts (`meta.receiptBacked`,
+ *   api/player/_trade-settlement.ts), until it finishes. The recovery sweep
+ *   finishes these on its own; Reconcile runs the same step on demand. One
+ *   journalled before trade receipts existed is settled by hand.
  */
 export const RECONCILABLE_SAGA_KINDS = [
     'shrine-offer',
@@ -26,9 +30,12 @@ const LEGACY_STAKE_REFUNDS: Readonly<Record<string, string>> = {
     'kage-challenge-declare': 'ryo',
 };
 
-export function canReconcileEconomyTx(tx: { state: string; kind: string; resource: string }): boolean {
+export function canReconcileEconomyTx(tx: { state: string; kind: string; resource: string; meta?: Record<string, unknown> }): boolean {
     if ((RECONCILABLE_SAGA_KINDS as readonly string[]).includes(tx.kind)) {
         return tx.state !== 'complete' && tx.state !== 'refunded';
+    }
+    if (tx.kind === 'player-trade') {
+        return tx.meta?.receiptBacked === true && tx.state !== 'complete' && tx.state !== 'refunded';
     }
     if (tx.state !== 'needs-reconcile') return false;
     if (LEGACY_STAKE_REFUNDS[tx.kind] === tx.resource) return true;

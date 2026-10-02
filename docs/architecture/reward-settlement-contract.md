@@ -54,7 +54,8 @@ loss is more than trivially recoverable by replaying gameplay.
   and writes the client nonce receipt as `pending` BEFORE the sender debit —
   a retry of a half-committed transfer returns `409 pending` instead of
   re-debiting, and an interrupted transfer leaves a reconcile record instead
-  of silently burning the sender's funds.
+  of silently burning the sender's funds. (Since 2026-10-02 such a transfer is
+  finished rather than parked; see *Player trades finish from their receipts*.)
 - **Combat-mission win handoff** (`shinobij.client/src/lib/claim-outbox.ts`):
   the Arena→queue handoff now persists un-acked mission wins in a localStorage
   outbox and re-posts them until the server acks (the queue endpoint is
@@ -150,6 +151,40 @@ and then gift ryo the treasury did not hold (the transfer saga skipped the
 balance check, the budget and the debit), and a villager could reset
 `agendaClaimReceipts` and collect the daily agenda's treasury tithe again.
 Both fields are now pinned for every blob writer, admin included.
+
+## Player trades finish from their receipts (2026-10-02)
+
+A trade is two save writes, the sender's debit and then the recipient's credit
+(`api/player/trade.ts`, both saves locked by `mutatePlayerSaves`). Each write
+now carries a receipt for the trade in the same compare-and-set as the money it
+moves, and the economy-tx journal stamps `debitAppliedAt` / `creditAppliedAt`
+as each one commits. `tradeStage()` (`api/player/_trade-settlement.ts`) reads
+both saves and the journal and says what moved: both (close the books), only
+the debit (roll the credit forward), neither, provably (run it, or cancel it),
+or something it cannot prove (a human decides).
+
+Three doors finish an interrupted trade, all from that table and all under both
+save locks:
+
+- the sender's retry of the same nonce, once the earlier attempt has been idle
+  for 15 s;
+- the recovery sweep in the five-minute settlement tick
+  (`recoverPendingPlayerTrades`), which finds unfinished trades through
+  `trade:pending:<txId>` pointers written before each journal, and finishes one
+  idle for two minutes whether or not anyone retries;
+- `POST /api/admin/economy-reconcile { txId }`, also the admin economy view's
+  Reconcile button.
+
+The books close under the locks and report whether *this* call completed the
+trade. Only that call writes the audit row and the burn telemetry, so a trade
+is counted once whichever door finished it. The send budget is charged when the
+debit commits, so finishing a trade never charges it again. A cancel frees the
+nonce only while its marker still names that trade (`releaseTradeNonce`).
+Absence is proven against the journal's `createdAt` minus five minutes,
+because other flows stamp receipts with their request's start time. Journals
+written before receipts existed (no `meta.receiptBacked`) are left to a human.
+The client keeps an unconfirmed transfer's nonce in `sessionStorage`, so the
+retry after a reload still reaches the same trade.
 
 ## Current settlement notes and remaining trade-offs
 

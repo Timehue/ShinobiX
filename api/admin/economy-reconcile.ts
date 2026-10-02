@@ -13,6 +13,7 @@ import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlemen
 import { SAVE_DEBIT_SAGAS } from '../_save-debit-kinds.js';
 import { BOUNTY_KEY, normalizeBoard, type BountyBoard } from '../pvp/_bounty.js';
 import { sweepPendingBountyClaims } from '../pvp/_bounty-claim.js';
+import { reconcilePlayerTrade } from '../player/_trade-settlement.js';
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -41,6 +42,13 @@ const LEGACY_STAKE_REFUNDS: Readonly<Record<string, string>> = {
  *     reconciling the same journal twice pays once.
  *   - { bountyClaims: true } to finish every bounty payout left pending on the
  *     board (api/pvp/_bounty-claim.ts), each exactly once.
+ *   - { txId } for a `player-trade` journal: a trade interrupted between its
+ *     debit and its credit. It is finished from the receipts its writes left in
+ *     both saves, exactly as a retry of the player's own nonce would finish it
+ *     (api/player/_trade-settlement.ts): the credit rolls forward, a trade whose
+ *     debit provably never landed is cancelled, and anything the receipts cannot
+ *     prove is refused for a human. It never moves value twice. The recovery
+ *     sweep finishes these on its own; this runs the same step on demand.
  */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -72,6 +80,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.log('[admin/economy-reconcile] save-debit settlement', txId, outcome.status);
             if (outcome.status === 'unprovable') return res.status(409).json({ error: outcome.reason, ...outcome });
             return res.status(200).json({ ok: true, ...outcome });
+        }
+        if (sagaTx?.kind === 'player-trade') {
+            const outcome = await reconcilePlayerTrade(txId);
+            console.log('[admin/economy-reconcile] player trade', txId, outcome.status, outcome.body.status ?? outcome.body.error);
+            return res.status(outcome.status).json(outcome.body);
         }
 
         const result = await withKvLock(economyTxKey(txId), async () => {

@@ -93,6 +93,31 @@ async function withLostReply<T>(slug: string, readBackFails: boolean, run: () =>
     }
 }
 
+/**
+ * The next compare-and-set of `save:<slug>` throws WITHOUT committing, and from
+ * then on every read of that save fails too, so nobody can tell it missed.
+ */
+async function withUnreadableFailedWrite<T>(slug: string, run: () => Promise<T>): Promise<T> {
+    const originalCompareSet = kv.compareSet;
+    const originalGet = kv.get;
+    let failed = false;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (!failed && key === `save:${slug}`) { failed = true; throw new Error('write-down'); }
+        return originalCompareSet.call(kv, key, expected, value, options);
+    };
+    (kv as { get: unknown }).get = async (key: string) => {
+        if (failed && key === `save:${slug}`) throw new Error('read-back-down');
+        return (originalGet as (k: string) => Promise<unknown>).call(kv, key);
+    };
+    try {
+        return await run();
+    } finally {
+        kv.compareSet = originalCompareSet;
+        (kv as { get: unknown }).get = originalGet;
+        assert.ok(failed, 'the failed write was injected');
+    }
+}
+
 /** Answer every compare-and-set of `save:<slug>` with `write` while `run` executes. */
 async function withSaveWrite<T>(
     slug: string,
@@ -113,6 +138,25 @@ async function withSaveWrite<T>(
 /** Every trade journal record this test wrote. */
 async function journals(): Promise<Json[]> {
     return (await Promise.all((await kv.keys('economy-tx:player-trade:*')).map((key) => kv.get<Json>(key)))) as Json[];
+}
+
+/** Make a pending nonce look like it belongs to an attempt that stopped a minute ago. */
+async function ageNonce(nonce: string): Promise<void> {
+    const key = `trade:nonce:${SENDER}:${nonce}`;
+    const marker = await kv.get<Json>(key);
+    assert.ok(marker && marker.pending === true, `nonce ${nonce} is pending: ${JSON.stringify(marker)}`);
+    await kv.set(key, { ...marker, ts: Date.now() - 60_000 });
+}
+
+/** The ryo the sender's trades have charged to the rolling send budget. */
+async function budgetCharged(): Promise<number> {
+    const ledger = await kv.get<{ stamps?: [number, number][] }>(`xfer:out:${SENDER}:ryo`);
+    return (ledger?.stamps ?? []).reduce((sum, [, amount]) => sum + amount, 0);
+}
+
+/** How many trade burns the economy ledger recorded. */
+async function burnsRecorded(): Promise<number> {
+    return ((await kv.get<Json[]>('econ:txns')) ?? []).filter((txn) => txn.source === 'trade.burn').length;
 }
 
 before(async () => {
@@ -204,17 +248,32 @@ describe('player trade — exactly-once under a shared nonce', { concurrency: fa
         assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'never debited twice');
     });
 
-    it('a debit whose outcome cannot be read back keeps the pending marker, so no retry debits twice', async () => {
+    it('a debit whose outcome cannot be read back is finished by a later retry, never debited twice', async () => {
         const first = await withLostReply(SENDER, true, () => send({ nonce: 'intent-0006' }));
         assert.equal(first.statusCode, 502, JSON.stringify(first.body));
-        assert.match(String(first.body?.error), /do not resend/i);
+        assert.match(String(first.body?.error), /could not be confirmed/i);
+        assert.equal(first.body?.pending, true);
         assert.equal((await journal()).state, 'needs-reconcile', 'the unconfirmed debit is on the reconcile trail');
         assert.equal((await balances()).sender, 45_000, 'the debit did land');
 
-        const retry = await send({ nonce: 'intent-0006' });
-        assert.equal(retry.statusCode, 409, JSON.stringify(retry.body));
-        assert.equal(retry.body?.pending, true);
+        // An immediate retry may race the attempt that is still running.
+        const early = await send({ nonce: 'intent-0006' });
+        assert.equal(early.statusCode, 409, JSON.stringify(early.body));
+        assert.equal(early.body?.pending, true);
         assert.equal((await balances()).sender, 45_000, 'never debited twice');
+
+        // A later one finds the debit's receipt and rolls the credit forward.
+        await ageNonce('intent-0006');
+        const later = await send({ nonce: 'intent-0006' });
+        assert.equal(later.statusCode, 200, JSON.stringify(later.body));
+        assert.notEqual(later.body?.duplicate, true, 'this retry completed the trade');
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'one debit, one credit');
+        assert.equal((await journal()).state, 'complete');
+        assert.equal(await burnsRecorded(), 1);
+
+        const replay = await send({ nonce: 'intent-0006' });
+        assert.equal(replay.body?.duplicate, true, 'the books are closed: a further retry replays');
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
     });
 
     it('a credit that committed but lost its reply completes the transfer rather than flagging it', async () => {
@@ -288,20 +347,122 @@ describe('player trade — exactly-once under a shared nonce', { concurrency: fa
         assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
     });
 
-    it('a credit that fails after the debit keeps the pending marker and flags the journal', async () => {
+    it('a credit that fails after the debit is rolled forward by a later retry, charging nothing twice', async () => {
         const failed = await withSaveWrite(RECIPIENT, async () => false, () => send({ nonce: 'intent-0012' }));
         assert.equal(failed.statusCode, 502, JSON.stringify(failed.body));
-        assert.match(String(failed.body?.error), /interrupted after the debit.*do not resend/i);
+        assert.match(String(failed.body?.error), /interrupted after the debit/i);
+        assert.equal(failed.body?.pending, true);
         assert.deepEqual(await balances(), { sender: 45_000, recipient: 0 }, 'loss-direction, never a mint');
         const record = await journal();
         assert.equal(record.state, 'needs-reconcile');
         assert.match(String(record.note), /debited 5000 ryo; recipient credit failed/);
         assert.equal(failed.body?.txId, record.id);
+        assert.equal(await budgetCharged(), 5_000, 'the budget is charged beside the debit');
+        assert.equal(await burnsRecorded(), 0, 'nothing completed yet');
 
-        const retry = await send({ nonce: 'intent-0012' });
+        const early = await send({ nonce: 'intent-0012' });
+        assert.equal(early.statusCode, 409, JSON.stringify(early.body));
+        assert.equal(early.body?.pending, true);
+
+        await ageNonce('intent-0012');
+        const later = await send({ nonce: 'intent-0012' });
+        assert.equal(later.statusCode, 200, JSON.stringify(later.body));
+        assert.equal(later.body?.senderBalance, 45_000);
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'the credit rolled forward; the sender paid once');
+        assert.equal((await journal()).state, 'complete');
+        assert.equal(await budgetCharged(), 5_000, 'finishing the trade charged nothing more');
+        assert.equal(await burnsRecorded(), 1, 'one transfer, one burn');
+    });
+
+    it('a debit that never landed, though nothing could show it, runs for real on a later retry', async () => {
+        const first = await withUnreadableFailedWrite(SENDER, () => send({ nonce: 'intent-0015' }));
+        assert.equal(first.statusCode, 502, JSON.stringify(first.body));
+        assert.match(String(first.body?.error), /could not be confirmed/i);
+        assert.equal(first.body?.pending, true, 'the nonce stays pending: the debit may have landed');
+        assert.deepEqual(await balances(), { sender: 50_000, recipient: 0 }, 'nothing moved');
+        assert.equal(await budgetCharged(), 0, 'no debit committed, so nothing was charged');
+
+        await ageNonce('intent-0015');
+        const later = await send({ nonce: 'intent-0015' });
+        assert.equal(later.statusCode, 200, JSON.stringify(later.body));
+        assert.notEqual(later.body?.duplicate, true, 'this retry ran the transfer');
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'one debit, one credit');
+        const record = await journal();
+        assert.equal(record.id, first.body?.txId, 'finished under the journal entry it started');
+        assert.equal(record.state, 'complete');
+        assert.equal(await budgetCharged(), 5_000, 'charged once, when the debit committed');
+        assert.equal(await burnsRecorded(), 1);
+    });
+
+    it('a trade whose two writes landed but whose books stayed open is closed by a retry, recorded once', async () => {
+        const first = await send({ nonce: 'intent-0016' });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        // Rewind to the moment between the credit and closing the books: the
+        // journal open and unstamped, the nonce pending, nothing recorded.
+        // Only the receipts in the two saves say what moved.
+        const record = await journal();
+        const { completedAt: _completedAt, ...open } = record;
+        const { debitAppliedAt: _debited, creditAppliedAt: _credited, ...meta } = record.meta as Json;
+        await kv.set(`economy-tx:${record.id}`, { ...open, state: 'credit-applied', meta });
+        const nonceKey = `trade:nonce:${SENDER}:intent-0016`;
+        const marker = (await kv.get<Json>(nonceKey))!;
+        await kv.set(nonceKey, { ts: Date.now() - 60_000, txId: record.id, pending: true, fp: marker.fp });
+        await kv.del('econ:txns');
+        for (const key of await kv.keys('audit:player-trade:*')) await kv.del(key);
+        const versions = async () => Promise.all([SENDER, RECIPIENT].map(async (name) => Number((await kv.get<Json>(`save:${name}`))?._saveVersion)));
+        const before = await versions();
+
+        const retry = await send({ nonce: 'intent-0016' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.notEqual(retry.body?.duplicate, true, 'this retry closed the books');
+        assert.equal(retry.body?.senderBalance, 45_000);
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'nothing moved again');
+        assert.deepEqual(await versions(), before, 'neither save was written');
+        assert.equal((await journal()).state, 'complete');
+        assert.equal(await budgetCharged(), 5_000, 'charged once');
+        assert.equal(await burnsRecorded(), 1);
+        assert.equal((await kv.keys('audit:player-trade:*')).length, 1);
+        assert.deepEqual(await kv.keys('trade:pending:*'), [], 'no unfinished trade is left for the sweep');
+        assert.equal((await send({ nonce: 'intent-0016' })).body?.duplicate, true, 'a further retry replays');
+    });
+
+    it('a pending trade its receipts cannot prove is left for an admin, and nothing moves', async () => {
+        // The debit's outcome was never confirmed, and since then the sender's
+        // receipt list filled up with newer settlements: its missing receipt
+        // proves nothing either way.
+        const first = await withLostReply(SENDER, true, () => send({ nonce: 'intent-0017' }));
+        assert.equal(first.statusCode, 502, JSON.stringify(first.body));
+        assert.equal((await balances()).sender, 45_000, 'the debit did land');
+        const stored = (await kv.get<Json>(`save:${SENDER}`))!;
+        const now = Date.now();
+        const crowded = Array.from({ length: 50 }, (_, i) => ({
+            requestId: `later-settlement-${String(i).padStart(4, '0')}`, fingerprint: 'f'.repeat(64), value: { i }, settledAt: now - i,
+        }));
+        await kv.set(`save:${SENDER}`, { ...stored, _saveVersion: Number(stored._saveVersion) + 1, character: { ...(stored.character as Json), serverSettlementReceipts: crowded } });
+
+        await ageNonce('intent-0017');
+        const retry = await send({ nonce: 'intent-0017' });
         assert.equal(retry.statusCode, 409, JSON.stringify(retry.body));
+        assert.match(String(retry.body?.error), /needs an admin/);
         assert.equal(retry.body?.pending, true);
-        assert.equal((await balances()).sender, 45_000, 'never debited twice');
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 0 }, 'neither debited again nor credited on a guess');
+        const record = await journal();
+        assert.equal(record.state, 'needs-reconcile');
+        assert.match(String(record.note), /aged out/);
+    });
+
+    it('a pending trade journalled before trade receipts is left for an admin', async () => {
+        const first = await withSaveWrite(RECIPIENT, async () => false, () => send({ nonce: 'intent-0018' }));
+        assert.equal(first.statusCode, 502, JSON.stringify(first.body));
+        const record = await journal();
+        const { receiptBacked: _receiptBacked, ...legacy } = record.meta as Json;
+        await kv.set(`economy-tx:${record.id}`, { ...record, meta: legacy });
+
+        await ageNonce('intent-0018');
+        const retry = await send({ nonce: 'intent-0018' });
+        assert.equal(retry.statusCode, 409, JSON.stringify(retry.body));
+        assert.match(String(retry.body?.error), /needs an admin/);
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 0 }, 'not finished on evidence it cannot trust');
     });
 
     it("a sender whose save is gone is told so, and nothing moves", async () => {
