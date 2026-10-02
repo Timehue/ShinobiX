@@ -85,3 +85,51 @@ test('route and client use authenticated locked settlement with no client random
     assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
         'the authoritative crate snapshot must be accepted before closing the item action');
 });
+
+test('level-100 crates can award any of the four equal offense relics without replacing base loot', () => {
+    const ids = ['relic-duelists-red-cord', 'relic-mirror-mask-shard', 'relic-conquerors-war-seal', 'relic-fivefold-chakra-seal'];
+    for (const [index, id] of ids.entries()) {
+        const character = base({ level: 100 });
+        const out = applyWarCrateOpen(character, 0.1, index * 0.001 + 0.0005);
+        assert.equal(out.ok, true);
+        if (!out.ok) continue;
+        assert.equal(out.rewards.equippableRelicId, id);
+        assert.deepEqual(out.character.inventory, [id]);
+        assert.equal(count(out.character, LEGENDARY_WAR_CRATE_ID), 1);
+        assert.equal(count(out.character, WARFORGED_RELIC_ID), 1);
+        assert.equal(count(out.character, DUNGEON_KEY_ID), 1);
+        assert.equal(out.character.ryo, 600);
+        assert.deepEqual(character.inventory, [], 'pure settlement never mutates its input');
+    }
+    for (const [level, roll] of [[99, 0], [100, 0.004], [100, NaN], [100, -1], [100, 1]]) {
+        const out = applyWarCrateOpen(base({ level }), 0.9, roll);
+        assert.equal(out.ok, true);
+        if (out.ok) assert.equal(out.rewards.equippableRelicId, undefined);
+    }
+});
+
+test('a duplicate war-crate relic pays 15 shards once, including worn and stacked ownership', () => {
+    const id = 'relic-duelists-red-cord';
+    for (const owned of [
+        { inventory: [LEGENDARY_WAR_CRATE_ID, id], itemStacks: [] },
+        { inventory: [LEGENDARY_WAR_CRATE_ID], itemStacks: undefined, equipment: { relic: id } },
+        { inventory: [LEGENDARY_WAR_CRATE_ID], itemStacks: [{ itemId: id, count: 1 }] },
+    ]) {
+        const out = applyWarCrateOpen(base({ ...owned, level: 100, fateShards: 7 }), 0.9, 0);
+        assert.equal(out.ok, true);
+        if (!out.ok) continue;
+        assert.equal(out.rewards.fateShards, 15);
+        assert.equal(out.rewards.equippableRelicId, undefined);
+        assert.equal(out.character.fateShards, 22);
+        assert.equal(applyWarCrateOpen(out.character, 0.9, 0).ok, false, 'spent crate cannot pay twice');
+    }
+});
+
+test('unsafe duplicate compensation refuses the whole crate transaction', () => {
+    for (const fateShards of [-1, NaN, Number.MAX_SAFE_INTEGER, '7']) {
+        const before = base({ level: 100, fateShards, equipment: { relic: 'relic-duelists-red-cord' } });
+        assert.equal(applyWarCrateOpen(before, 0.9, 0).ok, false);
+        assert.equal(count(before, LEGENDARY_WAR_CRATE_ID), 2);
+        assert.equal(before.ryo, 100);
+    }
+});

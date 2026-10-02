@@ -1,3 +1,6 @@
+import { grantRelic, ownsRelic, DUPLICATE_RELIC_SHARDS } from '../../shared/relics.js';
+import { relicDropPool, relicForDropRoll } from '../_relic-rewards.js';
+
 export const LEGENDARY_WAR_CRATE_ID = 'legendary-war-crate';
 export const WARFORGED_RELIC_ID = 'warforged-relic';
 export const DUNGEON_KEY_ID = 'dungeon-key';
@@ -10,7 +13,7 @@ export type WarCrateOpenResult =
     | {
         ok: true;
         character: Record<string, unknown>;
-        rewards: { ryo: number; honorSeals: number; boneCharms: number; relic: true; dungeonKey: boolean };
+        rewards: { ryo: number; honorSeals: number; boneCharms: number; relic: true; dungeonKey: boolean; equippableRelicId?: string; fateShards?: number };
     }
     | { ok: false; status: 400 | 409; error: string };
 
@@ -22,7 +25,7 @@ function storedItems(character: Record<string, unknown>): { inventory: string[];
     if (!Array.isArray(character.inventory) || !Array.isArray(character.itemStacks ?? [])) return null;
     if (!character.inventory.every((entry) => typeof entry === 'string' && entry.length > 0)) return null;
     const stacks = new Map<string, number>();
-    for (const raw of character.itemStacks as unknown[]) {
+    for (const raw of (character.itemStacks ?? []) as unknown[]) {
         if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
         const entry = raw as Record<string, unknown>;
         if (typeof entry.itemId !== 'string' || !entry.itemId) return null;
@@ -43,7 +46,7 @@ function addStack(stacks: Map<string, number>, itemId: string, count: number): b
 }
 
 /** Consume exactly one stored crate and apply its sealed server-side payout. */
-export function applyWarCrateOpen(character: Record<string, unknown>, randomValue: number): WarCrateOpenResult {
+export function applyWarCrateOpen(character: Record<string, unknown>, randomValue: number, relicRoll = 1): WarCrateOpenResult {
     const items = storedItems(character);
     if (!items) return { ok: false, status: 409, error: 'Stored inventory is invalid. Contact support.' };
 
@@ -71,16 +74,28 @@ export function applyWarCrateOpen(character: Record<string, unknown>, randomValu
         return { ok: false, status: 409, error: 'A reward balance is too large to update safely.' };
     }
 
+    const next = {
+        ...character,
+        inventory: items.inventory,
+        itemStacks: [...items.stacks.entries()].map(([itemId, count]) => ({ itemId, count })),
+        ryo: ryo + WAR_CRATE_RYO,
+        honorSeals: honorSeals + honorGain,
+        boneCharms: boneCharms + charmGain,
+    };
+    const relicId = relicForDropRoll(relicDropPool('war-crate', Number(character.level)), relicRoll);
+    if (relicId && ownsRelic(character, relicId)) {
+        const shards = whole(character.fateShards ?? 0);
+        if (shards === null || !Number.isSafeInteger(shards + DUPLICATE_RELIC_SHARDS)) {
+            return { ok: false, status: 409, error: 'Stored Fate Shards cannot be updated safely.' };
+        }
+    }
+    const bonus: ReturnType<typeof grantRelic> = relicId ? grantRelic(next, relicId) : { character: next };
     return {
         ok: true,
-        rewards: { ryo: WAR_CRATE_RYO, honorSeals: honorGain, boneCharms: charmGain, relic: true, dungeonKey: gotKey },
-        character: {
-            ...character,
-            inventory: items.inventory,
-            itemStacks: [...items.stacks.entries()].map(([itemId, count]) => ({ itemId, count })),
-            ryo: ryo + WAR_CRATE_RYO,
-            honorSeals: honorSeals + honorGain,
-            boneCharms: boneCharms + charmGain,
+        rewards: { ryo: WAR_CRATE_RYO, honorSeals: honorGain, boneCharms: charmGain, relic: true, dungeonKey: gotKey,
+            ...(bonus.itemId ? { equippableRelicId: bonus.itemId } : {}),
+            ...(bonus.fateShards ? { fateShards: bonus.fateShards } : {}),
         },
+        character: bonus.character,
     };
 }

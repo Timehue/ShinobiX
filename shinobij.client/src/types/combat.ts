@@ -1,3 +1,4 @@
+import type { RelicBonuses } from '../../../shared/relics';
 /*
  * Combat-related pure types: stats, jutsu, equipment, items, bloodlines,
  * training state. All data shapes — no runtime emit, no helpers. The
@@ -126,7 +127,7 @@ export type GameItem = {
     restoreStamina?: number;
     weaponTags?: Array<{ name: string; percent: number }>; // Named Weapon multi-tag support
     flavorText?: string; // Player-written flavor text on Named Weapons
-    bonuses: Partial<Stats> & {
+    bonuses: Partial<Stats> & RelicBonuses & {
         maxHp?: number;
         maxChakra?: number;
         maxStamina?: number;
