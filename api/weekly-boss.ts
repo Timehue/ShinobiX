@@ -1,3 +1,4 @@
+import { ownsRelic, RELICS_BY_ID, DUPLICATE_RELIC_SHARDS } from '../shared/relics.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
 import { cors } from './_utils.js';
@@ -87,9 +88,10 @@ const DUNGEON_KEY_ID = 'dungeon-key';
  * forever.
  */
 const WEEKLY_BOSS_RELIC_ID = 'relic-hollow-gate-cinder';
-const WEEKLY_BOSS_RELIC_CHANCE = 0.08;
+const cinderSource = RELICS_BY_ID.get(WEEKLY_BOSS_RELIC_ID)!.source;
+const WEEKLY_BOSS_RELIC_CHANCE = cinderSource.kind === 'weekly-boss' ? cinderSource.chance : 0;
 /** Matches DUPLICATE_RELIC_FATE_SHARDS in api/world/_chest.ts. */
-const DUPLICATE_RELIC_FATE_SHARDS = 15;
+const DUPLICATE_RELIC_FATE_SHARDS = DUPLICATE_RELIC_SHARDS;
 
 function weeklyBossRelicRoll(weekKey: string, aiId: string, name: string): boolean {
     const digest = createHash('sha256').update(`relic:${weekKey}:${aiId}:${name}`).digest();
@@ -136,7 +138,7 @@ export function applyWeeklyBossReward(
     if (entry.gotKey) inventory.push(DUNGEON_KEY_ID);
     // A relic is unique gear: a second copy is worthless, so a duplicate pays
     // Fate Shards instead of vanishing (same rule as the chest faucet).
-    const duplicateRelic = entry.gotRelic && inventory.includes(WEEKLY_BOSS_RELIC_ID);
+    const duplicateRelic = entry.gotRelic && ownsRelic(character, WEEKLY_BOSS_RELIC_ID);
     if (entry.gotRelic && !duplicateRelic) inventory.push(WEEKLY_BOSS_RELIC_ID);
     const leveled = applyDerivedLevel({
         ...character,

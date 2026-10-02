@@ -80,6 +80,9 @@ const FROZEN = {
         // Relic-survey quest bookkeeping — non-combat, so stripped from the
         // sealed fighter snapshot like every other progress counter.
         'relicSurvey', 'relicSurveyCount',
+        // Reviewed relic extension: roster conversion and exact reward outcomes
+        // are private server bookkeeping, never sealed fighter inputs.
+        'relicRosterVersion', 'relicRewardLedger',
         'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
@@ -204,6 +207,8 @@ const FROZEN = {
         // Relic survey: world/explore appends the biome, quest accept resets it.
         // Mirrored so a client cannot write its own objective progress.
         'relicSurvey', 'relicSurveyCount',
+        // Only the server migration and earned-relic settlement may write these.
+        'relicRosterVersion', 'relicRewardLedger',
         'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles',
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',

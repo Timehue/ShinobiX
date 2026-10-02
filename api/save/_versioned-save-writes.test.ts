@@ -355,9 +355,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'pvp/_player-ranked-journal.ts': 1,
 
     // ── Two players' saves in one settlement (needs a two-save design) ──────
-    'pet/battle-result.ts': 2,
-    'player/_cross-heal-settlement.ts': 2,
-    'player/sleeper-kill.ts': 2,
     'player/trade.ts': 2,
 };
 
@@ -386,7 +383,11 @@ test('the AST guard sees a healthy number of real player-save writes', () => {
         (count, file) => count + scanPlayerSaveWrites(readFileSync(file, 'utf8'), file).length,
         0,
     );
-    assert.ok(writes >= 10, `expected at least 10 raw player-save writers, found ${writes}`);
+    // A floor, not a count: the exact per-file ratchet above already pins every
+    // write. This only proves the default `kv.set` matcher still sees real code.
+    // The deliberate raw `kv.set` writers that stay once the migration is done
+    // (save/[name].ts, admin/content-publish.ts, _qa-sector-war.ts) hold it at 4.
+    assert.ok(writes >= 4, `expected at least 4 raw player-save writers, found ${writes}`);
 });
 
 test('the AST guard catches multiline, aliases, SAVE_PREFIX, comments, decoys, and mixed writes', () => {

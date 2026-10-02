@@ -114,3 +114,13 @@ test('a losing relic roll grants nothing and costs nothing', () => {
     assert.ok(!(out.character.inventory as string[]).includes('relic-hollow-gate-cinder'));
     assert.equal(out.character.fateShards, 4, 'no shards for a roll that simply lost');
 });
+
+test('weekly boss compensates an equipped Cinder and never repeats that payout', () => {
+    const reward = { name: 'worn', ryo: 0, gotCore: false, gotKey: false, gotRelic: true };
+    const first = applyWeeklyBossReward({ level: 75, inventory: [], equipment: { relic: 'relic-hollow-gate-cinder' }, fateShards: 2 }, '2026-W42', 'boss-ai', reward, 1000);
+    assert.equal(first.character.fateShards, 17);
+    assert.deepEqual(first.character.inventory, []);
+    const retry = applyWeeklyBossReward(first.character, '2026-W42', 'boss-ai', reward, 2000);
+    assert.equal(retry.character.fateShards, 17);
+    assert.equal(retry.alreadyApplied, true);
+});

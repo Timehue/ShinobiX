@@ -1781,6 +1781,32 @@ describe('Battle Towers basic actions', () => {
         const floor = makeFloor('defeat-all');
         const RELIC_CHAR = { ...STRONG, pveDamagePct: 50 };
 
+        it('matches school and element for tower weapons, with no boost in human matches', () => {
+            const damage = (bonus: Partial<Record<string, number>>, human = false, towerId = 'celestial') => {
+                const weapon = { id: 'test-elemental-blade', slot: 'hand', weaponEp: 50, weaponElement: 'Fire', apCost: 40, weaponRange: 2 };
+                const s = makeSession([
+                    makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: {
+                        level: 100, specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 },
+                        pveSpecialistBonuses: bonus, pvpItems: [weapon], equipment: { hand: weapon.id },
+                    } }),
+                    makeActor('en-1', 'enemy', 1, { hp: 100000, maxHp: 100000, ai: !human, ownerSlug: human ? 'bob' : null, character: WEAK }),
+                ], { towerId });
+                startRound(s);
+                const result = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: weapon.id }, makeRng(3));
+                assert.equal(result.applied, true);
+                return 100000 - getActor(s, 'en-1')!.hp;
+            };
+            const base = damage({});
+            assert.ok(base > 0);
+            for (const bonus of [{ pveBukijutsuDamagePercent: 10 }, { pveFireDamagePercent: 6 }]) {
+                assert.ok(damage(bonus) > base);
+                assert.equal(damage(bonus, true), damage({}, true));
+                assert.equal(damage(bonus, false, TOWER_PVP_TOWER_ID), damage({}, false, TOWER_PVP_TOWER_ID));
+            }
+            assert.equal(damage({ pveWaterDamagePercent: 6 }), base);
+            assert.equal(damage({ pveTaijutsuDamagePercent: 8 }), base);
+        });
+
         const hit = (defender: Partial<TowerActor>) => {
             const s = makeSession([
                 makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: RELIC_CHAR }),

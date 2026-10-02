@@ -1,6 +1,7 @@
+import { RELICS_BY_ID, RETIRED_RELIC_IDS } from '../../../shared/relics';
 import type { GameItem } from "../types/combat";
 
-export const eventItems: GameItem[] = [
+const authoredEventItems: GameItem[] = [
     {
         id: "event-kesa-storm-seal",
         name: "Kesa's Storm-Seal",
@@ -126,5 +127,15 @@ export const eventItems: GameItem[] = [
         bonuses: { intelligence: 9, ninjutsuOffense: 9 , pveDamagePercent: 3 },
     },
 ];
+
+export const eventItems: GameItem[] = authoredEventItems.map(item => {
+    const relic = RELICS_BY_ID.get(item.id);
+    if (relic) return { ...item, ...relic };
+    if ((RETIRED_RELIC_IDS as readonly string[]).includes(item.id)) return {
+        ...item, slot: 'item', bonuses: {},
+        description: item.description + ' A story keepsake; not equippable.',
+    };
+    return item;
+});
 
 export const eventItemIds = new Set(eventItems.map((item) => item.id));
