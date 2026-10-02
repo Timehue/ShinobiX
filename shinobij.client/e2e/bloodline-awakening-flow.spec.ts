@@ -60,7 +60,9 @@ for (const tier of ranks) {
         await expect.poll(() => ritual.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
         if (tier.rank === "B Rank") await ritual.getByRole("button", { name: "Skip to builder" }).click();
         else if (tier.rank === "A Rank") await page.keyboard.press("Escape");
-        await page.clock.runFor(tier.rank === "S Rank" ? 4000 : 400);
+        // Jump over decorative frame loops; advance the actual auto-close timer.
+        if (tier.rank === "S Rank") await page.clock.fastForward(3500);
+        await page.clock.fastForward(400);
         await page.clock.resume();
         await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
         await expect(ritual).toHaveCount(0);
@@ -111,7 +113,7 @@ test("resume uses the paid entitlement without charging again", async ({ page })
     const ritual = page.getByRole("dialog", { name: "A Rank Rekindled" });
     await expect(ritual).toBeVisible();
     await ritual.getByRole("button", { name: "Skip to builder" }).click();
-    await page.clock.runFor(400);
+    await page.clock.fastForward(400);
     await page.clock.resume();
     await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
     await expect(page.getByLabel("Awakening summary")).toContainText("Fire");
