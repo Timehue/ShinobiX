@@ -20,10 +20,9 @@
  * for a different contest.
  */
 import { kv as realKv, type KvLike } from './_storage.js';
-import { withKvLock as realWithKvLock, type LockOptions } from './_lock.js';
-import { mergePreservingImages } from './_utils.js';
-import { bumpSaveVersion } from './save/_save-version.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
+import { mutatePlayerSave } from './save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { applySoloPveUsageCosts } from './solo-pve/_settlement.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
 import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
@@ -36,13 +35,14 @@ export {
 } from './_anbu-infiltration-store.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
-export type GarrisonKv = Pick<KvLike, 'get' | 'set' | 'del' | 'compareSet'>;
-export type GarrisonLock = <T>(target: string, fn: () => Promise<T>, options?: LockOptions) => Promise<T>;
-export type StoreDeps = { kv?: GarrisonKv; lock?: GarrisonLock; now?: () => number };
+/** The run records' store. The attacker's save never goes through it: that
+ *  commits through mutatePlayerSave on the shared KV (settleGarrisonFight). */
+export type GarrisonKv = Pick<KvLike, 'get' | 'set' | 'del'>;
+export type StoreDeps = { kv?: GarrisonKv; now?: () => number };
+export type GarrisonSettleDeps = Pick<StoreDeps, 'now'>;
 function resolve(deps: StoreDeps) {
     return {
         kv: deps.kv ?? realKv,
-        lock: deps.lock ?? realWithKvLock,
         now: deps.now ?? (() => Date.now()),
     };
 }
@@ -99,6 +99,8 @@ function num(v: unknown, fallback = 0): number {
     return Number.isFinite(n) ? n : fallback;
 }
 
+const RECEIPT_CONFLICT = 'receipt-conflict';
+
 export type SettleGarrisonFightOutcome =
     | { ok: true; alreadySettled: boolean; saveVersion: number; character: Record<string, unknown> }
     | { ok: false; error: 'no-save' | 'receipt-conflict' };
@@ -116,51 +118,56 @@ export type SettleGarrisonFightOutcome =
  * Idempotent via a settlement receipt on the character (separate from the run
  * record's own `settlement` cache — the two writes are not atomic with each
  * other), mirroring settleInfiltrationLoss in _anbu-infiltration-store.ts.
+ *
+ * Commits through mutatePlayerSave. The fight writes HP only, so the chakra and
+ * stamina the attacker recovered while the assault ran are settled into the
+ * same write rather than discarded by its version bump. The receipt rides in
+ * that write too, so re-running after a lost compare-and-set applies the cost
+ * exactly once.
  */
 export async function settleGarrisonFight(
     run: GarrisonRun,
     session: SoloPveSession,
-    deps: StoreDeps = {},
+    deps: GarrisonSettleDeps = {},
 ): Promise<SettleGarrisonFightOutcome> {
-    const { kv, lock, now } = resolve(deps);
-    return lock(`save:${run.attackerName}`, async () => {
-        const saveKey = `save:${run.attackerName}`;
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const character = record?.character as Record<string, unknown> | undefined;
-        if (!record || !character) return { ok: false as const, error: 'no-save' as const };
-        const receiptId = `sector-war-garrison-${run.runId}`.slice(0, 80);
-        const fingerprint = `${run.attackerName}:${run.sector}:${run.contestId}:${run.anbuSlug}`;
+    const { now } = resolve(deps);
+    const receiptId = `sector-war-garrison-${run.runId}`.slice(0, 80);
+    const fingerprint = `${run.attackerName}:${run.sector}:${run.contestId}:${run.anbuSlug}`;
+    const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ alreadySettled: boolean }>(run.attackerName, ({ character }) => {
         const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
         if (inspected.status === 'conflict' || inspected.status === 'invalid') {
-            return { ok: false as const, error: 'receipt-conflict' as const };
+            return { ok: false, status: 409, error: RECEIPT_CONFLICT };
         }
         if (inspected.status === 'replay') {
-            return {
-                ok: true as const,
-                alreadySettled: true as const,
-                saveVersion: num(record._saveVersion),
-                character,
-            };
+            return { ok: true, write: false, character, value: { alreadySettled: true } };
         }
+        const settledAt = now();
         const settledCharacter = applyAiFightOutcomeToCharacter(
             applySoloPveUsageCosts(character, session),
             resolveAiFightOutcome(session),
             session.player,
-            now(),
+            settledAt,
         );
-        const nextCharacter = appendSettlementReceipt(settledCharacter, inspected.receipts, {
-            requestId: receiptId,
-            fingerprint,
-            value: { kind: 'sector-war-garrison', outcome: session.outcome ?? 'unknown' },
-            settledAt: now(),
-        });
-        const next = bumpSaveVersion({ ...record, character: nextCharacter });
-        await kv.set(saveKey, mergePreservingImages(next as Record<string, unknown>, record));
         return {
-            ok: true as const,
-            alreadySettled: false as const,
-            saveVersion: num((next as Record<string, unknown>)._saveVersion),
-            character: nextCharacter,
+            ok: true,
+            character: appendSettlementReceipt(settledCharacter, inspected.receipts, {
+                requestId: receiptId,
+                fingerprint,
+                value: { kind: 'sector-war-garrison', outcome: session.outcome ?? 'unknown' },
+                settledAt,
+            }),
+            value: { alreadySettled: false },
         };
-    }, { failClosed: true });
+    }));
+    if (!result.ok) {
+        // Anything but the receipt refusal is a missing save (or an attacker
+        // name that could never key one), which the route answers with a 404.
+        return { ok: false, error: result.error === RECEIPT_CONFLICT ? 'receipt-conflict' : 'no-save' };
+    }
+    return {
+        ok: true,
+        alreadySettled: result.value.alreadySettled,
+        saveVersion: num(result._saveVersion),
+        character: result.character,
+    };
 }
