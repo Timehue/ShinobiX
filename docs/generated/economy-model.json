@@ -1807,6 +1807,15 @@
     },
     {
       "system": "shop",
+      "id": "village-transfer-scroll",
+      "currency": "fateShards",
+      "amount": 250,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
       "id": "void-leech-nodachi",
       "currency": "fateShards",
       "amount": 100,
@@ -3174,6 +3183,15 @@
       "levelReq": 1,
       "baseCost": 240,
       "currency": "ryo"
+    },
+    {
+      "id": "village-transfer-scroll",
+      "name": "Village Transfer Scroll",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 100,
+      "baseCost": 250,
+      "currency": "fateShards"
     },
     {
       "id": "void-leech-nodachi",
