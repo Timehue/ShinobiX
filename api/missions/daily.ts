@@ -2,7 +2,13 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
 import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { loadOrIssueDailyMissions, loadOrIssueNewbieDailies } from './_progress.js';
+import {
+    loadOrIssueDailyMissions,
+    loadOrIssueNewbieDailies,
+    settlePendingMissionXpGrants,
+    settlePendingNewbieRyoGrants,
+    type MissionGrantSettlement,
+} from './_progress.js';
 import type { Profession } from './_pool.js';
 
 const VALID_PROFESSIONS: Profession[] = ['healer', 'vanguard', 'petTamer'];
@@ -22,6 +28,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only fetch your own missions.' });
         }
+        // A reward a failed credit left owed is paid on this read too, which
+        // bumps the save. Only the player is told the new version: an admin's
+        // client would adopt another player's version as its own base.
+        const settledVersion = (settled: MissionGrantSettlement | null) => (
+            !identity.admin && settled?.saveVersion ? { _saveVersion: settled.saveVersion } : {}
+        );
 
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const char = record?.character as Record<string, unknown> | undefined;
@@ -31,11 +43,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // empty panel, so the early game (pre-L13) isn't a dead zone. These
             // auto-grant ryo on completion via reportNewbieEvent (claim-mission).
             const newbie = await loadOrIssueNewbieDailies(playerName);
+            const settled = newbie.pendingRyoGrants?.length ? await settlePendingNewbieRyoGrants(playerName) : null;
             return res.status(200).json({
                 profession: null,
                 track: 'newbie',
                 date: newbie.date,
                 missions: newbie.missions,
+                ...settledVersion(settled),
             });
         }
 
@@ -47,12 +61,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!state) {
             return res.status(200).json({ profession, missions: [] });
         }
+        const settled = state.pendingXpGrants?.length ? await settlePendingMissionXpGrants(playerName) : null;
 
         return res.status(200).json({
             profession: state.profession,
             date: state.date,
             missions: state.missions,
             replacements: state.replacements ?? [],
+            ...settledVersion(settled),
         });
     } catch (err) {
         // Structured log so a Railway/cPanel 500 here is diagnosable without a
