@@ -24,9 +24,17 @@ type SessionLike = {
     p2: FighterLike;
     /** Set by session create for ranked matches (rating snapshot lives beside it). */
     ranked?: boolean;
+    rankedKind?: 'player' | 'pet';
+    playerRankedAuthorityVersion?: number;
+    p1Rating?: number;
+    p2Rating?: number;
 };
 
 const RE_HEAL = /^Heal: (.+) restores (\d+) HP\.$/;
+const RE_BASIC_HEAL = /^(.+) uses Basic Heal, restoring (\d+) HP\.$/;
+const RE_HIT_HEAL = /^(?:Siphon|Lifesteal): (.+) heals (\d+) HP\.$/;
+const RE_ABSORB_HEAL = /^(.+) absorbs (\d+) HP\.$/;
+const RE_ARMOR_HEAL = /^(.+)'s armor (?:absorbs|steals) (\d+) HP\.$/;
 const RE_SHIELD = /^Shield: (.+) gains (\d+) shield\.$/;
 const RE_BLOCKED = /^(\d+) absorbed by (.+)'s shield\.$/;
 const RE_DAMAGE = /^(\d+) damage to (.+)\.$/;
@@ -41,9 +49,9 @@ const STYLE_STATS: Record<string, { kills: keyof LegacyStatDeltas; damage: keyof
 
 /**
  * Legacy credit for a village-guard QUEUE DEFENSE (the always-available faucet
- * for defensiveWins — eligibility-audit fix). The marker is written server-side
- * by api/village-guard/challenge.ts and read by report-pvp-win once per battle
- * (NX-guarded). All three names must be pre-normalized (safeName) by the caller.
+ * for defensiveWins — eligibility-audit fix). Terminal settlement reads sealed
+ * create-time guard duty, with the private challenge marker as an old-session
+ * fallback. All three names must be pre-normalized (safeName) by the caller.
  * Defender won → they held the line; attacker won → they raided the guard.
  * Deltas are merged into the winner's PvP deltas, so they inherit repeat-kill
  * decay / level-gap zeroing through bumpLegacyStats.
@@ -89,7 +97,7 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     const other = (name: string) => (name === session.p1.name ? session.p2.name : session.p1.name);
 
     for (const line of session.log ?? []) {
-        let m = RE_HEAL.exec(line);
+        let m = RE_HEAL.exec(line) ?? RE_BASIC_HEAL.exec(line) ?? RE_HIT_HEAL.exec(line) ?? RE_ABSORB_HEAL.exec(line) ?? RE_ARMOR_HEAL.exec(line);
         if (m) { setSafeRecordValue(healing, m[1], (healing[m[1]] ?? 0) + Number(m[2])); continue; }
         m = RE_SHIELD.exec(line);
         if (m) { setSafeRecordValue(shieldCasts, m[1], (shieldCasts[m[1]] ?? 0) + 1); continue; }
@@ -108,7 +116,7 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     const winnerDeltas: LegacyStatDeltas = {
         pvpWins: 1,
         pvpKills: 1,
-        ...(session.ranked ? { rankedWins: 1 } : {}),
+        ...((session.ranked && session.rankedKind !== 'pet') || session.playerRankedAuthorityVersion === 2 ? { rankedWins: 1 } : {}),
     };
     const style = STYLE_STATS[String(winner.character?.specialty ?? '')];
     if (style) {
@@ -120,7 +128,12 @@ export function extractPvpLegacyDeltas(session: SessionLike, winnerName: string,
     if ((shieldCasts[winner.name] ?? 0) > 0) winnerDeltas.shieldsApplied = shieldCasts[winner.name];
     if ((blocked[winner.name] ?? 0) > 0) winnerDeltas.damageBlocked = blocked[winner.name];
     if (winnerComeback) winnerDeltas.comebackWins = 1;
-    if (loserLevel - winnerLevel >= 5) winnerDeltas.higherLevelWins = 1;
+    const winnerRating = session.p1.name === winnerName ? session.p1Rating : session.p2Rating;
+    const loserRating = session.p1.name === winnerName ? session.p2Rating : session.p1Rating;
+    const ratedUpset = winnerLevel >= 96 && (session.ranked || session.playerRankedAuthorityVersion === 2)
+        && Number.isFinite(winnerRating) && Number.isFinite(loserRating)
+        && Number(loserRating) - Number(winnerRating) >= 100;
+    if (loserLevel - winnerLevel >= 5 || ratedUpset) winnerDeltas.higherLevelWins = 1;
     if (rankBand(winnerLevel) === rankBand(loserLevel)) winnerDeltas.sameRankWins = 1;
 
     // The loser still banked their support play; losses reset streaks upstream.
