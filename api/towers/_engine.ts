@@ -2429,6 +2429,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cut = healcutPct(session);
             if (cut > 0) healAmt = Math.max(0, Math.floor(healAmt * (1 - cut / 100)));
         }
+        healAmt = Math.min(Math.max(0, actor.maxHp - actor.hp), healAmt);
         actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
         actor.chakra = Math.max(0, actor.chakra - HEAL_CHAKRA);
         actor.cooldowns['basicHeal'] = HEAL_CD;

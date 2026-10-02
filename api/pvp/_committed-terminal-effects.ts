@@ -35,6 +35,7 @@ import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
 import type { SectorWarResolutionReceipt } from '../_sector-war-store.js';
 import { settlePvpClanWarContinuation } from '../clan/war/_pvp-settlement.js';
 import type { PvpClanWarSettlement } from '../clan/war/_pvp-settlement.js';
+import { settlePvpLegacyProgress } from '../_legacy-pvp-settlement.js';
 
 export type CommittedPvpTerminalReplay = {
     playerRankedJournal?: PlayerRankedJournal;
@@ -185,6 +186,7 @@ async function runCommittedPvpTerminalEffects(
     // capsule lives in the exact committed session, so no uncommitted move can
     // publish history and a crash after combat CAS remains repairable.
     await replayCommittedPvpActionReceipt(kv, session);
+    await settlePvpLegacyProgress(session);
     await settleRankedRelicReward(session);
 
     // What the fight cost the two bodies. Settled HERE rather than in

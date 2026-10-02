@@ -28,6 +28,8 @@
         "check:story-content": "node --import tsx scripts/generate-story-content.mts --check",
         "generate:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs",
         "check:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs --check",
+        "generate:legacy-roster": "node --import tsx scripts/generate-legacy-roster.mts",
+        "check:legacy-roster": "node --import tsx scripts/generate-legacy-roster.mts --check",
         "release:health": "node scripts/release-health-check.mjs",
         "beta:report": "node scripts/beta-daily-report.mjs",
         "beta:certify": "node scripts/beta-certification.mjs",

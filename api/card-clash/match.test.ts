@@ -474,14 +474,14 @@ test("qualifying sealed play grants one exact-once Legacy Card Clash win", async
     repeatKills?: Record<string, number>;
   };
   assert.equal(granted.cardClashWins, 1);
-  assert.equal(granted.repeatKills?.bravo, 1, "the opponent account drives anti-farm decay");
+  assert.equal(granted.repeatKills?.[`${new Date().toISOString().slice(0, 10)}:bravo`], 1, "the opponent account drives daily anti-farm decay");
   assert.equal((store.get(SESSION_KEY) as { legacyCredit: { status: string } }).legacyCredit.status, "done");
 
   await call({ action: "state", matchId: MATCH_ID, playerName: "alpha" });
   assert.equal((store.get("legacy:stats:alpha") as { cardClashWins?: number }).cardClashWins, 1);
 });
 
-test("same-account repeat wins decay to zero after four credited legs", async () => {
+test("same-account repeat wins decay to zero after four credited legs and renew the next UTC day", async (t) => {
   store.clear();
   const matchIds = [
     "31111111-1111-4111-8111-111111111111",
@@ -499,7 +499,16 @@ test("same-account repeat wins decay to zero after four credited legs", async ()
     repeatKills?: Record<string, number>;
   };
   assert.equal(stats.cardClashWins, 2.75, "weights are 1, 1, .5, .25, then 0");
-  assert.equal(stats.repeatKills?.bravo, 5);
+  const day = new Date().toISOString().slice(0, 10);
+  assert.equal(stats.repeatKills?.[`${day}:bravo`], 5);
+  const tomorrow = Date.now() + 86_400_000;
+  t.mock.method(Date, "now", () => tomorrow);
+  const nextMatchId = "81111111-1111-4111-8111-111111111111";
+  installTerminalMatch({ matchId: nextMatchId, winner: "p1" });
+  assert.equal((await call({ action: "state", matchId: nextMatchId, playerName: "alpha" })).statusCode, 200);
+  const renewed = store.get("legacy:stats:alpha") as typeof stats;
+  assert.equal(renewed.cardClashWins, 3.75, "the next UTC day starts with full credit");
+  assert.equal(renewed.repeatKills?.[`${new Date(tomorrow).toISOString().slice(0, 10)}:bravo`], 1);
 });
 
 test("a reciprocal repeat is progression-neutral", async () => {
