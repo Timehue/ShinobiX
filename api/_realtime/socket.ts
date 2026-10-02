@@ -31,7 +31,7 @@ import type { Server as HttpServer } from 'node:http';
 // dynamic import() inside attachSocketServer so that merely importing this module
 // (server.ts does, on every target including cPanel/Passenger) never hard-requires
 // the socket.io package. If it isn't installed, realtime simply stays off and the
-// rest of the server (e.g. the cPanel kv-proxy) boots normally.
+// rest of the server (the HTTP API and the SPA) boots normally.
 import type { Server as IOServer, Socket } from 'socket.io';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { kv } from '../_storage.js';
