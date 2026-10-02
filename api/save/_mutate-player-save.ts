@@ -44,6 +44,15 @@ export type PlayerSaveMutation<T> =
          */
         onConflict?: () => Promise<void> | void;
         /**
+         * The transport-error counterpart of onConflict. Runs under the same save
+         * lock when the write threw anything else and its read-back could not
+         * confirm the commit, so the write may or may not have landed. It must
+         * look at the stored save before undoing anything, and keep its outside
+         * write when that read is inconclusive. A failure here is logged; the
+         * write's own error is still what the caller sees.
+         */
+        onUnconfirmedWrite?: () => Promise<void> | void;
+        /**
          * Writes that must follow this decision's COMMITTED save while the save
          * lock is still held: a mirror that must never get ahead of the save,
          * or a marker another save-locked writer reads. Runs only after the
@@ -289,11 +298,13 @@ export async function mutatePlayerSave<T>(
                 ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
             });
         } catch (error) {
-            if (decision.onConflict && error instanceof Error && error.message === 'player-save-version-conflict') {
+            const conflict = error instanceof Error && error.message === 'player-save-version-conflict';
+            const undo = conflict ? decision.onConflict : decision.onUnconfirmedWrite;
+            if (undo) {
                 try {
-                    await decision.onConflict();
+                    await undo();
                 } catch (undoError) {
-                    console.error(`[mutatePlayerSave] ${saveKey}: undoing a decision after a lost compare-and-set failed:`, undoError);
+                    console.error(`[mutatePlayerSave] ${saveKey}: undoing a decision after a ${conflict ? 'lost compare-and-set' : 'failed write'} failed:`, undoError);
                 }
             }
             throw error;
