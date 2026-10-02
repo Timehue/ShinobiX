@@ -60,7 +60,6 @@ const ECHOES_VERSION = new Set([
     'clan/mentor.ts',
     'clan/war/declare.ts',
     'clan/seal-pool/donate.ts',
-    'festival/black-market.ts',
     'hollow-gate/combat-settle.ts',
     'hollow-gate/event.ts',
     'hollow-gate/settle.ts',
@@ -92,18 +91,12 @@ const ECHOES_VERSION = new Set([
     'sector/shrine-offer.ts',
     'clan/treasury/donate.ts',
     'village/treasury/donate.ts',
-    // Sector Contracts. The claim pays ryo, which is client-owned, so the
-    // response echoes the committed `_saveVersion` and the client adopts the
-    // server's `totalRyo` — without both, the next autosave would undo the
-    // bounty it just collected.
-    'sector/contract.ts',
-    'sector/questbook.ts',
-    'sector/rift-quest.ts',
-    'sector/story-reckoning.ts',
-    'sector/wanderer-ambush.ts',
-    'sector/wanderer-gift.ts',
-    'sector/wanderer-quest.ts',
-    'sector/wanderer-service.ts',
+    // The sector quests and wanderer services (sector/contract.ts — whose claim
+    // pays client-owned ryo, so the client must adopt the committed version and
+    // `totalRyo` together — plus questbook, rift-quest, story-reckoning,
+    // wanderer-ambush, -gift, -quest and -service) and festival/black-market.ts
+    // now commit through mutatePlayerSave, so the "every mutatePlayerSave route
+    // acknowledges the committed version" test below covers them.
     'towers/start.ts',
     'village/claim-map-control.ts',
     'village/hollow-gate-unlock.ts',
