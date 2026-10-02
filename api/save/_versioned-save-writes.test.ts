@@ -359,10 +359,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'player/_cross-heal-settlement.ts': 2,
     'player/sleeper-kill.ts': 2,
     'player/trade.ts': 2,
-
-    // ── Being moved onto mutatePlayerSave ───────────────────────────────────
-    'admin/bloodline-review.ts': 1,
-    'village/_kage-inactivity.ts': 1,
 };
 
 test('raw player-save writes only ever shrink', () => {

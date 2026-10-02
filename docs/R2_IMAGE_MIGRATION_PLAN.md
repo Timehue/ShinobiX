@@ -93,8 +93,9 @@ if we want fast relief.
 
 ### Phase B — backfill existing images into R2
 - Mirror the cPanel-retirement pattern: add
-  `POST /api/admin/migrate-images-to-r2` (model on `api/admin/migrate-to-base.ts`
-  + `copyDiskRoutedKeysToBase` in `api/_storage.ts`). Walk all `shared:img:*`
+  `POST /api/admin/migrate-images-to-r2` (modelled on `api/admin/migrate-to-base.ts`
+  + `copyDiskRoutedKeysToBase`, both removed with the overlay on 2026-10-02; see
+  git history). Walk all `shared:img:*`
   keys (paginated — reuse `_collectPaginated`), decode, `putImage`, read back a
   sample to verify byte-identical. Copy-only; never delete Postgres copies.
 - Idempotent + resumable (skip objects already present). Safe to run live;
@@ -169,6 +170,7 @@ Postgres. Bytes are copy-only, never deleted.
 - Image failure guard (the hide-after-retry): `shinobij.client/src/lib/imageErrorGuard.ts:96`.
   An image it has given up on carries `data-image-guard="failed"` (`"retrying"`
   while a retry is pending), so a hidden failure can be found in the DOM.
-- Migration precedent: `api/admin/migrate-to-base.ts`, `copyDiskRoutedKeysToBase`
-  in `api/_storage.ts`.
+- Migration precedent: `api/admin/migrate-images-to-r2.ts`, itself modelled on
+  the overlay migration (`migrate-to-base.ts`, `copyDiskRoutedKeysToBase`) that
+  was removed on 2026-10-02 and survives in git history.
 - CSP (no change needed): `api/_http-security.ts:46`.
