@@ -32,7 +32,8 @@ describe('solo-PvE published content compatibility', () => {
         // 5 "Ranked Seal" armor pieces + the ranked-format-kunai throwable.
         // 180 → 185: the five Beast Seals used by wild-pet binding.
         // 185 to 195: eight gathering materials and two village supply goods (no combat effects).
-        assert.equal(items.length, 195, 'update the compatibility report when the generated catalog changes');
+        // 195 to 202: seven new equippable relics; retired story IDs remain quest keepsakes.
+        assert.equal(items.length, 202, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {
