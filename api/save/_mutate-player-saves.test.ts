@@ -192,6 +192,57 @@ describe('mutatePlayerSaves', { concurrency: false }, () => {
         assert.equal(await ryo(AMY), 1_000, 'the failed credit is not there');
     });
 
+    /** transfer() with both undo hooks, each recording that it ran. */
+    function transferWithUndo(events: string[], from: string, to: string, amount: number) {
+        const locked = async () => Boolean(await kv.get(`lock:save:${from}`)) && Boolean(await kv.get(`lock:save:${to}`));
+        return (sides: Readonly<Record<string, { character: Json }>>) => ({
+            ...transfer(from, to, amount)(sides),
+            onConflict: async () => { events.push(`conflict locked=${await locked()}`); },
+            onUnconfirmedWrite: async () => { events.push(`unconfirmed locked=${await locked()} ryo=${await ryo(from)}`); },
+        });
+    }
+
+    it("a first write that loses its compare-and-set runs the decision's onConflict, under every lock", async () => {
+        // A transfer reserves its journal entry and replay marker BEFORE the
+        // debit. A lost compare-and-set moved nothing, so they must be undone,
+        // or the marker refuses the very retry that would move the money.
+        await seed(ZED);
+        await seed(AMY);
+        const events: string[] = [];
+        await assert.rejects(
+            withSaveWrites(async () => false, () => saves.mutatePlayerSaves([ZED, AMY], transferWithUndo(events, ZED, AMY, 300))),
+            /player-save-version-conflict/,
+        );
+        assert.deepEqual(events, ['conflict locked=true']);
+    });
+
+    it('a first write that throws and cannot be confirmed runs onUnconfirmedWrite instead', async () => {
+        await seed(ZED);
+        await seed(AMY);
+        const events: string[] = [];
+        await assert.rejects(
+            withSaveWrites(async () => { throw new Error('store-down'); },
+                () => saves.mutatePlayerSaves([ZED, AMY], transferWithUndo(events, ZED, AMY, 300))),
+            /store-down/,
+        );
+        assert.deepEqual(events, ['unconfirmed locked=true ryo=1000'], 'the hook reads the stored save itself');
+        assert.equal(await ryo(AMY), 1_000, 'the credit is never attempted');
+    });
+
+    it('a failure after a save committed runs neither undo hook', async () => {
+        // The committed debit is real, so whatever recorded it outside the
+        // saves must stay: undoing it would erase the reconcile trail.
+        await seed(ZED);
+        await seed(AMY);
+        const events: string[] = [];
+        const failure = await withSaveWrites(async (original, key, expected, value, options) => key === `save:${AMY}`
+            ? false
+            : original.call(kv, key, expected, value, options),
+        () => saves.mutatePlayerSaves([ZED, AMY], transferWithUndo(events, ZED, AMY, 300))).then(() => null, (error: unknown) => error);
+        assert.ok(failure instanceof saves.PlayerSavesPartialCommitError, String(failure));
+        assert.deepEqual(events, []);
+    });
+
     it('lock contention aborts before any save is read or written', async () => {
         await seed(ZED);
         await seed(AMY);

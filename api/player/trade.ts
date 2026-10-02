@@ -1,15 +1,14 @@
 import { safeLogValue } from '../_safe-log.js';
 import { resolvePlayerReference } from '../_account-name.js';
 import { createHash } from 'node:crypto';
-import { isDeepStrictEqual } from 'node:util';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSaves, PlayerSavesPartialCommitError, type PlayerSavesDecision } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { planTrade, isTradeCurrency } from './_trade-core.js';
 import { chargeOutboundBudget, checkOutboundBudget, senderTrustTier, withOutboundBudgetGate } from './_transfer-budget.js';
 import { recordEconomyTxn } from '../_economy.js';
@@ -20,12 +19,12 @@ import { makeEconomyTxId, reserveEconomyTx, markEconomyTx, completeEconomyTx, fa
  *
  * One-way taxed SEND. The sender is debited the full amount; the recipient
  * receives amount minus a burned tax (the economy sink). Server-authoritative:
- * balances are read fresh under BOTH save locks (sorted order → no deadlock,
- * both failClosed → currency safety), the split is recomputed from _trade-core,
- * and neither side's amount comes from the client body.
+ * balances are read fresh under BOTH save locks (mutatePlayerSaves: one sorted
+ * order → no deadlock, failClosed → currency safety), the split is recomputed
+ * from _trade-core, and neither side's amount comes from the client body.
  *
  *   POST { playerName, toPlayer, currency, amount, nonce }
- *     → { ok, currency, debit, credit, burned, toPlayer }
+ *     → { ok, currency, debit, credit, burned, toPlayer, senderBalance, _saveVersion }
  *
  * Money safety:
  *   - only ryo / fateShards / boneCharms / auraStones are tradeable (honor seals
@@ -72,27 +71,20 @@ function priorNonceAnswer(prior: NonceRecord | null, fingerprint: string): { sta
     return { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true, txId: typeof prior.txId === 'string' ? prior.txId : undefined } };
 }
 
-/** A stored value compared the way the store keeps it (JSON drops undefined fields). */
-function sameStoredValue(a: unknown, b: unknown): boolean {
-    return isDeepStrictEqual(JSON.parse(JSON.stringify(a ?? null)), JSON.parse(JSON.stringify(b ?? null)));
-}
+type TradeReply = { status: number; body: Record<string, unknown> };
 
 /**
- * What a save write that THREW actually did. A write can commit and still throw,
- * its reply lost on the way back, so only a read-back can say: the intended
- * value is there (`landed`), the previous one still is (`missed`), or the read
- * failed or found something else and nobody can tell (`unknown`).
+ * Whether a debit that THREW provably never landed. A write can commit and still
+ * throw, its reply lost on the way back; the shared writer already adopts one
+ * whose read-back shows it. What reaches here is a read-back that showed
+ * something else, or failed. Every save write bumps `_saveVersion`, and none can
+ * land while this transfer holds the save lock, so a stored version still equal
+ * to the one the decision read is proof nothing moved. A failed read, or any
+ * other version, proves nothing: the debit may have landed.
  */
-async function thrownWriteOutcome(key: string, intended: unknown, previous: unknown): Promise<'landed' | 'missed' | 'unknown'> {
-    let stored: unknown;
-    try {
-        stored = await kv.get(key);
-    } catch {
-        return 'unknown';
-    }
-    if (sameStoredValue(stored, intended)) return 'landed';
-    if (sameStoredValue(stored, previous)) return 'missed';
-    return 'unknown';
+async function debitProvablyMissed(senderKey: string, readVersion: number): Promise<boolean> {
+    const stored = await kv.get<Record<string, unknown>>(senderKey).catch(() => null);
+    return !!stored && Number(stored._saveVersion ?? 0) === readVersion;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -175,155 +167,194 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const now = Date.now();
-        // Lock BOTH saves in a stable (sorted) order so concurrent autosaves /
-        // other transfers can't clobber the read-modify-write and two trades in
-        // opposite directions can't deadlock.
         const senderKey = `save:${playerName}`;
         const recipientKey = `save:${toSlug}`;
-        const [k1, k2] = [senderKey, recipientKey].sort();
+        // What the attempt that reached the debit left behind, for the replies
+        // below. A conflict retry starts a fresh attempt, so each one resets it.
+        let attempt: { txId: string; debit: number } | null = null;
+        let debitOutcome: 'missed' | 'unknown' | null = null;
 
-        const settle = () => withKvLock<{ status: number; body: Record<string, unknown> }>(k1, async () =>
-            withKvLock<{ status: number; body: Record<string, unknown> }>(k2, async () => {
-                const senderRec = await kv.get<Record<string, unknown>>(senderKey);
-                const senderChar = (senderRec?.character ?? null) as Record<string, unknown> | null;
-                if (!senderRec || !senderChar) return { status: 404, body: { error: 'Your save was not found.' } };
-                const recipientRec = await kv.get<Record<string, unknown>>(recipientKey);
-                const recipientChar = (recipientRec?.character ?? null) as Record<string, unknown> | null;
-                if (!recipientRec || !recipientChar) return { status: 404, body: { error: 'That player was not found.' } };
+        // mutatePlayerSaves locks BOTH saves in one sorted order, fail-closed,
+        // before reading either, so concurrent autosaves and other transfers
+        // cannot clobber the read-modify-write and two trades in opposite
+        // directions cannot deadlock. Each save is settled first (its idle
+        // recovery included), and the writes commit sender first: debit, then
+        // credit.
+        const transfer = () => mutatePlayerSaves<TradeReply>([playerName, toSlug], async (sides) => {
+            attempt = null;
+            debitOutcome = null;
+            const sender = sides[playerName]!;
+            const recipient = sides[toSlug]!;
+            // A refusal under the locks answers through `value` and writes
+            // neither save, so every reply keeps its exact body.
+            const answer = (status: number, body: Record<string, unknown>): PlayerSavesDecision<TradeReply> => ({
+                ok: true,
+                value: { status, body },
+                sides: {
+                    [playerName]: { character: sender.character, write: false },
+                    [toSlug]: { character: recipient.character, write: false },
+                },
+            });
 
-                const plan = planTrade(currency, amount, num(senderChar[currency]));
-                if (!plan.ok) return { status: 400, body: { error: plan.reason } };
+            const plan = planTrade(currency, amount, num(sender.character[currency]));
+            if (!plan.ok) return answer(400, { error: plan.reason });
 
-                // Rolling 24h SEND-side ceiling, checked under the same locks the
-                // debit runs under so two concurrent transfers cannot both pass a
-                // pre-lock check and jointly exceed it. The per-transfer cap alone
-                // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
-                // minute. Nothing is added to RECEIVING: RuneScape ran that
-                // experiment in 2008 and removed it in 2011 for breaking ordinary
-                // play. (MMORPG behavior audit F8.)
-                if (!identity.admin) {
-                    const tier = await senderTrustTier(playerName, senderChar);
-                    const budget = await checkOutboundBudget(playerName, currency, plan.debit, tier);
-                    if (!budget.ok) {
-                        return { status: 429, body: { error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit } };
-                    }
+            // Rolling 24h SEND-side ceiling, checked under the same locks the
+            // debit runs under so two concurrent transfers cannot both pass a
+            // pre-lock check and jointly exceed it. The per-transfer cap alone
+            // left the real ceiling at 20 calls/min x 200,000 = 4,000,000 ryo a
+            // minute. Nothing is added to RECEIVING: RuneScape ran that
+            // experiment in 2008 and removed it in 2011 for breaking ordinary
+            // play. (MMORPG behavior audit F8.)
+            if (!identity.admin) {
+                const tier = await senderTrustTier(playerName, sender.character);
+                const budget = await checkOutboundBudget(playerName, currency, plan.debit, tier);
+                if (!budget.ok) {
+                    return answer(429, { error: budget.error, reason: 'transfer-budget', remaining: budget.remaining, limit: budget.limit });
                 }
+            }
 
-                // The nonce is re-checked HERE, under the serialization
-                // boundary. Two attempts of the same nonce that both passed the
-                // pre-lock check are now serialized by the save locks: the
-                // second one sees the first one's pending marker or receipt.
-                if (nonceKey) {
-                    const answer = priorNonceAnswer(await kv.get<NonceRecord>(nonceKey), fingerprint);
-                    if (answer) return answer;
-                }
+            // The nonce is re-checked HERE, under the serialization
+            // boundary. Two attempts of the same nonce that both passed the
+            // pre-lock check are now serialized by the save locks: the
+            // second one sees the first one's pending marker or receipt.
+            if (nonceKey) {
+                const prior = priorNonceAnswer(await kv.get<NonceRecord>(nonceKey), fingerprint);
+                if (prior) return answer(prior.status, prior.body);
+            }
 
-                // P0-2: journal the two-save settlement (reserve → debit-applied
-                // → complete / needs-reconcile) so a failure between the two
-                // writes leaves a durable reconcile trail (admin
-                // economy-reconcile) instead of silently burning the sender's
-                // funds — the pattern treasury transfers already use.
-                const txId = makeEconomyTxId('player-trade');
-                await reserveEconomyTx({
-                    id: txId, kind: 'player-trade',
-                    debitKey: senderKey, creditKey: recipientKey,
-                    resource: currency, amount: plan.debit,
-                    meta: { credit: plan.credit, burned: plan.burned, nonce: nonce || undefined },
-                });
-                // Pending nonce marker BEFORE the debit: a retry of anything
-                // that fails past this point sees it and refuses to re-debit.
-                // The NX result is HONORED: the old `.catch(() => undefined)`
-                // ignored both a lost claim and a thrown write, and ran the debit
-                // regardless — which is exactly the double-debit this closes.
-                if (nonceKey) {
-                    const marker = { ts: now, txId, pending: true, fp: fingerprint };
-                    let claimed: 'OK' | null;
-                    try {
-                        claimed = await kv.set(nonceKey, marker, { ex: NONCE_TTL_SECONDS, nx: true });
-                    } catch (err) {
-                        // The claim may have committed with a lost acknowledgement.
-                        const readback = await kv.get<NonceRecord>(nonceKey).catch(() => null);
-                        if (readback?.txId === txId) {
-                            claimed = 'OK';
-                        } else if (readback) {
-                            claimed = null;
-                        } else {
-                            await failEconomyTx(txId, err, { note: 'nonce claim failed; no funds moved' }).catch(() => undefined);
-                            return { status: 503, body: { error: 'The transfer could not start. Nothing was sent.', retryable: true } };
-                        }
-                    }
-                    if (claimed !== 'OK') {
-                        // Another attempt of this exact nonce won the claim. Nothing
-                        // moved here; answer from the winner's record.
-                        await failEconomyTx(txId, new Error('nonce-already-claimed'), { note: 'duplicate attempt lost the nonce claim; no funds moved' }).catch(() => undefined);
-                        const winner = await kv.get<NonceRecord>(nonceKey).catch(() => null);
-                        return priorNonceAnswer(winner, fingerprint) ?? { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true } };
-                    }
-                }
-
-                const senderBalance = num(senderChar[currency]) - plan.debit;
-                let senderWrite: unknown;
+            // P0-2: journal the two-save settlement (reserve → debit-applied
+            // → complete / needs-reconcile) so a failure between the two
+            // writes leaves a durable reconcile trail (admin
+            // economy-reconcile) instead of silently burning the sender's
+            // funds — the pattern treasury transfers already use.
+            const txId = makeEconomyTxId('player-trade');
+            await reserveEconomyTx({
+                id: txId, kind: 'player-trade',
+                debitKey: senderKey, creditKey: recipientKey,
+                resource: currency, amount: plan.debit,
+                meta: { credit: plan.credit, burned: plan.burned, nonce: nonce || undefined },
+            });
+            // Pending nonce marker BEFORE the debit: a retry of anything
+            // that fails past this point sees it and refuses to re-debit.
+            // The NX result is HONORED: the old `.catch(() => undefined)`
+            // ignored both a lost claim and a thrown write, and ran the debit
+            // regardless — which is exactly the double-debit this closes.
+            if (nonceKey) {
+                const marker = { ts: now, txId, pending: true, fp: fingerprint };
+                let claimed: 'OK' | null;
                 try {
-                    const senderUpdated = bumpSaveVersion({ ...senderRec, character: { ...senderChar, [currency]: senderBalance } });
-                    senderWrite = mergePreservingImages(senderUpdated, senderRec);
-                    await kv.set(senderKey, senderWrite);
+                    claimed = await kv.set(nonceKey, marker, { ex: NONCE_TTL_SECONDS, nx: true });
                 } catch (err) {
-                    // A debit can commit and still throw. Deleting the marker
-                    // after one that landed let the retry of the same nonce
-                    // debit the sender a second time, so read back first.
-                    const outcome = senderWrite === undefined ? 'missed' : await thrownWriteOutcome(senderKey, senderWrite, senderRec);
-                    if (outcome === 'missed') {
-                        // Nothing moved. Roll the pending marker back so a retry
-                        // may run for real, and journal the failure.
-                        if (nonceKey) await kv.del(nonceKey).catch(() => undefined);
-                        await failEconomyTx(txId, err, { note: 'debit write failed; no funds moved' }).catch(() => undefined);
-                        return { status: 502, body: { error: 'The transfer could not start. Nothing was sent.' } };
-                    }
-                    if (outcome === 'unknown') {
-                        // The debit may have landed. Keep the pending marker,
-                        // which is what stops a retry from debiting again, and
-                        // leave the reconcile trail.
-                        await failEconomyTx(txId, err, { note: `debit of ${plan.debit} ${currency} unconfirmed; recipient not credited — reconcile` }).catch(() => undefined);
-                        console.error('[player/trade] debit write unconfirmed', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
-                        return { status: 502, body: { error: 'The transfer could not be confirmed. It is recorded for review — do not resend.', txId } };
-                    }
-                    // Landed: only the reply was lost. Carry on to the credit.
-                }
-                await markEconomyTx(txId, 'debit-applied').catch(() => undefined);
-                let recipientWrite: unknown;
-                try {
-                    const recipientUpdated = bumpSaveVersion({ ...recipientRec, character: { ...recipientChar, [currency]: num(recipientChar[currency]) + plan.credit } }, { previousCharacter: recipientChar });
-                    recipientWrite = mergePreservingImages(recipientUpdated, recipientRec);
-                    await kv.set(recipientKey, recipientWrite);
-                } catch (err) {
-                    // A credit that committed with its reply lost is a finished
-                    // transfer: journalled as failed, it invites a second credit.
-                    const landed = recipientWrite !== undefined
-                        && await thrownWriteOutcome(recipientKey, recipientWrite, recipientRec) === 'landed';
-                    if (!landed) {
-                        // Debit committed, credit did not (or cannot be shown
-                        // to have): loss-direction, never a mint. Keep the
-                        // pending nonce (blocks a re-debit) and flag the journal
-                        // for reconciliation.
-                        await failEconomyTx(txId, err, { note: `debited ${plan.debit} ${currency}; recipient credit failed — reconcile` }).catch(() => undefined);
-                        console.error('[player/trade] credit write failed after debit', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
-                        return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
+                    // The claim may have committed with a lost acknowledgement.
+                    const readback = await kv.get<NonceRecord>(nonceKey).catch(() => null);
+                    if (readback?.txId === txId) {
+                        claimed = 'OK';
+                    } else if (readback) {
+                        claimed = null;
+                    } else {
+                        await failEconomyTx(txId, err, { note: 'nonce claim failed; no funds moved' }).catch(() => undefined);
+                        return answer(503, { error: 'The transfer could not start. Nothing was sent.', retryable: true });
                     }
                 }
-                await completeEconomyTx(txId).catch(() => undefined);
-                // Charge the rolling window INSIDE the locks, beside the debit it
-                // records. Outside them the check above is worthless: request N+1
-                // takes the locks the moment N frees them and reads a ledger N has
-                // not written yet, so 20 pipelined calls all pass and the real
-                // ceiling stays 20 x 200,000/min — the exact number this budget
-                // exists to close. Only a COMMITTED transfer is charged, so a
-                // refusal or a replay never eats budget the player did not spend.
-                if (!identity.admin) {
-                    await chargeOutboundBudget(playerName, currency, plan.debit, Date.now());
+                if (claimed !== 'OK') {
+                    // Another attempt of this exact nonce won the claim. Nothing
+                    // moved here; answer from the winner's record.
+                    await failEconomyTx(txId, new Error('nonce-already-claimed'), { note: 'duplicate attempt lost the nonce claim; no funds moved' }).catch(() => undefined);
+                    const winner = await kv.get<NonceRecord>(nonceKey).catch(() => null);
+                    const reply = priorNonceAnswer(winner, fingerprint) ?? { status: 409, body: { error: PENDING_TRANSFER_ERROR, pending: true } };
+                    return answer(reply.status, reply.body);
                 }
-                return { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } };
-            }, { failClosed: true }),
-        { failClosed: true });
+            }
+            attempt = { txId, debit: plan.debit };
+
+            // Nothing moved. Roll the pending marker back so a retry may run
+            // for real, and journal the failure.
+            const releaseNonce = async (error: unknown, note: string) => {
+                debitOutcome = 'missed';
+                if (nonceKey) await kv.del(nonceKey).catch(() => undefined);
+                await failEconomyTx(txId, error, { note }).catch(() => undefined);
+            };
+            const readVersion = Number(sender.record._saveVersion ?? 0);
+            const senderBalance = num(sender.character[currency]) - plan.debit;
+            return {
+                ok: true,
+                value: { status: 200, body: { ok: true, currency, debit: plan.debit, credit: plan.credit, burned: plan.burned, toPlayer: toDisplay, senderBalance } },
+                sides: {
+                    [playerName]: {
+                        character: { ...sender.character, [currency]: senderBalance },
+                        // The debit committed: mark it before the credit is tried.
+                        afterCommit: async () => { await markEconomyTx(txId, 'debit-applied').catch(() => undefined); },
+                    },
+                    [toSlug]: {
+                        character: { ...recipient.character, [currency]: num(recipient.character[currency]) + plan.credit },
+                    },
+                },
+                onConflict: (error) => releaseNonce(error, 'debit lost its compare-and-set; no funds moved'),
+                // A debit can commit and still throw. Deleting the marker after
+                // one that landed let the retry of the same nonce debit the
+                // sender a second time, so only a proven miss releases it.
+                onUnconfirmedWrite: async (error) => {
+                    if (await debitProvablyMissed(senderKey, readVersion)) return releaseNonce(error, 'debit write failed; no funds moved');
+                    // The debit may have landed. Keep the pending marker, which
+                    // is what stops a retry from debiting again, and leave the
+                    // reconcile trail.
+                    debitOutcome = 'unknown';
+                    await failEconomyTx(txId, error, { note: `debit of ${plan.debit} ${currency} unconfirmed; recipient not credited — reconcile` }).catch(() => undefined);
+                    console.error('[player/trade] debit write unconfirmed', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit: plan.debit }));
+                },
+                afterCommit: async () => {
+                    await completeEconomyTx(txId).catch(() => undefined);
+                    // Charge the rolling window INSIDE the locks, beside the debit it
+                    // records. Outside them the check above is worthless: request N+1
+                    // takes the locks the moment N frees them and reads a ledger N has
+                    // not written yet, so 20 pipelined calls all pass and the real
+                    // ceiling stays 20 x 200,000/min — the exact number this budget
+                    // exists to close. Only a COMMITTED transfer is charged, so a
+                    // refusal or a replay never eats budget the player did not spend.
+                    if (!identity.admin) {
+                        await chargeOutboundBudget(playerName, currency, plan.debit, Date.now());
+                    }
+                },
+            };
+        });
+
+        const settle = async (): Promise<TradeReply> => {
+            try {
+                // A lost compare-and-set moved nothing and released its nonce,
+                // so the whole transfer may run again.
+                const out = await retryOnSaveVersionConflict(transfer);
+                if (!out.ok) {
+                    if (out.status !== 404) return { status: out.status, body: { error: out.error } };
+                    return { status: 404, body: { error: out.playerName === playerName ? 'Your save was not found.' : 'That player was not found.' } };
+                }
+                // Hand the committed version back so the sender's open tab adopts
+                // it instead of 409ing its next autosave. A refusal or a replay
+                // wrote nothing, and answers exactly as it was decided.
+                const senderSave = out.saves[playerName]!;
+                if (!senderSave.written) return out.value;
+                return { status: out.value.status, body: { ...out.value.body, _saveVersion: senderSave._saveVersion } };
+            } catch (err) {
+                if (err instanceof PlayerSavesPartialCommitError && attempt) {
+                    // Debit committed, credit did not (or cannot be shown
+                    // to have): loss-direction, never a mint. Keep the
+                    // pending nonce (blocks a re-debit) and flag the journal
+                    // for reconciliation.
+                    const { txId, debit } = attempt;
+                    await failEconomyTx(txId, err.cause, { note: `debited ${debit} ${currency}; recipient credit failed — reconcile` }).catch(() => undefined);
+                    console.error('[player/trade] credit write failed after debit', safeLogValue({ txId, from: playerName, to: toSlug, currency, debit }));
+                    return { status: 502, body: { error: 'The transfer was interrupted after the debit. It is recorded for restoration — do not resend.', txId } };
+                }
+                // Lost the compare-and-set on every try. Nothing moved, and the
+                // nonce is free again.
+                if (isPlayerSaveVersionConflict(err)) return { status: 409, body: { ...SAVE_VERSION_CONFLICT_REPLY } };
+                if (debitOutcome === 'missed') return { status: 502, body: { error: 'The transfer could not start. Nothing was sent.' } };
+                if (debitOutcome === 'unknown' && attempt) {
+                    return { status: 502, body: { error: 'The transfer could not be confirmed. It is recorded for review — do not resend.', txId: attempt.txId } };
+                }
+                throw err;
+            }
+        };
         // The save locks above serialise one sender's TRADES, but the treasury
         // gifts that sender authorises draw on the same budget under other locks
         // (the treasury row and the member's save). Without the shared gate a
@@ -333,7 +364,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // door it came through.
         const out = identity.admin ? await settle() : await withOutboundBudgetGate(playerName, currency, settle);
 
-        if (out.status === 200) {
+        // A replay found under the locks also answers 200, but it moved nothing:
+        // writing its receipt, audit row and burn again would count one transfer
+        // twice in the economy ledger.
+        if (out.status === 200 && out.body.duplicate !== true) {
             // Record the idempotency receipt only on success: a retry of THIS
             // committed transfer replays it; a retry of a failed attempt (which
             // wrote no nonce) runs for real.

@@ -110,6 +110,17 @@ export function versionedPlayerRecord(
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
 
+/**
+ * Whether a read-back shows the value a write intended, compared the way the
+ * store keeps it. Postgres keeps JSON: an `undefined` field is dropped, `-0`
+ * reads back as `0`, and jsonb orders keys its own way. A plain deep-equal
+ * called such a write lost when it had landed, so both sides go through JSON
+ * first, then an order-insensitive comparison.
+ */
+function storedValueEquals(stored: unknown, intended: unknown): boolean {
+    return isDeepStrictEqual(JSON.parse(JSON.stringify(stored ?? null)), JSON.parse(JSON.stringify(intended ?? null)));
+}
+
 /** Exact-CAS save write used by crash-recoverable settlement sagas. */
 export async function writeVersionedPlayerSaveWithStore(
     store: Pick<KvLike, 'get' | 'compareSet'>,
@@ -128,7 +139,7 @@ export async function writeVersionedPlayerSaveWithStore(
     } catch (error) {
         if (error instanceof Error && error.message === 'player-save-version-conflict') throw error;
         const readback = await store.get<PlayerSaveRecord>(saveKey).catch(() => null);
-        if (!isDeepStrictEqual(readback, intended)) throw error;
+        if (!storedValueEquals(readback, intended)) throw error;
     }
     return { record: intended, _saveVersion: out._saveVersion };
 }
@@ -405,6 +416,24 @@ export type PlayerSavesDecision<T> =
         /** One entry per save, keyed by the slug its context carries. */
         sides: Record<string, PlayerSavesSide>;
         /**
+         * mutatePlayerSave's onConflict, for the FIRST write: it lost its
+         * compare-and-set, so no save moved. Undo what the decision already
+         * wrote outside the saves (a journal reservation, a replay marker).
+         * Runs under every lock, with the write's own error for the journal.
+         * A failure after a save committed is a PlayerSavesPartialCommitError
+         * instead and runs neither hook: the outside writes then record
+         * something that did happen.
+         */
+        onConflict?: (error: unknown) => Promise<void> | void;
+        /**
+         * The transport-error counterpart for the first write: it threw
+         * anything else and its read-back could not confirm the commit, so it
+         * may or may not have landed. Like mutatePlayerSave's, it must read
+         * the stored save before undoing anything, and keep its outside writes
+         * when that read is inconclusive.
+         */
+        onUnconfirmedWrite?: (error: unknown) => Promise<void> | void;
+        /**
          * Runs once every write has committed, still under every lock. A throw
          * reaches the caller with every save already committed.
          */
@@ -451,9 +480,10 @@ export class PlayerSavesPartialCommitError extends Error {
  *
  * The writes commit one at a time in the order the names were given (the
  * meaningful order: debit before credit), each an exact compare-and-set with
- * its own regen cursor. A failure of the FIRST write leaves nothing committed
- * and rethrows its own error, so a lost compare-and-set can still be retried.
- * A failure after a write has committed throws PlayerSavesPartialCommitError.
+ * its own regen cursor. A failure of the FIRST write leaves nothing committed,
+ * runs the decision's onConflict or onUnconfirmedWrite, and rethrows its own
+ * error, so a lost compare-and-set can still be retried. A failure after a
+ * write has committed throws PlayerSavesPartialCommitError.
  */
 export async function mutatePlayerSaves<T>(
     playerNamesRaw: readonly string[],
@@ -503,8 +533,11 @@ export async function mutatePlayerSaves<T>(
             try {
                 written = await commitSaveWrite(save, side, options);
             } catch (error) {
-                if (committed.length === 0) throw error;
-                throw new PlayerSavesPartialCommitError(committed, name, error);
+                if (committed.length > 0) throw new PlayerSavesPartialCommitError(committed, name, error);
+                const conflict = isSaveVersionConflict(error);
+                const undo = conflict ? decision.onConflict : decision.onUnconfirmedWrite;
+                if (undo) await runUndo(save.saveKey, conflict ? 'a lost compare-and-set' : 'a failed write', () => undo(error));
+                throw error;
             }
             saves[name] = { ...written, written: true };
             committed.push(name);
