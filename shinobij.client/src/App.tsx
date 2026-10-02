@@ -502,8 +502,7 @@ import {
     type HollowGatePveFightRef,
 } from "./lib/hollow-gate-pve";
 import { hollowGateRunAfterUnresolvedFight, useHollowGateAppFlow } from "./lib/hollow-gate-app-flow";
-import { enterHollowGateShrineFlow, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
-import { recoverHollowGateRun } from "./lib/hollow-gate-recovery";
+import { enterHollowGateShrineFlow, recoverHollowGateRunLazily, reportHollowGateEntryFailure } from "./lib/hollow-gate-entry";
 import type { StoryBossSettleResult } from "./lib/story-combat-api";
 import { requestStoryBossFight } from "./lib/story-fight-theme";
 import { useSealedFightPresence } from "./lib/use-sealed-fight-presence";
@@ -2620,7 +2619,7 @@ export default function App() {
             // save holds only the server's projection). Rebuild it from the server.
             const recoverBoardlessHollowGateRun = () => {
                 if (normalized.hollowGateRun || !normalized.lastHollowGateStart?.token || normalized.hospitalized) return;
-                void recoverHollowGateRun({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
+                void recoverHollowGateRunLazily({ character: normalized, setHollowGateRun, setHollowGateLog, setHollowGateEvent,
                     setHollowGateHiddenChamber, setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog });
             };
             scopeSaveAuthorityToAccount(snap.character.name);
