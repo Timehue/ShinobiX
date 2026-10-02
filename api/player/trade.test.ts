@@ -57,6 +57,41 @@ async function balances() {
     return { sender: Number(sender.ryo), recipient: Number(recipient.ryo) };
 }
 
+/** The one trade journal record this test wrote. */
+async function journal(): Promise<Json> {
+    const keys = await kv.keys('economy-tx:player-trade:*');
+    assert.equal(keys.length, 1, `one trade journal record: ${JSON.stringify(keys)}`);
+    return (await kv.get<Json>(keys[0]!))!;
+}
+
+/**
+ * The next write of `save:<slug>` commits and then throws, as if its reply was
+ * lost on the way back. With `readBackFails`, the read that follows fails too,
+ * so the handler cannot tell whether it landed.
+ */
+async function withLostReply<T>(slug: string, readBackFails: boolean, run: () => Promise<T>): Promise<T> {
+    const originalSet = kv.set;
+    const originalGet = kv.get;
+    let replyLost = false;
+    let readBroken = false;
+    (kv as { set: unknown }).set = async (key: string, value: unknown, opts?: unknown) => {
+        const out = await (originalSet as (k: string, v: unknown, o?: unknown) => Promise<unknown>).call(kv, key, value, opts);
+        if (!replyLost && key === `save:${slug}`) { replyLost = true; throw new Error('reply-lost'); }
+        return out;
+    };
+    (kv as { get: unknown }).get = async (key: string) => {
+        if (readBackFails && replyLost && !readBroken && key === `save:${slug}`) { readBroken = true; throw new Error('read-back-down'); }
+        return (originalGet as (k: string) => Promise<unknown>).call(kv, key);
+    };
+    try {
+        return await run();
+    } finally {
+        (kv as { set: unknown }).set = originalSet;
+        (kv as { get: unknown }).get = originalGet;
+        assert.ok(replyLost, 'the lost reply was injected');
+    }
+}
+
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
@@ -131,6 +166,43 @@ describe('player trade — exactly-once under a shared nonce', { concurrency: fa
         const retry = await send({ nonce: 'intent-0004' });
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
+    });
+
+    it('a debit that committed but lost its reply finishes the transfer instead of debiting again', async () => {
+        // The old catch assumed a thrown debit wrote nothing: it deleted the
+        // pending marker, so the client's retry of the same nonce ran again and
+        // took the money a second time.
+        const first = await withLostReply(SENDER, false, () => send({ nonce: 'intent-0005' }));
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
+        assert.equal((await journal()).state, 'complete');
+
+        const retry = await send({ nonce: 'intent-0005' });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.duplicate, true, 'the retry replays the committed transfer');
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 }, 'never debited twice');
+    });
+
+    it('a debit whose outcome cannot be read back keeps the pending marker, so no retry debits twice', async () => {
+        const first = await withLostReply(SENDER, true, () => send({ nonce: 'intent-0006' }));
+        assert.equal(first.statusCode, 502, JSON.stringify(first.body));
+        assert.match(String(first.body?.error), /do not resend/i);
+        assert.equal((await journal()).state, 'needs-reconcile', 'the unconfirmed debit is on the reconcile trail');
+        assert.equal((await balances()).sender, 45_000, 'the debit did land');
+
+        const retry = await send({ nonce: 'intent-0006' });
+        assert.equal(retry.statusCode, 409, JSON.stringify(retry.body));
+        assert.equal(retry.body?.pending, true);
+        assert.equal((await balances()).sender, 45_000, 'never debited twice');
+    });
+
+    it('a credit that committed but lost its reply completes the transfer rather than flagging it', async () => {
+        // Journalled as a failed credit, a landed one invites a second credit
+        // when someone reconciles it by hand.
+        const first = await withLostReply(RECIPIENT, false, () => send({ nonce: 'intent-0007' }));
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.deepEqual(await balances(), { sender: 45_000, recipient: 4_500 });
+        assert.equal((await journal()).state, 'complete');
     });
 
     it('F15: a request without a nonce is refused with a reload hint and moves nothing', async () => {
