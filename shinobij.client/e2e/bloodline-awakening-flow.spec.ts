@@ -13,6 +13,7 @@ const ranks = [
 
 for (const tier of ranks) {
     test(`${tier.rank}: confirmed purchase plays ritual then opens the locked builder`, async ({ page }) => {
+        await page.clock.install();
         const runtimeErrors: string[] = [];
         const missingRitualAssets: string[] = [];
         page.on("pageerror", error => runtimeErrors.push(error.message));
@@ -45,6 +46,8 @@ for (const tier of ranks) {
         });
         await expectUiAuditBoot(page, runtime, "centralHub");
         await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+        // Hold the auto-close while assertions and WebKit actionability run.
+        await page.clock.pauseAt(new Date(Date.now() + 1000));
         await page.locator(`.aw-forge-card.rank-${tier.rank[0].toLowerCase()} button`).click();
         const ritual = page.getByRole("dialog", { name: `${tier.rank} Attuned` });
         await expect(ritual).toBeVisible();
@@ -57,6 +60,8 @@ for (const tier of ranks) {
         await expect.poll(() => ritual.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
         if (tier.rank === "B Rank") await ritual.getByRole("button", { name: "Skip to builder" }).click();
         else if (tier.rank === "A Rank") await page.keyboard.press("Escape");
+        await page.clock.runFor(tier.rank === "S Rank" ? 4000 : 400);
+        await page.clock.resume();
         await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
         await expect(ritual).toHaveCount(0);
         const summary = page.getByLabel("Awakening summary");
@@ -79,6 +84,7 @@ for (const tier of ranks) {
 }
 
 test("resume uses the paid entitlement without charging again", async ({ page }) => {
+    await page.clock.install();
     const save = uiAuditSave();
     const character = { ...save.character, auraStones: 17, element: "Fire", elements: ["Fire"] };
     save.character = character;
@@ -100,10 +106,13 @@ test("resume uses the paid entitlement without charging again", async ({ page })
     });
     await expectUiAuditBoot(page, runtime, "centralHub");
     await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+    await page.clock.pauseAt(new Date(Date.now() + 1000));
     await page.locator(".aw-forge-card.rank-a button").click();
     const ritual = page.getByRole("dialog", { name: "A Rank Rekindled" });
     await expect(ritual).toBeVisible();
     await ritual.getByRole("button", { name: "Skip to builder" }).click();
+    await page.clock.runFor(400);
+    await page.clock.resume();
     await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
     await expect(page.getByLabel("Awakening summary")).toContainText("Fire");
     expect(requests).toBe(1);
