@@ -18,6 +18,7 @@ import {
     PET_EXPEDITION_PROVISION_RULES,
     PET_EXPEDITION_RETURN_CHOICES,
     PET_EXPEDITION_RISK_RULES,
+    PET_EXPEDITION_ROUTES,
     petExpeditionBaseRyo,
     petExpeditionMaterialChances,
     petExpeditionStory,
@@ -48,8 +49,8 @@ const MAX_EXPEDITION_MINUTES = 240;
 // Hard daily ceiling on claims, even with the six-pet supporter roster running
 // back-to-back short expeditions. Stops a 30s-spam attack from accumulating
 // thousands of claims/day.
-function utcDateKey(): string {
-    return new Date().toISOString().slice(0, 10);
+function utcDateKey(at: number | Date = Date.now()): string {
+    return new Date(at).toISOString().slice(0, 10);
 }
 function tamerXpForExpedition(durationMinutes: number, opts: { isFirstToday: boolean; escortReady: boolean }): number {
     if (durationMinutes < MIN_EXPEDITION_MINUTES) return 0;
@@ -83,6 +84,76 @@ const EVENT_TO_KIND: Record<PetEvent, 'pet-tamer-expeditions' | 'pet-tamer-long-
 
 const VALID_EXPEDITION_TYPES = PET_EXPEDITION_TYPES;
 type ExpType = PetExpeditionType;
+
+/**
+ * Report a collected expedition's daily-mission progress under its receipt (a
+ * long expedition counts toward both kinds; the row matches a receipt by id AND
+ * kind). A kind whose receipt the day's row already holds was counted by an
+ * earlier attempt at this collect. Its completions stay out of the reply, so a
+ * replay never toasts them a second time.
+ */
+async function reportExpeditionMissions(
+    playerName: string,
+    event: PetEvent,
+    token: string,
+    now?: Date,
+): Promise<{ xpAwarded: number; missionsCompleted: CompletedMissionInfo[] }> {
+    const kinds = event === 'long-expedition'
+        ? [EVENT_TO_KIND[event], EVENT_TO_KIND.expedition]
+        : [EVENT_TO_KIND[event]];
+    let xpAwarded = 0;
+    const missionsCompleted: CompletedMissionInfo[] = [];
+    for (const kind of kinds) {
+        const result = await reportMissionEvent({
+            playerName,
+            profession: 'petTamer',
+            kind,
+            ...(token ? { receiptId: `pet-expedition:${token}` } : {}),
+            ...(now ? { now } : {}),
+        });
+        if (result.replayed) continue;
+        xpAwarded += result.xpAwarded;
+        missionsCompleted.push(...result.missionsCompleted);
+    }
+    return { xpAwarded, missionsCompleted };
+}
+
+/** The event a logged expedition reported. Its sealed duration is gone with the
+ *  spent token, but each route has one fixed length and only Ruins runs 4h (the
+ *  settle's `durationMinutes >= 240` split). */
+function loggedExpeditionEvent(log: Record<string, unknown>): PetEvent {
+    const type = VALID_EXPEDITION_TYPES.includes(log.expType as ExpType) ? log.expType as ExpType : 'scout';
+    return PET_EXPEDITION_ROUTES[type].durationMinutes >= 240 ? 'long-expedition' : 'expedition';
+}
+
+/**
+ * Mission progress for a collect that replays an already-settled expedition.
+ * The settle commits before its mission report, so a report that fails (the
+ * daily-mission lock contended past its fail-closed acquire, or the row write
+ * failing) answers 500, and the client's retry lands here. The receipt lets a
+ * re-report count only what never landed, but a day's row holds that day's
+ * receipts only: a new UTC day starts a fresh set. So only an expedition
+ * settled today is re-reported. An older one may already count in a row that
+ * is gone, and counting it again would count it twice, so it stays lost
+ * (loss-only). A profession chosen again after the settle gets a fresh board
+ * the expedition never belonged to, so that replay counts nothing either.
+ */
+async function replayExpeditionMissions(
+    playerName: string,
+    character: Record<string, unknown> | null | undefined,
+    log: Record<string, unknown>,
+    event: PetEvent,
+    token: string,
+): Promise<CompletedMissionInfo[]> {
+    const settledAt = Number(log.settledAt);
+    if (character?.profession !== 'petTamer' || !Number.isSafeInteger(settledAt) || settledAt <= 0) return [];
+    if (Number(character.professionChosenAt ?? 0) > settledAt) return [];
+    // One clock reading for the day check AND the report, so a report that
+    // crosses midnight after the check cannot land in the next day's row.
+    const now = new Date();
+    if (utcDateKey(settledAt) !== utcDateKey(now)) return [];
+    return (await reportExpeditionMissions(playerName, event, token, now)).missionsCompleted;
+}
 
 /** Boonbringer doubles expedition Ryo and pet XP. Keep this server-owned so a
  * modified client cannot claim the bonus for a pet that does not have it. */
@@ -238,6 +309,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? currentChar.petExpeditionLog as Array<Record<string, unknown>>
                     : []).find((entry) => entry?.id === tok);
                 if (!tokenData && completed) {
+                    const replayedMissions = await replayExpeditionMissions(playerName, currentChar, completed, loggedExpeditionEvent(completed), tok);
                     if (!await deliverPetExpeditionLegacy(playerName, tok, currentChar)) {
                         return res.status(503).json({
                             error: 'The expedition is safe, but its Legacy record is still being sealed. Retry the same expedition.',
@@ -245,6 +317,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             retryable: true,
                         });
                     }
+                    // Re-read: a re-report pays the profession XP its row owes into the save.
+                    const settled = await kv.get<Record<string, unknown>>(saveKey);
                     return res.status(200).json({
                         ok: true,
                         petTamer: isTamer,
@@ -259,9 +333,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         returnOutcome: String(completed.returnOutcome ?? 'secured'),
                         outcomeLabel: String(completed.outcomeLabel ?? 'Haul secured'),
                         happinessCost: Number(completed.happinessCost ?? 0),
-                        character: currentChar ?? null,
-                        _saveVersion: Number(current?._saveVersion ?? 0),
-                        missionsCompleted: [],
+                        character: settled?.character ?? null,
+                        _saveVersion: Number(settled?._saveVersion ?? 0),
+                        missionsCompleted: replayedMissions,
                     });
                 }
             }
@@ -509,17 +583,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // does not model closure writes across the awaited boundary.
                 const replay = replayedLog as Record<string, unknown> | null;
                 if (replay) {
-                    if (!await deliverPetExpeditionLegacy(
-                        playerName,
-                        expeditionReceipt,
-                        (current?.character ?? null) as Record<string, unknown> | null,
-                    )) {
+                    const currentChar = (current?.character ?? null) as Record<string, unknown> | null;
+                    const replayedMissions = await replayExpeditionMissions(playerName, currentChar, replay, event, expeditionReceipt);
+                    if (!await deliverPetExpeditionLegacy(playerName, expeditionReceipt, currentChar)) {
                         return res.status(503).json({
                             error: 'The expedition is safe, but its Legacy record is still being sealed. Retry the same expedition.',
                             code: 'legacy-delivery-pending',
                             retryable: true,
                         });
                     }
+                    // Re-read: a re-report pays the profession XP its row owes into the save.
+                    const settled = await kv.get<Record<string, unknown>>(saveKey);
                     return res.status(200).json({
                         ok: true,
                         petTamer: isTamer,
@@ -534,9 +608,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         returnOutcome: String(replay.returnOutcome ?? 'secured'),
                         outcomeLabel: String(replay.outcomeLabel ?? 'Haul secured'),
                         happinessCost: Number(replay.happinessCost ?? 0),
-                        character: current?.character ?? null,
-                        _saveVersion: Number(current?._saveVersion ?? 0),
-                        missionsCompleted: [],
+                        character: settled?.character ?? null,
+                        _saveVersion: Number(settled?._saveVersion ?? 0),
+                        missionsCompleted: replayedMissions,
                     });
                 }
                 return res.status(200).json({ ok: true, petTamer: isTamer, reason: 'invalid-or-spent-expedition-token', ...NO_REWARD, character: current?.character ?? null, _saveVersion: Number(current?._saveVersion ?? 0) });
@@ -571,29 +645,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
         // just the half-rate currency credited above (no missions, no XP).
         let missionsCompleted: CompletedMissionInfo[] = [];
-        let extraCompleted: CompletedMissionInfo[] = [];
         let missionXpAwarded = 0;
         if (isTamer) {
-            const kind = EVENT_TO_KIND[event];
-            const result = await reportMissionEvent({
-                playerName,
-                profession: 'petTamer',
-                kind,
-            });
-            missionsCompleted = result.missionsCompleted;
-            missionXpAwarded = result.xpAwarded;
-
-            // For long-expedition events also fire the regular expedition counter
-            // (a 4hr+ expedition counts as both a "completed expedition" and a
-            // "long expedition" toward the relevant missions).
-            if (event === 'long-expedition') {
-                const extra = await reportMissionEvent({
-                    playerName,
-                    profession: 'petTamer',
-                    kind: 'pet-tamer-expeditions',
-                });
-                extraCompleted = extra.missionsCompleted;
-            }
+            // Receipted under the expedition token, so the replay of a collect
+            // whose report failed can count it once (replayExpeditionMissions).
+            ({ missionsCompleted, xpAwarded: missionXpAwarded } = await reportExpeditionMissions(playerName, event, expeditionReceipt));
         }
 
         // The save receipt makes this exact expedition replayable (its Tamer XP
@@ -644,7 +700,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 fateShards: Number(finalChar?.fateShards ?? 0),
             },
             missionXpAwarded,
-            missionsCompleted: [...missionsCompleted, ...extraCompleted],
+            missionsCompleted,
             ...(isTamer ? {
                 professionXp: Number(finalChar?.professionXp ?? 0),
                 professionRank: Number(finalChar?.professionRank ?? 1),
