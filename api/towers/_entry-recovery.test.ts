@@ -108,7 +108,9 @@ describe('Tower confirmed-missing entry compensation', () => {
         const start = source('api/towers/start.ts');
         const attempted = start.indexOf('reservationWriteAttempted = true');
         const write = start.indexOf('await writeSaveProjected', attempted);
-        const uncertain = start.indexOf('if (reservationWriteAttempted) publicationInconclusive = true', write);
+        // A lost compare-and-set race PROVES nothing was written, so only that
+        // case is excluded; every other failure after the attempt stays uncertain.
+        const uncertain = start.indexOf('if (reservationWriteAttempted && !isPlayerSaveVersionConflict(error)) publicationInconclusive = true', write);
         const cleanup = start.indexOf('!publicationInconclusive', uncertain);
         assert.ok(attempted > 0 && write > attempted && uncertain > write && cleanup > uncertain);
         for (const file of ['api/towers/state.ts', 'api/towers/my-run.ts']) {

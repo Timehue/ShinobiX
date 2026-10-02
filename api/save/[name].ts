@@ -21,8 +21,7 @@ import { kv } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
 import { safeName, mergePreservingImages, cors, parseJsonBody } from '../_utils.js';
-import { verifyPlayerPassword } from '../player-auth.js';
-import { authedPlayerOrAdmin, isAdmin, isFullAdmin } from '../_auth.js';
+import { authedPlayerOrAdmin, isAdmin, isFullAdmin, verifyPlayerPasswordBudgeted } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { validateClanSaveWrite } from '../_clan-save-validate.js';
 import { isKnownEarnedTitle, appendCustomTitleLog } from '../_titles-registry.js';
@@ -46,6 +45,9 @@ import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { readVillageUpgrades } from '../village/_upgrade.js';
 import { readPendingWorldRewards } from '../world/_pending-rewards.js';
 import { maxLoadout, isPatreonSubscriber, isPresetAvatar, isOwnAvatarReference } from '../_entitlements.js';
+import { loadAdminCombatContent } from '../_admin-content.js';
+import { slimPlayerSaveRecord, slimPlayerSavesEnabled } from './_slim-player-save.js';
+import { firstSlimKeepsEveryFight, isFirstSlim } from './_slim-parity.js';
 
 // Clan dissolution scans global territory/war indexes and detaches every
 // member. The ordinary five-second save lease is intentionally too short for
@@ -904,6 +906,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 { local: true },
             ))) return;
 
+            // Slim player saves (api/save/_slim-player-save.ts): ordinary player
+            // rows stop storing copies of shared admin content. A save's first
+            // slim is proven with the fight loaders, which need the admin combat
+            // content: load it BEFORE the lock (I/O; memoized, so this is free on
+            // every later save). Never fails the save: if it cannot load, the
+            // first-slim gate keeps the save full.
+            const slimSave = !isAdminSave && !isClanSave && !isAdminContentSlot(name) && slimPlayerSavesEnabled();
+            const slimAdminContent = slimSave ? await loadAdminCombatContent().catch(() => null) : null;
+
             // If a reset-signal is pending (admin edit in-flight) and this is NOT the admin save,
             // silently drop the client auto-save so it can't overwrite admin changes.
             // Speculatively fetch the existing save in parallel with the signal checks —
@@ -1238,10 +1249,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // measure drift. Non-clan only — clan payloads stay byte-identical.
                     if (!isClanSave) (payload as Record<string, unknown>)._registryAt = writeRegistry ? Date.now() : prevRegistryAt;
 
-                    await Promise.all([
-                        kv.set(key, payload),
-                        ...(writeRegistry ? [kv.hset(REGISTRY_KEY, { [name]: registryEntry })] : []),
-                    ]);
+                    // Commit only over the exact row this request validated. The lock
+                    // above has a 5s TTL and no renewal, so a write stalled on the
+                    // database (pool waits reach 15s under overload) can outlive it;
+                    // another writer then takes the lock and commits — a claim
+                    // receipt, a reward. A plain upsert here would silently overwrite
+                    // that commit. Compare-and-set refuses instead, and the client
+                    // handles the 409 exactly like any other version conflict.
+                    // Same pattern as writeVersionedPlayerSaveWithStore.
+                    let committedRecord: unknown = payload;
+                    if (slimSave) {
+                        const slim = slimPlayerSaveRecord(payload as Record<string, unknown>);
+                        // A save's FIRST slim is proven on its own data with the real
+                        // fight loaders; any difference or error keeps it full.
+                        const allowed = !slim.changed
+                            || !isFirstSlim(existing as Record<string, unknown> | null)
+                            || (slimAdminContent !== null
+                                && await firstSlimKeepsEveryFight(key, payload as Record<string, unknown>, slim.record, async () => slimAdminContent));
+                        if (allowed) committedRecord = slim.record;
+                    }
+                    const committed = await kv.compareSet(key, existing ?? null, committedRecord);
+                    if (!committed) {
+                        const current = await kv.get<Record<string, unknown>>(key).catch(() => null);
+                        return res.status(409).json({
+                            error: 'Save conflict — another tab or device wrote first.',
+                            currentVersion: Number(current?._saveVersion ?? 0),
+                        });
+                    }
+                    if (writeRegistry) await kv.hset(REGISTRY_KEY, { [name]: registryEntry });
                     if (!existing && identityName && !isClanSave) {
                         captureServerProductEvent('character_created', { source: 'save' });
                     }
@@ -1478,9 +1513,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // auth record can only be deleted by an admin. (Previously the
                     // missing-auth-record case fell through and let any logged-in
                     // player delete a legacy save.)
+                    // Budgeted like authedPlayer: scrypt blocks the event loop, and an
+                    // unthrottled verify here was both a CPU stall and an unlimited
+                    // password oracle for any account with an auth record.
                     const playerPw = req.headers['x-player-password'] as string | undefined;
                     const authRecord = await kv.get(`auth:${name.toLowerCase()}`);
-                    if (!authRecord || !playerPw || !(await verifyPlayerPassword(name, playerPw))) {
+                    if (!authRecord || !playerPw || !(await verifyPlayerPasswordBudgeted(req, name, playerPw))) {
                         return res.status(403).json({ error: 'Cannot delete another player\'s save.' });
                     }
                 }

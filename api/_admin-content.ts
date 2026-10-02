@@ -31,7 +31,14 @@ export type AdminCombatContent = {
     items: ReadonlyMap<string, AdminItem>;
 };
 
+/**
+ * Items load STRICT: player saves no longer mirror admin items, so a fight sealed
+ * against an empty stand-in catalog would drop a player's admin weapon/armor.
+ * When the catalog has never been read successfully this throws
+ * ADMIN_ITEM_CATALOG_UNAVAILABLE and the fight start fails with a retryable
+ * error instead of starting with the wrong gear.
+ */
 export async function loadAdminCombatContent(): Promise<AdminCombatContent> {
-    const [jutsu, items] = await Promise.all([loadAdminJutsuObjects(), loadAdminItemObjects()]);
+    const [jutsu, items] = await Promise.all([loadAdminJutsuObjects(), loadAdminItemObjects({ strict: true })]);
     return { jutsu, items };
 }

@@ -329,6 +329,8 @@ import adminAuditLogHandler from './api/admin/audit-log.js';
 import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 import adminEconomySettlementsHandler from './api/admin/economy-settlements.js';
+// Admin: verify (dry run) then apply the slim-player-save migration
+import adminSlimPlayerSavesHandler from './api/admin/slim-player-saves.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 import adminClanBossOperationsHandler from './api/admin/clan-boss-operations.js';
 
@@ -819,6 +821,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/economy', adminEconomyHandler);
     route('/admin/economy-reconcile', adminEconomyReconcileHandler);
     route('/admin/economy-settlements', adminEconomySettlementsHandler);
+    route('/admin/slim-player-saves', adminSlimPlayerSavesHandler);
     route('/admin/beta-metrics', adminBetaMetricsHandler);
     route('/admin/clan-boss-operations', adminClanBossOperationsHandler);
 

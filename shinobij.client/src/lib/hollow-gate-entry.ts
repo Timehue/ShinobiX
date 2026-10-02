@@ -8,7 +8,7 @@ import { countItem } from "./inventory";
 import { currentDateKey } from "./utils";
 import { attunementDailyBonus } from "./hollow-gate-attunement";
 import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./hollow-gate-run-build";
-import { recoverHollowGateRun } from "./hollow-gate-recovery";
+import type { HollowGateRecoveryParams } from "./hollow-gate-recovery";
 import { sealHollowGateFloor } from "./hollow-gate-event-api";
 import { startHollowGateServerRun, resumeHollowGateServerRun, attachStartedRun } from "./hollow-gate-server";
 import { hollowGateRunMaxFloor, hollowGateBossDisplayName, variantFromEventConfig } from "./hollow-gate-variant";
@@ -20,6 +20,18 @@ import type { HiddenChamberState, HollowGateEventModal } from "./hollow-gate-til
 export { reportHollowGateEntryFailure } from "./hollow-gate-entry-failure";
 
 type SetState<T> = Dispatch<SetStateAction<T>>;
+
+/**
+ * recoverHollowGateRun, loaded on demand: a mid-run reload is rare, so its
+ * rebuild code stays out of the boot bundle. A chunk that cannot load reports
+ * "error", which every caller already treats as "the server could not be read"
+ * (the entry below then falls back to replaying the start).
+ */
+export function recoverHollowGateRunLazily(params: HollowGateRecoveryParams): Promise<"recovered" | "gone" | "error"> {
+    return import("./hollow-gate-recovery")
+        .then(({ recoverHollowGateRun }) => recoverHollowGateRun(params))
+        .catch(() => "error" as const);
+}
 
 type HollowGateEntryParams = {
     eventCfg?: HollowGateEventConfig;
@@ -49,7 +61,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     // its current floor from the server instead of replaying the start, which
     // could only redraw floor 1. The replay below stays the fallback when the
     // server cannot be read, and covers a marker whose run has already ended.
-    if (!character.hollowGateRun && character.lastHollowGateStart?.token && await recoverHollowGateRun({
+    if (!character.hollowGateRun && character.lastHollowGateStart?.token && await recoverHollowGateRunLazily({
         character, setHollowGateRun, setHollowGateLog, setHollowGateEvent, setHollowGateHiddenChamber,
         setCharacter, setCurrentBiome, setCurrentWeather, setScreen, pushHollowGateLog,
     }) === "recovered") return;
