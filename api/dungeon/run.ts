@@ -1,5 +1,6 @@
 import { safeLogValue } from '../_safe-log.js';
 import { randomUUID } from 'node:crypto';
+import { bumpLegacyStats } from '../_legacy-track.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
@@ -127,6 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(failureReason ? { reason: failureReason } : {}) });
+        if (action === 'settle' && !(await bumpLegacyStats(playerName, { dungeonClears: 1 }, {
+            characterForBootstrap: result.character,
+            receiptId: `dungeon:${String(result.value.token)}`,
+            durableReceipt: true,
+        }))) {
+            return res.status(503).json({ error: 'Dungeon rewards are safe; its Legacy record is pending. Retry the same run.', reason: 'legacy-delivery-pending', retryable: true });
+        }
         return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         if (error instanceof LockContendedError) {

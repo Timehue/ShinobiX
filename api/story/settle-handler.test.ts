@@ -2,6 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { PvpFighter } from '../pvp/session.js';
 import { createSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
+import { projectAuthoritativeCombatEvent } from '../combat-core/events.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -106,6 +107,23 @@ before(async () => {
             itemsUsed: {}, settlementState: 'pending',
         },
     };
+    const before = {
+        player: { ...active.player, hp: 10 }, enemy: { ...active.enemy, hp: 90 },
+        ap: active.ap, cooldowns: active.cooldowns, groundEffects: active.groundEffects,
+        itemCharges: active.itemCharges, itemsUsed: active.itemsUsed,
+    };
+    const after = structuredClone(before);
+    after.player.hp = 40; after.player.shield = 20; after.enemy.hp = 0;
+    completed.player.shield = 20;
+    completed.events = [{
+        kind: 'action', seq: 1, round: 1, actor: 'player', target: 'enemy', action: 'jutsu',
+        before, after, log: [], vfx: [], status: 'done', winner: 'player', outcome: 'win',
+        combat: projectAuthoritativeCombatEvent({
+            runtime: 'solo-pve', mode: 'story-boss', sessionId: RUN_ID, sequence: 1,
+            roundBefore: 1, roundAfter: 1, actor: 'player', target: 'enemy', actionType: 'jutsu',
+            applied: true, before, after, resolution: { healing: 30 }, status: 'done', winner: 'player', outcome: 'win',
+        }),
+    }];
     await store.writeSoloPveSession(completed);
     await kv.set(story.storyCombatBindingKey(RUN_ID), binding, { ex: story.STORY_COMBAT_SESSION_TTL_SECONDS });
     NOW = Date.now();
@@ -188,7 +206,11 @@ test('committed reward remains visible when Legacy delivery fails, then reconcil
         assert.equal(retried.out.body?.replayed, true);
         assert.equal((retried.out.body?.delivery as Record<string, string>).legacyRecord, 'confirmed');
         assert.deepEqual(await kv.get(`save:${PLAYER}`), beforeSave);
-        const credited = await kv.get(`legacy:stats:${PLAYER}`);
+        const credited = await kv.get<Record<string, unknown>>(`legacy:stats:${PLAYER}`);
+        assert.equal(credited?.taijutsuKills, 1);
+        assert.equal(credited?.taijutsuDamage, 90);
+        assert.equal(credited?.healingDone, 30);
+        assert.equal(credited?.shieldsApplied, 1);
         await handler(request(RUN_ID, token), response().res);
         assert.deepEqual(await kv.get(`legacy:stats:${PLAYER}`), credited, 'the run receipt deduplicates Legacy delivery');
     } finally { delete process.env.ENABLE_LEGACY; }
