@@ -44,11 +44,12 @@ const ECHOES_VERSION = new Set([
     // other three participants are covered by their own settle calls, each of
     // which is a no-op past the first thanks to the per-match receipt.
     'pvp/_ranked-2v2-settlement.ts',
-    '_anbu-infiltration-store.ts',
-    // Sector War garrison assault's personal settlement (item usage + HP). Its
-    // only caller, village/sector-war.ts's garrison-resolve, echoes the exact
-    // committed `_saveVersion` in every response branch (stall/superseded/scored).
-    '_sector-war-garrison-store.ts',
+    // _anbu-infiltration-store.ts (the raid's win credit, loss settle and cache
+    // turn-in) and _sector-war-garrison-store.ts (the garrison assault's item
+    // usage + HP) now commit through mutatePlayerSave and no longer name a
+    // BUMP_MARKER. They still return that exact committed `_saveVersion`, and
+    // their only callers — village/anbu-infiltration.ts and village/sector-war.ts's
+    // garrison-resolve — still echo it in every response branch.
     // Daily village tax. The debit runs in this helper; its only caller,
     // village/tax.ts, re-reads the record and echoes `_saveVersion`, which the
     // client adopts along with the new balances — mandatory here, because ryo is
@@ -176,16 +177,13 @@ const EXEMPT = new Set([
     // (pvp/_bounty-settle.ts used to be listed here. It now credits through
     // pvp/_bounty-claim.ts and mutatePlayerSave, names no BUMP_MARKER, and still
     // RETURNS the hunter's version to player/sleeper-kill.ts, which echoes it.)
-    // Post-battle vitals + hospital admission for a finished world PvP duel. A
-    // helper, not a route, and it writes BOTH fighters' saves in one call, so
-    // there is no single participant whose `_saveVersion` it could echo. It is
-    // reached from terminal settlement — including from the OPPONENT's request,
-    // or from a turn-deadline forfeit with no request at all — so no response of
-    // the affected player's is necessarily in flight to carry one. Exactly-once
-    // is enforced by a durable per-fighter receipt (`pvp:vitals:<battleId>:<slug>`),
-    // not by a version guard, and pvp/claim-rewards.ts re-reads the save after
-    // this runs and echoes the resulting version to whoever asked.
-    'pvp/_vitals-settlement.ts',
+    // (pvp/_vitals-settlement.ts used to be listed here: post-battle vitals +
+    // hospital admission for a finished world PvP duel, written onto BOTH
+    // fighters' saves, so it has no single participant whose `_saveVersion` it
+    // could echo. It now commits each fighter through mutatePlayerSave and names
+    // no BUMP_MARKER. Exactly-once is still the per-fighter receipt in the save,
+    // and pvp/claim-rewards.ts still re-reads the save after it runs and echoes
+    // the resulting version to whoever asked.)
     // Clan War 2v2 consumable charge. It debits every fighter who spent an item
     // — up to four saves in one call — so there is no single participant whose
     // `_saveVersion` it could echo. It is also reached from settlement rather

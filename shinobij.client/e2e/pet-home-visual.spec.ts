@@ -258,6 +258,10 @@ async function installPetHomeApi(page: Page) {
                 const path = url.pathname.toLowerCase();
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
+                // The player card reads today's Sunscar crate count on every boot.
+                // GET only: the festival test's crate pulls are POSTs to the same
+                // path and must still reach its own page.route.
+                if (method === "GET" && path === "/api/festival/black-market") return reply(replies.generic);
                 if (replies.shellBootPaths.includes(path)) return reply(replies.generic);
             }
             return nativeFetch(input, init);
