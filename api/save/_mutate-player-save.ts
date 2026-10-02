@@ -33,6 +33,14 @@ export type PlayerSaveMutation<T> =
          */
         hollowGateCurrencySource?: HollowGateCurrencySource;
         /**
+         * The decision already recorded Hollow Gate provenance for every
+         * currency it credited, each under its own source: a drain that pays
+         * several refunds charged in different checkpoints. The version bump
+         * then stamps with no wallet delta and keeps that ledger as built,
+         * instead of classifying the whole delta under one source.
+         */
+        hollowGateProvenanceRecorded?: true;
+        /**
          * Undo what this decision already wrote OUTSIDE the save (a claim
          * record, a cooldown marker) when the save write loses its
          * compare-and-set. A lost compare-and-set commits nothing, so without
@@ -80,6 +88,8 @@ export type VersionedWriteOptions = {
     regenAt?: number;
     /** Run rewards are already recorded in the run ledger; sanctify absorbs the external baseline. */
     hollowGateCurrencySource?: HollowGateCurrencySource;
+    /** Each credit already recorded its own provenance (see PlayerSaveMutation). */
+    hollowGateProvenanceRecorded?: boolean;
 };
 
 export function versionedPlayerRecord(
@@ -88,8 +98,14 @@ export function versionedPlayerRecord(
     recordPatch: PlayerSaveRecord = {},
     opts: VersionedWriteOptions = {},
 ): { record: PlayerSaveRecord; _saveVersion: number } {
-    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character: creditElderWinDeltas((currentRecord.character ?? {}) as PlayerCharacter, nextCharacter) }, {
-        ...opts, previousCharacter: (currentRecord.character ?? {}) as PlayerCharacter,
+    const { hollowGateProvenanceRecorded, ...bumpOpts } = opts;
+    const previous = (currentRecord.character ?? {}) as PlayerCharacter;
+    const character = creditElderWinDeltas(previous, nextCharacter);
+    const record: PlayerSaveRecord = bumpSaveVersion<PlayerSaveRecord>({ ...currentRecord, ...recordPatch, character }, {
+        ...bumpOpts,
+        // Recorded provenance is stamped against the character itself: no
+        // wallet delta, so the ledger the credits built is kept as is.
+        previousCharacter: hollowGateProvenanceRecorded ? character : previous,
     });
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
 }
@@ -296,6 +312,7 @@ export async function mutatePlayerSave<T>(
             out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
                 regenAt,
                 ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
+                ...(decision.hollowGateProvenanceRecorded ? { hollowGateProvenanceRecorded: true } : {}),
             });
         } catch (error) {
             const conflict = error instanceof Error && error.message === 'player-save-version-conflict';
