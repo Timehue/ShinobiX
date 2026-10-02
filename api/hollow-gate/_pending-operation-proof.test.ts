@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import type { KvLike } from '../_storage.js';
 import type { HollowGateRunToken } from './_run-token.js';
 
 process.env.NODE_ENV = 'test';
@@ -72,4 +73,46 @@ test('sequential event and checkpoint proofs replace nested snapshots through th
         assert.deepEqual(await recoverHollowGatePendingOperation(kv, runKey, recoveredCheckpoint, name, token), recoveredCheckpoint);
         assert.deepEqual(await kv.get(saveKey), stored, 'repair and repeated repair never charge or rewrite the player save');
     }, { failClosed: true });
+});
+
+test('a run repair whose compare-set reply is lost is recognised from the JSON Postgres hands back', async () => {
+    const { _makeMemoryKv } = await import('../_storage.js');
+    const { makeHollowGatePendingOperation, recoverHollowGatePendingOperation } = await import('./_pending-operation.js');
+    const base = _makeMemoryKv();
+    const name = 'hgpendinglostreply';
+    const token = 'lost-reply-run';
+    const runKey = `hg-run:${name}:${token}`;
+    // A run copied with `variantId: source.variantId` from one that has no
+    // variant holds the key as undefined. Postgres drops it.
+    const run: HollowGateRunToken = {
+        playerName: name, mintedAt: 1_800_000_000_000, floorDepth: 5, currentFloor: 1, seed: 'lost-reply',
+        variantId: undefined,
+        entryCurrencies: { ryo: 1000 }, entryItems: {},
+        offeredAugmentIds: ['keen-edge'], chosenAugmentId: 'keen-edge', dailyRunOrdinal: 1,
+        rewardLedger: { currencies: {}, items: {}, sourceIds: [] },
+        resolvedEventIds: [], recentConsumableIds: [],
+    };
+    const afterEvent: HollowGateRunToken = { ...run, resolvedEventIds: ['chest:floor:1:tile:28'] };
+    const proof = makeHollowGatePendingOperation({ token, kind: 'event', id: 'chest:floor:1:tile:28',
+        before: run, after: afterEvent, response: { action: 'chest' } });
+    await base.set(runKey, run);
+    await base.set(`save:${name}`, { _saveVersion: 2, character: {
+        name, hollowGateRun: { runToken: token }, hollowGatePendingOperation: proof,
+    } });
+    const store: KvLike = {
+        ...base,
+        async get<T = unknown>(key: string): Promise<T | null> {
+            const stored = await base.get<T>(key);
+            return stored === null ? null : JSON.parse(JSON.stringify(stored)) as T;
+        },
+        async compareSet(key, expected, value, options) {
+            await base.compareSet(key, expected, value, options);
+            throw new Error('Connection terminated unexpectedly');
+        },
+    };
+
+    const repaired = await recoverHollowGatePendingOperation(store, runKey, run, name, token) as
+        (HollowGateRunToken & { appliedSaveOperationIds?: string[] }) | null;
+    assert.deepEqual(repaired?.resolvedEventIds, ['chest:floor:1:tile:28']);
+    assert.deepEqual(repaired?.appliedSaveOperationIds, ['event:chest:floor:1:tile:28']);
 });
