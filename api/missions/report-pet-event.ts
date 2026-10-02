@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
-import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
+import { reportMissionEvent, professionXpAfterAward, type CompletedMissionInfo } from './_progress.js';
 import { masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { settleServerPetExpedition } from '../pet/_progress.js';
@@ -294,9 +294,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             expeditionPetId = String(tokenData.petId ?? '');
         }
 
-        // Reward math, pet progress, choice resolution, story log, and token
-        // consumption settle in one save lock. The return choice is client-picked
-        // but allowlisted; its random outcome is rolled and persisted here.
+        // Reward math, Tamer XP, pet progress, choice resolution, story log, and
+        // token consumption settle in one save lock. The return choice is
+        // client-picked but allowlisted; its random outcome is rolled and
+        // persisted here.
         let expeditionXp = 0;
         let ryoEarned = 0;
         let petXpEarned = 0;
@@ -391,6 +392,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Tamer XP only on the full Tamer path; a non-Tamer (half-rate
                 // maxed-pet) token earns currency only.
                 expeditionXp = tamerToken ? tamerXpForExpedition(durationMinutes, { isFirstToday, escortReady }) : 0;
+                // The XP is credited in THIS write, beside the token receipt, so
+                // a retry that finds the receipt has nothing left to pay. It used
+                // to be a second save write after this one: when that write failed
+                // (a contended save lock, a crash, a lost reply), the retry
+                // replayed the receipt and the XP was never paid. Same rule and
+                // amount as awardProfessionXp: only a current Pet Tamer is credited.
+                const tamerXpCredit = expeditionXp > 0 && char.profession === 'petTamer'
+                    ? professionXpAfterAward('petTamer', char.professionXp, char.professionRank, expeditionXp)
+                    : null;
 
                 // Non-Tamers get no rank/first/mastery modifiers. Their saved
                 // rewardScale makes a maxed pet half-rate and a growing pet XP-only.
@@ -477,6 +487,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     boneCharms: Number(char.boneCharms ?? 0) + foundBone,
                     auraStones: Number(char.auraStones ?? 0) + foundAura,
                     fateShards: Number(char.fateShards ?? 0) + foundFate,
+                    ...(tamerXpCredit ? { professionXp: tamerXpCredit.xp, professionRank: tamerXpCredit.rank } : {}),
                     ...(escortReady ? { petEscortBonusReady: false } : {}),
                 }, {
                     kind: 'expedition-complete',
@@ -555,13 +566,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     _saveVersion: Number(capRecord?._saveVersion ?? 0),
                 });
             }
-
-            // Grant Tamer XP (subject to per-save cap and Rank-2 multiplier).
-            // awardProfessionXp acquires its own lock — kept outside the
-            // expedition-counter lock above so we don't nest lock acquires.
-            if (expeditionXp > 0) {
-                await awardProfessionXp(playerName, 'petTamer', expeditionXp);
-            }
         }
 
         // Mission progress + profession XP are Pet Tamer–only. A non-Tamer earns
@@ -592,10 +596,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
-        // The save receipt makes this exact expedition replayable. Deliver
-        // after the other progression hooks so a transient Legacy write cannot
-        // strand Tamer XP or mission progress; a 503 retry resumes only this
-        // receipt and never pays the expedition twice.
+        // The save receipt makes this exact expedition replayable (its Tamer XP
+        // committed with it). Deliver after mission progress so a transient
+        // Legacy write cannot strand it; a 503 retry resumes only this receipt
+        // and never pays the expedition twice.
         if (isExpeditionEvent && expeditionReceipt) {
             const legacyRecord = await kv.get<Record<string, unknown>>(saveKey);
             if (!await deliverPetExpeditionLegacy(
