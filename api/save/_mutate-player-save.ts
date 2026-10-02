@@ -32,12 +32,30 @@ export type PlayerSaveMutation<T> =
          * has to travel with the decision rather than with the call.
          */
         hollowGateCurrencySource?: HollowGateCurrencySource;
+        /**
+         * Undo what this decision already wrote OUTSIDE the save (a claim
+         * record, a cooldown marker) when the save write loses its
+         * compare-and-set. A lost compare-and-set commits nothing, so without
+         * this a claim recorded ahead of its payout would strand the player:
+         * the retry finds the claim and pays nothing. Runs under the same save
+         * lock, only for that definite conflict — never for a transport error,
+         * whose write may have landed. A failure here is logged; the conflict
+         * itself is still what the caller sees.
+         */
+        onConflict?: () => Promise<void> | void;
     }
     | { ok: false; status: number; error: string };
 
+/**
+ * Why a save could not be mutated before the callback ran: the row is absent,
+ * or it has no character. Callers that answered the two cases differently
+ * before moving onto this helper read it to keep their exact replies.
+ */
+export type PlayerSaveMissingCode = 'save-not-found' | 'character-not-found';
+
 export type PlayerSaveMutationResult<T> =
     | { ok: true; value: T; record: PlayerSaveRecord; character: PlayerCharacter; _saveVersion: number }
-    | { ok: false; status: number; error: string };
+    | { ok: false; status: number; error: string; code?: PlayerSaveMissingCode };
 
 /** Write options shared by the versioned writers. */
 export type VersionedWriteOptions = {
@@ -171,7 +189,10 @@ export async function mutatePlayerSave<T>(
     return await withKvLock(saveKey, async () => {
         const record = await kv.get<PlayerSaveRecord>(saveKey);
         const storedCharacter = (record?.character ?? null) as PlayerCharacter | null;
-        if (!record || !storedCharacter) return { ok: false as const, status: 404, error: 'Player save not found.' };
+        if (!record || !storedCharacter) {
+            const code: PlayerSaveMissingCode = record ? 'character-not-found' : 'save-not-found';
+            return { ok: false as const, status: 404, error: 'Player save not found.', code };
+        }
 
         // Settle the idle recovery that elapsed since the regen cursor BEFORE
         // the mutation reads a vital (F13). A consumer that validates or spends
@@ -199,7 +220,29 @@ export async function mutatePlayerSave<T>(
         const settled = settlePetBreedingSession(migrated.character);
         const character = await reconcileElderFocus(settled.character);
 
-        const decision = await mutate({ playerName, saveKey, record: regen.record, character });
+        // The callback gets its own top-level copies. `record` is the exact row the
+        // compare-and-set below expects, and `character` can be that row's own
+        // character object, so a callback that assigned a field in place
+        // (`character.flag = …`) used to edit the expected value itself: the
+        // write then failed as a version conflict nobody caused, and the elder
+        // and Hollow Gate credits compared against an already-edited "before".
+        // Nested state is still shared; callbacks build new arrays and objects
+        // rather than pushing into the ones they read.
+        //
+        // The copies keep one relation callers rely on: `ctx.character` is
+        // `ctx.record.character` exactly when the pet/breeding/elder settles
+        // changed nothing (the Exchange browse skips its inventory diff on that).
+        const ownCharacter = { ...character };
+        const settledRecordCharacter = regen.record.character as PlayerCharacter;
+        const decision = await mutate({
+            playerName,
+            saveKey,
+            record: {
+                ...regen.record,
+                character: settledRecordCharacter === character ? ownCharacter : { ...settledRecordCharacter },
+            },
+            character: ownCharacter,
+        });
         if (!decision.ok) return decision;
 
         // Read/replay paths can return the authoritative snapshot without
@@ -228,10 +271,22 @@ export async function mutatePlayerSave<T>(
         // instant (`_saveAt`), so the two stamps agree on a fence.
         const regenAt = vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
         const hollowGateCurrencySource = decision.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
-        const out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
-            regenAt,
-            ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
-        });
+        let out: Awaited<ReturnType<typeof writeVersionedPlayerSave>>;
+        try {
+            out = await writeVersionedPlayerSave(saveKey, record, decision.character, decision.recordPatch, {
+                regenAt,
+                ...(hollowGateCurrencySource ? { hollowGateCurrencySource } : {}),
+            });
+        } catch (error) {
+            if (decision.onConflict && error instanceof Error && error.message === 'player-save-version-conflict') {
+                try {
+                    await decision.onConflict();
+                } catch (undoError) {
+                    console.error(`[mutatePlayerSave] ${saveKey}: undoing a decision after a lost compare-and-set failed:`, undoError);
+                }
+            }
+            throw error;
+        }
         return {
             ok: true as const,
             value: decision.value,
