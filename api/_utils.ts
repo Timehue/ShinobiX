@@ -80,6 +80,12 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // an admin comp's `expiresAt` and `source`, so the perks would end at the
     // old comp's expiry while the player was still paying.
     'patreon',
+    // A story reckoning's durable seal and its display mirror are single-owner
+    // values (api/sector/story-reckoning.ts). A deep merge kept route and
+    // field-work fields from the previous quest, e.g. when a replay promotes an
+    // unrelated cached seal after a redemption.
+    'activeStoryReckoning',
+    'activeStoryReckoningSeal',
 ]);
 const PROTOTYPE_POLLUTION_KEYS = new Set<string>(['__proto__', 'constructor', 'prototype']);
 
