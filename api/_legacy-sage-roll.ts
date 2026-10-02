@@ -2,10 +2,11 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import { LEGACY_BY_ID, LEGACY_MIN_LEVEL } from './_legacy-defs.js';
 import { evaluateAllLegacies, getLegacyOverlay, pickSageOffers } from './_legacy-score.js';
-import { getLegacyStats, appendLegacyEvent, type LegacyStats } from './_legacy-track.js';
+import { getLegacyStats, appendLegacyEvent, legacyEventsKey, type LegacyEvent, type LegacyStats } from './_legacy-track.js';
 import { legacyAcceptedKey } from './_legacy-core.js';
 import { storyKeyFor, type StoryRecord } from './_story-record.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './pvp/_legacy-jutsu-catalog.js';
+import { legacyTrialActivities } from './_legacy-core.js';
 
 export const SAGE_OFFER_TTL_SECONDS = 7 * 24 * 60 * 60;
 export const sageOfferKey = (player: string) => `legacy:sage-offer:${player}`;
@@ -26,6 +27,7 @@ export type SignaturePreview = { name: string; shape: string; effects: string[];
 type SageOfferEntry = {
     legacyId: string; name: string; category: string; flavor: string; title: string;
     villageAffinity: string | null; badge?: string | null; signature?: SignaturePreview | null;
+    trialActivities?: string[];
 };
 
 export type SageOffer = {
@@ -42,7 +44,7 @@ export type SageOffer = {
 type StoredSageOffer = Omit<SageOffer, 'offers'> & {
     offers: Array<SageOfferEntry & { rarity?: unknown }>;
 };
-type PityState = { eligibleSince?: number; lastSpawnAt?: number; declinedUntil?: number };
+export type PityState = { eligibleSince?: number; lastSpawnAt?: number; declinedUntil?: number; offerHistory?: string[] };
 
 export type SageRollResult = {
     spawn: boolean;
@@ -84,7 +86,10 @@ export function publicSageOffer(offer: StoredSageOffer | null | undefined): Sage
     if (!offer) return null;
     return {
         ...offer,
-        offers: offer.offers.map(({ rarity: _privateRarity, ...entry }) => entry),
+        offers: offer.offers.map(({ rarity: _privateRarity, ...entry }) => {
+            const definition = LEGACY_BY_ID.get(entry.legacyId);
+            return { ...entry, ...(definition ? { trialActivities: legacyTrialActivities(definition) } : {}) };
+        }),
     };
 }
 
@@ -152,7 +157,10 @@ export async function attemptSageRoll(
             overlay,
             storyLanes: storyRecord?.lanes ?? null,
         });
-        const selected = pickSageOffers(evaluations);
+        const history = await kv.get<LegacyEvent[]>(legacyEventsKey(playerName));
+        const offered = pity.offerHistory ?? (history ?? []).filter((event) => event.type === 'sage-spawned')
+            .flatMap((event) => Array.isArray(event.meta?.offers) ? event.meta.offers.filter((id): id is string => typeof id === 'string') : []);
+        const selected = pickSageOffers(evaluations, 3, offered);
         if (selected.length === 0) return { spawn: false, reason: 'not-eligible' };
         // The cap counts actual eligible opportunities, not every low-level
         // deed. This is especially important now that verified progress calls
@@ -185,6 +193,7 @@ export async function attemptSageRoll(
                     villageAffinity: definition.villageAffinity ?? null,
                     badge: definition.badge ?? null,
                     signature: signaturePreview(definition.id),
+                    trialActivities: legacyTrialActivities(definition),
                 };
             }),
             sector: homeSector(character.village, opts.sector),
@@ -192,7 +201,9 @@ export async function attemptSageRoll(
             expiresAt: now + SAGE_OFFER_TTL_SECONDS * 1000,
         };
         await kv.set(sageOfferKey(playerName), offer, { ex: SAGE_OFFER_TTL_SECONDS });
-        await kv.set(sagePityKey(playerName), { eligibleSince, lastSpawnAt: now });
+        const offerHistory = [...selected.map((evaluation) => evaluation.legacyId), ...offered]
+            .filter((id, index, all) => all.indexOf(id) === index && LEGACY_BY_ID.has(id)).slice(0, 100);
+        if (await kv.set(sagePityKey(playerName), { eligibleSince, lastSpawnAt: now, offerHistory }) !== 'OK') throw new Error('sage-offer-history-pending');
         await appendLegacyEvent(playerName, {
             type: 'sage-spawned',
             meta: { offers: offer.offers.map((entry) => entry.legacyId), forced },

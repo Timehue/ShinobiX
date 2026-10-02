@@ -6,7 +6,7 @@ import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { stripNonCombatFields } from '../pvp/session.js';
 import { kickPlayer } from '../_realtime/notify.js';
-import { legacyEnabled } from '../_legacy-track.js';
+import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 
 type GuardEntry = { name: string; village: string; level: number; lastSeen: number; defenseBonusPercent?: number };
 
@@ -130,18 +130,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
 
             // Legacy tracking (ENABLE_LEGACY): mark this battle as a QUEUE
-            // DEFENSE so report-pvp-win can credit the outcome authoritatively —
+            // DEFENSE so terminal settlement can credit the outcome authoritatively —
             // defender wins → defensiveWins + sectorDefenses, attacker wins →
             // warPvpKills (raided the village's guard). Server-written from the
             // guard queue state, so it can't be spoofed by the client, and it
             // needs no war to be active. Best-effort, keyed by the shared
-            // battleId report-pvp-win validates against (pvp:<battleId>).
+            // battleId settlement validates against (pvp:<battleId>). Retain the
+            // proof through delayed terminal recovery, then delivery removes it.
+            // New sessions already seal it at creation; notification must not
+            // overwrite those roles. NX also repairs old sessions with no proof.
             if (legacyEnabled()) {
                 try {
                     await kv.set(
                         `legacy:guard-defense:${battleId}`,
                         { defender: guard.name, attacker: String(attackerCharacter.name ?? '') },
-                        { ex: 2 * 60 * 60 },
+                        { nx: true, ex: LEGACY_PVP_RECEIPT_TTL_SECONDS },
                     );
                 } catch { /* best-effort — a missed marker just skips the defense credit */ }
             }
