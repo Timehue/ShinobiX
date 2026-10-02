@@ -5,7 +5,6 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { runPetDuel, runPetPartyDuel } from '../_pet-sim/pet-duel-sim.js';
 import { replayCasualPetDuel } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -288,14 +287,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             isAiOpponent = true;
             hollowGate = { runId };
         } else if (opponentName) {
+            // An unchallenged duel against another player's pets resolved on the
+            // legacy duel sim, retired on 2026-10-02. The client no longer sends
+            // one: a fight with another player is a sealed challenge
+            // (pvpChallengeId, above), and this path never paid or ranked anything.
+            // Refuse only once the named player's pets resolve. A name that
+            // resolves none still falls through to the AI-receipt recovery below,
+            // exactly as before.
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
             const oppChar = oppSave?.character as Record<string, unknown> | undefined;
             const stored = activeCarriedPets<Record<string, unknown>>(oppChar ?? {});
-            opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
-            if (opponentPets.some((pet) => petCombatBusyReason(oppChar ?? {}, pet as unknown as Record<string, unknown>))) {
-                return res.status(409).json({ error: 'The selected opponent pet is currently unavailable.' });
+            if (opponentPetIds.some((id) => stored.some((pet) => String(pet?.id ?? '') === id))) {
+                return res.status(410).json({
+                    error: 'Unchallenged duels against another player are retired. Send a pet challenge instead.',
+                });
             }
-            if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
         }
         if (!opponentPets.length && opponentPetIds.some((id) => Boolean(SERVER_ARENA_PETS[id]))) {
             // Recovery only: an older client may have lost the response carrying
@@ -392,22 +398,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : null;
 
         // Baseline outcome, used when the report carries no input log — the flag
-        // is off, an older client, or the player just watched. For a PvE fight
-        // this now runs the CINEMATIC engine the coliseum actually renders (an
-        // empty log reproduces the uncommanded AI fight exactly), so the sealed
-        // value finally agrees with the fight on screen instead of coming from
-        // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
+        // is off, an older client, or the player just watched. A sealed player
+        // duel was already decided on Showdown; every other admitted battle is a
+        // sealed PvE fight, which runs the CINEMATIC engine the coliseum actually
+        // renders (an empty log reproduces the uncommanded AI fight exactly).
         // There is deliberately no wanderer branch in this chain: a road beast
         // is refused at the top of this handler and fought in the Colosseum.
         const result = pvpOutcome
-            // Already decided, on Showdown, for both participants at once. The
-            // legacy sims below never run for a player challenge again.
+            // Already decided, on Showdown, for both participants at once.
             ? pvpOutcome
             : casualPveSeal
             ? replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, casualPveSeal.params, []).outcome
-            : mode === '2v2'
-                ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
-                : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
+            : null;
+        // Nothing else reaches this line: the only other battle, the unchallenged
+        // player duel refused above, resolved on the retired legacy duel sim. A
+        // battle with no authoritative engine fails closed instead of minting.
+        if (!result) return res.status(409).json({ error: 'This pet battle has no authoritative engine.' });
 
         const tokenKey = `pet:battle-token:${playerName}:${token}`;
         const tokenData = {
