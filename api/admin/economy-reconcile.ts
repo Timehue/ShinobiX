@@ -3,9 +3,10 @@ import { kv } from '../_storage.js';
 import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { cors, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { completeEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { resumeSaveDebitSaga, SaveDebitRefusal } from '../_save-debit-saga.js';
 import { settlementFingerprint, settlementTransactionId } from '../_durable-settlement.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
@@ -91,29 +92,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!saveKey.startsWith('save:')) return { status: 400, body: { error: 'Transaction has no valid player save key.' } };
                 // A receipt in the same write makes a repeated reconcile (a
                 // lost answer, a second click) pay nothing the second time.
+                const playerName = saveKey.slice('save:'.length);
+                // Only the exact key the journal names; never a normalized neighbour.
+                if (!playerName || safeName(playerName) !== playerName) {
+                    return { status: 400, body: { error: 'Transaction has no valid player save key.' } };
+                }
                 const requestId = settlementTransactionId('economy-reconcile-refund', tx.id);
                 const fingerprint = settlementFingerprint({ txId: tx.id, resource: refundResource, amount });
-                let character: Record<string, unknown> | null = null;
-                let alreadyRefunded = false;
-                await withKvLock(saveKey, async () => {
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    const current = (record?.character ?? null) as Record<string, unknown> | null;
-                    if (!record || !current) throw new Error('Player save not found.');
+                // The receipt commits with the refund, so re-running the whole
+                // refund after a lost compare-and-set pays it once.
+                const refunded = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ alreadyRefunded: boolean }>(playerName, ({ character: current }) => {
                     const receipt = inspectSettlementReceipt(current, requestId, fingerprint);
-                    if (receipt.status === 'replay') {
-                        alreadyRefunded = true;
-                        character = current;
-                        return;
+                    if (receipt.status === 'replay') return { ok: true, write: false, character: current, value: { alreadyRefunded: true } };
+                    if (receipt.status !== 'fresh') {
+                        return { ok: false, status: 409, error: `The player's settlement receipts are ${receipt.status}; refund by hand.` };
                     }
-                    if (receipt.status !== 'fresh') throw new Error(`The player's settlement receipts are ${receipt.status}; refund by hand.`);
-                    character = appendSettlementReceipt(
+                    const character = appendSettlementReceipt(
                         { ...current, [refundResource]: Math.max(0, num(current[refundResource])) + amount },
                         receipt.receipts,
                         { requestId, fingerprint, value: { txId: tx.id, resource: refundResource, amount }, settledAt: Date.now() },
                     );
-                    const updated = bumpSaveVersion({ ...record, character }, { previousCharacter: current });
-                    await kv.set(saveKey, mergePreservingImages(updated, record));
-                }, { failClosed: true });
+                    return { ok: true, character, value: { alreadyRefunded: false } };
+                }));
+                if (!refunded.ok) throw new Error(refunded.status === 404 ? 'Player save not found.' : refunded.error);
+                const { alreadyRefunded } = refunded.value;
+                const character = refunded.character;
                 const completed = await completeEconomyTx(tx.id, {
                     note: `Admin reconciled a failed ${refundResource} stake refund.`,
                     meta: { ...(tx.meta ?? {}), reconciledAt: Date.now(), reconciledBy: 'admin' },

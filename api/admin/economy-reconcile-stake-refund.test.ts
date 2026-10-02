@@ -85,17 +85,46 @@ describe('admin reconciliation of failed stake refunds', { concurrency: false },
         assert.deepEqual(await wallet(), { ryo: 251_000, honorSeals: 50 }, 'a completed journal pays nothing again');
     });
 
-    test('a refund that landed but reported an error is not paid again by the next click', async () => {
+    test('a refund whose reply was lost is recognised, and the next click pays nothing', async () => {
         const txId = await stuckStake('hollow-gate-unlock', 'honorSeals', 10_000);
-        const originalSet = kv.set.bind(kv);
+        const originalCompareSet = kv.compareSet.bind(kv);
         let armed = true;
-        kv.set = (async (key: string, value: unknown, options?: unknown) => {
-            const out = await originalSet(key, value, options as never);
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: unknown) => {
+            const out = await originalCompareSet(key, expected, value, options as never);
             if (armed && key === SAVE_KEY) {
                 armed = false;
                 throw new Error('injected: the refund committed but its reply was lost');
             }
             return out;
+        }) as typeof kv.compareSet;
+        try {
+            // The save write reads its own commit back, so the lost reply is
+            // recognised as the refund that landed (this used to answer 500).
+            const first = await post({ txId });
+            assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+            assert.equal(first.body?.credited, 10_000);
+        } finally {
+            kv.compareSet = originalCompareSet;
+        }
+        assert.deepEqual(await wallet(), { ryo: 1_000, honorSeals: 10_050 }, 'the refund landed');
+
+        const retry = await post({ txId });
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.alreadyComplete, true);
+        assert.deepEqual(await wallet(), { ryo: 1_000, honorSeals: 10_050 }, 'paid exactly once');
+    });
+
+    test('a refund that landed before its journal completed is not paid again by the next click', async () => {
+        const txId = await stuckStake('hollow-gate-unlock', 'honorSeals', 10_000);
+        const journalKey = economyTx.economyTxKey(txId);
+        const originalSet = kv.set.bind(kv);
+        let armed = true;
+        kv.set = (async (key: string, value: unknown, options?: unknown) => {
+            if (armed && key === journalKey && (value as { state?: string })?.state === 'complete') {
+                armed = false;
+                throw new Error('injected: the refund committed but the journal could not complete');
+            }
+            return originalSet(key, value, options as never);
         }) as typeof kv.set;
         try {
             assert.equal((await post({ txId })).statusCode, 500);
@@ -107,7 +136,7 @@ describe('admin reconciliation of failed stake refunds', { concurrency: false },
         const retry = await post({ txId });
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
         assert.equal(retry.body?.alreadyRefunded, true);
-        assert.deepEqual(await wallet(), { ryo: 1_000, honorSeals: 10_050 }, 'before the fix this paid 10,000 Honor Seals twice');
+        assert.deepEqual(await wallet(), { ryo: 1_000, honorSeals: 10_050 }, 'the in-save receipt keeps the second click from paying 10,000 Honor Seals again');
     });
 
     test('a stake journal for the wrong currency is still refused', async () => {

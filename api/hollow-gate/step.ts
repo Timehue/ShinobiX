@@ -5,8 +5,8 @@ import { kv } from '../_storage.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { cors, mergePreservingImages, safeName } from '../_utils.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { cors, safeName } from '../_utils.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { hollowGateRunKey, type HollowGateRunToken } from './_run-token.js';
 import { hollowGateManifestNode, hollowGateMarkVisited, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { hollowGateCombatBindingKey, type HollowGateCombatBinding } from './_combat-session.js';
@@ -16,17 +16,16 @@ const coord = (value: unknown): number => Math.floor(Number(value));
 const bounded = (x: number, y: number): boolean => Number.isInteger(x) && Number.isInteger(y) && x >= 0 && x < 31 && y >= 0 && y < 21;
 
 async function persistRunProjection(playerName: string, token: string, run: HollowGateRunToken): Promise<number> {
-    return withKvLock(`save:${playerName}`, async () => {
-        const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-        const freshCharacter = fresh?.character as Record<string, unknown> | undefined;
-        const freshRun = freshCharacter?.hollowGateRun && typeof freshCharacter.hollowGateRun === 'object'
+    const changed = () => new Error('The saved run changed during movement.');
+    // An open run excludes idle recovery, so the shared writer settles none
+    // here; it fences the regeneration cursor exactly as the raw write did.
+    const out = await mutatePlayerSave<null>(playerName, ({ character: freshCharacter }) => {
+        const freshRun = freshCharacter.hollowGateRun && typeof freshCharacter.hollowGateRun === 'object'
             ? freshCharacter.hollowGateRun as Record<string, unknown>
             : null;
-        if (!fresh || !freshCharacter || !freshRun || freshRun.runToken !== token || !run.position) {
-            throw new Error('The saved run changed during movement.');
-        }
-        const updated = bumpSaveVersion({
-            ...fresh,
+        if (!freshRun || freshRun.runToken !== token || !run.position) throw changed();
+        return {
+            ok: true,
             character: {
                 ...freshCharacter,
                 hollowGateRun: {
@@ -38,10 +37,11 @@ async function persistRunProjection(playerName: string, token: string, run: Holl
                     wardSteps: run.wardSteps,
                 },
             },
-        }) as Record<string, unknown>;
-        await kv.set(`save:${playerName}`, mergePreservingImages(updated, fresh));
-        return Number(updated._saveVersion ?? 0);
-    }, { failClosed: true, ttlSec: 10 });
+            value: null,
+        };
+    }, { lockTtlSec: 10 });
+    if (!out.ok) throw changed();
+    return out._saveVersion;
 }
 
 export function deriveHollowGateStepState(
