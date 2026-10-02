@@ -55,7 +55,7 @@ export async function getSleeperCamp(name: string): Promise<SleeperCamp | null> 
  * forgets the name first (setSleeperCamp / materializeSleeperCamps), so only a
  * camp written by another process — a deploy overlap — can outlive a skipped
  * beat, and the periodic recheck bounds that. Until then it is inert: sleeper
- * KOs and merc raids refuse online targets (settleSleeperKoLocked) and the
+ * KOs and merc raids refuse online targets (decideSleeperKo) and the
  * roster ignores camps of online players. It stops being inert when its owner
  * logs off, so the sweep clears the camp of every departing player it does
  * not camp (materializeSleeperCamps): a player who logs off in town is never

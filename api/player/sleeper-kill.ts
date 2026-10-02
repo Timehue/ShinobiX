@@ -1,14 +1,14 @@
-import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave, mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { getTravelLease, travelLeaseReceipt } from '../_realtime/travel-lease.js';
 import { computePvpWinGains, creditPvpWinBase } from '../_xp-engine.js';
-import { recordPairWinAndDecay } from '../pvp/_reward-farm.js';
+import { previewPairWinDecay, recordPairWinAndDecay } from '../pvp/_reward-farm.js';
 import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import {
     VANGUARD_SEALS_PER_KILL,
@@ -22,7 +22,6 @@ import {
 import { PVP_RAID_SHIELD_MS } from '../pvp/_vitals-settlement.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
 import { battleLockFlagsForPlayers, settleSaveRecord } from '../_elapsed-state.js';
 import { clearSleeperCamp, getSleeperCamp } from '../_realtime/sleeper-camps.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
@@ -144,34 +143,42 @@ export type SleeperKoSettled =
     | { status: 200; record: Record<string, unknown>; character: Record<string, unknown>; sector: number }
     | SleeperBlock;
 
+export type SleeperKoDecision =
+    | SleeperBlock
+    | {
+        status: 200;
+        /** The victim's settled character before the KO: what a reward reads. */
+        victim: Record<string, unknown>;
+        /** The KO for the victim's save write. */
+        character: Record<string, unknown>;
+        recordPatch: Record<string, unknown>;
+        sector: number;
+    };
+
 /**
- * Settle a sleeper KO against the target's COMMITTED save. The caller MUST hold
- * the `save:<targetSlug>` lock (failClosed). Re-reads the save + camp under that
- * lock, re-validates every sleeper condition (camp still exists — and, when
- * `expectSector` is given, is still in that sector — a real wild sector, not
- * already hospitalized, still offline), then applies the ONE consequence a
- * sleeper KO has for the victim: HP 0 + the standard hospital stamp + relocation
- * to the village (sector 0) + the camp cleared. It pays NOTHING — the player
- * handler layers its rewards on top; an NPC raid (api/_merc-auto.ts) has none.
+ * Decide a sleeper KO against the victim's settled save. The caller holds the
+ * victim's save lock (mutatePlayerSave / mutatePlayerSaves) and writes the
+ * decision. Re-reads the camp under that lock, re-validates every sleeper
+ * condition (camp still exists — and, when `expectSector` is given, is still in
+ * that sector — a real wild sector, not already hospitalized, still offline),
+ * then returns the ONE consequence a sleeper KO has for the victim: HP 0 + the
+ * standard hospital stamp + relocation to the village (sector 0). The caller
+ * clears the camp once it commits. It pays NOTHING — the player handler layers
+ * its rewards on top; an NPC raid (api/_merc-auto.ts) has none.
  *
  * Once-per-camp by construction: clearing the camp and moving the victim to
  * sector 0 drops them out of the sleeper pool, so they cannot be hit again until
  * they log in, walk back out, and log off in the wild again — and a second
  * caller racing this one sees "no camp" / "already defeated" and stops.
  */
-export async function settleSleeperKoLocked(
-    targetSlug: string,
+export async function decideSleeperKo(
+    victim: { playerName: string; record: Record<string, unknown>; character: Record<string, unknown> },
     opts: { now?: number; expectSector?: number } = {},
-): Promise<SleeperKoSettled> {
+): Promise<SleeperKoDecision> {
     const now = opts.now ?? Date.now();
-    const [tRecRaw, lockedBattleFlags] = await Promise.all([
-        kv.get<Record<string, unknown>>(`save:${targetSlug}`),
-        battleLockFlagsForPlayers([targetSlug]),
-    ]);
-    const tRec = tRecRaw
-        ? settleSaveRecord(tRecRaw, { battleLocked: lockedBattleFlags.get(targetSlug) === true }).record
-        : tRecRaw;
-    const tChar = tRec?.character as Record<string, unknown> | undefined;
+    const targetSlug = victim.playerName;
+    const tRec = victim.record;
+    const tChar = victim.character;
     const lockedCamp = await getSleeperCamp(targetSlug);
     if (!lockedCamp) return { status: 409, error: 'Target no longer has a camp in the world.' };
     if (opts.expectSector != null && lockedCamp.sector !== opts.expectSector) {
@@ -180,7 +187,6 @@ export async function settleSleeperKoLocked(
     const reBlock = sleeperTargetBlock(tChar, lockedCamp.sector, now);
     if (reBlock) return reBlock;
     if (onlineStore.get(targetSlug)) return { status: 409, error: 'Target came online — use a normal attack.' };
-    if (!tRec || !tChar) return { status: 404, error: 'Target not found.' };
     // A roster recovery may have exposed the destination before its save
     // committed. Never KO that camp while an unsettled arrival could later
     // relocate the hospitalized player back into the field. Read only here:
@@ -196,21 +202,52 @@ export async function settleSleeperKoLocked(
     // save/[name].ts enforces the hospital timer against the victim's
     // stale autosave on re-login, and currentSector:0 drops them from the
     // sleeper pool immediately.
-    const koChar = {
-        ...tChar,
-        hp: 0,
-        hospitalized: true,
-        hospitalizedUntil: now + HOSPITAL_DURATION_MS,
-        hospitalizedAt: now,
-        // Field Recovery, same as a live PvP defeat: sector 0 already drops them
-        // from the sleeper pool, but this also covers them for the first moments
-        // after they log back in and travel out again.
-        pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
+    return {
+        status: 200,
+        victim: tChar,
+        character: {
+            ...tChar,
+            hp: 0,
+            hospitalized: true,
+            hospitalizedUntil: now + HOSPITAL_DURATION_MS,
+            hospitalizedAt: now,
+            // Field Recovery, same as a live PvP defeat: sector 0 already drops them
+            // from the sleeper pool, but this also covers them for the first moments
+            // after they log back in and travel out again.
+            pvpShieldUntil: now + PVP_RAID_SHIELD_MS,
+        },
+        recordPatch: { currentSector: 0, currentTile: null, pendingTravel: null },
+        sector: lockedCamp.sector,
     };
-    const targetKoRecord = bumpSaveVersion({ ...tRec, currentSector: 0, currentTile: null, pendingTravel: null, character: koChar });
-    await kv.set(`save:${targetSlug}`, mergePreservingImages(targetKoRecord, tRec));
-    await clearSleeperCamp(targetSlug);
-    return { status: 200, record: tRec, character: tChar, sector: lockedCamp.sector };
+}
+
+/**
+ * A sleeper KO with no attacker to pay: an NPC merc raid (api/_merc-auto.ts).
+ * Commits decideSleeperKo through mutatePlayerSave and clears the camp under
+ * the same save lock. `gate` runs first under that lock (false refuses the KO);
+ * `afterKo` runs once the KO has committed, still under it.
+ */
+export async function settleSleeperKo(
+    targetSlug: string,
+    opts: { now?: number; expectSector?: number; gate?: () => Promise<boolean>; afterKo?: () => Promise<void> } = {},
+): Promise<SleeperKoSettled> {
+    const out = await mutatePlayerSave<SleeperKoSettled>(targetSlug, async (ctx) => {
+        const untouched = (value: SleeperKoSettled) => ({ ok: true as const, write: false, character: ctx.character, value });
+        if (opts.gate && !(await opts.gate())) return untouched({ status: 409, error: 'This camp cannot be raided right now.' });
+        const ko = await decideSleeperKo(ctx, opts);
+        if (ko.status !== 200) return untouched(ko);
+        return {
+            ok: true,
+            character: ko.character,
+            recordPatch: ko.recordPatch,
+            value: { status: 200, record: ctx.record, character: ko.victim, sector: ko.sector },
+            afterCommit: async () => {
+                await clearSleeperCamp(targetSlug);
+                if (opts.afterKo) await opts.afterKo();
+            },
+        };
+    });
+    return out.ok ? out.value : { status: 404, error: 'Target not found.' };
 }
 
 /** After a SUCCESSFUL player sleeper-kill: queue the "you were ambushed by X"
@@ -230,22 +267,6 @@ export async function notifySleeperKill(args: { attackerName: string; victimSlug
             player: args.attackerName,
         }).catch(() => null),
     ]);
-}
-
-// Lock both fighters' saves in a deterministic (sorted) order — same pattern as
-// pvp/claim-rewards.ts — so two attackers racing the same target (or the
-// attacker's own concurrent autosave) can't interleave their read-modify-write
-// or deadlock. failClosed: a contended lock aborts (caller returns 503) rather
-// than racing a currency / save write.
-async function withSavesLocked<T>(slugs: string[], fn: () => Promise<T>): Promise<T> {
-    const ordered = [...new Set(slugs.filter(Boolean))].sort();
-    let run = fn;
-    for (let i = ordered.length - 1; i >= 0; i--) {
-        const slug = ordered[i];
-        const next = run;
-        run = () => withKvLock(`save:${slug}`, next, { failClosed: true });
-    }
-    return run();
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -314,24 +335,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return created > 0 && (Date.now() - created) < ACCOUNT_AGE_MIN_MS;
         })();
 
-        const settled = await withSavesLocked([attackerSlug, targetSlug], async () => {
-            // Re-read inside the lock so we settle against committed state.
+        // Both saves are locked in one sorted order — so two attackers racing the
+        // same target (or the attacker's own concurrent autosave) can't
+        // interleave or deadlock — and fail closed: a contended lock aborts (503)
+        // rather than racing a currency / save write. The KO commits first, then
+        // the attacker's credit. No conflict retry: the repeat-opponent counter
+        // is recorded outside the saves.
+        const outcome = await mutatePlayerSaves([targetSlug, attackerSlug], async (sides) => {
+            // Re-read inside the locks so we settle against committed state.
             const lockedCamp = await getSleeperCamp(targetSlug);
-            if (!lockedCamp) return { status: 409 as const, error: 'Target no longer has a camp in the world.' };
+            if (!lockedCamp) return { ok: false, status: 409, error: 'Target no longer has a camp in the world.' };
             if (!identity.admin) {
                 const attackerBlock = sleeperAttackerBlock(onlineStore.get(attackerSlug), lockedCamp.sector);
-                if (attackerBlock) return attackerBlock;
+                if (attackerBlock) return { ok: false, ...attackerBlock };
             }
-            const aRec = await kv.get<Record<string, unknown>>(`save:${attackerSlug}`);
-            const aChar = aRec?.character as Record<string, unknown> | undefined;
-            if (!aRec || !aChar) return { status: 404 as const, error: 'Attacker save not found.' };
+            const aChar = sides[attackerSlug]!.character;
 
             // Re-validates the sleeper conditions (another attacker may have won
-            // the race between our checks and the lock) and applies the KO —
-            // the same settlement an NPC merc raid uses.
-            const ko = await settleSleeperKoLocked(targetSlug);
-            if (ko.status !== 200) return ko;
-            const tChar = ko.character;
+            // the race between our checks and the locks) and decides the KO —
+            // the same decision an NPC merc raid commits.
+            const ko = await decideSleeperKo(sides[targetSlug]!);
+            if (ko.status !== 200) return { ok: false, status: ko.status, error: ko.error };
+            const tChar = ko.victim;
 
             let updatedAttacker = aChar;
             // F5: Field Recovery is a shield, not a licence — raiding is the
@@ -339,9 +364,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // clear also lands on the anti-alt branch, which pays nothing.
             const attackerShielded = (Math.floor(Number(aChar.pvpShieldUntil ?? 0)) || 0) > Date.now();
             if (attackerShielded) updatedAttacker = { ...updatedAttacker, pvpShieldUntil: 0 };
-            // Stays null when the KO pays nothing (anti-alt): no save write, so no
-            // version moved and the caller has nothing to adopt.
-            let attackerSaveVersion: number | null = null;
             let ryoGained = 0;
             const xpGained = 0; // character XP retired — kept in the response shape for old clients
             let sealsGained = 0;
@@ -350,9 +372,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Base ryo — same primitives the live PvP winner uses, scaled by
                 // the existing repeat-opponent decay. (Character XP is retired;
                 // sleeper kills deliberately grant NO stat growth — that stays a
-                // serious-fight reward on the live claim path.)
+                // serious-fight reward on the live claim path.) The win is priced
+                // now and recorded only once the credit has committed (below).
                 const { ryoGain } = computePvpWinGains(aChar as never, targetSector);
-                const decay = await recordPairWinAndDecay(attackerSlug, targetSlug);
+                const decay = await previewPairWinDecay(attackerSlug, targetSlug);
                 ryoGained = Math.max(0, Math.floor(ryoGain * decay));
                 const credit = creditPvpWinBase(aChar as never, ryoGained);
                 updatedAttacker = credit.char as unknown as Record<string, unknown>;
@@ -395,44 +418,53 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // purpose, discharge, then farm offline sleeper camps for the
             // remaining ~120 s while staying un-raidable yourself. attack.ts
             // already closes that on the online raid door; this is the other one.
-            if (rewardEligible || attackerShielded) {
-                updatedAttacker = creditElderWinDeltas(aChar, updatedAttacker);
-                const attackerRecord = bumpSaveVersion({ ...aRec, character: updatedAttacker }, { previousCharacter: aChar });
-                // Hand the bumped version back so the caller can ADOPT it. Without
-                // it the open tab keeps its pre-KO version, and the recovery is the
-                // slow one bumpSaveVersion documents: the next autosave 409s and
-                // refetchAfterSaveConflict re-pulls the credited snapshot. Correct
-                // either way — this just skips the round trip, matching every other
-                // server credit (api/battle/lock.ts, the dungeon run mutations).
-                const nextVersion = Number(attackerRecord._saveVersion);
-                if (Number.isFinite(nextVersion)) attackerSaveVersion = nextVersion;
-                await kv.set(`save:${attackerSlug}`, mergePreservingImages(attackerRecord, aRec));
-                // ANBU earned seats follow these server-owned PvP counters immediately.
-                try {
-                    const { buildPublicPlayerIndexEntry, REGISTRY_KEY } = await import('./_public-index.js');
-                    await kv.hset(REGISTRY_KEY, { [attackerSlug]: buildPublicPlayerIndexEntry(updatedAttacker, attackerSlug) });
-                } catch (error) { console.warn('[sleeper-kill] ANBU ranking refresh deferred:', error); }
-            }
-
+            // The shared writer credits the elder win from the kill counter and
+            // refreshes the public index (ANBU earned seats) in the same write.
+            const attackerSide: PlayerSavesSide = rewardEligible || attackerShielded
+                ? {
+                    character: updatedAttacker,
+                    // Record the win only once its credit has committed, so a
+                    // KO or credit that never landed cannot decay the next one.
+                    ...(rewardEligible ? { afterCommit: async () => { await recordPairWinAndDecay(attackerSlug, targetSlug); } } : {}),
+                }
+                : { write: false, character: aChar };
             return {
-                status: 200 as const,
-                character: updatedAttacker,
-                attackerName: String((aChar.name as string) ?? attackerSlug),
-                koSector: ko.sector,
-                saveVersion: attackerSaveVersion,
-                reward: {
-                    ryo: ryoGained,
-                    xp: xpGained,
-                    seals: sealsGained,
-                    rewardEligible,
-                    target: String((tChar.name as string) ?? targetName),
+                ok: true,
+                value: {
+                    attackerName: String((aChar.name as string) ?? attackerSlug),
+                    koSector: ko.sector,
+                    reward: {
+                        ryo: ryoGained,
+                        xp: xpGained,
+                        seals: sealsGained,
+                        rewardEligible,
+                        target: String((tChar.name as string) ?? targetName),
+                    },
+                },
+                sides: {
+                    [targetSlug]: { character: ko.character, recordPatch: ko.recordPatch, afterCommit: () => clearSleeperCamp(targetSlug) },
+                    [attackerSlug]: attackerSide,
                 },
             };
         });
 
-        if (settled.status !== 200) {
-            return res.status(settled.status).json({ error: settled.error });
+        if (!outcome.ok) {
+            if (outcome.code) {
+                return res.status(404).json({ error: outcome.playerName === attackerSlug ? 'Attacker save not found.' : 'Target not found.' });
+            }
+            return res.status(outcome.status).json({ error: outcome.error });
         }
+        const attackerSave = outcome.saves[attackerSlug]!;
+        const settled = {
+            ...outcome.value,
+            character: attackerSave.character,
+            // Hand the bumped version back so the caller can ADOPT it. Without
+            // it the open tab keeps its pre-KO version, and the recovery is the
+            // slow one save/_save-version.ts documents: the next autosave 409s and
+            // refetchAfterSaveConflict re-pulls the credited snapshot. Stays null
+            // when the KO pays nothing (anti-alt): no save write, no version moved.
+            saveVersion: attackerSave.written ? attackerSave._saveVersion : null,
+        };
         // Collect any bounty standing on that head. MUST run out here, after the
         // KO's save locks have released: the bounty path takes the board lock and
         // THEN save:<attacker>, so taking it while still holding the save would

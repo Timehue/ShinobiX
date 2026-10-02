@@ -378,15 +378,15 @@ test('a town arrival never materializes an attackable camp', async () => {
 
 test('a camp cannot be KOed before its arrival commits, and cleanup replay cannot undo the KO', async () => {
     const camps = await import('../_realtime/sleeper-camps.js');
-    const { settleSleeperKoLocked } = await import('./sleeper-kill.js');
+    const { settleSleeperKo } = await import('./sleeper-kill.js');
     const lease = { originSector: 12, destinationSector: 13, arrivalAt: Date.now() - 1, moveId: 'camp-arrival-test' };
     await travel.setTravelLease(PLAYER, lease);
     await camps.setSleeperCamp({ name: PLAYER, displayName: PLAYER, sector: 13, createdAt: Date.now() });
-    assert.equal((await settleSleeperKoLocked(PLAYER)).status, 409);
+    assert.equal((await settleSleeperKo(PLAYER)).status, 409);
     await travel.settleTravelLease(PLAYER, lease);
     // Simulate an arrival whose save committed but lease cleanup was lost.
     await kv.set(travel.travelLeaseKey(PLAYER), lease);
-    assert.equal((await settleSleeperKoLocked(PLAYER)).status, 200);
+    assert.equal((await settleSleeperKo(PLAYER)).status, 200);
     await travel.settleTravelLease(PLAYER, lease);
     assert.equal((await kv.get<Json>(SAVE))?.currentSector, 0);
     assert.equal((await kv.get<Json>(SAVE))?.currentTile, null);

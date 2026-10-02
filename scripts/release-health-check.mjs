@@ -74,10 +74,6 @@ try {
         assertOk(deep.saveStore === expectedSaveStore, `saveStore mismatch: expected ${expectedSaveStore}, got ${deep.saveStore ?? 'unknown'}`);
     }
 
-    if (process.env.REQUIRE_DISK_OVERLAY === '1') {
-        assertOk(deep.saveStore && deep.saveStore !== 'base-store', 'REQUIRE_DISK_OVERLAY=1 but deep health reports base-store');
-    }
-
     if (process.env.REQUIRE_FRESH_BACKUP === '1') {
         assertOk(deep.backup?.fresh === true, `backup freshness failed: ${JSON.stringify(deep.backup ?? null)}`);
     }

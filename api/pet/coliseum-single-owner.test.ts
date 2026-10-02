@@ -109,26 +109,63 @@ test('new generic-AI admission is rejected without publishing a battle proof', a
     assert.equal(await kv.get(`pet:battle-active:${playerName}`), null);
 });
 
-test('new real-player cinematic sparring settles its sealed win without paid progression', async () => {
+test('an unchallenged duel against another player is refused without publishing a battle proof', async () => {
+    // That unsealed spar resolved on the legacy duel sim, retired on 2026-10-02.
+    // A fight with another player is a sealed challenge (the next test).
+    const playerName = 'casualunsealedspar';
+    const opponentName = 'casualunsealedfoe';
+    const authToken = issuePlayerToken(playerName)!;
+    const pet = battlePet('unsealed-spar-pet', 'strong');
+    const opponentPet = battlePet('unsealed-spar-foe', 'weak');
+    await Promise.all([
+        kv.set(`save:${playerName}`, { _saveVersion: 1, character: { name: playerName, level: 20, ryo: 17, pets: [pet] } }),
+        kv.set(`save:${opponentName}`, { _saveVersion: 1, character: { name: opponentName, level: 20, ryo: 0, pets: [opponentPet] } }),
+    ]);
+
+    const refused = response();
+    await startHandler(request({
+        playerName,
+        opponentName,
+        mode: '1v1',
+        playerPetIds: [pet.id],
+        opponentPetIds: [opponentPet.id],
+    }, authToken, '198.51.100.30'), refused.res);
+
+    assert.equal(refused.out.statusCode, 410);
+    assert.equal(await kv.get(`pet:battle-active:${playerName}`), null);
+    const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    assert.equal((save?.character as Record<string, unknown>).ryo, 17);
+});
+
+test('a sealed player challenge settles its win without paid progression', async () => {
     const playerName = 'casualpolicywinner';
     const opponentName = 'casualpolicytarget';
     const authToken = issuePlayerToken(playerName)!;
     const pet = battlePet('casual-winner', 'strong');
     const opponentPet = battlePet('casual-target', 'weak');
+    const playerCharacter = {
+        name: playerName, level: 20, ryo: 17, totalPetWins: 8, dailyPetWins: 3,
+        lastDailyReset: new Date().toISOString().slice(0, 10), starterCardsClaimed: true,
+        tileCards: [], pets: [pet],
+    };
+    const opponentCharacter = { name: opponentName, level: 20, ryo: 0, pets: [opponentPet] };
     await Promise.all([
-        kv.set(`save:${playerName}`, {
-            _saveVersion: 1,
-            character: {
-                name: playerName, level: 20, ryo: 17, totalPetWins: 8, dailyPetWins: 3,
-                lastDailyReset: new Date().toISOString().slice(0, 10), starterCardsClaimed: true,
-                tileCards: [], pets: [pet],
-            },
-        }),
-        kv.set(`save:${opponentName}`, {
-            _saveVersion: 1,
-            character: { name: opponentName, level: 20, ryo: 0, pets: [opponentPet] },
-        }),
+        kv.set(`save:${playerName}`, { _saveVersion: 1, character: playerCharacter }),
+        kv.set(`save:${opponentName}`, { _saveVersion: 1, character: opponentCharacter }),
     ]);
+    // The duel the responder's accept seals, exactly as the challenge flow does.
+    const { sealPvpPetDuel } = await import('./_pvp-duel.js');
+    const challengeId = 'casual-policy-challenge';
+    const sealed = await sealPvpPetDuel({
+        challengeId,
+        challengerName: playerName,
+        responderName: opponentName,
+        challengerCharacter: playerCharacter,
+        responderCharacter: opponentCharacter,
+        challengerPetIds: [pet.id],
+        responderPetIds: [opponentPet.id],
+    });
+    assert.ok(sealed, 'the fixture must seal a challenge duel');
 
     const started = response();
     await startHandler(request({
@@ -137,6 +174,7 @@ test('new real-player cinematic sparring settles its sealed win without paid pro
         mode: '1v1',
         playerPetIds: [pet.id],
         opponentPetIds: [opponentPet.id],
+        pvpChallengeId: challengeId,
     }, authToken, '198.51.100.20'), started.res);
     assert.equal(started.out.statusCode, 200);
 
