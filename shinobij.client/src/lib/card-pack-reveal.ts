@@ -80,8 +80,12 @@ export function packTheme(packType: CardPackType): PackTheme {
         case "jutsu": return { label: "Jutsu Pack", accent: "#67e8f9", foilA: "#12364b", foilB: "#06121b" };
         case "legendary":
             return { label: "Legendary Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
+        case "legendary-five":
+            return { label: "Legendary Quintet Pack", accent: "#f0c463", foilA: "#3d2d10", foilB: "#130d04" };
         case "epic":
             return { label: "Elite Pack", accent: "#ce93d8", foilA: "#331a4a", foilB: "#110618" };
+        case "epic-five":
+            return { label: "Epic Quintet Pack", accent: "#d68cff", foilA: "#331a4a", foilB: "#110618" };
         default:
             return { label: "Random Pack", accent: "#e9d28d", foilA: "#31334c", foilB: "#0b1019" };
     }

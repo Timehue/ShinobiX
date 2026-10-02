@@ -1,0 +1,13 @@
+{
+  "provider": "built-in image_gen",
+  "assets": [
+    {
+      "file": "epic-five.webp",
+      "prompt": "Use case: stylized-concept. Asset type: full-bleed vertical 2:3 trading card booster wrapper illustration for Shinobi Journey. Create new Epic Quintet Pack artwork matching the supplied reference's painterly black-and-antique-gold Japanese fantasy card backs and purple crystalline seal. Reference is style only; make an original richer five-card edition. Subject: exactly five ornate black lacquer cards in a clear symmetrical fan, all five top edges visible, central card bearing a brilliant violet faceted eight-point crystal shuriken inside gold circular engraving, side cards bearing smaller violet gem seals. Scene: ink-black mountain river landscape, violet full moon, distant Japanese pagoda silhouettes, purple cherry blossoms and curling violet chakra ribbons with restrained gold highlights. Center the complete fan in the middle of the vertical frame, central emblem near 45% height and inside the middle 30% band so a wide gallery crop still reads; quiet dark atmospheric top 20% for runtime text. Detailed tactile gold foil filigree and wave patterns, dramatic violet glow. No text, letters, numbers, UI, logos or watermark. Deliver one portrait image."
+    },
+    {
+      "file": "legendary-five.webp",
+      "prompt": "Use case: stylized-concept. Asset type: full-bleed vertical 2:3 trading card booster wrapper illustration for Shinobi Journey. Create new Legendary Quintet Pack artwork matching the supplied reference's painterly black-and-antique-gold Japanese fantasy card backs, golden dragon and crown seal. Reference is style only; make an original richer five-card edition. Subject: exactly five ornate black lacquer cards in a clear symmetrical fan, all five top edges visible, central card bearing an intricately sculpted luminous gold dragon coiling around a crown inside gold circular engraving, side cards bearing small gold dragon seals. Scene: ink-black mountain river landscape, blazing golden sun disk, distant Japanese pagoda silhouettes, gold cherry blossoms and curling golden chakra ribbons with brilliant amber highlights. Center the complete fan in the middle of the vertical frame, central emblem near 45% height and inside the middle 30% band so a wide gallery crop still reads; quiet dark atmospheric top 20% for runtime text. Detailed tactile gold foil filigree and wave patterns, dramatic warm golden glow, same polished painterly look as Epic counterpart. No text, letters, numbers, UI, logos or watermark. Deliver one portrait image."
+    }
+  ]
+}
