@@ -150,7 +150,7 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
 
     it('recovers final IV/V Spire proof through the actual endpoint before sealing the title', async () => {
         const previousFlag = process.env.ENABLE_LEGACY;
-        const originalSet = kv.set;
+        const originalCompareSet = kv.compareSet;
         const oldWorld = await kv.get('game:era-state');
         process.env.ENABLE_LEGACY = '1';
         try {
@@ -175,13 +175,14 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
                 session.towerTactics = { version: 2, disruptedPylons: [10], chargeBaits: 0, avoidedStrikes: 1, squadKnockouts: [] };
                 sealTowerCatalogFloor(session, getSpireFloor(tier)!, 'spire');
                 await writeSession(session);
+                // Saves commit through mutatePlayerSave's compare-and-set.
                 let failed = false;
-                kv.set = (async (key: string, value: any, options?: any) => {
+                kv.compareSet = (async (key: string, expected: unknown, value: any, options?: any) => {
                     if (!failed && key === 'save:host' && value?.character?.eraJourneys?.[chapter.eraId]?.stageIndex === stages.length) {
                         failed = true; throw new Error('Injected final Spire campaign save failure');
                     }
-                    return originalSet(key, value, options);
-                }) as typeof kv.set;
+                    return originalCompareSet.call(kv, key, expected, value, options);
+                }) as typeof kv.compareSet;
                 assert.equal((await settle(runId)).statusCode, 500);
                 const partial = await kv.get<any>('save:host');
                 assert.equal(partial.character.eraJourneys[chapter.eraId].stageIndex, stages.length - 1);
@@ -203,10 +204,10 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
                 const finalSave = await kv.get('save:host');
                 assert.equal((await settle(runId)).statusCode, 200);
                 assert.deepEqual(await kv.get('save:host'), finalSave);
-                kv.set = originalSet;
+                kv.compareSet = originalCompareSet;
             }
         } finally {
-            kv.set = originalSet;
+            kv.compareSet = originalCompareSet;
             if (oldWorld) await kv.set('game:era-state', oldWorld); else await kv.del('game:era-state');
             if (previousFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = previousFlag;
         }
@@ -214,7 +215,7 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
     it('retries a failed campaign examination write before releasing the run, then enables the next era', async () => {
         const previousFlag = process.env.ENABLE_LEGACY;
         process.env.ENABLE_LEGACY = '1';
-        const originalSet = kv.set;
+        const originalCompareSet = kv.compareSet;
         try {
             const runId = 'tower-era-exam-retry';
             const journey = { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 2,
@@ -228,14 +229,15 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
             session.towerTactics = { version: 1, disruptedPylons: [10], chargeBaits: 0, avoidedStrikes: 0, squadKnockouts: [] };
             sealTowerCatalogFloor(session, getFloor(5)!, 'story');
             await writeSession(session);
+            // Saves commit through mutatePlayerSave's compare-and-set.
             let failed = false;
-            kv.set = (async (key: string, value: any, options?: any) => {
+            kv.compareSet = (async (key: string, expected: unknown, value: any, options?: any) => {
                 if (!failed && key === 'save:host' && value?.character?.eraJourneys?.['shinobi-awakening']?.stageIndex === 3) {
                     failed = true;
                     throw new Error('Injected campaign save failure');
                 }
-                return originalSet(key, value, options);
-            }) as typeof kv.set;
+                return originalCompareSet.call(kv, key, expected, value, options);
+            }) as typeof kv.compareSet;
             assert.equal((await settle(runId)).statusCode, 500);
             const partial = await kv.get<any>('save:host');
             assert.equal(partial.character.eraJourneys['shinobi-awakening'].stageIndex, 2);
@@ -268,7 +270,7 @@ describe('Tower party settlement lifecycle', { concurrency: false }, () => {
             await settle(runId);
             assert.deepEqual(await kv.get('save:host'), sealed, 'settlement replay preserves the sealed campaign and reward');
         } finally {
-            kv.set = originalSet;
+            kv.compareSet = originalCompareSet;
             if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
             else process.env.ENABLE_LEGACY = previousFlag;
         }
