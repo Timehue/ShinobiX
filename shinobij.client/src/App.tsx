@@ -5806,15 +5806,7 @@ export default function App() {
                     <ProfessionPicker
                         character={character}
                         sharedImages={sharedImages}
-                        onProfessionChosen={(profession) => {
-                            setCharacter({
-                                ...character,
-                                profession,
-                                professionRank: 1,
-                                professionXp: 0,
-                                professionChosenAt: Date.now(),
-                            });
-                        }}
+                        onVersionedCharacter={commitVersionedCharacter}
                     />
                 )}
 

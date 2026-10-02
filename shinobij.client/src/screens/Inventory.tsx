@@ -58,6 +58,7 @@ import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
+import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
 
 const ITEM_CATEGORY_ART: Record<ItemCategory, GameArtIconKind> = {
     gear: "attack", consumable: "potion", pet: "petTamer", material: "boneCharm", event: "reward",
@@ -589,6 +590,7 @@ export function Inventory({
     );
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
     const selectedPresentation = selectedGameItem ? presentItem(selectedGameItem, selectedPetFoodXp) : null;
+    const selectedMarketplaceScroll = selectedGameItem?.id === VILLAGE_TRANSFER_SCROLL_ID || selectedGameItem?.id === PROFESSION_CHANGE_APPROVAL_ID;
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
     const selectedActionCost = selectedGameItem
         ? (selectedGameItem.apCost ?? (selectedGameItem.weaponEp ? 40 : 0))
@@ -1085,7 +1087,7 @@ export function Inventory({
                                             {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} rounds</p>}
                                             {selectedGameItem.restoreChakra != null && <p><strong>Restores:</strong> {selectedGameItem.restoreChakra} chakra</p>}
                                             {selectedGameItem.restoreStamina != null && <p><strong>Restores:</strong> {selectedGameItem.restoreStamina} stamina</p>}
-                                            {selectedGameItem.cost > 0 && (selectedGameItem.id === VILLAGE_TRANSFER_SCROLL_ID
+                                            {selectedGameItem.cost > 0 && (selectedMarketplaceScroll
                                                 ? <p><strong>Marketplace price:</strong> {selectedGameItem.cost} Fate Shards</p>
                                                 : <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>)}
                                             {selectedSellValue > 0 && <p><strong>Sell Value:</strong> {selectedSellValue} ryo</p>}
@@ -1153,7 +1155,7 @@ export function Inventory({
                                 {saleNotice}
 
                                 <div className="item-popup-actions">
-                                    {selectedGameItem?.id === VILLAGE_TRANSFER_SCROLL_ID && setScreen && selected.source === "backpack" && (
+                                    {selectedMarketplaceScroll && setScreen && selected.source === "backpack" && (
                                         <button type="button" className="item-action-primary"
                                             onClick={() => { setSelectedInventoryItem(null); setScreen("grandMarketplace"); }}>
                                             Use scroll at Grand Marketplace
