@@ -90,6 +90,40 @@ test('pending ambush is returned by both blocked movement and floor reseal', asy
     assert.deepEqual(reseal.body?.position, { x: 1, y: 1 });
 });
 
+test('a server-sealed weekly Rift signal survives repeated floor seals', async () => {
+    const board = floor();
+    const fresh = { ...run(board.manifest), floorManifests: {}, riftDistortionId: 'echoed-threat' };
+    await kv.set('hg-run:riftplayer:token', fresh);
+    const body = { token: 'token', floor: 1, width: board.width, height: board.height,
+        playerX: 1, playerY: 1, tiles: board.tiles };
+    const sealed = await call(floorSealHandler, body);
+    assert.equal(sealed.status, 200, JSON.stringify(sealed.body));
+    const signal = sealed.body?.riftSignal as { tileIndex: number; kind: string; distortionId: string };
+    assert.equal(signal.kind, 'battle');
+    assert.equal(signal.distortionId, 'echoed-threat');
+    assert.equal((sealed.body?.manifest as { nodes: Record<string, string> }).nodes[String(signal.tileIndex)], 'battle');
+    const retry = await call(floorSealHandler, body);
+    assert.deepEqual(retry.body?.riftSignal, signal);
+});
+
+test('a pre-feature immutable floor manifest still reseals without new metadata', async () => {
+    const board = floor();
+    const chest = board.tiles.findIndex((tile) => tile.kind === 'chest');
+    board.tiles[chest].kind = 'empty';
+    board.tiles[164].kind = 'chest';
+    const current = validateHollowGateFloorManifest({ floor: 1, finalFloor: false, width: board.width, height: board.height,
+        playerX: 1, playerY: 1, tiles: board.tiles });
+    if (!current.ok) throw new Error(current.reason);
+    const legacy = { ...current.manifest };
+    delete legacy.detour;
+    await kv.set('hg-run:riftplayer:token', { ...run(legacy), floorManifests: { '1': legacy } });
+    const sealed = await call(floorSealHandler, { token: 'token', floor: 1, width: board.width, height: board.height,
+        playerX: 1, playerY: 1, tiles: board.tiles });
+    assert.equal(sealed.status, 200, JSON.stringify(sealed.body));
+    assert.equal(sealed.body?.alreadyReported, true);
+    assert.equal((sealed.body?.manifest as { detour?: unknown }).detour, undefined);
+});
+
 test('a rift card ambush survives refresh through the same floor reseal', async () => {
     const board = floor();
     const pendingAmbush = { nodeId: 'floor:1:ambush:threat-v30', kind: 'card' as const };

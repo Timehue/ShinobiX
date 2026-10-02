@@ -494,7 +494,7 @@ import { buildHollowGateRunFromStart, HOLLOW_GATE_FLOOR_LOAD_FAILED } from "./li
 import { hollowGateEncounterPresentation } from "./lib/hollow-gate-presentation";
 import { resumeHollowGateServerRun, settleHollowGateRunOnly, startHollowGateServerRun, attachStartedRun, clearHollowGateRunLocal, reportHollowGateRunError } from "./lib/hollow-gate-server";
 import { startHollowGateCombat, settleHollowGateCombat, type HollowGateCombatKind, type HollowGateCombatSettleResult, type HollowGateServerFight } from "./lib/hollow-gate-combat-api";
-import { hollowGateRewardLines, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
+import { hollowGateRewardLines, hollowGateSealRunMarkers, resolveHollowGateServerEvent, sealHollowGateFloor } from "./lib/hollow-gate-event-api";
 import { sealHollowGateStep, hollowGateSealedCombatOpts } from "./lib/hollow-gate-step-api";
 import { startHollowGateCardAmbush, settleHollowGateCardAmbush, hollowGateCardAmbushLogLine } from "./lib/hollow-gate-card-api";
 import {
@@ -1316,7 +1316,7 @@ export default function App() {
         let cancelled = false;
         void sealHollowGateFloor(playerName, token, hollowGateRun).then((result) => {
             if (cancelled) return;
-            if (result.position || result.activeCombat) {
+            if (result.position || result.activeCombat || result.detour || result.riftSignal) {
                 setHollowGateRun((previous) => {
                     if (!previous || previous.runToken !== token || previous.floor !== floor) return previous;
                     return {
@@ -1324,7 +1324,7 @@ export default function App() {
                         ...(result.position && previous.playerX === hollowGateRun.playerX && previous.playerY === hollowGateRun.playerY
                             ? { playerX: result.position.x, playerY: result.position.y }
                             : {}),
-                        ...(result.activeCombat ? { activeCombat: result.activeCombat } : {}),
+                        ...(result.activeCombat ? { activeCombat: result.activeCombat } : {}), ...hollowGateSealRunMarkers(result),
                     };
                 });
             }

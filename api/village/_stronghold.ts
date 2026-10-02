@@ -16,7 +16,8 @@ import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { terminalizeLapsedSoloPveSession } from '../solo-pve/_abandon.js';
-import { advanceStronghold, isDeathsGateStronghold, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
+import { advanceStronghold, isDeathsGateStronghold, STRONGHOLD_INTEL_TILE, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
+import { sectorPlace } from '../../shared/sector-geo.js';
 
 const TTL = 24 * 60 * 60;
 export const strongholdVisitKey = (name: string, sector: number) => `stronghold:${name}:${sector}`;
@@ -105,6 +106,23 @@ export async function handleStrongholdAction(playerName: string, action: string,
             }
             return snapshot(playerName, visit, { ...settled, won: session.outcome === 'win' });
         }
+        if (action === 'stronghold-intel') {
+            if (isDeathsGateStronghold(sector)) return fail('No field cache is available in the Obsidian Stronghold.');
+            // A retry after a successful claim should return the same receipt even if
+            // the player has since moved. An unclaimed cache cannot bypass a patrol.
+            if (visit.intelClaimed) return snapshot(playerName, visit);
+            if (visit.patrolId || visit.threat >= 100) return fail('Resolve the patrol first.');
+            const presence = onlineStore.get(playerName);
+            if (presence?.pendingAttacker || presence?.inBattle || (presence?.travelingUntil ?? 0) > Date.now()) {
+                return fail('Finish your current combat or travel before inspecting the cache.');
+            }
+            if (visit.tile !== STRONGHOLD_INTEL_TILE || !visit.visited.includes(STRONGHOLD_INTEL_TILE)) {
+                return fail('Reach the cache in the War Archives first.');
+            }
+            visit = { ...visit, intelClaimed: true, version: visit.version + 1 };
+            await kv.set(key, visit, { ex: TTL });
+            return snapshot(playerName, visit);
+        }
         if (!['stronghold-enter', 'stronghold-state', 'stronghold-step'].includes(action)) return fail('Unknown stronghold action.', 400);
         if (action === 'stronghold-step' && body.version === visit.version && !visit.patrolId && visit.threat < 100) {
             const presence = onlineStore.get(playerName);
@@ -135,7 +153,7 @@ export async function handleStrongholdAction(playerName: string, action: string,
                         : ['Stronghold Sentry', 'Stronghold Skirmisher', 'Stronghold Sealkeeper'])[(Math.floor(visit.steps / 25) - 1) % 3] },
                     scaling: { level: Math.max(1, Math.min(100, Number(character.level) - 10)) },
                     continuousVitals: true, encounter: { kind: 'stronghold-patrol', id: String(sector), bindingId: visit.id, metadata: { sector } },
-                    ...(isDeathsGateStronghold(sector) ? { environment: { biome: 'volcano' } } : {}),
+                    environment: { biome: sectorPlace(sector)?.biome ?? 'central' },
                 });
                 // An attack may have been reserved while the loadout was loading.
                 if (onlineStore.get(playerName)?.inBattle || onlineStore.get(playerName)?.pendingAttacker) return snapshot(playerName, visit, { combatBlocked: true });

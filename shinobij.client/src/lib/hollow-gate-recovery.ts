@@ -44,6 +44,8 @@ export type HollowGateSealedManifest = {
     spawn: { x: number; y: number };
     walkable: string;
     nodes: Record<string, string>;
+    detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" };
+    riftSignal?: { tileIndex: number; kind: string; distortionId: string };
 };
 
 /** api/hollow-gate/resume's view of one live run, limited to its current floor. */
@@ -53,6 +55,7 @@ export type HollowGateResumeState = {
     floorDepth: number;
     floor: number;
     variantId?: string;
+    riftDistortionId?: string;
     floorWidth?: number;
     floorHeight?: number;
     bossProfileId?: string;
@@ -217,6 +220,10 @@ export function rebuildHollowGateRun(
         diviner: state.divinerUsed || undefined,
         completed: false,
         runToken: state.token,
+        detourTileIndex: state.manifest?.detour?.tileIndex,
+        detourExtraSteps: state.manifest?.detour?.extraSteps,
+        riftDistortionId: state.riftDistortionId,
+        riftSignalTileIndex: state.manifest?.riftSignal?.tileIndex,
         serverSeed: state.seed,
         augmentOffers: state.augmentOffers,
         chosenAugment: state.augmentOffers.find((offer) => offer.id === state.chosenAugmentId) ?? null,

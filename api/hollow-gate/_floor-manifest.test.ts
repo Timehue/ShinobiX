@@ -71,6 +71,34 @@ test('floor manifest rejects client-authored reward and combat count inflation',
     assert.deepEqual(validate(1, false, missingBattle), { ok: false, reason: 'invalid-battle-count' });
 });
 
+test('floor sealing selects only an existing chest whose route adds at least four steps', () => {
+    const tiles = floorTiles(1, false);
+    const chest = tiles.findIndex((tile) => tile.kind === 'chest');
+    tiles[chest] = { kind: 'empty', terrain: 'room_floor' };
+    tiles[10 * 15 + 14] = { kind: 'chest', terrain: 'room_floor' };
+    const result = validate(1, false, tiles);
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.deepEqual(result.manifest.detour, { tileIndex: 164, extraSteps: 4, condition: 'echo-cache' });
+
+    const directRoute = floorTiles(1, false);
+    const direct = validate(1, false, directRoute);
+    assert.equal(direct.ok, true);
+    if (direct.ok) assert.equal(direct.manifest.detour, undefined);
+});
+
+test('weekly Rift signal surfaces one existing node without changing its kind or count', () => {
+    const tiles = floorTiles(1, false);
+    const result = validateHollowGateFloorManifest({ floor: 1, finalFloor: false, width: 15, height: 11,
+        playerX: 1, playerY: 1, tiles, riftDistortionId: 'echoed-threat' });
+    assert.equal(result.ok, true);
+    if (!result.ok) return;
+    assert.ok(result.manifest.riftSignal);
+    assert.equal(result.manifest.nodes[String(result.manifest.riftSignal!.tileIndex)], 'battle');
+    assert.equal(result.manifest.riftSignal!.distortionId, 'echoed-threat');
+    assert.equal(Object.values(result.manifest.nodes).filter((kind) => kind === 'battle').length, 5);
+});
+
 test('floor manifest rejects disconnected walkable pockets and a nearby target', () => {
     const disconnected = floorTiles(1, false);
     const pocket = 15 * 5 + 7;
