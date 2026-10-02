@@ -55,7 +55,6 @@ const ECHOES_VERSION = new Set([
     // client-owned and an unadopted debit would be undone by the next autosave.
     '_war-tax-apply.ts',
     'admin/content-publish.ts',
-    'battle/lock.ts',            // fires on every PvE defeat — the hottest path of all
     'clan/exchange/purchase.ts',
     'clan/mentor.ts',
     'clan/war/declare.ts',
@@ -63,23 +62,23 @@ const ECHOES_VERSION = new Set([
     'hollow-gate/combat-settle.ts',
     'hollow-gate/event.ts',
     'hollow-gate/settle.ts',
-    'hollow-gate/step.ts',
     'hollow-gate/use-consumable.ts',
     // jutsu/speedup.ts now commits through mutatePlayerSave, so the
     // "every mutatePlayerSave route acknowledges the committed version" test
     // below covers it (it used to echo the pre-bump version — a stale ack).
     // jutsu/train-with-seals.ts no longer writes: Seal levels are timed lessons
     // through training/jutsu-ryo.ts (payWith: 'honorSeals'), which echoes.
-    'legacy/trial.ts',
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
-    'missions/report-pet-event.ts',
     'missions/report-raid.ts',
     'pet/battle-result.ts',
-    'pet/gauntlet.ts',
     'pet/showdown.ts',
     'player/_cross-heal-settlement.ts',
-    'player/heal.ts',
+    // battle/lock.ts (every PvE defeat — the hottest path of all),
+    // hollow-gate/step.ts, legacy/trial.ts, missions/report-pet-event.ts,
+    // pet/gauntlet.ts, player/heal.ts and weekly-boss.ts now commit through
+    // mutatePlayerSave, so the "every mutatePlayerSave route acknowledges the
+    // committed version" test below covers them.
     // bank/claim-interest.ts, missions/weekly-board.ts, pet/evolve.ts,
     // player/daily-login.ts, profession/choose.ts, village/claim-daily-agenda.ts
     // and village/claim-war-crate.ts now commit through mutatePlayerSave, so the
@@ -102,7 +101,6 @@ const ECHOES_VERSION = new Set([
     'village/hollow-gate-unlock.ts',
     'village/kage-challenge.ts',
     'village/hire-mercenary.ts',
-    'weekly-boss.ts',
 ]);
 
 // These routes mutate through a versioned shared settlement helper rather than
@@ -258,9 +256,9 @@ const EXEMPT = new Set([
     // Honor Seal debit, live only when the war map is disabled — echoes the
     // declaring Kage's committed `_saveVersion` (_world-war-declaration.test.ts).
     'world-state.ts',
-    // Shared acceptance writer; sage.ts and stats.ts return the exact record
-    // stamp from this helper to the requesting player.
-    'legacy/_acceptance.ts',
+    // (legacy/_acceptance.ts, the shared acceptance writer, used to be listed here.
+    // It now commits through mutatePlayerSave, and sage.ts and stats.ts still return
+    // its exact record stamp to the requesting player.)
     '_elapsed-state.ts',
 ]);
 

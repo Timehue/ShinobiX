@@ -174,7 +174,10 @@ export async function writeVersionedPlayerSave(
 }
 
 /** Options a domain mutation may pass to the versioned write. */
-export type PlayerSaveMutationOptions = Pick<VersionedWriteOptions, 'hollowGateCurrencySource'>;
+export type PlayerSaveMutationOptions = Pick<VersionedWriteOptions, 'hollowGateCurrencySource'> & {
+    /** The save lock's TTL in seconds, for a caller that held it longer as a raw writer (default 5). */
+    lockTtlSec?: number;
+};
 
 export async function mutatePlayerSave<T>(
     playerNameRaw: string,
@@ -302,5 +305,5 @@ export async function mutatePlayerSave<T>(
         };
         if (decision.afterCommit) await decision.afterCommit(committed);
         return { ok: true as const, value: decision.value, ...committed };
-    }, { failClosed: true });
+    }, { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) });
 }

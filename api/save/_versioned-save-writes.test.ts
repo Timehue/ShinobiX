@@ -364,19 +364,11 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     '_anbu-infiltration-store.ts': 3,
     '_sector-war-garrison-store.ts': 1,
     'admin/bloodline-review.ts': 1,
-    'battle/lock.ts': 1,
-    'hollow-gate/step.ts': 1,
-    'legacy/_acceptance.ts': 1,
-    'legacy/trial.ts': 1,
-    'missions/report-pet-event.ts': 2,
-    'pet/gauntlet.ts': 1,
-    'player/heal.ts': 2,
     'pvp/_vitals-settlement.ts': 1,
     'towers/_entry-recovery.ts': 1,
     'towers/_records.ts': 1,
     'towers/_tower-store.ts': 4,
     'village/_kage-inactivity.ts': 1,
-    'weekly-boss.ts': 2,
 };
 
 test('raw player-save writes only ever shrink', () => {
