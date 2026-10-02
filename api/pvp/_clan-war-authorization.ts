@@ -1,5 +1,5 @@
-import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { CLAN_WAR_KEY_PREFIX, type ClanChallenge, type ClanWar } from '../clan/war/_storage.js';
@@ -154,7 +154,7 @@ export async function releaseClanWarPvpReservation(reservation: ClanWarPvpReserv
                 if (await kv.compareSet(warKey, war, candidate)) return;
             } catch (error) {
                 const recovered = await kv.get<ClanWar>(warKey).catch(() => null);
-                if (recovered && isDeepStrictEqual(recovered, candidate)) return;
+                if (recovered && storedValueEquals(recovered, candidate)) return;
                 throw error;
             }
         }
