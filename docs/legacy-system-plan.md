@@ -1,5 +1,15 @@
 # Legacy System — Implementation Plan
 
+**Current acquisition rules (2026-10-02):** tracking continues to level 100;
+level 50 is the first Sage-offer level. Late-game qualification remains valid.
+The generated [roster and trial routes](legacy-roster.md) are the current code
+baseline. New choices are revalidated before sealing, declined choices rotate,
+and the Sage explains activity families before acceptance. Paths qualifying
+without PvP have non-PvP routes through later trials; existing issued trials
+retain their objectives and can be rerolled. The [correction record](audits/legacies-2026-10-02/resolution.md)
+documents the acquisition audit fixes. Older implementation proposals below
+are historical where they conflict with these current rules.
+
 **Status:** CORE BUILT (see the §5.1 status banner for exactly what shipped and
 what's deferred), then hardened by a 47-agent adversarial verification pass
 (35 confirmed findings fixed — dead-stat requirements, trial strands, the
@@ -251,8 +261,8 @@ server-written LIVE counter or one of the three bounded MIRRORED counters
   sectorDefenses, warMissions, villageTenureDays`
 - **Support:** `healingDone, shieldsApplied, cleansesUsed, damageBlocked`
 - **Events:** `eventCompletions, weeklyBossTop10, gauntletTop25`
-- **Anti-gaming inputs:** `repeatKillsByTarget` (small map, cap 20 entries,
-  decayed), `suspicionFlags`
+- **Anti-gaming inputs:** `repeatKills` (UTC-day/opponent map, cap 300),
+  `suspicionFlags`; repeated match effects reuse the battle’s attribution weight
 - **Meta:** `updatedAt, bootstrappedAt`, exact-once activity receipts, bounded
   repeat-kill evidence, and suspicion timestamps (§5.4)
 
@@ -267,16 +277,17 @@ durable outbox intent before the debit can commit.
 
 | Hook | File | What it records |
 |---|---|---|
-| PvP win report | `api/missions/report-pvp-win.ts` | `pvpKills/pvpWins`, same-rank/higher-level flags, repeat-target decay, streaks and suspicion receipts. First-touch bootstrap distinguishes whether the base PvP save receipt has already moved the lifetime mirror |
-| PvP loss / defensive win | same session-settle surface | `pvpLosses`, `defensiveWins` (defender won), `comebackWins` (winner HP < 15% — read from finished `PvpSession`) |
-| Style attribution | `api/pvp/move.ts` — add per-cast accumulation on the session object (`session.styleTotals[type] += damage`), rolled into `legacy:stats` at settle | The engine knows each jutsu's `type` at cast time; a per-session accumulator avoids log re-parsing. **Log format unchanged** (no AI-rule-style lines) |
-| Support attribution | same accumulator: `Heal`/`Shield` tag applications already resolve in `resolveTagStatuses()` | `healingDone`, `shieldsApplied`, `damageBlocked` |
+| PvP terminal settlement | `api/_legacy-pvp-settlement.ts`, called by `api/pvp/_committed-terminal-effects.ts` and the win-report repair endpoint | Both fighters’ combat credit, including raid wins, V2 ranked wins, upset proof, guard defense, support, streaks and suspicion receipts; no browser callback is required. First-touch bootstrap checks the base reward receipt. World creation shares a fail-closed session/proof publication lease and writes immutable NX guard evidence. Settlement checks the ordered roles against the server-sealed world attacker; notifications and losing or expired publishers cannot reverse them. Proof/completion retention covers terminal recovery |
+| PvP loss / defensive win | same session-settle surface | `pvpLosses`, `defensiveWins` (defender won), `comebackWins` (clutch win ending at ≤15% HP, read from finished `PvpSession`) |
+| Style attribution | `api/_legacy-pvp.ts`, `api/_legacy-pve.ts` | Sealed specialty; kills and verified damage from PvP, reward-bearing AI/mission/story combat, public Tower clears and active Clan Boss assaults |
+| Support attribution | Same extractors | Applied healing (including Basic Heal, Siphon, Lifesteal and armor/Absorb), positive shield grants and shield absorption. Solo PvE uses applied structured event facts; PvP/Towers use server logs with applied healing amounts |
 | Mission claim | `api/missions/claim-mission.ts` (inside save lock, after `gainXp`) | `missionCompletions` / `huntCompletions` |
 | AI-fight soft-cap gate | `api/missions/report-ai-fight.ts` | `pveKills` (only up to the existing daily cap — the cap doubles as anti-farm), `eliteKills` when the reported tier qualifies |
 | Raid report | `api/missions/_raid-progression.ts` (shared by both raid producers) | `warContribution`, `raidsCompleted` |
 | Pet expedition | `api/missions/report-pet-event.ts` | `petExpeditions` after the authoritative expedition receipt is complete |
 | Pet duel wins | `api/pet/{battle-result,showdown}.ts` | `petDuelWins`; casual, ranked and Showdown paths retain durable settlement evidence for repair |
 | Hollow Gate settle | `api/hollow-gate/settle.ts` (extraction only, not death) | `hollowGateClears`, `dungeonClears` |
+| Hidden Dungeon settle | `api/dungeon/run.ts` | `dungeonClears` once per fully verified Warden/Card/Pet run; the redeemed run repairs delayed sidecar delivery |
 | Sector war resolve | `api/_sector-war-settle.ts` + `api/pvp/_sector-war-continuation.ts` | per-contributor `sectorCaptures`; receipt-backed `sectorDefenses` and `warPvpKills` |
 | War crate claim | `api/village/claim-war-crate.ts` | `warsWon`, using the crate id as the durable deed receipt |
 | Weekly boss distribution | `api/weekly-boss.ts` distribution phase | `bossContribution`, `weeklyBossTop10` |
@@ -373,8 +384,10 @@ eligibility: {
 
 Anti-gaming rules built into the evaluator (handoff §anti-gaming, all pure
 functions):
-- **Repeat-target decay:** kills vs the same player count `1, 1, 0.5, 0.25, 0…`
-  (from `repeatKillsByTarget`).
+- **Repeat-target decay:** each opponent per UTC day counts `1, 1, 0.5, 0.25, 0…`
+  across the winner’s and loser’s attributed counters. Combat and war effects
+  reuse one weight for the same battle. The daily renewal keeps long-running
+  communities from exhausting every possible opponent forever.
 - **Level-gap zeroing:** kills ≥15 levels below the killer contribute 0
   (already computable — `report-pvp-win` loads both saves).
 - **Style identity sealing:** the combat specialty chosen at character creation
