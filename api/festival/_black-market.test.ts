@@ -79,6 +79,15 @@ test('the displayed price matches the charged price', () => {
     assert.equal(Number(match![1].replace(/_/g, '')), BLACK_MARKET_COST);
 });
 
+test('the displayed daily cap matches the enforced cap', () => {
+    // The player card's Sealed Crates cell and the festival hub both print the
+    // client copy, so a split shows a cap the server does not enforce.
+    const client = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'black-market.ts'), 'utf8');
+    const match = /export const BLACK_MARKET_DAILY_CAP = ([\d_]+);/.exec(client);
+    assert.ok(match, 'client BLACK_MARKET_DAILY_CAP not found');
+    assert.equal(Number(match![1].replace(/_/g, '')), BLACK_MARKET_DAILY_CAP);
+});
+
 /*
  * Settlement tests. The odds tests above cover WHAT a pull pays; these cover
  * whether the player is charged correctly for it. This is a live ryo gamble, so
