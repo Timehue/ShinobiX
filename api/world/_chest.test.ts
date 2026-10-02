@@ -92,6 +92,15 @@ describe('ancient chest settlement', () => {
         assert.deepEqual(settled.character.inventory, ['relic-ashfall-reliquary']);
     });
 
+    it('compensates worn relics, including the rare-band Chakra Ring', () => {
+        for (const id of ['chakra-ring', 'relic-ashfall-reliquary']) {
+            const settled = settleAncientChestLoot({ inventory: [], equipment: { relic: id }, fateShards: 2 }, { xp: 0, itemId: id });
+            assert.equal(settled.loot.itemId, undefined);
+            assert.equal(settled.character.fateShards, 17);
+            assert.deepEqual(settled.character.inventory, []);
+        }
+    });
+
     it('draws gear from the whole tier, not a single fixed item', () => {
         // The common slot (0.2 <= roll < 0.55) and the rare slot (< 0.65) each
         // pick from their full pool. A fixed pick here silently deleted almost
@@ -174,7 +183,7 @@ describe('wild relic roster integrity', () => {
 
     it('excludes chakra-ring, which is ordinary chest rare-gear', () => {
         assert.ok(!WILD_RELIC_IDS.includes('chakra-ring'),
-            'a duplicate shop relic must not pay premium currency');
+            'the ring is in the ordinary rare-gear band, not the chase band');
     });
 
     it('includes the Weekly Boss relic even though no chest yields it', () => {

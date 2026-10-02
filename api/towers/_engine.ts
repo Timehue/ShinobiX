@@ -1,3 +1,4 @@
+import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -131,6 +132,8 @@ type JutsuLike = {
     suppressBloodline?: boolean;
     /** Internal server stamp for equipped-weapon tag scaling. */
     weaponSwing?: boolean;
+    /** Equipped weapon element, used only by the PvE relic bonus channel. */
+    pveWeaponElement?: string;
     /** deterministic Tower-AI authoring hints; ignored by the shared resolver */
     aiPriority?: number;
     aiHpBelowPct?: number;
@@ -1527,8 +1530,11 @@ function isAiCombatant(actor: TowerActor): boolean {
 }
 
 /** PvE-only relic multipliers, sealed by hydrateCharacterFromSave (already clamped). */
-function pveRelicDealtMult(actor: TowerActor): number {
-    return 1 + Math.max(0, Number(actor.character?.pveDamagePct) || 0) / 100;
+function pveRelicDealtMult(actor: TowerActor, attack: JutsuLike): number {
+    const specialist = pveSpecialistDamagePercent(actor.character?.pveSpecialistBonuses, {
+        type: attack.type, element: attack.weaponSwing ? attack.pveWeaponElement : attack.element,
+    });
+    return 1 + (Math.max(0, Number(actor.character?.pveDamagePct) || 0) + specialist) / 100;
 }
 function pveRelicTakenMult(target: TowerActor): number {
     return Math.max(0.25, 1 - Math.max(0, Number(target.character?.pveDamageTakenPct) || 0) / 100);
@@ -1564,7 +1570,7 @@ function resolveHit(
     //   • per-target — inside a PvE session, the counterparty must still be a real
     //     AI, so an async/AFK human ally or opponent never feeds it.
     const pveSession = session.towerId !== TOWER_PVP_TOWER_ID;
-    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
+    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor, jutsu) : 1;
     const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target) * formationDefendMult(session, target)
@@ -2509,6 +2515,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         }
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
+            pveWeaponElement: item.weaponElement,
             isUtility: false, weaponSwing: true, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
             // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
             // bloodline damage multiplier only when the weapon's element is one the
