@@ -7,20 +7,25 @@ import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save
 import {
     PROFESSION_CHANGE_APPROVAL_ID,
     PROFESSION_CHANGE_APPROVAL_NAME,
-    PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL,
+    PROFESSION_UNLOCK_LEVEL,
+    isProfession,
+    professionChangeUnlockError,
 } from '../../shared/profession-change.js';
 
-const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
-type Profession = typeof VALID_PROFESSIONS[number];
-
 function consumeProfessionApproval(character: Record<string, unknown>): Record<string, unknown> | null {
-    if (!Array.isArray(character.inventory)) return null;
-    const inventory = character.inventory;
+    const inventory = Array.isArray(character.inventory) ? character.inventory : [];
     const approvalIndex = inventory.indexOf(PROFESSION_CHANGE_APPROVAL_ID);
-    if (approvalIndex < 0) return null;
-    return {
+    if (approvalIndex >= 0) return {
         ...character,
         inventory: [...inventory.slice(0, approvalIndex), ...inventory.slice(approvalIndex + 1)],
+    };
+    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks : [];
+    const stackIndex = stacks.findIndex(stack => stack?.itemId === PROFESSION_CHANGE_APPROVAL_ID && Number.isSafeInteger(stack.count) && stack.count > 0);
+    if (stackIndex < 0) return null;
+    return {
+        ...character,
+        itemStacks: stacks.flatMap((stack, index) => index !== stackIndex ? [stack]
+            : stack.count > 1 ? [{ ...stack, count: stack.count - 1 }] : []),
     };
 }
 
@@ -32,11 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
-        const profession = String(body.profession ?? '') as Profession;
+        const profession = String(body.profession ?? '');
         const respecRequested = body.respec === true;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!VALID_PROFESSIONS.includes(profession)) {
+        if (!isProfession(profession)) {
             return res.status(400).json({ error: 'Invalid profession.' });
         }
         // Admin accounts can't pick a profession — the picker UI also skips
@@ -69,11 +74,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ({ ok: true as const, write: false, character: char, value: { status, body } });
 
             const level = Number(char.level ?? 0);
-            if (level < PROFESSION_UNLOCK_LEVEL) {
+            if (!Number.isFinite(level) || level < PROFESSION_UNLOCK_LEVEL) {
                 return reply(403, { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` });
             }
 
             if (char.profession === profession) return reply(200, { ok: true, profession, idempotent: true });
+            if (respecRequested) {
+                const error = professionChangeUnlockError(char);
+                if (error) return reply(403, { error });
+                if (body.fromProfession !== undefined && body.fromProfession !== char.profession) {
+                    return reply(409, { error: 'Your profession has changed. Refresh before choosing another path.' });
+                }
+                // Bind delayed retries to the choice generation, including A→B→A changes.
+                if (body.fromProfessionChosenAt !== undefined && body.fromProfessionChosenAt !== (char.professionChosenAt ?? null)) {
+                    return reply(409, { error: 'Your profession has changed. Refresh before choosing another path.' });
+                }
+            }
             if (char.profession) {
                 if (!respecRequested) {
                     return reply(409, {
@@ -93,12 +109,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             const changingProfession = Boolean(char.profession);
             const paidCharacter = changingProfession ? consumeProfessionApproval(char)! : char;
+            const priorChosenAt = Number(char.professionChosenAt);
             const nextCharacter = {
                 ...paidCharacter,
                 profession,
                 professionRank: 1,
                 professionXp: 0,
-                professionChosenAt: Date.now(),
+                professionChosenAt: Math.max(Date.now(), Number.isSafeInteger(priorChosenAt) ? priorChosenAt + 1 : 0),
                 ...(changingProfession ? { masterySpec: {} } : {}),
             };
             return {

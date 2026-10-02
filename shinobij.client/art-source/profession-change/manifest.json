@@ -1,0 +1,22 @@
+{
+  "asset": "Profession Change Scroll",
+  "tool": "built-in image_gen",
+  "created": "2026-10-02",
+  "prompt": "Use case: stylized-concept. Asset type: a single premium fantasy RPG inventory icon for a Profession Change Scroll in a shinobi game. Create one isolated, beautifully painted, partially unfurled parchment scroll, three-quarter perspective, diagonal lower-left to upper-right, centered in a square canvas with a small clean margin and all tassels inside the frame. Match a polished hand-painted game item aesthetic: warm ivory parchment, dark teal silk binding, antique gold end caps and fine engraved metalwork, a short teal braided cord. The front has one prominent golden circular seal with three simple, readable emblems arranged around it: a turquoise healing cross for Healer, a warm copper sword for Vanguard, and a jade paw print for Pet Tamer. A subtle circular-arrow engraving unifies the three emblems to suggest changing professions. Keep the scroll as one coherent item; bold silhouette and strong highlights that remain clear at 72 pixels. Soft light from upper left, crisp painted edges, dimensional shading, restrained detail, premium but practical. Truly transparent background with real alpha, no backdrop, no floor, no cast shadow outside the object, no text, letters, numbers, UI, border, frame, watermark, extra scrolls, loose floating symbols, or excessive magical particles. Only the isolated Profession Change Scroll.",
+  "source": "profession-change-scroll-v1.png",
+  "runtime": "../../public/items/profession-change-scroll-v1.webp",
+  "export": {
+    "width": 320,
+    "height": 320,
+    "format": "webp",
+    "quality": 88,
+    "alphaQuality": 100,
+    "transparent": true
+  },
+  "consumers": [
+    "Grand Marketplace scroll card",
+    "Profession hub scroll card",
+    "Inventory item artwork"
+  ],
+  "referenceConstant": "shared/profession-change.ts:PROFESSION_CHANGE_SCROLL_IMAGE"
+}

@@ -1,5 +1,6 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
+import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
 
 type Character = Record<string, unknown>;
@@ -27,6 +28,10 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const item = ITEM_CATALOG[id];
     const baseCost = whole(item?.cost);
     if (!item || baseCost <= 0) return { ok: false as const, reason: 'item-not-for-sale' as const };
+    if (id === PROFESSION_CHANGE_APPROVAL_ID) {
+        const error = professionChangeUnlockError(character);
+        if (error) return { ok: false as const, reason: error };
+    }
     if (id === VILLAGE_TRANSFER_SCROLL_ID && villageTransferUnlockError(character)) {
         return { ok: false as const, reason: villageTransferUnlockError(character)! };
     }
