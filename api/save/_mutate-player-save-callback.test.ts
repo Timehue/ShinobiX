@@ -142,6 +142,71 @@ describe('mutatePlayerSave callback contract', { concurrency: false }, () => {
         assert.equal(undone, false, 'a write that may have landed is never undone');
     });
 
+    it('hands a write it could not confirm to onUnconfirmedWrite, under the save lock', async () => {
+        const name = `${PREFIX}unconfirmed`;
+        await kv.set(`save:${name}`, { _saveVersion: 2, _saveAt: Date.now(), character: settledCharacter(name) });
+        let seen: { locked: boolean; storedRyo: unknown } | undefined;
+        let conflictUndone = false;
+        const original = kv.compareSet;
+        kv.compareSet = async (key, expected, value, options) => {
+            if (key === `save:${name}`) throw new Error('socket hang up');
+            return original.call(kv, key, expected, value, options);
+        };
+        try {
+            await assert.rejects(mutatePlayerSave(name, ({ character }) => ({
+                ok: true,
+                character: { ...character, ryo: 999 },
+                value: null,
+                onConflict: () => { conflictUndone = true; },
+                onUnconfirmedWrite: async () => {
+                    const stored = await kv.get<Json>(`save:${name}`);
+                    seen = { locked: Boolean(await kv.get(`lock:save:${name}`)), storedRyo: (stored?.character as Json).ryo };
+                    throw new Error('undo failed too');
+                },
+            })), /socket hang up/, 'a failing undo never masks the write error');
+        } finally {
+            kv.compareSet = original;
+        }
+        assert.deepEqual(seen, { locked: true, storedRyo: 50 }, 'it sees the save the write left behind');
+        assert.equal(conflictUndone, false);
+    });
+
+    it('never calls onUnconfirmedWrite for a lost compare-and-set, or for a lost reply the read-back confirmed', async () => {
+        const name = `${PREFIX}unconfirmedskip`;
+        await kv.set(`save:${name}`, { _saveVersion: 2, _saveAt: Date.now(), character: settledCharacter(name) });
+        const calls: string[] = [];
+        const decide = (ryo: number) => ({ character }: { character: Json }) => ({
+            ok: true as const,
+            character: { ...character, ryo },
+            value: null,
+            onConflict: () => { calls.push('conflict'); },
+            onUnconfirmedWrite: () => { calls.push('unconfirmed'); },
+        });
+        const original = kv.compareSet;
+        kv.compareSet = async (key, expected, value, options) => {
+            if (key === `save:${name}`) return false;
+            return original.call(kv, key, expected, value, options);
+        };
+        try {
+            await assert.rejects(mutatePlayerSave(name, decide(1)), /player-save-version-conflict/);
+        } finally {
+            kv.compareSet = original;
+        }
+        kv.compareSet = async (key, expected, value, options) => {
+            const committed = await original.call(kv, key, expected, value, options);
+            if (key === `save:${name}`) throw new Error('reply lost');
+            return committed;
+        };
+        let confirmed: Awaited<ReturnType<typeof mutatePlayerSave>>;
+        try {
+            confirmed = await mutatePlayerSave(name, decide(2));
+        } finally {
+            kv.compareSet = original;
+        }
+        assert.equal(confirmed.ok, true, 'the read-back recognised the committed write');
+        assert.deepEqual(calls, ['conflict']);
+    });
+
     it('runs afterCommit once the save is committed, while the save lock is still held', async () => {
         const name = `${PREFIX}aftercommit`;
         await kv.set(`save:${name}`, { _saveVersion: 6, _saveAt: Date.now(), character: settledCharacter(name) });

@@ -362,9 +362,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
 
     // ── Being moved onto mutatePlayerSave ───────────────────────────────────
     'admin/bloodline-review.ts': 1,
-    'towers/_entry-recovery.ts': 1,
-    'towers/_records.ts': 1,
-    'towers/_tower-store.ts': 4,
     'village/_kage-inactivity.ts': 1,
 };
 
