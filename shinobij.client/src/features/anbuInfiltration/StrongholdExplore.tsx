@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
+import { strongholdRooms, strongholdTitle, isDeathsGateStronghold, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_VAULT, STRONGHOLD_THREAT_PER_STEP, type StrongholdVisit } from '../../../../shared/sector-stronghold';
 import type { Character, PlayerRecord } from '../../types/character';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { computeHollowGateVisible } from '../../lib/hollow-gate-visibility';
@@ -9,6 +9,20 @@ import { strongholdRequest, type StrongholdResponse } from './stronghold-api';
 import { StrongholdDialog } from './StrongholdDialog';
 import { resolveOwnAvatar } from '../../lib/own-avatar';
 import './stronghold.css';
+const strongholdVisibilityCache = new WeakMap<object, Map<number, Set<number>>>();
+function visibilityForStrongholdTile(base: ReturnType<typeof buildVaultInterior>, tile: number): Set<number> {
+    let byTile = strongholdVisibilityCache.get(base);
+    if (!byTile) {
+        byTile = new Map();
+        strongholdVisibilityCache.set(base, byTile);
+    }
+    let visible = byTile.get(tile);
+    if (!visible) {
+        visible = computeHollowGateVisible({ ...base, playerX: tile % base.width, playerY: Math.floor(tile / base.width) });
+        byTile.set(tile, visible);
+    }
+    return visible;
+}
 
 export function StrongholdExplore({ character, sector, targetVillage, sharedImages, anbuAvatar, anbuName, blocked,
     admissionPending = false, admissionError, onRetryAdmission,
@@ -26,6 +40,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const [playersOpen, setPlayersOpen] = useState(false);
     const [selectedPeer, setSelectedPeer] = useState<PlayerRecord | null>(null);
     const [pending, setPending] = useState<'attack' | 'leave' | null>(null);
+    const [intelPending, setIntelPending] = useState(false);
     const [reconnect, setReconnect] = useState(0);
     const [metrics, setMetrics] = useState({ width: 800, height: 600 });
     const viewport = useRef<HTMLDivElement>(null);
@@ -49,17 +64,22 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
     const playerTile = state?.visit.tile ?? base.playerY * base.width + base.playerX;
     const run = useMemo(() => ({ ...base, playerX: playerTile % base.width,
         playerY: Math.floor(playerTile / base.width) }), [base, playerTile]);
-    const visible = useMemo(() => computeHollowGateVisible(run), [run]);
+    // Stronghold polls every two seconds, and its visit history can contain a
+    // tile for every step. Reuse each tile's line-of-sight result across polls
+    // and movement; the WeakMap naturally releases it when this floor unmounts.
+    const visible = useMemo(() => visibilityForStrongholdTile(base, playerTile), [base, playerTile]);
     const seen = useMemo(() => {
         const known = new Set<number>();
         for (const tile of state?.visit.visited ?? []) {
-            computeHollowGateVisible({ ...base, playerX: tile % base.width, playerY: Math.floor(tile / base.width) }).forEach(i => known.add(i));
+            visibilityForStrongholdTile(base, tile).forEach(i => known.add(i));
         }
         return known;
     }, [base, state?.visit.visited]);
     const discovered = useMemo(() => new Set([...seen].map(i => base.tiles[i].roomId).filter(id => id != null)), [base, seen]);
+    const intelKnown = discovered.has(STRONGHOLD_INTEL_ROOM_ID);
     const roomId = run.tiles[run.playerY * run.width + run.playerX].roomId;
     const roomName = roomId == null ? 'Connecting passage' : rooms[roomId].name;
+    const atIntelCache = !obsidian && playerTile === STRONGHOLD_INTEL_TILE;
     const threat = state?.visit.threat ?? 0;
     const remaining = Math.ceil((100 - threat) / STRONGHOLD_THREAT_PER_STEP);
 
@@ -237,7 +257,7 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                         const known = seen.has(idx), lit = visible.has(idx);
                         const role = tile.kind === 'wall' ? (run.tiles[idx + base.width]?.kind !== 'wall' ? 'wall-face' : 'wall') : tile.terrain === 'door' ? 'door' : tile.terrain === 'corridor_floor' ? 'corridor' : 'floor';
                         const url = art(role);
-                        return <div key={idx} className={`stronghold-tile ${tile.kind === 'wall' ? 'is-wall' : 'is-floor'}${obsidian && idx === STRONGHOLD_VAULT ? ' is-blood-altar' : ''}`} onClick={() => walkTo(idx)}
+                        return <div key={idx} className={`stronghold-tile ${tile.kind === 'wall' ? 'is-wall' : 'is-floor'}${obsidian && idx === STRONGHOLD_VAULT ? ' is-blood-altar' : ''}${intelKnown && idx === STRONGHOLD_INTEL_TILE ? ' is-intel-cache' : ''}`} onClick={() => walkTo(idx)}
                             style={{ width: tileSize, height: tileSize, backgroundImage: url && known ? `url(${url})` : undefined, opacity: lit ? 1 : known ? 0.42 : tile.kind === 'wall' ? 0.08 : 0.12 }}>
                             {known && tile.decoration != null && art(`deco-${tile.decoration + 1}`) && <img className="stronghold-decoration" src={art(`deco-${tile.decoration + 1}`)} alt="" />}
                             {known && tile.kind === 'boss' && <img className="stronghold-anbu" src={anbuAvatar ?? ''} alt={anbuName} />}
@@ -272,6 +292,13 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
                     </svg><p>White: you · Red: players · Gold: {obsidian ? 'Blood Altar' : 'vault'}</p>
                 </div>
                 {playerList}
+                {atIntelCache && <div className="stronghold-intel-cache" aria-live="polite">
+                    <h3>War Archives</h3>
+                    {state?.visit.intelClaimed
+                        ? <p>A patrol ledger marks the southeast vault and a quiet route through the central chambers. Patrol pressure is unchanged.</p>
+                        : <><p>A sealed patrol ledger rests here. Inspect it for route intel; it does not affect patrol pressure.</p>
+                            <button disabled={intelPending || !!pending || threat >= 100 || !!state?.patrol} onClick={() => void claimIntel()}>{intelPending ? 'Reading…' : 'Inspect patrol ledger'}</button></>}
+                </div>}
                 <p className="stronghold-hint">Each step adds 4% threat. Defeat the patrol to keep exploring. {obsidian ? 'Meet your rivals at the Blood Altar in the southeast. PvP wins anywhere inside earn double Death’s Gate’s rewards. Patrols do not earn this bonus. Normal reward limits apply.' : 'The Anbu guards the vault in the southeast.'}</p>
             </aside>
         </div>
@@ -290,4 +317,21 @@ export function StrongholdExplore({ character, sector, targetVillage, sharedImag
             <div className="stronghold-dialog-actions"><button className="stronghold-attack" disabled={blocked || !!pending || threat >= 100 || !availablePeers.some(p => p.name === selectedPeer.name)} onClick={() => void attack(selectedPeer)}>{pending === 'attack' ? 'Connecting…' : 'Attack player'}</button><button onClick={() => setSelectedPeer(null)}>Cancel</button></div>
         </StrongholdDialog>}
     </section>;
+
+    async function claimIntel() {
+        const context = lifetime.current;
+        if (!context || busy.current || !current.current || current.current.tile !== STRONGHOLD_INTEL_TILE) return;
+        busy.current = true;
+        setIntelPending(true);
+        setActionError('');
+        try {
+            const next = await strongholdRequest(character.name, sector, 'intel', { presenceId: context.presenceId });
+            adopt(next, context);
+        } catch (e) {
+            if (alive.current && context === lifetime.current) setActionError((e as Error).message || 'The patrol ledger could not be read.');
+        } finally {
+            if (context === lifetime.current) busy.current = false;
+            setIntelPending(false);
+        }
+    }
 }

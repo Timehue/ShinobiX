@@ -84,14 +84,15 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
             return;
         }
         const floorSeal = await sealHollowGateFloor(character.name, recovered.token, run);
-        setHollowGateRun(run);
+        const sealedRun = { ...run, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+        setHollowGateRun(sealedRun);
         setHollowGateLog([
             "You recover the descent interrupted at the broken torii. The same sealed key record restores your route.",
             ...(!floorSeal.ok ? [`Floor seal pending: ${floorSeal.error || "retry after reconnect"}. Movement remains server-blocked until the seal succeeds.`] : []),
         ]);
         setHollowGateEvent(null);
         setHollowGateHiddenChamber(null);
-        setCharacter({ ...recoveredBase, hollowGateRun: run });
+        setCharacter({ ...recoveredBase, hollowGateRun: sealedRun });
         setCurrentBiome("shadow");
         setCurrentWeather(weatherForBiome("shadow"));
         setScreen("hollowGateShrine");
@@ -172,7 +173,8 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
         return;
     }
     const floorSeal = await sealHollowGateFloor(character.name, serverStart.token, run);
-    setHollowGateRun(run);
+    const sealedRun = { ...run, detourTileIndex: floorSeal.detour?.tileIndex, detourExtraSteps: floorSeal.detour?.extraSteps, riftSignalTileIndex: floorSeal.riftSignal?.tileIndex };
+    setHollowGateRun(sealedRun);
     setHollowGateLog([
         keyCost > 0
             ? "You press a Hollow Gate Key against the broken torii. The seal bends. You descend."
@@ -186,7 +188,7 @@ export async function enterHollowGateShrineFlow(params: HollowGateEntryParams) {
     setHollowGateIntroPage(isFirstEntry ? 0 : null);
     setCharacter({
         ...afterKey,
-        hollowGateRun: run,
+        hollowGateRun: sealedRun,
         ...(!variant ? { hollowGateIntroSeen: true } : {}),
         dailyHollowGateRuns: runsToday + 1,
         lastDailyReset: todayKey,

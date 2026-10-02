@@ -133,6 +133,11 @@ export type HollowGateShrineRun = {
     playerX: number;
     playerY: number;
     tiles: HollowGateTile[]; // length = width * height, row-major
+    /** Server-sealed optional chest detour on this floor; reward uses normal chest rules. */
+    detourTileIndex?: number;
+    detourExtraSteps?: number;
+    riftDistortionId?: string;
+    riftSignalTileIndex?: number;
     floor: number;
     threat: number; // 0..100
     torch: number; // 0..10

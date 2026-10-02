@@ -20,6 +20,20 @@ import { CASTLE_SECTORS, FESTIVAL_SECTOR, MAX_WILD_SECTOR, OUTSKIRTS_SECTORS, pl
 export const RIFT_DAILY_CAP = 3;                       // paid rift clears per UTC day
 export const RIFT_COOLDOWN_MS = 6 * 60 * 60 * 1000;    // roaming giver stays quiet 6h after a clear
 
+export const RIFT_WEEKLY_DISTORTIONS = [
+    { id: 'echoed-cache', label: 'Echoed Cache', kind: 'chest' },
+    { id: 'echoed-threat', label: 'Echoed Threat', kind: 'battle' },
+    { id: 'resonant-vein', label: 'Resonant Vein', kind: 'shard_vein' },
+] as const;
+
+/** Stable Monday-UTC rotation; active runs carry the returned id in their token. */
+export function riftWeeklyDistortion(now = Date.now()) {
+    const date = new Date(now);
+    const monday = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - (date.getUTCDay() + 6) % 7);
+    const week = Math.floor(monday / 604_800_000);
+    return RIFT_WEEKLY_DISTORTIONS[((week % RIFT_WEEKLY_DISTORTIONS.length) + RIFT_WEEKLY_DISTORTIONS.length) % RIFT_WEEKLY_DISTORTIONS.length];
+}
+
 export interface RiftQuestDef {
     id: string;
     levelReq: number;

@@ -265,3 +265,13 @@
         animation: none;
     }
 }
+.hg-cell.hg-detour-cache { outline: 2px solid #67e8f9; outline-offset: -2px; z-index: 2; }
+.hg-detour-mark { position: absolute; z-index: 4; top: 1px; right: 2px; color: #cffafe; font-size: 15px; line-height: 1; text-shadow: 0 1px 5px #083344, 0 0 8px #22d3ee; pointer-events: none; }
+.hg-detour-card { display: grid; gap: 5px; padding: 10px; border: 1px solid #22d3ee70; border-radius: 8px; background: linear-gradient(135deg, #102a38e8, #110a20e8); color: #d8fbff; font-size: 12px; line-height: 1.45; }
+.hg-detour-card b { color: #a5f3fc; font-size: 13px; }
+.hg-cell.hg-rift-signal { outline: 2px dashed #c4b5fd; outline-offset: -3px; z-index: 3; }
+.hg-rift-mark { position: absolute; z-index: 5; bottom: 1px; left: 2px; color: #ede9fe; font-size: 13px; line-height: 1; text-shadow: 0 1px 5px #2e1065, 0 0 8px #a78bfa; pointer-events: none; }
+.hg-rift-card { display: grid; gap: 5px; padding: 10px; border: 1px solid #a78bfa70; border-radius: 8px; background: linear-gradient(135deg, #27184bea, #110a20e8); color: #ede9fe; font-size: 12px; line-height: 1.45; }
+.hg-rift-card b { color: #ddd6fe; font-size: 13px; }
+.hg-mm-detour { background: #67e8f9; box-shadow: 0 0 3px #22d3ee; border-radius: 50%; }
+.hg-mm-rift-signal { background: #c4b5fd; box-shadow: 0 0 4px #a78bfa; border-radius: 50%; }

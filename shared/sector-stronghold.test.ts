@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceStronghold, buildStrongholdTiles, canStepStronghold, strongholdRooms, STRONGHOLD_DIMS, STRONGHOLD_ROOMS, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, type StrongholdVisit } from './sector-stronghold.js';
+import { advanceStronghold, buildStrongholdTiles, canStepStronghold, strongholdRooms, STRONGHOLD_DIMS, STRONGHOLD_INTEL_ROOM_ID, STRONGHOLD_INTEL_TILE, STRONGHOLD_ROOMS, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, type StrongholdVisit } from './sector-stronghold.js';
 
 test('Death’s Gate reskin preserves all twelve rooms and opens the Blood Altar for dueling', () => {
     const tiles = buildStrongholdTiles(99);
@@ -25,6 +25,8 @@ test('all twelve chambers and the vault are connected; everyone gets identical g
     }
     for (const room of STRONGHOLD_ROOMS) assert.ok(reached.has((room.y + 2) * STRONGHOLD_DIMS.width + room.x + 3), room.name);
     assert.ok(reached.has(STRONGHOLD_VAULT));
+    assert.equal(tiles[STRONGHOLD_INTEL_TILE].roomId, STRONGHOLD_INTEL_ROOM_ID);
+    assert.ok(reached.has(STRONGHOLD_INTEL_TILE), 'War Archives intel objective is reachable');
 });
 
 test('only successful adjacent steps build threat, and the 25th step blocks movement for a patrol', () => {

@@ -33,6 +33,8 @@ export function riftEventConfig(rift: HollowRift): HollowGateEventConfig {
 export type RiftResponse = {
     ok?: boolean;
     reason?: string;
+    /** Monotonic save token returned by the authoritative rift endpoint. */
+    _saveVersion?: number;
     activeRiftQuest?: Character["activeRiftQuest"];
     ryo?: number;
     totalRyo?: number;
@@ -44,8 +46,6 @@ export type RiftResponse = {
     firstClear?: boolean;
     firstClearAt?: number;
     completedRiftId?: string;
-    /** Save revision the server wrote; lets the client adopt it instead of racing the autosave. */
-    _saveVersion?: number;
 };
 
 async function postRift(body: Record<string, unknown>): Promise<RiftResponse> {

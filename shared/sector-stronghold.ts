@@ -32,6 +32,9 @@ export type StrongholdTile = {
 export const strongholdIndex = (x: number, y: number) => y * STRONGHOLD_DIMS.width + x;
 export const STRONGHOLD_SPAWN = strongholdIndex(5, 4);
 export const STRONGHOLD_VAULT = strongholdIndex(32, 18);
+/** Optional, non-economic field-intel objective in the War Archives. */
+export const STRONGHOLD_INTEL_ROOM_ID = 6;
+export const STRONGHOLD_INTEL_TILE = strongholdIndex(23, 11);
 
 export function buildStrongholdTiles(sector = 0): StrongholdTile[] {
     const { width, height } = STRONGHOLD_DIMS;
@@ -82,6 +85,8 @@ export type StrongholdVisit = {
     version: number;
     visited: number[];
     patrolId?: string;
+    /** One-time, visit-bound intel interaction. It awards no currency or items. */
+    intelClaimed?: boolean;
 };
 
 /** Reject repeats, row wrapping, teleporting, walls and the occupied boss tile. */
