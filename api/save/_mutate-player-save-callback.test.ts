@@ -248,6 +248,30 @@ describe('mutatePlayerSave callback contract', { concurrency: false }, () => {
         assert.equal(ran, 0);
     });
 
+    it('keeps a Hollow Gate ledger the decision built itself when it says provenance is recorded', async () => {
+        const name = `${PREFIX}provenance`;
+        const token = 'hg-provenance';
+        await kv.set(`save:${name}`, {
+            _saveVersion: 1, _saveAt: Date.now(),
+            character: { ...settledCharacter(name), hollowGateRun: { runToken: token, currentFloor: 1 } },
+        });
+        const { recordHollowGateExternalCredits, hollowGateExternalCredits } = await import('../hollow-gate/_external-credits.js');
+        // Each decision credits 30 ryo as a same-checkpoint reversal, which is
+        // not protected income, and records that itself.
+        const decide = (recorded: boolean) => ({ character }: { character: Json }) => ({
+            ok: true as const,
+            character: recordHollowGateExternalCredits(character, { ...character, ryo: Number(character.ryo) + 30 }, 'run'),
+            value: null,
+            ...(recorded ? { hollowGateProvenanceRecorded: true as const } : {}),
+        });
+        const ledger = async () => hollowGateExternalCredits((await kv.get<Json>(`save:${name}`))!.character as Json, token);
+
+        await mutatePlayerSave(name, decide(true));
+        assert.deepEqual(await ledger(), {}, 'the recorded reversal stays unprotected');
+        await mutatePlayerSave(name, decide(false));
+        assert.deepEqual(await ledger(), { ryo: 30 }, 'without the flag the version bump reclassifies the delta as income');
+    });
+
     it('says whether the save or only its character is missing', async () => {
         const absent = await mutatePlayerSave(`${PREFIX}absent`, ({ character }) => ({ ok: true, character, value: null }));
         assert.deepEqual(absent, { ok: false, status: 404, error: 'Player save not found.', code: 'save-not-found' });

@@ -51,3 +51,25 @@ test('a lost response is recognised by read-back, any other transport error is r
     landed = false;
     await assert.rejects(projected.writeSaveProjected(key, record(5, 40), record(4, 25)), /socket hang up/);
 });
+
+test('a lost response is still recognised when Postgres hands back the JSON form of the record', async (t) => {
+    // Production reads come from Postgres jsonb: an undefined field is gone and
+    // -0 is 0. mergePreservingImages keeps both, so `intended` carries them.
+    const key = 'save:projlostjson';
+    const previous = record(3, 10);
+    await kv.set(key, previous);
+    const realCompareSet = kv.compareSet.bind(kv);
+    const realGet = kv.get.bind(kv);
+    t.mock.method(kv, 'compareSet', async (k: string, expected: unknown, value: unknown) => {
+        await realCompareSet(k, expected, value);
+        throw new Error('socket hang up');
+    });
+    t.mock.method(kv, 'get', async (k: string) => {
+        const stored = await realGet(k);
+        return stored === null ? null : JSON.parse(JSON.stringify(stored));
+    });
+    const next = { _saveVersion: 4, character: { name: 'proj', ryo: 25, title: undefined, shield: -0 } };
+    await projected.writeSaveProjected(key, next, previous);
+    assert.deepEqual(await kv.get(key), { _saveVersion: 4, character: { name: 'proj', ryo: 25, shield: 0 } },
+        'the write landed, so the call succeeds');
+});
