@@ -57,13 +57,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 playerX: existing?.spawn.x ?? body.playerX,
                 playerY: existing?.spawn.y ?? body.playerY,
                 tiles: body.tiles,
+                // Preserve pre-feature immutable manifests byte-for-byte when a
+                // player resumes an older run. New floors derive their markers
+                // once; newer manifests recompute them to verify exact equality.
+                deriveDetour: !existing || Boolean(existing.detour),
+                riftDistortionId: !existing || existing.riftSignal ? run.riftDistortionId : undefined,
             });
             if (!validation.ok) return { status: 409, body: { error: `Invalid Hollow Gate floor: ${validation.reason}.` } };
             if (existing) {
                 if (JSON.stringify(existing) !== JSON.stringify(validation.manifest)) {
                     return { status: 409, body: { error: 'The floor manifest is already sealed.' } };
                 }
-                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, position: run.position, pendingAmbush: run.pendingAmbush ?? null } };
+                return { status: 200, body: { ok: true, alreadyReported: true, manifest: existing, detour: existing.detour ?? null, riftSignal: existing.riftSignal ?? null, position: run.position, pendingAmbush: run.pendingAmbush ?? null } };
             }
             const next: HollowGateRunToken = {
                 ...run,
@@ -72,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 visitedTiles: hollowGateMarkVisited(run.visitedTiles, validation.manifest, validation.manifest.spawn),
             };
             await kv.set(runKey, next);
-            return { status: 200, body: { ok: true, manifest: validation.manifest, position: next.position, pendingAmbush: next.pendingAmbush ?? null } };
+            return { status: 200, body: { ok: true, manifest: validation.manifest, detour: validation.manifest.detour ?? null, riftSignal: validation.manifest.riftSignal ?? null, position: next.position, pendingAmbush: next.pendingAmbush ?? null } };
         }, { failClosed: true, ttlSec: 10 });
         return res.status(result.status).json(result.body);
     } catch (error) {

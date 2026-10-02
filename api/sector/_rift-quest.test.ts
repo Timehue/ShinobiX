@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
+    RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS, riftWeeklyDistortion,
     isRiftQuestId, riftQuestRyo, riftBossKilled, riftTargetSector,
     parseRiftQuestSeal, parseRiftQuestBossReceipt, reconcileRiftRunBinding, riftBossReceiptMatches,
 } from './_rift-quest.js';
@@ -33,6 +33,14 @@ test('riftQuestRyo follows the wanderer-quest band', () => {
     assert.equal(riftQuestRyo(50, 8), 8 * 170);  // weight*(20+lvl*3)
     assert.equal(riftQuestRyo(1, 8), 8 * 23);
     assert.equal(riftQuestRyo(0, 8), 8 * 23);    // level floors at 1
+});
+
+test('Rift distortion is stable for a Monday-UTC week and rotates weekly', () => {
+    const monday = Date.UTC(2026, 9, 5);
+    const first = riftWeeklyDistortion(monday + 60_000);
+    assert.deepEqual(riftWeeklyDistortion(monday + 6 * 86_400_000), first);
+    assert.notEqual(riftWeeklyDistortion(monday + 7 * 86_400_000).id, first.id);
+    assert.deepEqual(riftWeeklyDistortion(monday + 21 * 86_400_000), first);
 });
 
 test('riftBossKilled needs one foe-kill past the sealed baseline', () => {
