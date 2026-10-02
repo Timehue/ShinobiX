@@ -19,9 +19,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Admin password now read from x-admin-password HEADER instead of the
     // request body. Bodies routinely land in request loggers / error
     // trackers / reverse-proxy buffers; headers are typically redacted.
-    // (Two other admin endpoints — moderation.ts, migrate-kv.ts — already
-    // used the header; players.ts/server-reset.ts/item-review.ts/
-    // bloodline-review.ts now match.)
+    // (moderation.ts already used the header; players.ts/server-reset.ts/
+    // item-review.ts/bloodline-review.ts now match.)
     // Full admin (Admin 1) only — content admin (Admin 2) does NOT have
     // access to player management.
     if (!isFullAdmin(req)) {
