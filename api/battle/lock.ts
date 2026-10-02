@@ -1,10 +1,11 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { isTowerBattleLock, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 
 /*
@@ -175,35 +176,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (outcome === 'loss') {
                         // A cleared-state defeat updates the save and removes the
                         // battle marker under deterministic battle→save locking.
-                        await withKvLock(`save:${playerName}`, async () => {
-                            const fresh = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                            const freshChar = fresh?.character as Record<string, unknown> | undefined;
-                            if (freshChar) {
-                                // Admission carries its discharge clock. Without
-                                // hospitalizedAt/Until this wrote a timer-less
-                                // stay: the Hospital UI had no countdown to run
-                                // down, so the only way out was paying to skip.
-                                // 60s matches every other defeat path
-                                // (player/heal.ts, missions/_ai-fight-outcome.ts,
-                                // pvp/_vitals-settlement.ts).
-                                const admittedAt = Date.now();
-                                const updated = {
-                                    ...fresh,
-                                    character: {
-                                        ...freshChar,
-                                        hp: 0,
-                                        hospitalized: true,
-                                        hospitalizedAt: admittedAt,
-                                        hospitalizedUntil: admittedAt + HOSPITAL_DURATION_MS,
-                                    },
-                                };
-                                const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
-                                const nextVersion = Number(versioned._saveVersion);
-                                if (Number.isFinite(nextVersion)) result.version = nextVersion;
-                                await kv.set(`save:${playerName}`, mergePreservingImages(versioned, fresh));
-                            }
-                            await kv.del(key);
-                        }, { failClosed: true });
+                        // The battle lock is still held while the save settles,
+                        // so no idle recovery is credited for the fight. The
+                        // admission is a value, not a delta, so re-running it
+                        // after a lost compare-and-set lands it once.
+                        const defeated = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, ({ character: freshChar }) => {
+                            // Admission carries its discharge clock. Without
+                            // hospitalizedAt/Until this wrote a timer-less
+                            // stay: the Hospital UI had no countdown to run
+                            // down, so the only way out was paying to skip.
+                            // 60s matches every other defeat path
+                            // (player/heal.ts, missions/_ai-fight-outcome.ts,
+                            // pvp/_vitals-settlement.ts).
+                            const admittedAt = Date.now();
+                            return {
+                                ok: true,
+                                character: {
+                                    ...freshChar,
+                                    hp: 0,
+                                    hospitalized: true,
+                                    hospitalizedAt: admittedAt,
+                                    hospitalizedUntil: admittedAt + HOSPITAL_DURATION_MS,
+                                },
+                                value: null,
+                                afterCommit: () => kv.del(key).then(() => undefined),
+                            };
+                        }));
+                        if (defeated.ok) result.version = defeated._saveVersion;
+                        // No character to mark: still clear the marker.
+                        else await kv.del(key);
                     } else {
                         await kv.del(key);
                     }
@@ -219,7 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             res.setHeader('Retry-After', '1');
             return res.status(503).json({ error: 'Battle state is being updated. Please retry.' });
         }

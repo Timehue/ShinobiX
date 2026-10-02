@@ -1,13 +1,13 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { hospitalDischargeRestoresHpOnly } from '../_release-flags.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
-import { withKvLock } from '../_lock.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { hospitalDischargeBaseCost } from '../../shared/hospital-discharge-cost.js';
 import { getDurableSettlement } from '../_durable-settlement.js';
 import { parseSettlementRequestId } from '../_settlement-receipts.js';
@@ -130,26 +130,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Floored at 60 s: the Full Recovery capstone zeroes the cooldown
                 // for healing OTHERS, which is the intended reward, but zeroing it
                 // here would hand that Healer an instant-refill button again.
-                const topUpResult = await withKvLock(targetKey, async () => {
-                    const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
-                    const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+                type Reply = { status: 200 | 400 | 403 | 429; body: Record<string, unknown> };
+                const toppedUp = await mutatePlayerSave<Reply>(targetName, async ({ character: freshChar }) => {
+                    const refuse = (reply: Reply) => ({ ok: true as const, write: false, character: freshChar, value: reply });
                     if (!identity.admin && freshChar.profession !== 'healer') {
-                        return { status: 403 as const, body: { error: 'Only Healers can self-heal at the hospital.' } };
+                        return refuse({ status: 403, body: { error: 'Only Healers can self-heal at the hospital.' } });
                     }
                     if (freshChar.hospitalized) {
-                        return { status: 400 as const, body: { error: 'Use hospital discharge while admitted.' } };
+                        return refuse({ status: 400, body: { error: 'Use hospital discharge while admitted.' } });
                     }
                     // Claim the cooldown only once every refusal above is behind
                     // us. Claiming it before the lock burned it on the 403/400
                     // paths — the player was refused AND put on cooldown for a
                     // top-up they never received.
+                    let cooldown: { key: string; value: { at: number } } | null = null;
                     if (!identity.admin) {
                         const selfRank = professionRankForXp('healer', Number(freshChar.professionXp ?? 0));
                         const selfCooldownMs = Math.max(60_000, healerPerTargetCooldownMs(selfRank));
                         const selfCooldownKey = `heal:self:${targetName}`;
+                        const claimed = { at: Date.now() };
                         const placed = await kv.set(
                             selfCooldownKey,
-                            { at: Date.now() },
+                            claimed,
                             { nx: true, ex: Math.max(1, Math.ceil(selfCooldownMs / 1000)) } as never,
                         );
                         if (!placed) {
@@ -157,14 +159,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             // A vanished key (TTL raced this read) must not report 0 —
                             // the client treats 0 as "ready" and retries immediately.
                             const elapsed = existing?.at ? Date.now() - Number(existing.at) : selfCooldownMs / 2;
-                            return {
-                                status: 429 as const,
+                            return refuse({
+                                status: 429,
                                 body: {
                                     error: 'You have recently recovered. Rest before treating yourself again.',
                                     retryAfterMs: Math.max(1_000, Math.ceil(selfCooldownMs - elapsed)),
                                 },
-                            };
+                            });
                         }
+                        cooldown = { key: selfCooldownKey, value: claimed };
                     }
                     // A Healer's self top-up mends INJURY. It used to hand back
                     // all three bars, free, with no cooldown and without even
@@ -172,32 +175,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // stamina now come from resting or the Cafeteria like
                     // everyone else's. (MMORPG behavior audit F1.)
                     const restoresHpOnly = hospitalDischargeRestoresHpOnly();
-                    const updated = {
-                        ...fresh,
-                        character: {
-                            ...freshChar,
-                            hp: freshChar.maxHp,
-                            ...(restoresHpOnly ? {} : {
-                                chakra: freshChar.maxChakra,
-                                stamina: freshChar.maxStamina,
-                            }),
-                        },
+                    const healed = {
+                        ...freshChar,
+                        hp: freshChar.maxHp,
+                        ...(restoresHpOnly ? {} : {
+                            chakra: freshChar.maxChakra,
+                            stamina: freshChar.maxStamina,
+                        }),
                     };
-                    const versioned = bumpSaveVersion(updated);
-                    await kv.set(targetKey, mergePreservingImages(versioned, fresh));
                     return {
-                        status: 200 as const,
-                        body: {
-                            ok: true,
-                            kind: 'self-top-up',
-                            chargedRyo: 0,
-                            hp: updated.character.hp,
-                            chakra: updated.character.chakra,
-                            stamina: updated.character.stamina,
-                            _saveVersion: Number((versioned as Record<string, unknown>)._saveVersion ?? 0),
+                        ok: true,
+                        character: healed,
+                        value: {
+                            status: 200,
+                            body: {
+                                ok: true,
+                                kind: 'self-top-up',
+                                chargedRyo: 0,
+                                hp: healed.hp,
+                                chakra: healed.chakra,
+                                stamina: healed.stamina,
+                            },
+                        },
+                        // The cooldown was claimed for a top-up that never landed:
+                        // a lost compare-and-set healed nothing, so hand it back.
+                        onConflict: async () => {
+                            if (cooldown) await kv.delIfEqual(cooldown.key, cooldown.value);
                         },
                     };
-                }, { failClosed: true });
+                });
+                if (!toppedUp.ok) return res.status(404).json({ error: toppedUp.code === 'character-not-found' ? 'Character not found.' : 'Player not found.' });
+                const topUpResult = toppedUp.value;
+                if (topUpResult.status === 200) topUpResult.body._saveVersion = toppedUp._saveVersion;
                 return res.status(topUpResult.status).json(topUpResult.body);
             }
 
@@ -216,24 +225,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // as the discharge button press) can wipe the ryo charge or
             // re-set the hospitalized flag using its stale snapshot. We
             // re-read inside the lock to fold in any fresh ryo gains.
-            const dischargeResult = await withKvLock(targetKey, async () => {
-                const fresh = await kv.get<Record<string, unknown>>(targetKey) ?? targetRecord;
-                const freshChar = (fresh.character as Record<string, unknown> | undefined) ?? targetChar;
+            type Discharge = { status: 200 | 402 | 409 | 429; body: Record<string, unknown>; withSave?: boolean };
+            // The discharge is a value (the stay ends) and its debit is guarded by
+            // the admission stamp, so re-running it after a lost compare-and-set
+            // charges and discharges once.
+            const discharged = await retryOnSaveVersionConflict(() => mutatePlayerSave<Discharge>(targetName, async ({ character: freshChar }) => {
+                const refuse = (reply: Discharge) => ({ ok: true as const, write: false, character: freshChar, value: reply });
                 // Re-check every eligibility and price input under the lock. Two
                 // concurrent pay-skip requests may both have observed the old
                 // hospitalized snapshot above; only the first may debit it.
                 if (!freshChar.hospitalized) {
-                    return {
-                        status: 200 as const,
-                        body: {
-                            ok: true,
-                            kind: 'self',
-                            chargedRyo: 0,
-                            alreadyDischarged: true,
-                            character: freshChar,
-                            _saveVersion: Number(fresh._saveVersion ?? 0),
-                        },
-                    };
+                    return refuse({ status: 200, body: { ok: true, kind: 'self', chargedRyo: 0, alreadyDischarged: true }, withSave: true });
                 }
                 // A delayed request from a prior stay must not buy treatment for
                 // a new defeat. Use the existing server-minted admission stamp,
@@ -244,13 +246,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     || !Number.isSafeInteger(requestedAdmission)
                     || requestedAdmission < 0
                     || requestedAdmission !== Number(freshChar.hospitalizedAt ?? 0)) {
-                    return {
-                        status: 409 as const,
+                    return refuse({
+                        status: 409,
                         body: {
                             error: 'Your hospital admission changed. Refresh to review your current treatment before trying again.',
                             reason: 'hospital-admission-changed',
                         },
-                    };
+                    });
                 }
                 const freshUntil = Number(freshChar.hospitalizedUntil ?? 0);
                 const freshTimerExpired = !freshUntil || Date.now() >= freshUntil;
@@ -259,13 +261,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let freshChargedRyo = 0;
                 if (!identity.admin && !freshTimerExpired && !freshSelfIsHealer) {
                     if (!paySkip) {
-                        return {
-                            status: 429 as const,
-                            body: { error: 'Hospital timer not yet expired.', retryAfterMs: Math.max(0, freshUntil - Date.now()) },
-                        };
+                        return refuse({ status: 429, body: { error: 'Hospital timer not yet expired.', retryAfterMs: Math.max(0, freshUntil - Date.now()) } });
                     }
                     if (Number(freshChar.ryo ?? 0) < freshDischargeCost) {
-                        return { status: 402 as const, body: { error: `Need ${freshDischargeCost} ryo to pay-skip discharge.` } };
+                        return refuse({ status: 402, body: { error: `Need ${freshDischargeCost} ryo to pay-skip discharge.` } });
                     }
                     freshChargedRyo = freshDischargeCost;
                 }
@@ -277,8 +276,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Cafeteria. Nothing is TAKEN on defeat: this only stops defeat
                 // being a reward. (MMORPG behavior audit F1.)
                 const restoresHpOnly = hospitalDischargeRestoresHpOnly();
-                const healed = {
-                    ...fresh,
+                return {
+                    ok: true,
                     character: {
                         ...freshChar,
                         hp: freshChar.maxHp,
@@ -296,20 +295,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         lastDischargeAt: Date.now(),
                         ryo: Math.max(0, Number(freshChar.ryo ?? 0) - freshChargedRyo),
                     },
+                    value: { status: 200, body: { ok: true, kind: 'self', chargedRyo: freshChargedRyo }, withSave: true },
                 };
-                const versioned = bumpSaveVersion(healed);
-                await kv.set(targetKey, mergePreservingImages(versioned, fresh));
-                return {
-                    status: 200 as const,
-                    body: {
-                        ok: true,
-                        kind: 'self',
-                        chargedRyo: freshChargedRyo,
-                        character: healed.character,
-                        _saveVersion: Number((versioned as Record<string, unknown>)._saveVersion ?? 0),
-                    },
-                };
-            }, { failClosed: true });
+            }));
+            if (!discharged.ok) return res.status(404).json({ error: discharged.code === 'character-not-found' ? 'Character not found.' : 'Player not found.' });
+            const dischargeResult = discharged.value;
+            if (dischargeResult.withSave) {
+                dischargeResult.body.character = discharged.character;
+                dischargeResult.body._saveVersion = discharged._saveVersion;
+            }
             return res.status(dischargeResult.status).json(dischargeResult.body);
         }
 
@@ -541,6 +535,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: Number(finalRecord?._saveVersion ?? 0),
         });
     } catch (err) {
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[heal]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }
