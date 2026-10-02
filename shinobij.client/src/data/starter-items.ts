@@ -9,6 +9,7 @@
  * shrinks without behavior change.
  */
 
+import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_SCROLL_NAME, VILLAGE_TRANSFER_SCROLL_IMAGE, VILLAGE_TRANSFER_COST, VILLAGE_TRANSFER_LEVEL } from "../../../shared/village-transfer";
 import type { GameItem } from "../types/combat";
 import { AURA_SPHERE_ITEM_ID } from "../constants/game";
 import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
@@ -310,6 +311,18 @@ export const starterItems: GameItem[] = [
         serviceItem: true,
         image: "/items/item-territory-control-scroll-v1.webp",
         description: "A sealed paper approval recognized by every profession hall. Consumed when you change professions; profession rank, XP, and mastery reset to Rank 1.",
+        bonuses: {},
+    },
+    {
+        id: VILLAGE_TRANSFER_SCROLL_ID,
+        name: VILLAGE_TRANSFER_SCROLL_NAME,
+        slot: "item",
+        rarity: "legendary",
+        cost: VILLAGE_TRANSFER_COST,
+        levelReq: VILLAGE_TRANSFER_LEVEL,
+        serviceItem: true,
+        image: VILLAGE_TRANSFER_SCROLL_IMAGE,
+        description: "Requires level 100 and a completed village story. Use in the Grand Marketplace to choose a new home village. Consumes one scroll; preserves your character and story progress.",
         bonuses: {},
     },
     // -- Evolution stones (Grand Marketplace — Fate Shards) --------------------
