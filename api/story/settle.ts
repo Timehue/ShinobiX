@@ -11,6 +11,7 @@ import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { applyAcademySparSettlement, applyStoryBossSettlement } from './_settle.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
+import { extractSoloPveLegacyDeltas } from '../_legacy-pve.js';
 import type { StorySettlementDelivery } from '../../shared/story-settlement-presentation.js';
 import { validateCompletedAcademySparSession } from './_academy-spar.js';
 import {
@@ -192,7 +193,7 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
         if (!isSpar) {
             const delivered = await bumpLegacyStats(
                 playerName,
-                { firstClears: 1, bossContribution: 1 },
+                { firstClears: 1, bossContribution: 1, ...(session ? extractSoloPveLegacyDeltas(session) : {}) },
                 {
                     characterForBootstrap: result.character,
                     receiptId: `story:${runId}`,

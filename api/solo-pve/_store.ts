@@ -1,5 +1,5 @@
 import { kv as realKv } from '../_storage.js';
-import { isDeepStrictEqual } from 'node:util';
+import { storedValueEquals } from '../_stored-value.js';
 import {
     SOLO_PVE_LAPSED_RETENTION_SECONDS,
     SOLO_PVE_TERMINAL_TTL_SECONDS,
@@ -107,7 +107,7 @@ export async function compareWriteSoloPveSession(
         committed = await store.compareSet(key, expected, next, { ex: ttl }) === true;
     } catch (error) {
         const readback = await store.get<unknown>(key).catch(() => null);
-        if (!isDeepStrictEqual(readback, next)) throw error;
+        if (!storedValueEquals(readback, next)) throw error;
         committed = true;
     }
     if (committed && next.status === 'done') await retireSoloPveProjection(store, next);

@@ -1,0 +1,40 @@
+[kv] isolated in-memory QA backend active
+[pvp/session] Error: pvp-session-capability-conflict
+    at handler (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\session.ts:3188:39)
+    at async TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:213:9)
+    at async Test.run (node:internal/test_runner/test:1409:7)
+    at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+✖ overlapping world creates cannot replace the published battle guard roles (701.6425ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1490.657
+
+✖ failing tests:
+
+test at api\pvp\_session-consumable-authority-handler.test.ts:2:7452
+✖ overlapping world creates cannot replace the published battle guard roles (701.6425ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+
+    {
+  +   attacker: 'guardracedefender',
+  +   defender: 'guardraceattacker'
+  -   attacker: 'guardraceattacker',
+  -   defender: 'guardracedefender'
+    }
+
+      at TestContext.<anonymous> (C:\Users\Tyler R\source\repos\NinjaK\api\pvp\_session-consumable-authority-handler.test.ts:217:16)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { defender: 'guardraceattacker', attacker: 'guardracedefender' },
+    expected: { defender: 'guardracedefender', attacker: 'guardraceattacker' },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }

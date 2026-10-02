@@ -5,9 +5,8 @@ import { floorForSession } from './_session-floor.js';
 import { clearMetrics, computeFloorClearScore } from './_tower-rewards.js';
 import { towerRouteScoreMultiplier } from './_route-choice.js';
 import { kv as realKv } from '../_storage.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { mergePreservingImages } from '../_utils.js';
+import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { recordEraCampaignEvidence } from '../_era-campaign.js';
 
 export function towerRecordsForClear(previous: TowerRecords | undefined, session: TowerSession): TowerRecords {
@@ -39,32 +38,38 @@ export async function settleTowerRecords(session: TowerSession, slug: string, de
     const entry = Object.entries(towerRecordsForClear(undefined, session).bests)[0];
     if (!entry) return;
     const kv = deps.kv ?? realKv;
-    return (deps.lock ?? withKvLock)(`save:${slug}`, async () => {
-        const record = await kv.get<Record<string, unknown>>(`save:${slug}`);
-        const character = record?.character as Record<string, unknown> | undefined;
-        if (!record || !character) throw new Error('Tower record save is unavailable; retry settlement.');
-        const previous = character.battleTowerRecords as TowerRecords | undefined;
-        const records = towerRecordsForClear(previous, session);
-        const receiptKey = `tower-record-comparison:${session.runId}:${slug}`;
-        let comparison = await kv.get<TowerClearComparison>(receiptKey);
-        if (!comparison) {
-            const [key, best] = entry;
-            comparison = { runId: session.runId, key, score: best.bestScore, rounds: best.fastestRounds, clean: best.noKnockout,
-                ...(previous?.bests?.[key] ? { previous: previous.bests[key] } : {}) };
-            // Seal the baseline before writing the save. A failed save or lost response
-            // retries against the same baseline, even after another run improves records.
-            const sealed = await kv.set(receiptKey, comparison, { nx: true, ex: 8 * 24 * 60 * 60 });
-            if (sealed === null) throw new Error('Tower comparison was not committed; retry settlement.');
-        }
-        const campaignCharacter = recordEraCampaignEvidence(character, { kind: 'tower', receiptId: `tower:${session.runId}`, at: Date.now(), startedAt: session.createdAt,
-            floor: isSpireRun(session) ? session.ascensionTier! : session.floor, story: isPublicTowerRun(session), spire: isSpireRun(session),
-            humanMembers: new Set(session.actors.filter(actor => actor.side === 'squad' && actor.ai === false && actor.ownerSlug).map(actor => actor.ownerSlug)).size,
-            clean: comparison.clean, withinPar: session.round <= floorForSession(session)!.roundBudget,
-            disrupted: (session.towerTactics?.disruptedPylons.length ?? 0) > 0, avoided: (session.towerTactics?.avoidedStrikes ?? 0) > 0, baited: (session.towerTactics?.chargeBaits ?? 0) > 0 });
-        if (JSON.stringify(previous) === JSON.stringify(records) && campaignCharacter === character) return comparison;
-        const next = bumpSaveVersion({ ...record, character: { ...campaignCharacter, battleTowerRecords: records } }, { previousCharacter: character });
-        const written = await kv.set(`save:${slug}`, mergePreservingImages(next, record));
-        if (written === null) throw new Error('Tower records were not committed; retry settlement.');
-        return comparison;
-    }, { failClosed: true });
+    let out: PlayerSaveMutationResult<TowerClearComparison>;
+    try {
+        // Records only improve and the comparison is sealed before the write, so
+        // a lost compare-and-set re-runs once against the fresh save.
+        out = await retryOnSaveVersionConflict(() => mutatePlayerSave<TowerClearComparison>(slug, async ({ character }) => {
+            const previous = character.battleTowerRecords as TowerRecords | undefined;
+            const records = towerRecordsForClear(previous, session);
+            const receiptKey = `tower-record-comparison:${session.runId}:${slug}`;
+            let comparison = await kv.get<TowerClearComparison>(receiptKey);
+            if (!comparison) {
+                const [key, best] = entry;
+                comparison = { runId: session.runId, key, score: best.bestScore, rounds: best.fastestRounds, clean: best.noKnockout,
+                    ...(previous?.bests?.[key] ? { previous: previous.bests[key] } : {}) };
+                // Seal the baseline before writing the save. A failed save or lost response
+                // retries against the same baseline, even after another run improves records.
+                const sealed = await kv.set(receiptKey, comparison, { nx: true, ex: 8 * 24 * 60 * 60 });
+                if (sealed === null) throw new Error('Tower comparison was not committed; retry settlement.');
+            }
+            const campaignCharacter = recordEraCampaignEvidence(character, { kind: 'tower', receiptId: `tower:${session.runId}`, at: Date.now(), startedAt: session.createdAt,
+                floor: isSpireRun(session) ? session.ascensionTier! : session.floor, story: isPublicTowerRun(session), spire: isSpireRun(session),
+                humanMembers: new Set(session.actors.filter(actor => actor.side === 'squad' && actor.ai === false && actor.ownerSlug).map(actor => actor.ownerSlug)).size,
+                clean: comparison.clean, withinPar: session.round <= floorForSession(session)!.roundBudget,
+                disrupted: (session.towerTactics?.disruptedPylons.length ?? 0) > 0, avoided: (session.towerTactics?.avoidedStrikes ?? 0) > 0, baited: (session.towerTactics?.chargeBaits ?? 0) > 0 });
+            if (JSON.stringify(previous) === JSON.stringify(records) && campaignCharacter === character) {
+                return { ok: true, write: false, character, value: comparison };
+            }
+            return { ok: true, character: { ...campaignCharacter, battleTowerRecords: records }, value: comparison };
+        }));
+    } catch (error) {
+        if (isPlayerSaveVersionConflict(error)) throw new Error('Tower records were not committed; retry settlement.');
+        throw error;
+    }
+    if (!out.ok) throw new Error('Tower record save is unavailable; retry settlement.');
+    return out.value;
 }

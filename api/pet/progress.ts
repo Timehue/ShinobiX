@@ -13,8 +13,8 @@ import {
     clampHappiness,
     petHappinessTrainingMult,
 } from '../../shared/pet-happiness.js';
-import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 import { recordPetBreedingProgress, type PetBreedingProgressEvent } from './_breeding-requirements.js';
+import { flushPendingTrainingMissions, petTrainingMissionReceipt, recordPendingTrainingMission } from './_training-mission.js';
 import { activeBreedingParentIds, petBusyMessage, petBusyReason } from './_pet-busy.js';
 import { kv } from '../_storage.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
@@ -57,6 +57,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only update your own pet.' });
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-progress', 30, 60_000, identity.name))) return;
         const now = Date.now();
+        const trainingAction = action === 'start-training' || action === 'complete-training';
+        // Set by the settle's afterCommit: the session this call settled, and the
+        // mission-event list it stored (null if listing it failed).
+        let settledTrainingMission: Parameters<typeof recordPendingTrainingMission>[1] | null = null;
+        let listedTrainingMissions: Awaited<ReturnType<typeof recordPendingTrainingMission>> = null;
         const result = await mutatePlayerSave<{ action: string; pet: Record<string, unknown> | null; settledTraining?: string | null; gearBroke?: boolean; consumableSpent?: string | null }>(playerName, async ({ character }) => {
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
             const index = pets.findIndex((pet) => String(pet?.id ?? '') === petId); if (index < 0) return { ok: false as const, status: 404, error: 'Pet not found.' };
@@ -290,24 +295,60 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (breedingEvent) finalizedCharacter = recordPetBreedingProgress(finalizedCharacter, breedingEvent, now).character;
             if (action === 'pet' || action === 'feed') finalizedCharacter = recordFirstContractActivity(finalizedCharacter, 'companion', { kind: 'companion-care' }, now);
-            return { ok: true as const, character: finalizedCharacter, value: { action, pet: nextPet, settledTraining } };
+            // A settled training earns Pet Tamer "trained a pet" credit whether it
+            // was collected explicitly OR healed during a start-training attempt.
+            // The event is listed the moment the settle commits, before it is
+            // reported, so a report that fails is made good by the next training
+            // action (api/pet/_training-mission.ts).
+            const trainingMission = settledTraining && character.profession === 'petTamer'
+                ? { receiptId: petTrainingMissionReceipt(petId, pet.training as Record<string, unknown>), settledAt: now }
+                : null;
+            return {
+                ok: true as const,
+                character: finalizedCharacter,
+                value: { action, pet: nextPet, settledTraining },
+                ...(trainingMission ? {
+                    afterCommit: async () => {
+                        settledTrainingMission = trainingMission;
+                        listedTrainingMissions = await recordPendingTrainingMission(playerName, trainingMission);
+                    },
+                } : {}),
+            };
         });
         if (!result.ok) {
             await releaseProdigyClaim(prodigyClaim);
+            // A retried collect lands here once its first attempt settled the
+            // session ("Training is not complete."); report what that left owed.
+            if (trainingAction) await flushPendingTrainingMissions(playerName);
             return res.status(result.status).json({ error: result.error });
         }
         // The save holding the Prodigy session is committed: the claim is now
-        // spent for good. A later failure (the mission report below) must not
-        // hand it back, or the same day could seal a second instant session.
+        // spent for good. A later failure must not hand it back, or the same
+        // day could seal a second instant session.
         prodigyClaim = null;
-        let missionsCompleted: CompletedMissionInfo[] = [];
-        // A settled training earns Pet Tamer "trained a pet" credit whether it was
-        // collected explicitly OR healed during a start-training attempt.
-        if (Boolean(result.value.settledTraining) && result.character.profession === 'petTamer') {
-            const missionResult = await reportMissionEvent({ playerName, profession: 'petTamer', kind: 'pet-tamer-pet-train' });
-            missionsCompleted = missionResult.missionsCompleted;
-        }
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, missionsCompleted, _saveVersion: result._saveVersion });
+        // Report the session this call settled and any an earlier training
+        // action left owed. A report that fails stays owed for the next one; it
+        // no longer fails a collect whose session has already settled.
+        const missions = trainingAction && result.character.profession === 'petTamer'
+            ? await flushPendingTrainingMissions(playerName, {
+                character: result.character,
+                stored: listedTrainingMissions,
+                settled: settledTrainingMission,
+            })
+            : { missionsCompleted: [], reported: false };
+        // A report pays the profession XP its completions earned in a later save
+        // write, so answer with that save. The version this call committed is
+        // already stale, and a client that has seen the newer one refuses the
+        // reply as an older update.
+        const settledRecord = missions.reported ? await kv.get<Record<string, unknown>>(`save:${playerName}`).catch(() => null) : null;
+        const settledCharacter = settledRecord?.character as Record<string, unknown> | undefined;
+        return res.status(200).json({
+            ok: true,
+            ...result.value,
+            character: settledCharacter ?? result.character,
+            missionsCompleted: missions.missionsCompleted,
+            _saveVersion: settledCharacter ? Number(settledRecord?._saveVersion ?? result._saveVersion) : result._saveVersion,
+        });
     } catch (error) {
         // A claimed Prodigy whose save write never landed is handed back.
         await releaseProdigyClaim(prodigyClaim);

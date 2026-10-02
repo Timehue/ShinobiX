@@ -17,7 +17,7 @@ Record these values before testing:
 
 Required staging configuration:
 
-- Set `DATABASE_URL` to the disposable Postgres/Supabase Session Pooler URL. Leave `DISK_KV_DIR`, `FORCE_PG_KV`, and production database credentials unset.
+- Set `DATABASE_URL` to the disposable Postgres/Supabase Session Pooler URL. Leave `FORCE_PG_KV` and production database credentials unset.
 - Set unique staging values for `SESSION_SECRET`, `ADMIN_PASSWORD`, and `HEALTH_DEEP_TOKEN`.
 - Leave `DISABLE_CLAN_BOSS` unset so the weekly boss and scheduler run.
 - Start the rollout with `DISABLE_CLAN_BOSS_PARTIES=1`.
