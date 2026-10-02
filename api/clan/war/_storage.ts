@@ -143,12 +143,24 @@ export function clanWarCooldownKey(clanA: string, clanB: string): string {
     return `clan-war:cooldown:${clanWarPairId(clanA, clanB)}`;
 }
 
+/**
+ * Is this key a war row? A war id is `<clan>-vs-<clan>` over alphanumeric slugs
+ * (clanWarPairId), so a war key never has a second colon. Every other row under
+ * the prefix sits one level down: the rematch cooldown (`clan-war:cooldown:`),
+ * the 2v2 match index (`clan-war:mpvp:`) and the 2v2 settlement receipt
+ * (`clan-war:mpvp-settlement:`). A prefix scan must keep only war rows.
+ */
+export function isClanWarRowKey(key: string): boolean {
+    return key.startsWith(CLAN_WAR_KEY_PREFIX) && !key.slice(CLAN_WAR_KEY_PREFIX.length).includes(':');
+}
+
 export async function loadAllClanWars(): Promise<ClanWar[]> {
     try {
         const keys = await kv.keys(`${CLAN_WAR_KEY_PREFIX}*`);
-        // Strip cooldown keys — those live under `clan-war:cooldown:` and
-        // would otherwise show up in this scan.
-        const warKeys = keys.filter(k => !k.startsWith('clan-war:cooldown:'));
+        // The prefix scan also matches the cooldown and 2v2 rows. Reading one of
+        // those as a war threw for every caller (the war list, declare's
+        // active-war check, the daily clan stores pass).
+        const warKeys = keys.filter(isClanWarRowKey);
         if (warKeys.length === 0) return [];
         const values = await kv.mget<ClanWar[]>(...warKeys);
         return values.filter(Boolean) as ClanWar[];
