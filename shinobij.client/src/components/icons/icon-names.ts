@@ -20,7 +20,7 @@ export type GameIconName =
     | "scroll"   // jutsu / technique
     | "map"      // tiles explored / expedition (folded map)
     | "target"   // hunts (bullseye)
-    | "dice"     // fate spins
+    | "dice"     // roll odds
     | "clock"    // daily reset timer
     | "dumbbell" // physical / stat training
     | "paw"      // pet activity

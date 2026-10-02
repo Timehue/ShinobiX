@@ -10,7 +10,7 @@ import { rollBlackMarket, settleBlackMarketPull, BLACK_MARKET_COST, BLACK_MARKET
 import { recordEconomyTxn } from '../_economy.js';
 
 /*
- * /api/festival/black-market — POST (one ryo-gamble pull)
+ * /api/festival/black-market — GET today's crate count; POST one ryo-gamble pull
  *
  * Server-authoritative gamble in the Sunscar Festival. Fully resolved on the
  * server in one shot (no client-reported outcome): through mutatePlayerSave,
@@ -18,6 +18,7 @@ import { recordEconomyTxn } from '../_economy.js';
  * the payout server-side, credit it, and bump the per-day counter. The client
  * only renders what we return.
  *
+ *   GET  ?playerName=   → { ok, dailyUsed, dailyCap, day }   (read-only)
  *   POST { playerName } → { ok, cost, reward, dailyUsed, dailyCap, balanceRyo }
  *
  * It is a SINK by construction (expected ryo return < cost, see _black-market.ts).
@@ -36,12 +37,14 @@ function dateKeyUTC(now: number): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
+    res.setHeader('Cache-Control', 'private, no-store');
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).end();
+    const isGet = req.method === 'GET';
+    if (!isGet && req.method !== 'POST') return res.status(405).end();
 
     try {
-        const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
-        const playerName = safeName(String(body.playerName ?? ''));
+        const body = (isGet ? {} : typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+        const playerName = safeName(String(isGet ? req.query.playerName ?? '' : body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
@@ -49,10 +52,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'You can only act for your own account.' });
         }
-        if (!identity.admin && !(await enforceRateLimitKv(req, res, 'black-market', 30, 60_000, identity.name))) return;
+        // Reading the count has its own bucket, so the profile card checking it
+        // can never spend the rate limit a real pull needs.
+        if (!identity.admin && !(await enforceRateLimitKv(req, res, isGet ? 'black-market-usage' : 'black-market', 30, 60_000, identity.name))) return;
 
         const now = Date.now();
-        const countKey = `${COUNT_PREFIX}${playerName}:${dateKeyUTC(now)}`;
+        const day = dateKeyUTC(now);
+        const countKey = `${COUNT_PREFIX}${playerName}:${day}`;
+
+        // GET: today's pull count, read-only, for the daily-caps grid on the
+        // player card. The counter key is the same one the POST path enforces.
+        if (isGet) {
+            const used = num(await kv.get<number>(countKey));
+            return res.status(200).json({ ok: true, dailyUsed: used, dailyCap: BLACK_MARKET_DAILY_CAP, day });
+        }
 
         type Reply = { status: number; body: Record<string, unknown> };
         let committed: PlayerSaveMutationResult<Reply>;

@@ -4,7 +4,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { CaravanCombatCatalogs } from '../features/sunscar/CaravanBattle';
 import { SunscarExchange, SunscarExchangeEntrance } from '../components/SunscarExchange';
 import { BlackMarketCrate } from '../components/BlackMarketCrate';
-import { pullBlackMarket, describeReward, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
+import { pullBlackMarket, describeReward, useBlackMarketUsage, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
 import { rallyRank } from '../../../shared/sunscar/rally-championship';
 import { caravanRank } from '../../../shared/sunscar/caravan-types';
 import { serverNow } from '../lib/server-clock';
@@ -57,8 +57,8 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
     const [bmBusy, setBmBusy] = useState(false);
     const bmBusyRef = useRef(false);
     const brokerButtonRef = useRef<HTMLButtonElement>(null);
-    const [bmUsage, setBmUsage] = useState<{ day: string; used: number } | null>(null);
-    const bmUsed = bmUsage?.day === today ? bmUsage.used : null;
+    // Shared with the player card's Sealed Crates cell; every pull's reply updates both.
+    const bmUsed = useBlackMarketUsage(character.name, today);
     const [bmReveal, setBmReveal] = useState<BlackMarketReward | null>(null);
     const [brokerLog, setBrokerLog] = useState('A sealed crate. A closely guarded secret. Take your chances with the Broker’s collection.');
     async function buyCrate() {
@@ -66,7 +66,6 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         bmBusyRef.current = true; setBmBusy(true);
         try {
             const res = await pullBlackMarket(character.name);
-            if (typeof res.dailyUsed === 'number') setBmUsage({ day: new Date(serverNow()).toISOString().slice(0, 10), used: res.dailyUsed });
             if (!res.ok || !res.reward || !res.character) { setBrokerLog(res.error ?? 'The Broker is unavailable.'); return; }
             if (!onVersionedCharacter(res.character, res._saveVersion)) return;
             setBmReveal(res.reward);
