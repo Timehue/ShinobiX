@@ -1,3 +1,4 @@
+import { settleTowerRelicReward } from './_relic-reward.js';
 import type { TowerClearComparison } from '../../shared/tower-progression.js';
 import { settleTowerRecords } from './_records.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
@@ -19,6 +20,8 @@ import {
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { closeTowerPartyRun, towerPartyHumanMembers, type StoredTowerParty } from './_party.js';
 import type { TowerSession } from './_tower-session.js';
+import { extractTowerLegacyDeltas } from '../_legacy-pve.js';
+import { bumpLegacyStats } from '../_legacy-track.js';
 import { recordTowerRunSettled } from './_telemetry.js';
 import { recordTowerCombatUsage } from '../_combat-usage.js';
 import { refreshTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
@@ -110,8 +113,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : a.ai
                     ? await settleAssistForAlly({ session, slug })
                     : await settleFloorForMember({ session, slug }));
+            if (!spire && !a.ai && session.winner === 'squad') {
+                const relic = await settleTowerRelicReward(session, slug);
+                results[slug] = { ...results[slug], relic };
+            }
+            const reward = results[slug];
+            if (!a.ai && (reward.paid || reward.reason === 'already-paid' || reward.reason === 'already-first-cleared') && session.winner === 'squad') {
+                const record = await kv.get<Record<string, unknown>>(`save:${slug}`);
+                if (!(await bumpLegacyStats(slug, extractTowerLegacyDeltas(session, slug), {
+                    characterForBootstrap: record?.character as Record<string, unknown> | undefined,
+                    receiptId: `tower-combat:${session.runId}:${slug}`,
+                }))) results[slug] = { ...reward, reason: 'legacy-delivery-pending' };
+            }
         }
-        const retryableReasons = new Set(['contended', 'no-save', 'unknown', 'invalid-receipt']);
+        const retryableReasons = new Set(['contended', 'no-save', 'unknown', 'invalid-receipt', 'legacy-delivery-pending']);
         const stable = [
             ...Object.values(results).map(result => result.reason),
             ...Object.values(consumables).map(result => result.reason),

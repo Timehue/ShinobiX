@@ -99,7 +99,7 @@ function httpHandlerFiles(dir = API_DIR, prefix = ''): string[] {
             continue;
         }
         if (!/\.ts$/.test(entry) || entry.endsWith('.test.ts')) continue;
-        out.push(`${prefix}${entry.replace(/\.ts$/, '')}`);  // e.g. 'save/[name]', 'kv-proxy'
+        out.push(`${prefix}${entry.replace(/\.ts$/, '')}`);  // e.g. 'save/[name]', 'player-auth'
     }
     return out;
 }
@@ -186,7 +186,10 @@ describe('Express route parity (Railway + cPanel)', () => {
         // registers via app.all(), so GET/POST/DELETE are all covered — assert
         // both the param routes and the app.all() wiring are present.
         assert.match(serverSrc, /route\(\s*['"]\/save\/:name['"]/, 'missing /save/:name route');
-        assert.match(serverSrc, /route\(\s*['"]\/kv\/:op['"]/, 'missing /kv/:op route');
+        // The cPanel KV proxy and its overlay migrations were removed with the
+        // overlay (2026-10-02). Nothing may serve save blobs over them again.
+        assert.doesNotMatch(serverSrc, /route\(\s*['"]\/(?:kv\/:op|admin\/migrate-kv|admin\/migrate-to-base)['"]/,
+            'the retired cPanel KV proxy routes must stay unmounted');
         assert.match(serverSrc, /app\.all\(\s*paths/, 'route() should mount via app.all() so every method is served');
     });
 

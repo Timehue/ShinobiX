@@ -17,7 +17,6 @@ test('security, economy, player, and ranked operations require full admin', () =
         'economy-reconcile.ts',
         'ranked-season.ts',
         'legacy.ts',
-        'migrate-kv.ts',
         'moderation.ts',
         'player-index-health.ts',
         'players.ts',

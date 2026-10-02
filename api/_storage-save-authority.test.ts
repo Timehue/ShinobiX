@@ -6,9 +6,6 @@ import { matchesStoredSaveVersion } from './save/_save-version.js';
 process.env.DATABASE_URL = 'postgresql://cache-test:cache-test@127.0.0.1/cache-test';
 process.env.FORCE_PG_KV = '1';
 delete process.env.VERCEL;
-delete process.env.DISK_KV_DIR;
-delete process.env.KV_PROXY_URL;
-delete process.env.KV_PROXY_TOKEN;
 
 type StorageModule = typeof import('./_storage.js');
 type SaveRecord = { _saveVersion: number; character: Record<string, unknown> };
@@ -127,34 +124,16 @@ test('batched pgKv save reads are authoritative across processes too', async () 
     );
 });
 
-test('player deletion generations are base-primary and authoritative across workers', async () => {
+test('player deletion generations are authoritative across workers', async () => {
     const key = 'save-delete-version:cache-race';
-    const diskCalls: string[] = [];
-    const disk = new Proxy(workerA._pgKvForTest, {
-        get(target, property, receiver) {
-            if (property === 'get' || property === 'set') {
-                return (...args: unknown[]) => {
-                    diskCalls.push(`${String(property)}:${String(args[0])}`);
-                    return Reflect.apply(
-                        Reflect.get(target, property, receiver) as (...values: unknown[]) => unknown,
-                        target,
-                        args,
-                    );
-                };
-            }
-            const value = Reflect.get(target, property, receiver) as unknown;
-            return typeof value === 'function' ? value.bind(target) : value;
-        },
-    });
-    const routed = workerA._makeRoutedKv(workerA._pgKvForTest, disk);
 
-    await routed.set(key, 8);
-    assert.equal(await routed.get(key), 8, 'worker A primes the durable floor at generation 8');
+    await workerA._pgKvForTest.set(key, 8);
+    assert.equal(await workerA._pgKvForTest.get(key), 8, 'worker A primes the durable floor at generation 8');
     const readsBeforeRemoteDelete = selectCount.get(key) ?? 0;
     settleInOtherProcess(key, 9);
 
     assert.equal(
-        await routed.get(key),
+        await workerA._pgKvForTest.get(key),
         9,
         'worker A must observe the later deletion generation written by another worker',
     );
@@ -162,7 +141,6 @@ test('player deletion generations are base-primary and authoritative across work
         (selectCount.get(key) ?? 0) > readsBeforeRemoteDelete,
         'deletion-floor reads must bypass the process-local pgKv cache',
     );
-    assert.deepEqual(diskCalls, [], 'deletion generations must remain base-primary metadata');
 });
 
 test('Chronicle settlement and all Legacy RMW keys bypass independent process caches', async () => {

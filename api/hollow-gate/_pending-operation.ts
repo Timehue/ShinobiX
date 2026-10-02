@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import type { HollowGateRunToken } from './_run-token.js';
 import { retireHollowGatePresenceByRunKey } from './_presence.js';
 
@@ -91,7 +92,7 @@ export async function recoverHollowGatePendingOperation(
         if (await store.compareSet(runKey, run, next) !== true) throw new Error('hollow-gate-pending-run-conflict');
     } catch (error) {
         const readback = await store.get(runKey).catch(() => null);
-        if (!isDeepStrictEqual(readback, next)) throw error;
+        if (!storedValueEquals(readback, next)) throw error;
     }
     return next as unknown as HollowGateRunToken;
 }

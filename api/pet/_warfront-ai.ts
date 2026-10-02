@@ -5,16 +5,14 @@ import { SERVER_ARENA_PETS } from './_arena-ai.js';
  * Server-side resolution of the Hollow Warfront vs-AI RED team, for the
  * server-authoritative reward re-sim (api/pet/warfront-start.ts).
  *
- * The client (shinobij.client/src/screens/PetArena.tsx "Start vs AI") builds the
- * red team by cycling `genericPetArenaOpponents` to the player's pet count. Those
- * pets carry the SAME final (trait-applied) stats AND element as SERVER_ARENA_PETS.
- * The Warfront sim reads exactly hp/attack/defense/speed/element + role
- * (derivePetRole(id,name,element,rarity)); we still set the element explicitly
- * below so the Warfront red team is self-documenting and drift-proof.
- *
- * The pool ORDER and ELEMENTS below MUST match pet-arena-opponents.ts. The
- * warfront-parity test (scripts/warfront-parity.test.ts) asserts a byte-identical
- * match against the real client roster, so any drift is caught in CI.
+ * This team is sealed into the reward token and returned to the client, which
+ * fights the sealed pets (PetArena.tsx queueSealedWarfront) and only layers the
+ * client roster's portraits on top, so this pool is the single authority for the
+ * vs-AI red team. The element is still set explicitly below so the team is
+ * self-documenting; scripts/arena-ai-parity.test.ts keeps SERVER_ARENA_PETS'
+ * stats and elements aligned with the client roster those portraits come from.
+ * (The lane-war warfront-parity test that used to pin this order against the
+ * client's cycled roster was retired with the lane engine on 2026-10-02.)
  */
 const WF_AI_POOL: ReadonlyArray<{ id: string; element: string }> = [
     { id: 'generic-ai-pet-sparrow', element: 'Wind' },

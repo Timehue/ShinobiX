@@ -338,7 +338,7 @@ async function fire(): Promise<void> {
             if (!r) {
                 // Another process owns this invocation.
             } else if (r.emptyKeyspace) {
-                console.error('[cron-scheduler] snapshot run found ZERO saves — check KV_PROXY_URL / KV_PROXY_TOKEN.');
+                console.error('[cron-scheduler] snapshot run found ZERO saves — check DATABASE_URL / SUPABASE_POSTGRES_URL.');
             } else {
                 console.log(`[cron-scheduler] snapshot run: ${r.snapshotted} saved, ${r.skipped} skipped, ${r.failed.length} failed (${r.processed}/${r.total}, ${r.elapsedMs}ms${r.truncated ? ', TRUNCATED' : ''}).`);
             }

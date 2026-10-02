@@ -176,8 +176,15 @@ export function evaluateAllLegacies(
  * possible) + a basic fallback, max 3 (design handoff rule). Assumes `evals`
  * came from evaluateAllLegacies (already sorted).
  */
-export function pickSageOffers(evals: LegacyEvaluation[], max = 3): LegacyEvaluation[] {
+export function pickSageOffers(evals: LegacyEvaluation[], max = 3, previouslyOffered: readonly string[] = []): LegacyEvaluation[] {
     const eligible = evals.filter((e) => e.eligible);
+    // Newest first history: every eligible identity gets a turn before a
+    // previously shown one returns. History comes from existing Sage events.
+    if (previouslyOffered.length > 0) {
+        const recent = new Map<string, number>();
+        previouslyOffered.forEach((id, i) => { if (!recent.has(id)) recent.set(id, i); });
+        return eligible.sort((a, b) => (recent.get(b.legacyId) ?? Infinity) - (recent.get(a.legacyId) ?? Infinity) || 0).slice(0, max);
+    }
     if (eligible.length === 0) return [];
     const offers: LegacyEvaluation[] = [];
     const best = eligible[0];

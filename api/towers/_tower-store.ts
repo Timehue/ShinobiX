@@ -287,7 +287,7 @@ function creditFloorClear(
     };
 }
 
-export type SettleResult = { paid: boolean; reason?: string; score?: number };
+export type SettleResult = { paid: boolean; reason?: string; score?: number; relic?: { itemId?: string; fateShards?: number; reason?: string } };
 export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 
 function embeddedTowerReceipt(kind: 'items' | 'spire', parts: unknown[]): { requestId: string; fingerprint: string } {

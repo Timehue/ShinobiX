@@ -1,0 +1,34 @@
+✔ solo PvE uses applied HP, shield and damage facts, excluding overheal and companion damage (3.6981ms)
+✔ real combat healing log and Legacy credit match applied HP, including full-health casts (5.1789ms)
+✔ Tower attribution respects multiple human and enemy casters (71.9943ms)
+✔ expired shield pools never count as damage dealt or damage blocked (0.5644ms)
+[kv] isolated in-memory QA backend active
+[legacy-track] bump failed for legacywritegaploser: Legacy activity receipt was not committed.
+✔ server terminal delivery credits both fighters once without a win-report, including 40-hour recovery (6322.441ms)
+✔ a failed loser write retries the same terminal without recrediting the winner (6.3142ms)
+✔ repeat-opponent decay applies to loser support and war proof, then renews next UTC day (200.5455ms)
+✔ practice, pet, NPC and quick-surrender battles do not grant player proof (0.3283ms)
+[legacy-track] bump failed for alpha: injected Legacy write outage
+✔ Free-Play persists stopped attacks and attack counts through responses, polls, and rejected retries (1044.8268ms)
+✔ Free-Play authenticates and rejects malformed or unknown match ids (0.5733ms)
+✔ a valid current selection is persisted atomically before PvP uses it (846.8412ms)
+✔ Free-Play loads each persisted server deck and ignores a client replacement (83.056ms)
+✔ an immediate Free-Play forfeit settles but grants no Legacy progress (7.9731ms)
+✔ a Free-Play duelist who misses two turns in a row forfeits, and it earns no Legacy progress (29.0808ms)
+✔ a move refused after the second missed turn still records the forfeit at once (7.0799ms)
+✔ a move refused after a first missed turn still records the passed turn (7.277ms)
+✔ a sub-threshold natural finish remains progression-neutral (0.9038ms)
+✔ qualifying sealed play grants one exact-once Legacy Card Clash win (335.2333ms)
+✔ same-account repeat wins decay to zero after four credited legs in one UTC day (16.5938ms)
+✔ a reciprocal repeat is progression-neutral (3.9878ms)
+✔ a failed Legacy delivery is repaired by polling and remains exact-once (6.9209ms)
+✔ Free-Play winner tracking has no external marker-before-write seam (0.8122ms)
+✔ generated Legacy roster matches the canonical identities and all trial variants (89.6842ms)
+ℹ tests 23
+ℹ suites 0
+ℹ pass 23
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 23832.1386

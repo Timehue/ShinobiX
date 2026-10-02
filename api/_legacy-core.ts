@@ -215,11 +215,12 @@ const KIND_FACTOR: Record<TrialKind, number> = { awaken: 1, bind: 1.5, prove: 2.
 const SECONDARY_KIND_FACTOR: Record<TrialKind, number> = { awaken: 0, bind: 1, prove: 1.25, mythic: 1.75 };
 
 export function trialObjectivesFor(def: LegacyDef, kind: TrialKind, variant = 0): TrialObjective[] {
+    const requiresPvp = def.reqs.some((r) => 'stat' in r ? PVP_TRIAL_STATS.has(r.stat) : r.anyOf.every((part) => PVP_TRIAL_STATS.has(part.stat)));
     const factor = RARITY_FACTOR[def.rarity] * KIND_FACTOR[kind];
     const templates = TRIAL_TEMPLATES[def.category];
     const primary = templates[((variant % templates.length) + templates.length) % templates.length];
     const out: TrialObjective[] = primary.map((t) => ({
-        stat: t.stat,
+        stat: !requiresPvp && t.stat === 'sectorDefenses' ? 'raidsCompleted' : t.stat,
         delta: Math.max(1, Math.round(t.delta * factor)),
     }));
     const secondaryFactor = RARITY_FACTOR[def.rarity] * SECONDARY_KIND_FACTOR[kind];
@@ -227,9 +228,38 @@ export function trialObjectivesFor(def: LegacyDef, kind: TrialKind, variant = 0)
         if (out.some((existing) => existing.stat === o.stat)) return;
         out.push({ stat: o.stat, delta: Math.max(1, Math.round(o.delta * secondaryFactor)) });
     };
-    if (kind === 'bind' || kind === 'mythic') addSecondary(BIND_SECONDARIES[def.category]);
-    if (kind === 'prove' || kind === 'mythic') addSecondary(PROVE_EXTRAS[def.category]);
+    const themeProof = (objective: TrialObjective): TrialObjective => {
+        if (requiresPvp || !PVP_TRIAL_STATS.has(objective.stat)) return objective;
+        if (def.category === 'cards') return objective.stat === 'pvpWins'
+            ? { stat: 'wandererQuests', delta: 2 } : { stat: 'huntCompletions', delta: 3 };
+        if (def.category === 'war' && objective.stat === 'pvpWins') return { stat: 'missionCompletions', delta: 6 };
+        return { stat: 'eliteKills', delta: 6 };
+    };
+    if (kind === 'bind' || kind === 'mythic') addSecondary(themeProof(BIND_SECONDARIES[def.category]));
+    if (kind === 'prove' || kind === 'mythic') addSecondary(themeProof(PROVE_EXTRAS[def.category]));
     return out;
+}
+
+const PVP_TRIAL_STATS = new Set<LegacyStatKey>(['pvpWins', 'pvpKills', 'rankedWins', 'higherLevelWins', 'sameRankWins', 'comebackWins', 'bestKillStreak', 'defensiveWins', 'sectorDefenses', 'warPvpKills']);
+
+/** Activity families shown before the permanent choice; no private floors. */
+export function legacyTrialActivities(def: LegacyDef): string[] {
+    const families = new Set<string>();
+    for (const kind of ['awaken', 'bind', 'prove', 'mythic'] as const) {
+        for (let variant = 0; variant < TRIAL_VARIANT_COUNT; variant++) {
+            for (const { stat } of trialObjectivesFor(def, kind, variant)) {
+                families.add(PVP_TRIAL_STATS.has(stat) ? 'player battles'
+                    : stat === 'dungeonClears' || stat === 'hollowGateClears' ? 'dungeons'
+                    : stat === 'cardClashWins' ? 'Card Clash'
+                    : stat === 'petExpeditions' ? 'pet expeditions'
+                    : stat === 'villageDonations' ? 'village donations'
+                    : stat === 'warContribution' || stat === 'raidsCompleted' ? 'village raids and wars'
+                    : stat === 'sectorDiscoveries' || stat === 'wandererQuests' || stat === 'hiddenFinds' ? 'exploration and Wanderer quests'
+                    : 'PvE combat and missions');
+            }
+        }
+    }
+    return [...families];
 }
 
 /** Which trial kind moves a player at `stage` forward, or null if none does. */
