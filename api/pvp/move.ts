@@ -781,7 +781,7 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         const tagTotal = tagTotals.get(tagName) ?? 1;
         const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
-        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); healing += healAmt; lines.push(`Heal: ${s.name} restores ${healAmt} HP.`); continue; }
+        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); const applied = Math.min(healAmt, Math.max(0, s.maxHp - s.hp - healing)); healing += healAmt; lines.push(`Heal: ${s.name} restores ${applied} HP.`); continue; }
         if (tagName === 'Shield') {
             const requested = shieldAmountForMastery(masteryLevel);
             const available = Math.max(0, pvpLiveShieldCap(s) - boundedShield(s) - shieldGain);
@@ -993,15 +993,18 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     // A lethal hit ends the defender's participation immediately. Absorb is a
     // reactive heal, not a death-prevention effect, so it must not bring a
     // fighter back after their HP has reached zero.
-    if (o.hp > 0 && absorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + absorbHeal) };
-    if (o.hp > 0 && itemAbsorbHeal > 0) o = { ...o, hp: Math.min(o.maxHp, o.hp + itemAbsorbHeal) };
+    const appliedAbsorb = o.hp > 0 ? Math.min(absorbHeal, Math.max(0, o.maxHp - o.hp)) : 0;
+    if (appliedAbsorb > 0) o = { ...o, hp: o.hp + appliedAbsorb };
+    const appliedItemAbsorb = o.hp > 0 ? Math.min(itemAbsorbHeal, Math.max(0, o.maxHp - o.hp)) : 0;
+    if (appliedItemAbsorb > 0) o = { ...o, hp: o.hp + appliedItemAbsorb };
     if (blocked > 0) lines.push(`${blocked} absorbed by ${o.name}'s shield.`);
     if (finalDmg > 0) { lines.push(`${finalDmg} damage to ${o.name}.`); pushFx(fx, 'opp', finalDmg, 'damage'); }
-    if (o.hp > 0 && absorbHeal > 0) { lines.push(`${o.name} absorbs ${absorbHeal} HP.`); pushFx(fx, 'opp', absorbHeal, 'heal'); }
-    if (o.hp > 0 && itemAbsorbHeal > 0) { lines.push(`${o.name}'s armor absorbs ${itemAbsorbHeal} HP.`); pushFx(fx, 'opp', itemAbsorbHeal, 'heal'); }
+    if (appliedAbsorb > 0) { lines.push(`${o.name} absorbs ${appliedAbsorb} HP.`); pushFx(fx, 'opp', appliedAbsorb, 'heal'); }
+    if (appliedItemAbsorb > 0) { lines.push(`${o.name}'s armor absorbs ${appliedItemAbsorb} HP.`); pushFx(fx, 'opp', appliedItemAbsorb, 'heal'); }
     if (reflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - reflectedDmg) }; lines.push(`${s.name} takes ${reflectedDmg} reflected damage.`); pushFx(fx, 'self', reflectedDmg, 'damage'); }
     if (itemReflectedDmg > 0) { s = { ...s, hp: Math.max(0, s.hp - itemReflectedDmg) }; lines.push(`${s.name} takes ${itemReflectedDmg} damage reflected by ${o.name}'s armor.`); pushFx(fx, 'self', itemReflectedDmg, 'damage'); }
-    if (itemLifeStealHeal > 0) { s = { ...s, hp: Math.min(s.maxHp, s.hp + itemLifeStealHeal) }; lines.push(`${s.name}'s armor steals ${itemLifeStealHeal} HP.`); pushFx(fx, 'self', itemLifeStealHeal, 'heal'); }
+    const appliedItemLifeSteal = Math.min(itemLifeStealHeal, Math.max(0, s.maxHp - s.hp));
+    if (appliedItemLifeSteal > 0) { s = { ...s, hp: s.hp + appliedItemLifeSteal }; lines.push(`${s.name}'s armor steals ${appliedItemLifeSteal} HP.`); pushFx(fx, 'self', appliedItemLifeSteal, 'heal'); }
 
     for (const tag of tags) {
         const tagName = normalizeTagName(tag.name);
@@ -1031,7 +1034,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
         // Recoil debuff application happens in the status phase so it applies even
         // on zero-damage utility jutsu. (Self-recoil damage is resolved below,
         // gated on finalDmg.)
-        if (tagName === 'Siphon' && pct > 0 && finalDmg > 0) { const h = postDamagePercentAmount(finalDmg, pct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
+        if (tagName === 'Siphon' && pct > 0 && finalDmg > 0) { const h = Math.min(Math.max(0, s.maxHp - s.hp), postDamagePercentAmount(finalDmg, pct, healBoost)); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Siphon: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
     }
 
     const recoilStatus = activeStatuses(s, round)
@@ -1043,7 +1046,7 @@ function resolvePostDamage(sIn: PvpFighter, oIn: PvpFighter, jutsu: Jutsu, round
     // Sum all active Lifesteal stacks' percents (capped at 60% by
     // cappedPostDamage), matching PvE — was first-stack-only (.find).
     const lsPct = activeStatuses(s, round).filter(st => st.name === 'Lifesteal').reduce((sum, st) => sum + (st.percent ?? 0), 0);
-    if (lsPct > 0 && finalDmg > 0) { const h = postDamagePercentAmount(finalDmg, lsPct, healBoost); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
+    if (lsPct > 0 && finalDmg > 0) { const h = Math.min(Math.max(0, s.maxHp - s.hp), postDamagePercentAmount(finalDmg, lsPct, healBoost)); s = { ...s, hp: Math.min(s.maxHp, s.hp + h) }; lines.push(`Lifesteal: ${s.name} heals ${h} HP.`); pushFx(fx, 'self', h, 'heal'); }
 
     return { s, o, lines, fx };
 }
@@ -2133,7 +2136,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             case 'basicHeal': {
                 if (!canAct(60) || (myCooldowns.basicHeal ?? 0) > 0 || me.chakra < 10) return finish(withRejected(session, 'Basic Heal isn\'t ready — out of AP/chakra, or on cooldown.'));
-                const healAmt = Math.max(1, Math.floor(me.maxHp * 0.1));
+                const healAmt = Math.min(Math.max(0, me.maxHp - me.hp), Math.max(1, Math.floor(me.maxHp * 0.1)));
                 const healFx: HitFxEvent[] = [{ who: 'self', amount: healAmt, kind: 'heal' }];
                 lines.push(`${me.name} uses Basic Heal, restoring ${healAmt} HP.`);
                 result = commit(
