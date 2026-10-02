@@ -9,10 +9,10 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { sanitizeUserText } from '../_text-moderation.js';
 import { getActiveSilence } from '../admin/moderation.js';
-import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_FORGE_COST, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
+import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedForgeReplay, rollNamedForge, type NamedRoll } from './_named.js';
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
-import { namedForgePointTotal } from '../../shared/named-forge-economy.js';
+import { canPayNamedForge, NAMED_FORGE_FATE_SHARD_COST } from '../../shared/named-forge-economy.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 const REGISTRY_UNAVAILABLE = 'Named gear storage is temporarily unavailable. Retry this forge with the same roll.';
@@ -53,6 +53,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: `Named forging unlocks at level ${NAMED_ITEM_LEVEL_REQ}.`, requiredLevel: NAMED_ITEM_LEVEL_REQ });
         }
         if (action === 'roll') {
+            const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`);
+            if (!canPayNamedForge(save?.character ?? {})) {
+                return res.status(409).json({ error: `Named forging requires ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` });
+            }
             const kind = body.kind === 'armor' ? 'armor' : 'weapon'; const roll = rollNamedForge(kind, body.slot);
             const token = randomUUID().replace(/-/g, '');
             await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
@@ -84,10 +88,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!sealed || sealed.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-roll' };
             const paid = debitNamedForge(character);
             if (!paid) {
-                const error = namedForgePointTotal(character) < NAMED_FORGE_COST
-                    ? 'insufficient-forge-materials'
-                    : `Whole materials cannot make the exact ${NAMED_FORGE_COST}-point forge payment.`;
-                return { ok: false as const, status: 409, error };
+                return { ok: false as const, status: 409, error: `Named forging requires ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` };
             }
             const item = buildNamedItem(
                 sealed.roll,

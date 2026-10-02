@@ -1934,10 +1934,10 @@
     {
       "system": "craft",
       "id": "named-forge",
-      "currency": "ryo",
-      "amount": 1000,
+      "currency": "fateShards",
+      "amount": 200,
       "cadence": "per forge",
-      "authority": "api/craft/_named.ts",
+      "authority": "shared/named-forge-economy.ts",
       "notes": ""
     },
     {

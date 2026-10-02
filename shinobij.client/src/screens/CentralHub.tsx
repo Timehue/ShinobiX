@@ -7,9 +7,8 @@ import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
 import {
     canPayNamedForge,
-    NAMED_FORGE_COST,
-    NAMED_FORGE_CURRENCY_POINTS,
-    namedForgePointTotal,
+    NAMED_FORGE_FATE_SHARD_COST,
+    namedForgeFateShardTotal,
 } from "../../../shared/named-forge-economy";
 import type { CSSProperties, Dispatch, ReactElement, SetStateAction } from "react";
 import "../styles/central-skin.css";
@@ -82,6 +81,13 @@ import { gameToast } from "../components/GameToast";
 import { effectiveItemLevelReq } from "../../../shared/item-level-gate";
 import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
 import { Modal } from "../components/ui/Modal";
+import { NamedForgeRevealModal, type NamedForgeAnimation } from "../components/NamedForgeRevealModal";
+import {
+    NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX, NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE,
+    NAMED_WEAPON_TAGS, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
+    NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_STATS,
+    NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
+} from "../../../shared/named-forge-roll";
 import { rollAwakeningServer } from "../lib/awakening-api";
 import { purchaseBloodlineForge } from "../lib/bloodline-forge";
 import { bloodlineTagPercentChoices, jutsuCountForRank, pointBudgetForRank } from "../lib/jutsu-points";
@@ -144,64 +150,6 @@ function craftTier(pts: number): "common" | "uncommon" | "rare" | "epic" | "lege
     if (pts <= 25) return "rare";
     if (pts <= 50) return "epic";
     return "legendary";
-}
-
-type NamedForgeKind = "weapon" | "armor";
-type NamedForgeAnimation = { kind: NamedForgeKind; phase: "rolling" | "reveal" };
-type NamedForgeRevealStat = { label: string; value: string };
-
-function NamedForgeRollCinematic({
-    kind,
-    phase,
-    stats,
-}: {
-    kind: NamedForgeKind;
-    phase: NamedForgeAnimation["phase"];
-    stats: NamedForgeRevealStat[];
-}) {
-    const Icon = kind === "weapon" ? GiCrossedSwords : GiBreastplate;
-    const scanRows = (kind === "weapon" ? ["Edge", "Reach", "Combat tags"] : ["Armor grade", "Guard matrix", "Special sigil"])
-        .map((label, index) => ({ label, value: ["READING", "BINDING", "ETCHING"][index] }));
-    const rows = phase === "reveal" ? stats : scanRows;
-    const itemLabel = kind === "weapon" ? "Named Weapon" : "Named Armor";
-
-    return (
-        <section
-            className={`nf nf--${kind} is-${phase}`}
-            role="status"
-            aria-live="polite"
-            aria-atomic="true"
-        >
-            <div className="nf-relic" aria-hidden="true"><span><Icon /></span></div>
-
-            <div className="nf-copy">
-                <span>
-                    {phase === "rolling" ? "Master forge · fate in motion" : "One of one · roll sealed"}
-                </span>
-                <h3>{phase === "rolling" ? `Rolling ${itemLabel}` : `${itemLabel} Awakened`}</h3>
-                <p>
-                    {phase === "rolling"
-                        ? "Heat, chakra, and chance are converging…"
-                        : "The forge has spoken. Your final stats are locked."}
-                </p>
-            </div>
-
-            <div className="nf-stats">
-                {rows.map((row, index) => (
-                    <div
-                        className="nf-stat"
-                        key={`${row.label}-${index}`}
-                        style={{ "--i": index } as CSSProperties}
-                    >
-                        <span>{row.label}</span>
-                        <strong>{row.value}</strong>
-                    </div>
-                ))}
-            </div>
-
-            <div className="nf-progress" aria-hidden="true"><i /></div>
-        </section>
-    );
 }
 
 export function CentralHub({
@@ -346,6 +294,8 @@ export function CentralHub({
     const [namedWeaponToken, setNamedWeaponToken] = useState("");
     const [namedForgeBusy, setNamedForgeBusy] = useState(false);
     const [namedForgeAnimation, setNamedForgeAnimation] = useState<NamedForgeAnimation | null>(null);
+    const namedWeaponRollButtonRef = useRef<HTMLButtonElement>(null);
+    const namedArmorRollButtonRef = useRef<HTMLButtonElement>(null);
     function beginNamedForge(): boolean {
         if (namedForgeBusy) return false;
         setNamedForgeBusy(true);
@@ -365,24 +315,17 @@ export function CentralHub({
         const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
         playGameSfx("reveal", { gain: 0.78, playbackRate: namedForgeAnimation.kind === "weapon" ? 1.06 : 0.96 });
         const mythicTimer = window.setTimeout(() => playGameSfx("mythic", { gain: 0.74 }), reducedMotion ? 0 : 520);
-        const finishTimer = window.setTimeout(() => setNamedForgeAnimation(null), reducedMotion ? 450 : 3_050);
         if (!reducedMotion) {
             try { navigator.vibrate?.([28, 42, 72]); } catch { /* optional feedback */ }
         }
         return () => {
             window.clearTimeout(mythicTimer);
-            window.clearTimeout(finishTimer);
         };
     }, [namedForgeAnimation]);
 
-    const NAMED_WEAPON_TAGS = [
-        "Siphon", "Absorb", "Poison", "Wound",
-        "Reflect", "Shield", "Drain", "Ignition", "Heal",
-        "Increase Damage Given", "Increase Generals", "Decrease Damage Taken",
-    ];
-
     async function rollNamedWeapon() {
         if (namedForgeLocked) return alert(namedForgeLockMessage);
+        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
         primeGameAudio(["omen", "reveal", "mythic"]);
         setNamedForgeAnimation({ kind: "weapon", phase: "rolling" });
@@ -400,25 +343,16 @@ export function CentralHub({
         }
     }
 
-    // Named gear uses one shared premium-currency economy on both sides of the
-    // request boundary. The exact-payment check prevents whole materials from
-    // silently rounding a 1,000-point forge upward.
-    const NW_CURRENCY_PTS = NAMED_FORGE_CURRENCY_POINTS;
-    const NW_COST = NAMED_FORGE_COST;
-    // Named gear is the level-90 tier (shared/item-level-gate.ts) and the SERVER
-    // refuses both the roll and the forge below it. Mirror that here so the
-    // panel explains the lock instead of handing back a 403 after a click — a
-    // named roll costs 1,000 forge points, so a silent failure is expensive.
+    // Named weapons and every armor slot use the same Fate Shard payment.
+    const NW_COST = NAMED_FORGE_FATE_SHARD_COST;
     const namedForgeLocked = Math.max(1, Math.floor(Number(character.level) || 1)) < NAMED_ITEM_LEVEL_REQ;
     const namedForgeLockMessage = `Named forging unlocks at Level ${NAMED_ITEM_LEVEL_REQ}. You are Level ${character.level}.`;
 
     const { namedForgePts, namedForgePaymentReady } = useMemo(() => ({
-        namedForgePts: namedForgePointTotal(character),
+        namedForgePts: namedForgeFateShardTotal(character),
         namedForgePaymentReady: canPayNamedForge(character),
     }), [character]);
-    const namedForgePaymentError = namedForgePts < NW_COST
-        ? `Not enough materials. Need ${NW_COST} forge pts.`
-        : `Your materials are worth ${namedForgePts} forge pts, but whole materials cannot make exactly ${NW_COST}. Add Bone Charms or Fate Shards to complete an exact payment.`;
+    const namedForgePaymentError = `Not enough Fate Shards. Need ${NW_COST} Fate Shards to forge named gear.`;
 
     async function forgeNamedWeapon() {
         if (!requireServerSettlement("creatorItemCraft")) return;
@@ -450,9 +384,7 @@ export function CentralHub({
     // ── Named Armor forge ───────────────────────────────────────────────
     // Mirrors the Named Weapon flow but produces a master-forged armor
     // piece. Player picks a slot from a dropdown; rolling fills in
-    // randomized stats. Forge cost is shared with named weapons (1000
-    // pts, same currency conversion) so both top-tier crafts use the
-    // same currency sink.
+    // randomized stats. Both named gear kinds cost 200 Fate Shards.
     type NamedArmorRoll = {
         slot: EquipmentSlot;
         armorQuality: ArmorQuality; // Elite / Legendary / Mythic (6 / 7 / 8 %)
@@ -479,16 +411,9 @@ export function CentralHub({
         { value: "hand",  label: "Gloves" },
     ];
 
-    const NAMED_ARMOR_SPECIALS: Array<{ kind: string; bonusKey: string }> = [
-        { kind: "Absorb",          bonusKey: "absorbPercent" },
-        { kind: "Shield",          bonusKey: "shield" },
-        { kind: "Reflect",         bonusKey: "reflectPercent" },
-        { kind: "Life Steal",      bonusKey: "lifeStealPercent" },
-        { kind: "Increase Damage", bonusKey: "damagePercent" },
-    ];
-
     async function rollNamedArmor() {
         if (namedForgeLocked) return alert(namedForgeLockMessage);
+        if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
         primeGameAudio(["omen", "reveal", "mythic"]);
         setNamedForgeAnimation({ kind: "armor", phase: "rolling" });
@@ -1878,35 +1803,18 @@ export function CentralHub({
                                     <div className="nw-forge">
                                         <div className="nw-head">
                                             <span className="nw-title"><GiBreastplate style={HDR_ICON} />Named Armor</span>
-                                            <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Costs {NW_COST} forge pts.</small>
+                                            <small>Forge a one-of-a-kind armor piece — the finest armor in the world, above mythic. Costs {NW_COST} Fate Shards.</small>
                                         </div>
 
                                         {/* Currency display — same pool as named weapons */}
                                         <div className="nw-wallet">
                                             <div className="nw-currency">
-                                                <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
-                                                <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
                                                 <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
-                                                <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
-                                                <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
-                                                <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
-                                                <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
-                                                <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
+                                                <strong>{naPts}</strong>
                                             </div>
                                             <div className="nw-total">
-                                                Total forge pts: <strong>{naPts}</strong> / {NW_COST}
+                                                Required: <strong>{NW_COST} Fate Shards</strong>
                                             </div>
-                                            {naPts >= NW_COST && !namedForgePaymentReady && (
-                                                <div className="nw-total" style={{ color: "#f59e0b" }}>
-                                                    Exact payment unavailable — add Bone Charms or Fate Shards.
-                                                </div>
-                                            )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     <GameArtIcon kind="key" size={15} /> Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
@@ -1942,39 +1850,44 @@ export function CentralHub({
                                                     <div className="no-section">
                                                         <div className="no-label">Damage Reduction</div>
                                                         <div className="no-rows">
-                                                            <div className="no-row"><span>6% (Elite)</span><span className="no-pct">33.3%</span></div>
-                                                            <div className="no-row"><span>7% (Legendary)</span><span className="no-pct">33.3%</span></div>
-                                                            <div className="no-row"><span>8% (Mythic)</span><span className="no-pct">33.3%</span></div>
+                                                            <div className="no-row"><span>{Math.round(armorReductionForQuality("Elite") * 100)}% (Elite)</span><span className="no-pct">{(100 / NAMED_ARMOR_QUALITIES.length).toFixed(1)}%</span></div>
+                                                            <div className="no-row"><span>{Math.round(armorReductionForQuality("Legendary") * 100)}% (Legendary)</span><span className="no-pct">{(100 / NAMED_ARMOR_QUALITIES.length).toFixed(1)}%</span></div>
+                                                            <div className="no-row"><span>{Math.round(armorReductionForQuality("Mythic") * 100)}% (Mythic)</span><span className="no-pct">{(100 / NAMED_ARMOR_QUALITIES.length).toFixed(1)}%</span></div>
                                                         </div>
                                                     </div>
                                                 )}
                                                 <div className="no-section">
                                                     <div className="no-label">All Offense</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>+25 to +35</span><span className="no-pct">~9.1% each</span></div>
+                                                        <div className="no-row"><span>+{NAMED_ARMOR_STATS.min} to +{NAMED_ARMOR_STATS.max}</span><span className="no-pct">~{namedForgeUniformPercent(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max).toFixed(1)}% each</span></div>
                                                     </div>
                                                 </div>
                                                 <div className="no-section">
                                                     <div className="no-label">All Defense</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>+25 to +35</span><span className="no-pct">~9.1% each</span></div>
+                                                        <div className="no-row"><span>+{NAMED_ARMOR_STATS.min} to +{NAMED_ARMOR_STATS.max}</span><span className="no-pct">~{namedForgeUniformPercent(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max).toFixed(1)}% each</span></div>
                                                     </div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Special Effect (each {(100 / NAMED_ARMOR_SPECIALS.length).toFixed(1)}% to roll)</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span><GameArtIcon kind="guard" size={15} /> Absorb</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">+75 to +150 HP</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="guard" size={15} /> Reflect</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Life Steal</span><span className="no-pct">0.08–2%</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> Increase Damage</span><span className="no-pct">0.75–1.50%</span></div>
+                                                        {NAMED_ARMOR_SPECIALS.map((special) => (
+                                                            <div className="no-row" key={special.kind}>
+                                                                <span>{special.kind}</span>
+                                                                <span className="no-pct">{special.kind === "Shield"
+                                                                    ? `+${special.min} to +${special.max} starting shield`
+                                                                    : `${special.min.toFixed(special.decimals)}–${special.max.toFixed(special.decimals)}%`}</span>
+                                                            </div>
+                                                        ))}
                                                     </div>
+                                                    <div className="no-row"><span>Shield rolls uniformly over whole numbers. Percent effects are uniform before rounding to 0.01%; endpoint values are about half as likely.</span></div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         <button
                                             className="nw-roll"
+                                            ref={namedArmorRollButtonRef}
                                             onClick={rollNamedArmor}
                                             disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
@@ -1983,20 +1896,6 @@ export function CentralHub({
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling Armor…" : "Sealing Armor…"
                                                 : "Roll Named Armor"}
                                         </button>
-
-                                        {namedForgeAnimation?.kind === "armor" && (
-                                            <NamedForgeRollCinematic
-                                                kind="armor"
-                                                phase={namedForgeAnimation.phase}
-                                                stats={namedArmorRoll ? [
-                                                    { label: "Slot", value: NAMED_ARMOR_SLOTS.find((slot) => slot.value === namedArmorRoll.slot)?.label ?? namedArmorRoll.slot },
-                                                    ...(namedArmorRoll.slot === "hand" ? [] : [{ label: "Damage reduction", value: `${Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% · ${namedArmorRoll.armorQuality}` }]),
-                                                    { label: "All offense", value: `+${namedArmorRoll.offenseVal}` },
-                                                    { label: "All defense", value: `+${namedArmorRoll.defenseVal}` },
-                                                    { label: "Special", value: `${namedArmorRoll.special.kind} ${namedArmorRoll.special.kind === "Shield" ? `+${namedArmorRoll.special.value} HP` : `${namedArmorRoll.special.value}%`}` },
-                                                ] : []}
-                                            />
-                                        )}
 
                                         {namedArmorRoll && !namedForgeAnimation && (
                                             <div className="nw-result nf-enter">
@@ -2010,7 +1909,7 @@ export function CentralHub({
                                                         <strong>
                                                             {namedArmorRoll.special.kind}
                                                             {namedArmorRoll.special.kind === "Shield"
-                                                                ? ` +${namedArmorRoll.special.value} HP`
+                                                                ? ` +${namedArmorRoll.special.value} shield`
                                                                 : ` ${namedArmorRoll.special.value}%`}
                                                         </strong>
                                                     </div>
@@ -2071,35 +1970,18 @@ export function CentralHub({
                                     <div className="nw-forge">
                                         <div className="nw-head">
                                             <span className="nw-title"><GiCrossedSwords style={HDR_ICON} />Named Weapon</span>
-                                            <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Costs {NW_COST} forge pts.</small>
+                                            <small>Forge a one-of-a-kind hand weapon — the finest weapon in the world, above mythic. Costs {NW_COST} Fate Shards.</small>
                                         </div>
 
                                         {/* Currency display */}
                                         <div className="nw-wallet">
                                             <div className="nw-currency">
-                                                <span><GameIcon name="bone" size={14} style={COST_ICON} />Bone Charms</span>
-                                                <span>{character.boneCharms ?? 0} × {NW_CURRENCY_PTS.boneCharms} pts = <strong>{(character.boneCharms ?? 0) * NW_CURRENCY_PTS.boneCharms}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
                                                 <span><GameIcon name="shard" size={14} style={COST_ICON} />Fate Shards</span>
-                                                <span>{character.fateShards ?? 0} × {NW_CURRENCY_PTS.fateShards} pts = <strong>{(character.fateShards ?? 0) * NW_CURRENCY_PTS.fateShards}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
-                                                <span><GameIcon name="crystal" size={14} style={COST_ICON} />Aura Stones</span>
-                                                <span>{character.auraStones ?? 0} × {NW_CURRENCY_PTS.auraStones} pts = <strong>{(character.auraStones ?? 0) * NW_CURRENCY_PTS.auraStones}</strong></span>
-                                            </div>
-                                            <div className="nw-currency">
-                                                <span><GameIcon name="sigil" size={14} style={COST_ICON} />Mythic Seals</span>
-                                                <span>{character.mythicSeals ?? 0} × {NW_CURRENCY_PTS.mythicSeals} pts = <strong>{(character.mythicSeals ?? 0) * NW_CURRENCY_PTS.mythicSeals}</strong></span>
+                                                <strong>{nwPts}</strong>
                                             </div>
                                             <div className="nw-total">
-                                                Total forge pts: <strong>{nwPts}</strong> / {NW_COST}
+                                                Required: <strong>{NW_COST} Fate Shards</strong>
                                             </div>
-                                            {nwPts >= NW_COST && !namedForgePaymentReady && (
-                                                <div className="nw-total" style={{ color: "#f59e0b" }}>
-                                                    Exact payment unavailable — add Bone Charms or Fate Shards.
-                                                </div>
-                                            )}
                                             {namedForgeLocked && (
                                                 <div className="nw-total" style={{ color: "#ef4444", fontWeight: "bold" }}>
                                                     <GameArtIcon kind="key" size={15} /> Unlocks at Level {NAMED_ITEM_LEVEL_REQ} — you are Level {character.level}
@@ -2117,9 +1999,9 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">Damage EP</div>
                                                     <div className="no-rows">
-                                                        {[30,31,32,33,34,35].map(v => (
+                                                        {Array.from({ length: NAMED_WEAPON_EP_MAX - NAMED_WEAPON_EP_MIN + 1 }, (_, i) => NAMED_WEAPON_EP_MIN + i).map(v => (
                                                             <div key={v} className="no-row">
-                                                                <span>{v}</span><span className="no-pct">16.7%</span>
+                                                                <span>{v}</span><span className="no-pct">{namedForgeUniformPercent(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX)}%</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -2127,9 +2009,9 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">Range</div>
                                                     <div className="no-rows">
-                                                        {[3,4,5].map(v => (
+                                                        {NAMED_WEAPON_RANGES.map(v => (
                                                             <div key={v} className="no-row">
-                                                                <span>{v}</span><span className="no-pct">33.3%</span>
+                                                                <span>{v}</span><span className="no-pct">{(100 / NAMED_WEAPON_RANGES.length).toFixed(1)}%</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -2137,35 +2019,35 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">All Offenses</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>168–180</span><span className="no-pct">~7.7% each</span></div>
+                                                        <div className="no-row"><span>{NAMED_WEAPON_OFFENSE.min}–{NAMED_WEAPON_OFFENSE.max}</span><span className="no-pct">~{namedForgeUniformPercent(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max).toFixed(1)}% each</span></div>
                                                     </div>
                                                 </div>
                                                 <div className="no-section">
                                                     <div className="no-label">Tag Count</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span>1 tag (35–40%)</span><span className="no-pct">50%</span></div>
-                                                        <div className="no-row"><span>2 tags (15–20% ea.)</span><span className="no-pct">50%</span></div>
+                                                        <div className="no-row"><span>1 tag ({NAMED_WEAPON_TAG_STRENGTH.single.min}–{NAMED_WEAPON_TAG_STRENGTH.single.max}% rolled)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
+                                                        <div className="no-row"><span>2 distinct tags ({NAMED_WEAPON_TAG_STRENGTH.dual.min}–{NAMED_WEAPON_TAG_STRENGTH.dual.max}% ea.)</span><span className="no-pct">{100 / NAMED_WEAPON_TAG_COUNTS.length}%</span></div>
                                                     </div>
                                                 </div>
                                                 <div className="no-section no-wide">
-                                                    <div className="no-label">Possible Tags (each ~{(100 / NAMED_WEAPON_TAGS.length).toFixed(1)}% to appear)</div>
+                                                    <div className="no-label">Possible Tags (each {NAMED_WEAPON_TAG_APPEARANCE_PERCENT}% to appear per roll)</div>
                                                     <div className="no-tags">
                                                         {NAMED_WEAPON_TAGS.map(t => (
                                                             <span key={t} className="no-chip">{t}</span>
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%, whatever the tag count rolls.</span></div>
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at 35%; Wound caps at 25%. Heal, Shield, and Drain use combat mastery rather than the rolled percentage.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Adds HP shield = rolled% × weapon hit damage</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat heal — 400 HP (single-tag roll) or 200 HP (dual-tag roll)</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores HP = rolled% × weapon hit damage</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Afterburn</span><span className="no-pct">2-round status: next 2 attacks deal +rolled% damage</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat shield, scaled by combat mastery and limited by your shield cap</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat heal, scaled by combat mastery; tag count does not change it</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores up to 35% of damage dealt, after shield and mitigation</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Increases target damage taken for 2 turns; combat amplification caps apply</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> Damage / IDG / DDT / Reflect / Absorb</span><span className="no-pct">Flat % modifier for 2 rounds</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="attack" size={15} /> IDG / Generals / DDT / Reflect / Absorb</span><span className="no-pct">Rolled strengths are capped in combat; buffs last 2 turns</span></div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2173,6 +2055,7 @@ export function CentralHub({
 
                                         <button
                                             className="nw-roll"
+                                            ref={namedWeaponRollButtonRef}
                                             onClick={rollNamedWeapon}
                                             disabled={!namedForgePaymentReady || namedForgeLocked || namedForgeBusy || namedForgeAnimation !== null}
                                         >
@@ -2181,20 +2064,6 @@ export function CentralHub({
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling Weapon…" : "Sealing Weapon…"
                                                 : "Roll Named Weapon"}
                                         </button>
-
-                                        {namedForgeAnimation?.kind === "weapon" && (
-                                            <NamedForgeRollCinematic
-                                                kind="weapon"
-                                                phase={namedForgeAnimation.phase}
-                                                stats={namedWeaponRoll ? [
-                                                    { label: "Damage EP", value: String(namedWeaponRoll.ep) },
-                                                    { label: "AP cost", value: "40" },
-                                                    { label: "Range", value: String(namedWeaponRoll.range) },
-                                                    { label: "All offenses", value: `+${namedWeaponRoll.offenseVal}` },
-                                                    ...namedWeaponRoll.tags.map((tag, index) => ({ label: `Tag ${index + 1}`, value: `${tag.name} · ${tag.percent}%` })),
-                                                ] : []}
-                                            />
-                                        )}
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
                                             <div className="nw-result nf-enter">
@@ -2270,6 +2139,26 @@ export function CentralHub({
                     </Modal>
                 );
             })()}
+            {namedForgeAnimation && <NamedForgeRevealModal
+                {...namedForgeAnimation}
+                returnFocusRef={namedForgeAnimation.kind === "weapon" ? namedWeaponRollButtonRef : namedArmorRollButtonRef}
+                onContinue={() => setNamedForgeAnimation(null)}
+                stats={namedForgeAnimation.kind === "weapon"
+                    ? namedWeaponRoll ? [
+                        { label: "Damage EP", value: String(namedWeaponRoll.ep) },
+                        { label: "AP cost", value: "40" },
+                        { label: "Range", value: String(namedWeaponRoll.range) },
+                        { label: "All offenses", value: `+${namedWeaponRoll.offenseVal}` },
+                        ...namedWeaponRoll.tags.map((tag, index) => ({ label: `Tag ${index + 1}`, value: `${tag.name} · ${tag.percent}%` })),
+                    ] : []
+                    : namedArmorRoll ? [
+                        { label: "Slot", value: NAMED_ARMOR_SLOTS.find((slot) => slot.value === namedArmorRoll.slot)?.label ?? namedArmorRoll.slot },
+                        ...(namedArmorRoll.slot === "hand" ? [] : [{ label: "Damage reduction", value: `${Math.round(armorReductionForQuality(namedArmorRoll.armorQuality) * 100)}% · ${namedArmorRoll.armorQuality}` }]),
+                        { label: "All offense", value: `+${namedArmorRoll.offenseVal}` },
+                        { label: "All defense", value: `+${namedArmorRoll.defenseVal}` },
+                        { label: "Special", value: `${namedArmorRoll.special.kind} ${namedArmorRoll.special.kind === "Shield" ? `+${namedArmorRoll.special.value} shield` : `${namedArmorRoll.special.value}%`}` },
+                    ] : []}
+            />}
         </div>
     );
 }

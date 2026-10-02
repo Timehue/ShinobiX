@@ -508,6 +508,16 @@
 }
 
 /* Lazy jackpot reveal; every displayed value is already sealed by the API. */
+.nf-backdrop {
+    background: radial-gradient(ellipse at center, #44251466, #020617ed 75%);
+    perspective: 900px;
+}
+.nf-modal.ui-modal-card { max-width: 720px; border-color: #fbbf2466; animation: nf-modal-in .4s cubic-bezier(.16,1,.3,1) both; }
+.nf-modal .ui-modal-body { scrollbar-gutter: auto; }
+.nf-modal .nf { border-radius: 0; border: 0; min-width: 0; }
+.nf-actions { display: grid; gap: 12px; padding: 16px 24px 22px; background: #080b16; }
+.nf-actions p { margin: 0; color: var(--text-dim); font-size: .78rem; }
+.nf-actions button { width: 100%; }
 .nf {
     --a: #f59e0b;
     --hot: #fde68a;
@@ -580,7 +590,7 @@
     background:linear-gradient(90deg,color-mix(in srgb,var(--a) 12%,transparent),#ffffff06);
     font-size:.75rem;
 }
-.nf-stat strong { color:var(--hot); text-align:right; letter-spacing:.035em; }
+.nf-stat strong { min-width:0; overflow-wrap:anywhere; color:var(--hot); text-align:right; letter-spacing:.035em; }
 .is-reveal .nf-stat { opacity:0; transform:translateX(24px); animation:nf-row .38s cubic-bezier(.16,1,.3,1) calc(.25s + var(--i)*.2s) forwards; }
 .nf-progress { grid-area:progress; height:3px; overflow:hidden; border-radius:99px; background:#ffffff12; }
 .nf-progress i { display:block; width:38%; height:100%; background:linear-gradient(90deg,transparent,var(--hot),transparent); box-shadow:0 0 9px var(--a); animation:nf-load 1s ease-in-out infinite; }
@@ -588,10 +598,11 @@
 .nf-enter { animation:nf-in .45s cubic-bezier(.16,1,.3,1) both; }
 
 @keyframes nf-in { from { opacity:0; transform:translateY(8px) scale(.985); } }
+@keyframes nf-modal-in { from { opacity:0; transform:translateZ(-140px) scale(.78); } to { opacity:1; transform:none; } }
 @keyframes nf-spin { to { transform:rotate(1turn); } }
 @keyframes nf-rise { to { background-position:8% -10%; } }
 @keyframes nf-pulse { to { transform:rotate(45deg) scale(1.04); filter:brightness(1.3); } }
-@keyframes nf-pop { 0% { opacity:.35; transform:scale(.96); filter:brightness(2); } 45% { transform:scale(1.012); filter:brightness(1.3); } }
+@keyframes nf-pop { 0% { opacity:.35; transform:scale(.86); filter:brightness(2); } 45% { transform:scale(1.025); filter:brightness(1.3); } }
 @keyframes nf-row { to { opacity:1; transform:none; } }
 @keyframes nf-load { from { transform:translateX(-110%); } to { transform:translateX(300%); } }
 @keyframes nf-lock { from { transform:scaleX(0); transform-origin:left; } }
@@ -602,11 +613,11 @@
     .nf-relic>span { width:50px; border-radius:16px 6px; font-size:25px; }
     .nf-stat { padding:6px 8px; }
 }
-html.lite-fx .nf,html.lite-fx .nf *,html.lite-fx .nf-enter { animation:none!important; transition:none!important; }
+html.lite-fx .nf,html.lite-fx .nf *,html.lite-fx .nf-enter,html.lite-fx .nf-modal,html.lite-fx .nf-backdrop { animation:none!important; transition:none!important; }
 html.lite-fx .is-reveal .nf-stat { opacity:1; transform:none; }
 html.lite-fx .nf::after { display:none; }
 @media (prefers-reduced-motion: reduce) {
-    .nf,.nf *,.nf-enter { animation:none!important; transition:none!important; }
+    .nf,.nf *,.nf-enter,.nf-modal,.nf-backdrop { animation:none!important; transition:none!important; }
     .is-reveal .nf-stat { opacity:1; transform:none; }
     .nf::after { display:none; }
 }

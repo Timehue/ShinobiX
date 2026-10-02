@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 
 const app = readFileSync("shinobij.client/src/App.tsx", "utf8");
 const hub = readFileSync("shinobij.client/src/screens/CentralHub.tsx", "utf8");
+const namedReveal = readFileSync("shinobij.client/src/components/NamedForgeRevealModal.tsx", "utf8");
 const forgeCss = readFileSync("shinobij.client/src/styles/central-hub-forge.css", "utf8");
 const globalCss = readFileSync("shinobij.client/src/styles/index/22-pet-battle-sprites.css", "utf8");
 const council = readFileSync("shinobij.client/src/screens/ShinobiCouncilHall.tsx", "utf8");
@@ -24,7 +25,8 @@ describe("Central Hub release authority", () => {
         assert.match(hub, /commitNamedForgeServer/);
         assert.match(hub, /forgeServer/);
         assert.doesNotMatch(hub, /Math\.random|function\s+\w+Local\(/);
-        assert.match(hub, /NAMED_FORGE_CURRENCY_POINTS/);
+        assert.match(hub, /NAMED_FORGE_FATE_SHARD_COST/);
+        assert.match(hub, /namedForgeFateShardTotal\(character\)/);
         assert.match(hub, /canPayNamedForge\(character\)/);
         assert.doesNotMatch(hub, /boneCharms:\s*\d|auraStones:\s*\d/);
 
@@ -40,7 +42,10 @@ describe("Central Hub release authority", () => {
     });
 
     it("keeps the named-forge reveal truthful, accessible, and off the startup stylesheet", () => {
-        assert.match(hub, /aria-live="polite"/);
+        assert.match(hub, /<NamedForgeRevealModal/);
+        assert.match(namedReveal, /aria-live="polite"/);
+        assert.match(namedReveal, /disableEscapeClose=\{rolling\}/);
+        assert.match(namedReveal, /returnFocusRef=\{returnFocusRef\}/);
         assert.match(hub, /namedArmorRoll\.slot === "hand" \? \[\] : \[/);
         assert.match(hub, /namedArmorRoll\.slot !== "hand" &&/);
         assert.match(hub, /namedArmorSlot === "hand" \?/);

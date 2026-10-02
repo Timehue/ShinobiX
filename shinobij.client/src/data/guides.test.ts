@@ -18,7 +18,7 @@ import {
     STARTING_LIFE_POINTS,
 } from "../../../shared/chronicle-duel";
 import { HOLLOW_GATE_DEPTH } from "../../../shared/hollow-gate-contract";
-import { NAMED_FORGE_COST, NAMED_FORGE_CURRENCY_POINTS } from "../../../shared/named-forge-economy";
+import { NAMED_FORGE_FATE_SHARD_COST } from "../../../shared/named-forge-economy";
 import {
     SHOWDOWN_BENCH_SIZE,
     SHOWDOWN_TURN_CAP,
@@ -171,11 +171,9 @@ test("high-drift guide numbers stay aligned with current game constants", () => 
     assert.match(companions, new RegExp(`${numberText(SHOWDOWN_BENCH_SIZE)} reserves`, "i"));
     assert.match(companions, new RegExp(`round ${SHOWDOWN_TURN_CAP}`, "i"));
 
-    assert.match(builds, new RegExp(`${NAMED_FORGE_COST.toLocaleString("en-US")} Forge Points`, "i"));
-    assert.match(builds, new RegExp(`Bone Charms count for ${NAMED_FORGE_CURRENCY_POINTS.boneCharms}`, "i"));
-    assert.match(builds, new RegExp(`Fate Shards ${NAMED_FORGE_CURRENCY_POINTS.fateShards}`, "i"));
-    assert.match(builds, new RegExp(`Aura Stones ${NAMED_FORGE_CURRENCY_POINTS.auraStones}`, "i"));
-    assert.match(builds, new RegExp(`Mythic Seals ${NAMED_FORGE_CURRENCY_POINTS.mythicSeals}`, "i"));
+    assert.match(builds, new RegExp(`${NAMED_FORGE_FATE_SHARD_COST} Fate Shards`, "i"));
+    assert.match(builds, /Named gear accepts Fate Shards only/i);
+    assert.match(builds, /paid when you forge the revealed roll/i);
 });
 
 test("economy guidance distinguishes catalogs, currency transfers, and claimable bank interest", () => {
