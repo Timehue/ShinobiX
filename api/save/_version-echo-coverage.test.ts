@@ -225,7 +225,11 @@ const EXEMPT = new Set([
     // through mutatePlayerSave and no longer name a BUMP_MARKER; they still bump, and
     // still have no single response of the affected player's to echo into.
     'clan/seal-pool/distribute.ts',
-    'player/trade.ts',
+    // (player/trade.ts used to be listed here: it bumps the recipient's save as
+    // well as the sender's. It now settles both through mutatePlayerSaves, names
+    // no BUMP_MARKER, and returns only the SENDER's committed `_saveVersion`, the
+    // one save the requesting tab owns. The "every mutatePlayerSave route
+    // acknowledges the committed version" test below now gates it.)
     // Shared two-save ranked helper. pet/battle-result settles both fighters,
     // then rereads and echoes only the requesting player's final `_saveVersion`;
     // exposing either side's version from this helper would be ambiguous.
