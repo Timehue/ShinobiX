@@ -1,14 +1,14 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomUUID, randomInt } from 'node:crypto';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { replayGauntlet } from '../_pet-sim/gauntlet-sim.js';
 import { debitGauntletEntry } from './_gauntlet-entry.js';
-import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 
 /*
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
@@ -102,24 +102,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!enforceRateLimit(req, res, 'pet-gauntlet-start', 10, 60_000, me)) return;
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
-            const saveKey = `save:${me}`;
             // A lost commit race wrote nothing, so re-running (re-read + one
             // debit) charges exactly once.
-            const reservation = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
-                const record = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (record?.character ?? null) as Record<string, unknown> | null;
-                if (!record || !char) return { ok: false as const, status: 404, error: 'Player save not found.' };
+            const reservation = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ chargedRyo: number }>(me, ({ character: char }) => {
                 const result = debitGauntletEntry(char, dayStamp());
-                if (!result.ok) return { ok: false as const, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
-                const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: result.character });
-                await writeSaveProjected(saveKey, updated, record);
-                return {
-                    ok: true as const,
-                    character: result.character,
-                    chargedRyo: result.charged,
-                    saveVersion: Number(updated._saveVersion ?? 0),
-                };
-            }, { failClosed: true }));
+                if (!result.ok) return { ok: false, status: 409, error: `A new Gauntlet run costs ${result.required.toLocaleString()} ryo. Not enough ryo.` };
+                return { ok: true, character: result.character, value: { chargedRyo: result.charged } };
+            }));
             if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
             const startChar = reservation.character;
             const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
@@ -140,10 +129,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 rewardEligible,
                 maxRounds: MAX_ROUNDS,
                 rewardedRunsLeft: Math.max(0, REWARDED_RUNS_PER_DAY - used),
-                chargedRyo: reservation.chargedRyo,
+                chargedRyo: reservation.value.chargedRyo,
                 balances: { ryo: Number(startChar.ryo ?? 0) },
                 character: startChar,
-                _saveVersion: reservation.saveVersion,
+                _saveVersion: reservation._saveVersion,
             });
         }
 
@@ -191,12 +180,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let balances = { ryo: 0, fateShards: 0, boneCharms: 0 };
             let saveMissing = false;
             let settled = false;
-            const saveKey = `save:${me}`;
-            await withKvLock(saveKey, async () => {
-                const record = await kv.get<Record<string, unknown>>(saveKey);
-                const char = record?.character as Record<string, unknown> | undefined;
-                if (!record || !char) { saveMissing = true; return; }
-                saveVersion = Number(record._saveVersion ?? 0);
+            // The run's receipt commits with the payout, so re-running the whole
+            // settlement after a lost compare-and-set pays it once.
+            const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(me, async ({ character: char }) => {
                 name = String(char.name ?? me).slice(0, 40);
                 if (typeof char.village === 'string') village = char.village;
                 balances = { ryo: Number(char.ryo ?? 0), fateShards: Number(char.fateShards ?? 0), boneCharms: Number(char.boneCharms ?? 0) };
@@ -207,7 +193,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (prior) {
                     ryo = Number(prior.ryo ?? 0); grantedFateShards = Number(prior.fateShards ?? 0); grantedBoneCharms = Number(prior.boneCharms ?? 0);
                     await kv.del(tokenKey(id)).catch(() => undefined);
-                    settled = true; return;
+                    return { ok: true, write: false, character: char, value: null };
                 }
                 const rewardedToday = char.petGauntletRewardDate === day ? Math.max(0, Number(char.petGauntletRewardCount ?? 0)) : 0;
                 const rewardThisRun = sealed.rewardEligible && roundsCleared > 0 && rewardedToday < REWARDED_RUNS_PER_DAY;
@@ -228,13 +214,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     petGauntletBoneClaimed: (premiumToday && char.petGauntletBoneClaimed === true) || grantedBoneCharms > 0,
                     redeemedPetGauntletRuns: [...receipts.slice(-49), receipt],
                 };
-                const updated = bumpSaveVersion({ ...record, character: next }, { previousCharacter: char });
-                await kv.set(saveKey, mergePreservingImages(updated, record));
-                await kv.del(tokenKey(id)).catch(() => undefined);
-                settled = true;
-                saveVersion = Number((updated as Record<string, unknown>)._saveVersion ?? 0);
                 balances = { ryo: Number(next.ryo), fateShards: Number(next.fateShards), boneCharms: Number(next.boneCharms) };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: next,
+                    value: null,
+                    afterCommit: () => kv.del(tokenKey(id)).then(() => undefined, () => undefined),
+                };
+            }));
+            if (!committed.ok) {
+                saveMissing = true;
+            } else {
+                settled = true;
+                saveVersion = committed._saveVersion;
+            }
 
             // ── Update the weekly leaderboard (best-per-player). ────────────────
             if (saveMissing) return res.status(404).json({ error: 'Player save not found.' });

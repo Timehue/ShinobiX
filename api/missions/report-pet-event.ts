@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { safeName, mergePreservingImages, cors } from '../_utils.js';
+import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { reportMissionEvent, awardProfessionXp, type CompletedMissionInfo } from './_progress.js';
 import { masteryHasCapstone } from '../_profession-mastery.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
@@ -172,17 +172,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // reward so the pet isn't wedged busy forever. Returns the (possibly updated)
         // character + version for the client to mirror. No-op write when nothing matches
         // (e.g. a normal double-claim after the lease was already cleared).
-        const selfHealStuckExpedition = (match: { token?: string; petId?: string }) =>
-            withKvLock<{ character: Record<string, unknown> | null; saveVersion: number }>(saveKey, async () => {
-                const record = await kv.get<Record<string, unknown>>(saveKey);
-                const char = record?.character as Record<string, unknown> | undefined;
-                if (!record || !char) return { character: null, saveVersion: 0 };
+        const selfHealStuckExpedition = async (match: { token?: string; petId?: string }): Promise<{ character: Record<string, unknown> | null; saveVersion: number }> => {
+            // Clearing a lease is a value, so re-running it after a lost
+            // compare-and-set lands it once.
+            const healed = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, ({ character: char }) => {
                 const { pets, cleared } = clearStuckExpeditionLease(char, match);
-                if (!cleared) return { character: char, saveVersion: Number(record._saveVersion ?? 0) };
-                const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: { ...char, pets } });
-                await kv.set(saveKey, mergePreservingImages(updated, record));
-                return { character: updated.character as Record<string, unknown>, saveVersion: Number(updated._saveVersion ?? 0) };
-            }, { failClosed: true });
+                if (!cleared) return { ok: true, write: false, character: char, value: null };
+                return { ok: true, character: { ...char, pets }, value: null };
+            }));
+            return healed.ok
+                ? { character: healed.character, saveVersion: healed._saveVersion }
+                : { character: null, saveVersion: 0 };
+        };
         const preCheck = await kv.get<Record<string, unknown>>(saveKey);
         const preChar = preCheck?.character as Record<string, unknown> | undefined;
         const isTamer = preChar?.profession === 'petTamer';
@@ -318,10 +319,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(409).json({ error: 'This legacy expedition supports Secure haul only.' });
         }
         if (isExpedition && durationMinutes > 0) {
-            await withKvLock(saveKey, async () => {
-                const record = await kv.get<Record<string, unknown>>(saveKey);
-                const char = record?.character as Record<string, unknown> | undefined;
-                if (!char) return; // race: save deleted mid-call
+            // The token receipt commits with the payout, so re-running the whole
+            // settlement after a lost compare-and-set pays it once (a save
+            // deleted mid-call answers 404 and settles nothing, as before).
+            await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character: char }) => {
+                const unwritten = { ok: true as const, write: false, character: char, value: null };
                 if (expeditionTokenKey) {
                     const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
                         ? (char.redeemedPetExpeditionTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
@@ -332,7 +334,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         replayedLog = (Array.isArray(char.petExpeditionLog)
                             ? char.petExpeditionLog as Array<Record<string, unknown>>
                             : []).find((entry) => entry?.id === expeditionReceipt) ?? null;
-                        return;
+                        return unwritten;
                     }
                     // The claim must still own this exact saved lease. A delayed
                     // response from an older expedition can never settle or clear
@@ -345,7 +347,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!lease || lease.token !== expeditionReceipt) {
                         await kv.del(expeditionTokenKey).catch(() => undefined);
                         tokenAlreadySpent = true;
-                        return;
+                        return unwritten;
                     }
                 }
 
@@ -359,14 +361,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Do not consume the lease or token. The completed expedition
                     // stays ready and can be collected after the UTC reset.
                     dailyCapHit = true;
-                    return;
+                    return unwritten;
                 }
-                if (expeditionTokenKey) {
-                    const receipts = Array.isArray(char.redeemedPetExpeditionTokens)
-                        ? (char.redeemedPetExpeditionTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
-                        : [];
-                    char.redeemedPetExpeditionTokens = [...receipts, expeditionReceipt];
-                }
+                const redeemedReceipts = expeditionTokenKey
+                    ? {
+                        redeemedPetExpeditionTokens: [
+                            ...(Array.isArray(char.redeemedPetExpeditionTokens)
+                                ? (char.redeemedPetExpeditionTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-63)
+                                : []),
+                            expeditionReceipt,
+                        ],
+                    }
+                    : {};
                 const isFirstToday = claimedToday === 0;
                 const escortReady = !!char.petEscortBonusReady;
                 firstExpedition = tamerToken && isFirstToday;
@@ -462,6 +468,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : [];
                 const progressedCharacter = recordPetBreedingProgress({
                     ...char,
+                    ...redeemedReceipts,
                     pets: nextPets,
                     petExpeditionLog: [...priorLog.slice(-(PET_EXPEDITION_LOG_CAP - 1)), logEntry],
                     lastExpeditionClaimDate: today,
@@ -476,13 +483,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     petElement: String(expeditionPet?.element ?? ''),
                     receipt: `expedition:${expeditionReceipt}`,
                 }).character;
-                const updated = bumpSaveVersion({
-                    ...record,
+                return {
+                    ok: true,
                     character: progressedCharacter,
-                }, { previousCharacter: char });
-                await kv.set(saveKey, mergePreservingImages(updated, record));
-                if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
-            }, { failClosed: true });
+                    value: null,
+                    afterCommit: async () => {
+                        if (expeditionTokenKey) await kv.del(expeditionTokenKey).catch(() => undefined);
+                    },
+                };
+            }));
             if (tokenAlreadySpent) {
                 const current = await kv.get<Record<string, unknown>>(saveKey);
                 // The lock callback may assign this replay record; TypeScript
@@ -640,6 +649,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             character: finalChar,
         });
     } catch (err) {
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[missions/report-pet-event]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

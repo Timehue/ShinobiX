@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { sectorContractsEnabled } from '../_release-flags.js';
 import { sectorContractFor, utcDayOf } from '../../shared/sector-contracts.js';
 import {
@@ -31,9 +32,11 @@ import {
  * proven; the claim is collecting a settled bounty, not earning it. Requiring the
  * player to walk back would add nothing an attacker could not trivially satisfy.
  *
- * The check-then-pay runs inside the player's own `save:<name>` lock with
- * failClosed, so two racing claims cannot both collect one bounty: the first
- * writes the claim key, the second reads it and is refused.
+ * The check-then-pay runs through mutatePlayerSave, inside the player's own
+ * `save:<name>` lock with failClosed, so two racing claims cannot both collect
+ * one bounty: the first writes the claim key, the second reads it and is
+ * refused. The same write settles the idle recovery earned since the player's
+ * last save instead of discarding it.
  */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -65,12 +68,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'sector-contract-claim', 12, 60_000, identity.name))) return;
 
-        const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+        type Reply = Record<string, unknown>;
+        const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+            const refuse = (body: Reply) => ({ ok: true as const, write: false, character: char, value: body });
             const now = Date.now();
             const day = utcDayOf(now);
             // Recomputed here, inside the lock, from the sealed sector and day.
             const contract = sectorContractFor(sector, day);
-            if (!contract) return { status: 200, body: { ok: false, reason: 'no-contract' } };
+            if (!contract) return refuse({ ok: false, reason: 'no-contract' });
 
             const claimKey = contractClaimKey(playerName, sector, day);
             const [progress, claimedAt] = await Promise.all([
@@ -78,24 +83,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 kv.get<number>(claimKey),
             ]);
             const status = sectorContractStatus(contract, progress, claimedAt, now);
-            if (status.claimed) return { status: 200, body: { ok: false, reason: 'already-claimed', ...status } };
-            if (!status.claimable) return { status: 200, body: { ok: false, reason: 'incomplete', ...status } };
-
-            const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-            const char = (rec?.character ?? null) as Record<string, unknown> | null;
-            if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            if (status.claimed) return refuse({ ok: false, reason: 'already-claimed', ...status });
+            if (!status.claimable) return refuse({ ok: false, reason: 'incomplete', ...status });
 
             // Claim first: if the payout write fails after this, the player has
             // lost a bounty. If it were the other way round, a failure here
             // would leave a paid contract still claimable — and that is a
-            // faucet. Losing one is recoverable; minting is not.
+            // faucet. Losing one is recoverable; minting is not. A payout that
+            // loses its compare-and-set paid nothing, so onConflict takes this
+            // claim back and the player's retry still collects.
             await kv.set(claimKey, now, { ex: CONTRACT_TTL_SECONDS });
             const updated = { ...char, ryo: Number(char.ryo ?? 0) + contract.ryo };
-            const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
-            await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
             return {
-                status: 200,
-                body: {
+                ok: true,
+                character: updated,
+                value: {
                     ok: true,
                     contract,
                     ryo: contract.ryo,
@@ -103,13 +105,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     progress: status.progress,
                     claimed: true,
                     claimable: false,
-                    _saveVersion: Number(record._saveVersion ?? 0),
+                },
+                onConflict: async () => {
+                    if (await kv.get<number>(claimKey) === now) await kv.del(claimKey);
                 },
             };
-        }, { failClosed: true });
-
-        return res.status(out.status).json(out.body);
+        });
+        if (!committed.ok) {
+            if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+            return res.status(committed.status).json({ error: committed.error });
+        }
+        const out = committed.value;
+        if (out.ok === true) out._saveVersion = committed._saveVersion;
+        return res.status(200).json(out);
     } catch (err) {
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         if (err instanceof LockContendedError) {
             return res.status(503).json({ error: 'Could not settle the contract — please retry.' });
         }

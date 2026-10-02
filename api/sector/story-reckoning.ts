@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave, type PlayerSaveMutation, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { worldContextWinProofCount } from '../missions/_world-ai-fight.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { advanceStoryField, newStoryFieldProgress, parseStoryFieldRecords, storyFieldJourney, storyFieldPointId, storyFieldTraits, type StoryFieldProgress } from '../../shared/story-field-work.js';
@@ -33,6 +34,41 @@ function mirrorFor(def: StoryReckoningDef, stage: 'task' | 'return', baseline: n
     return { id: def.id, stage, metric: def.metric, baseline, target: def.target, dropItemId: def.dropItemId, ...(fieldWork ? { fieldWork } : {}) };
 }
 
+/** A reckoning reply; `echo` acknowledges the save version, `withCharacter` hands back the character. */
+type Reply = { body: Record<string, unknown>; echo?: boolean; withCharacter?: boolean };
+
+function replyFor(committed: PlayerSaveMutationResult<Reply>): { status: number; body: Record<string, unknown> } {
+    if (!committed.ok) {
+        return committed.status === 404
+            ? { status: 404, body: { error: 'Your save was not found.' } }
+            : { status: committed.status, body: { error: committed.error } };
+    }
+    const { body, echo, withCharacter } = committed.value;
+    return {
+        status: 200,
+        body: {
+            ...body,
+            ...(withCharacter ? { character: committed.character } : {}),
+            ...(echo ? { _saveVersion: committed._saveVersion } : {}),
+        },
+    };
+}
+
+/** Answer without writing the save. */
+function unwritten(char: Record<string, unknown>, body: Record<string, unknown>, opts: Omit<Reply, 'body'> = {}): PlayerSaveMutation<Reply> {
+    return { ok: true, write: false, character: char, value: { body, ...opts } };
+}
+
+/** No seal in either store but a mirror for this quest: clear the stranded mirror and seal. */
+function clearStranded(char: Record<string, unknown>): PlayerSaveMutation<Reply> {
+    return {
+        ok: true,
+        character: { ...char, activeStoryReckoning: null },
+        recordPatch: { activeStoryReckoningSeal: null },
+        value: { body: { ok: false, reason: 'none', activeStoryReckoning: null }, echo: true, withCharacter: true },
+    };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -51,17 +87,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, `story-reckoning-${action}`, 30, 60_000, identity.name))) return;
 
-        const saveKey = `save:${playerName}`;
         const tokenKey = tokenKeyFor(playerName);
+        // The save-resident seal is authoritative; its KV copy follows each
+        // committed write, best-effort.
+        const cacheSeal = (seal: StoryReckoningSeal) => kv.set(tokenKey, seal, { ex: TOKEN_TTL_SECONDS }).then(() => undefined, () => undefined);
         const def = action === 'abandon' ? null : STORY_RECKONINGS[String(body.questId ?? '')];
         if (action !== 'abandon' && !def) return res.status(400).json({ error: 'Unknown reckoning.' });
 
         if (action === 'accept' && def) {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
-                if (storyReckoningRedemption(char, def.id)) return { status: 200, body: { ok: false, reason: 'ineligible' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                if (storyReckoningRedemption(char, def.id)) return unwritten(char, { ok: false, reason: 'ineligible' });
                 const durable = parseStoryReckoningSeal(rec.activeStoryReckoningSeal);
                 const cached = parseStoryReckoningSeal(await kv.get(tokenKey));
                 const existing = durable ?? cached;
@@ -79,22 +114,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         || num(mirror.target) !== activeStoryReckoning.target
                         || mirror.dropItemId !== activeStoryReckoning.dropItemId
                         || JSON.stringify(mirror.fieldWork) !== JSON.stringify(activeStoryReckoning.fieldWork);
-                    const updated = needsRepair ? { ...char, activeStoryReckoning } : char;
-                    let replaySave = rec;
-                    if (needsRepair) {
-                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: existing, character: updated });
-                        const merged = mergePreservingImages(next, rec) as Record<string, unknown>;
-                        merged.activeStoryReckoningSeal = existing;
-                        (merged.character as Record<string, unknown>).activeStoryReckoning = activeStoryReckoning;
-                        await kv.set(saveKey, merged);
-                        replaySave = merged;
-                    }
-                    return { status: 200, body: { ok: true, replayed: true, activeStoryReckoning, character: updated, _saveVersion: Number(replaySave._saveVersion ?? 0) } };
+                    const reply = { ok: true, replayed: true, activeStoryReckoning };
+                    if (!needsRepair) return unwritten(char, reply, { echo: true, withCharacter: true });
+                    // The seal and mirror replace their stored values whole
+                    // (REPLACE_SUBTREE_KEYS), so the repair carries no fields of
+                    // whatever the save held before.
+                    return {
+                        ok: true,
+                        character: { ...char, activeStoryReckoning },
+                        recordPatch: { activeStoryReckoningSeal: existing },
+                        value: { body: reply, echo: true, withCharacter: true },
+                    };
                 }
-                if (!storyReckoningEligible(char, def)) return { status: 200, body: { ok: false, reason: 'ineligible' } };
-                if (char.activeQuestbook || char.activeRiftQuest || existing) return { status: 200, body: { ok: false, reason: 'busy' } };
+                if (!storyReckoningEligible(char, def)) return unwritten(char, { ok: false, reason: 'ineligible' });
+                if (char.activeQuestbook || char.activeRiftQuest || existing) return unwritten(char, { ok: false, reason: 'busy' });
                 const presenceReason = storyReckoningPresenceReason(def, onlineStore.get(playerName) ?? null, Date.now());
-                if (presenceReason) return { status: 200, body: { ok: false, reason: presenceReason } };
+                if (presenceReason) return unwritten(char, { ok: false, reason: presenceReason });
 
                 const baseline = num(char[def.metric]);
                 const fieldWork = storyFieldJourney(def.id)
@@ -102,32 +137,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : undefined;
                 const sealed: StoryReckoningSeal = { id: def.id, stage: 'task', baseline, at: Date.now(), ...(fieldWork ? { fieldWork } : {}) };
                 const activeStoryReckoning = mirrorFor(def, 'task', baseline, fieldWork);
-                const updated = { ...char, activeStoryReckoning };
-                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed, character: updated });
-                await kv.set(saveKey, mergePreservingImages(next, rec));
-                await kv.set(tokenKey, sealed, { ex: TOKEN_TTL_SECONDS }).catch(() => undefined);
-                return { status: 200, body: { ok: true, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, activeStoryReckoning },
+                    recordPatch: { activeStoryReckoningSeal: sealed },
+                    value: { body: { ok: true, activeStoryReckoning }, echo: true, withCharacter: true },
+                    afterCommit: () => cacheSeal(sealed),
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         if (action === 'field-act' && def) {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 const sealed = parseStoryReckoningSeal(rec.activeStoryReckoningSeal)
                     ?? parseStoryReckoningSeal(await kv.get(tokenKey));
                 if (!sealed || sealed.id !== def.id || !sealed.fieldWork) {
-                    return { status: 200, body: { ok: false, reason: 'none', character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    return unwritten(char, { ok: false, reason: 'none' }, { echo: true, withCharacter: true });
                 }
                 const pointId = typeof body.pointId === 'string' ? body.pointId : '';
                 const choiceId = typeof body.choiceId === 'string' ? body.choiceId : '';
                 // Same-choice retries are safe even after the player leaves the
                 // place. New actions require live, stationary world presence.
                 const result = advanceStoryField(def.id, sealed.fieldWork, pointId, choiceId, onlineStore.get(playerName) ?? null, Date.now());
-                if (!result.ok) return { status: 200, body: { ...result, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
-                if (result.replayed) return { status: 200, body: { ok: true, replayed: true, character: char, activeStoryReckoning: char.activeStoryReckoning, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                if (!result.ok) return unwritten(char, { ...result }, { echo: true, withCharacter: true });
+                if (result.replayed) {
+                    return unwritten(char, { ok: true, replayed: true, activeStoryReckoning: char.activeStoryReckoning }, { echo: true, withCharacter: true });
+                }
                 const complete = storyFieldPointId(def.id, result.progress) === null;
                 const nextSeal: StoryReckoningSeal = { ...sealed, stage: complete ? 'return' : 'task', fieldWork: result.progress };
                 const activeStoryReckoning = mirrorFor(def, nextSeal.stage, sealed.baseline, result.progress);
@@ -135,34 +172,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const storyTraits = [...strArray(char.storyTraits).filter((trait) => !trait.startsWith('sf-')), ...storyFieldTraits(storyFieldRecords)];
                 const inventory = Array.isArray(char.inventory) ? [...char.inventory] : [];
                 if (complete && ownedItemCount(char, def.dropItemId) < 1) inventory.push(def.dropItemId);
-                const updated = { ...char, inventory, storyFieldRecords, storyTraits, activeStoryReckoning };
-                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: nextSeal, character: updated });
-                await kv.set(saveKey, mergePreservingImages(next, rec));
-                await kv.set(tokenKey, nextSeal, { ex: TOKEN_TTL_SECONDS }).catch(() => undefined);
-                return { status: 200, body: { ok: true, complete, activeStoryReckoning, character: updated, _saveVersion: Number(next._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, inventory, storyFieldRecords, storyTraits, activeStoryReckoning },
+                    recordPatch: { activeStoryReckoningSeal: nextSeal },
+                    value: { body: { ok: true, complete, activeStoryReckoning }, echo: true, withCharacter: true },
+                    afterCommit: () => cacheSeal(nextSeal),
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         if (action === 'report' && def) {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 const durable = parseStoryReckoningSeal(rec.activeStoryReckoningSeal);
                 const sealed = durable ?? parseStoryReckoningSeal(await kv.get(tokenKey));
                 if (!sealed || sealed.id !== def.id) {
-                    if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) {
-                        const updated = { ...char, activeStoryReckoning: null };
-                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
-                        await kv.set(saveKey, mergePreservingImages(next, rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-                    }
-                    return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null, character: char } };
+                    if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) return clearStranded(char);
+                    return unwritten(char, { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null }, { withCharacter: true });
                 }
 
                 if (sealed.stage === 'return') {
-                    return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning: mirrorFor(def, 'return', num(sealed.baseline), sealed.fieldWork), character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    return unwritten(char, { ok: true, dropItemId: def.dropItemId, activeStoryReckoning: mirrorFor(def, 'return', num(sealed.baseline), sealed.fieldWork) }, { echo: true, withCharacter: true });
                 }
                 const current = num(char[def.metric]);
                 const exactCombatProof = def.metric !== 'totalAiKills' || worldContextWinProofCount(char, {
@@ -173,34 +205,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? storyFieldPointId(def.id, sealed.fieldWork) === null
                     : exactCombatProof && storyReckoningTaskComplete(sealed.baseline, current, def.target);
                 if (!taskComplete) {
-                    let saveVersion = Number(rec._saveVersion ?? 0);
-                    if (!durable) {
-                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: sealed });
-                        await kv.set(saveKey, mergePreservingImages(next, rec));
-                        saveVersion = Number((next as Record<string, unknown>)._saveVersion ?? 0);
-                    }
-                    return { status: 200, body: { ok: false, reason: 'incomplete', progress: Math.max(0, current - sealed.baseline), target: def.target, _saveVersion: saveVersion } };
+                    const reply = { ok: false, reason: 'incomplete', progress: Math.max(0, current - sealed.baseline), target: def.target };
+                    if (durable) return unwritten(char, reply, { echo: true });
+                    // Migrate a KV-only seal onto the durable save.
+                    return { ok: true, character: char, recordPatch: { activeStoryReckoningSeal: sealed }, value: { body: reply, echo: true } };
                 }
                 const inventory = Array.isArray(char.inventory) ? [...(char.inventory as unknown[])] : [];
                 if (ownedItemCount(char, def.dropItemId) < 1) inventory.push(def.dropItemId);
 
                 const nextSeal: StoryReckoningSeal = { ...sealed, stage: 'return' };
                 const activeStoryReckoning = mirrorFor(def, 'return', sealed.baseline, sealed.fieldWork);
-                const updated = { ...char, inventory, activeStoryReckoning };
-                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: nextSeal, character: updated });
-                await kv.set(saveKey, mergePreservingImages(next, rec));
-                await kv.set(tokenKey, nextSeal, { ex: TOKEN_TTL_SECONDS }).catch(() => undefined);
-                return { status: 200, body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, inventory, activeStoryReckoning },
+                    recordPatch: { activeStoryReckoningSeal: nextSeal },
+                    value: { body: { ok: true, dropItemId: def.dropItemId, activeStoryReckoning }, echo: true, withCharacter: true },
+                    afterCommit: () => cacheSeal(nextSeal),
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         if (action === 'turn-in' && def) {
             const today = utcDateKey();
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 const receipts = Array.isArray(char.redeemedStoryReckonings)
                     ? char.redeemedStoryReckonings as Array<Record<string, unknown>>
                     : [];
@@ -224,53 +253,47 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : null);
                     const needsRepair = staleMirror || staleSeal || preservedActive !== active
                         || !strArray(char.storyTraits).includes(def.completionTrait);
-                    const updated = needsRepair
-                        ? { ...char, storyTraits, activeStoryReckoning: preservedActive }
-                        : char;
-                    let repairedSave = rec;
-                    if (needsRepair) {
-                        const next = bumpSaveVersion({ ...rec, ...(staleSeal ? { activeStoryReckoningSeal: preservedSeal } : {}), character: updated });
-                        const merged = mergePreservingImages(next, rec) as Record<string, unknown>;
-                        // These are single-owner mirrors. A deep compatibility
-                        // merge would retain route fields from the redeemed
-                        // quest when promoting an unrelated cached seal.
-                        if (staleSeal) merged.activeStoryReckoningSeal = preservedSeal;
-                        (merged.character as Record<string, unknown>).activeStoryReckoning = preservedActive;
-                        await kv.set(saveKey, merged);
-                        repairedSave = merged;
-                    }
-                    if (cachedSeal?.id === def.id) await kv.del(tokenKey).catch(() => undefined);
-                    return { status: 200, body: {
+                    const reply = {
                         ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo),
                         fateShards: num(prior.fateShards), totalFateShards: num(char.fateShards),
                         title: prior.title, questTitles: strArray(char.questTitles),
                         completionTrait: def.completionTrait,
                         activeStoryReckoning: preservedActive,
-                        character: updated, _saveVersion: Number(repairedSave._saveVersion ?? 0),
-                    } };
+                    };
+                    const dropRedeemedCache = () => cachedSeal?.id === def.id ? kv.del(tokenKey).then(() => undefined, () => undefined) : undefined;
+                    if (!needsRepair) {
+                        await dropRedeemedCache();
+                        return unwritten(char, reply, { echo: true, withCharacter: true });
+                    }
+                    // These are single-owner mirrors: the seal and mirror replace
+                    // their stored values whole (REPLACE_SUBTREE_KEYS), so promoting
+                    // an unrelated cached seal keeps no route fields from the
+                    // redeemed quest.
+                    return {
+                        ok: true,
+                        character: { ...char, storyTraits, activeStoryReckoning: preservedActive },
+                        ...(staleSeal ? { recordPatch: { activeStoryReckoningSeal: preservedSeal } } : {}),
+                        value: { body: reply, echo: true, withCharacter: true },
+                        afterCommit: dropRedeemedCache,
+                    };
                 }
                 const sealed = parseStoryReckoningSeal(rec.activeStoryReckoningSeal)
                     ?? parseStoryReckoningSeal(await kv.get(tokenKey));
                 if (!sealed || sealed.id !== def.id) {
-                    if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) {
-                        const updated = { ...char, activeStoryReckoning: null };
-                        const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
-                        await kv.set(saveKey, mergePreservingImages(next, rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-                    }
-                    return { status: 200, body: { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null, character: char } };
+                    if (!sealed && (char.activeStoryReckoning as Record<string, unknown> | null)?.id === def.id) return clearStranded(char);
+                    return unwritten(char, { ok: false, reason: 'none', activeStoryReckoning: char.activeStoryReckoning ?? null }, { withCharacter: true });
                 }
-                if (sealed.stage !== 'return') return { status: 200, body: { ok: false, reason: 'incomplete' } };
-                if (ownedItemCount(char, def.dropItemId) < 1) return { status: 200, body: { ok: false, reason: 'no-item' } };
+                if (sealed.stage !== 'return') return unwritten(char, { ok: false, reason: 'incomplete' });
+                if (ownedItemCount(char, def.dropItemId) < 1) return unwritten(char, { ok: false, reason: 'no-item' });
                 const presenceReason = storyReckoningPresenceReason(def, onlineStore.get(playerName) ?? null, Date.now());
-                if (presenceReason) return { status: 200, body: { ok: false, reason: presenceReason } };
+                if (presenceReason) return unwritten(char, { ok: false, reason: presenceReason });
 
                 const countKey = `story-reckoning-count:${playerName}:${today}`;
                 const durableCount = char.storyReckoningRewardDate === today ? num(char.storyReckoningRewardCount) : 0;
                 const compatibilityCount = num(await kv.get<number>(countKey));
                 const claimedToday = Math.max(durableCount, compatibilityCount);
                 if (claimedToday >= STORY_RECKONING_DAILY_CAP) {
-                    return { status: 200, body: { ok: false, reason: 'daily-cap' } };
+                    return unwritten(char, { ok: false, reason: 'daily-cap' });
                 }
 
                 const ryo = storyReckoningRyo(char.level, def.weight);
@@ -292,36 +315,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     storyReckoningRewardCount: claimedToday + 1,
                     redeemedStoryReckonings: [...receipts.slice(-39), receipt],
                 };
-                const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated }, { previousCharacter: char });
-                await kv.set(saveKey, mergePreservingImages(next, rec));
-                // Cache cleanup/counter mirroring follows the atomic save payout.
-                // A failure here is replay-healed by the durable redemption.
-                await kv.del(tokenKey).catch(() => undefined);
-                await kv.set(countKey, claimedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: def.fateShards, totalFateShards, title: def.title, questTitles, completionTrait: def.completionTrait, activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: updated,
+                    recordPatch: { activeStoryReckoningSeal: null },
+                    value: {
+                        body: { ok: true, ryo, totalRyo, fateShards: def.fateShards, totalFateShards, title: def.title, questTitles, completionTrait: def.completionTrait, activeStoryReckoning: null },
+                        echo: true,
+                        withCharacter: true,
+                    },
+                    // Cache cleanup/counter mirroring follows the atomic save payout.
+                    // A failure here is replay-healed by the durable redemption.
+                    afterCommit: async () => {
+                        await kv.del(tokenKey).catch(() => undefined);
+                        await kv.set(countKey, claimedToday + 1, { ex: 25 * 60 * 60 }).catch(() => undefined);
+                    },
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         if (action === 'abandon') {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
                 await kv.del(tokenKey).catch(() => undefined);
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (rec && char) {
-                    const updated = { ...char, activeStoryReckoning: null };
-                    const next = bumpSaveVersion({ ...rec, activeStoryReckoningSeal: null, character: updated });
-                    await kv.set(saveKey, mergePreservingImages(next, rec));
-                    return { status: 200, body: { ok: true, activeStoryReckoning: null, character: updated, _saveVersion: Number((next as Record<string, unknown>)._saveVersion ?? 0) } };
-                }
-                return { status: 200, body: { ok: true } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, activeStoryReckoning: null },
+                    recordPatch: { activeStoryReckoningSeal: null },
+                    value: { body: { ok: true, activeStoryReckoning: null }, echo: true, withCharacter: true },
+                };
+            });
+            // Abandoning with no save at all has nothing to clear.
+            const out = !committed.ok && committed.status === 404 ? { status: 200, body: { ok: true } } : replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Could not update the reckoning. Please retry.' });
         }
         console.error('[sector/story-reckoning]', safeLogValue(err));

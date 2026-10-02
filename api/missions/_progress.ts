@@ -1,6 +1,7 @@
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import {
     type Profession,
     type MissionKind,
@@ -132,28 +133,22 @@ export async function awardProfessionXp(
     amount: number,
 ): Promise<{ xp: number; rank: number } | null> {
     if (amount <= 0) return null;
-    const saveKey = `save:${playerName}`;
-    // Wrap the read-modify-write under the same lock the save endpoint uses
-    // so a concurrent auto-save can't clobber the XP credit, and so two
+    // Commit through mutatePlayerSave, under the same lock the save endpoint
+    // uses, so a concurrent auto-save can't clobber the XP credit, and so two
     // concurrent reportMissionEvent calls (e.g. a Vanguard PvP win + raid
-    // report landing in the same tick) don't both read the pre-grant XP
-    // and one lose its credit.
-    return await withKvLock(saveKey, async () => {
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const char = record?.character as Record<string, unknown> | undefined;
-        if (!char || char.profession !== profession) return null;
+    // report landing in the same tick) don't both read the pre-grant XP and
+    // one lose its credit. A lost compare-and-set committed nothing, so
+    // running the grant once more cannot pay it twice.
+    const out = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ xp: number; rank: number } | null>(playerName, ({ character: char }) => {
+        if (char.profession !== profession) return { ok: true, write: false, character: char, value: null };
         const awarded = professionXpAfterAward(profession, char.professionXp, char.professionRank, amount);
-        const updated = {
-            ...record,
-            character: {
-                ...char,
-                professionXp: awarded.xp,
-                professionRank: awarded.rank,
-            },
+        return {
+            ok: true,
+            character: { ...char, professionXp: awarded.xp, professionRank: awarded.rank },
+            value: { xp: awarded.xp, rank: awarded.rank },
         };
-        await kv.set(saveKey, bumpSaveVersion(updated));
-        return { xp: awarded.xp, rank: awarded.rank };
-    }, { failClosed: true });
+    }));
+    return out.ok ? out.value : null;
 }
 
 function dailyKey(playerName: string): string {
@@ -493,23 +488,16 @@ export async function loadOrIssueNewbieDailies(
     return state;
 }
 
-// Grant ryo to the player's character, under the same save lock the save
-// endpoint uses (mirrors awardProfessionXp). Re-checks "no profession" inside
-// the lock so a player who chose a profession between the report and the grant
-// is never paid the newbie reward.
+// Grant ryo to the player's character through mutatePlayerSave, under the same
+// save lock the save endpoint uses (mirrors awardProfessionXp). Re-checks "no
+// profession" inside the lock so a player who chose a profession between the
+// report and the grant is never paid the newbie reward.
 async function awardNewbieRyo(playerName: string, amount: number): Promise<void> {
     if (amount <= 0) return;
-    const saveKey = `save:${playerName}`;
-    await withKvLock(saveKey, async () => {
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const char = record?.character as Record<string, unknown> | undefined;
-        if (!char || char.profession) return;
-        const updated = {
-            ...record,
-            character: { ...char, ryo: Number(char.ryo ?? 0) + amount },
-        };
-        await kv.set(saveKey, bumpSaveVersion(updated, { previousCharacter: char }));
-    }, { failClosed: true });
+    await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, ({ character: char }) => {
+        if (char.profession) return { ok: true, write: false, character: char, value: null };
+        return { ok: true, character: { ...char, ryo: Number(char.ryo ?? 0) + amount }, value: null };
+    }));
 }
 
 export type NewbieCompletedInfo = { id: string; name: string; ryoReward: number };
