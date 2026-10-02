@@ -772,7 +772,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // initial graph in the same PR (local initial gzip 393,919 -> 392,943 B).
 // Allow 9.08 MB, leaving ~6.4 KB of measured headroom. Startup, per-chunk, CSS
 // and gzip gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_080_000;
+// 2026-10-02 BLOODLINE AWAKENING: rank artwork framing, the ancestral ritual
+// presentation and shared purchase guards add about 9.8 KB of product JS/CSS.
+// With Production Image's public VITE_* settings, the candidate measures
+// 9,083,365 B. Allow 9.09 MB, retaining ~6.6 KB of measured headroom. Entry,
+// initial-graph, per-chunk, CSS and gzip limits remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_090_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
