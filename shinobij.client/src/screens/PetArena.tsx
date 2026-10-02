@@ -106,9 +106,8 @@ import { publicEligiblePets } from "../lib/public-pet-roster";
 import { buildPetArenaLiveRoster, isLivePetDuelAvailable } from "../lib/pet-duel-live-roster";
 import type { ArenaSlot, ArenaRole } from "../lib/pet-arena-sim";
 import type { WfTheme } from "../lib/pet-warfront-map";
-import type { WfBuyPolicy } from "../lib/pet-warfront-sim";
 import { riteBandElements, riteBandProblem, type RitePlan, type RiteResult } from "../lib/pet-warfront-rite";
-import { type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
+import { type WfBuyPolicy, type WfDoctrine, type WfStance } from "../lib/pet-warfront-contract";
 import arenaModeColosseum from "../assets/coliseum/arena-mode-colosseum.webp";
 // The Rite's own art. The three-lane key art and card depicted lanes and Ward
 // Towers — a mode that no longer exists — so the lobby was advertising the

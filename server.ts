@@ -598,10 +598,9 @@ async function runDbHealthProbe(): Promise<{
 }> {
     const checks: Record<string, boolean> = {};
     const t0 = Date.now();
-    // Which backend `save:*` resolves to. Since the cPanel overlay retirement
-    // (2026-07-17) 'base-store' is the EXPECTED production value; a
-    // 'disk'/'remote-proxy' value means the rollback overlay was deliberately
-    // re-enabled (docs/RETIRE_CPANEL_RUNBOOK.md). Surfaced so release health
+    // Which backend `save:*` resolves to: 'base-store' in production, since the
+    // cPanel overlay was retired (2026-07-17) and its code removed (2026-10-02);
+    // 'memory-qa' only under the isolated QA harness. Surfaced so release health
     // can gate on EXPECTED_SAVE_STORE and an operator can spot a drifted env.
     let saveStore: string | undefined;
     try {
@@ -632,10 +631,10 @@ async function runDbHealthProbe(): Promise<{
         await kv.del(hashKey).catch(() => undefined);
 
         // A `save:`-prefixed key — the exact path /api/save/* and missions read.
-        // Post-retirement this resolves to the base store like everything else
-        // (saveStore above says which); during a rollback it exercises the
-        // re-enabled overlay. The 60s TTL means a failed del can't leave a
-        // permanent probe row sitting next to real saves.
+        // It lives in the base store like everything else; the check names keep
+        // their historical disk* spelling because monitors read them. The 60s
+        // TTL means a failed del can't leave a permanent probe row sitting next
+        // to real saves.
         const diskKey = `save:health-probe-${tag}`;
         await kv.set(diskKey, { probe: token }, { ex: 60 });
         checks.diskWrite = true;
@@ -676,11 +675,11 @@ function headerValue(h: string | string[] | undefined): string {
 // isn't honored.
 //
 // Auth hardening (see "Route parity + deployment safety" handoff):
-//   • Prefer a DEDICATED `RESTART_TOKEN` so the powerful KV_PROXY_TOKEN does
-//     not double as a worker kill-switch — a KV-token leak should not also
-//     grant restart. Falls back to KV_PROXY_TOKEN only when RESTART_TOKEN is
-//     unset, so existing operations keep working until the dedicated secret
-//     is configured (a one-time warning nudges the migration).
+//   • Prefer a DEDICATED `RESTART_TOKEN`. KV_PROXY_TOKEN is a legacy fallback
+//     from when that secret also guarded the cPanel KV proxy (removed
+//     2026-10-02); it applies only while RESTART_TOKEN is unset, and a one-time
+//     warning nudges the migration. Once every deployment sets RESTART_TOKEN,
+//     the fallback and the KV_PROXY_TOKEN variable can both go.
 //   • Constant-time compare via safeEqual (no early-exit timing leak).
 //   • Array-header safe (headerValue) — repeated headers no longer bypass the
 //     `!==` check by arriving as an array.

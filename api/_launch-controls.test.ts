@@ -27,7 +27,7 @@ describe('emergency launch controls', () => {
             assert.equal(decision.allowed, false);
             if (!decision.allowed) assert.equal(decision.code, 'maintenance_mode');
         }
-        for (const path of ['/admin-auth', '/admin/economy', '/cron/snapshot-saves', '/kv/get']) {
+        for (const path of ['/admin-auth', '/admin/economy', '/cron/snapshot-saves']) {
             assert.deepEqual(evaluateLaunchControl({ path, method: 'POST' }, env), { allowed: true });
         }
         assert.deepEqual(evaluateLaunchControl({ path: '/api/player/capabilities', method: 'GET' }, env), { allowed: true });

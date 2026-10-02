@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { _makeMemoryKv } from '../_storage.js';
+import { _makeMemoryKv, kv as globalKv } from '../_storage.js';
 import {
     TOWER_PARTY_MAX,
     TOWER_PARTY_LAUNCH_GRACE_MS,
@@ -33,6 +33,12 @@ import {
 import { sessionKey, type TowerKv, type TowerLock } from './_tower-store.js';
 import { battleLockKey, TOWER_BATTLE_LOCK_KIND, TOWER_BATTLE_LOCK_SCREEN } from './_battle-lease.js';
 import { reserveTowerPartyEntry } from './_party-entry.js';
+
+// Most cases give the party its own memory store. The entry refund commits
+// through mutatePlayerSave on the GLOBAL kv, so the case that checks it puts
+// the party there too, as production does (backend chosen on first use).
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
 
 const NOW = 1_800_000_000_000;
 const PARTY_ID = `tparty-${'a'.repeat(32)}`;
@@ -495,7 +501,8 @@ describe('Battle Towers authoritative ready rooms', () => {
 
     it('closes a confirmed-missing active run immediately and a stale prepared launch only after grace', async () => {
         let current = NOW;
-        const deps = { ...setup(), now: () => current };
+        for (const key of await globalKv.keys('*')) await globalKv.del(key);
+        const deps = { ...setup(), kv: globalKv as unknown as TowerKv, now: () => current };
         let party = await create(deps);
         party = await join(party, 'alice', 391, deps);
         party = await ready(party, 'host', 392, deps);

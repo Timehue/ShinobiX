@@ -34,7 +34,7 @@ import { PetBattleAvatar } from "./PetBattleAvatar";
 import { elementVfxKey } from "../lib/pet-battle-anim";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { type MoveChoreoKind } from "../lib/pet-coliseum-scene";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, type DuelResult } from "../lib/pet-duel-sim";
+import { DUEL_TPS, type DuelResult } from "../lib/pet-duel-sim";
 import { petVisualId } from "../data/pet-evolutions";
 import { playPetSfx } from "../lib/pet-sfx";
 import { duckBattleMusic, isAudioMuted, setBattleMusicIntensity, startBattleMusic, stopBattleMusic } from "../lib/pet-music";
@@ -104,11 +104,11 @@ export type PetColiseumDuelProps = {
     enemyPet: Pet;
     playerReservePet?: Pet;
     enemyReservePet?: Pet;
-    seed: number;
-    /** Precomputed duel result. When provided, the renderer PLAYS it instead of
-     *  re-running the sim — so the mounting screen owns the authoritative result
-     *  (for reward posting) and the sim runs exactly once. Omit only in the
-     *  /petvfx.html preview harness, where the renderer self-runs from the seed. */
+    /** Precomputed duel result; required unless `live` is set. The renderer
+     *  PLAYS it, so the mounting screen owns the authoritative result (for reward
+     *  posting) and the sim runs exactly once. The renderer no longer self-runs a
+     *  fight from a seed: that fallback ran the legacy duel sim, retired on
+     *  2026-10-02. */
     result?: DuelResult;
     /** PLAYER-CONTROLLED duel (docs/pet-coliseum-player-control-plan.md). When set,
      *  the fight is simulated live a beat ahead of playback and the command deck is
@@ -169,7 +169,7 @@ const isVersusPlayer = (d: LiveDuel | undefined | null): boolean =>
 
 
 
-export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, seed, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
+export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyReservePet, result, live, onOutcome, onProgress, sharedImages = {}, initialTick = 0, onFightAgain, settlementStatus, onRetrySettlement, settlementCopy, resultSupplement, onExit, onConnectionLost }: PetColiseumDuelProps) {
     const [qualityId, setQualityId] = useState<PetVisualQuality>(() => petVisualQuality().id);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<THREE.Texture | null>(null);
     const quality = PET_VISUAL_QUALITY_PRESETS[qualityId];
@@ -213,13 +213,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     // Keyboard shortcuts on the command deck are offered only where there is a real
     // pointer; on touch they would just be dead hint glyphs cluttering the buttons.
     const canHover = useMemo(() => typeof window !== "undefined" && !!window.matchMedia && window.matchMedia("(pointer: fine)").matches, []);
+    // Every caller passes `result` or `live`; a bare mount renders the empty
+    // timeline rather than inventing a fight.
     const staticDuel = useMemo(
-        () => live ? EMPTY_DUEL : directPetDuelPresentation(result
-            ?? ((playerReservePet || enemyReservePet)
-                ? runPetPartyDuel(playerPet, playerReservePet ?? null, enemyPet, enemyReservePet ?? null, seed)
-                : runPetDuel(playerPet, enemyPet, seed))),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-        [live, result, seed, playerPet.id, enemyPet.id, playerReservePet?.id, enemyReservePet?.id],
+        () => live || !result ? EMPTY_DUEL : directPetDuelPresentation(result),
+        [live, result],
     );
     // ── LIVE (player-controlled) duel ────────────────────────────────────────
     // The view is a GROWING DuelResult: the settled prefix of the simulation, cut
