@@ -120,7 +120,7 @@ const PATHS: Record<GameIconName, ReactElement> = {
             <circle cx="12" cy="12" r="2.6" />
         </>
     ),
-    // Die showing five pips (cut out) — fate spins.
+    // Die showing five pips (cut out) — roll odds.
     dice: (
         <path fillRule="evenodd" clipRule="evenodd" d="M6 3.5h12a2.5 2.5 0 0 1 2.5 2.5v12a2.5 2.5 0 0 1-2.5 2.5H6a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 6 3.5ZM7.8 6.65a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3ZM16.2 6.65a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3ZM12 10.85a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3ZM7.8 15.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3ZM16.2 15.05a1.15 1.15 0 1 0 0 2.3 1.15 1.15 0 0 0 0-2.3Z" />
     ),

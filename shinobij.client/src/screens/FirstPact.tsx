@@ -1,6 +1,7 @@
 import { FirstPactCrossingPanel } from './first-pact/FirstPactCrossingPanel';
 import { firstPactEpilogue, firstPactReactiveDialogue, mainQuestCopy, questCopy } from './first-pact/narrative';
 import {
+    Suspense,
     useCallback,
     useEffect,
     useLayoutEffect,
@@ -10,6 +11,7 @@ import {
     type CSSProperties,
     type PointerEvent as ReactPointerEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import "./FirstPact.css";
 import type { Character } from "../types/character";
 import type { Pet } from "../types/pet";
@@ -95,12 +97,11 @@ import {
     type ShowdownStateView,
     type ShowdownTurnResponse,
 } from "../lib/pet-showdown-api";
-import { PetShowdownBattle } from "../components/PetShowdownBattle";
+import { lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
 import { activeCarriedPetIds } from "../lib/entitlements";
 import { activeClientBreedingParentIds } from "../lib/pet-breeding";
 import { isPetAvailableForColosseum } from "../lib/pet";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { warmShowdownModels } from "../lib/pet-model-preload";
 import sunkenCourtKeyArt from "../assets/first-pact/sunken-court-key-art.webp";
 import sunkenCourtArchitectureAtlas from "../assets/first-pact/sunken-court-architecture-atlas.webp";
 import bellQuarterArchitectureV2 from "../assets/first-pact/bell-quarter-v2/bell-quarter-architecture-strip.png";
@@ -166,6 +167,25 @@ import seroPortrait from "../assets/first-pact/portraits/annex-attendant-sero.we
 import belPortrait from "../assets/first-pact/portraits/oathkeeper-bel.webp";
 import niaPortrait from "../assets/first-pact/portraits/lodge-steward-nia.webp";
 import junoPortrait from "../assets/first-pact/portraits/tea-apprentice-juno.webp";
+
+// Exploring the city needs neither Three.js nor the battle renderer. Start
+// loading them at squad selection; recovery still uses the same lazy boundary.
+let firstPactBattleModule: Promise<typeof import("../components/PetShowdownBattle")> | null = null;
+function loadFirstPactBattle() {
+    // Keep a failed prefetch attached to the lazy boundary. Importing again
+    // could skip Vite's failed CSS preload and accept an unstyled renderer.
+    return firstPactBattleModule ??= retryDynamicImport(() => import("../components/PetShowdownBattle"), 0);
+}
+const PetShowdownBattle = lazyWithRetry(() => loadFirstPactBattle()
+    .then((module) => ({ default: module.PetShowdownBattle })));
+
+async function warmFirstPactBattle(state: ShowdownStateView, pets: readonly Pet[]): Promise<void> {
+    // Warmup is optional even when its module fails or hangs. The session
+    // breadcrumb is already saved, and the renderer owns chunk recovery.
+    const module = await retryDynamicImport(() => import("../lib/pet-model-preload"), 0, 0, 8_000)
+        .catch(() => null);
+    await module?.warmShowdownModels(state, pets).catch(() => undefined);
+}
 
 type RuntimeNpc = {
     position: FirstPactPoint;
@@ -3913,12 +3933,12 @@ class FirstPactWorldCache {
     private readonly pending = new Set<number>();
 
     constructor() {
-        // Phones report DPR 3 but cap at 1.25: full scale there would be a
+        // Phones report DPR 3 but cap at 1: full scale there would be a
         // ~170MB canvas, and a phone screen's density hides the difference.
         // Desktops keep native crispness up to 2x. Each step down is retried
         // when a browser refuses the allocation outright.
         const coarsePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
-        const ceiling = Math.max(1, Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.25 : 2));
+        const ceiling = Math.max(1, Math.min(window.devicePixelRatio || 1, coarsePointer ? 1 : 2));
         for (const scale of [2, 1.5, 1.25, 1]) {
             if (scale <= ceiling && this.allocate(scale)) break;
         }
@@ -4397,10 +4417,12 @@ export function FirstPact({
     const keyState = useRef(new Set<string>());
     const playerRef = useRef<FirstPactPoint>(FIRST_PACT_PLAYER_START);
     const npcRef = useRef<Record<string, RuntimeNpc>>(initializeNpcs());
-    const resumeAttemptedRef = useRef(false);
+    const resumeAttemptedRef = useRef<string | null>(null);
     const mountedRef = useRef(false);
     const accountNameRef = useRef(character.name);
+    const characterPetsRef = useRef(character.pets);
     const onVersionedCharacterRef = useRef(onVersionedCharacter);
+    const battleStartInFlightRef = useRef(false);
     const forfeitInFlightRef = useRef(false);
     const movementLockedRef = useRef(false);
     /** Read by the wander tick, which runs on an interval and never re-binds. */
@@ -4438,7 +4460,7 @@ export function FirstPact({
     const [squadOpen, setSquadOpen] = useState(false);
     const [pendingEncounterId, setPendingEncounterId] = useState<FirstPactEncounterId | null>(null);
     const [selectedPets, setSelectedPets] = useState<string[]>([]);
-    const [battleStarting, setBattleStarting] = useState(false);
+    const [battleStarting, setBattleStarting] = useState(() => readFirstPactSession(character.name) !== null);
     const [battleError, setBattleError] = useState<string | null>(null);
     const [battle, setBattle] = useState<{ state: ShowdownStateView; encounterId: FirstPactEncounterId } | null>(null);
     const [viewport, setViewport] = useState({ width: 1280, height: 720 });
@@ -4612,12 +4634,12 @@ export function FirstPact({
         releaseFirstPactSharedScratch();
     }, []);
 
-    const movementLocked = loading || !entered || !!dialogNpc || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interior;
+    const movementLocked = loading || !entered || !!dialogNpc || squadOpen || battleStarting || journalOpen || epiloguePage != null || !!battle || !!interior;
     /* Indoors the street lock is total by design, because `interior` is one of
        its terms, so a room needs a lock of its own: without one, clicking a
        floor tile is refused by the fact that you are standing in a room. Same
        terms, minus the room, plus the room's own dialogue frame. */
-    const interiorMovementLocked = loading || !entered || squadOpen || journalOpen || epiloguePage != null || !!battle || !!interiorSpeech;
+    const interiorMovementLocked = loading || !entered || squadOpen || battleStarting || journalOpen || epiloguePage != null || !!battle || !!interiorSpeech;
     useEffect(() => { interiorRef.current = interior; }, [interior]);
     useEffect(() => { interiorSpotRef.current = interiorSpot; }, [interiorSpot]);
     useEffect(() => { movementLockedRef.current = movementLocked; }, [movementLocked]);
@@ -4626,6 +4648,7 @@ export function FirstPact({
     useEffect(() => { progressRef.current = progress; }, [progress]);
     useEffect(() => { npcRef.current = npcs; }, [npcs]);
     useEffect(() => { accountNameRef.current = character.name; }, [character.name]);
+    useEffect(() => { characterPetsRef.current = character.pets; }, [character.pets]);
     useEffect(() => { onVersionedCharacterRef.current = onVersionedCharacter; }, [onVersionedCharacter]);
 
     const applyGrantCharacter = useCallback((result: FirstPactGrant, requestAccount: string): "accepted" | "rejected" | "ignored" => {
@@ -4718,32 +4741,45 @@ export function FirstPact({
     // re-enter it instead of silently leaving four companions in a live fight.
     // A terminal session is replay-claimed once to recover the story receipt.
     useEffect(() => {
-        if (loading || resumeAttemptedRef.current) return;
-        resumeAttemptedRef.current = true;
+        if (loading || resumeAttemptedRef.current === character.name) return;
+        resumeAttemptedRef.current = character.name;
         const crumb = readFirstPactSession(character.name);
         if (!crumb) return;
         let cancelled = false;
+        let resumed = false;
+        battleStartInFlightRef.current = true;
+        onBattleActiveChange?.(true);
         void (async () => {
-            const state = await fetchShowdownState(character.name, crumb.sessionId);
-            if (cancelled) return;
-            if (!state) return; // A transient state read must not destroy the only recovery handle.
-            if (!state.finished) {
-                await warmShowdownModels(state, character.pets);
+            try {
+                const state = await fetchShowdownState(character.name, crumb.sessionId);
                 if (cancelled) return;
-                setSelectedPets(crumb.petIds);
-                setBattle({ state, encounterId: crumb.encounterId });
-                onBattleActiveChange?.(true);
-                return;
+                if (!state) return; // A transient state read must not destroy the only recovery handle.
+                if (!state.finished) {
+                    // Background save updates can replace the pet array while a
+                    // chunk loads. They must not cancel this one recovery attempt.
+                    await warmFirstPactBattle(state, characterPetsRef.current);
+                    if (cancelled) return;
+                    setSelectedPets(crumb.petIds);
+                    setBattle({ state, encounterId: crumb.encounterId });
+                    resumed = true;
+                    return;
+                }
+                const settlement = await submitShowdownTurn(character.name, crumb.sessionId, []);
+                if (cancelled || !settlement) return;
+                writeFirstPactSession(null);
+                if ("expired" in settlement) return;
+                const firstPact = (settlement as FirstPactSettlement).firstPact;
+                if (firstPact?.progress) setProgress(firstPact.progress);
+            } finally {
+                battleStartInFlightRef.current = false;
+                if (!cancelled) {
+                    setBattleStarting(false);
+                    if (!resumed) onBattleActiveChange?.(false);
+                }
             }
-            const settlement = await submitShowdownTurn(character.name, crumb.sessionId, []);
-            if (cancelled || !settlement) return;
-            writeFirstPactSession(null);
-            if ("expired" in settlement) return;
-            const firstPact = (settlement as FirstPactSettlement).firstPact;
-            if (firstPact?.progress) setProgress(firstPact.progress);
         })();
         return () => { cancelled = true; };
-    }, [character.name, character.pets, loading, onBattleActiveChange]);
+    }, [character.name, loading, onBattleActiveChange]);
 
     useEffect(() => {
         const element = viewportRef.current;
@@ -5400,7 +5436,7 @@ export function FirstPact({
     }, [interior, interiorSpeech, moveInterior]);
 
     useEffect(() => {
-        if (!interior) return;
+        if (!interior || battle || battleStarting || squadOpen || journalOpen) return;
         const onEscape = (event: KeyboardEvent) => {
             if (event.key !== "Escape") return;
             if (interiorSpeech) setInteriorSpeech(null);
@@ -5408,7 +5444,7 @@ export function FirstPact({
         };
         window.addEventListener("keydown", onEscape);
         return () => window.removeEventListener("keydown", onEscape);
-    }, [interior, interiorSpeech, leaveInterior]);
+    }, [interior, interiorSpeech, leaveInterior, battle, battleStarting, squadOpen, journalOpen]);
 
     useEffect(() => {
         if (!playerPath.length || movementLocked) return;
@@ -5716,6 +5752,10 @@ export function FirstPact({
     };
 
     const openSquad = (encounterId?: FirstPactEncounterId) => {
+        // Fetch in parallel with the player's formation choice; a failed
+        // prefetch is handled by the battle's retrying lazy boundary later.
+        void loadFirstPactBattle().catch(() => undefined);
+        void import("../lib/pet-model-preload").catch(() => undefined);
         const prioritized = [character.activePetId, character.activePetId2v2, ...availablePets.map((pet) => pet.id)]
             .filter((id): id is string => !!id && availablePets.some((pet) => pet.id === id));
         setSelectedPets([...new Set(prioritized)].slice(0, FIRST_PACT_TEAM_SIZE));
@@ -5733,23 +5773,39 @@ export function FirstPact({
         const encounter = encounterId
             ? firstPactEncounter(encounterId)
             : pendingEncounterId ? firstPactEncounter(pendingEncounterId) : null;
-        if (!encounter || selectedPets.length !== FIRST_PACT_TEAM_SIZE || battleStarting) return;
+        if (!encounter || selectedPets.length !== FIRST_PACT_TEAM_SIZE || battleStartInFlightRef.current) return;
+        battleStartInFlightRef.current = true;
+        const requestAccount = character.name;
         setBattleStarting(true);
         setBattleError(null);
-        const result = await startFirstPactShowdown(character.name, encounter.id, selectedPets);
-        if ("error" in result) { setBattleStarting(false); setBattleError(result.error); return; }
-        writeFirstPactSession({ playerName: character.name, sessionId: result.state.sessionId, encounterId: encounter.id, petIds: selectedPets });
-        await warmShowdownModels(result.state, character.pets);
-        setBattleStarting(false);
-        setProgress(result.progress);
-        setSquadOpen(false);
-        setPendingEncounterId(null);
-        setBattle({ state: result.state, encounterId: encounter.id });
-        // Sounded before the ambience effect swaps the city out, so the two
-        // cross rather than leaving a hole where the street used to be.
-        playGameSfx("battle-transition", { gain: 0.66 });
         onBattleActiveChange?.(true);
-    }, [battleStarting, character.name, character.pets, onBattleActiveChange, pendingEncounterId, selectedPets]);
+        try {
+            const result = await startFirstPactShowdown(requestAccount, encounter.id, selectedPets);
+            if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+            if ("error" in result) {
+                setBattleError(result.error);
+                // A failed rematch returns to the formation with its error,
+                // instead of leaving an unexplained, unlocked city behind.
+                setPendingEncounterId(encounter.id);
+                setSquadOpen(true);
+                onBattleActiveChange?.(false);
+                return;
+            }
+            writeFirstPactSession({ playerName: requestAccount, sessionId: result.state.sessionId, encounterId: encounter.id, petIds: selectedPets });
+            await warmFirstPactBattle(result.state, characterPetsRef.current);
+            if (!mountedRef.current || accountNameRef.current !== requestAccount) return;
+            setProgress(result.progress);
+            setSquadOpen(false);
+            setPendingEncounterId(null);
+            setBattle({ state: result.state, encounterId: encounter.id });
+            // Sounded before the ambience effect swaps the city out, so the two
+            // cross rather than leaving a hole where the street used to be.
+            playGameSfx("battle-transition", { gain: 0.66 });
+        } finally {
+            battleStartInFlightRef.current = false;
+            if (mountedRef.current && accountNameRef.current === requestAccount) setBattleStarting(false);
+        }
+    }, [character.name, onBattleActiveChange, pendingEncounterId, selectedPets]);
 
     const submitTurn = useCallback((commands: ShowdownCommand[], expectedRound: number) => {
         if (!battle) return Promise.resolve(null);
@@ -5761,9 +5817,12 @@ export function FirstPact({
         onBattleActiveChange?.(false);
         const firstPact = (settlement as FirstPactSettlement | null)?.firstPact;
         if (firstPact?.progress) setProgress(firstPact.progress);
-        else void fetchFirstPactProgress(character.name).then((result) => {
-            if (!("error" in result)) setProgress(result.progress);
-        });
+        else {
+            const requestAccount = character.name;
+            void fetchFirstPactProgress(requestAccount).then((result) => {
+                if (mountedRef.current && accountNameRef.current === requestAccount && !("error" in result)) setProgress(result.progress);
+            });
+        }
     }, [character.name, onBattleActiveChange]);
 
     const closeBattle = useCallback(() => {
@@ -5854,7 +5913,7 @@ export function FirstPact({
     }
 
     return (
-        <main className="first-pact-screen" style={{ "--fp-key-art": `url(${sunkenCourtKeyArt})` } as CSSProperties}>
+        <main className={`first-pact-screen${battle ? " is-battling" : ""}`} style={{ "--fp-key-art": `url(${sunkenCourtKeyArt})` } as CSSProperties}>
             <div className="fp-world" ref={viewportRef} onPointerDown={handleWorldPointer}>
                 <canvas ref={canvasRef} className="fp-world-canvas" role="img" aria-label="Connected tile-based exterior city of the living Sunken Court" />
 
@@ -6126,7 +6185,7 @@ export function FirstPact({
                     <section className="fp-squad" role="dialog" aria-modal="true" aria-label="Prepare tournament squad">
                         <header>
                             <div><span className="fp-eyebrow">{pendingEncounter && FIRST_PACT_MAIN_ENCOUNTERS.some((entry) => entry.id === pendingEncounter.id) ? "Main Chronicle" : "Vale Stable · Tournament roster"}</span><h2>{pendingEncounter?.title ?? "Two on the sand. Two in reserve."}</h2></div>
-                            <button type="button" className="fp-quiet-button" onClick={() => setSquadOpen(false)}>Close</button>
+                            <button type="button" className="fp-quiet-button" disabled={battleStarting} onClick={() => setSquadOpen(false)}>Close</button>
                         </header>
                         <div className="fp-formation">
                             {[0, 1, 2, 3].map((slot) => {
@@ -6142,6 +6201,7 @@ export function FirstPact({
                                 return <button
                                     type="button"
                                     key={pet.id}
+                                    disabled={battleStarting}
                                     className={selectedIndex >= 0 ? "selected" : ""}
                                     onClick={() => setSelectedPets((current) => current.includes(pet.id)
                                         ? current.filter((id) => id !== pet.id)
@@ -6250,21 +6310,24 @@ export function FirstPact({
                 </div>
             )}
 
+            {battleStarting && !squadOpen && !battle && <div className="fp-overlay" role="status">Opening the gates…</div>}
             {battle && (
-                <PetShowdownBattle
-                    key={battle.state.sessionId}
-                    initialState={battle.state}
-                    playerPets={battlePets}
-                    sharedImages={sharedImages}
-                    submitTurn={submitTurn}
-                    onForfeit={forfeitBattle}
-                    onFinished={finishBattle}
-                    onExit={closeBattle}
-                    onRematch={rematch}
-                    resultNote={battleResultNote}
-                />
+                <Suspense fallback={<div className="fp-overlay" role="status">Preparing the arena…</div>}>
+                    <PetShowdownBattle
+                        key={battle.state.sessionId}
+                        initialState={battle.state}
+                        playerPets={battlePets}
+                        sharedImages={sharedImages}
+                        submitTurn={submitTurn}
+                        onForfeit={forfeitBattle}
+                        onFinished={finishBattle}
+                        onExit={closeBattle}
+                        onRematch={rematch}
+                        resultNote={battleResultNote}
+                    />
+                </Suspense>
             )}
-            {battle && battleError && <div className="fp-battle-network-error" role="alert"><span>{battleError}</span><button type="button" onClick={() => setBattleError(null)}>Dismiss</button></div>}
+            {battle && battleError && createPortal(<div className="fp-battle-network-error" role="alert"><span>{battleError}</span><button type="button" onClick={() => setBattleError(null)}>Dismiss</button></div>, document.body)}
         </main>
     );
 }
