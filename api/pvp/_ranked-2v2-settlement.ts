@@ -23,7 +23,7 @@ import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { creditRankedOutcome, DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
 import { towerPvpBindingOf, type TowerPvpTeamId } from '../../shared/tower-pvp.js';
@@ -108,7 +108,12 @@ export async function settleRanked2v2Match(
         const slug = safeName(entry.slug);
         if (!slug) continue;
         const saveKey = `save:${slug}`;
-        const line = await withKvLock(saveKey, async () => {
+        // A lost commit race (another writer saved this player after our read)
+        // writes nothing: re-run once (it re-reads; the receipt prevents a second
+        // swing), and if it loses again treat it like a busy save — this
+        // participant stays owed, the match is not cleared below, and the
+        // receipt makes the next settle call exact.
+        const line = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const character = record?.character as Record<string, unknown> | undefined;
             if (!record || !character) return null;
@@ -167,7 +172,10 @@ export async function settleRanked2v2Match(
                 newRating: credited.newRating,
                 saveVersion: Number(next._saveVersion ?? 0),
             };
-        }, { failClosed: true });
+        }, { failClosed: true })).catch((error: unknown) => {
+            if (isPlayerSaveVersionConflict(error)) return null;
+            throw error;
+        });
         if (line) lines.push(line);
     }
 

@@ -127,15 +127,28 @@ function canonicalRecord(value: unknown): Record<string, unknown> {
     return isRecord(canonical) ? canonical : {};
 }
 
+// Player-forged gear — the same pattern as api/save/_forged-items.ts. The only
+// creatorItems entries a player can author; everything else in that array is
+// shared admin content the player cannot change.
+const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+
 /**
- * Shallow paths at which two save payloads semantically differ: `['currentSector']`
- * for a top-level field, `['character', 'level']` for a character field. That is
- * the granularity the ownership manifest classifies at, so it is the granularity
- * the conflict areas are computed at.
+ * The device holds every admin item definition it pulled; a slimmed server save
+ * holds only the player's own forged gear. Comparing the whole array would report
+ * a "difference" forever, so only the forged entries — the part a draft could
+ * actually restore — are compared.
  */
+function withOwnedCreatorItemsOnly(record: Record<string, unknown>): Record<string, unknown> {
+    if (!Array.isArray(record.creatorItems)) return record;
+    return {
+        ...record,
+        creatorItems: (record.creatorItems as unknown[]).filter((item) => isRecord(item) && typeof item.id === "string" && FORGED_ITEM_ID.test(item.id)),
+    };
+}
+
 export function differingSavePaths(localPayload: unknown, serverSnapshot: unknown): string[][] {
-    const local = canonicalRecord(localPayload);
-    const server = canonicalRecord(serverSnapshot);
+    const local = withOwnedCreatorItemsOnly(canonicalRecord(localPayload));
+    const server = withOwnedCreatorItemsOnly(canonicalRecord(serverSnapshot));
     const paths: string[][] = [];
     for (const key of [...new Set([...Object.keys(local), ...Object.keys(server)])].sort()) {
         if (JSON.stringify(local[key]) === JSON.stringify(server[key])) continue;

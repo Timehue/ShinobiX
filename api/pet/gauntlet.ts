@@ -8,7 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { replayGauntlet } from '../_pet-sim/gauntlet-sim.js';
 import { debitGauntletEntry } from './_gauntlet-entry.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 
 /*
  * /api/pet/gauntlet — Pet Gauntlet rewards + weekly leaderboard.
@@ -103,7 +103,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const idx = currentWeekIndex();
             const weekKey = weekKeyOf(idx);
             const saveKey = `save:${me}`;
-            const reservation = await withKvLock(saveKey, async () => {
+            // A lost commit race wrote nothing, so re-running (re-read + one
+            // debit) charges exactly once.
+            const reservation = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const char = (record?.character ?? null) as Record<string, unknown> | null;
                 if (!record || !char) return { ok: false as const, status: 404, error: 'Player save not found.' };
@@ -117,7 +119,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     chargedRyo: result.charged,
                     saveVersion: Number(updated._saveVersion ?? 0),
                 };
-            }, { failClosed: true });
+            }, { failClosed: true }));
             if (!reservation.ok) return res.status(reservation.status).json({ error: reservation.error });
             const startChar = reservation.character;
             const used = startChar?.petGauntletRewardDate === dayStamp() ? Number(startChar.petGauntletRewardCount ?? 0) : 0;
@@ -256,6 +258,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Invalid action.' });
     } catch (err) {
+        // Nothing was written and no run token was minted, so a retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[pet/gauntlet]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

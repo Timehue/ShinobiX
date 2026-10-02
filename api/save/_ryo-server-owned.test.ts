@@ -1,5 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 
 /*
  * Ryo is server-owned at the save boundary. Every live spend and credit is
@@ -102,6 +103,12 @@ before(async () => {
         const next = (Number(store.get(key)) || 0) + 1;
         store.set(key, next);
         return next;
+    };
+    // The autosave commits with compare-and-set; mirror the real adapters.
+    kv.compareSet = async (key: string, expected: unknown, value: unknown) => {
+        if (expected === null ? store.has(key) : !isDeepStrictEqual(store.get(key), expected)) return false;
+        store.set(key, clone(value));
+        return true;
     };
     kv.hset = async (key: string, fields: Record<string, unknown>) => {
         const current = (store.get(key) as Record<string, unknown> | undefined) ?? {};

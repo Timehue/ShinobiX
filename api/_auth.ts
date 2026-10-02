@@ -29,6 +29,23 @@ type ReqLike = { headers: Record<string, string | string[] | undefined>; ip?: st
 const PASSWORD_FAIL_LIMIT = 12;
 const PASSWORD_FAIL_WINDOW_MS = 5 * 60_000;
 
+/**
+ * ALL password verifications (success or failure) allowed per IP per window, but
+ * only while session tokens are enabled.
+ *
+ * Charging failures alone left a hole: an attacker with one real account could
+ * send its CORRECT password in `x-player-password` at ~40 req/s and stall the
+ * single event loop on scryptSync (reproduced locally 2026-10-01: /health p99
+ * 17 ms -> 3.7 s). With SESSION_SECRET set, honest clients authenticate by token
+ * and reach this path only for rare explicit actions (account deletion), so a
+ * per-IP cap on every attempt never touches them. The attempt is charged BEFORE
+ * verifying, so a concurrent burst cannot slip past the peek while it awaits
+ * storage. When SESSION_SECRET is unset this path carries all traffic, so the cap
+ * does not apply there (see the failed-only budget below).
+ */
+export const PASSWORD_ATTEMPT_LIMIT = 20;
+const PASSWORD_ATTEMPT_WINDOW_MS = 60_000;
+
 function headerString(req: ReqLike, key: string): string {
     const v = req.headers[key.toLowerCase()];
     if (Array.isArray(v)) return v[0] ?? '';
@@ -481,8 +498,16 @@ export async function authedPlayer(
         // charging every attempt would throttle honest play. An attacker's attempts all
         // fail, so they hit the cap after a few tries and every request after that is
         // rejected without running scrypt at all.
+        //
+        // That alone does not stop an attacker who owns an account and sends its
+        // CORRECT password, so while tokens are enabled every attempt is also charged
+        // to PASSWORD_ATTEMPT_LIMIT per IP, before verifying.
         const failKey = `authpw-fail:${clientIp(req) ?? 'unknown'}`;
         if (!hasBudget(failKey, PASSWORD_FAIL_LIMIT)) return null;
+        const attemptKey = `authpw-attempt:${clientIp(req) ?? 'unknown'}`;
+        if (playerSessionsEnabled() && !allow(attemptKey, PASSWORD_ATTEMPT_LIMIT, PASSWORD_ATTEMPT_WINDOW_MS).ok) {
+            return null;
+        }
         if (!(await verifyPlayerPassword(canonical, pw))) {
             allow(failKey, PASSWORD_FAIL_LIMIT, PASSWORD_FAIL_WINDOW_MS);
             return null;
@@ -496,6 +521,23 @@ export async function authedPlayer(
     } catch {
         return null;
     }
+}
+
+/**
+ * Verify a password outside authedPlayer under the SAME per-IP budgets: every
+ * attempt is charged before scrypt runs, and a failure is charged to the
+ * failed-verify budget. For rare explicit actions (deleting another player's
+ * legacy save with their password), so the attempt cap applies whether or not
+ * tokens are enabled. Returns false when over budget, without running scrypt.
+ */
+export async function verifyPlayerPasswordBudgeted(req: ReqLike, name: string, password: string): Promise<boolean> {
+    const ip = clientIp(req) ?? 'unknown';
+    const budgetKey = `authpw-fail:${ip}`;
+    if (!hasBudget(budgetKey, PASSWORD_FAIL_LIMIT)) return false;
+    if (!allow(`authpw-attempt:${ip}`, PASSWORD_ATTEMPT_LIMIT, PASSWORD_ATTEMPT_WINDOW_MS).ok) return false;
+    if (await verifyPlayerPassword(name, password)) return true;
+    allow(budgetKey, PASSWORD_FAIL_LIMIT, PASSWORD_FAIL_WINDOW_MS);
+    return false;
 }
 
 /**

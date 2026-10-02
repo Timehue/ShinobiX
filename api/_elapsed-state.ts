@@ -521,7 +521,14 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         const settled = durable
             ? bumpSaveVersion(next.record, { regenAt: regenCursorOf(next.record) || undefined })
             : unversionedSettledRecord(next.record);
-        await kv.set(saveKey, mergePreservingImages(settled, fresh));
+        // Commit only over the exact row read above. This lock is not failClosed
+        // (contention falls through to an unlocked run) and its TTL is not renewed,
+        // while the reads above can stall on the pool — so another writer (a
+        // reward, a claim, an autosave) can commit in between. A plain set would
+        // revert that commit. Losing the race costs nothing: every owner read
+        // re-derives this settle, so return the unpersisted projection instead.
+        const committed = await kv.compareSet(saveKey, fresh, mergePreservingImages(settled, fresh));
+        if (!committed) return projected;
         return { ...next, record: settled };
     });
     return persisted;

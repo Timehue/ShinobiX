@@ -35,7 +35,7 @@ import {
 } from './_mission-progress-receipt.js';
 import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
@@ -803,7 +803,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Currency path: persist under the SAME lock the save endpoint uses so a
         // concurrent auto-save can't clobber the credit, and so two rapid claims
         // can't both slip past the one-time / daily-cap / pending checks.
-        const outcome = await withKvLock<ClaimOutcome>(saveKey, async () => {
+        //
+        // A lost commit race (writeSaveProjected) re-runs the whole block once:
+        // it re-reads the save, and every receipt is deleted only after the
+        // write, so the re-run claims exactly once.
+        const outcome = await retryOnSaveVersionConflict(() => withKvLock<ClaimOutcome>(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
             const char = record?.character as SaveChar | undefined;
             if (!record || !char) return { applied: false, reason: 'no-save' };
@@ -1365,7 +1369,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
                 ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
-        }, { failClosed: true });
+        }, { failClosed: true }));
 
         // New-shinobi dailies: a successful mission claim is the main activity
         // signal for pre-profession players. reportNewbieEvent no-ops for anyone
@@ -1486,6 +1490,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: Number(recoveryRecord?._saveVersion ?? 0),
         });
     } catch (err) {
+        // Nothing was written and no receipt was spent, so a retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[missions/claim-mission]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

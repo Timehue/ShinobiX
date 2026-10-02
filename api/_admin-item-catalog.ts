@@ -88,14 +88,31 @@ export function buildAdminItemCatalog(records: readonly (AdminContentRecord | nu
 
 let cache: { at: number; value: Map<string, AdminItem> } | null = null;
 let inflight: Promise<Map<string, AdminItem>> | null = null;
+// True while the newest read failed AND no earlier good read exists, i.e. the
+// value being served is an empty stand-in, not the real catalog.
+let servingEmptyFallback = false;
+
+/** Thrown by a strict load when the catalog has never been read successfully. */
+export const ADMIN_ITEM_CATALOG_UNAVAILABLE = 'admin-item-catalog-unavailable';
 
 /**
  * The authored item OBJECTS from both admin slots, keyed by id (60s memoized).
- * A KV failure never throws — it falls back to the last good read (or an empty
- * map), so a storage hiccup can't take a fight down with it (the resolver then
- * behaves exactly as it did before this catalog existed).
+ * A KV failure never throws by default — it falls back to the last good read (or
+ * an empty map), so a storage hiccup can't take an unrelated read down with it.
+ *
+ * `strict` is for combat: player saves no longer carry a mirror of admin items
+ * (slimmed saves), so an empty stand-in would seal a fighter WITHOUT their admin
+ * weapon/armor. A strict load throws ADMIN_ITEM_CATALOG_UNAVAILABLE instead, and
+ * the fight start answers "try again" rather than starting with the wrong gear.
+ * It only throws when there is no earlier good read to serve.
  */
-export async function loadAdminItemObjects(): Promise<ReadonlyMap<string, AdminItem>> {
+export async function loadAdminItemObjects(opts: { strict?: boolean } = {}): Promise<ReadonlyMap<string, AdminItem>> {
+    const value = await loadAdminItemObjectsMemo();
+    if (opts.strict && servingEmptyFallback) throw new Error(ADMIN_ITEM_CATALOG_UNAVAILABLE);
+    return value;
+}
+
+async function loadAdminItemObjectsMemo(): Promise<Map<string, AdminItem>> {
     const now = Date.now();
     if (cache && now - cache.at < CACHE_TTL_MS) return cache.value;
     if (inflight) return inflight;
@@ -108,9 +125,11 @@ export async function loadAdminItemObjects(): Promise<ReadonlyMap<string, AdminI
             const records = await loadAdminContentRecords();
             const value = buildAdminItemCatalog(records);
             cache = { at: Date.now(), value };
+            servingEmptyFallback = false;
             return value;
         } catch (error) {
             console.error('[admin-item-catalog]', safeLogValue(error));
+            servingEmptyFallback = !cache;
             return cache?.value ?? new Map<string, AdminItem>();
         } finally {
             inflight = null;
@@ -123,4 +142,5 @@ export async function loadAdminItemObjects(): Promise<ReadonlyMap<string, AdminI
 export function __resetAdminItemCatalogCache(): void {
     cache = null;
     inflight = null;
+    servingEmptyFallback = false;
 }

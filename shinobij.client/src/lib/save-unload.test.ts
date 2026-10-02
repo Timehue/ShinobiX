@@ -26,6 +26,29 @@ describe("save unload protection", () => {
         });
     }
 
+    it("never sends the drawn Hollow Gate board, so a reload rebuilds the run from the server", async () => {
+        let sent = "";
+        let captured: unknown;
+        const run = { runToken: "tok", floor: 1, tiles: [{ kind: "empty" }, { kind: "wall" }], activeCombat: { runId: "r", mode: "pet" } };
+        const payload = { character: { name: "Kaya", hollowGateRun: run } };
+        protectSaveOnUnload({
+            dirty: true, flightBusy: false, accountKey: "kaya", sessionEpoch: 1, latestVersion: 2,
+            unresolved: null, liveSnapshot: { name: "Kaya", revision: 1, payload },
+            captureConflict: (accountName, body) => {
+                captured = body;
+                return { accountName, accountKey: "kaya", revisions: [createSaveConflictRevision({ id: "guard", accountName, payload: body })] };
+            },
+            discardRevision: () => undefined, isCurrentSession: () => true,
+            request: (async (_url: string, init?: RequestInit) => { sent = String(init?.body); return new Response("{}"); }) as typeof fetch,
+        });
+        await tick();
+        const wire = JSON.parse(sent) as { character: { hollowGateRun: Record<string, unknown> } };
+        assert.equal("tiles" in wire.character.hollowGateRun, false, "no board on the wire");
+        assert.deepEqual(wire.character.hollowGateRun, { runToken: "tok", floor: 1, activeCombat: { runId: "r", mode: "pet" } });
+        assert.deepEqual((captured as typeof payload).character.hollowGateRun.tiles, run.tiles, "the local recovery copy keeps everything");
+        assert.deepEqual(payload.character.hollowGateRun.tiles, run.tiles, "the live state is not mutated");
+    });
+
     it("checks the exact unresolved wire body before attempting keepalive", () => {
         let captures = 0;
         const body = { character: { name: "Kaya" }, _baseSaveVersion: 2 };
