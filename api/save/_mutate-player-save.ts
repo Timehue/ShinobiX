@@ -382,10 +382,20 @@ export async function mutatePlayerSave<T>(
     }, { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) });
 }
 
+/** A save as one write of a two-save settlement left it. */
+export type PlayerSaveCommit = CommittedSave;
+
 /** One save's part of a two-save decision. */
 export type PlayerSavesSide = SaveWrite & {
     /** false leaves this save exactly as it is (a side that already settled). */
     write?: boolean;
+    /**
+     * Runs right after THIS save commits, under every lock: a journal step
+     * that must follow this write and precede the next one. A throw stops the
+     * settlement there. With a save still unwritten it surfaces as
+     * PlayerSavesPartialCommitError, otherwise as itself.
+     */
+    afterCommit?: (committed: PlayerSaveCommit) => Promise<void> | void;
 };
 
 export type PlayerSavesDecision<T> =
@@ -394,6 +404,11 @@ export type PlayerSavesDecision<T> =
         value: T;
         /** One entry per save, keyed by the slug its context carries. */
         sides: Record<string, PlayerSavesSide>;
+        /**
+         * Runs once every write has committed, still under every lock. A throw
+         * reaches the caller with every save already committed.
+         */
+        afterCommit?: (saves: Record<string, PlayerSaveCommit & { written: boolean }>) => Promise<void> | void;
     }
     | { ok: false; status: number; error: string };
 
@@ -402,7 +417,7 @@ export type PlayerSavesResult<T> =
         ok: true;
         value: T;
         /** Each save as it now stands, keyed by slug; `written` says whether this call changed it. */
-        saves: Record<string, CommittedSave & { written: boolean }>;
+        saves: Record<string, PlayerSaveCommit & { written: boolean }>;
     }
     | { ok: false; status: number; error: string; code?: PlayerSaveMissingCode; playerName?: string };
 
@@ -472,7 +487,7 @@ export async function mutatePlayerSaves<T>(
 
         const saves: Record<string, CommittedSave & { written: boolean }> = {};
         const committed: string[] = [];
-        for (const name of names) {
+        for (const [index, name] of names.entries()) {
             const side = decision.sides[name]!;
             const save = loaded[name]!;
             if (side.write === false) {
@@ -484,14 +499,25 @@ export async function mutatePlayerSaves<T>(
                 };
                 continue;
             }
+            let written: CommittedSave;
             try {
-                saves[name] = { ...await commitSaveWrite(save, side, options), written: true };
+                written = await commitSaveWrite(save, side, options);
             } catch (error) {
                 if (committed.length === 0) throw error;
                 throw new PlayerSavesPartialCommitError(committed, name, error);
             }
+            saves[name] = { ...written, written: true };
             committed.push(name);
+            if (!side.afterCommit) continue;
+            try {
+                await side.afterCommit(written);
+            } catch (error) {
+                const unwritten = names.slice(index + 1).find((next) => decision.sides[next]!.write !== false);
+                if (unwritten) throw new PlayerSavesPartialCommitError(committed, unwritten, error);
+                throw error;
+            }
         }
+        if (decision.afterCommit) await decision.afterCommit(saves);
         return { ok: true, value: decision.value, saves };
     };
 

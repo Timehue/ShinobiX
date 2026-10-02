@@ -204,6 +204,69 @@ describe('mutatePlayerSaves', { concurrency: false }, () => {
         assert.equal(await kv.get(`lock:save:${AMY}`), null, 'the lock it did take is released');
     });
 
+    it("runs each side's afterCommit right after its own write, then the final one, all under the locks", async () => {
+        await seed(ZED);
+        await seed(AMY);
+        const events: string[] = [];
+        const locked = async () => Boolean(await kv.get(`lock:save:${ZED}`)) && Boolean(await kv.get(`lock:save:${AMY}`));
+        await withSaveWrites(async (original, key, expected, value, options) => {
+            events.push(`write ${key.slice('save:'.length)}`);
+            return original.call(kv, key, expected, value, options);
+        }, () => saves.mutatePlayerSaves([ZED, AMY], (sides) => ({
+            ok: true,
+            value: null,
+            sides: {
+                [ZED]: {
+                    character: { ...sides[ZED]!.character, ryo: 1 },
+                    afterCommit: async (committed) => { events.push(`after ${ZED} v${committed._saveVersion} locked=${await locked()}`); },
+                },
+                [AMY]: {
+                    character: { ...sides[AMY]!.character, ryo: 2 },
+                    afterCommit: async () => { events.push(`after ${AMY}`); },
+                },
+            },
+            afterCommit: async (all) => { events.push(`final ${Object.keys(all).sort().join('+')} locked=${await locked()}`); },
+        })));
+        assert.deepEqual(events, [
+            `write ${ZED}`, `after ${ZED} v6 locked=true`, `write ${AMY}`, `after ${AMY}`,
+            `final ${AMY}+${ZED} locked=true`,
+        ]);
+    });
+
+    it("a side's afterCommit that fails with a save still unwritten is a partial commit", async () => {
+        await seed(ZED);
+        await seed(AMY);
+        const failure = await saves.mutatePlayerSaves([ZED, AMY], (sides) => ({
+            ok: true,
+            value: null,
+            sides: {
+                [ZED]: { character: { ...sides[ZED]!.character, ryo: 1 }, afterCommit: () => { throw new Error('journal down'); } },
+                [AMY]: { character: { ...sides[AMY]!.character, ryo: 2 } },
+            },
+        })).then(() => null, (error: unknown) => error);
+        assert.ok(failure instanceof saves.PlayerSavesPartialCommitError, String(failure));
+        assert.deepEqual(failure.committed, [ZED]);
+        assert.equal(failure.failed, AMY);
+        assert.equal(await ryo(ZED), 1);
+        assert.equal(await ryo(AMY), 1_000, 'the next write is never attempted');
+    });
+
+    it('a final afterCommit that fails reaches the caller with every save committed', async () => {
+        await seed(ZED);
+        await seed(AMY);
+        await assert.rejects(saves.mutatePlayerSaves([ZED, AMY], (sides) => ({
+            ok: true,
+            value: null,
+            sides: {
+                [ZED]: { character: { ...sides[ZED]!.character, ryo: 1 } },
+                [AMY]: { character: { ...sides[AMY]!.character, ryo: 2 } },
+            },
+            afterCommit: () => { throw new Error('completion down'); },
+        })), /completion down/);
+        assert.equal(await ryo(ZED), 1);
+        assert.equal(await ryo(AMY), 2);
+    });
+
     it('refuses the same save on both sides', async () => {
         await assert.rejects(saves.mutatePlayerSaves([ZED, ZED], transfer(ZED, ZED, 1)), /distinct saves/);
     });

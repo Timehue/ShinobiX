@@ -74,7 +74,9 @@ const ECHOES_VERSION = new Set([
     'missions/report-raid.ts',
     'pet/battle-result.ts',
     'pet/showdown.ts',
-    'player/_cross-heal-settlement.ts',
+    // player/_cross-heal-settlement.ts now commits both saves through
+    // mutatePlayerSaves and names no BUMP_MARKER. It still returns the healer's
+    // exact committed `_saveVersion`, which player/heal.ts echoes.
     // battle/lock.ts (every PvE defeat — the hottest path of all),
     // hollow-gate/step.ts, legacy/trial.ts, missions/report-pet-event.ts,
     // pet/gauntlet.ts, player/heal.ts and weekly-boss.ts now commit through
