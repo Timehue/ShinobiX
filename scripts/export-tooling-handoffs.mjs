@@ -38,7 +38,7 @@ import { KEY_FORGE_COSTS } from '../api/hollow-gate/_forge-key.ts';
 import { PROFILE_RESPEC_COST, PROFILE_TITLE_COST, PROFILE_TITLE_ICON_COST, PROFILE_TITLE_STYLE_COST } from '../api/profile/_settlement.ts';
 import { STAT_RESPEC_FATE_COST } from '../api/save/_stat-entitlement.ts';
 import { BLACK_MARKET_COST } from '../api/festival/_black-market.ts';
-import { NAMED_FORGE_COST } from '../api/craft/_named.ts';
+import { NAMED_FORGE_FATE_SHARD_COST } from '../shared/named-forge-economy.ts';
 import { KAGE_DECLARE_RYO_COST } from '../api/village/_kage-challenge.ts';
 import { LOGIN_RYO_BASE, LOGIN_RYO_CAP, LOGIN_RYO_PER_LEVEL, STREAK_SHARD_INTERVAL, STREAK_SHARD_REWARD } from '../api/player/_daily-login.ts';
 import { WAR_CRATE_HONOR, WAR_CRATE_KEY_CHANCE, WAR_CRATE_RYO } from '../api/inventory/_war-crate.ts';
@@ -200,7 +200,7 @@ function economyExport() {
   addFlow(sinks, 'festival', 'black-market-pull', 'ryo', BLACK_MARKET_COST, 'per pull', source('api/festival/_black-market.ts'));
   addFlow(faucets, 'festival', 'sunscar-rally', 'ryo', '30%-50% of daily login reward', 'per three-race daily championship', source('api/festival/_rally.ts'), 'Placement scales the payout; practice pays nothing.');
   addFlow(faucets, 'festival', 'sunscar-caravan', 'ryo', '1.05-1.7 times daily login reward', 'per daily delivery', source('api/festival/_caravan.ts'), 'Scaled by cargo preserved and bounded objectives/bonuses. Defeat pays no Ryo.');
-  addFlow(sinks, 'craft', 'named-forge', 'ryo', NAMED_FORGE_COST, 'per forge', source('api/craft/_named.ts'));
+  addFlow(sinks, 'craft', 'named-forge', 'fateShards', NAMED_FORGE_FATE_SHARD_COST, 'per forge', source('shared/named-forge-economy.ts'));
   addFlow(sinks, 'kage', 'declare-challenge', 'ryo', KAGE_DECLARE_RYO_COST, 'per challenge', source('api/village/_kage-challenge.ts'));
   addFlow(sinks, 'shrine', 'communal-offering', 'ryo', `${SHRINE_MIN_OFFERING}-${SHRINE_MAX_OFFERING}`, 'per offering', source('shared/shrines.ts'), 'Pure sink; no payout.');
   addFlow(sinks, 'war', 'declare-war', 'warResources', DECLARE_WAR_WR, 'per declaration', source('api/_war-economy.ts'));

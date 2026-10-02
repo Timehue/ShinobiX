@@ -607,7 +607,7 @@
           },
           {
             "type": "p",
-            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 1,000 Forge Points. Bone Charms count for 2 points, Fate Shards 5, Aura Stones 15, and Mythic Seals 75. Because the forge uses whole materials, your inventory must be able to form an exact 1,000-point payment."
+            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 200 Fate Shards, paid when you forge the revealed roll. Named gear accepts Fate Shards only. Inspect the stats in the roll pop-out, then continue to name and forge your item."
           },
           {
             "type": "callout",
