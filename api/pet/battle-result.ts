@@ -584,8 +584,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hollowGate?: { runId?: string };
                 dungeon?: unknown;
                 settlementPolicy?: unknown;
-                wanderer?: { id?: unknown; sector?: unknown; verb?: unknown };
-                wandererParticipatingPets?: Pet[];
+                wanderer?: unknown;
                 pvpChallengeId?: string;
                 pvpParticipatingPets?: Pet[];
             }>(tokenKey);
@@ -683,6 +682,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
             }
+            // Road beasts are fought and settled inside their Colosseum session
+            // (api/pet/_wanderer-showdown.ts). A wanderer token can only be a
+            // leftover of the retired battle-start duel: retire it and release
+            // its battle lock, rather than settle it as an ordinary casual fight.
+            if (tokenData.wanderer !== undefined) {
+                await kv.del(tokenKey).catch(() => undefined);
+                await kv.delIfEqual(`pet:battle-active:${playerName}`, battleToken).catch(() => undefined);
+                return res.status(410).json({ error: 'That road duel has been retired. Approach the beast again from the World Map.' });
+            }
             const settlementPolicy = tokenData.settlementPolicy;
             if (settlementPolicy !== undefined
                 && settlementPolicy !== 'casual-no-progression'
@@ -741,27 +749,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             casualPvePlayerPets = casualPveSeal?.playerPets ?? null;
             const tokenPlayerPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
-            if (tokenData.wanderer !== undefined) {
-                if (tokenData.settlementPolicy !== 'casual-no-progression'
-                    || tokenData.mode !== '1v1'
-                    || typeof tokenData.wanderer.id !== 'string'
-                    || !/^w-\d+-\d+-[01]$/.test(tokenData.wanderer.id)
-                    || !Number.isSafeInteger(Number(tokenData.wanderer.sector))
-                    || tokenData.wanderer.verb !== 'petDuel'
-                    || tokenData.casualPveSeal !== undefined
-                    || tokenData.hollowGate !== undefined
-                    || tokenData.dungeon !== undefined) {
-                    return res.status(409).json({ error: 'Natural wanderer token carries conflicting battle authority.' });
-                }
-                // Showdown resolves with consumables stripped. Preserve that
-                // immutable no-item snapshot so settlement cannot clear whatever
-                // happens to be equipped by the time the replay finishes.
-                casualPvePlayerPets = parseSealedPetSnapshots(tokenData.wandererParticipatingPets, tokenPlayerPetIds);
-                if (!casualPvePlayerPets
-                    || casualPvePlayerPets.some((pet) => Boolean(pet.loadout?.consumable))) {
-                    return res.status(409).json({ error: 'Natural wanderer token carries an invalid participating-pet snapshot.' });
-                }
-            }
             if (tokenData.mode === 'warfront') {
                 const baselineSettleAfter = Number(tokenData.settleAfter);
                 const baselineDurationMs = Number(tokenData.matchDurationMs);
