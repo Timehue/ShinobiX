@@ -1,13 +1,14 @@
 /*
- * Minimal server-side Pet types for the ported pet-combat engine (_arena-sim.ts —
- * the Tactical Arena). The server build excludes shinobij.client, so the sim is
- * hand-ported here and these types mirror the combat-relevant subset of
- * shinobij.client/src/types/pet.ts. KEEP IN SYNC with that file — only the fields
- * the sim + gear helpers actually read are duplicated.
+ * Minimal server-side Pet types for the pet ladder's frozen snapshots
+ * (_core.ts). The server build excludes shinobij.client, so these types mirror
+ * the combat-relevant subset of shinobij.client/src/types/pet.ts. KEEP IN SYNC
+ * with that file — only the fields the ladder snapshots carry are duplicated.
  *
- * The duel half of this pair is gone: the ladder's coliseum duels resolve on the
- * Showdown engine (api/_pet-showdown/), so the hand-copied _duel-sim.ts that used
- * to sit beside _arena-sim.ts was deleted rather than kept in sync with nothing.
+ * Both hand-ported engines that used to sit beside these types are gone: the
+ * ladder's coliseum duels resolve on the Showdown engine (api/_pet-showdown/)
+ * and its tactical matches on the Warfront Rite (api/_pet-sim/), so the copied
+ * _duel-sim.ts and, on 2026-10-02, the _arena-sim.ts Tactical Arena were deleted
+ * rather than kept in sync with nothing.
  */
 
 export type PetRarity = "standard" | "rare" | "legendary" | "mythic";

@@ -151,7 +151,7 @@ export function aggregateSynergyBonus(active: ActiveSynergy[]): Record<SynergySt
  * Apply a squad's active synergies to its pets, returning buffed COPIES (the
  * originals are never mutated). Stats scale by (1 + bonus) and stay integers so
  * the duel sim reads sane values. This is the ONLY place synergies touch combat
- * — bake the buffed copies, then hand them to runPetDuel/runPetPartyDuel.
+ * — bake the buffed copies, then hand them to the battle engine.
  */
 export function applySynergiesToSquad(squad: Pet[], active = resolveSynergies(squad)): Pet[] {
     const b = aggregateSynergyBonus(active);

@@ -1,19 +1,21 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as contract from "./pet-warfront-contract.ts";
-import * as simulation from "./pet-warfront-sim.ts";
 
-test("Warfront UI contract stays byte-for-byte aligned with the authoritative simulator", () => {
-    assert.equal(contract.WARFRONT_TPS, simulation.WARFRONT_TPS);
-    assert.equal(contract.WF_MAX_SECONDS, simulation.WF_MAX_SECONDS);
-    assert.equal(contract.WF_PHASE_SKIRMISH, simulation.WF_PHASE_SKIRMISH);
-    assert.equal(contract.WF_PHASE_WAR, simulation.WF_PHASE_WAR);
-    assert.equal(contract.WF_PHASE_SUDDEN, simulation.WF_PHASE_SUDDEN);
+// The lane-war simulator these values used to mirror was retired on
+// 2026-10-02, so the contract is their single source. These pins guard the
+// numbers the HUD timers and the server's warfront seal read.
+test("Warfront contract pins the tick rate, phase clock, stances and doctrines", () => {
+    assert.equal(contract.WARFRONT_TPS, 30);
+    assert.equal(contract.WF_MAX_SECONDS, 420);
+    assert.equal(contract.WF_PHASE_SKIRMISH, 60);
+    assert.equal(contract.WF_PHASE_WAR, 180);
+    assert.equal(contract.WF_PHASE_SUDDEN, 300);
     assert.deepEqual(contract.WF_STANCES.map(({ id }) => id), ["balanced", "siege", "jungle", "headhunt", "turtle"]);
     assert.deepEqual(contract.WF_DOCTRINES.map(({ id }) => id), ["vanguard", "bulwark", "zealot", "warden-pact"]);
 });
 
-test("Warfront UI verdict uses the simulator's structure scoring rule", () => {
+test("Warfront verdict counts the towers each side has brought down", () => {
     const snapshot = {
         towers: {
             blue: { n: { alive: false }, m: { alive: true }, s: { alive: true } },
@@ -21,5 +23,4 @@ test("Warfront UI verdict uses the simulator's structure scoring rule", () => {
         },
     };
     assert.deepEqual(contract.wfVerdictScore(snapshot), { blue: 2, red: 1 });
-    assert.deepEqual(contract.wfVerdictScore(snapshot), simulation.wfVerdictScore(snapshot as simulation.WfSnapshot));
 });

@@ -87,10 +87,12 @@ function Harness() {
     // ?party=1 — run the simultaneous 2v2 engine instead, to exercise the
     // 4-standee party4v4 path in the coliseum renderer.
     const partyMode = PARAMS.get("party") === "1";
-    // ?duel=1 — render the new TACTICAL diorama-stage duel (PetColiseumDuel),
-    // using pets that have generated run-cycle frames so the gliding fix shows.
+    // ?duel=1 — render the TACTICAL diorama-stage duel (PetColiseumDuel), using
+    // pets that have generated run-cycle frames so the gliding fix shows. It plays
+    // the cinematic engine: the legacy duel sim this once previewed was retired
+    // on 2026-10-02, so ?duel=1 and ?cine=1 now resolve the same fight.
     const duelMode = PARAMS.get("duel") === "1";
-    // ?cine=1 — play the NEW cinematic engine (pet-duel-cinematic.ts) through the
+    // ?cine=1 — play the cinematic engine (pet-duel-cinematic.ts) through the
     // same renderer (precompute the result + pass it in).
     const cineMode = PARAMS.get("cine") === "1";
     // ?control=1 — the PLAYER-CONTROLLED duel (docs/pet-coliseum-player-control-plan.md):
@@ -284,11 +286,11 @@ function Harness() {
             : createLiveDuel(duelPlayer, duelEnemy, seed, 1, 1, false, true, undefined, null);
     }, [controlMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
     const cineResult = useMemo(() => {
-        if (!cineMode || controlMode) return undefined;
+        if (!(cineMode || duelMode) || controlMode) return undefined;
         return partyMode
             ? runPetPartyDuelCinematic(duelPlayer, duelPlayerRes, duelEnemy, duelEnemyRes, seed, 1, 1, false, true, undefined, DEBUG_AI)
             : runPetDuelCinematic(duelPlayer, duelEnemy, seed, 1, 1, false, true, undefined, null, DEBUG_AI);
-    }, [cineMode, controlMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
+    }, [cineMode, duelMode, controlMode, partyMode, duelPlayer, duelEnemy, duelPlayerRes, duelEnemyRes, seed]);
     useEffect(() => {
         // Dev-only deterministic QA hook: lets the browser harness locate exact
         // maneuver/signature ticks without adding scrub controls to production UI.
@@ -360,7 +362,6 @@ function Harness() {
                     enemyPet={duelEnemy}
                     playerReservePet={partyMode ? duelPlayerRes : undefined}
                     enemyReservePet={partyMode ? duelEnemyRes : undefined}
-                    seed={seed}
                     result={cineResult}
                     live={liveDuel}
                     initialTick={START_DUEL_TICK}
