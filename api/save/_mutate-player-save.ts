@@ -293,21 +293,61 @@ async function loadSettledSave(playerName: string, saveKey: string): Promise<Loa
     };
 }
 
+/**
+ * The regeneration cursor a versioned write carries (bumpSaveVersion's
+ * `regenAt`). A write that itself changed a vital (a fight settlement, a heal,
+ * a stamina spend) fences it to now: its time is not idle recovery. So does
+ * excluded state (a battle lock, an admission) and a record with no clock.
+ * Anything else carries the settled cursor forward, so the sub-second
+ * remainder survives the write. `undefined` lets bumpSaveVersion fence the
+ * cursor to the exact write instant (`_saveAt`), so the two stamps agree.
+ *
+ * `settled` is the character with the idle recovery credited
+ * (settleVitalsRegen), `written` the one the write commits.
+ */
+export function carriedRegenCursor(
+    settled: PlayerCharacter,
+    written: PlayerCharacter,
+    regen: { excluded: boolean; cursor: number },
+): number | undefined {
+    const vitalsTouched = (['hp', 'chakra', 'stamina'] as const)
+        .some((key) => Number(written[key] ?? NaN) !== Number(settled[key] ?? NaN));
+    return vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
+}
+
+/**
+ * mutatePlayerSave's idle-recovery settle, for a writer that cannot use it: a
+ * crash-recoverable compare-and-set saga that reads and writes the save
+ * through its own injected store, whose embedded receipts are the authority
+ * for a commit whose acknowledgement was lost. Build the next character from
+ * `settled.character`, compare-and-set against the record you read, and give
+ * the version bump `regenAt: carriedRegenCursor(settled.character, next,
+ * settled.regen)`. The battle lock is read through the same store, under the
+ * same normalized name battleLockedFor uses.
+ */
+export async function settleIdleRecovery(
+    store: Pick<KvLike, 'get'>,
+    playerName: string,
+    record: PlayerSaveRecord,
+): Promise<{ character: PlayerCharacter; regen: { excluded: boolean; cursor: number } }> {
+    const [{ battleLockKey, settleVitalsRegen }, { safeName }] = await Promise.all([
+        import('../_elapsed-state.js'),
+        import('../_utils.js'),
+    ]);
+    const slug = safeName(playerName);
+    const battleLocked = slug ? Boolean(await store.get(battleLockKey(slug))) : false;
+    const regen = settleVitalsRegen(record, { now: Date.now(), battleLocked });
+    return {
+        character: (regen.record.character ?? record.character) as PlayerCharacter,
+        regen: { excluded: regen.excluded, cursor: regen.cursor },
+    };
+}
+
 /** Commit one decision's write with an exact compare-and-set. The caller holds the lock. */
 async function commitSaveWrite(loaded: LoadedSave, write: SaveWrite, options: PlayerSaveMutationOptions): Promise<CommittedSave> {
     // Bump _saveVersion on server-side player mutations so stale client
     // autosaves refetch instead of overwriting the credited/debited save.
-    //
-    // The regen cursor: a mutation that itself changed a vital (a fight
-    // settlement, a heal, a stamina spend) fences it to now — its time is
-    // not idle recovery. Anything else carries the settled cursor forward,
-    // so the sub-second remainder survives the write. Excluded state (a
-    // battle lock, an admission) and a record with no clock also fence.
-    const vitalsTouched = (['hp', 'chakra', 'stamina'] as const)
-        .some((key) => Number(write.character[key] ?? NaN) !== Number(loaded.character[key] ?? NaN));
-    // `undefined` lets bumpSaveVersion fence the cursor to the exact write
-    // instant (`_saveAt`), so the two stamps agree on a fence.
-    const regenAt = vitalsTouched || loaded.regen.excluded || !loaded.regen.cursor ? undefined : loaded.regen.cursor;
+    const regenAt = carriedRegenCursor(loaded.character, write.character, loaded.regen);
     const hollowGateCurrencySource = write.hollowGateCurrencySource ?? options.hollowGateCurrencySource;
     const out = await writeVersionedPlayerSave(loaded.saveKey, loaded.record, write.character, write.recordPatch, {
         regenAt,
@@ -350,36 +390,67 @@ export async function mutatePlayerSave<T>(
     const playerName = safeName(playerNameRaw);
     if (!playerName) return { ok: false, status: 400, error: 'Invalid player name.' };
     const saveKey = `save:${playerName}`;
-    return await withKvLock(saveKey, async () => {
-        const loaded = await loadSettledSave(playerName, saveKey);
-        if (!('ctx' in loaded)) return loaded;
-        const decision = await mutate(loaded.ctx);
-        if (!decision.ok) return decision;
+    return await withKvLock(
+        saveKey,
+        () => mutateLockedSave(playerName, saveKey, mutate, options),
+        { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) },
+    );
+}
 
-        // Read/replay paths can return the authoritative snapshot without
-        // manufacturing a save-version bump or rewriting an identical blob.
-        if (decision.write === false) {
-            return {
-                ok: true as const,
-                value: decision.value,
-                record: loaded.record,
-                character: decision.character,
-                _saveVersion: Number(loaded.record._saveVersion ?? 0),
-            };
-        }
+/**
+ * mutatePlayerSave for a writer that already holds `save:<name>`'s lock, taken
+ * failClosed. withKvLock is not re-entrant, so a settlement that locks a save
+ * around several steps (PvP claim-rewards locks both fighters' saves across
+ * its receipts and credits) cannot call mutatePlayerSave inside that lock.
+ * This runs the same read, settle, decision and exact compare-and-set write
+ * without taking the lock again. Outside that lock it is a race.
+ */
+export async function mutatePlayerSaveLocked<T>(
+    playerNameRaw: string,
+    mutate: (ctx: PlayerSaveMutationContext) => Promise<PlayerSaveMutation<T>> | PlayerSaveMutation<T>,
+    options: Pick<PlayerSaveMutationOptions, 'hollowGateCurrencySource'> = {},
+): Promise<PlayerSaveMutationResult<T>> {
+    const { safeName } = await import('../_utils.js');
+    const playerName = safeName(playerNameRaw);
+    if (!playerName) return { ok: false, status: 400, error: 'Invalid player name.' };
+    return mutateLockedSave(playerName, `save:${playerName}`, mutate, options);
+}
 
-        let committed: CommittedSave;
-        try {
-            committed = await commitSaveWrite(loaded, decision, options);
-        } catch (error) {
-            const conflict = isSaveVersionConflict(error);
-            const undo = conflict ? decision.onConflict : decision.onUnconfirmedWrite;
-            if (undo) await runUndo(saveKey, conflict ? 'a lost compare-and-set' : 'a failed write', undo);
-            throw error;
-        }
-        if (decision.afterCommit) await decision.afterCommit(committed);
-        return { ok: true as const, value: decision.value, ...committed };
-    }, { failClosed: true, ...(options.lockTtlSec ? { ttlSec: options.lockTtlSec } : {}) });
+/** Read, settle, decide and write one save. The caller holds its lock. */
+async function mutateLockedSave<T>(
+    playerName: string,
+    saveKey: string,
+    mutate: (ctx: PlayerSaveMutationContext) => Promise<PlayerSaveMutation<T>> | PlayerSaveMutation<T>,
+    options: PlayerSaveMutationOptions,
+): Promise<PlayerSaveMutationResult<T>> {
+    const loaded = await loadSettledSave(playerName, saveKey);
+    if (!('ctx' in loaded)) return loaded;
+    const decision = await mutate(loaded.ctx);
+    if (!decision.ok) return decision;
+
+    // Read/replay paths can return the authoritative snapshot without
+    // manufacturing a save-version bump or rewriting an identical blob.
+    if (decision.write === false) {
+        return {
+            ok: true as const,
+            value: decision.value,
+            record: loaded.record,
+            character: decision.character,
+            _saveVersion: Number(loaded.record._saveVersion ?? 0),
+        };
+    }
+
+    let committed: CommittedSave;
+    try {
+        committed = await commitSaveWrite(loaded, decision, options);
+    } catch (error) {
+        const conflict = isSaveVersionConflict(error);
+        const undo = conflict ? decision.onConflict : decision.onUnconfirmedWrite;
+        if (undo) await runUndo(saveKey, conflict ? 'a lost compare-and-set' : 'a failed write', undo);
+        throw error;
+    }
+    if (decision.afterCommit) await decision.afterCommit(committed);
+    return { ok: true as const, value: decision.value, ...committed };
 }
 
 /** A save as one write of a two-save settlement left it. */

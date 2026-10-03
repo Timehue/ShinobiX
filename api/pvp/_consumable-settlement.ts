@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { embedPvpSettlementReceipt, inspectPvpCredit, pvpSettlementId } from './_reward-settlement.js';
 import {
     confirmPlayerRankedItemSettlement,
@@ -94,10 +95,18 @@ async function settleLegacySide(
 ): Promise<void> {
     const key = `save:${side.slug}`;
     const settlementId = pvpSettlementId('items', session.battleId);
+    // The deduction settles the idle recovery earned since the regeneration
+    // cursor into the same write, as every save writer does
+    // (api/save/_mutate-player-save.ts). It moves items, never a vital, so it
+    // carries the settled cursor. A bare version bump fenced the cursor to now
+    // and discarded that recovery: a fighter who closed the game after the
+    // fight lost it when the other side's claim settled their consumables.
+    // Read through the injected store, like the save itself.
     for (let attempt = 0; attempt < 24; attempt += 1) {
         const record = await store.get<Record<string, unknown>>(key);
-        const character = (record?.character ?? null) as Record<string, unknown> | null;
-        if (!record || !character) throw new Error(`pvp-items-save-unreadable:${side.slug}`);
+        if (!record?.character) throw new Error(`pvp-items-save-unreadable:${side.slug}`);
+        const settled = await settleIdleRecovery(store, side.slug, record);
+        const character = settled.character;
         const inspection = inspectPvpCredit(character, settlementId, 'items');
         if (!inspection.fresh && !inspection.needsBackfill) return;
 
@@ -122,7 +131,10 @@ async function settleLegacySide(
             now,
         );
         const next = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: withReceipt }),
+            bumpSaveVersion(
+                { ...record, character: withReceipt },
+                { regenAt: carriedRegenCursor(character, withReceipt, settled.regen) },
+            ),
             record,
         ) as Record<string, unknown>;
         try {

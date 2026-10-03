@@ -5,6 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { combatMissionByKey } from './_mission-catalog.js';
 import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
@@ -142,11 +143,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The common physical-outcome receipt now owns mission usage in the
             // same save write as HP. Only a migrated legacy KV marker predates
             // that guarantee and needs this one compatibility charge.
+            // The queue write settles the idle recovery earned since the last
+            // save and carries the cursor, as mutatePlayerSave does. A retry can
+            // arrive long after the fight's own write. Replies that write
+            // nothing keep answering with the stored character.
+            const settled = await settleIdleRecovery(kv, playerName, record);
+            const settledChar = settled.character as SaveChar;
             const chargedChar = physicalOutcome.migratedLegacyReceipt
-                ? applySoloPveUsageCosts(char, terminalSession)
-                : char;
+                ? applySoloPveUsageCosts(settledChar, terminalSession)
+                : settledChar;
             const nextChar = { ...chargedChar, pendingCombatMissionClaims: nextPending };
-            const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: nextChar });
+            const updated = bumpSaveVersion<Record<string, unknown>>({ ...record, character: nextChar }, {
+                regenAt: carriedRegenCursor(settledChar, nextChar, settled.regen),
+            });
             const persisted = mergePreservingImages(updated, record) as Record<string, unknown>;
             const claimTokenKey = combatMissionClaimTokenKey(playerName, mission.key);
             let expectedToken = await kv.get<unknown>(claimTokenKey);

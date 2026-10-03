@@ -19,11 +19,10 @@
  * no-op rather than a second rating swing.
  */
 import { kv } from '../_storage.js';
-import { withKvLock } from '../_lock.js';
 import { safeName } from '../_utils.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { creditRankedOutcome, DEFAULT_RANKED_RATING, rankedDelta } from '../_ranked-rating.js';
 import { towerPvpBindingOf, type TowerPvpTeamId } from '../../shared/tower-pvp.js';
@@ -107,31 +106,28 @@ export async function settleRanked2v2Match(
     for (const entry of outcomes) {
         const slug = safeName(entry.slug);
         if (!slug) continue;
-        const saveKey = `save:${slug}`;
         // A lost commit race (another writer saved this player after our read)
         // writes nothing: re-run once (it re-reads; the receipt prevents a second
         // swing), and if it loses again treat it like a busy save — this
         // participant stays owed, the match is not cleared below, and the
-        // receipt makes the next settle call exact.
-        const line = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const character = record?.character as Record<string, unknown> | undefined;
-            if (!record || !character) return null;
-
+        // receipt makes the next settle call exact. mutatePlayerSave also keeps
+        // the idle recovery each player earned since their last save; the other
+        // three are usually offline, and a raw write discarded theirs.
+        const settled = await retryOnSaveVersionConflict(() => mutatePlayerSave<Omit<Ranked2v2SettlementLine, 'saveVersion'> | null>(slug, async ({ character }) => {
             const inspection = inspectSettlementReceipt(character, requestId, fingerprint);
-            if (inspection.status === 'conflict' || inspection.status === 'invalid') return null;
+            if (inspection.status === 'conflict' || inspection.status === 'invalid') {
+                return { ok: true, value: null, character, write: false };
+            }
             if (inspection.status === 'replay') {
                 // Already rated. Report the standing value rather than moving it.
                 // Projection may have failed after the save receipt was written;
                 // retrying settlement repairs that public leaderboard row.
                 await projectRanked2v2LeaderboardSide(slug, character);
                 return {
-                    slug,
-                    teamId: entry.teamId,
-                    outcome: entry.outcome,
-                    delta: 0,
-                    newRating: currentRating(character),
-                    saveVersion: Number(record._saveVersion ?? 0),
+                    ok: true,
+                    value: { slug, teamId: entry.teamId, outcome: entry.outcome, delta: 0, newRating: currentRating(character) },
+                    character,
+                    write: false,
                 };
             }
 
@@ -161,22 +157,24 @@ export async function settleRanked2v2Match(
                     settledAt: Date.now(),
                 },
             );
-            const next = bumpSaveVersion<Record<string, unknown>>({ ...record, character: stamped });
-            await writeSaveProjected(saveKey, next, record);
-            await projectRanked2v2LeaderboardSide(slug, stamped);
             return {
-                slug,
-                teamId: entry.teamId,
-                outcome: entry.outcome,
-                delta: entry.outcome === 'draw' ? 0 : credited.delta,
-                newRating: credited.newRating,
-                saveVersion: Number(next._saveVersion ?? 0),
+                ok: true,
+                value: {
+                    slug,
+                    teamId: entry.teamId,
+                    outcome: entry.outcome,
+                    delta: entry.outcome === 'draw' ? 0 : credited.delta,
+                    newRating: credited.newRating,
+                },
+                character: stamped,
+                afterCommit: async (committed) => { await projectRanked2v2LeaderboardSide(slug, committed.character); },
             };
-        }, { failClosed: true })).catch((error: unknown) => {
+        })).catch((error: unknown) => {
             if (isPlayerSaveVersionConflict(error)) return null;
             throw error;
         });
-        if (line) lines.push(line);
+        // A missing save stays owed, like a busy one.
+        if (settled?.ok && settled.value) lines.push({ ...settled.value, saveVersion: settled._saveVersion });
     }
 
     // A temporarily missing or busy save must remain recoverable. All four

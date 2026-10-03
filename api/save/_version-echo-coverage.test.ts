@@ -56,7 +56,10 @@ const ECHOES_VERSION = new Set([
     // client-owned and an unadopted debit would be undone by the next autosave.
     '_war-tax-apply.ts',
     'admin/content-publish.ts',
-    'clan/exchange/purchase.ts',
+    // (clan/exchange/purchase.ts used to be listed here. Its Clan Point
+    // purchase now commits through mutatePlayerSave and names no BUMP_MARKER,
+    // so the "every mutatePlayerSave route acknowledges the committed version"
+    // test below covers it. It still echoes the committed `_saveVersion`.)
     'clan/mentor.ts',
     'clan/war/declare.ts',
     'clan/seal-pool/donate.ts',
@@ -72,7 +75,10 @@ const ECHOES_VERSION = new Set([
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
     'missions/report-raid.ts',
-    'pet/battle-result.ts',
+    // pet/battle-result.ts now commits every result, casual and ranked, through
+    // mutatePlayerSave or mutatePlayerSaves and names no BUMP_MARKER, so the
+    // "every mutatePlayerSave route acknowledges the committed version" test
+    // below covers it.
     'pet/showdown.ts',
     // player/_cross-heal-settlement.ts now commits both saves through
     // mutatePlayerSaves and names no BUMP_MARKER. It still returns the healer's
@@ -118,10 +124,10 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     'hollow-gate/settle.ts',
     'hollow-gate/use-consumable.ts',
     'missions/report-raid.ts',
-    // Ranked/base settlement moved behind writeVersionedPlayerSave, so this route
-    // no longer names a BUMP_MARKER itself. It still bumps — that helper builds a
-    // versionedPlayerRecord and commits it with compareSet — and it still rereads
-    // and echoes the authenticated caller's final `_saveVersion`.
+    // Each ranked, base and war-ground credit commits through
+    // mutatePlayerSaveLocked, under the save locks the route already holds, so
+    // this route names no BUMP_MARKER itself. It still bumps, and it still
+    // rereads and echoes the authenticated caller's final `_saveVersion`.
     'pvp/claim-rewards.ts',
     // Mentor milestone payouts moved into clan/_mentor-settlement.ts, which
     // credits each save through mutatePlayerSave (exact-CAS versioned writer).
@@ -152,6 +158,10 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     // treasury-share day already ran through the debit saga), and the helper
     // still returns that `_saveVersion` for village/tax.ts to echo.
     '_war-tax-apply.ts',
+    // Each fighter's rating now commits through mutatePlayerSave, so the 2v2
+    // settlement names no BUMP_MARKER. Every line still carries that fighter's
+    // exact committed `_saveVersion` for pvp/ranked-2v2.ts to echo.
+    'pvp/_ranked-2v2-settlement.ts',
 ]);
 
 /**
@@ -186,13 +196,11 @@ const EXEMPT = new Set([
     // no BUMP_MARKER. Exactly-once is still the per-fighter receipt in the save,
     // and pvp/claim-rewards.ts still re-reads the save after it runs and echoes
     // the resulting version to whoever asked.)
-    // Clan War 2v2 consumable charge. It debits every fighter who spent an item
-    // — up to four saves in one call — so there is no single participant whose
-    // `_saveVersion` it could echo. It is also reached from settlement rather
-    // than from a request the charged player made, so no response of theirs is
-    // in flight to carry one. Each save is stamped with its own durable receipt,
-    // which is what makes the charge exactly-once instead of version-guarded.
-    'clan/war/_mpvp-consumables.ts',
+    // (clan/war/_mpvp-consumables.ts used to be listed here: the Clan War 2v2
+    // consumable charge debits up to four fighters in one call, from settlement
+    // rather than from a request any of them made, so it has no single version
+    // to echo. It now charges each save through mutatePlayerSave and names no
+    // BUMP_MARKER. Each save's durable receipt still makes it exactly-once.)
     // Village-war Honor Seal sagas. Both debit the declaring/hiring player and
     // bump that save, but they are helpers with several callers and cannot pick
     // one participant's version to expose. village/hire-mercenary.ts rereads and
@@ -217,7 +225,7 @@ const EXEMPT = new Set([
     '_war-mercenary-hire.ts',
     // (admin/bloodline-review.ts used to be listed here. It now commits through
     // mutatePlayerSave and is gated with the other admin routes in
-    // ADMIN_TARGET_MUTATION_ROUTES below.)
+    // OTHER_PLAYER_MUTATION_ROUTES below.)
     'cron/_ranked-season.ts',
     // cron/_clan-boss-weekly.ts (many members' saves, from a timer), _subscription.ts
     // (billing callbacks and admin comps), missions/_progress.ts, clan-boss/_profession.ts
@@ -267,16 +275,19 @@ const EXEMPT = new Set([
 ]);
 
 /**
- * Admin routes that mutate ANOTHER player's save through mutatePlayerSave. They
- * must never echo that version: authFetch adopts any `_saveVersion` in a
- * response for the signed-in account, so the admin's own client would take the
- * target player's version as its base and 409 its next autosave. The target
- * adopts the bump from their own next load.
+ * Routes that mutate ANOTHER player's save through mutatePlayerSave. They must
+ * never echo that version: authFetch adopts any `_saveVersion` in a response
+ * for the signed-in account, so the caller's own client would take the target
+ * player's version as its base and 409 its next autosave. The target adopts
+ * the bump from their own next load.
  */
-const ADMIN_TARGET_MUTATION_ROUTES = new Set([
+const OTHER_PLAYER_MUTATION_ROUTES = new Set([
     'admin/bloodline-review.ts',
     'admin/economy-reconcile.ts',
     'admin/legacy.ts',
+    // The kicking officer's reply carries the roster only. The save it writes
+    // is the kicked member's.
+    'clan/kick.ts',
 ]);
 
 function collect(dir: string, out: string[] = []): string[] {
@@ -357,7 +368,7 @@ test('sector-war declarations never fund from a player save', () => {
 
 test('every mutatePlayerSave route acknowledges the committed version', () => {
     for (const rel of helperMutationRoutes) {
-        if (ADMIN_TARGET_MUTATION_ROUTES.has(rel)) continue;
+        if (OTHER_PLAYER_MUTATION_ROUTES.has(rel)) continue;
         const src = readFileSync(join(API_DIR, rel), 'utf8');
         assert.match(
             src,
@@ -367,10 +378,10 @@ test('every mutatePlayerSave route acknowledges the committed version', () => {
     }
 });
 
-test('admin routes never hand the admin a target player\'s save version', () => {
-    for (const rel of ADMIN_TARGET_MUTATION_ROUTES) {
-        assert.ok(helperMutationRoutes.includes(rel), `${rel} no longer mutates through mutatePlayerSave — update ADMIN_TARGET_MUTATION_ROUTES`);
+test('a route that writes another player\'s save never hands the caller that version', () => {
+    for (const rel of OTHER_PLAYER_MUTATION_ROUTES) {
+        assert.ok(helperMutationRoutes.includes(rel), `${rel} no longer mutates through mutatePlayerSave — update OTHER_PLAYER_MUTATION_ROUTES`);
         const src = readFileSync(join(API_DIR, rel), 'utf8');
-        assert.doesNotMatch(src, /_saveVersion/, `${rel} must not echo another player's _saveVersion to the admin`);
+        assert.doesNotMatch(src, /_saveVersion/, `${rel} must not echo another player's _saveVersion to the caller`);
     }
 });

@@ -136,3 +136,58 @@ test('upgraded claim preserves the legacy path after V2 admissions turn on', asy
     process.env.ENABLE_PLAYER_RANKED_V2 = '1';
     await runLegacyDrain('on');
 });
+
+test("the winner's claim keeps the idle recovery both fighters earned since their last save", async () => {
+    // The winner's claim settles the loser's rating and consumables too, while
+    // the loser has usually left. Its raw writes fenced both regeneration
+    // cursors, so the loser came back to the vitals they lost the fight with.
+    delete process.env.ENABLE_PLAYER_RANKED_V2;
+    const a = 'regenwinner';
+    const b = 'regenloser';
+    const battleId = 'pvp-legacy-regen';
+    const at = Date.now() - 30_000;
+    for (const name of [a, b]) {
+        await kv.set(`save:${name}`, {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: {
+                name,
+                rankedRating: 1000,
+                itemStacks: [{ itemId: 'legacy-potion', count: 2 }],
+                serverSettlementReceipts: [],
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+            },
+        });
+    }
+    await kv.set(`pvp:${battleId}`, {
+        battleId,
+        p1: { name: a },
+        p2: { name: b },
+        status: 'done',
+        winner: 'p1',
+        ranked: true,
+        rankedKind: 'player',
+        p1Rating: 1000,
+        p2Rating: 1000,
+        rewardAuthority: 'ranked',
+        joined: { p1: true, p2: true },
+        baseRewards: false,
+        realFighters: { p1: true, p2: true },
+        itemsUsed: { p1: { 'legacy-potion': 1 }, p2: { 'legacy-potion': 1 } },
+        log: [],
+        createdAt: Date.now(),
+        endedAt: Date.now(),
+    }, { ex: 900 });
+
+    const claimed = response();
+    await handler(request(a, battleId, 'win'), claimed.res);
+    assert.equal(claimed.out.statusCode, 200, JSON.stringify(claimed.out.body));
+    for (const [name, rating] of [[a, 1012], [b, 988]] as const) {
+        const character = (await kv.get<Record<string, any>>(`save:${name}`))?.character;
+        assert.equal(character.rankedRating, rating, `${name}'s rating settled`);
+        assert.equal(character.itemStacks?.[0]?.count, 1, `${name}'s potion was deducted`);
+        assert.ok(Number(character.hp) >= 40, `${name}: hp ${character.hp} lost the idle recovery`);
+        assert.ok(Number(character.chakra) >= 50, `${name}: chakra ${character.chakra} lost the idle recovery`);
+        assert.ok(Number(character.stamina) >= 30, `${name}: stamina ${character.stamina} lost the idle recovery`);
+    }
+    assert.ok(Number(claimed.out.body?.character?.hp) >= 40, "the winner's reply shows the recovered vitals");
+});

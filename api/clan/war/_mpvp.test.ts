@@ -17,6 +17,7 @@ let readClanWar2v2Match: typeof import('./_mpvp.js').readClanWar2v2Match;
 let settleClanWar2v2Match: typeof import('./_mpvp-settlement.js').settleClanWar2v2Match;
 let clanWar2v2Result: typeof import('./_mpvp-settlement.js').clanWar2v2Result;
 let clanWar2v2ItemsUsed: typeof import('./_mpvp-consumables.js').clanWar2v2ItemsUsed;
+let settleClanWar2v2Consumables: typeof import('./_mpvp-consumables.js').settleClanWar2v2Consumables;
 
 const WAR_ID = 'alpha__beta';
 const CHALLENGE_ID = 'cw-2v2-test';
@@ -28,7 +29,7 @@ before(async () => {
     ({ kv } = await import('../../_storage.js'));
     ({ startClanWar2v2Match, clanWar2v2Sides, readClanWar2v2Match } = await import('./_mpvp.js'));
     ({ settleClanWar2v2Match, clanWar2v2Result } = await import('./_mpvp-settlement.js'));
-    ({ clanWar2v2ItemsUsed } = await import('./_mpvp-consumables.js'));
+    ({ clanWar2v2ItemsUsed, settleClanWar2v2Consumables } = await import('./_mpvp-consumables.js'));
 });
 
 after(() => { delete process.env.SHINOBIX_QA_MEMORY_KV; });
@@ -290,6 +291,66 @@ describe('Clan War 2v2 settlement', { concurrency: false }, () => {
         await kv.set(saveKey, { ...charged, character: { ...charged!.character, serverSettlementReceipts: [], itemStacks: [{ itemId: 'potion', count: 5 }] } });
         await settleClanWar2v2Match(match);
         assert.equal(await potions(), 5, 'the durable charged marker blocks a re-charge after receipt eviction');
+    });
+
+    // A save last written 30 s ago, tired enough to show any recovery.
+    async function tire(slug: string, extra: Record<string, unknown> = {}): Promise<number> {
+        const at = Date.now() - 30_000;
+        const save = await kv.get<Record<string, any>>(`save:${slug}`);
+        await kv.set(`save:${slug}`, {
+            ...save, _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: { ...save!.character, ...extra, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+        return at;
+    }
+
+    async function assertRecovered(slug: string, at: number): Promise<Record<string, any>> {
+        const saved = (await kv.get<Record<string, any>>(`save:${slug}`))!;
+        assert.ok(saved.character.hp >= 40, `${slug}: hp ${saved.character.hp} lost the idle recovery`);
+        assert.ok(saved.character.chakra >= 50, `${slug}: chakra ${saved.character.chakra} lost the idle recovery`);
+        assert.ok(saved.character.stamina >= 30, `${slug}: stamina ${saved.character.stamina} lost the idle recovery`);
+        // Points and item charges move no vital, so the write carries the cursor.
+        assert.ok(Number(saved._regenAt) >= at + 30_000 - 1_000, `${slug}: cursor ${saved._regenAt} fell behind the recovery`);
+        assert.equal((Number(saved._regenAt) - at) % 1_000, 0, `${slug}: cursor ${saved._regenAt} was fenced to the write, not carried`);
+        return saved;
+    }
+
+    it('pays war points without discarding the idle recovery each fighter earned', async () => {
+        // Whoever settles first pays all four, usually after the others closed
+        // the game. A version write that fenced the regeneration cursor to now
+        // discarded every point of HP, chakra and stamina recovered since.
+        for (const [slug, clan] of [[FROM[0], 'alpha'], [FROM[1], 'alpha'], [TO[0], 'beta'], [TO[1], 'beta']] as const) {
+            const save = await kv.get<Record<string, any>>(`save:${slug}`);
+            await kv.set(`save:${slug}`, { ...save, character: { ...save!.character, clan } });
+        }
+        const started = await startClanWar2v2Match({ warId: WAR_ID, challengeId: CHALLENGE_ID, actor: FROM[0] });
+        assert.ok(started.ok);
+        if (!started.ok) return;
+        // The route releases the fight's battle leases before it settles; a
+        // held lease is a battle, not idle time.
+        const { releaseTowerBattleLeases } = await import('../../towers/_battle-lease.js');
+        await releaseTowerBattleLeases(started.match.matchId, ALL);
+        const at = await tire(TO[0]);
+        const terminal = { ...started.match, status: 'done' as const, winner: 'amber' as const, updatedAt: Date.now() };
+        assert.equal((await settleClanWar2v2Match(terminal))?.outcome, 'applied');
+        const loser = await assertRecovered(TO[0], at);
+        assert.equal(loser.character.clanPoints, 25, 'the losing fighter was still paid participation');
+    });
+
+    it('charges spent items without discarding the idle recovery the fighter earned', async () => {
+        const started = await startClanWar2v2Match({ warId: WAR_ID, challengeId: CHALLENGE_ID, actor: FROM[0] });
+        assert.ok(started.ok);
+        if (!started.ok) return;
+        const { releaseTowerBattleLeases } = await import('../../towers/_battle-lease.js');
+        await releaseTowerBattleLeases(started.match.matchId, ALL);
+        const match = { ...started.match, status: 'done' as const, winner: 'amber' as const, updatedAt: Date.now() };
+        match.sealedItemCharges = { [FROM[0]]: { potion: 2 } };
+        const member = match.roster.find(m => m.slug === FROM[0])!;
+        match.combat.actors.find(a => a.id === member.actorId)!.itemCharges = { potion: 0 };
+        const at = await tire(FROM[0], { itemStacks: [{ itemId: 'potion', count: 3 }] });
+        await settleClanWar2v2Consumables(match);
+        const charged = await assertRecovered(FROM[0], at);
+        assert.deepEqual(charged.character.itemStacks, [{ itemId: 'potion', count: 1 }], 'the two potions were still charged');
     });
 
     it('refuses to settle a match that has not ended', async () => {

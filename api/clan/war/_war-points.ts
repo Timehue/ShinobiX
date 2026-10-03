@@ -13,9 +13,7 @@
 
 import { createHmac } from 'node:crypto';
 import { awardClanPoints, awardClanPointsToPlayerSave } from '../../_clan-points.js';
-import { kv } from '../../_storage.js';
-import { withKvLock } from '../../_lock.js';
-import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
+import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
 import {
     embedPvpSettlementReceipt,
     inspectPvpCredit,
@@ -205,11 +203,10 @@ export async function awardPvpFinalizedWarPoints(
             && clanWarPvpTerritoryScrollDrop(battleId, player)
             ? CLAN_WAR_PVP_WIN_SCROLLS
             : 0;
-        const saveKey = `save:${player}`;
-        await withKvLock(saveKey, async () => {
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            const character = (record?.character ?? null) as Record<string, unknown> | null;
-            if (!record || !character) throw new Error(`clan-war-pvp-save-missing:${player}`);
+        // mutatePlayerSave also keeps the idle recovery each fighter earned since
+        // their last save. Whoever settles the war writes everyone's points,
+        // and the others are often offline by then.
+        const out = await mutatePlayerSave(player, ({ character }) => {
             const settlementId = pvpSettlementId('clan-war', battleId);
             const fingerprint = JSON.stringify({
                 points: playerEvents.map((event) => ({
@@ -220,7 +217,7 @@ export async function awardPvpFinalizedWarPoints(
                 territoryScrolls,
             });
             const decision = inspectPvpCredit(character, settlementId, fingerprint);
-            if (!decision.fresh && !decision.needsBackfill) return;
+            if (!decision.fresh && !decision.needsBackfill) return { ok: true, value: undefined, character, write: false };
             let nextCharacter = character;
             if (decision.fresh) {
                 for (const event of playerEvents) {
@@ -243,7 +240,8 @@ export async function awardPvpFinalizedWarPoints(
                 fingerprint,
                 eventAt,
             );
-            await writeVersionedPlayerSave(saveKey, record, credited);
-        }, { failClosed: true });
+            return { ok: true, value: undefined, character: credited };
+        });
+        if (!out.ok) throw new Error(`clan-war-pvp-save-missing:${player}`);
     }
 }

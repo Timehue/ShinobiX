@@ -157,7 +157,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }));
             // The target's own next load adopts the bumped version; this reply
-            // must never carry it (see ADMIN_TARGET_MUTATION_ROUTES).
+            // must never carry it (see OTHER_PLAYER_MUTATION_ROUTES in
+            // api/save/_version-echo-coverage.test.ts).
             const mutationResult = mutation.ok ? mutation.value : 'missing';
             if (action === 'update' && mutationResult !== 'updated') {
                 return res.status(409).json({ error: 'Bloodline no longer exists in that player save.' });

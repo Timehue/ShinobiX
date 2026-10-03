@@ -279,6 +279,28 @@ describe('_ranked-settlement', () => {
         assert.equal(final?.character.petRankedWins, 1);
     });
 
+    it('keeps the idle recovery the loser earned since their last save', async () => {
+        // One report settles both sides, usually while the loser is offline.
+        // A bare version bump fenced the loser's regeneration cursor to now
+        // and discarded every point recovered since their last save.
+        const store = _makeMemoryKv();
+        const at = Date.now() - 30_000;
+        const tired = rankedSave('bravo');
+        await store.set('save:bravo', {
+            ...tired, _saveAt: at, _regenAt: at,
+            character: { ...tired.character, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+        assert.equal((await settlePetRankedSide(store, settlementInput('bravo', 'loser'))).status, 'settled');
+        const saved = await store.get<Record<string, any>>('save:bravo');
+        assert.equal(saved?.character.petRankedRating, 988, 'the loss was still rated');
+        assert.ok(saved?.character.hp >= 40, `hp ${saved?.character.hp} lost the idle recovery`);
+        assert.ok(saved?.character.chakra >= 50, `chakra ${saved?.character.chakra} lost the idle recovery`);
+        assert.ok(saved?.character.stamina >= 30, `stamina ${saved?.character.stamina} lost the idle recovery`);
+        // Rating moves no vital, so the write carries the settled cursor.
+        assert.ok(Number(saved?._regenAt) >= at + 30_000 - 1_000, `cursor ${saved?._regenAt} fell behind the recovery`);
+        assert.equal((Number(saved?._regenAt) - at) % 1_000, 0, `cursor ${saved?._regenAt} was fenced to the write, not carried`);
+    });
+
     it('recovers the loser independently after a partial two-save settlement', async () => {
         const store = _makeMemoryKv();
         await store.set('save:alpha', rankedSave('alpha'));

@@ -12,6 +12,7 @@ import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progr
 import { combinedStatBoost } from '../_stat-growth.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import {
     acknowledgeNewbieCombatRun,
     reportNewbieCombatRunOnce,
@@ -358,8 +359,13 @@ async function mutateCombatClaimSettlement(params: {
             params.missionId,
             params.rewardFingerprint,
         );
+        // The idle recovery since the last save settles into this write and the
+        // cursor carries, as mutatePlayerSave does. A recovered claim can run
+        // these effects long after its payout.
+        const settled = await settleIdleRecovery(kv, params.playerName, current.record);
+        const settledCharacter = settled.character as SaveChar;
         const previousCharacter = { ...current.character };
-        const mutation = params.mutate(current.character, current.settlement);
+        const mutation = params.mutate(settledCharacter, current.settlement);
         if (!mutation) return current.settlement;
         const nextCharacter = replaceCombatMissionClaimSettlement(
             mutation.character,
@@ -368,7 +374,10 @@ async function mutateCombatClaimSettlement(params: {
         const nextRecord = mergePreservingImages(bumpSaveVersion<Record<string, unknown>>({
             ...current.record,
             character: nextCharacter,
-        }, { previousCharacter }), current.record) as Record<string, unknown>;
+        }, {
+            previousCharacter,
+            regenAt: carriedRegenCursor(settledCharacter, nextCharacter, settled.regen),
+        }), current.record) as Record<string, unknown>;
         const mergedCharacter = nextRecord.character as SaveChar;
         nextRecord.character = {
             ...mergedCharacter,
@@ -626,7 +635,9 @@ async function applyReservedCombatMissionPayout(params: {
     saveKey: string;
     playerName: string;
     record: Record<string, unknown>;
+    /** The stored character with its idle recovery settled (settleIdleRecovery). */
     character: SaveChar;
+    regen: { excluded: boolean; cursor: number };
     reservation: CombatMissionClaimPaymentReservation;
 }): Promise<Extract<ClaimOutcome, { applied: true }>> {
     const settlement = params.reservation.settlement;
@@ -742,7 +753,10 @@ async function applyReservedCombatMissionPayout(params: {
     const updated = bumpSaveVersion<Record<string, unknown>>({
         ...params.record,
         character: next,
-    }, { previousCharacter: params.character });
+    }, {
+        previousCharacter: params.character,
+        regenAt: carriedRegenCursor(params.character, next, params.regen),
+    });
     const intended = mergePreservingImages(updated, params.record) as Record<string, unknown>;
     const intendedCharacter = intended.character as SaveChar;
     intended.character = {
@@ -813,8 +827,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // write, so the re-run claims exactly once.
         const outcome = await retryOnSaveVersionConflict(() => withKvLock<ClaimOutcome>(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as SaveChar | undefined;
-            if (!record || !char) return { applied: false, reason: 'no-save' };
+            if (!record?.character) return { applied: false, reason: 'no-save' };
+            // The idle recovery earned since the last save settles here, as
+            // mutatePlayerSave does: every write below builds on it and carries
+            // the cursor instead of fencing that recovery away.
+            const settled = await settleIdleRecovery(kv, playerName, record);
+            const char = settled.character as SaveChar;
             const combatDef = missionType === 'combat' ? combatMissionByKey(missionId) : null;
             if (missionType === 'combat' && !combatDef) return { applied: false, reason: 'unknown-mission' };
             const combatRewardFingerprint = combatDef ? missionCombatRewardFingerprint(combatDef) : '';
@@ -1025,6 +1043,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         playerName,
                         record,
                         character: char,
+                        regen: settled.regen,
                         reservation: combatPaymentReservation,
                     });
                 }
@@ -1043,7 +1062,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // token. The client mirrors this + shows a re-fight message.
                     const heal = clearStalePendingCombatClaim(char, combatDef.key);
                     if (heal.cleared) {
-                        const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char });
+                        const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char }, {
+                            regenAt: carriedRegenCursor(char, heal.char, settled.regen),
+                        });
                         const intended = mergePreservingImages(healed, record) as Record<string, unknown>;
                         await compareSetExactKvRow(kv, saveKey, record, intended);
                     }
@@ -1326,7 +1347,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
-            }, { previousCharacter: char });
+            }, {
+                previousCharacter: char,
+                // A stamina reward touches a vital, which fences the cursor; the
+                // recovery settled above is still in `next`.
+                regenAt: carriedRegenCursor(char, next, settled.regen),
+            });
             let persisted: Record<string, unknown> = updated;
             if (combatSettlement) {
                 const intended = mergePreservingImages(updated, record) as Record<string, unknown>;

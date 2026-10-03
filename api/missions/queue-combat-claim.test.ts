@@ -117,7 +117,12 @@ after(async () => {
     delete process.env.SESSION_SECRET;
 });
 
-test('lost queue response replays the exact authoritative surviving HP and save version', async () => {
+test('lost queue response replays the exact authoritative surviving HP and save version', async (t) => {
+    // The queue write settles the idle recovery since the fight's own write,
+    // a whole tick (1 s) of which would lift the exact HP below. Hold the clock
+    // so a stall between the two writes cannot.
+    const frozen = Date.now();
+    t.mock.method(Date, 'now', () => frozen);
     const lostResponse = await post('198.51.100.81');
     assert.equal(lostResponse.statusCode, 200);
     assert.equal(lostResponse.body?.queued, true);
