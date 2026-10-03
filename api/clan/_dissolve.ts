@@ -67,6 +67,22 @@ function sameClanGeneration(record: Record<string, unknown>, receipt: ClanDissol
     return isDeepStrictEqual(clanIdentity(record), receipt.clanIdentity);
 }
 
+/**
+ * End one war row. A lost reply is settled by reading the row back: under the
+ * war lock only this call can have stamped this end time and winner. Without
+ * it the retry skips the already-ended war, so its rematch cooldown and the
+ * winner's war-end clan XP are never applied.
+ */
+async function commitWarEnd(warKey: string, war: ClanWar, ended: ClanWar): Promise<boolean> {
+    try {
+        return await kv.compareSet(warKey, war, ended);
+    } catch (error) {
+        const recovered = await kv.get<ClanWar>(warKey).catch(() => null);
+        if (recovered && recovered.endedAt === ended.endedAt && recovered.winnerClan === ended.winnerClan) return true;
+        throw error;
+    }
+}
+
 function memberNamesFromClan(record: Record<string, unknown>): string[] {
     const names = new Map<string, string>();
     const add = (value: unknown) => {
@@ -165,7 +181,7 @@ export async function dissolveClanUnderLock(
             if (!war || war.endedAt || !war.clans.some((name) => clanBareSlug(name) === receipt.clanSlug)) return;
             const winner = war.clans.find((name) => clanBareSlug(name) !== receipt.clanSlug);
             const ended = finalizeClanWarEnd(war, { endedAt: Date.now(), winnerClan: winner, reason: 'dissolution' });
-            if (!(await kv.compareSet(warKey, war, ended))) throw new Error('clan-dissolution-war-conflict');
+            if (!(await commitWarEnd(warKey, war, ended))) throw new Error('clan-dissolution-war-conflict');
             await kv.set(clanWarCooldownKey(war.clans[0], war.clans[1]), '1', { ex: CLAN_WAR_REMATCH_COOLDOWN_SEC });
             finalizedWars.push(ended);
         }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
