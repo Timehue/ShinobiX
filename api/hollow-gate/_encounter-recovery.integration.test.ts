@@ -45,6 +45,21 @@ async function call(handler: Handler, body: Record<string, unknown>) {
     return result;
 }
 
+/**
+ * What a Postgres jsonb read hands back: the JSON form, with every object's keys
+ * in jsonb order (shorter keys first, then bytewise) rather than insertion order.
+ */
+function postgresRead(value: unknown): unknown {
+    const order = (entry: unknown): unknown => {
+        if (Array.isArray(entry)) return entry.map(order);
+        if (!entry || typeof entry !== 'object') return entry;
+        return Object.fromEntries(Object.entries(entry)
+            .sort(([a], [b]) => Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)))
+            .map(([key, child]) => [key, order(child)]));
+    };
+    return value === null ? null : order(JSON.parse(JSON.stringify(value)));
+}
+
 function floor() {
     const width = 15;
     const height = 11;
@@ -88,6 +103,22 @@ test('pending ambush is returned by both blocked movement and floor reseal', asy
     assert.equal(reseal.status, 200);
     assert.deepEqual(reseal.body?.pendingAmbush, pendingAmbush);
     assert.deepEqual(reseal.body?.position, { x: 1, y: 1 });
+});
+
+test('a floor reseal matches its sealed manifest once Postgres has reordered the keys', async (t) => {
+    // jsonb returns the stored manifest as floor, nodes, spawn, width, ... while the
+    // recomputed one is floor, width, height, spawn, .... Comparing their JSON text
+    // refused every reseal, so a refresh lost the pending ambush it exists to return.
+    const board = floor();
+    const pendingAmbush = { nodeId: 'floor:1:ambush:threat-v25', kind: 'ambush' as const };
+    await kv.set('hg-run:riftplayer:token', { ...run(board.manifest), pendingAmbush });
+    const realGet = kv.get.bind(kv);
+    t.mock.method(kv, 'get', async (key: string) => postgresRead(await realGet(key)));
+    const reseal = await call(floorSealHandler, { token: 'token', floor: 1,
+        width: board.width, height: board.height, playerX: 1, playerY: 1, tiles: board.tiles });
+    assert.equal(reseal.status, 200, JSON.stringify(reseal.body));
+    assert.equal(reseal.body?.alreadyReported, true);
+    assert.deepEqual(reseal.body?.pendingAmbush, pendingAmbush);
 });
 
 test('a server-sealed weekly Rift signal survives repeated floor seals', async () => {
