@@ -21,6 +21,7 @@
  */
 import { isDeepStrictEqual } from 'node:util';
 import { kv, type KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
@@ -366,10 +367,12 @@ async function putImmutable(
         if (await store.set(key, value, { nx: true, ex: ttlSeconds }) === 'OK') return;
     } catch (error) {
         const recovered = await store.get<unknown>(key).catch(() => null);
-        if (isDeepStrictEqual(recovered, value)) return;
+        if (storedValueEquals(recovered, value)) return;
         throw error;
     }
-    if (isDeepStrictEqual(await store.get<unknown>(key), value)) return;
+    // The plan and archive carry `village: undefined` for a save without a
+    // village. The stored row has no such key, so compare in the JSON form.
+    if (storedValueEquals(await store.get<unknown>(key), value)) return;
     throw new Error(`ranked-season-immutable-conflict:${key}`);
 }
 
