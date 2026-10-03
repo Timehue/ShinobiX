@@ -108,6 +108,35 @@ describe('Clan War PvP session authorization', () => {
         assert.equal((store.get('clan-war:leaf-vs-sand') as ClanWar).pendingChallenges[0]?.battleId, undefined);
     });
 
+    it('a release whose write landed but lost its reply still resolves', async () => {
+        // The read-back is the JSON form, which drops the cleared binding's
+        // `battleId: undefined` and `pvpReservedAt: undefined`. A deep-equal
+        // against the candidate rethrew every lost reply as a failed release.
+        const held = war();
+        const reservedAt = Date.now() - 1_000;
+        held.pendingChallenges[0] = { ...held.pendingChallenges[0], battleId: 'pvp-held', pvpReservedAt: reservedAt };
+        store.set('clan-war:leaf-vs-sand', held);
+        const { kv } = await import('../_storage.js');
+        const compareSet = kv.compareSet;
+        let lostReplies = 0;
+        kv.compareSet = async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+            const landed = await compareSet(key, expected, value, options);
+            if (!key.startsWith('clan-war:') || !landed || lostReplies > 0) return landed;
+            lostReplies += 1;
+            throw new Error('Connection terminated unexpectedly');
+        };
+        try {
+            await api.releaseClanWarPvpReservation({
+                warId: 'leaf-vs-sand', challengeId: 'ch-12345678', battleId: 'pvp-held',
+                p1: 'alice', p2: 'bob', reservedAt, owned: true,
+            });
+        } finally {
+            kv.compareSet = compareSet;
+        }
+        assert.equal(lostReplies, 1, 'the release landed and only its reply was lost');
+        assert.equal((store.get('clan-war:leaf-vs-sand') as ClanWar).pendingChallenges[0]?.battleId, undefined);
+    });
+
     it('rejects outsiders, swapped fighters, and unsupported 2v2 aggregation', async () => {
         store.set('clan-war:leaf-vs-sand', war());
         assert.equal(await api.reserveClanWarPvpSession({

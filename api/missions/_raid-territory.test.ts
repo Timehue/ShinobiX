@@ -97,3 +97,68 @@ describe('settleRaidTerritoryDamage — sector with no territory row yet', () =>
         assert.ok(await kv.get(TERRITORY_KEY), 'the sector row must exist afterwards');
     });
 });
+
+describe('settleRaidTerritoryDamage — writes read back from Postgres', () => {
+    // A raid that lands after a breach deadline settles the breach first, which
+    // leaves breachedAt and breachEndsAt explicitly undefined on the row it then
+    // hits and pins. A Postgres read-back is the JSON form without those keys, so
+    // a deep-equal judged each of these three writes lost after a lost reply.
+    for (const [lostWrite, label] of [[1, 'breach settlement'], [2, 'pinned hit'], [3, 'pin clear']] as const) {
+        it(`settles a raid whose ${label} landed but lost its reply`, async (t) => {
+            const now = Date.now();
+            await kv.set(TERRITORY_KEY, {
+                sector: VIRGIN_SECTOR,
+                ownerClan: 'Storm Clan',
+                ownerVillage: 'Stormveil Village',
+                controlScore: 75_000,
+                hp: 5_000,
+                terrainBuffStat: 'bukijutsuOffense',
+                guards: [],
+                warSupply: 0,
+                lastSupplyAt: now - 1_000,
+                updatedAt: now - 1_000,
+                breachedAt: now - 13 * 60 * 60 * 1_000,
+                breachEndsAt: now - 60_000,
+            });
+            const realGet = kv.get.bind(kv);
+            const realCompareSet = kv.compareSet.bind(kv);
+            t.mock.method(kv, 'get', async (key: string) => {
+                const value = await realGet(key);
+                return value === null ? null : JSON.parse(JSON.stringify(value));
+            });
+            let territoryWrites = 0;
+            t.mock.method(kv, 'compareSet', async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+                const landed = await realCompareSet(key, expected, value, options);
+                if (key === TERRITORY_KEY && landed && ++territoryWrites === lostWrite) {
+                    throw new Error('Connection terminated unexpectedly');
+                }
+                return landed;
+            });
+            const params = {
+                playerName: 'breachraider',
+                proofId: `pvp-raid:pvp-json-form-${lostWrite}`,
+                sector: VIRGIN_SECTOR,
+                eventAt: now,
+                evidence: {
+                    version: 1 as const,
+                    sector: VIRGIN_SECTOR,
+                    ownerClan: 'Storm Clan',
+                    ownerVillage: 'Stormveil Village',
+                    raidDamage: 250,
+                    observedAt: now - 1_000,
+                },
+            };
+
+            const settled = await settleRaidTerritoryDamage(params);
+            assert.ok(territoryWrites >= lostWrite, 'the targeted write landed and only its reply was lost');
+            assert.equal(settled.amount, 250);
+            assert.equal(settled.replayed, false);
+            const row = await kv.get<Record<string, unknown>>(TERRITORY_KEY);
+            assert.equal(row?.hp, 4_750);
+            assert.equal(Object.prototype.hasOwnProperty.call(row, 'breachEndsAt'), false, 'the breach settled');
+            const again = await settleRaidTerritoryDamage(params);
+            assert.equal(again.replayed, true);
+            assert.equal(again.amount, 250, 'the hit is applied once');
+        });
+    }
+});
