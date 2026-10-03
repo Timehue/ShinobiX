@@ -26,3 +26,30 @@ test('adaptive quality moves to lite before sustained performance falls below 48
     for (let i = 0; i < 360; i++) lowered ||= sampleRallyQuality(sample, 1 / 45, true);
     assert.equal(lowered, true);
 });
+test('three consecutive active stalls downgrade before a frozen simulation can advance', () => {
+    const sample = newRallyQualitySample();
+    assert.equal(sampleRallyQuality(sample, .8, true), false);
+    assert.equal(sampleRallyQuality(sample, .9, true), false);
+    assert.equal(sampleRallyQuality(sample, .7, true), true);
+    assert.equal(sample.warmup, 0, 'a frozen render loop cannot depend on the usual warmup window');
+    assert.equal(sampleRallyQuality(sample, .8, true), true);
+    assert.equal(sample.stalledFrames, 3, 'the stall counter remains bounded until the renderer switches');
+});
+test('isolated stalls and normal frames cannot accumulate toward a stall downgrade', () => {
+    const sample = newRallyQualitySample();
+    for (let i = 0; i < 8; i++) {
+        assert.equal(sampleRallyQuality(sample, 1, true), false);
+        assert.equal(sampleRallyQuality(sample, 1 / 60, true), false);
+        assert.equal(sample.stalledFrames, 0);
+    }
+});
+test('pausing, invalid timing and an inactive race clear consecutive stalls', () => {
+    for (const [delta, racing] of [[1, false], [.1, false], [NaN, true], [Infinity, true], [0, true], [-1, true]] as const) {
+        const sample = newRallyQualitySample();
+        sampleRallyQuality(sample, .8, true); sampleRallyQuality(sample, .8, true);
+        assert.equal(sampleRallyQuality(sample, delta, racing), false);
+        assert.equal(sample.stalledFrames, 0);
+        assert.equal(sampleRallyQuality(sample, .8, true), false);
+        assert.equal(sampleRallyQuality(sample, .8, true), false);
+    }
+});

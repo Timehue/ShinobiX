@@ -1,0 +1,89 @@
+.rally-economy-surface { position: absolute; inset: 0; }
+.rally-graphics-control { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 12px 0; color: #efddbd; font-size: 12px; }
+.rally-graphics-control select { min-height: 44px; max-width: 100%; padding: 6px 10px; border: 1px solid #b39166; border-radius: 6px; background: #30281e; color: #fff0d4; font: inherit; }
+.rally-graphics-control select:focus-visible { outline: 3px solid #a7dfdf; outline-offset: 3px; }
+.rally-graphics-control small { color: #c1d8b5; }
+.rally-race-hints > .rally-incoming-hint { color: #fff0cd; background: #773c2fed; border-left: 3px solid #ffa380; font-weight: 600; }
+
+/* HUD docks own space in the shell; neither renderer sits underneath them. */
+.sunscar-rally-session .rally-race {
+    --rally-dock: #29221c;
+    --rally-dock-line: #70573a;
+    grid-template-areas: "hud" "course" "dashboard" "controls" "note";
+    grid-template-rows: auto minmax(140px, 1fr) auto auto auto;
+}
+.rally-race > .rally-stage { grid-area: course; overflow: hidden; }
+.sunscar-rally-session .rally-race > .rally-hud {
+    grid-area: hud; position: static; gap: 10px; align-items: center;
+    padding: 8px; background: var(--rally-dock); border-bottom: 1px solid var(--rally-dock-line);
+}
+.rally-race > .rally-hud .rally-position { min-width: 50px; padding: 4px 6px; background: none; }
+.rally-race > .rally-hud .rally-position strong { font-size: 30px; }
+.rally-race > .rally-hud .rally-position > span { display: none; }
+.rally-race > .rally-hud .rally-prestige-pennant { position: static; flex: 0 0 22px; width: 22px; height: 32px; padding: 4px; font-size: 16px; }
+.rally-race > .rally-hud .rally-progress { min-width: 0; max-width: none; padding: 0; background: none; }
+.rally-race > .rally-hud .rally-progress.is-final-stretch { border: 0; color: #ffe4a7; }
+.rally-race > .rally-hud .rally-pause { min-width: 44px; min-height: 44px; }
+.rally-race > .rally-dashboard {
+    grid-area: dashboard; display: grid; grid-template-columns: minmax(0, 1fr) minmax(110px, 180px);
+    align-items: center; gap: 4px 10px; padding: 6px 8px;
+    background: var(--rally-dock); border-top: 1px solid var(--rally-dock-line);
+}
+.rally-context { grid-column: 1 / -1; min-width: 0; min-height: 56px; }
+.rally-warning-announcement { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; clip-path: inset(50%); overflow: hidden; white-space: nowrap; }
+.sunscar-rally-session .rally-race .rally-race-hints {
+    position: static; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch; gap: 4px; max-width: none;
+}
+.sunscar-rally-session .rally-race .rally-race-hints > span { font-size: 10px; line-height: 1.3; padding: 4px 6px; overflow-wrap: anywhere; }
+.sunscar-rally-session .rally-race .rally-telemetry {
+    position: static; transform: none; width: auto; max-width: none; min-width: 0;
+    justify-content: flex-start; padding: 0; background: none; font-size: 10px;
+}
+.sunscar-rally-session .rally-race .rally-stamina {
+    position: static; transform: none; min-width: 0; gap: 5px; padding: 0;
+    background: none; font-size: 10px;
+}
+.rally-race .rally-stamina meter { flex: 1; min-width: 24px; width: 70px; }
+.sunscar-rally-session .rally-race .rally-finish-banner {
+    position: static; transform: none; width: auto; max-width: none; padding: 6px 10px;
+    display: grid; grid-template-columns: 1fr auto; gap: 3px 8px; text-align: left;
+}
+.sunscar-rally-session .rally-race .rally-finish-banner strong { grid-column: 2; grid-row: 1 / 3; align-self: center; margin: 0; font-size: 20px; }
+.rally-race > .rally-controls { grid-area: controls; }
+.rally-race > .rally-save-note { grid-area: note; }
+@media (max-width: 650px) {
+    .rally-race > .rally-dashboard { grid-template-columns: minmax(0, 1fr) 110px; }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+    .sunscar-rally-session .rally-race {
+        grid-template-areas: "course hud" "course dashboard" "course controls" "note note";
+        grid-template-columns: minmax(0, 1fr) clamp(230px, 32vw, 300px);
+        grid-template-rows: auto minmax(0, 1fr) auto auto;
+        min-height: 260px;
+    }
+    .sunscar-rally-session .rally-race > .rally-hud { gap: 5px; padding: 6px; border-left: 1px solid var(--rally-dock-line); }
+    .rally-race > .rally-hud .rally-position { min-width: 38px; padding: 0; }
+    .rally-race > .rally-hud .rally-position strong { font-size: 25px; }
+    .rally-race > .rally-hud .rally-progress > span { font-size: 10px; line-height: 1.2; }
+    .rally-race > .rally-hud .rally-progress progress { height: 3px; margin-block: 4px; }
+    .rally-race > .rally-hud .rally-progress small { display: block; line-height: 1.2; }
+    .sunscar-rally-session .rally-race > .rally-hud .rally-pause { padding: 4px; font-size: 10px; }
+    .rally-race > .rally-dashboard { grid-template-columns: minmax(0, 1fr); grid-auto-rows: max-content; align-content: start; min-height: 0; overflow: auto; gap: 2px 8px; padding-block: 4px; border-left: 1px solid var(--rally-dock-line); }
+    .sunscar-rally-session .rally-race .rally-race-hints { grid-template-columns: minmax(0, 1fr); }
+    .sunscar-rally-session .rally-race .rally-finish-banner strong { font-size: 18px; }
+    .sunscar-rally-session .rally-race > .rally-controls { flex-direction: column; gap: 6px; padding: 6px; border-left: 1px solid var(--rally-dock-line); }
+    .rally-race > .rally-controls .rally-steering,
+    .rally-race > .rally-controls .rally-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; width: auto; }
+    .sunscar-rally-session .rally-race .rally-controls button { min-width: 0; max-width: none; min-height: 48px; padding: 5px; font-size: 11px; }
+    .rally-race .rally-controls small { font-size: 8px; }
+}
+@media (max-height: 380px) and (orientation: landscape) {
+    .sunscar-rally-session .rally-race {
+        grid-template-areas: "course hud" "course dashboard" "controls controls" "note note";
+    }
+    .sunscar-rally-session .rally-race > .rally-controls { flex-direction: row; border-left: 0; }
+    .rally-race > .rally-controls .rally-steering { flex: 2; }
+    .rally-race > .rally-controls .rally-actions { flex: 4; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .rally-race .rally-controls small { display: none; }
+}
