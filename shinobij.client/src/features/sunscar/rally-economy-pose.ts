@@ -3,6 +3,11 @@ import type { RallyMotion } from '../../../../shared/sunscar/rally-types';
 /** The baked contact surface in each square cell, measured from its top. */
 export const RALLY_ECONOMY_CONTACT_ANCHOR = .92;
 
+/** Rivals start behind zero; keep their running crop inside the four-frame strip. */
+export function rallyEconomyRunFrame(distance: number): number {
+    return ((Math.floor(distance / 5 * 4) % 4) + 4) % 4;
+}
+
 /** Place baked feet on the road; only physics supplies the airborne gap.
  * Landing squash pivots around that contact instead of lifting the whole pet. */
 export function rallyEconomyPose({ groundY, spriteHeight, jumpLift, motion, landingTicks, reducedMotion }: {

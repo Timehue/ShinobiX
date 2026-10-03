@@ -5,7 +5,7 @@ import type { RallyState } from '../../../../shared/sunscar/rally-types';
 import type { Pet } from '../../types/pet';
 import { petVisualId } from '../../data/pet-evolutions';
 import { rallyEconomyFinishSlot, rallyEconomyProjection } from './rally-economy-projection';
-import { rallyEconomyPose } from './rally-economy-pose';
+import { rallyEconomyPose, rallyEconomyRunFrame } from './rally-economy-pose';
 import { rallyEconomyLabels, type RallyLabel, type RallyLabelRect } from './rally-economy-labels';
 
 const ELEMENT_COLOR = { Fire: '#ff9559', Water: '#8fd6ff', Wind: '#a5efbe', Lightning: '#ffe986', Earth: '#d1b4ff' };
@@ -146,10 +146,9 @@ export default memo(function RallyEconomyCanvas({ state, onReady, onPresentation
                 }
                 const racer = item.racer!;
                 // Distance keeps the stride continuous while speed changes.
-                const stride = racer.distance / 5;
                 const running = racer.speed > 1 && racer.finishTick === null;
                 const sprite = sprites.current.get(spriteUrl(racer.pet as unknown as Pet));
-                const spriteFrame = running && !reducedMotion ? Math.floor(stride * 4) % 4 : race.finished ? 5 : 4;
+                const spriteFrame = running && !reducedMotion ? rallyEconomyRunFrame(racer.distance) : race.finished ? 5 : 4;
                 const lift = racer.finishTick === null ? racer.jump * p.unit * p.scale * .7 : 0;
                 const pose = rallyEconomyPose({ groundY: p.y, spriteHeight: size * 1.6, jumpLift: lift,
                     motion: racer.finishTick === null ? racer.motion : 'ready', landingTicks: racer.landing, reducedMotion });

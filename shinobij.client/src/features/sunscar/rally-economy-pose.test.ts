@@ -1,13 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { RallyMotion } from '../../../../shared/sunscar/rally-types';
-import { RALLY_ECONOMY_CONTACT_ANCHOR, rallyEconomyPose } from './rally-economy-pose';
+import { RALLY_ECONOMY_CONTACT_ANCHOR, rallyEconomyPose, rallyEconomyRunFrame } from './rally-economy-pose';
 
 const pose = (overrides: Partial<Parameters<typeof rallyEconomyPose>[0]> = {}) => rallyEconomyPose({
     groundY: 400, spriteHeight: 100, jumpLift: 0, motion: 'run', landingTicks: 0, reducedMotion: false, ...overrides,
 });
 const footY = (placed: ReturnType<typeof pose>) => placed.top + placed.height * RALLY_ECONOMY_CONTACT_ANCHOR;
 const near = (actual: number, expected: number) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} should equal ${expected}`);
+
+test('running crops stay inside the atlas before the start line and across positive stride transitions', () => {
+    const cases = [
+        [-6.25, 3], [-5, 0], [-3.75, 1], [-2.5, 2], [-1.25, 3], [-.001, 3],
+        [0, 0], [1.249, 0], [1.25, 1], [2.5, 2], [3.75, 3], [4.999, 3], [5, 0], [6.25, 1],
+    ];
+    for (const [distance, expected] of cases) assert.equal(rallyEconomyRunFrame(distance), expected, `distance ${distance}`);
+    for (let distance = -12.5; distance <= 20; distance += .1) {
+        const frame = rallyEconomyRunFrame(distance);
+        assert.ok(Number.isInteger(frame) && frame >= 0 && frame < 4, `distance ${distance} selects a running cell`);
+    }
+});
 
 test('ready, grounded strides and finish poses keep the baked contact surface on the road at every scale', () => {
     const motions: RallyMotion[] = ['ready', 'start', 'run', 'sprint', 'technique', 'stagger', 'victory', 'defeat'];
