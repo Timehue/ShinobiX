@@ -5,7 +5,7 @@ import test from 'node:test';
 import { Script } from 'node:vm';
 import { minifyRuntimeSource } from './runtime-asset-minifier.mjs';
 
-const repoRoot = join(import.meta.dirname, '..');
+const repoRoot = join(import.meta.dirname, '../..');
 
 for (const name of ['boot-watchdog.js', 'sw.js']) {
     test(`production minification preserves valid ${name} output and reduces bytes`, () => {
