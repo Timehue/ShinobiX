@@ -37,7 +37,8 @@ test('all built-in mission ranks and both story lanes use the solo-PvE arena ada
     assert.doesNotMatch(storyHost, /playLocally/);
     const queue = source('../missions/queue-combat-claim.ts');
     assert.match(queue, /settleSoloPveTerminalUsage\(initialSession!, playerName\)[\s\S]{0,500}settlePveFightOutcome/);
-    assert.match(queue, /physicalOutcome\.migratedLegacyReceipt\s*\?\s*applySoloPveUsageCosts\(char, terminalSession\)/);
+    // The charge applies to the character after its idle recovery settles.
+    assert.match(queue, /physicalOutcome\.migratedLegacyReceipt\s*\?\s*applySoloPveUsageCosts\(settledChar, terminalSession\)/);
     assert.doesNotMatch(queue, /solo-pve-usage:mission:/, 'mission queue bypasses the shared terminal usage receipt');
 });
 
