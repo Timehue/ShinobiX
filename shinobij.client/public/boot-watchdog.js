@@ -12,7 +12,8 @@
     // literal because this file is a pre-module classic script and cannot import
     // from the bundle; if that constant is ever renamed, rename it here too.
     var PLAYER_ACCOUNTS_STORAGE = 'ninjav-player-accounts-v1';
-    var LANDING_HERO = '/landing/hero-shinobi.webp';
+    var LANDING_HERO_DESKTOP = '/landing/hero-shinobi.webp?v=20261001-1440-q84';
+    var LANDING_HERO_MOBILE = '/landing/hero-shinobi-mobile.webp?v=20261001-mobile-q82';
 
     /**
      * True only when this browser clearly holds a saved account, i.e. the player
@@ -37,12 +38,25 @@
 
     function preloadLandingHero() {
         if (hasSavedAccount()) return;
+        var landingHero = LANDING_HERO_DESKTOP;
+        try {
+            if (window.matchMedia && window.matchMedia('(max-width: 560px)').matches) {
+                landingHero = LANDING_HERO_MOBILE;
+            }
+        } catch (_error) {
+            // A failed viewport query keeps the known-good desktop preload.
+        }
+        try {
+            document.documentElement.classList.add('landing-guest');
+        } catch (_error) {
+            // The preload remains useful if the document root cannot be tagged.
+        }
         try {
             var link = document.createElement('link');
             link.rel = 'preload';
             link.as = 'image';
             link.type = 'image/webp';
-            link.href = LANDING_HERO;
+            link.href = landingHero;
             link.setAttribute('fetchpriority', 'high');
             (document.head || document.documentElement).appendChild(link);
         } catch (_error) {

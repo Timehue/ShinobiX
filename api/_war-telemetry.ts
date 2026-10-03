@@ -1,5 +1,7 @@
 import { kv } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
+import { runBackgroundWork } from './_background-work.js';
 
 // ─── Village-War economy telemetry (Phase 8) ──────────────────────────────────
 //
@@ -146,13 +148,20 @@ type WarEcoKv = {
 };
 
 // Record one war-economy event. Best-effort, never throws into the war write.
-// No-op for a non-positive amount or an unknown kind. The aggregate update is a
-// lock-free read-modify-write — at tens of players a rare lost update only
-// slightly understates a trend counter; the capped txn list is the precise
-// drill-down.
-export async function recordWarEcoEvent(
+// No-op for a non-positive amount or an unknown kind. Telemetry takes its own
+// lock and is tracked for shutdown; it must not inherit a completed economic
+// callback's ownership context when a caller deliberately does not await it.
+export function recordWarEcoEvent(
     ev: { eventId: string; village: string; kind: string; amount: number; meta?: string; ts?: number },
     opts: { kv?: WarEcoKv } = {},
+): Promise<void> {
+    return withoutKvLeaseContext(() => runBackgroundWork(() => recordWarEcoEventCore(ev, opts)))
+        .then(() => undefined);
+}
+
+async function recordWarEcoEventCore(
+    ev: { eventId: string; village: string; kind: string; amount: number; meta?: string; ts?: number },
+    opts: { kv?: WarEcoKv },
 ): Promise<void> {
     const store = opts.kv ?? kv;
     try {

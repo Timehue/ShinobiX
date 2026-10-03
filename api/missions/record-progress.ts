@@ -60,9 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'mission-record-progress', 30, 10_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'mission-record-progress-preauth', 600, 10_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -84,6 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only record your own mission progress.' });
         }
+        if (!enforceRateLimit(req, res, 'mission-record-progress', 30, 10_000, identity.admin ? playerName : identity.name)) return;
 
         const missionType = missionProgressTypeForKind(kind);
         const mission = missionType === 'hunt' ? huntMissionById(missionId) : fieldMissionById(missionId);

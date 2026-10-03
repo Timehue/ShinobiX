@@ -38,10 +38,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const playerName = safeName(String(req.query.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing player.' });
-        if (!enforceRateLimit(req, res, 'towers-myrun', 120, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'towers-myrun-preauth', (120) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!enforceRateLimit(req, res, 'towers-myrun', 120, 60_000, identity.admin ? playerName : identity.name)) return;
         const slug = identity.admin ? playerName : identity.name;
         res.setHeader('Cache-Control', 'no-store');
 

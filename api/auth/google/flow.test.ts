@@ -1,5 +1,7 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext } from '../../_kv-lock-context.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'test';
@@ -30,6 +32,10 @@ let verifyPlayerToken: typeof import('../../_auth.js').verifyPlayerToken;
 let requestNumber = 0;
 /** The id_token the stubbed Google token endpoint will hand back next. */
 let nextIdToken: string | null = null;
+let beforeStoreSet: ((key: string) => void) | undefined;
+let afterStoreGet: ((key: string) => void) | undefined;
+let afterCompareDelete: ((key: string) => void) | undefined;
+let beforeStoreDelete: ((key: string) => void) | undefined;
 
 const NONCE = 'browser-generated-nonce-0001';
 
@@ -54,14 +60,33 @@ function googleClaims(over: Record<string, unknown> = {}): Record<string, unknow
 
 before(async () => {
     const { kv } = await import('../../_storage.js');
-    kv.get = async <T,>(key: string) => clone(store.get(key)) as T | null;
+    kv.get = async <T,>(key: string) => {
+        assertKvLockContext();
+        const value = clone(store.get(key)) as T | null;
+        afterStoreGet?.(key);
+        return value;
+    };
     kv.set = async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        assertKvLockContext();
+        beforeStoreSet?.(key);
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
     };
-    kv.del = async (...keys: string[]) => keys.reduce((count, key) => count + (store.delete(key) ? 1 : 0), 0);
+    kv.del = async (...keys: string[]) => keys.reduce((count, key) => {
+        assertKvLockContext();
+        beforeStoreDelete?.(key);
+        return count + (store.delete(key) ? 1 : 0);
+    }, 0);
+    kv.delIfEqual = async (key: string, expected: unknown) => {
+        assertKvLockContext();
+        const removed = store.has(key) && JSON.stringify(store.get(key)) === JSON.stringify(expected);
+        if (removed) store.delete(key);
+        afterCompareDelete?.(key);
+        return removed;
+    };
     kv.incr = async (key: string) => {
+        assertKvLockContext();
         const next = (Number(store.get(key)) || 0) + 1;
         store.set(key, next);
         return next;
@@ -93,6 +118,10 @@ before(async () => {
 
 beforeEach(() => {
     store.clear();
+    beforeStoreSet = undefined;
+    afterStoreGet = undefined;
+    afterCompareDelete = undefined;
+    beforeStoreDelete = undefined;
     nextIdToken = jwt(googleClaims());
     delete process.env.DISABLE_GOOGLE_AUTH;
     delete process.env.DISABLE_NEW_REGISTRATIONS;
@@ -255,6 +284,48 @@ describe('google sign-in', () => {
             assert.equal(out.statusCode, 401);
         });
 
+        it('binds an authenticated link start to the current credential generation', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 3 });
+            store.set('auth-session:kaze', 3);
+            const out = await call(startHandler, 'POST', {
+                body: { nonce: NONCE, mode: 'link' },
+                headers: { 'x-player-token': issuePlayerToken('kaze', undefined, 3)! },
+            });
+            assert.equal(out.statusCode, 200);
+            const state = verifyState(new URL(String(out.body?.url)).searchParams.get('state')!);
+            assert.equal(state?.name, 'kaze');
+            assert.equal(state?.epoch, 3);
+            assert.equal(store.has('lock:auth:kaze'), false);
+        });
+
+        it('does not upgrade an old credential if revocation races the link start', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            afterStoreGet = (key) => {
+                if (key !== 'auth-session:kaze') return;
+                afterStoreGet = undefined;
+                store.set('auth-session:kaze', 1);
+                store.set('auth:kaze', { hash: 'replacement', salt: 'new-salt', sessionEpoch: 1 });
+            };
+            const out = await call(startHandler, 'POST', {
+                body: { nonce: NONCE, mode: 'link' },
+                headers: { 'x-player-token': issuePlayerToken('kaze', undefined, 0)! },
+            });
+            assert.equal(out.statusCode, 401);
+            assert.equal(out.body?.url, undefined);
+        });
+
+        it('fails closed when a link start cannot acquire the account lock', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            store.set('lock:auth:kaze', 'another-credential-mutation');
+            const out = await call(startHandler, 'POST', {
+                body: { nonce: NONCE, mode: 'link' },
+                headers: { 'x-player-token': issuePlayerToken('kaze')! },
+            });
+            assert.equal(out.statusCode, 503);
+            assert.equal(out.body?.url, undefined);
+            assert.equal(store.get('lock:auth:kaze'), 'another-credential-mutation');
+        });
+
         it('is unavailable while the kill switch is on', async () => {
             process.env.DISABLE_GOOGLE_AUTH = '1';
             assert.equal((await call(startHandler, 'POST', { body: { nonce: NONCE } })).statusCode, 503);
@@ -272,6 +343,66 @@ describe('google sign-in', () => {
     });
 
     describe('callback', () => {
+        it('waits for same-name registration before deciding whether an index is dangling', async () => {
+            const subjectKey = 'auth-google:110000000000000000001';
+            store.set(subjectKey, { name: 'ghost' });
+            store.set('lock:auth:ghost', 'registration-in-progress');
+            let seenLookup!: () => void;
+            const lookup = new Promise<void>((resolve) => { seenLookup = resolve; });
+            afterStoreGet = (key) => { if (key === subjectKey) seenLookup(); };
+            let settled = false;
+            const pending = runLoginFlow().then((out) => { settled = true; return out; });
+            await lookup;
+            await new Promise<void>((resolve) => setImmediate(resolve));
+            assert.equal(settled, false, 'cleanup must wait for the account writer');
+            // The in-progress registration commits a new holder at the same
+            // name with an identical index value before releasing its lock.
+            store.set('auth-session:ghost', 1);
+            store.set('auth:ghost', { google: { sub: '110000000000000000001' }, sessionEpoch: 1 });
+            store.set(subjectKey, { name: 'ghost' });
+            store.delete('lock:auth:ghost');
+            const { gauth, gticket } = bounceParams(await pending);
+            assert.equal(gauth, 'ok');
+            assert.deepEqual(store.get(subjectKey), { name: 'ghost' });
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'ghost');
+        });
+
+        it('repairs a lower auth-row epoch only after a fresh matching Google exchange', async () => {
+            store.set('auth:kaze', { google: { sub: '110000000000000000001' }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            store.set('auth-session:kaze', 1);
+            const oldToken = issuePlayerToken('kaze', undefined, 0)!;
+            const { gauth, gticket } = bounceParams(await runLoginFlow());
+            assert.equal(gauth, 'ok');
+            assert.equal((store.get('auth:kaze') as { sessionEpoch: number }).sessionEpoch, 1);
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze');
+            assert.equal(await verifyPlayerToken(oldToken), null, 'repair must not resurrect prior sessions');
+        });
+
+        it('does not repair a mismatching Google subject or a higher inconsistent record epoch', async () => {
+            const key = 'auth:kaze';
+            for (const record of [
+                { google: { sub: 'different-subject' }, sessionEpoch: 0 },
+                { google: { sub: '110000000000000000001' }, sessionEpoch: 2 },
+            ]) {
+                store.set(key, record);
+                store.set('auth-session:kaze', 1);
+                store.set('auth-google:110000000000000000001', { name: 'kaze' });
+                assert.equal(bounceParams(await runLoginFlow()).gauth, 'error');
+                assert.deepEqual(store.get(key), record);
+            }
+        });
+
+        it('does not issue an account ticket when the identity index disagrees with the current link', async () => {
+            store.set('auth:kaze', { google: { sub: 'another-linked-subject', linkedAt: 1 }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const { gauth, gticket } = bounceParams(await runLoginFlow());
+            assert.equal(gauth, 'error');
+            assert.equal(gticket, '');
+        });
         it('sends an unknown Google account to signup', async () => {
             const { gauth, gticket } = bounceParams(await runLoginFlow());
             assert.equal(gauth, 'signup');
@@ -300,6 +431,19 @@ describe('google sign-in', () => {
             const { gauth } = bounceParams(await runLoginFlow());
             assert.equal(gauth, 'signup');
             assert.equal(store.has('auth-google:110000000000000000001'), false, 'the dangling row is cleaned up');
+        });
+
+        it('preserves a replacement Google owner when stale-index cleanup races it', async () => {
+            store.set('auth-google:110000000000000000001', { name: 'ghost' });
+            afterStoreGet = (key) => {
+                if (key !== 'auth:ghost') return;
+                store.set('auth-google:110000000000000000001', { name: 'replacement' });
+                store.set('auth:replacement', { google: { sub: '110000000000000000001' }, sessionEpoch: 0 });
+            };
+            const out = await runLoginFlow();
+            assert.deepEqual(store.get('auth-google:110000000000000000001'), { name: 'replacement' });
+            assert.equal(bounceParams(out).gauth, 'error', 'a raced lookup requires a fresh callback');
+            assert.equal(bounceParams(out).gticket, '');
         });
 
         it('bounces to error when Google refuses the code exchange', async () => {
@@ -432,14 +576,126 @@ describe('google sign-in', () => {
             return call(callbackHandler, 'GET', { query: { code: 'auth-code', state } });
         }
 
+        it('releases a newly reserved identity after an uncommitted link write fails', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            beforeStoreSet = (key) => {
+                if (key !== 'auth:kaze') return;
+                beforeStoreSet = undefined;
+                throw new Error('simulated link publication failure');
+            };
+            assert.equal(bounceParams(await linkFlow('kaze', 0)).gauth, 'error');
+            assert.equal(store.has('auth-google:110000000000000000001'), false);
+            assert.equal((store.get('auth:kaze') as { google?: unknown }).google, undefined);
+            assert.equal(bounceParams(await linkFlow('kaze', 0)).gauth, 'linked', 'a fresh flow can retry the link');
+        });
+
+        it('keeps a guest resumable after link publication fails while still revoking its prior token', async () => {
+            store.set('auth:wanderer', {
+                guest: true, sessionEpoch: 0, createdAt: 1,
+                guestResumeHash: createHash('sha256').update('guest-link-failure').digest('hex'),
+                guestResumeExpiresAt: Date.now() + 60_000,
+            });
+            store.set('guest-resume:guest-link-failure', { name: 'wanderer' });
+            const oldToken = issuePlayerToken('wanderer', undefined, 0)!;
+            beforeStoreSet = (key) => {
+                if (key !== 'auth:wanderer') return;
+                beforeStoreSet = undefined;
+                throw new Error('simulated guest link publication failure');
+            };
+            assert.equal(bounceParams(await linkFlow('wanderer', 0)).gauth, 'error');
+            assert.equal(store.has('auth-google:110000000000000000001'), false);
+            const resumed = await call(playerAuthHandler, 'POST', {
+                body: { action: 'guest-resume', name: 'wanderer', guestResume: 'guest-link-failure' },
+            });
+            assert.equal(resumed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'wanderer');
+            assert.equal(await verifyPlayerToken(oldToken), null);
+        });
+
+        it('a fresh bound resume recovers a lower epoch after poisoned guest-link compensation', async () => {
+            const resume = 'guest-poison-link-resume-0001';
+            store.set('auth:wanderer', {
+                guest: true, sessionEpoch: 0, createdAt: 1,
+                guestResumeHash: createHash('sha256').update(resume).digest('hex'),
+                guestResumeExpiresAt: Date.now() + 60_000,
+            });
+            const oldToken = issuePlayerToken('wanderer', undefined, 0)!;
+            beforeStoreSet = (key) => {
+                if (key !== 'auth:wanderer') return;
+                beforeStoreSet = undefined;
+                const failure = new Error('simulated fenced guest-link write failure');
+                poisonKvLockContext(currentKvLockContext()!, failure);
+                throw failure;
+            };
+            assert.equal(bounceParams(await linkFlow('wanderer', 0)).gauth, 'error');
+            assert.equal((store.get('auth:wanderer') as { sessionEpoch: number }).sessionEpoch, 0);
+            assert.equal(Number(store.get('auth-session:wanderer')), 1);
+            const resumed = await call(playerAuthHandler, 'POST', {
+                body: { action: 'guest-resume', name: 'wanderer', guestResume: resume },
+            });
+            assert.equal(resumed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'wanderer');
+            assert.equal(await verifyPlayerToken(oldToken), null);
+        });
+
+        it('serializes a guest resume with a successful Google claim and revokes the resume token', async () => {
+            const created = await call(playerAuthHandler, 'POST', { body: { action: 'guest', name: 'wanderer' } });
+            const [resumed, linked] = await Promise.all([
+                call(playerAuthHandler, 'POST', { body: { action: 'guest-resume', name: 'wanderer', guestResume: created.body?.guestResume } }),
+                linkFlow('wanderer', 0),
+            ]);
+            assert.ok(resumed.statusCode === 200 || resumed.statusCode === 409);
+            if (resumed.body?.token) assert.equal(await verifyPlayerToken(String(resumed.body.token)), null);
+            const { gauth, gticket } = bounceParams(linked);
+            assert.equal(gauth, 'linked');
+            const record = store.get('auth:wanderer') as { guestResumeHash?: string; guestResumeExpiresAt?: number };
+            assert.equal(record.guestResumeHash, undefined);
+            assert.equal(record.guestResumeExpiresAt, undefined);
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'wanderer');
+        });
+
         it('attaches the identity and indexes it both ways', async () => {
             store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
-            assert.equal(bounceParams(await linkFlow('kaze', 0)).gauth, 'linked');
+            const { gauth, gticket } = bounceParams(await linkFlow('kaze', 0));
+            assert.equal(gauth, 'linked');
 
             const record = store.get('auth:kaze') as { google?: { sub: string }; hash?: string };
             assert.equal(record.google?.sub, '110000000000000000001');
             assert.equal(record.hash, 'scrypt:x', 'linking must not disturb the existing password');
             assert.deepEqual(store.get('auth-google:110000000000000000001'), { name: 'kaze' });
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze');
+            assert.equal(store.has('lock:auth:kaze'), false, 'the account lock is released by both handlers');
+        });
+
+        it('refuses a link whose authorizing epoch changes during lock acquisition', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            beforeStoreSet = (key) => {
+                if (key !== 'lock:auth:kaze') return;
+                store.set('auth-session:kaze', 1);
+                store.set('auth:kaze', { hash: 'replacement', salt: 'new-salt', sessionEpoch: 1 });
+            };
+            assert.equal(bounceParams(await linkFlow('kaze', 0)).gauth, 'expired');
+            assert.equal((store.get('auth:kaze') as { google?: unknown }).google, undefined);
+            assert.equal(store.has('auth-google:110000000000000000001'), false);
+        });
+
+        it('does not upgrade a committed link ticket when credentials rotate after release', async () => {
+            store.set('auth:kaze', { hash: 'scrypt:x', salt: 's', sessionEpoch: 0 });
+            afterCompareDelete = (key) => {
+                if (key !== 'lock:auth:kaze') return;
+                const linked = store.get('auth:kaze') as Record<string, unknown>;
+                store.set('auth-session:kaze', 1);
+                store.set('auth:kaze', { ...linked, sessionEpoch: 1 });
+            };
+            const { gticket } = bounceParams(await linkFlow('kaze', 0));
+            assert.ok(gticket);
+            afterCompareDelete = undefined;
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 410);
+            assert.equal(claimed.body?.token, undefined);
         });
 
         it('refuses a link authorised by a session that has since ended', async () => {
@@ -467,7 +723,8 @@ describe('google sign-in', () => {
             const guestToken = issuePlayerToken('wanderer', undefined, 0)!;
             assert.equal(await verifyPlayerToken(guestToken), 'wanderer');
 
-            assert.equal(bounceParams(await linkFlow('wanderer', 0)).gauth, 'linked');
+            const { gauth, gticket } = bounceParams(await linkFlow('wanderer', 0));
+            assert.equal(gauth, 'linked');
 
             const record = store.get('auth:wanderer') as { guest?: true; google?: { sub: string } };
             assert.equal(record.guest, undefined, 'the account is no longer disposable');
@@ -477,10 +734,49 @@ describe('google sign-in', () => {
                 null,
                 'the anonymous browser must not keep a credential to an account that now has an owner',
             );
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 200);
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'wanderer');
         });
     });
 
     describe('claim', () => {
+        it('refuses to mint an immediately revoked token after a partial credential write', async () => {
+            store.set('auth:kaze', { google: { sub: '110000000000000000001' }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const { gticket } = bounceParams(await runLoginFlow());
+            store.set('auth-session:kaze', 1);
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 410);
+            assert.equal(claimed.body?.token, undefined);
+        });
+        for (const changedRecord of [
+            { hash: 'replacement-password-hash', salt: 'replacement-salt', sessionEpoch: 1 },
+            { google: { sub: 'different-current-subject', linkedAt: 2 }, sessionEpoch: 1 },
+            { google: { sub: '110000000000000000001', linkedAt: 1 }, sessionEpoch: 2 },
+        ]) it(`rejects an account ticket after its linked identity or epoch changes (${JSON.stringify(changedRecord)})`, async () => {
+            store.set('auth:kaze', { google: { sub: '110000000000000000001', linkedAt: 1 }, sessionEpoch: 1 });
+            store.set('auth-session:kaze', 1);
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const { gticket } = bounceParams(await runLoginFlow());
+            store.set('auth:kaze', changedRecord);
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 410);
+            assert.equal(claimed.body?.token, undefined);
+        });
+
+        it('requires a fresh callback for an older account ticket without an epoch binding', async () => {
+            store.set('auth:kaze', { google: { sub: '110000000000000000001', linkedAt: 1 }, sessionEpoch: 0 });
+            store.set('auth-google:110000000000000000001', { name: 'kaze' });
+            const { gticket } = bounceParams(await runLoginFlow());
+            const ticketKey = `auth-google-ticket:${gticket}`;
+            const storedTicket = store.get(ticketKey) as Record<string, unknown>;
+            delete storedTicket.sessionEpoch;
+            store.set(ticketKey, storedTicket);
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(claimed.statusCode, 410);
+            assert.equal(claimed.body?.token, undefined);
+        });
         it('is single-use, so a replayed ticket buys nothing', async () => {
             store.set('auth:kaze', { google: { sub: '110000000000000000001', email: '', linkedAt: 1 }, sessionEpoch: 0 });
             store.set('auth-google:110000000000000000001', { name: 'kaze' });
@@ -521,6 +817,46 @@ describe('google sign-in', () => {
             assert.equal(claimed.body?.needsSignup, true);
             return String(claimed.body?.signupTicket);
         }
+
+        for (const failure of ['auth-publication', 'inherited-recovery-cleanup']) {
+            it(`releases an uncommitted subject and restores signup after ${failure} fails`, async () => {
+                const ticket = await signupTicketFor();
+                const failOnce = (key: string) => {
+                    if (key !== (failure === 'auth-publication' ? 'auth:kaze' : 'auth-recovery:kaze')) return;
+                    beforeStoreSet = undefined;
+                    beforeStoreDelete = undefined;
+                    throw new Error(`simulated ${failure} failure`);
+                };
+                if (failure === 'auth-publication') beforeStoreSet = failOnce;
+                else beforeStoreDelete = failOnce;
+                const request = { body: { action: 'register-google', name: 'Kaze', signupTicket: ticket, nonce: NONCE } };
+                const failed = await call(playerAuthHandler, 'POST', request);
+                assert.equal(failed.statusCode, 503);
+                assert.equal(store.has('auth:kaze'), false);
+                assert.equal(store.has('auth-google:110000000000000000001'), false);
+                const retried = await call(playerAuthHandler, 'POST', request);
+                assert.equal(retried.statusCode, 200);
+                assert.equal(await verifyPlayerToken(String(retried.body?.token)), 'kaze');
+            });
+        }
+
+        it('preserves an identity whose auth publication committed before its response failed', async () => {
+            const ticket = await signupTicketFor();
+            beforeStoreSet = (key) => {
+                if (key !== 'auth:kaze') return;
+                beforeStoreSet = undefined;
+                store.set(key, { google: { sub: '110000000000000000001' }, sessionEpoch: 0 });
+                throw new Error('simulated response lost after publication');
+            };
+            const failed = await call(playerAuthHandler, 'POST', {
+                body: { action: 'register-google', name: 'Kaze', signupTicket: ticket, nonce: NONCE },
+            });
+            assert.equal(failed.statusCode, 503);
+            assert.deepEqual(store.get('auth-google:110000000000000000001'), { name: 'kaze' });
+            const { gticket } = bounceParams(await runLoginFlow());
+            const claimed = await call(claimHandler, 'POST', { body: { ticket: gticket, nonce: NONCE } });
+            assert.equal(await verifyPlayerToken(String(claimed.body?.token)), 'kaze', 'the committed owner has a working login door');
+        });
 
         it('creates a passwordless account owned by the Google subject', async () => {
             const ticket = await signupTicketFor();

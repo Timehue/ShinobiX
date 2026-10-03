@@ -1,12 +1,74 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
+import { beginSessionLoad, sessionLoadMatchesAccount } from "./session-load-authority";
 
 const source = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const restoreSource = readFileSync(new URL("./boot-restore.ts", import.meta.url), "utf8");
 // The credential half of signing in lives here; the save-loading half stays in
 // App. Both are part of one login and both must honour the same generation.
 const loginSource = readFileSync(new URL("./player-login.ts", import.meta.url), "utf8");
+
+function deferred<T>() {
+    let resolve!: (value: T) => void;
+    const promise = new Promise<T>((done) => { resolve = done; });
+    return { promise, resolve };
+}
+
+describe("shared metadata session ownership", () => {
+    it("accepts the still-current normalized account and retains its generation", () => {
+        const generation = { current: 0 };
+        const scope = beginSessionLoad(generation, " Kaya ");
+        assert.equal(sessionLoadMatchesAccount(scope, "kAyA"), true);
+        assert.equal(generation.current, 1);
+        assert.equal(sessionLoadMatchesAccount(scope, "Ren"), false);
+    });
+
+    it("discards a delayed response after the account is cleared without starting another load", async () => {
+        const generation = { current: 0 };
+        const scope = beginSessionLoad(generation, "Kaya");
+        const response = deferred<string>();
+        let account = "Kaya";
+        const adopted: string[] = [];
+        const pending = response.promise.then((value) => {
+            if (sessionLoadMatchesAccount(scope, account)) adopted.push(value);
+        });
+        account = "";
+        response.resolve("old metadata");
+        await pending;
+        assert.deepEqual(adopted, []);
+        assert.equal(scope.isCurrent(), true);
+    });
+
+    it("rejects a delayed A response after A to B to A replacement", async () => {
+        const generation = { current: 0 };
+        const original = beginSessionLoad(generation, "Kaya");
+        const response = deferred<string>();
+        let account = "Kaya";
+        const adopted: string[] = [];
+        const pending = response.promise.then((value) => {
+            if (sessionLoadMatchesAccount(original, account)) adopted.push(value);
+        });
+        beginSessionLoad(generation, "Ren"); account = "Ren";
+        const replacement = beginSessionLoad(generation, " KAYA "); account = "kaya";
+        response.resolve("original metadata");
+        await pending;
+        assert.deepEqual(adopted, []);
+        assert.equal(sessionLoadMatchesAccount(original, account), false);
+        assert.equal(sessionLoadMatchesAccount(replacement, account), true);
+    });
+
+    it("predicate contract refuses a modeled updater after same-account replacement", () => {
+        const generation = { current: 0 };
+        const original = beginSessionLoad(generation, "Kaya");
+        const currentAccount = { current: "Kaya" };
+        const isCurrent = () => sessionLoadMatchesAccount(original, currentAccount.current);
+        const update = (current: string) => isCurrent() ? "old metadata" : current;
+        assert.equal(isCurrent(), true);
+        beginSessionLoad(generation, "Kaya");
+        assert.equal(update("replacement metadata"), "replacement metadata");
+    });
+});
 
 describe("session-load response authority", () => {
     it("retires timed-out and unmounted boot restores before stale continuations can repaint", () => {

@@ -778,9 +778,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'claim-mission', 5, 10_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'claim-mission-preauth', 100, 10_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -797,6 +795,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own missions.' });
         }
+        if (!enforceRateLimit(req, res, 'claim-mission', 5, 10_000, identity.admin ? playerName : identity.name)) return;
 
         const saveKey = `save:${playerName}`;
         const todayKey = utcDateKey();
@@ -987,6 +986,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const claimedServerMissions = Array.isArray(char.claimedServerMissions)
                 ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
                 : [];
+            if (missionType === 'hunt' && claimedServerMissions.includes(missionReceipt)) {
+                return { applied: false, reason: 'already-claimed-today' };
+            }
+
             const bonusPct = missionRewardBonusPct(char);
 
             // ── Resolve mission + per-type eligibility ──────────────────────

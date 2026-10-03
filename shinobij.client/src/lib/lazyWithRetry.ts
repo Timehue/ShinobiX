@@ -32,7 +32,9 @@ import { lazy, type ComponentType, type LazyExoticComponent } from "react";
  *    preload helper rejects when that stylesheet fails, but it remembers every
  *    dep it has linked and skips it on the next attempt, so attempt two
  *    resolves and the screen renders WITHOUT that CSS: no reload, no error.
- *    (Measured with HallOfLegends' stylesheet in all three engines.)
+ *    (Measured with HallOfLegends' stylesheet in all three engines.) The guard
+ *    below treats that preload failure as terminal immediately, so the existing
+ *    bounded reload recovery runs before an unstyled screen can be accepted.
  *
  * The real recovery is a page reload, which starts a fresh module map. After
  * the last attempt, the error is re-thrown with a chunk-load-shaped message so
@@ -64,12 +66,18 @@ export function retryDynamicImport<T>(
     const attempt = (n: number): Promise<T> =>
         withTimeout(factory(), timeoutMs).catch((err) => {
             lastErr = err;
-            if (n >= retries) {
+            // Vite remembers a linked CSS URL even when its load fails. Retrying
+            // the factory skips that dependency and can render an unstyled,
+            // unusable screen. Only a fresh document can request its CSS again.
+            const cssPreloadFailed = /Unable to preload CSS for /i.test(
+                err instanceof Error ? err.message : String(err),
+            );
+            if (cssPreloadFailed || n >= retries) {
                 // Surface a message the ErrorBoundary's chunk-error detector
                 // matches, so a persistent failure takes the benign auto-reload
                 // path rather than being reported as a render crash.
                 throw new Error(
-                    `error loading dynamically imported module (after ${retries + 1} attempts): ${
+                    `error loading dynamically imported module (after ${n + 1} attempts): ${
                         lastErr instanceof Error ? lastErr.message : String(lastErr)
                     }`,
                 );
