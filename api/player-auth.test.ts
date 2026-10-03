@@ -1,5 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext } from './_kv-lock-context.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'test';
@@ -20,11 +21,15 @@ let verifyPlayerToken: (token: string) => Promise<string | null>;
 let playerPasswordPolicyError: (password: unknown) => string | null;
 let requestNumber = 0;
 let failNextAuthWrite = false;
+let beforeStoreSet: ((key: string, value: unknown) => void) | undefined;
+let beforeStoreDelete: ((key: string) => void) | undefined;
 
 before(async () => {
     const { kv } = await import('./_storage.js');
-    kv.get = async <T,>(key: string) => clone(store.get(key)) as T | null;
+    kv.get = async <T,>(key: string) => { assertKvLockContext(); return clone(store.get(key)) as T | null; };
     kv.set = async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+        assertKvLockContext();
+        beforeStoreSet?.(key, value);
         if (options?.nx && store.has(key)) return null;
         if (failNextAuthWrite && key.startsWith('auth:') && !options?.nx) {
             failNextAuthWrite = false;
@@ -33,13 +38,19 @@ before(async () => {
         store.set(key, clone(value));
         return 'OK' as const;
     };
-    kv.del = async (...keys: string[]) => keys.reduce((count, key) => count + (store.delete(key) ? 1 : 0), 0);
-    kv.delIfEqual = async (key: string, expected: string) => {
-        if (store.get(key) !== expected) return false;
+    kv.del = async (...keys: string[]) => keys.reduce((count, key) => {
+        assertKvLockContext();
+        beforeStoreDelete?.(key);
+        return count + (store.delete(key) ? 1 : 0);
+    }, 0);
+    kv.delIfEqual = async (key: string, expected: unknown) => {
+        assertKvLockContext();
+        if (JSON.stringify(store.get(key)) !== JSON.stringify(expected)) return false;
         store.delete(key);
         return true;
     };
     kv.incr = async (key: string) => {
+        assertKvLockContext();
         const next = (Number(store.get(key)) || 0) + 1;
         store.set(key, next);
         return next;
@@ -56,6 +67,8 @@ before(async () => {
 beforeEach(() => {
     store.clear();
     failNextAuthWrite = false;
+    beforeStoreSet = undefined;
+    beforeStoreDelete = undefined;
     delete process.env.DISABLE_NEW_REGISTRATIONS;
     delete process.env.MAINTENANCE_MODE;
 });
@@ -268,6 +281,122 @@ describe('player auth hardening', () => {
             const resume = String(guest.body?.guestResume);
             assert.ok(resume.length > 16, 'the resume credential must be unguessable');
             assert.deepEqual(store.get(`guest-resume:${resume}`), { name: 'wanderer' });
+            const { guestResumeDigest } = await import('./player-auth.js');
+            assert.equal((record as { guestResumeHash?: string }).guestResumeHash, guestResumeDigest(resume));
+            assert.ok((record as { guestResumeExpiresAt?: number }).guestResumeExpiresAt! > Date.now());
+            assert.notEqual((record as { guestResumeHash?: string }).guestResumeHash, resume);
+        });
+
+        it('remains resumable when optional legacy-index publication fails', async () => {
+            beforeStoreSet = (key) => {
+                if (!key.startsWith('guest-resume:')) return;
+                beforeStoreSet = undefined;
+                throw new Error('simulated optional resume-index failure');
+            };
+            const created = await post({ action: 'guest', name: 'atomicguest' });
+            assert.equal(created.statusCode, 200);
+            assert.equal(store.has(`guest-resume:${created.body?.guestResume}`), false);
+            const resumed = await post({ action: 'guest-resume', name: 'atomicguest', guestResume: created.body?.guestResume });
+            assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'atomicguest');
+        });
+
+        it('publishes its resume authority together with an ambiguously committed guest auth row', async () => {
+            beforeStoreSet = (key, value) => {
+                if (key !== 'auth:ambiguousguest') return;
+                beforeStoreSet = undefined;
+                store.set(key, clone(value));
+                throw new Error('simulated lost guest auth publication response');
+            };
+            const failed = await post({ action: 'guest', name: 'ambiguousguest' });
+            assert.equal(failed.statusCode, 503);
+            const record = store.get('auth:ambiguousguest') as { guestResumeHash?: string; guestResumeExpiresAt?: number };
+            assert.match(String(record.guestResumeHash), /^[a-f0-9]{64}$/);
+            assert.ok(record.guestResumeExpiresAt! > Date.now());
+        });
+
+        it('rejects the old resume credential after deletion and same-clock name reuse', async (t) => {
+            const fixedTime = Date.now();
+            t.mock.method(Date, 'now', () => fixedTime);
+            const first = await post({ action: 'guest', name: 'reusedguest' });
+            assert.equal((await post({ action: 'delete', name: 'reusedguest' }, { 'x-player-token': String(first.body?.token) })).statusCode, 200);
+            const second = await post({ action: 'guest', name: 'reusedguest' });
+            assert.equal(second.statusCode, 200);
+            const replacement = clone(store.get('auth:reusedguest'));
+            assert.equal(store.has(`guest-resume:${first.body?.guestResume}`), true, 'a surviving old index must not grant authority');
+            const old = await post({ action: 'guest-resume', name: 'reusedguest', guestResume: first.body?.guestResume });
+            assert.equal(old.statusCode, 410);
+            assert.equal(old.body?.token, undefined);
+            assert.deepEqual(store.get('auth:reusedguest'), replacement);
+            const current = await post({ action: 'guest-resume', name: 'reusedguest', guestResume: second.body?.guestResume });
+            assert.equal(await verifyPlayerToken(String(current.body?.token)), 'reusedguest');
+            assert.equal(await verifyPlayerToken(String(first.body?.token)), null);
+        });
+
+        it('upgrades only epoch-zero legacy authority or a current-token legacy owner', async () => {
+            const { issuePlayerToken } = await import('./_auth.js');
+            const resume = 'legacy-guest-resume-key-000001';
+            store.set(`guest-resume:${resume}`, { name: 'legacyguest' });
+            store.set('auth:legacyguest', { guest: true, sessionEpoch: 3, createdAt: 1 });
+            store.set('auth-session:legacyguest', 3);
+            const original = clone(store.get('auth:legacyguest'));
+            const staleProofs: Array<Record<string, string>> = [{}, { 'x-player-token': issuePlayerToken('legacyguest', undefined, 2)! }];
+            for (const headers of staleProofs) {
+                const denied = await post({ action: 'guest-resume', name: 'legacyguest', guestResume: resume }, headers);
+                assert.equal(denied.statusCode, 410);
+                assert.deepEqual(store.get('auth:legacyguest'), original);
+            }
+            const upgraded = await post({ action: 'guest-resume', name: 'legacyguest', guestResume: resume }, {
+                'x-player-token': issuePlayerToken('legacyguest', undefined, 3)!,
+            });
+            assert.equal(await verifyPlayerToken(String(upgraded.body?.token)), 'legacyguest');
+            store.set('auth:epochzeroguest', { guest: true, sessionEpoch: 0, createdAt: 1 });
+            store.set(`guest-resume:${resume}-zero`, { name: 'epochzeroguest' });
+            const epochZero = await post({ action: 'guest-resume', name: 'epochzeroguest', guestResume: `${resume}-zero` });
+            assert.equal(await verifyPlayerToken(String(epochZero.body?.token)), 'epochzeroguest');
+        });
+
+        it('rejects malformed or expired bound authority without falling back to a legacy index', async () => {
+            const created = await post({ action: 'guest', name: 'malformedguest' });
+            const record = clone(store.get('auth:malformedguest')) as Record<string, unknown>;
+            const malformed = [
+                { ...record, guestResumeHash: 'wrong' },
+                { ...record, guestResumeHash: undefined },
+                { ...record, guestResumeExpiresAt: undefined },
+                { ...record, guestResumeExpiresAt: Date.now() },
+            ];
+            for (const invalid of malformed) {
+                store.set('auth:malformedguest', invalid);
+                const denied = await post({ action: 'guest-resume', name: 'malformedguest', guestResume: created.body?.guestResume });
+                assert.equal(denied.statusCode, 410);
+                assert.equal(denied.body?.token, undefined);
+                assert.deepEqual(store.get('auth:malformedguest'), invalid);
+            }
+        });
+
+        it('refreshes expiry after valid resume, but a ban makes no authority change', async (t) => {
+            let now = Date.now();
+            t.mock.method(Date, 'now', () => now);
+            const created = await post({ action: 'guest', name: 'expiryguest' });
+            const first = store.get('auth:expiryguest') as { guestResumeExpiresAt: number };
+            now += 60_000;
+            assert.equal((await post({ action: 'guest-resume', name: 'expiryguest', guestResume: created.body?.guestResume })).statusCode, 200);
+            const refreshed = clone(store.get('auth:expiryguest')) as { guestResumeExpiresAt: number };
+            assert.equal(refreshed.guestResumeExpiresAt, first.guestResumeExpiresAt + 60_000);
+            store.set('mod:ban:expiryguest', { until: now + 60_000, reason: 'test ban' });
+            assert.equal((await post({ action: 'guest-resume', name: 'expiryguest', guestResume: created.body?.guestResume })).statusCode, 403);
+            assert.deepEqual(store.get('auth:expiryguest'), refreshed);
+        });
+
+        it('serializes guest resume and account deletion without leaving a usable old token', async () => {
+            const created = await post({ action: 'guest', name: 'resumedeleterace' });
+            const [resumed, deleted] = await Promise.all([
+                post({ action: 'guest-resume', name: 'resumedeleterace', guestResume: created.body?.guestResume }),
+                post({ action: 'delete', name: 'resumedeleterace' }, { 'x-player-token': String(created.body?.token) }),
+            ]);
+            assert.equal(deleted.statusCode, 200);
+            assert.equal(store.has('auth:resumedeleterace'), false);
+            assert.ok(resumed.statusCode === 200 || resumed.statusCode === 410);
+            if (resumed.body?.token) assert.equal(await verifyPlayerToken(String(resumed.body.token)), null);
         });
 
         it('lets a returning guest trade the resume credential for a fresh token', async () => {
@@ -334,6 +463,8 @@ describe('player auth hardening', () => {
             const record = store.get('auth:wanderer') as { guest?: true; hash?: string };
             assert.equal(record.guest, true, 'the flag really does survive — this is why the flag alone is not the test');
             assert.ok(record.hash, 'and the account really does have a password now');
+            assert.equal((record as { guestResumeHash?: string }).guestResumeHash, undefined);
+            assert.equal((record as { guestResumeExpiresAt?: number }).guestResumeExpiresAt, undefined);
 
             const stale = await post({ action: 'guest-resume', name: 'Wanderer', guestResume: resume });
             assert.equal(stale.statusCode, 409);
@@ -583,10 +714,95 @@ describe('player auth hardening', () => {
         assert.equal(await verifyPlayerToken(oldToken), null, 'rotation revokes the old token even on write failure');
         assert.equal(await verifyPlayerPassword('writefail', 'Original1'), true, 'the old hash remains intact');
 
+        const wrong = await post({ action: 'verify', name: 'writefail', password: 'Replacement2' });
+        assert.equal(wrong.body?.ok, false);
+        assert.equal((store.get('auth:writefail') as { sessionEpoch: number }).sessionEpoch, 0, 'an invalid password cannot repair authority');
+
         const login = await post({ action: 'verify', name: 'writefail', password: 'Original1' });
         assert.equal(login.statusCode, 200);
         assert.equal(login.body?.ok, true);
-        assert.equal(login.body?.token, undefined, 'a stale auth row must not mint an unusable token');
+        assert.equal(await verifyPlayerToken(String(login.body?.token)), 'writefail', 'fresh credential proof can repair the partial write');
+        assert.equal(await verifyPlayerToken(oldToken), null, 'repair keeps prior sessions revoked');
+    });
+
+    it('does not promote a password proof if credentials change while its account lock is acquired', async () => {
+        await register('proofrace', 'Original1');
+        await register('replacementfixture', 'Replacement2');
+        const replacement = { ...(store.get('auth:replacementfixture') as Record<string, unknown>), sessionEpoch: 1 };
+        beforeStoreSet = (key) => {
+            if (key !== 'lock:auth:proofrace') return;
+            beforeStoreSet = undefined;
+            store.set('auth:proofrace', replacement);
+            store.set('auth-session:proofrace', 1);
+        };
+        const stale = await post({ action: 'verify', name: 'proofrace', password: 'Original1' });
+        assert.equal(stale.body?.ok, false);
+        assert.equal(stale.body?.token, undefined);
+        assert.deepEqual(store.get('auth:proofrace'), replacement);
+        const current = await post({ action: 'verify', name: 'proofrace', password: 'Replacement2' });
+        assert.equal(await verifyPlayerToken(String(current.body?.token)), 'proofrace');
+    });
+
+    it('publishes no password account if inherited recovery cleanup fails', async () => {
+        beforeStoreDelete = (key) => {
+            if (key !== 'auth-recovery:recoverycleanup') return;
+            beforeStoreDelete = undefined;
+            throw new Error('simulated inherited recovery cleanup failure');
+        };
+        assert.equal((await register('recoverycleanup')).statusCode, 503);
+        assert.equal(store.has('auth:recoverycleanup'), false);
+        assert.equal((await register('recoverycleanup')).statusCode, 200);
+    });
+
+    it('keeps a guest resumable after first-password publication fails and keeps old tokens revoked', async () => {
+        const guest = await post({ action: 'guest', name: 'guestwritefail' });
+        const oldToken = String(guest.body?.token);
+        failNextAuthWrite = true;
+        const failed = await post({ action: 'change', name: 'guestwritefail', newPassword: 'Replacement2' }, {
+            'x-player-token': oldToken,
+        });
+        assert.equal(failed.statusCode, 503);
+        assert.equal(await verifyPlayerToken(oldToken), null);
+        const resumed = await post({ action: 'guest-resume', name: 'guestwritefail', guestResume: guest.body?.guestResume });
+        assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'guestwritefail');
+        assert.equal(await verifyPlayerPassword('guestwritefail', 'Replacement2'), false);
+    });
+
+    it('recovers by fresh digest proof after a failed first-password claim poisons compensation', async () => {
+        const guest = await post({ action: 'guest', name: 'poisonedguest' });
+        beforeStoreSet = (key) => {
+            if (key !== 'auth:poisonedguest') return;
+            beforeStoreSet = undefined;
+            const failure = new Error('simulated fenced credential write failure');
+            poisonKvLockContext(currentKvLockContext()!, failure);
+            throw failure;
+        };
+        const failed = await post({ action: 'change', name: 'poisonedguest', newPassword: 'Replacement2' }, {
+            'x-player-token': String(guest.body?.token),
+        });
+        assert.equal(failed.statusCode, 503);
+        assert.equal((store.get('auth:poisonedguest') as { sessionEpoch: number }).sessionEpoch, 0, 'poisoned compensation cannot publish');
+        assert.equal(Number(store.get('auth-session:poisonedguest')), 1);
+        const resumed = await post({ action: 'guest-resume', name: 'poisonedguest', guestResume: guest.body?.guestResume });
+        assert.equal(resumed.statusCode, 200);
+        assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'poisonedguest');
+        assert.equal(await verifyPlayerToken(String(guest.body?.token)), null);
+    });
+
+    for (const action of ['change', 'delete']) it(`rechecks token ownership under the credential lock before ${action}`, async () => {
+        const guest = await post({ action: 'guest', name: 'tokenproofrace' });
+        const replacement = { guest: true, sessionEpoch: 1, createdAt: 2 };
+        beforeStoreSet = (key) => {
+            if (key !== 'lock:auth:tokenproofrace') return;
+            beforeStoreSet = undefined;
+            store.set('auth:tokenproofrace', replacement);
+            store.set('auth-session:tokenproofrace', 1);
+        };
+        const stale = await post({ action, name: 'tokenproofrace', newPassword: 'Replacement2' }, {
+            'x-player-token': String(guest.body?.token),
+        });
+        assert.equal(stale.statusCode, 401);
+        assert.deepEqual(store.get('auth:tokenproofrace'), replacement);
     });
 
     // ─── Self-serve recovery ──────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { getWorldMapRegionForPoint } from "../src/lib/world-map-regions";
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditRuntime, type UiAuditSave } from "./helpers/ui-audit-runtime";
@@ -169,9 +170,10 @@ test("village travel resumes its remaining countdown after a reconnect", async (
 
 test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
+    const centralRegion = getWorldMapRegionForPoint(48, 40);
     let runtime: UiAuditRuntime | undefined;
     const runtimeErrors = await bootWorldMap(page, undefined, undefined, (installed) => { runtime = installed; });
-    if (testInfo.project.use.isMobile) await chooseRegion(page, "central");
+    if (testInfo.project.use.isMobile) await chooseRegion(page, centralRegion);
     await expect(page.locator(".wpk-gates .world-poi-plate-name")).toHaveText("Central");
     await page.getByRole("button", { name: "Enter Central", exact: true }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
@@ -205,7 +207,7 @@ test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
     await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
     await returnToWorldAtlas(page);
-    if (testInfo.project.use.isMobile) await chooseRegion(page, "central");
+    if (testInfo.project.use.isMobile) await chooseRegion(page, centralRegion);
     await page.getByRole("button", { name: "Enter Central", exact: true }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
     expect(runtimeErrors).toEqual([]);

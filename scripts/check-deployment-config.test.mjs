@@ -8,7 +8,7 @@ import {
 
 const valid = {
   build: { builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' },
-  deploy: { numReplicas: 1, startCommand: 'node dist/server.js', healthcheckPath: '/health' },
+  deploy: { numReplicas: 1, startCommand: 'node dist/server.js', healthcheckPath: '/health', drainingSeconds: '60' },
 };
 
 test('repository Railway deployment remains single-instance and starts built server', async () => {
@@ -35,6 +35,14 @@ test('deployment config requires the unauthenticated shallow health endpoint', (
     deploy: { ...valid.deploy, healthcheckPath: '/health/db' },
   });
   assert.match(errors.join(' '), /healthcheckPath must be exactly "\/health"/);
+});
+
+test('deployment config rejects absent, disabled, invalid and insufficient shutdown grace', () => {
+  for (const drainingSeconds of [undefined, null, false, [60], {}, '', '0', '50', '59', '60.5', 'NaN', 'Infinity']) {
+    const errors = deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds } });
+    assert.match(errors.join(' '), /drainingSeconds must allow at least 60 seconds/);
+  }
+  assert.deepEqual(deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds: '90' } }), []);
 });
 
 test('deployment config requires the repository Dockerfile', () => {

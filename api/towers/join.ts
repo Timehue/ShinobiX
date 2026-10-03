@@ -25,11 +25,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const runId = String(body.runId ?? '');
         if (!playerName || !runId) return res.status(400).json({ error: 'Missing player or run.' });
-        if (!enforceRateLimit(req, res, 'towers-join', 12, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'towers-join-preauth', (12) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only join as yourself.' });
+        if (!enforceRateLimit(req, res, 'towers-join', 12, 60_000, identity.admin ? playerName : identity.name)) return;
 
         // Read-only membership check: the actor's loadout was sealed at /start and
         // is immutable mid-run, so no session lock or write is needed here.

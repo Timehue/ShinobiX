@@ -54,10 +54,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const runId = String(body.runId ?? '');
         if (!playerName || !runId) return res.status(400).json({ error: 'Missing player or run.' });
-        if (!enforceRateLimit(req, res, 'towers-settle', 30, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'towers-settle-preauth', (30) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!enforceRateLimit(req, res, 'towers-settle', 30, 60_000, identity.admin ? playerName : identity.name)) return;
 
         let session = await readSession(runId);
         if (!session) return res.status(404).json({ error: 'Run not found.' });

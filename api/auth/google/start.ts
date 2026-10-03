@@ -3,6 +3,8 @@ import { cors, safeName } from '../../_utils.js';
 import { enforceRateLimit } from '../../_ratelimit.js';
 import { authedPlayer, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
 import { buildAuthorizeUrl, googleAuthEnabled, signState } from '../../_google-auth.js';
+import { withKvLock } from '../../_lock.js';
+import { authKey } from '../../player-auth.js';
 
 /*
  * POST /api/auth/google/start  { nonce, mode?: 'login' | 'link', client?: 'android-app' }
@@ -56,11 +58,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const player = await authedPlayer(req);
         if (!player) return res.status(401).json({ ok: false, error: 'Sign in before linking Google.' });
         const name = safeName(player);
-        const epoch = await readPlayerSessionEpoch(name);
-        return res.status(200).json({
-            ok: true,
-            url: buildAuthorizeUrl(signState({ mode: 'link', name, epoch, nonce, ...ret }), nonce),
-        });
+        try {
+            return await withKvLock(authKey(name), async () => {
+                // Credentials may rotate between the first verification and
+                // acquiring the lock. Revalidate before binding signed state to
+                // the epoch, rather than upgrading proof from an old session.
+                if (await authedPlayer(req) !== name) {
+                    return res.status(401).json({ ok: false, error: 'Sign in before linking Google.' });
+                }
+                const epoch = await readPlayerSessionEpoch(name);
+                return res.status(200).json({
+                    ok: true,
+                    url: buildAuthorizeUrl(signState({ mode: 'link', name, epoch, nonce, ...ret }), nonce),
+                });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[auth/google/start link]', String(err));
+            return res.status(503).json({ ok: false, error: 'Account is busy or storage is unavailable. Try again.' });
+        }
     }
 
     return res.status(200).json({

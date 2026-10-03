@@ -12,6 +12,11 @@ export function beginSessionLoad(generationRef: MutableNumberRef, accountName: s
     };
 }
 
+/** Shared metadata belongs to the session which requested it, including same-account replacement. */
+export function sessionLoadMatchesAccount(scope: ReturnType<typeof beginSessionLoad>, accountName: string): boolean {
+    return scope.isCurrent() && scope.accountKey === saveConflictAccountKey(accountName);
+}
+
 export async function sessionLoadFetch(input: RequestInfo | URL, init?: RequestInit, timeoutMs = 15_000): Promise<Response> {
     // AbortSignal.timeout (not a self-cleared controller): the old shape
     // disarmed its timer the moment HEADERS arrived, leaving the body read —

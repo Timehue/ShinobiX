@@ -1,3 +1,4 @@
+import { runBackgroundWork } from '../_background-work.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
@@ -145,6 +146,7 @@ export function startTournamentClock() {
         catch (error) { if (!(error instanceof LockContendedError)) console.error('[tournaments] Timer update failed', error instanceof Error ? error.message : 'Unknown error'); }
         finally { running = false; }
     };
-    const timer = setInterval(() => { void tick(); }, 5000); timer.unref(); void tick();
+    const runTick = () => { void runBackgroundWork(tick); };
+    const timer = setInterval(runTick, 5000); timer.unref(); runTick();
     return () => clearInterval(timer);
 }

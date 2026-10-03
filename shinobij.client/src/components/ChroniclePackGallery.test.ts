@@ -120,4 +120,7 @@ test('the gallery shows all six illustrated Basic packs and states the draw rule
     assert.match(html, /duplicates can appear within a pack or across packs regardless of owned copies/);
     assert.match(html, /Elite draws a Marketplace Rare or Epic/);
     assert.match(html, /Legendary is always Legendary/);
+    const odds = html.indexOf('chronicle-pack-gallery__odds');
+    const firstPack = html.indexOf('<article');
+    assert.ok(odds >= 0 && firstPack > odds, 'draw rules must precede the first pack purchase control');
 });

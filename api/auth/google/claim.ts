@@ -2,7 +2,8 @@ import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { cors, safeName } from '../../_utils.js';
 import { kv } from '../../_storage.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { issuePlayerToken, playerSessionsEnabled } from '../../_auth.js';
+import { issuePlayerToken, playerSessionsEnabled, readPlayerSessionEpoch } from '../../_auth.js';
+import { withKvLock } from '../../_lock.js';
 import { authKey, type AuthRecord } from '../../player-auth.js';
 import { getActiveBan, recordClientIp, clientIpFrom, recordClientFingerprint, clientFpFrom } from '../../admin/moderation.js';
 import {
@@ -72,34 +73,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const name = safeName(payload.name ?? '');
     if (!name) return res.status(410).json({ ok: false, error: 'That sign-in link is no longer valid.' });
 
-    let record: AuthRecord | null;
     try {
-        record = await kv.get<AuthRecord>(authKey(name));
+        // Credential mutations use this account lock. Revalidate the callback's
+        // identity and generation while minting, rather than upgrading an old
+        // handoff to whichever credentials happen to own the name now.
+        return await withKvLock(authKey(name), async () => {
+            const record = await kv.get<AuthRecord>(authKey(name));
+            if (!record) return res.status(404).json({ ok: false, error: 'That account no longer exists.' });
+            if (record.google?.sub !== payload.sub
+                || !Number.isSafeInteger(payload.sessionEpoch)
+                || payload.sessionEpoch !== (record.sessionEpoch ?? 0)
+                || payload.sessionEpoch !== await readPlayerSessionEpoch(name)) {
+                return res.status(410).json({ ok: false, error: 'That sign-in link is no longer valid. Please sign in again.' });
+            }
+
+            // A ban blocks the Google door too.
+            const ban = await getActiveBan(name);
+            if (ban) {
+                return res.status(403).json({
+                    ok: false,
+                    error: 'Account is banned.',
+                    ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                });
+            }
+
+            void recordClientIp(name, clientIpFrom(req));
+            const fp = clientFpFrom(req);
+            if (fp) void recordClientFingerprint(name, fp);
+
+            const token = issuePlayerToken(name, undefined, record.sessionEpoch ?? 0);
+            if (!token) return res.status(503).json({ ok: false, error: 'Google sign-in is unavailable.' });
+
+            return res.status(200).json({
+                ok: true,
+                name,
+                linked: payload.linked ?? undefined,
+                token,
+            });
+        }, { failClosed: true });
     } catch (err) {
         console.error('[auth/google/claim]', String(err));
         return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
     }
-    if (!record) return res.status(404).json({ ok: false, error: 'That account no longer exists.' });
-
-    // Same gate `verify` applies: a ban blocks the Google door too, or it would
-    // be a way straight around it.
-    const ban = await getActiveBan(name);
-    if (ban) {
-        return res.status(403).json({
-            ok: false,
-            error: 'Account is banned.',
-            ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
-        });
-    }
-
-    void recordClientIp(name, clientIpFrom(req));
-    const fp = clientFpFrom(req);
-    if (fp) void recordClientFingerprint(name, fp);
-
-    return res.status(200).json({
-        ok: true,
-        name,
-        linked: payload.linked ?? undefined,
-        token: issuePlayerToken(name, undefined, record.sessionEpoch ?? 0) ?? undefined,
-    });
 }

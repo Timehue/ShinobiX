@@ -86,13 +86,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // Pre-auth rate limit so spam at unknown names also throttles. The budget is
-    // the supporter carried-pet cap, allowing every carried pet one launch.
-    const bodyPeek = typeof req.body === 'string'
-        ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })()
-        : (req.body ?? {});
-    const peekName = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'expedition-start', PET_CAP_SUB, 30_000, peekName)) return;
+    // Unknown callers spend only their address budget; ownership is checked
+    // before charging the supporter carried-pet allowance below.
+    if (!enforceRateLimit(req, res, 'expedition-start-preauth', PET_CAP_SUB * 20, 30_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -117,6 +113,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own expeditions.' });
         }
+        if (!enforceRateLimit(req, res, 'expedition-start', PET_CAP_SUB, 30_000, identity.admin ? playerName : identity.name)) return;
 
         // The UUID is chosen before the save lock, so concurrent invocations of
         // the same request share one stable token. Legacy clients without a UUID

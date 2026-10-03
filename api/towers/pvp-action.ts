@@ -17,10 +17,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const matchId = String(body.matchId ?? '');
         if (!playerName || !TOWER_PVP_ID.test(matchId)) return res.status(400).json({ error: 'Valid player and match are required.' });
-        if (!enforceRateLimit(req, res, 'tower-pvp-action', 120, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'tower-pvp-action-preauth', (120) * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only act as your own fighter.' });
+        if (!enforceRateLimit(req, res, 'tower-pvp-action', 120, 60_000, identity.admin ? playerName : identity.name)) return;
         const slug = identity.admin ? playerName : identity.name;
         const outcome = await applyTowerPvpCommand({
             matchId,

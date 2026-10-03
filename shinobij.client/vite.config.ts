@@ -1,3 +1,4 @@
+import { minifyRuntimeSource } from './scripts/runtime-asset-minifier.mjs';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
@@ -148,6 +149,13 @@ function runtimePublicAssetsPlugin() {
     };
     const mergeRuntimePath = (sourcePath: string, destinationPath: string) => {
         if (!isRuntimePath(sourcePath)) return;
+        // Read fixed runtime scripts directly: a prior path-based stat would
+        // leave a check/use gap before reading the source for minification.
+        // Minify only the two standalone, first-party browser runtime scripts.
+        if (sourcePath === path.join(PUBLIC_ROOT, 'boot-watchdog.js') || sourcePath === path.join(PUBLIC_ROOT, 'sw.js')) {
+            fs.writeFileSync(destinationPath, minifyRuntimeSource(fs.readFileSync(sourcePath, 'utf8')));
+            return;
+        }
         const stat = fs.statSync(sourcePath);
         if (stat.isDirectory()) {
             fs.mkdirSync(destinationPath, { recursive: true });

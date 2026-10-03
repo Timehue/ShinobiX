@@ -506,6 +506,31 @@ test("desktop Battle Arena seals practice combat, surfaces retry, acts, and resu
     expect(api.practiceStartCount()).toBe(startsBeforeReload);
 });
 
+test("failed practice start returns after the close commits", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "desktop failure-return certification runs once");
+    const api = await installArenaApi(page, { holdAndFailFirstPracticeStart: true });
+    await createAccount(page);
+    await expect.poll(api.hasSave).toBe(true);
+    await restoreVillage(page);
+    await openBattleArena(page);
+    await chooseLevelAndStart(page);
+    try {
+        await expect.poll(api.practiceStartCount).toBe(1);
+        await expect(combatSurface(page)).toHaveCount(0);
+    } finally {
+        api.releaseFirstPracticeStart();
+    }
+    const failure = page.getByRole("alert");
+    await expect(failure.getByRole("heading", { name: "Fight unavailable" })).toBeVisible();
+    await failure.getByRole("button", { name: "Return", exact: true }).click();
+    await expect(failure).toHaveCount(0);
+    await expect(combatSurface(page)).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Battle Arena" })).toBeVisible();
+    expect(api.practiceStartCount()).toBe(1);
+    await page.screenshot({ path: testInfo.outputPath("failed-start-return.png"), fullPage: true });
+});
+
 test("Arena District serializes ranked join, poll, and leave on desktop and mobile", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
     const isDesktop = testInfo.project.name === "chromium-desktop";

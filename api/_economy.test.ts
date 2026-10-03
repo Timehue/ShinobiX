@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { drainBackgroundWork } from './_background-work.js';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext, withKvLeaseContext } from './_kv-lock-context.js';
 import {
     recordEconomyTxn,
     readEconomySnapshot,
@@ -63,4 +65,63 @@ test('readEconomySnapshot reports net supply per currency + dup flags', async ()
     assert.deepEqual(snap.aggregates.ryo, { created: 2000, destroyed: 400, net: 1600 });
     assert.deepEqual(snap.duplicateTxnIds, ['m1']);
     assert.equal(snap.recent.length, 3);
+});
+
+test('concurrent economy projections preserve aggregate and recent-list counts', async () => {
+    const store = memKv();
+    await Promise.all(Array.from({ length: 20 }, (_, i) => recordEconomyTxn({
+        txnId: `concurrent-${i}`, player: 'rill', currency: 'ryo', delta: 10, source: 'test',
+    }, { kv: store })));
+    assert.deepEqual(store._m.get(econAggKey('ryo')), { created: 200, destroyed: 0 });
+    assert.equal((store._m.get(ECON_TXN_LIST_KEY) as EconTxn[]).length, 20);
+});
+
+test('detached economy projection survives parent completion and remains tracked for shutdown', async () => {
+    const store = memKv();
+    const originalGet = store.get;
+    let unblock!: () => void;
+    let entered!: () => void;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    store.get = async <T>(key: string): Promise<T | null> => {
+        entered();
+        await blocked;
+        assert.equal(currentKvLockContext(), undefined, 'injected telemetry store must not inherit the save lease');
+        assertKvLockContext();
+        return originalGet<T>(key);
+    };
+    let pending!: Promise<void>;
+    await withKvLeaseContext('lock:save:economy-observation', 'parent', async () => {
+        pending = recordEconomyTxn({ txnId: 'detached', player: 'rill', currency: 'ryo', delta: 17, source: 'test' }, { kv: store });
+        await started;
+    });
+    let drained = false;
+    const drain = drainBackgroundWork().then(() => { drained = true; });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(drained, false, 'storage shutdown must wait for admitted telemetry');
+    unblock();
+    await pending;
+    await drain;
+    assert.deepEqual(store._m.get(econAggKey('ryo')), { created: 17, destroyed: 0 });
+});
+
+test('failed economy telemetry has independent poison and cannot revive a poisoned currency writer', async () => {
+    const store = memKv();
+    const failure = new Error('telemetry storage failed');
+    store.get = async () => withKvLeaseContext('lock:telemetry:economy-test', 'telemetry', async () => {
+        throw poisonKvLockContext(currentKvLockContext()!, failure);
+    });
+    await withKvLeaseContext('lock:save:economy-poison', 'parent', async () => {
+        const parent = currentKvLockContext()!;
+        await recordEconomyTxn({ txnId: 'failed', player: 'rill', currency: 'ryo', delta: 17, source: 'test' }, { kv: store });
+        assert.equal(parent.health.error, undefined, 'telemetry failure must not poison the real currency write');
+        assertKvLockContext();
+        store._m.set('save:rill', { ryo: 50 });
+        const parentFailure = poisonKvLockContext(parent, new Error('currency lease lost'));
+        await recordEconomyTxn({ txnId: 'already-poisoned', player: 'rill', currency: 'ryo', delta: 17, source: 'test' }, { kv: store });
+        assert.throws(() => assertKvLockContext(), (error) => error === parentFailure);
+        assert.deepEqual(store._m.get('save:rill'), { ryo: 50 });
+    });
+    assert.equal(store._m.has(ECON_TXN_LIST_KEY), false);
+    assert.equal(store._m.has(econAggKey('ryo')), false);
 });

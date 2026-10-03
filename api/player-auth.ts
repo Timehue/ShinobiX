@@ -17,6 +17,7 @@ import {
     SIGNUP_TICKET_TTL_SECONDS,
     type GoogleHandoffTicket,
 } from './_google-auth.js';
+import { alreadyHoldsKvLock } from './_kv-lock-context.js';
 import { withKvLock } from './_lock.js';
 import {
     clearRecoveryCode,
@@ -90,6 +91,10 @@ export type AuthRecord = {
     google?: { sub: string; email?: string; linkedAt: number };
     /** Guest account: no credential at all, swept after GUEST_INACTIVITY_MS idle. */
     guest?: true;
+    /** Digest of the reusable, opaque guest credential; never a password. */
+    guestResumeHash?: string;
+    /** Authoritative server deadline for that credential. */
+    guestResumeExpiresAt?: number;
     /**
      * When the account was created. Only the guest sweep reads it, as the floor
      * for a guest who registered but never saved — ongoing activity comes from
@@ -150,6 +155,18 @@ export const GUEST_INACTIVITY_MS = 14 * 24 * 60 * 60 * 1000;
  */
 export function guestResumeKey(resume: string): string {
     return `guest-resume:${String(resume ?? '').slice(0, 128)}`;
+}
+
+export function guestResumeDigest(resume: string): string {
+    return crypto.createHash('sha256').update(resume).digest('hex');
+}
+
+/** Successful ownership claims remove the guest's previous login authority. */
+export function withoutGuestResumeAuthority(record: AuthRecord): AuthRecord {
+    const claimed = { ...record };
+    delete claimed.guestResumeHash;
+    delete claimed.guestResumeExpiresAt;
+    return claimed;
 }
 
 const MIN_PASSWORD_LENGTH = 8;
@@ -291,6 +308,16 @@ export function googleIdentityKey(sub: string): string {
     return `auth-google:${String(sub ?? '').slice(0, 128)}`;
 }
 
+/** Caller holds auth:<name>; never detach a subject reassigned to another account. */
+export async function releaseGoogleIdentityForAccount(name: string, sub: string): Promise<boolean> {
+    const identityKey = googleIdentityKey(sub);
+    return withKvLock(identityKey, async () => {
+        const owner = await kv.get<{ name?: string }>(identityKey);
+        if (safeName(owner?.name ?? '') !== safeName(name)) return false;
+        return kv.delIfEqual(identityKey, owner);
+    }, { failClosed: true });
+}
+
 type AuthFailure = { status: number; body: Record<string, unknown> };
 
 /**
@@ -379,49 +406,73 @@ async function claimNewAccountSlug(
     buildRecord: (sessionEpoch: number) => AuthRecord,
 ): Promise<{ error: AuthFailure } | { sessionEpoch: number }> {
     const key = authKey(name);
-    return await withKvLock(key, async () => {
-        const { accountNameKey } = await import('./_account-name.js');
-        if (await kv.get(accountNameKey(name))) {
-            return { error: { status: 409, body: { ok: false, error: 'That account name is already taken.' } } };
-        }
-        const existing = await kv.get<AuthRecord>(key);
-        if (existing) {
-            return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
-        }
+    return await withKvLock(key, () => claimNewAccountSlugLocked(name, buildRecord), { failClosed: true });
+}
 
-        // A save without an auth row is a legacy account. Only the
-        // authenticated admin-reset recovery path may claim it.
-        const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
-        if (saveBlob) {
-            return {
-                error: {
-                    status: 409,
-                    body: {
-                        ok: false,
-                        error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
-                        legacyNeedsAdmin: true,
-                    },
+/** Caller already holds auth:<name>; Google signup adds the subject lock inside it. */
+async function claimNewAccountSlugLocked(
+    name: string,
+    buildRecord: (sessionEpoch: number) => AuthRecord,
+): Promise<{ error: AuthFailure } | { sessionEpoch: number }> {
+    const key = authKey(name);
+    const { accountNameKey } = await import('./_account-name.js');
+    if (await kv.get(accountNameKey(name))) {
+        return { error: { status: 409, body: { ok: false, error: 'That account name is already taken.' } } };
+    }
+    const existing = await kv.get<AuthRecord>(key);
+    if (existing) {
+        return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
+    }
+
+    // A save without an auth row is a legacy account. Only the
+    // authenticated admin-reset recovery path may claim it.
+    const saveBlob = await kv.get<Record<string, unknown>>(`save:${safeName(name)}`);
+    if (saveBlob) {
+        return {
+            error: {
+                status: 409,
+                body: {
+                    ok: false,
+                    error: 'This account is a legacy account without a server password. Ask an admin to set it for you.',
+                    legacyNeedsAdmin: true,
                 },
-            };
-        }
+            },
+        };
+    }
 
-        const sessionEpoch = await readPlayerSessionEpoch(name);
-        const created = await kv.set(key, buildRecord(sessionEpoch), { nx: true });
-        if (!created) {
-            return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
-        }
-        // Slugs are reusable, so a recovery record left behind by a previous
-        // holder of this name would be a working credential to the account
-        // just created. Clear it on the way in as well as on the way out —
-        // the deletion paths already do this, and this is the backstop for a
-        // deletion that half-failed.
-        await clearRecoveryCode(name);
-        return { sessionEpoch };
-    }, { failClosed: true });
+    const sessionEpoch = await readPlayerSessionEpoch(name);
+    // Slugs are reusable: an inherited recovery code would otherwise become
+    // a working credential to the newly published account.
+    // Remove inherited recovery authority before publishing the account. A
+    // cleanup failure must not leave a committed, unreachable signup.
+    await clearRecoveryCode(name);
+    const created = await kv.set(key, buildRecord(sessionEpoch), { nx: true });
+    if (!created) {
+        return { error: { status: 409, body: { ok: false, error: 'Account already has a password.' } } };
+    }
+    return { sessionEpoch };
 }
 
 export function authKey(name: string): string {
     return `auth:${safeName(name)}`;
+}
+
+/**
+ * Repair a prior rotate-then-write failure after fresh credential proof. The
+ * caller must hold auth:<name> and prove the CURRENT password or Google link;
+ * tokens and old handoff tickets must never call this repair path.
+ */
+export async function synchronizeVerifiedAuthRecordEpoch(name: string, record: AuthRecord): Promise<AuthRecord> {
+    if (!alreadyHoldsKvLock(authKey(name))) throw new Error('Credential generation repair requires the account lock.');
+    const currentEpoch = await readPlayerSessionEpoch(name);
+    const recordEpoch = record.sessionEpoch ?? 0;
+    if (!Number.isSafeInteger(recordEpoch) || recordEpoch < 0 || recordEpoch > currentEpoch) {
+        throw new Error('Account credential generation is inconsistent.');
+    }
+    if (recordEpoch === currentEpoch) return record;
+    const synchronized = { ...record, sessionEpoch: currentEpoch };
+    await kv.set(authKey(name), synchronized);
+    return synchronized;
 }
 
 async function issuePlayerTokenForRecord(name: string, record: AuthRecord): Promise<string | null> {
@@ -651,35 +702,52 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         };
 
         try {
-            // Claim the Google subject FIRST. If the slug turns out to be taken
-            // we release it again — whereas claiming it after the account would
-            // leave a real account with an unusable Google link on failure.
-            const claimedIdentity = await kv.set(googleIdentityKey(signupIdentity.sub), { name: safeName(name) }, { nx: true });
-            if (!claimedIdentity) {
-                await restoreTicket();
-                return res.status(409).json({
-                    ok: false,
-                    error: 'That Google account is already linked to another shinobi.',
-                    googleTaken: true,
-                });
-            }
+            // Every Google mutation orders the locks account -> subject. The
+            // subject reservation and auth publication remain one critical
+            // section, so dangling-index cleanup cannot erase this new owner.
+            return await withKvLock(key, () => withKvLock(googleIdentityKey(signupIdentity.sub), async () => {
+                const identityKey = googleIdentityKey(signupIdentity.sub);
+                const owner = { name: safeName(name) };
+                const claimedIdentity = await kv.set(identityKey, owner, { nx: true });
+                if (!claimedIdentity) {
+                    await restoreTicket();
+                    return res.status(409).json({
+                        ok: false,
+                        error: 'That Google account is already linked to another shinobi.',
+                        googleTaken: true,
+                    });
+                }
 
-            const claim = await claimNewAccountSlug(name, (sessionEpoch) => ({
-                sessionEpoch,
-                createdAt: Date.now(),
-                google: { sub: signupIdentity.sub, email: signupIdentity.email, linkedAt: Date.now() },
-            }));
-            if ('error' in claim) {
-                await kv.del(googleIdentityKey(signupIdentity.sub));
-                await restoreTicket();
-                return res.status(claim.error.status).json(claim.error.body);
-            }
-            await recordBetaMetric({ event: 'account.registered', playerName: safeName(name), source: 'google' });
-            return res.status(200).json({
-                ok: true,
-                name: safeName(name),
-                token: issuePlayerToken(name, undefined, claim.sessionEpoch) ?? undefined,
-            });
+                let claim: Awaited<ReturnType<typeof claimNewAccountSlugLocked>>;
+                try {
+                    claim = await claimNewAccountSlugLocked(name, (sessionEpoch) => ({
+                        sessionEpoch,
+                        createdAt: Date.now(),
+                        google: { sub: signupIdentity.sub, email: signupIdentity.email, linkedAt: Date.now() },
+                    }));
+                } catch (err) {
+                    // A rejected write can have committed remotely. Keep its index
+                    // if the account now owns this subject; otherwise release only
+                    // this reservation and let the same signup ticket be retried.
+                    const committed = await kv.get<AuthRecord>(key);
+                    if (committed?.google?.sub !== signupIdentity.sub) {
+                        await kv.delIfEqual(identityKey, owner);
+                        await restoreTicket();
+                    }
+                    throw err;
+                }
+                if ('error' in claim) {
+                    await kv.delIfEqual(identityKey, owner);
+                    await restoreTicket();
+                    return res.status(claim.error.status).json(claim.error.body);
+                }
+                await recordBetaMetric({ event: 'account.registered', playerName: safeName(name), source: 'google' });
+                return res.status(200).json({
+                    ok: true,
+                    name: safeName(name),
+                    token: issuePlayerToken(name, undefined, claim.sessionEpoch) ?? undefined,
+                });
+            }, { failClosed: true }), { failClosed: true });
         } catch (err) {
             console.error('[player-auth register-google]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
@@ -708,20 +776,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (nameError) return res.status(nameError.status).json(nameError.body);
 
         try {
+            const resume = crypto.randomBytes(24).toString('base64url');
             const claim = await claimNewAccountSlug(name, (sessionEpoch) => ({
                 sessionEpoch,
                 guest: true,
                 createdAt: Date.now(),
+                guestResumeHash: guestResumeDigest(resume),
+                guestResumeExpiresAt: Date.now() + GUEST_INACTIVITY_MS,
             }));
             if ('error' in claim) {
                 return res.status(claim.error.status).json(claim.error.body);
             }
-            const resume = crypto.randomBytes(24).toString('base64url');
-            await kv.set(
-                guestResumeKey(resume),
-                { name: safeName(name) },
-                { ex: Math.floor(GUEST_INACTIVITY_MS / 1000) },
-            );
+            // The auth row already contains its only login door. This unchanged
+            // legacy index is optional metadata, never a second required commit.
+            try {
+                await kv.set(guestResumeKey(resume), { name: safeName(name) }, { ex: Math.floor(GUEST_INACTIVITY_MS / 1000) });
+            } catch (err) {
+                console.error('[player-auth guest legacy-index]', String(err));
+            }
             await recordBetaMetric({ event: 'account.registered', playerName: safeName(name), source: 'guest' });
             return res.status(200).json({
                 ok: true,
@@ -746,82 +818,94 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const resume = typeof guestResume === 'string' ? guestResume : '';
         if (!resume) return res.status(400).json({ ok: false, error: 'Missing resume key.' });
+        if (!/^[A-Za-z0-9_-]{16,128}$/.test(resume)) {
+            return res.status(410).json({ ok: false, error: 'This guest character is no longer available.' });
+        }
 
         try {
-            const owner = await kv.get<{ name?: string }>(guestResumeKey(resume));
-            const ownerName = safeName(owner?.name ?? '');
-            // Bind the key to the name the caller claims, so a leaked key cannot
-            // be probed against other slugs.
-            if (!ownerName || ownerName !== safeName(name)) {
-                return res.status(410).json({ ok: false, error: 'This guest character is no longer available.' });
-            }
-            const record = await kv.get<AuthRecord>(authKey(ownerName));
-            if (!record) {
-                await kv.del(guestResumeKey(resume));
-                return res.status(410).json({ ok: false, error: 'This guest character is no longer available.' });
-            }
-            const ban = await getActiveBan(ownerName);
-            if (ban) {
-                return res.status(403).json({
-                    ok: false,
-                    error: 'Account is banned.',
-                    ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
-                });
-            }
-            // Once the account has a real owner the resume key is dead weight —
-            // and letting it keep minting tokens would leave the pre-claim
-            // browser holding a credential to somebody's real account.
-            //
-            // The predicate is `isCredentialLessGuest`, never the raw `guest`
-            // flag: setting a first password spreads the record and keeps that
-            // flag set, so selecting on it alone kept this door open for every
-            // account claimed with a password rather than with Google. That
-            // hole is now closed — the browser someone played a guest on in a
-            // library cannot go on minting 24h tokens for the account they
-            // later put a password on.
-            //
-            // Closing it is only safe because there is now a self-serve way
-            // back in: `action: 'recover'` below, redeemed against the code
-            // from `recovery-issue`. Revoking a browser's last credential
-            // without that would have stranded anyone who set a password and
-            // forgot it. See docs/auth-and-anti-cheat-patterns.md §1.
-            if (!isCredentialLessGuest(record)) {
-                await kv.del(guestResumeKey(resume));
-                // Name the door that actually works for THIS record. The caller
-                // held a valid resume key for this exact slug, so telling them
-                // how to sign in reveals nothing they could not already reach —
-                // and the old hardcoded "signs in with Google" was simply wrong
-                // for the far more common password claim.
-                const doors = [
-                    isPasswordlessRecord(record) ? '' : 'its password',
-                    record.google ? 'Google' : '',
-                ].filter(Boolean);
-                return res.status(409).json({
-                    ok: false,
-                    error: doors.length
-                        ? `This character has an owner now — sign in with ${doors.join(' or ')}.`
-                        : 'This character has an owner now.',
-                });
-            }
-            await kv.set(
-                guestResumeKey(resume),
-                { name: ownerName },
-                { ex: Math.floor(GUEST_INACTIVITY_MS / 1000) },
-            );
-            void recordClientIp(ownerName, clientIpFrom(req));
-            const resumeFp = clientFpFrom(req);
-            if (resumeFp) void recordClientFingerprint(ownerName, resumeFp);
-            return res.status(200).json({
-                ok: true,
-                name: ownerName,
-                token: issuePlayerToken(ownerName, undefined, record.sessionEpoch ?? 0) ?? undefined,
-            });
+            return await withKvLock(key, async () => {
+                let record = await kv.get<AuthRecord>(key);
+                const unavailable = () => res.status(410).json({ ok: false, error: 'This guest character is no longer available.' });
+                if (!record) return unavailable();
+
+                const digest = guestResumeDigest(resume);
+                const hasBoundAuthority = record.guestResumeHash !== undefined || record.guestResumeExpiresAt !== undefined;
+                let legacyOwner: { name?: string } | null = null;
+                if (hasBoundAuthority) {
+                    if (typeof record.guestResumeHash !== 'string'
+                        || !/^[a-f0-9]{64}$/.test(record.guestResumeHash)
+                        || !safeStringEqual(record.guestResumeHash, digest)
+                        || typeof record.guestResumeExpiresAt !== 'number'
+                        || !Number.isFinite(record.guestResumeExpiresAt)
+                        || record.guestResumeExpiresAt <= Date.now()) return unavailable();
+                } else {
+                    // A name-only index is sufficient only for a never-reused
+                    // epoch-zero legacy account, or with current token proof.
+                    legacyOwner = await kv.get<{ name?: string }>(guestResumeKey(resume));
+                    if (safeName(legacyOwner?.name ?? '') !== safeName(name)) return unavailable();
+                }
+
+                const ban = await getActiveBan(name);
+                if (ban) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Account is banned.',
+                        ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                    });
+                }
+                // A successful claim removes digest authority. Its legacy
+                // index may still name this account; it can explain the proper
+                // login door, but must never mint a session.
+                if (!isCredentialLessGuest(record) || record.google) {
+                    const residueOwner = legacyOwner ?? await kv.get<{ name?: string }>(guestResumeKey(resume));
+                    if (safeName(residueOwner?.name ?? '') === safeName(name)) {
+                        await kv.delIfEqual(guestResumeKey(resume), residueOwner);
+                    }
+                    const doors = [
+                        isPasswordlessRecord(record) ? '' : 'its password',
+                        record.google ? 'Google' : '',
+                    ].filter(Boolean);
+                    return res.status(409).json({
+                        ok: false,
+                        error: doors.length
+                            ? `This character has an owner now — sign in with ${doors.join(' or ')}.`
+                            : 'This character has an owner now.',
+                    });
+                }
+
+                const currentEpoch = await readPlayerSessionEpoch(name);
+                const recordEpoch = record.sessionEpoch ?? 0;
+                if (!Number.isSafeInteger(recordEpoch) || recordEpoch < 0 || recordEpoch > currentEpoch) {
+                    throw new Error('Account credential generation is inconsistent.');
+                }
+                if (!hasBoundAuthority) {
+                    const suppliedToken = headerValue(req, 'x-player-token');
+                    const currentTokenProof = !!suppliedToken && await verifyPlayerToken(suppliedToken) === safeName(name);
+                    if (!currentTokenProof && (recordEpoch !== 0 || currentEpoch !== 0)) return unavailable();
+                }
+
+                // Current digest/token proof or the restricted legacy path
+                // binds authority to this auth row. Refresh and lower-epoch
+                // repair commit together; old tokens remain revoked.
+                record = {
+                    ...record,
+                    guestResumeHash: digest,
+                    guestResumeExpiresAt: Date.now() + GUEST_INACTIVITY_MS,
+                    sessionEpoch: currentEpoch,
+                };
+                await kv.set(key, record);
+                const token = await issuePlayerTokenForRecord(name, record);
+                if (!token) throw new Error('Guest session could not be issued. Retry from current state.');
+                void recordClientIp(name, clientIpFrom(req));
+                const resumeFp = clientFpFrom(req);
+                if (resumeFp) void recordClientFingerprint(name, resumeFp);
+                return res.status(200).json({ ok: true, name: safeName(name), token });
+            }, { failClosed: true });
         } catch (err) {
             console.error('[player-auth guest-resume]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
     }
-
     if (action === 'verify') {
         // Verify a password. Legacy saves without a credential are recovery
         // cases, never successful authentication.
@@ -880,48 +964,59 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
 
         const valid = verifyAgainst(record, verifiedPassword);
-        // Opportunistically upgrade legacy HMAC hashes to scrypt on each
-        // successful verify, so the legacy format dies off over time.
-        if (valid && record.hash && !record.hash.startsWith(SCRYPT_PREFIX)) {
-            try {
-                await withKvLock(key, async () => {
-                    const current = await kv.get<AuthRecord>(key);
-                    if (!current || current.hash !== record.hash || current.salt !== record.salt) return;
-                    const salt = newSalt();
-                    await kv.set(key, { ...current, hash: hashScrypt(verifiedPassword, salt), salt });
-                }, { failClosed: true });
-            } catch {
-                // best-effort
-            }
-        }
         if (!valid) return res.status(200).json({ ok: false });
 
-        // Refuse login for banned accounts. The client surfaces this so the
-        // user sees a clear "you are banned until X — reason: Y" message.
-        const ban = await getActiveBan(name);
-        if (ban) {
-            return res.status(403).json({
-                ok: false,
-                error: 'Account is banned.',
-                ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
-            });
+        try {
+            return await withKvLock(key, async () => {
+                let current = await kv.get<AuthRecord>(key);
+                // The password proof was obtained before waiting for the lock. A
+                // changed hash cannot be promoted to the new credential generation.
+                if (!current || current.hash !== record.hash || current.salt !== record.salt) {
+                    return res.status(200).json({ ok: false });
+                }
+                // Refuse login for banned accounts. The client surfaces this so the
+                // user sees a clear "you are banned until X — reason: Y" message.
+                const ban = await getActiveBan(name);
+                if (ban) {
+                    return res.status(403).json({
+                        ok: false,
+                        error: 'Account is banned.',
+                        ban: { until: ban.until, reason: ban.reason, permanent: ban.permanent ?? false },
+                    });
+                }
+
+                current = await synchronizeVerifiedAuthRecordEpoch(name, current);
+                // A legacy upgrade remains best effort, while generation repair above
+                // must commit before this verified login can mint a usable token.
+                if (current.hash && !current.hash.startsWith(SCRYPT_PREFIX)) {
+                    const salt = newSalt();
+                    const upgraded = { ...current, hash: hashScrypt(verifiedPassword, salt), salt };
+                    try {
+                        await kv.set(key, upgraded);
+                        current = upgraded;
+                    } catch { /* Keep the verified legacy credential if migration fails. */ }
+                }
+
+                // Capture the login IP + browser fingerprint so the Moderation lookup
+                // can link sock-puppets even before the player heartbeats — and even
+                // if they're hiding behind a VPN.
+                void recordClientIp(name, clientIpFrom(req));
+                const fp = clientFpFrom(req);
+                if (fp) void recordClientFingerprint(name, fp);
+
+                // Mint a session token so subsequent requests use the cheap HMAC path
+                // instead of re-running scrypt on every call. null → SESSION_SECRET
+                // unset, client falls back to the password path transparently.
+                return res.status(200).json({
+                    ok: true,
+                    token: (await issuePlayerTokenForRecord(name, current)) ?? undefined,
+                    name,
+                });
+            }, { failClosed: true });
+        } catch (err) {
+            console.error('[player-auth verify commit]', String(err));
+            return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
-
-        // Capture the login IP + browser fingerprint so the Moderation lookup
-        // can link sock-puppets even before the player heartbeats — and even
-        // if they're hiding behind a VPN.
-        void recordClientIp(name, clientIpFrom(req));
-        const fp = clientFpFrom(req);
-        if (fp) void recordClientFingerprint(name, fp);
-
-        // Mint a session token so subsequent requests use the cheap HMAC path
-        // instead of re-running scrypt on every call. null → SESSION_SECRET
-        // unset, client falls back to the password path transparently.
-        return res.status(200).json({
-            ok: true,
-            token: (await issuePlayerTokenForRecord(name, record)) ?? undefined,
-            name,
-        });
     }
 
     if (action === 'change') {
@@ -975,7 +1070,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // old password to prove. Re-check the ban here: `verify`
                     // gates on it, and this branch is the one other way to walk
                     // out with a freshly minted token.
-                    if (!tokenProvesOwnership) {
+                    if (!tokenProvesOwnership || await verifyPlayerToken(suppliedToken) !== safeName(name)) {
                         return res.status(401).json({ ok: false, error: 'Sign in again before setting a password.' });
                     }
                     const ban = await getActiveBan(name);
@@ -1001,7 +1096,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const salt = newSalt();
                 // Spread the existing record: a password change must not drop the
                 // linked Google identity or the guest flag that lives beside it.
-                await kv.set(key, { ...record, hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                try {
+                    await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                } catch (err) {
+                    const committed = await kv.get<AuthRecord>(key);
+                    // A failed first-password claim must not strand the guest's
+                    // only resume credential. Old session tokens stay revoked.
+                    if (isCredentialLessGuest(record) && committed
+                        && JSON.stringify(committed) === JSON.stringify(record)) {
+                        await synchronizeVerifiedAuthRecordEpoch(name, committed);
+                    }
+                    throw err;
+                }
 
                 // Gaining a password means gaining something you can forget, so
                 // this is the moment to hand over the way back — most of all for
@@ -1152,7 +1258,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const salt = newSalt();
                 // Spread, so recovering a password neither unlinks Google nor
                 // disturbs anything else living on the record.
-                await kv.set(key, { ...record, hash: hashPw(newPassword as string, salt), salt, sessionEpoch });
+                await kv.set(key, { ...withoutGuestResumeAuthority(record), hash: hashPw(newPassword as string, salt), salt, sessionEpoch });
 
                 let nextCode: string | undefined;
                 try {
@@ -1193,7 +1299,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     await kv.del(key);
                     // Release the Google link too, or the sub stays pointed at a
                     // deleted slug and that person can never sign in again.
-                    if (existing?.google?.sub) await kv.del(googleIdentityKey(existing.google.sub));
+                    if (existing?.google?.sub) await releaseGoogleIdentityForAccount(name, existing.google.sub);
                     // And the recovery code, or it becomes a credential to
                     // whoever registers this name next.
                     await clearRecoveryCode(name);
@@ -1224,6 +1330,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!record) {
                     return res.status(404).json({ ok: false, error: 'Account does not exist.' });
                 }
+                if (deleteTokenProvesOwnership && await verifyPlayerToken(deleteToken) !== safeName(name)) {
+                    return res.status(401).json({ ok: false, error: 'Authentication required.' });
+                }
                 if (!deleteTokenProvesOwnership && !verifyAgainst(record, password as string)) {
                     return res.status(401).json({ ok: false, error: 'Incorrect password.' });
                 }
@@ -1235,7 +1344,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
                 await rotatePlayerSessionEpoch(name);
                 await kv.del(key);
-                if (record.google?.sub) await kv.del(googleIdentityKey(record.google.sub));
+                if (record.google?.sub) await releaseGoogleIdentityForAccount(name, record.google.sub);
                 await clearRecoveryCode(name);
                 return res.status(200).json({ ok: true });
             }, { failClosed: true });
@@ -1321,7 +1430,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const salt = newSalt();
                 // Spread the existing record so an admin reset restores password
                 // access without silently unlinking Google or clearing the guest flag.
-                await kv.set(key, { ...(existing ?? {}), hash: hashPw(newPassword, salt), salt, sessionEpoch });
+                await kv.set(key, { ...withoutGuestResumeAuthority(existing ?? {}), hash: hashPw(newPassword, salt), salt, sessionEpoch });
                 // Drop any recovery code. An admin reset is what a player asks
                 // for when they have lost control of the account, so the
                 // outstanding spare key is exactly the thing to invalidate —

@@ -1,5 +1,6 @@
 import { before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext } from './_kv-lock-context.js';
 
 process.env.SUPABASE_URL ??= 'http://localhost:1';
 process.env.SUPABASE_SERVICE_KEY ??= 'test';
@@ -19,23 +20,31 @@ let detachPlayerReferences: typeof import('./_delete-player-account.js').detachP
 let deletePlayerAccount: typeof import('./_delete-player-account.js').deletePlayerAccount;
 let deletePlayerFirstPactState: typeof import('./_delete-player-account.js').deletePlayerFirstPactState;
 let withKvLock: typeof import('./_lock.js').withKvLock;
+let beforeDelete: ((keys: string[]) => void) | undefined;
 
 before(async () => {
     const { kv } = await import('./_storage.js');
-    kv.get = async <T,>(key: string) => clone(store.get(key)) as T | null;
+    kv.get = async <T,>(key: string) => { assertKvLockContext(); return clone(store.get(key)) as T | null; };
     kv.set = async (key: string, value: unknown, options?: { nx?: boolean }) => {
+        assertKvLockContext();
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
     };
-    kv.del = async (...keys: string[]) => keys.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
-    kv.delIfEqual = async (key: string, expected: string) => {
-        if (store.get(key) !== expected) return false;
+    kv.del = async (...keys: string[]) => {
+        assertKvLockContext();
+        beforeDelete?.(keys);
+        return keys.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
+    };
+    kv.delIfEqual = async (key: string, expected: unknown) => {
+        assertKvLockContext();
+        if (JSON.stringify(store.get(key)) !== JSON.stringify(expected)) return false;
         store.delete(key);
         return true;
     };
-    kv.incr = async (key: string) => { const n = (Number(store.get(key)) || 0) + 1; store.set(key, n); return n; };
+    kv.incr = async (key: string) => { assertKvLockContext(); const n = (Number(store.get(key)) || 0) + 1; store.set(key, n); return n; };
     kv.hdel = async (key: string, ...fields: string[]) => {
+        assertKvLockContext();
         const h = hashes.get(key);
         if (!h) return 0;
         return fields.reduce((n, f) => (f in h ? (delete h[f], n + 1) : n), 0);
@@ -49,6 +58,7 @@ before(async () => {
 });
 
 beforeEach(() => {
+    beforeDelete = undefined;
     store.clear();
     hashes.clear();
     hashes.set('player:registry', { wanderer: { lastSeen: 1 }, kaze: { lastSeen: 2 } });
@@ -71,6 +81,27 @@ beforeEach(() => {
 });
 
 describe('player deletion', () => {
+    it('detaches only a Google index still owned by the account being removed', async () => {
+        const record = store.get('auth:wanderer') as Record<string, unknown>;
+        store.set('auth:wanderer', { ...record, google: { sub: 'deletion-subject' } });
+        store.set('auth-google:deletion-subject', { name: 'replacement' });
+        const result = await deletePlayerAccount('wanderer');
+        assert.deepEqual(store.get('auth-google:deletion-subject'), { name: 'replacement' });
+        assert.equal(result.removed.includes('auth-google:deletion-subject'), false);
+        assert.equal(store.has('lock:auth:wanderer'), false);
+        assert.equal(store.has('lock:auth-google:deletion-subject'), false);
+    });
+
+    it('releases a matching Google owner index under the subject lock', async () => {
+        const record = store.get('auth:wanderer') as Record<string, unknown>;
+        store.set('auth:wanderer', { ...record, google: { sub: 'deletion-subject' } });
+        store.set('auth-google:deletion-subject', { name: 'wanderer' });
+        const result = await deletePlayerAccount('wanderer');
+        assert.equal(store.has('auth-google:deletion-subject'), false);
+        assert.equal(result.removed.includes('auth-google:deletion-subject'), true);
+        assert.equal(store.has('lock:auth-google:deletion-subject'), false);
+    });
+
     it('detaches back-references without touching the account itself', async () => {
         const result = await detachPlayerReferences('wanderer');
 
@@ -152,6 +183,9 @@ describe('player deletion', () => {
 
     it('keeps the save and registry when First Pact cleanup cannot acquire its lock', { timeout: 3_000 }, async () => {
         store.set('lock:first-pact:wanderer', 'another-owner');
+        store.set('auth-session:wanderer', 0);
+        store.set('auth-recovery:wanderer', { hash: 'existing-code' });
+        const before = clone([...store]);
 
         const result = await deletePlayerAccount('wanderer');
 
@@ -159,5 +193,48 @@ describe('player deletion', () => {
         assert.equal(store.has('save:wanderer'), true, 'lock failure must happen before save deletion');
         assert.equal(store.has('first-pact:wanderer'), true, 'the contended story record remains available for retry');
         assert.deepEqual((hashes.get('player:registry') ?? {}).wanderer, { lastSeen: 1 }, 'registry removal must wait too');
+        assert.deepEqual([...store], before, 'a busy cleanup authority must precede auth revocation and all reference teardown');
+    });
+
+    for (const failedKey of ['first-pact:wanderer', 'save:wanderer']) {
+        it(`retains credentials after a fenced ${failedKey} cleanup failure and completes a fresh retry`, async () => {
+            const originalAuth = clone(store.get('auth:wanderer'));
+            store.set('auth-session:wanderer', 0);
+            beforeDelete = (keys) => {
+                if (!keys.includes(failedKey)) return;
+                beforeDelete = undefined;
+                const context = currentKvLockContext();
+                assert.ok(context, 'cleanup must be protected');
+                throw poisonKvLockContext(context, new Error(`refused ${failedKey} cleanup`));
+            };
+            const refused = await deletePlayerAccount('wanderer');
+            assert.ok(refused.failures.some(failure => failure.includes(`refused ${failedKey}`)));
+            assert.deepEqual(store.get('auth:wanderer'), originalAuth, 'auth remains the retry anchor');
+            assert.equal(store.get('auth-session:wanderer'), 0, 'pre-revocation cleanup failure must not revoke credentials');
+            assert.equal(store.has('save:wanderer'), true);
+            // The fixture has no TTL clock. Expire only the lock rows left by the
+            // poisoned callback before a separate fresh request retries.
+            for (const key of store.keys()) if (key.startsWith('lock:')) store.delete(key);
+            const retried = await deletePlayerAccount('wanderer');
+            assert.deepEqual(retried.failures, []);
+            assert.equal(store.has('auth:wanderer'), false);
+            assert.equal(store.has('save:wanderer'), false);
+            assert.equal(store.has('first-pact:wanderer'), false);
+            assert.equal(store.get('auth-session:wanderer'), 1);
+        });
+    }
+
+    it('holds auth and First Pact authority through every destructive account operation', async () => {
+        const deletes: string[] = [];
+        beforeDelete = (keys) => {
+            const leases = currentKvLockContext()?.leases.map(lease => lease.key) ?? [];
+            assert.ok(leases.includes('lock:auth:wanderer'));
+            assert.ok(leases.includes('lock:first-pact:wanderer'));
+            deletes.push(...keys);
+        };
+        const result = await deletePlayerAccount('wanderer');
+        assert.deepEqual(result.failures, []);
+        assert.equal(deletes[0], 'first-pact:wanderer');
+        assert.equal(deletes.at(-1), 'auth:wanderer', 'the credential row is deleted only after other cleanup succeeds');
     });
 });

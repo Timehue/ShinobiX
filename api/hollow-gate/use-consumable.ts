@@ -45,10 +45,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const action = body.action;
         const requestId = typeof body.requestId === 'string' && /^[A-Za-z0-9:_-]{8,96}$/.test(body.requestId) ? body.requestId : '';
         if (!playerName || !token || !requestId || !isAction(action)) return res.status(400).json({ error: 'Invalid Hollow Gate consumable.' });
-        if (!enforceRateLimit(req, res, 'hollow-gate-consumable', 30, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'hollow-gate-consumable-preauth', (30) * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!enforceRateLimit(req, res, 'hollow-gate-consumable', 30, 60_000, identity.admin ? playerName : identity.name)) return;
 
         const runKey = hollowGateRunKey(playerName, token);
         const result = await withKvLock(runKey, async () => {

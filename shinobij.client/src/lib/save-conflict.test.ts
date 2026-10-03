@@ -244,6 +244,8 @@ describe("save-conflict drafts", () => {
     });
 
     for (const [field, localValue, serverValue] of [
+        ["eraJourneys", { "shinobi-awakening": { completedAt: 200 } }, { "shinobi-awakening": { startedAt: 100 } }],
+        ["playRewardPurchaseReceipts", ["a".repeat(64)], ["b".repeat(64)]],
         ["relicRosterVersion", 0, 1],
         ["relicRewardLedger", [], [{ day: "2026-10-02", pvp: [{ id: "settled-battle", itemId: "relic-pvp" }], tower: [] }]],
     ] as const) {

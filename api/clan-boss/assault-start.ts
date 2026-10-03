@@ -49,11 +49,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.requestId
             : '';
         if (!hostName || !requestId) return res.status(400).json({ error: 'Invalid host name or request ID.' });
-        if (!enforceRateLimit(req, res, 'clan-boss-assault-start', 10, 60_000, hostName)) return;
+        if (!enforceRateLimit(req, res, 'clan-boss-assault-start-preauth', (10) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, hostName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName) return res.status(403).json({ error: 'Can only start your own assault.' });
+        if (!enforceRateLimit(req, res, 'clan-boss-assault-start', 10, 60_000, identity.admin ? hostName : identity.name)) return;
         const partyId = typeof body.partyId === 'string' ? body.partyId.trim() : '';
         if (partyId && !clanBossPartiesEnabled()) {
             return res.status(409).json({ error: 'Clan Boss parties are currently unavailable. No attempt was used.', errorCode: 'parties-unavailable' });

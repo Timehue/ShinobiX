@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, beforeEach, test } from 'node:test';
+import { drainBackgroundWork } from './_background-work.js';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext, withKvLeaseContext } from './_kv-lock-context.js';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.ADMIN_PASSWORD = 'usage-test-full';
@@ -20,6 +22,7 @@ before(async () => {
 
 let clockWindow = 0;
 beforeEach(async (context) => {
+    await drainBackgroundWork();
     if (!('mock' in context)) throw new Error('needs a per-test clock');
     context.mock.timers.enable({ apis: ['Date'], now: Date.now() + (++clockWindow) * 60_001 });
     for (const mode of usage.COMBAT_USAGE_MODES) await kv.del(usage.usageKey(mode));
@@ -121,6 +124,71 @@ test('recording accumulates, and a PvE session is counted once however often it 
     assert.deepEqual(pvp?.jutsu.fireball, { equipped: 2, used: 2, win: 1, loss: 1, draw: 0, fled: 0 });
 });
 
+test('PvP telemetry completes under its own lease after the parent callback and is drained before shutdown', async (context) => {
+    const key = usage.usageKey('pvp');
+    const originalGet = kv.get;
+    let unblock!: () => void;
+    let entered!: () => void;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    let intercepted = false;
+    context.mock.method(kv, 'get', async <T = unknown>(target: string): Promise<T | null> => {
+        if (target === key && !intercepted) {
+            intercepted = true;
+            entered();
+            await blocked;
+            const held = currentKvLockContext();
+            assert.ok(held?.leases.length);
+            assert.ok(held.leases.every((lease) => lease.key.startsWith('lock:telemetry:')));
+            assertKvLockContext();
+        }
+        return originalGet<T>(target);
+    });
+    await withKvLeaseContext('lock:save:pvp-observation', 'parent', async () => {
+        usage.recordPvpCombatUsage(pvpSession());
+        await started;
+    });
+    let drained = false;
+    const drain = drainBackgroundWork().then(() => { drained = true; });
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    assert.equal(drained, false);
+    unblock();
+    await drain;
+    assert.equal((await usage.readCombatUsage('pvp'))?.fights, 1);
+});
+
+test('combat telemetry failure cannot poison a parent authority lease or clear an existing poison', async (context) => {
+    const key = usage.usageKey('pvp');
+    const originalSet = kv.set;
+    const failure = new Error('combat telemetry storage failed');
+    let fail = true;
+    context.mock.method(kv, 'set', async (target: string, value: unknown, opts?: Parameters<typeof kv.set>[2]) => {
+        // Match the supported shared adapter's pre-operation context guard.
+        assertKvLockContext();
+        if (target === key && fail) {
+            const held = currentKvLockContext()!;
+            assert.ok(held.leases.every((lease) => lease.key.startsWith('lock:telemetry:')));
+            throw poisonKvLockContext(held, failure);
+        }
+        return originalSet(target, value, opts);
+    });
+    await withKvLeaseContext('lock:save:combat-poison', 'parent', async () => {
+        const parent = currentKvLockContext()!;
+        const fighters = usage.pvpCombatUsage(pvpSession())!.fighters;
+        await assert.rejects(usage.recordCombatUsage('pvp', fighters), (error) => error === failure);
+        assert.equal(parent.health.error, undefined);
+        assertKvLockContext();
+        await kv.set('save:combat-poison', { ryo: 50 });
+        const parentFailure = poisonKvLockContext(parent, new Error('parent currency lease lost'));
+        fail = false;
+        await usage.recordCombatUsage('pvp', fighters);
+        assert.throws(() => assertKvLockContext(), (error) => error === parentFailure);
+        await assert.rejects(kv.set('save:combat-poison', { ryo: 100 }), (error) => error === parentFailure);
+    });
+    assert.deepEqual(await kv.get('save:combat-poison'), { ryo: 50 });
+    assert.equal((await usage.readCombatUsage('pvp'))?.fights, 1);
+});
+
 test('Solo PvE records usage on the active -> done edge, after the session persists', async () => {
     // Same source-shape pin the lifecycle telemetry uses (solo-pve/_telemetry.test.ts).
     const { readFileSync } = await import('node:fs');
@@ -167,6 +235,36 @@ test('a tower run is recorded once however often its settlement replays', async 
     for (let i = 0; i < 50 && !(await usage.readCombatUsage('clan-boss')); i++) await new Promise((r) => setTimeout(r, 5));
     await new Promise((r) => setTimeout(r, 50));
     assert.equal((await usage.readCombatUsage('clan-boss'))?.fights, 1);
+});
+
+test('tower and PvE counting gates are telemetry-only jobs and survive parent completion', async (context) => {
+    const originalSet = kv.set;
+    let unblock!: () => void;
+    let entered!: () => void;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    context.mock.method(kv, 'set', async (target: string, value: unknown, opts?: Parameters<typeof kv.set>[2]) => {
+        if (target.startsWith('telemetry:combat-usage:') && target.includes('-gate:')) {
+            entered();
+            await blocked;
+            assert.equal(currentKvLockContext(), undefined, 'counting gates cannot carry a completed save lease');
+            assertKvLockContext();
+        }
+        return originalSet(target, value, opts);
+    });
+    await withKvLeaseContext('lock:save:usage-gates', 'parent', async () => {
+        usage.recordTowerCombatUsage(towerRun('squad'), 'tower');
+        usage.recordSoloPveCombatUsage({
+            sessionId: `detached-pve-${Date.now()}`, status: 'done', outcome: 'win',
+            encounter: { kind: 'generic-ai', id: 'ai-rogue' },
+            player: { character: character(['fireball']) }, enemy: { character: {} }, events: [],
+        } as unknown as SoloPveSession);
+        await started;
+    });
+    unblock();
+    await drainBackgroundWork();
+    assert.equal((await usage.readCombatUsage('tower'))?.fights, 1);
+    assert.equal((await usage.readCombatUsage('pve'))?.fights, 1);
 });
 
 test('the tower, Clan Boss, abandon and lapse edges all record usage (source pins)', async () => {

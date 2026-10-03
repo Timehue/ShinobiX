@@ -115,10 +115,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const input = req.method === 'GET' ? req.query as Record<string, unknown> : parseBody(req);
         const playerName = safeName(String(input.playerName ?? input.player ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing player.', errorCode: 'invalid-player' });
-        if (!enforceRateLimit(req, res, 'tower-party', req.method === 'GET' ? 90 : 45, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'tower-party-preauth', (req.method === 'GET' ? 90 : 45) * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only manage your own Tower party presence.' });
+        if (!enforceRateLimit(req, res, 'tower-party', req.method === 'GET' ? 90 : 45, 60_000, identity.admin ? playerName : identity.name)) return;
         res.setHeader('Cache-Control', 'private, no-store');
 
         if (req.method === 'GET') {

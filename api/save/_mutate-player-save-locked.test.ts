@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
+import { currentKvLockContext, withoutKvLeaseContext } from '../_kv-lock-context.js';
 
 /*
  * mutatePlayerSaveLocked (api/save/_mutate-player-save.ts) is mutatePlayerSave
  * for a writer that already holds the save's lock: PvP claim-rewards locks both
- * fighters' saves around its receipts and credits. withKvLock is not
- * re-entrant, so mutatePlayerSave cannot run inside that lock; the locked
- * variant runs the same read, settle, decision and exact compare-and-set
- * without taking it again.
+ * fighters' saves around its receipts and credits. The locked variant runs
+ * the same read, settle, decision and exact compare-and-set without acquiring
+ * a lock. The regular writer can also reuse an active caller lease; reentry
+ * preserves its original ownership rather than acquiring or renewing it.
  */
 
 process.env.NODE_ENV = 'test';
@@ -40,15 +41,10 @@ async function seedTired(name: string): Promise<number> {
 }
 
 describe('mutatePlayerSaveLocked', { concurrency: false }, () => {
-    it('runs under the save lock its caller already holds, where mutatePlayerSave cannot', async () => {
+    it('runs under the save lock its caller already holds', async () => {
         const name = 'lockedwriterqareentry';
         await seedTired(name);
         await withKvLock(`save:${name}`, async () => {
-            await assert.rejects(
-                saves.mutatePlayerSave(name, ({ character }) => ({ ok: true, value: null, character })),
-                (error: Error) => error.name === 'LockContendedError' || /lock/i.test(error.message),
-                'withKvLock is not re-entrant: mutatePlayerSave fails closed inside the lock',
-            );
             const out = await saves.mutatePlayerSaveLocked(name, ({ character }) => ({
                 ok: true, value: 'credited', character: { ...character, ryo: Number(character.ryo) + 5 },
             }));
@@ -59,6 +55,35 @@ describe('mutatePlayerSaveLocked', { concurrency: false }, () => {
         const stored = await kv.get<Json>(`save:${name}`);
         assert.equal((stored?.character as Json).ryo, 15);
         assert.equal(stored?._saveVersion, 5);
+    });
+
+    it('the regular writer reuses its caller lease while an independent writer remains excluded', async () => {
+        const name = 'lockedwriterqaregularreentry';
+        const lockKey = `lock:save:${name}`;
+        await seedTired(name);
+        await withKvLock(`save:${name}`, async () => {
+            const context = currentKvLockContext();
+            const owner = await kv.get<string>(lockKey);
+            assert.ok(owner);
+            const out = await saves.mutatePlayerSave(name, async ({ character }) => {
+                assert.equal(currentKvLockContext(), context);
+                assert.equal(await kv.get(lockKey), owner);
+                await assert.rejects(
+                    withoutKvLeaseContext(() => withKvLock(`save:${name}`, async () => {
+                        assert.fail('an independent writer entered the held critical section');
+                    }, { failClosed: true, maxAttempts: 1 })),
+                    (error: Error) => error.name === 'LockContendedError',
+                );
+                return { ok: true, value: 'credited', character: { ...character, ryo: Number(character.ryo) + 5 } };
+            });
+            assert.ok(out.ok, JSON.stringify(out));
+            assert.equal(out._saveVersion, 5);
+            assert.equal(await kv.get(lockKey), owner, 'the nested writer must not release or replace the outer lease');
+        }, { failClosed: true });
+        const stored = await kv.get<Json>(`save:${name}`);
+        assert.equal((stored?.character as Json).ryo, 15);
+        assert.equal(stored?._saveVersion, 5);
+        assert.equal(await kv.get(lockKey), null);
     });
 
     it('settles the idle recovery earned since the last save into the write, and carries the cursor', async () => {

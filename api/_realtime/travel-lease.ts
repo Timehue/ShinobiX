@@ -1,6 +1,8 @@
 import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
+import { runBackgroundWork } from '../_background-work.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { recordArrivalTile } from './walked-tile.js';
 import { pushSaveVersion } from './notify.js';
@@ -230,7 +232,9 @@ export async function settleTravelLease(
         // Footfall is cosmetic and best-effort: recovery of an arrival never counts
         // again. It is deliberately not gameplay progression evidence.
         if (result.value && isWildSector(lease.destinationSector)) {
-            void kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }).catch(() => undefined);
+            void withoutKvLeaseContext(() => runBackgroundWork(() =>
+                kv.incr(footfallKey(lease.destinationSector, now), { ex: FOOTFALL_TTL_SEC }),
+            )).catch(() => undefined);
         }
         return true;
     }, { failClosed: true, ...(maxAttempts === undefined ? {} : { maxAttempts }) });

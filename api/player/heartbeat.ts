@@ -135,8 +135,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const parsedBody = parseJsonBody(req.body);
     if (!parsedBody.ok) return res.status(400).json({ error: parsedBody.error });
     const bodyPeek = parsedBody.body as Record<string, unknown>;
-    const peekName: string | undefined = typeof bodyPeek?.name === 'string' ? bodyPeek.name : undefined;
-    if (!(await enforceRateLimitKv(req, res, 'heartbeat', 180, 60_000, peekName, { local: true }))) return;
+    // Unverified names must never spend another player's heartbeat quota.
+    if (!(await enforceRateLimitKv(req, res, 'heartbeat-preauth', 3600, 60_000, undefined, { local: true }))) return;
 
     try {
         const body = bodyPeek; // reuse the rate-limit peek's parse — avoids a 2nd JSON.parse on the hottest endpoint
@@ -174,6 +174,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== safeName(name)) {
             return res.status(403).json({ error: 'Cannot heartbeat as another player.' });
         }
+        if (!(await enforceRateLimitKv(req, res, 'heartbeat', 180, 60_000, identity.admin ? safeName(name) : identity.name, { local: true }))) return;
 
         // Fire-and-forget IP + browser-fingerprint capture so the admin
         // Moderation tab can link sock-puppet accounts even when the user
