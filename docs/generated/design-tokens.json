@@ -4050,6 +4050,10 @@
           {
             "source": "shinobij.client/src/styles/training-skin.css",
             "line": 253
+          },
+          {
+            "source": "shinobij.client/src/styles/village-transfer.css",
+            "line": 27
           }
         ]
       },

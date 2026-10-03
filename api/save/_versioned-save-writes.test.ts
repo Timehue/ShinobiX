@@ -332,10 +332,11 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  * elder-win credit, the currency-ledger projection, the public-index refresh,
  * and the world-crisis level-crossing observers.
  *
- * These files are being moved onto mutatePlayerSave one domain at a time
- * (docs/refactor-plan-2026-10-02.md, owner decision 2). Each count is EXACT:
- * a new raw write fails here, and so does a conversion that forgets to lower its
- * entry. Some files stay raw by design; their entries say why.
+ * Every writer that could move onto mutatePlayerSave, or mutatePlayerSaves for
+ * two saves at once, has moved (docs/refactor-plan-2026-10-02.md, owner
+ * decision 2). The files left stay raw by design, and their entries say why.
+ * Each count is EXACT: a new raw write fails here, and so does a change that
+ * forgets to lower its entry.
  */
 const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     // ── Stays raw by design ─────────────────────────────────────────────────
@@ -353,9 +354,6 @@ const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     'pet/_ranked-settlement.ts': 1,
     'pvp/_consumable-settlement.ts': 1,
     'pvp/_player-ranked-journal.ts': 1,
-
-    // ── Two players' saves in one settlement (needs a two-save design) ──────
-    'player/trade.ts': 2,
 };
 
 test('raw player-save writes only ever shrink', () => {

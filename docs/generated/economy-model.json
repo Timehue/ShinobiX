@@ -2790,10 +2790,10 @@
     },
     {
       "id": "profession-change-approval",
-      "name": "Profession change approval",
+      "name": "Profession Change Scroll",
       "rarity": "legendary",
       "slot": "item",
-      "levelReq": 13,
+      "levelReq": 20,
       "baseCost": 200,
       "currency": "fateShards"
     },

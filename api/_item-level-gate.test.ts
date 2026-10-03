@@ -73,9 +73,9 @@ describe('gear level ladder', () => {
     it('priced service documents keep their authored gate instead of inheriting a gear tier', () => {
         const approval = ITEM_CATALOG['profession-change-approval'];
         assert.ok(approval?.serviceItem);
-        assert.equal(effectiveItemLevelReq(approval), 13);
-        assert.equal(meetsItemLevelReq(approval, 12), false);
-        assert.equal(meetsItemLevelReq(approval, 13), true);
+        assert.equal(effectiveItemLevelReq(approval), 20);
+        assert.equal(meetsItemLevelReq(approval, 19), false);
+        assert.equal(meetsItemLevelReq(approval, 20), true);
     });
 
     it('fails SAFE on junk — an unreadable rarity never becomes a free pass', () => {

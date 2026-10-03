@@ -19,6 +19,7 @@ import {
     PROFESSION_CHANGE_APPROVAL_ID,
     PROFESSION_CHANGE_APPROVAL_NAME,
     PROFESSION_CHANGE_LEVEL,
+    PROFESSION_CHANGE_SCROLL_IMAGE,
 } from "../../../shared/profession-change";
 
 type LegendarySetEffect = "damagePercent" | "absorbPercent" | "lifeStealPercent" | "shield" | "reflectPercent";
@@ -178,8 +179,8 @@ export const starterItems: GameItem[] = [
         cost: PROFESSION_CHANGE_APPROVAL_COST,
         levelReq: PROFESSION_CHANGE_LEVEL,
         serviceItem: true,
-        image: "/items/item-territory-control-scroll-v1.webp",
-        description: "A sealed paper approval recognized by every profession hall. Consumed when you change professions; profession rank, XP, and mastery reset to Rank 1.",
+        image: PROFESSION_CHANGE_SCROLL_IMAGE,
+        description: "Requires level 20 and a chosen profession. Use in the Grand Marketplace to switch to either other profession. Consumes one scroll and starts the new profession at Rank 1 with 0 XP and no mastery. Previous profession progress does not carry over.",
         bonuses: {},
     },
     {

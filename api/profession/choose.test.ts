@@ -47,6 +47,86 @@ async function post(body: Record<string, unknown>): Promise<ResponseOut> {
 }
 
 describe('profession choice settlement', () => {
+    it('rejects a delayed change after switching away and back, preserving newly earned XP and the next scroll', async () => {
+        // A future stored timestamp simulates a regressed clock and forces both
+        // transitions to advance the generation without relying on wall time.
+        const generation = Date.now() + 60_000;
+        await kv.set(SAVE_KEY, { _saveVersion: 1, character: {
+            name: 'professiontester', level: 20, profession: 'vanguard', professionChosenAt: generation,
+            inventory: Array(3).fill(PROFESSION_CHANGE_APPROVAL_ID), professionXp: 10000,
+        } });
+        const originalRequest = { playerName: 'professiontester', profession: 'healer', fromProfession: 'vanguard', fromProfessionChosenAt: generation, respec: true };
+        const first = await post(originalRequest);
+        assert.equal(first.statusCode, 200);
+        const firstCharacter = first.body?.character as Record<string, unknown>;
+        assert.equal(firstCharacter.professionChosenAt, generation + 1);
+        const back = await post({ playerName: 'professiontester', profession: 'vanguard', fromProfession: 'healer', fromProfessionChosenAt: firstCharacter.professionChosenAt, respec: true });
+        assert.equal(back.statusCode, 200);
+        const current = (await kv.get(SAVE_KEY)) as { character: Record<string, unknown> };
+        assert.equal(current.character.professionChosenAt, generation + 2);
+        current.character.professionXp = 800;
+        await kv.set(SAVE_KEY, current);
+        assert.equal((await post(originalRequest)).statusCode, 409);
+        assert.deepEqual(await kv.get(SAVE_KEY), current);
+    });
+
+    it('rejects scroll use below level 20 or before the first profession choice', async () => {
+        for (const overrides of [{ level: 19, profession: 'vanguard' }, { level: 20 }, { level: 100, profession: 'invalid' }]) {
+            const save = { _saveVersion: 2, character: { name: 'professiontester', inventory: [PROFESSION_CHANGE_APPROVAL_ID], professionXp: 4000, ...overrides } };
+            await kv.set(SAVE_KEY, save);
+            const result = await post({ playerName: 'professiontester', profession: 'healer', respec: true, level: 100 });
+            assert.equal(result.statusCode, 403);
+            assert.deepEqual(await kv.get(SAVE_KEY), save);
+        }
+    });
+
+    it('allows every alternate profession at level 20 and never restores prior progression', async () => {
+        for (const from of ['healer', 'vanguard', 'petTamer']) {
+            for (const to of ['healer', 'vanguard', 'petTamer'].filter(profession => profession !== from)) {
+                const character = {
+                    name: 'professiontester', level: 20, xp: 321, profession: from, professionRank: 10,
+                    professionXp: 100000, masterySpec: { old: 3 }, fateShards: 500,
+                    inventory: [PROFESSION_CHANGE_APPROVAL_ID, 'kept', PROFESSION_CHANGE_APPROVAL_ID],
+                };
+                await kv.set(SAVE_KEY, { _saveVersion: 3, character });
+                const result = await post({ playerName: 'professiontester', profession: to, fromProfession: from, respec: true });
+                assert.equal(result.statusCode, 200);
+                const next = result.body?.character as Record<string, unknown>;
+                assert.equal(next.profession, to);
+                assert.equal(next.professionRank, 1);
+                assert.equal(next.professionXp, 0);
+                assert.deepEqual(next.masterySpec, {});
+                assert.equal(next.level, character.level);
+                assert.equal(next.xp, character.xp);
+                assert.equal(next.fateShards, character.fateShards);
+                assert.deepEqual(next.inventory, ['kept', PROFESSION_CHANGE_APPROVAL_ID]);
+                const replay = await post({ playerName: 'professiontester', profession: to, fromProfession: from, respec: true });
+                assert.equal(replay.body?.idempotent, true);
+                assert.deepEqual((replay.body?.character as Record<string, unknown>).inventory, next.inventory);
+                const returned = await post({ playerName: 'professiontester', profession: from, fromProfession: to, respec: true });
+                assert.equal(returned.statusCode, 200);
+                assert.equal((returned.body?.character as Record<string, unknown>).professionXp, 0);
+                assert.equal((returned.body?.character as Record<string, unknown>).professionRank, 1);
+            }
+        }
+    });
+
+    it('consumes exactly one stacked scroll and rejects stale or invalid destinations', async () => {
+        const save = { _saveVersion: 3, character: {
+            name: 'professiontester', level: 20, profession: 'vanguard', inventory: ['kept'],
+            itemStacks: [{ itemId: PROFESSION_CHANGE_APPROVAL_ID, count: 2 }, { itemId: 'other', count: 7 }],
+        } };
+        await kv.set(SAVE_KEY, save);
+        assert.equal((await post({ playerName: 'professiontester', profession: 'unknown', respec: true })).statusCode, 400);
+        assert.equal((await post({ playerName: 'professiontester', profession: 'healer', fromProfession: 'petTamer', respec: true })).statusCode, 409);
+        assert.deepEqual(await kv.get(SAVE_KEY), save);
+        const changed = await post({ playerName: 'professiontester', profession: 'healer', fromProfessionChosenAt: null, respec: true });
+        assert.equal(changed.statusCode, 200);
+        const next = changed.body?.character as Record<string, unknown>;
+        assert.deepEqual(next.inventory, ['kept']);
+        assert.deepEqual(next.itemStacks, [{ itemId: PROFESSION_CHANGE_APPROVAL_ID, count: 1 }, { itemId: 'other', count: 7 }]);
+    });
+
     it('is deterministic and idempotent under repeated choice requests', { concurrency: false }, async () => {
         assert.equal((await post({ playerName: 'professiontester', profession: 'vanguard' })).statusCode, 200);
         const replay = await post({ playerName: 'professiontester', profession: 'vanguard' });
