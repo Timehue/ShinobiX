@@ -8,7 +8,7 @@ import { withKvLock } from '../_lock.js';
 import { loadClanContext } from './war/_storage.js';
 import { clanLeadershipRole } from './_leadership.js';
 import { resolveClanKick, clanSlugBare } from './_kick-core.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 
 /*
  * /api/clan/kick — POST only
@@ -60,7 +60,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
 
         const clanSaveKey = `save:clan-${targetSlug}`;
-        const targetSaveKey = `save:${targetName}`;
 
         const result = await withKvLock(clanSaveKey, async () => {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
@@ -88,22 +87,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // below never happens, the player's clan is already cleared and the
             // stale members[] entry self-cleans on the next clan write. The reverse
             // order would let them re-add themselves on next load.
-            await withKvLock(targetSaveKey, async () => {
-                const targetRec = await kv.get<Record<string, unknown>>(targetSaveKey);
-                const targetChar = (targetRec?.character ?? null) as Record<string, unknown> | null;
-                if (targetRec && targetChar && clanSlugBare(String(targetChar.clan ?? '')) === targetSlug) {
-                    const nextChar: Record<string, unknown> = { ...targetChar };
-                    // Explicit JSON nulls are required here: removing the keys
-                    // from the partial object makes the save merger preserve
-                    // (and therefore resurrect) the stored clan fields.
-                    nextChar.clan = null;
-                    nextChar.clanUpgradeLevels = null;
-                    nextChar.clanDoctrine = null;
-                    nextChar.clanFounder = false;
-                    nextChar.guardQueued = false;
-                    await writeVersionedPlayerSave(targetSaveKey, targetRec, nextChar);
+            // mutatePlayerSave takes their save's lock inside this one, and it
+            // keeps the idle recovery they earned since their last save. A kicked
+            // player is rarely online to see it.
+            await mutatePlayerSave(targetName, ({ character }) => {
+                if (clanSlugBare(String(character.clan ?? '')) !== targetSlug) {
+                    return { ok: true, value: undefined, character, write: false };
                 }
-            }, { failClosed: true });
+                const nextChar: Record<string, unknown> = { ...character };
+                // Explicit JSON nulls are required here: removing the keys
+                // from the partial object makes the save merger preserve
+                // (and therefore resurrect) the stored clan fields.
+                nextChar.clan = null;
+                nextChar.clanUpgradeLevels = null;
+                nextChar.clanDoctrine = null;
+                nextChar.clanFounder = false;
+                nextChar.guardQueued = false;
+                return { ok: true, value: undefined, character: nextChar };
+            });
 
             await kv.set(clanSaveKey, {
                 ...clanRec,

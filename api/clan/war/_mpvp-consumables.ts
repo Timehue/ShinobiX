@@ -12,11 +12,10 @@
  * charge is taken exactly once no matter how many members settle or retry.
  */
 import { kv } from '../../_storage.js';
-import { withKvLock } from '../../_lock.js';
 import { safeName } from '../../_utils.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../../_settlement-receipts.js';
-import { bumpSaveVersion } from '../../save/_save-version.js';
-import { retryOnSaveVersionConflict, writeSaveProjected } from '../../save/_projected-write.js';
+import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../../save/_projected-write.js';
 import { deductUsedItems } from '../../pvp/_consumable-settlement.js';
 import type { StoredTowerPvpMatch } from '../../towers/_pvp-session.js';
 
@@ -87,28 +86,25 @@ async function chargeMember(match: StoredTowerPvpMatch, memberSlug: string): Pro
     const slug = safeName(memberSlug);
     const used = clanWar2v2ItemsUsed(match, slug);
     if (!slug || Object.keys(used).length === 0) return;
-    const saveKey = `save:${slug}`;
     const markerKey = clanWar2v2ChargedMarkerKey(match.matchId, slug);
     if (await kv.get(markerKey)) return;
-    await withKvLock(saveKey, async () => {
-        if (await kv.get(markerKey)) return;
-        const record = await kv.get<Record<string, unknown>>(saveKey);
-        const character = record?.character as Record<string, unknown> | undefined;
-        if (!record || !character) return;
+    // mutatePlayerSave also keeps the idle recovery the fighter earned since
+    // their last save. The charge moves items, never a vital, and a member
+    // whose teammate settles the match is often offline by then.
+    await mutatePlayerSave(slug, async ({ character }) => {
+        if (await kv.get(markerKey)) return { ok: true, value: undefined, character, write: false };
         const inspection = inspectSettlementReceipt(character, requestId, fingerprint);
         // A conflict means this request id was used for something else; do
         // not guess, and never double-charge on a replay.
         if (inspection.status === 'replay') await markCharged(markerKey);
-        if (inspection.status !== 'fresh') return;
+        if (inspection.status !== 'fresh') return { ok: true, value: undefined, character, write: false };
         const stamped = appendSettlementReceipt(
             deductUsedItems(character, used),
             inspection.receipts,
             { requestId, fingerprint, value: { kind: 'clan-war-2v2-consumables', matchId: match.matchId, used }, settledAt: Date.now() },
         );
-        const next = bumpSaveVersion<Record<string, unknown>>({ ...record, character: stamped });
-        await writeSaveProjected(saveKey, next, record);
-        await markCharged(markerKey);
-    }, { failClosed: true });
+        return { ok: true, value: undefined, character: stamped, afterCommit: () => markCharged(markerKey) };
+    });
 }
 
 /**

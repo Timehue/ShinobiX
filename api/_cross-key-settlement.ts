@@ -3,6 +3,7 @@ import { kv } from './_storage.js';
 import { beginDurableSettlement, cancelDurableSettlement, completeDurableSettlement, inspectSettlementReceipt as inspectSourceReceipt, settlementTransactionId, updateDurableSettlement, type DurableSettlementRecord } from './_durable-settlement.js';
 import { appendSettlementReceipt as appendPlayerReceipt, inspectSettlementReceipt as inspectPlayerReceipt, SERVER_SETTLEMENT_RECEIPT_LIMIT, type ServerSettlementReceipt } from './_settlement-receipts.js';
 import { receiptAbsenceProvable } from './_save-debit-saga.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from './save/_mutate-player-save.js';
 
 export class SettlementValidationError extends Error {
     /**
@@ -75,7 +76,12 @@ export type CrossKeySettlementOptions<S extends Record<string, unknown>> = {
     loadRecipient: () => Promise<{ record: Record<string, unknown>; character: Record<string, unknown> } | null>;
     validateRecipient: (recipient: { record: Record<string, unknown>; character: Record<string, unknown> }) => void | Promise<void>;
     creditRecipient: (character: Record<string, unknown>) => { character: Record<string, unknown>; result: Record<string, unknown> };
-    saveRecipient: (record: Record<string, unknown>, character: Record<string, unknown>) => Promise<Record<string, unknown>>;
+    /**
+     * Replaces the recipient's save write; tests inject a failing one. Leave it
+     * unset: the default is the versioned compare-and-set write, and it carries
+     * the regeneration cursor the recipient's idle recovery settled to.
+     */
+    saveRecipient?: (record: Record<string, unknown>, character: Record<string, unknown>) => Promise<Record<string, unknown>>;
     sourceReceiptField?: string;
     /** The cap debitSource applies to the source's receipt list. Every caller keeps 100. */
     sourceReceiptLimit?: number;
@@ -157,8 +163,18 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
             // stale sweep, and the debited value would be stranded unseen.
             mutationObserved = sourceState === 'replay';
 
-            const recipient = await options.loadRecipient();
-            if (!recipient) throw new SettlementValidationError(404, 'Recipient save not found.');
+            const loaded = await options.loadRecipient();
+            if (!loaded) throw new SettlementValidationError(404, 'Recipient save not found.');
+            // The recipient's idle recovery since their last save settles into
+            // the credit's write, as mutatePlayerSave does, instead of being
+            // fenced away by it. A gift's recipient is rarely the one who sent
+            // it, and is often offline. `record` stays the exact stored row the
+            // compare-and-set expects.
+            const settled = await settleIdleRecovery(kv, options.recipientKey.slice('save:'.length), {
+                ...loaded.record,
+                character: loaded.character,
+            });
+            const recipient = { record: loaded.record, character: settled.character };
             const receiptState = inspectPlayerReceipt(recipient.character, transactionId, options.fingerprint);
             if (receiptState.status === 'conflict' || receiptState.status === 'invalid') {
                 throw new SettlementValidationError(409, 'The recipient save has a conflicting settlement receipt.');
@@ -221,7 +237,13 @@ export async function settleCrossKeyTransfer<S extends Record<string, unknown>>(
                     value: credited.result,
                     settledAt: Date.now(),
                 });
-                const written = await options.saveRecipient(recipient.record, withReceipt);
+                // The credit moves no vital, so the write carries the settled
+                // cursor rather than fencing it to now.
+                const written = options.saveRecipient
+                    ? await options.saveRecipient(recipient.record, withReceipt)
+                    : (await writeVersionedPlayerSave(options.recipientKey, recipient.record, withReceipt, {}, {
+                        regenAt: carriedRegenCursor(settled.character, withReceipt, settled.regen),
+                    })).record;
                 mutationObserved = true;
                 result = { ...credited.result, ...(written._saveVersion !== undefined ? { _saveVersion: written._saveVersion } : {}) };
                 tx = { status: 'existing', record: await updateDurableSettlement(transactionId, { state: 'credit-applied', result }, { kv }) };
