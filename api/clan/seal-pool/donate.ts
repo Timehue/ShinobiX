@@ -6,7 +6,7 @@ import { safeName, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { LockContendedError, withKvLock } from '../../_lock.js';
-import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import {
     beginDurableSettlement,
     cancelDurableSettlement,
@@ -177,8 +177,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     dailyDonatedToday: donatedToday + amount,
                     dailyCap,
                 };
+                // The debit settles the idle recovery the donor earned since
+                // their last save into its write and carries the cursor, as
+                // mutatePlayerSave does, instead of fencing that recovery away.
+                const settled = await settleIdleRecovery(kv, playerName, donorRecord);
                 const nextDonor = appendPlayerReceipt({
-                    ...donor,
+                    ...settled.character,
                     honorSeals: balance - amount,
                     dailyDonatedSeals: donatedToday + amount,
                     dailyDonationDate: today,
@@ -189,7 +193,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     settledAt: Date.now(),
                 });
                 await updateDurableSettlement(transactionId, { state: 'reserved' }, { kv });
-                const written = await writeVersionedPlayerSave(saveKey, donorRecord, nextDonor);
+                const written = await writeVersionedPlayerSave(saveKey, donorRecord, nextDonor, {}, {
+                    regenAt: carriedRegenCursor(settled.character, nextDonor, settled.regen),
+                });
                 if (Number.isFinite(Number(written.record._saveVersion))) {
                     donorResult = { ...donorResult, _saveVersion: Number(written.record._saveVersion) };
                 }

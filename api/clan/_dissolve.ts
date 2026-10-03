@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { clanBareSlug, safeName } from '../_utils.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { mutatePlayerSaveLocked } from '../save/_mutate-player-save.js';
 import { releaseTerritory } from '../_territory-lifecycle.js';
 import {
     CLAN_WAR_KEY_PREFIX,
@@ -207,11 +207,15 @@ export async function dissolveClanUnderLock(
         const memberSlug = safeName(memberName);
         if (!memberSlug) continue;
         const memberKey = `save:${memberSlug}`;
-        await withKvLock(memberKey, async () => {
-            const memberRecord = await kv.get<Record<string, unknown>>(memberKey);
-            const memberCharacter = (memberRecord?.character ?? null) as Record<string, unknown> | null;
-            if (!memberRecord || !memberCharacter || clanBareSlug(String(memberCharacter.clan ?? '')) !== receipt.clanSlug) return;
-            const nextCharacter = { ...memberCharacter };
+        // The member's save lock keeps its own retry budget, so the write runs
+        // as mutatePlayerSaveLocked inside it. That keeps the idle recovery each
+        // member earned since their last save; most are offline when a clan
+        // dissolves.
+        await withKvLock(memberKey, () => mutatePlayerSaveLocked(memberSlug, ({ character }) => {
+            if (clanBareSlug(String(character.clan ?? '')) !== receipt.clanSlug) {
+                return { ok: true, value: undefined, character, write: false };
+            }
+            const nextCharacter: Record<string, unknown> = { ...character };
             // Keep explicit JSON values so mergePreservingImages sees the
             // overwrite and every storage adapter persists it. Omitting these
             // keys would make the partial-save merge restore the stored clan.
@@ -220,10 +224,16 @@ export async function dissolveClanUnderLock(
             nextCharacter.clanDoctrine = null;
             nextCharacter.clanFounder = false;
             nextCharacter.guardQueued = false;
-            await writeVersionedPlayerSave(memberKey, memberRecord, nextCharacter);
-            await kv.set(`reset-signal:${memberSlug}`, 1, { ex: 300 });
-            membersCleared += 1;
-        }, { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
+            return {
+                ok: true,
+                value: undefined,
+                character: nextCharacter,
+                afterCommit: async () => {
+                    await kv.set(`reset-signal:${memberSlug}`, 1, { ex: 300 });
+                    membersCleared += 1;
+                },
+            };
+        }), { failClosed: true, maxAttempts: 10, baseBackoffMs: 30 });
     }
 
     const complete: ClanDissolutionReceipt = { ...receipt, status: 'complete', completedAt: Date.now() };

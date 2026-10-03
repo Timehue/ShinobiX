@@ -4,11 +4,16 @@ import { settleClanExchangeTreasury } from './_settlement.js';
 import type { VercelRequest, VercelResponse } from '../../_vercel.js';
 import { kv } from '../../_storage.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
-import { withKvLock } from '../../_lock.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { cors, clanBareSlug, clanRecordKey, mergePreservingImages, safeName } from '../../_utils.js';
-import { bumpSaveVersion } from '../../save/_save-version.js';
-import { buyClanExchangeItem, CLAN_EXCHANGE_ITEMS, type ClanExchangePurchaseFailure } from '../_exchange.js';
+import { cors, clanBareSlug, clanRecordKey, safeName } from '../../_utils.js';
+import { mutatePlayerSave } from '../../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../../save/_projected-write.js';
+import {
+    buyClanExchangeItem,
+    CLAN_EXCHANGE_ITEMS,
+    type ClanExchangePurchaseFailure,
+    type ClanExchangePurchaseSuccess,
+} from '../_exchange.js';
 
 const AUDIT_LOG_PREFIX = 'audit:clan-exchange:';
 
@@ -29,37 +34,32 @@ function exchangeItemCreditsTreasury(itemId: string): boolean {
 }
 
 async function commitPlayerPurchase(args: {
-    playerSaveKey: string;
     playerName: string;
     targetSlug: string;
     clanRec: Record<string, unknown>;
     itemId: string;
     now: Date;
 }) {
-    return await withKvLock(args.playerSaveKey, async () => {
-        const playerRec = await kv.get<Record<string, unknown>>(args.playerSaveKey);
-        const character = (playerRec?.character ?? null) as Record<string, unknown> | null;
-        if (!playerRec || !character) return { ok: false as const, status: 404, error: 'Player save not found.' };
+    // An exact compare-and-set under the save lock, which also keeps the idle
+    // recovery the buyer earned since their last save.
+    const out = await mutatePlayerSave<ClanExchangePurchaseSuccess>(args.playerName, ({ character }) => {
         if (clanBareSlug(String(character.clan ?? '')) !== args.targetSlug) {
-            return { ok: false as const, status: 403, error: 'You are not a member of this clan.' };
+            return { ok: false, status: 403, error: 'You are not a member of this clan.' };
         }
 
         const result = buyClanExchangeItem({ character, clanData: args.clanRec, itemId: args.itemId, now: args.now });
         if (!result.ok) {
-            return { ok: false as const, status: FAILURE_STATUS[result.code] ?? 400, error: result.error };
+            return { ok: false, status: FAILURE_STATUS[result.code] ?? 400, error: result.error };
         }
         // A purchase, so it refuses hard — and before the write below, so the
         // clan points and the purchase latch are both untouched on refusal.
         const grew = inventoryGrowthBlock(character, result.character);
-        if (grew) return { ok: false as const, status: grew.status, error: grew.error };
-
-        const nextRecord = bumpSaveVersion({ ...playerRec, character: result.character }, { previousCharacter: character });
-        await kv.set(
-            args.playerSaveKey,
-            mergePreservingImages(nextRecord, playerRec),
-        );
-        return { ok: true as const, result, _saveVersion: Number(nextRecord._saveVersion ?? 0) };
-    }, { failClosed: true });
+        if (grew) return { ok: false, status: grew.status, error: grew.error };
+        return { ok: true, value: result, character: result.character };
+    });
+    if (!out.ok) return { ok: false as const, status: out.status, error: out.error };
+    // The character and version of the exact record committed.
+    return { ok: true as const, result: { ...out.value, character: out.character }, _saveVersion: out._saveVersion };
 }
 
 /*
@@ -95,7 +95,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const targetSlug = clanBareSlug(clan);
         if (!targetSlug) return res.status(400).json({ error: 'Invalid clan name.' });
         const clanSaveKey = clanRecordKey(clan);
-        const playerSaveKey = `save:${playerName}`;
         const purchaseNow = new Date(Date.now());
 
         const creditsTreasury = exchangeItemCreditsTreasury(itemId);
@@ -105,7 +104,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : await (async () => {
                 const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
                 if (!clanRec) return { ok: false as const, status: 404, error: 'Clan not found.' };
-                return await commitPlayerPurchase({ playerSaveKey, playerName, targetSlug, clanRec, itemId, now: purchaseNow });
+                return await commitPlayerPurchase({ playerName, targetSlug, clanRec, itemId, now: purchaseNow });
             })();
 
         if (!purchase.ok) {
@@ -143,6 +142,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             reveal: purchase.result.reveal,
         });
     } catch (err) {
+        // Another write committed to the save first. Nothing was spent, and a
+        // retry reads the new save.
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[clan/exchange/purchase]', safeLogValue(err));
         return res.status(500).json({ error: 'Internal server error.' });
     }

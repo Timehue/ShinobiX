@@ -5,7 +5,6 @@ import { cors, safeName } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { invalidateProcCache } from '../../_proc-cache.js';
-import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { crossKeyTransferReply, settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
 import { planTreasuryGift } from '../../_treasury-gift-tax.js';
 import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
@@ -316,7 +315,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 inventory.push(itemId!);
                 return { character: { ...character, inventory }, result: { itemId } };
             },
-            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientSaveKey, record, character)).record,
         });
         // The gate is held from before the check inside the settlement until
         // after the charge, so the Kage's next gift cannot read the ledger until

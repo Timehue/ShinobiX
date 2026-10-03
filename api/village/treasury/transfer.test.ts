@@ -68,6 +68,26 @@ describe('village treasury transfer settlement', () => {
         assert.ok(Number(recipient?._saveVersion) > 1, 'the recipient save was committed with a new version');
     });
 
+    it('keeps the idle recovery the recipient earned since their last save', { concurrency: false }, async () => {
+        // A gift's recipient is rarely the one who sent it, and is often
+        // offline. The credit's version write fenced their regeneration cursor
+        // to now and discarded every point of HP, chakra and stamina recovered.
+        const at = Date.now() - 30_000;
+        await kv.set(RECIPIENT_KEY, {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: { name: 'Recipient', village: 'Leaf', ryo: 10, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+        const reply = await post({ village: 'Leaf', recipientName: 'Recipient', currency: 'ryo', amount: 25, requestId: 'village-transfer-rested-01' });
+        assert.equal(reply.statusCode, 200, JSON.stringify(reply.body));
+        const saved = await kv.get<Record<string, any>>(RECIPIENT_KEY);
+        assert.equal(saved?.character.ryo, 32, 'the gift was still credited');
+        assert.ok(saved?.character.hp >= 40, `hp ${saved?.character.hp} lost the idle recovery`);
+        assert.ok(saved?.character.chakra >= 50, `chakra ${saved?.character.chakra} lost the idle recovery`);
+        assert.ok(saved?.character.stamina >= 30, `stamina ${saved?.character.stamina} lost the idle recovery`);
+        // The credit moves no vital, so the write carries the settled cursor.
+        assert.ok(Number(saved?._regenAt) >= at + 30_000 - 1_000, `cursor ${saved?._regenAt} was fenced`);
+    });
+
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {
         const originalCompareSet = kv.compareSet.bind(kv);
         let failRecipient = true;
