@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from './_storage.js';
 import { mergePreservingImages } from './_utils.js';
 import { syncCurrencyLedger } from './_currency-ledger.js';
-import { versionedPlayerRecord } from './save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, versionedPlayerRecord } from './save/_mutate-player-save.js';
 
 type FundingStore = Pick<KvLike, 'get' | 'set' | 'compareSet'>;
 
@@ -480,7 +480,7 @@ export async function abortWarDeclarationFunding<T extends Record<string, unknow
             abortedAt,
             entry?.state === 'pending' ? entry.reservedAt : abortedAt,
         );
-        const fencedRow = projectSourceEntry(sourceRow, marker.source, abortedIntent);
+        const fencedRow = projectSourceEntry(sourceRow, marker.source, abortedIntent, await settledSource(store, marker.source, sourceRow));
         try {
             if (await store.compareSet(marker.source.recordKey, sourceRow, fencedRow)) {
                 sourceFenced = true;
@@ -700,10 +700,27 @@ function sourceEntryFor(
     };
 }
 
+/** An Honor Seal holder's character with its idle recovery settled (settleIdleRecovery). */
+type SettledSource = Awaited<ReturnType<typeof settleIdleRecovery>> | null;
+
+/**
+ * The idle recovery an Honor Seal holder earned since their last save, which
+ * every write to that save settles and carries, as mutatePlayerSave does. A
+ * village pool row is not a save.
+ */
+async function settledSource(
+    store: FundingStore,
+    source: WarDeclarationFundingSource,
+    row: Record<string, unknown>,
+): Promise<SettledSource> {
+    return source.kind === 'honor-seals' ? settleIdleRecovery(store, source.accountId, row) : null;
+}
+
 function projectSourceEntry(
     current: Record<string, unknown>,
     source: WarDeclarationFundingSource,
     entry: WarDeclarationSourceEntry,
+    recovery: SettledSource,
 ): Record<string, unknown> {
     const holder = source.kind === 'honor-seals'
         ? current.character as Record<string, unknown> | null | undefined
@@ -713,20 +730,24 @@ function projectSourceEntry(
     }
     const receipts = receiptMapAt(current, source);
     const nextHolder = {
-        ...holder,
+        ...(source.kind === 'honor-seals' && recovery ? recovery.character : holder),
         [WAR_DECLARATION_FUNDING_RECEIPTS_FIELD]: {
             ...receipts,
             [receiptKey(entry.fingerprint)]: entry,
         },
     };
     if (source.kind === 'war-resources') return nextHolder;
-    return mergePreservingImages(versionedPlayerRecord(current, nextHolder).record, current) as Record<string, unknown>;
+    if (!recovery) throw new Error('war-declaration-funding-recovery-unsettled');
+    return mergePreservingImages(versionedPlayerRecord(current, nextHolder, {}, {
+        regenAt: carriedRegenCursor(recovery.character, nextHolder, recovery.regen),
+    }).record, current) as Record<string, unknown>;
 }
 
 function projectDebit(
     current: Record<string, unknown>,
     marker: WarDeclarationFundingMarker,
     debitedAt: number,
+    recovery: SettledSource,
 ): { next: Record<string, unknown>; receipt: WarDeclarationDebitReceipt } | { insufficient: number } {
     const source = marker.source;
     const holder = source.kind === 'honor-seals'
@@ -759,7 +780,7 @@ function projectDebit(
     };
     const receipts = receiptMapAt(current, source);
     const nextHolder = {
-        ...holder,
+        ...(source.kind === 'honor-seals' && recovery ? recovery.character : holder),
         [balanceField]: receipt.balanceAfter,
         [WAR_DECLARATION_FUNDING_RECEIPTS_FIELD]: {
             ...receipts,
@@ -768,7 +789,10 @@ function projectDebit(
     };
     if (source.kind === 'war-resources') return { next: nextHolder, receipt };
 
-    const versioned = versionedPlayerRecord(current, nextHolder);
+    if (!recovery) throw new Error('war-declaration-funding-recovery-unsettled');
+    const versioned = versionedPlayerRecord(current, nextHolder, {}, {
+        regenAt: carriedRegenCursor(recovery.character, nextHolder, recovery.regen),
+    });
     return {
         next: mergePreservingImages(versioned.record, current) as Record<string, unknown>,
         receipt,
@@ -812,7 +836,7 @@ async function ensureSourceIntent<T extends Record<string, unknown>>(
         // source CAS is the fencing boundary: once the new owner replaces it,
         // an old debit derived from the prior source row cannot commit.
         const pending = sourceEntryFor(marker, 'pending', reservedAt);
-        const desired = projectSourceEntry(current, marker.source, pending);
+        const desired = projectSourceEntry(current, marker.source, pending, await settledSource(store, marker.source, current));
         try {
             if (await store.compareSet(marker.source.recordKey, current, desired)) {
                 return { status: 'ready', row: desired };
@@ -868,7 +892,7 @@ export async function debitWarDeclarationFunding<T extends Record<string, unknow
             return { status: 'stale-lease' };
         }
         const current = intent.row;
-        const projection = projectDebit(current, marker, debitedAt);
+        const projection = projectDebit(current, marker, debitedAt, await settledSource(store, marker.source, current));
         if ('insufficient' in projection) {
             return { status: 'insufficient', have: projection.insufficient, cost: marker.source.amount };
         }
