@@ -7,9 +7,12 @@ import { rallyLanePosition, rallyTrack } from '../../../../shared/sunscar/rally-
 
 export function RallyAimGuide({ state }: { state: RefObject<RallyState> }) {
     const ring = useRef<THREE.Mesh>(null);
+    const lastTick = useRef(-1), lastFinished = useRef(false);
     useFrame(() => {
         if (!ring.current) return;
         const race = state.current, player = race.racers[0];
+        if (race.tick === lastTick.current && race.finished === lastFinished.current) return;
+        lastTick.current = race.tick; lastFinished.current = race.finished;
         const target = player.attackCharge >= 100 && !player.stagger ? rallyShotTarget(race, player) : undefined;
         ring.current.visible = !!target && !race.finished;
         if (!target) return;

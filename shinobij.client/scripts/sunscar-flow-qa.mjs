@@ -25,8 +25,8 @@ try {
         const bounds = await button.boundingBox(); assert.ok(bounds.x >= 0 && bounds.x + bounds.width <= 390, 'Mobile controls stay on screen'); assert.ok(bounds.height >= 44);
     }
     // Touch input is genuine DOM pointer input, not a race-state mutation.
-    await page.getByRole('button', { name: 'Steer left, A or Left Arrow' }).tap();
-    await page.getByRole('button', { name: 'Jump, Space' }).tap();
+    await page.getByRole('button', { name: 'Steer left, left stick, A or Left Arrow' }).tap();
+    await page.getByRole('button', { name: 'Jump, right trigger or Space' }).tap();
     await page.waitForTimeout(8000);
     const checkpoint = await saved(); assert.ok(checkpoint.progress.current.race.tick >= 300);
     let dropped = false;

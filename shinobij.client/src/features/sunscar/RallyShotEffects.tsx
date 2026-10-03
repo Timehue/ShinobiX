@@ -8,12 +8,15 @@ import { RALLY_TECHNIQUES } from '../../../../shared/sunscar/rally-profiles';
 /** Four pooled projectiles: no React updates or extra lights per shot. */
 export function RallyShotEffects({ state }: { state: RefObject<RallyState> }) {
     const bolts = useRef<THREE.InstancedMesh>(null);
+    const lastTick = useRef(-1), lastFinished = useRef(false);
     const instanceColors = useMemo(() => new Float32Array(4 * 3).fill(1), []);
     const dummy = useMemo(() => new THREE.Object3D(), []);
     const colors = useMemo(() => Object.fromEntries(Object.entries(RALLY_TECHNIQUES).map(([key, value]) => [key, new THREE.Color(value.color)])), []);
     useFrame(() => {
         if (!bolts.current) return;
         const race = state.current;
+        if (race.tick === lastTick.current && race.finished === lastFinished.current) return;
+        lastTick.current = race.tick; lastFinished.current = race.finished;
         bolts.current.count = race.finished ? 0 : race.shots.length;
         if (!bolts.current.count) return;
         const track = rallyTrack(race.trackId);

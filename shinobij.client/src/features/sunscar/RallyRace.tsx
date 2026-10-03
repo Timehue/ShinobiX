@@ -11,15 +11,12 @@ import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
 import { rallyFeedback } from './rally-feedback';
 import { RALLY_SHOT_PROFILES } from '../../../../shared/sunscar/rally-combat';
+import { RALLY_RENDER_KEY, rallyUsesEconomy, readRallyRenderPreference, type RallyRenderPreference } from './rally-render-mode';
+import { advanceRallyFinishPresentation, RALLY_FINISH_PRESENTATION_SECONDS } from './rally-presentation-clock';
+import './rally-render.css';
 
 const RallyCanvas = lazy(() => import('./RallyCanvas'));
-/** After the finish the canvas keeps drawing for this much presentation time:
- * the pets glide to their podium spaces, the camera pulls back, and the
- * winner plays its victory clip (the longest authored one runs 2.3 s). Then it
- * drops to on-demand rendering so an idle results screen draws nothing. The
- * time is counted the way RallyPetModel advances its clips, at most 0.05 s a
- * frame, so a device drawing under 20 fps still sees the whole clip. */
-const FINISH_SETTLE_SECONDS = 2.5;
+const RallyEconomyCanvas = lazy(() => import('./RallyEconomyCanvas'));
 function raceHud(race: RallyState) {
     const player = race.racers[0], track = rallyTrack(race.trackId);
     const section = rallySection(track, Math.max(0, player.distance));
@@ -53,15 +50,23 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const [paused, setPaused] = useState(false);
     const [error, setError] = useState('');
     const [modelError, setModelError] = useState(false);
+    const [renderGeneration, setRenderGeneration] = useState(0);
+    const [renderPreference, setRenderPreference] = useState(readRallyRenderPreference);
+    const [economy, setEconomy] = useState(() => rallyUsesEconomy(readRallyRenderPreference(), navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory));
+    const [graphicsNotice, setGraphicsNotice] = useState('');
     const [saving, setSaving] = useState(false);
     const running = useRef(false);
     const accumulator = useRef(0);
     const inputs = useRef<RallyAction[]>([]);
-    const queued = useRef<RallyAction['kind'][]>([]);
+    // A saved Burst flag has no corresponding held key/pointer in this session.
+    // Record its release as a normal input on the first resumed tick.
+    const queued = useRef<RallyAction['kind'][]>(official && initialState.racers[0].burst ? ['burst-off'] : []);
     const acknowledged = useRef(initial.tick);
     const saveBusy = useRef(false);
     const completed = useRef(false);
     const finishTime = useRef(0);
+    const presenting = useRef(false);
+    const presentationReported = useRef(false);
     const [finishSettled, setFinishSettled] = useState(false);
     const saveRef = useRef(onCheckpoint);
     const onFinishedRef = useRef(onFinished);
@@ -70,18 +75,48 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
     const [reducedMotion] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     const track = rallyTrack(initial.trackId);
     const prestige = festivalPrestige('rally', reputation);
-    useLayoutEffect(() => { running.current = started && !paused && !error && !modelError && !state.current.finished && (!official || state.current.tick - acknowledged.current < 600); });
+    useLayoutEffect(() => {
+        const active = started && ready.length >= initial.racers.length && !paused && !error && !modelError;
+        presenting.current = active && !finishSettled;
+        running.current = active && !state.current.finished && (!official || state.current.tick - acknowledged.current < 600);
+    });
+    // A replacement renderer starts its own clips from the beginning.
+    useLayoutEffect(() => { finishTime.current = 0; }, [economy, renderGeneration]);
+    // Match victory playback on actual renderer frames, capped at 50 ms. The
+    // longest clip is 2.3 s; 2.5 s also lets pets/camera settle before sleeping.
+    const onPresentationFrame = useCallback((delta: number) => {
+        const active = presenting.current && state.current.finished;
+        finishTime.current = advanceRallyFinishPresentation(finishTime.current, delta, active);
+        if (active && finishTime.current >= RALLY_FINISH_PRESENTATION_SECONDS) {
+            presenting.current = false;
+            setFinishSettled(true);
+        }
+    }, []);
     const onReady = useCallback((id: string) => setReady(old => old.includes(id) ? old : [...old, id]), []);
-    const onFail = useCallback(() => { setModelError(true); running.current = false; }, []);
+    const onEconomy = useCallback(() => { running.current = false; setReady([]); setEconomy(true); setGraphicsNotice('Battery saver graphics enabled for smoother racing.'); }, []);
+    const onFail = useCallback(() => {
+        running.current = false;
+        queued.current = ['burst-off'];
+        if (economy) { setModelError(true); return; }
+        setReady([]); setEconomy(true); setGraphicsNotice('Switched to battery saver graphics after a graphics interruption.');
+        if (started) setPaused(true);
+    }, [economy, started]);
+    function chooseGraphics(value: RallyRenderPreference) {
+        setRenderPreference(value); setModelError(false); setGraphicsNotice('');
+        const next = rallyUsesEconomy(value, navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory);
+        if (next !== economy || modelError) { running.current = false; setReady([]); }
+        if (modelError) setRenderGeneration(generation => generation + 1);
+        setEconomy(next);
+        try { localStorage.setItem(RALLY_RENDER_KEY, value); } catch { /* private mode */ }
+    }
+    const graphicsControl = <label className="rally-graphics-control">Graphics<select data-gamepad-horizontal-select="true" aria-label="Race graphics" value={renderPreference} onChange={event => chooseGraphics(event.target.value as RallyRenderPreference)}>
+        <option value="auto">Automatic</option><option value="3d">3D</option><option value="economy">Battery saver (2D)</option>
+    </select><small>{economy ? 'Battery saver active' : '3D active'}</small></label>;
     const input = useCallback((kind: RallyAction['kind']) => {
         // Releases must survive a pause or a checkpoint stall.
         if ((running.current || kind === 'burst-off') && !queued.current.includes(kind) && queued.current.length < 7) queued.current.push(kind);
     }, []);
     const advance = useCallback((delta: number) => {
-        if (state.current.finished && finishTime.current < FINISH_SETTLE_SECONDS) {
-            finishTime.current += Math.min(delta, .05);
-            if (finishTime.current >= FINISH_SETTLE_SECONDS) setFinishSettled(true);
-        }
         if (!running.current) { accumulator.current = 0; return; }
         accumulator.current += delta;
         while (accumulator.current >= 1 / RALLY_HZ && !state.current.finished) {
@@ -107,6 +142,19 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             }
         }
     }, [difficulty, official, track]);
+    // Simulation is independent of either renderer. A 5fps graphics frame no
+    // longer slows the race clock; gaps from suspension do not fast-forward it.
+    useEffect(() => {
+        if (!started || paused || error || modelError || hud.finished) return;
+        let frame = 0, previous = performance.now();
+        const tick = (now: number) => {
+            const delta = (now - previous) / 1000; previous = now;
+            if (delta > 0 && delta <= .5) advance(delta);
+            frame = requestAnimationFrame(tick);
+        };
+        frame = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(frame);
+    }, [advance, started, paused, error, modelError, hud.finished]);
     const checkpoint = useCallback(async (force = false) => {
         const race = state.current;
         if (saveBusy.current || !official || !saveRef.current || race.tick <= acknowledged.current) return;
@@ -125,6 +173,13 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             state.current = saved.tick < race.tick && !saved.finished
                 ? replayRallyCheckpoint(saved, race.tick, inputs.current, difficulty)
                 : restoreRallyRace(saved);
+            // Another device's accepted inputs can replace a predicted finish
+            // with an unfinished race. Wake rendering and the next finish clip.
+            if (!state.current.finished) {
+                finishTime.current = 0;
+                presentationReported.current = false;
+                setFinishSettled(false);
+            }
             setHud(raceHud(state.current));
             setError('');
             if (saved.finished && !completed.current) { completed.current = true; playPetSfx('victory'); onFinishedRef.current(saved); }
@@ -162,8 +217,11 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
         if (hud.finished && !official && !completed.current) { completed.current = true; playPetSfx('victory'); onFinishedRef.current(state.current); }
     }, [hud.finished, official]);
     useEffect(() => {
-        if (finishSettled || hud.finished && modelError) onPresentedRef.current?.();
-    }, [finishSettled, hud.finished, modelError]);
+        if (!presentationReported.current && hud.finished && (!official || completed.current) && (finishSettled || modelError)) {
+            presentationReported.current = true;
+            onPresentedRef.current?.();
+        }
+    }, [finishSettled, hud.finished, modelError, official, saving]);
     useEffect(() => {
         if (countdown === null) return;
         playPetSfx('command');
@@ -185,33 +243,44 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
         onExit();
     }
     return <section className="rally-race" aria-label={`${track.name} race`}>
-        <div className="rally-stage" aria-label="3D race course">
-            <PetModelBoundary onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}><RallyCanvas state={state} advance={advance} onReady={onReady} onFail={onFail} reducedMotion={reducedMotion} moving={running}
-                frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} /></Suspense></PetModelBoundary>
-            <div className="rally-hud">
-                {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
-                <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>
-                <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
-                <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
-            </div>
-            {started && !hud.playerFinished && <div className="rally-race-hints">
-                {hud.roadHint && <span className="rally-road-hint">{hud.roadHint}</span>}
-                {hud.charge >= 100 && !hud.attackBlocked && <span className={`rally-aim-hint${hud.targetId ? ' has-target' : ''}`}>Q · {hud.targetLabel}</span>}
-                <span className={`rally-event rally-event-${hud.eventKind}`} role="status" aria-live="polite">{hud.message}</span>
-            </div>}
-            {started && hud.playerFinished && <div className="rally-finish-banner" role="status"><span>Across the line</span><strong>{['1st', '2nd', '3rd', '4th'][hud.position - 1]} · {(hud.raceTime / RALLY_HZ).toFixed(2)}s</strong><small>{hud.finished ? 'Finish board ready' : 'Rivals are finishing'}</small></div>}
+        <div className="rally-hud">
+            {prestige && <span className="rally-prestige-pennant" title={prestige.cosmetic} style={{ color: prestige.color }}>✥</span>}
+            <div className="rally-position"><strong>{hud.position}<small>/4</small></strong><span>{hud.section || title}</span></div>
+            <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
+            <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
+        </div>
+        <div className="rally-stage" aria-label="Race course">
+            <PetModelBoundary key={`${economy ? 'economy' : '3d'}:${renderGeneration}`} onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}>
+                {economy ? <RallyEconomyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} reducedMotion={reducedMotion}
+                    frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />
+                    : <RallyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} onFail={onFail} onEconomy={onEconomy} allowEconomy={renderPreference !== '3d'} reducedMotion={reducedMotion} moving={running}
+                        frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />}
+            </Suspense></PetModelBoundary>
             {!started && countdown === null && <div className="rally-intro-overlay"><p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p><p className="rally-learn">Amber arrows: jump low barriers (+4 Burst). Coral crosses: steer around tall loads. Green arrows: Burst + jump into a shortcut (+7 Burst). Hold Shift for +28% pace. E uses {RALLY_TECHNIQUES[initial.racers[0].pet.element].name} once per race.</p><p className="rally-learn">Q fires a shot every 8 seconds. {RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} Look for the aiming ring. Firing slows you 10% for 0.45 seconds. Jump or steer to dodge.</p>
-                {modelError ? <p role="alert">A pet model could not load. Return to the race desk and retry; your entry is safe.</p> : <p role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}</p>}
+                {modelError ? <p role="alert">The race graphics could not load. Choose another graphics mode or return to the race desk and retry; your entry is safe.</p> : <p role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}</p>}
+                {graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}
                 <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" onClick={onExit}>Race desk</button></div>
             </div>}
             {countdown !== null && <div className="rally-countdown" role="status" aria-live="assertive">{countdown || 'GO'}</div>}
-            {(paused || error || started && modelError) && <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p><div className="sunscar-button-row">
-                <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
+            {(paused || error || started && modelError) && <div className="rally-pause-overlay"><h2>{error ? 'Race held safely' : modelError ? 'Rendering interrupted' : 'Taking a breather'}</h2><p role={error ? 'alert' : undefined}>{error || 'Your race clock is paused. Continue when you are ready.'}</p>{graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}<div className="sunscar-button-row">
+                <button onClick={() => { if (error && started) void checkpoint(true); else if (error) { setError(''); void begin(); } else setPaused(false); }} disabled={saving || modelError || ready.length < 4}>{saving ? 'Saving…' : error ? 'Retry connection' : 'Continue race'}</button>
                 <button className="sunscar-secondary" disabled={saving} onClick={() => void leave()}>Save & return</button>{error && <button className="sunscar-secondary" onClick={onExit}>Return to last saved checkpoint</button>}</div>{error && <small>Returning to the saved checkpoint discards only inputs the race desk has not confirmed.</small>}</div>}
+        </div>
+        <div className="rally-dashboard">
+            <span className="rally-warning-announcement" role="status" aria-atomic="true">{started && !hud.playerFinished ? hud.incomingLabel.split(' · ').slice(0, 2).join(' · ') : ''}</span>
+            <div className="rally-context">
+                {started && !hud.playerFinished && <div className="rally-race-hints">
+                    {hud.incomingLabel && <span className="rally-incoming-hint" aria-hidden="true">{hud.incomingLabel}</span>}
+                    {hud.roadHint && <span className="rally-road-hint">{hud.roadHint}</span>}
+                    {hud.charge >= 100 && !hud.attackBlocked && <span className={`rally-aim-hint${hud.targetId ? ' has-target' : ''}`}>Q · {hud.targetLabel}</span>}
+                    <span className={`rally-event rally-event-${hud.eventKind}`} role="status" aria-live="polite">{hud.message}</span>
+                </div>}
+                {started && hud.playerFinished && <div className="rally-finish-banner" role="status"><span>Across the line</span><strong>{['1st', '2nd', '3rd', '4th'][hud.position - 1]} · {(hud.raceTime / RALLY_HZ).toFixed(2)}s</strong><small>{hud.finished ? 'Finish board ready' : 'Rivals are finishing'}</small></div>}
+            </div>
             <div className="rally-telemetry"><span className="rally-speed">{hud.playerFinished ? 'Finished' : `${(hud.speed * 3.6).toFixed(0)} km/h`}</span><span>{hud.status}</span></div>
             <div className={`rally-stamina${hud.bursting ? ' is-active' : ''}`}><span>Burst</span><meter min={0} max={100} value={hud.stamina} aria-label="Burst stamina" /><span>{Math.ceil(hud.stamina)}%</span></div>
         </div>
-        <RallyControls input={input} disabled={!started || paused || !!error || modelError || hud.playerFinished} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} techniqueActive={hud.techniqueActive} stamina={hud.stamina}
+        <RallyControls input={input} disabled={!started || paused || !!error || modelError || hud.playerFinished || ready.length < initial.racers.length} technique={RALLY_TECHNIQUES[initial.racers[0].pet.element].name} techniqueUsed={hud.used} techniqueActive={hud.techniqueActive} stamina={hud.stamina}
             bursting={hud.bursting} attack={RALLY_ATTACK_NAMES[initial.racers[0].pet.element]} attackDescription={RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} charge={hud.charge} attackBlocked={hud.attackBlocked} />
         <p className="rally-save-note">{official ? 'Official checkpoints save during the race. Backgrounding pauses the clock.' : 'Practice is unlimited. No entry or reward is consumed.'}</p>
     </section>;

@@ -74,7 +74,7 @@ try {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Continue race' }).click();
-    const burstButton = page.getByRole('button', { name: 'Hold Burst, Shift' });
+    const burstButton = page.getByRole('button', { name: 'Hold Burst, left trigger or Shift' });
     const bounds = await burstButton.boundingBox();
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     await page.mouse.down();

@@ -68,20 +68,22 @@ function RouteScenery({ track, light }: { track: RallyTrack; light: boolean }) {
     return <>
         <instancedMesh ref={posts} args={[undefined, undefined, shapes.markers.length]}><boxGeometry /><meshStandardMaterial color={track.palette.accent} roughness={1} /></instancedMesh>
         <instancedMesh ref={pennants} args={[undefined, undefined, shapes.flags.length]}><planeGeometry args={[1, 1]} /><meshStandardMaterial color="#ffffff" side={THREE.DoubleSide} roughness={.82} /></instancedMesh>
-        <instancedMesh ref={rocks} args={[undefined, undefined, shapes.stones.length]} castShadow receiveShadow><icosahedronGeometry args={[1, 1]} /><meshStandardMaterial color={track.palette.rock} roughness={1} /></instancedMesh>
+        <instancedMesh ref={rocks} args={[undefined, undefined, shapes.stones.length]} castShadow={!light} receiveShadow={!light}><icosahedronGeometry args={[1, light ? 0 : 1]} /><meshStandardMaterial color={track.palette.rock} roughness={1} /></instancedMesh>
     </>;
 }
-function Pavilion({ x, y, z, color, yaw = 0 }: { x: number; y: number; z: number; color: string; yaw?: number }) {
+function Pavilion({ x, y, z, color, yaw = 0, light = false }: { x: number; y: number; z: number; color: string; yaw?: number; light?: boolean }) {
     return <group position={[x, y, z]} rotation={[0, yaw, 0]}>
         <mesh position={[0, .24, 0]} castShadow receiveShadow><boxGeometry args={[3.6, .32, 2.8]} /><meshStandardMaterial color="#75513d" roughness={.94} /></mesh>
-        {[-1, 1].flatMap(sx => [-1, 1].map(sz => <mesh key={`${sx}:${sz}`} position={[sx * 1.45, 1.08, sz * 1.05]} castShadow>
+        {[-1, 1].flatMap(sx => (light ? [0] : [-1, 1]).map(sz => <mesh key={`${sx}:${sz}`} position={[sx * 1.45, 1.08, sz * 1.05]} castShadow={!light}>
             <cylinderGeometry args={[.095, .14, 1.85, 8]} /><meshStandardMaterial color="#c69b67" roughness={.88} />
         </mesh>))}
-        <mesh position={[0, 1.65, 0]}><boxGeometry args={[4.1, .22, 3.35]} /><meshStandardMaterial color={color} roughness={.86} /></mesh>
+        {!light && <mesh position={[0, 1.65, 0]}><boxGeometry args={[4.1, .22, 3.35]} /><meshStandardMaterial color={color} roughness={.86} /></mesh>}
         <mesh position={[0, 2.3, 0]} rotation={[0, Math.PI / 4, 0]} castShadow><coneGeometry args={[2.75, 1.35, 4]} /><meshStandardMaterial color={color} roughness={.9} /></mesh>
-        <mesh position={[0, .92, 1.43]}><boxGeometry args={[1.5, .75, .12]} /><meshStandardMaterial color="#a7774c" roughness={.92} /></mesh>
-        <mesh position={[0, 1.17, 1.51]}><planeGeometry args={[.9, .36]} /><meshStandardMaterial color="#f4d99d" emissive="#c18b4e" emissiveIntensity={.12} side={THREE.DoubleSide} /></mesh>
-        {[-.65, .65].map(x => <mesh key={x} position={[x, 1.55, 1.45]}><sphereGeometry args={[.12, 8, 6]} /><meshStandardMaterial color="#ffd788" emissive="#e39a50" emissiveIntensity={.7} /></mesh>)}
+        {!light && <>
+            <mesh position={[0, .92, 1.43]}><boxGeometry args={[1.5, .75, .12]} /><meshStandardMaterial color="#a7774c" roughness={.92} /></mesh>
+            <mesh position={[0, 1.17, 1.51]}><planeGeometry args={[.9, .36]} /><meshStandardMaterial color="#f4d99d" emissive="#c18b4e" emissiveIntensity={.12} side={THREE.DoubleSide} /></mesh>
+            {[-.65, .65].map(x => <mesh key={x} position={[x, 1.55, 1.45]}><sphereGeometry args={[.12, 8, 6]} /><meshStandardMaterial color="#ffd788" emissive="#e39a50" emissiveIntensity={.7} /></mesh>)}
+        </>}
     </group>;
 }
 export function RallyTrackScene({ track, light }: { track: RallyTrack; light: boolean }) {
@@ -94,7 +96,9 @@ export function RallyTrackScene({ track, light }: { track: RallyTrack; light: bo
         <fog attach="fog" args={[track.palette.fog, 45, light ? 125 : 175]} />
         <hemisphereLight args={['#c9d4d8', '#806b55', 1.25]} />
         <RallyDunes track={track} light={light}/>
-        <mesh geometry={geometry} receiveShadow><meshStandardMaterial map={texture} vertexColors roughness={1} side={THREE.DoubleSide} /></mesh>
+        <mesh geometry={geometry} receiveShadow={!light}>{light
+            ? <meshLambertMaterial map={texture} vertexColors side={THREE.DoubleSide}/>
+            : <meshStandardMaterial map={texture} vertexColors roughness={1} side={THREE.DoubleSide}/>}</mesh>
         <RouteScenery track={track} light={light} />
         <RallyRouteMarkings track={track}/>
         {!light && <RallyCrowd track={track}/>}
@@ -110,14 +114,16 @@ export function RallyTrackScene({ track, light }: { track: RallyTrack; light: bo
                 </> : o.kind === 'ramp' ? <group position={[0, .18, 0]} rotation={[.22, 0, 0]}>
                     <mesh position={[0, 0, 0]} castShadow receiveShadow><boxGeometry args={[2.25, .34, 6]} /><meshStandardMaterial color="#996b43" roughness={.92} /></mesh>
                     <mesh position={[0, .19, 0]}><boxGeometry args={[1.9, .12, 5.7]} /><meshStandardMaterial color="#dfad66" roughness={.82} /></mesh>
-                    {[-2.05, -1.2, -.35, .5, 1.35, 2.2].map(z => <mesh key={z} position={[0, .26, z]}><boxGeometry args={[1.9, .045, .11]} /><meshStandardMaterial color="#f4d292" roughness={.78} /></mesh>)}
-                    {[-1, 1].map(side => <mesh key={side} position={[side * 1.06, .27, 0]}><boxGeometry args={[.14, .14, 5.85]} /><meshStandardMaterial color="#5d4935" roughness={.9} /></mesh>)}
+                    {!light && <>
+                        {[-2.05, -1.2, -.35, .5, 1.35, 2.2].map(z => <mesh key={z} position={[0, .26, z]}><boxGeometry args={[1.9, .045, .11]} /><meshStandardMaterial color="#f4d292" roughness={.78} /></mesh>)}
+                        {[-1, 1].map(side => <mesh key={side} position={[side * 1.06, .27, 0]}><boxGeometry args={[.14, .14, 5.85]} /><meshStandardMaterial color="#5d4935" roughness={.9} /></mesh>)}
+                    </>}
                 </group>
                     : o.kind === 'rock' ? <mesh position={[0, 1.7, 0]} scale={[1.1, 2, 1.3]}><dodecahedronGeometry /><meshStandardMaterial color={color} flatShading /></mesh>
                         : <>
                             <mesh position={[0, o.height / 2 + (o.kind === 'cart' ? .15 : 0), 0]} castShadow receiveShadow><boxGeometry args={[1.9, o.height - (o.kind === 'cart' ? .3 : 0), o.kind === 'cart' ? 2.4 : .45]} /><meshStandardMaterial map={cargoTexture} color={o.kind === 'cart' ? '#b98c58' : color} roughness={.9} /></mesh>
                             <mesh position={[0, o.height * .78, .24]}><boxGeometry args={[1.92, .16, .04]} /><meshStandardMaterial color="#f9d999" /></mesh>
-                            {o.kind === 'cart' && <>
+                            {o.kind === 'cart' && !light && <>
                                 {[-.9, .9].flatMap(x => [-.8, .8].map(z => <mesh key={`${x}:${z}`} position={[x, .35, z]} rotation={[0, 0, Math.PI / 2]} castShadow><cylinderGeometry args={[.35, .35, .2, 10]} /><meshStandardMaterial color="#463932" /></mesh>))}
                                 {[-.55, .55].map(x => <mesh key={x} position={[x, .95, 1.21]}><boxGeometry args={[.12, 1.3, .04]} /><meshStandardMaterial color="#5b4938" /></mesh>)}
                                 <mesh position={[0, 1.09, 1.24]} rotation={[0, 0, Math.PI / 4]}><planeGeometry args={[.34, .34]}/><meshStandardMaterial color={track.palette.accent}/></mesh>
@@ -125,17 +131,16 @@ export function RallyTrackScene({ track, light }: { track: RallyTrack; light: bo
                         </>}
             </group>;
         })}
-        {rallyPavilions(track).filter((_, i) => !light || i % 2 === 0).map((p, i) => <Pavilion key={i} x={p.x} y={p.y} z={p.z} yaw={p.yaw} color={p.accent ? track.palette.accent : '#ddb879'} />)}
+        {rallyPavilions(track).filter((_, i) => !light || i % 2 === 0).map((p, i) => <Pavilion key={i} x={p.x} y={p.y} z={p.z} yaw={p.yaw} light={light} color={p.accent ? track.palette.accent : '#ddb879'} />)}
         {[0, track.length].map(d => {
             const p = rallyPath(track, d);
-            const { half, post, tiles, tile } = rallyArch(track, d);
+            const { post } = rallyArch(track, d);
             return <group key={d} position={[p.x, p.y, p.z]}>
                 {[-post, post].map(x => <mesh key={x} position={[x, 3, 0]}><boxGeometry args={[.45, 6, .45]} /><meshStandardMaterial color="#715444" /></mesh>)}
                 <mesh position={[0, 5.5, 0]}><boxGeometry args={[post * 2 + .2, 1, .15]} /><meshStandardMaterial color={track.palette.accent} /></mesh>
-                {Array.from({ length: tiles }, (_, i) => <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[-half + tile * (i + .5), .045, 0]}><planeGeometry args={[tile, 1.7]} /><meshStandardMaterial color={i % 2 ? '#51413a' : '#f3dfb6'} /></mesh>)}
             </group>;
         })}
-        {rallyGrandstands(track).map(({ side, x, y, z }) => <group key={side} position={[x, y, z]}>
+        {!light && rallyGrandstands(track).map(({ side, x, y, z }) => <group key={side} position={[x, y, z]}>
             {[0, 1, 2].map(row => <mesh key={row} position={[side * row, row * .9 + .4, 0]}><boxGeometry args={[3, .8, 18]} /><meshStandardMaterial color="#a37652" /></mesh>)}
             <Pavilion x={side * 2} y={3} z={-8} color={track.palette.accent} />
         </group>)}

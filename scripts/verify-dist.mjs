@@ -62,6 +62,7 @@ const forbiddenClientExtensions = new Set([
 // art, leaving 4.7 MiB of headroom. JavaScript/CSS startup and product budgets
 // remain independently gated by sizecheck.
 const maxClientArtifactBytes = 528 * 1024 * 1024;
+const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
@@ -109,6 +110,16 @@ function walkFiles(dir) {
 const clientFiles = walkFiles(clientDist);
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+const rallyAtlasFiles = clientFiles.filter((file) =>
+    relative(clientDist, file).replaceAll('\\', '/').startsWith('pet-rally/'));
+if (rallyAtlasFiles.length !== 161 || rallyAtlasFiles.some((file) => !file.endsWith('.webp'))) {
+    fail('Rally must ship exactly 161 WebP atlases');
+}
+const rallyAtlasBytes = rallyAtlasFiles.reduce((bytes, file) => bytes + statSync(file).size, 0);
+if (rallyAtlasBytes > maxRallyAtlasBytes) {
+    fail(`Rally atlases use ${rallyAtlasBytes} B; ceiling is ${maxRallyAtlasBytes} B`);
+}
+console.log(`[verify:dist] Rally: ${rallyAtlasFiles.length} atlases / ${rallyAtlasBytes} B (4 MiB ceiling).`);
 // The public copy is filtered by Vite. Verify the actual artifact against the
 // approved runtime manifests, including bytes, and reject retired full GLBs.
 const petLodManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-lod', 'manifest.json'), 'utf8'));
