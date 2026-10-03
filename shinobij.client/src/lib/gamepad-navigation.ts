@@ -273,8 +273,12 @@ export function installGamepadNavigation(): () => void {
         }
     };
 
+    const readGamepads = () => {
+        try { return navigator.getGamepads(); }
+        catch { return []; } // Privacy denial sleeps polling until focus/connection retries.
+    };
     const hasStandardGamepad = () =>
-        navigator.getGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard');
+        readGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard');
 
     const syncConnection = () => {
         const connected = hasStandardGamepad();
@@ -299,7 +303,7 @@ export function installGamepadNavigation(): () => void {
             return;
         }
         let anyConnected = false;
-        for (const gamepad of navigator.getGamepads()) {
+        for (const gamepad of readGamepads()) {
             if (!gamepad?.connected || gamepad.mapping !== 'standard') continue;
             anyConnected = true;
             const modal = activeModal();

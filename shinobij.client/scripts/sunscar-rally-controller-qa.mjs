@@ -8,9 +8,11 @@ import assert from 'node:assert/strict';
 // screens, CSS, API fixtures, production data, or a running QA server.
 const client = fileURLToPath(new URL('../', import.meta.url));
 const out = new URL('../../.tmp/rally-controller-qa/', import.meta.url);
-const source = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
-assert.match(source, /import\('\.\/lib\/gamepad-navigation\.ts'\)/);
-assert.match(source, /installGamepadNavigation\(\)/);
+const sessionSource = await readFile(new URL('../src/features/sunscar/RallySession.tsx', import.meta.url), 'utf8');
+assert.match(sessionSource, /import.*useRallyGamepadNavigation.*use-rally-gamepad-navigation/);
+assert.match(sessionSource, /useRallyGamepadNavigation\(\)/);
+const mainSource = await readFile(new URL('../src/main.tsx', import.meta.url), 'utf8');
+assert.doesNotMatch(mainSource, /gamepad-navigation/, 'controller runtime stays outside the eager startup entry');
 const raceSource = await readFile(new URL('../src/features/sunscar/RallyRace.tsx', import.meta.url), 'utf8');
 assert.ok(raceSource.includes('data-gamepad-horizontal-select="true"'), 'actual race graphics select permits vertical focus navigation');
 const fixture = `
@@ -18,14 +20,18 @@ import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import { RallyControls } from './src/features/sunscar/RallyControls';
-import { installGamepadNavigation } from './src/lib/gamepad-navigation';
+import { useRallyGamepadNavigation } from './src/features/sunscar/use-rally-gamepad-navigation';
 window.controllerActions = [];
 const input = kind => window.controllerActions.push(kind);
 const root = createRoot(document.getElementById('root'));
 let settings = { disabled: false, techniqueUsed: false, mounted: true };
+function ControllerRoute(props) {
+    useRallyGamepadNavigation();
+    return React.createElement(RallyControls, props);
+}
 window.showControllerControls = update => {
     settings = { ...settings, ...update };
-    flushSync(() => root.render(settings.mounted ? React.createElement(RallyControls, {
+    flushSync(() => root.render(settings.mounted ? React.createElement(ControllerRoute, {
         input, disabled: settings.disabled, technique: 'Heat Burst',
         techniqueUsed: settings.techniqueUsed, techniqueActive: false, stamina: 100,
         bursting: false, attack: 'Ember Shot', attackDescription: 'Race projectile',
@@ -33,7 +39,7 @@ window.showControllerControls = update => {
     }) : React.createElement('button', null, 'Race desk')));
 };
 window.showControllerControls({});
-window.stopControllerNavigation = installGamepadNavigation();
+
 `;
 const bundle = buildSync({ stdin: { contents: fixture, resolveDir: client, loader: 'jsx' },
     bundle: true, format: 'iife', jsx: 'automatic', write: false, define: { 'process.env.NODE_ENV': '"production"' } }).outputFiles[0]?.text;
@@ -52,7 +58,8 @@ try {
         window.controllerPads = [pad];
         window.controllerKeys = [];
         window.controllerVisible = true;
-        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => window.controllerPads });
+        window.controllerPrivacyDenied = false;
+        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => { if (window.controllerPrivacyDenied) throw new Error('QA Gamepad API privacy denial'); return window.controllerPads; } });
         Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => window.controllerVisible ? 'visible' : 'hidden' });
         const pending = new Set(), raf = window.requestAnimationFrame.bind(window), cancel = window.cancelAnimationFrame.bind(window);
         window.requestAnimationFrame = callback => { const id = raf(now => { pending.delete(id); callback(now); }); pending.add(id); return id; };
@@ -184,6 +191,15 @@ try {
     await page.evaluate(() => document.getElementById('controller-graphics').remove());
     report.checks.push('race graphics source and browser select use horizontal mode choice; D-pad up/down exits to other controls');
 
+    await page.evaluate(() => { window.controllerPrivacyDenied = true; window.dispatchEvent(new Event('focus')); });
+    assert.equal(await page.evaluate(() => window.controllerPendingFrames()), 0, 'privacy denial cancels active polling safely');
+    assert.equal(await page.locator('html').getAttribute('data-gamepad-connected'), null);
+    await page.evaluate(() => { window.controllerPrivacyDenied = false; window.dispatchEvent(new Event('focus')); });
+    await frame();
+    assert.equal(await page.evaluate(() => window.controllerPendingFrames()), 1, 'focus retries the privacy API with one polling loop');
+    assert.equal(await page.locator('html').getAttribute('data-gamepad-connected'), 'true');
+    report.checks.push('route mapper catches privacy API denial and retries safely on focus');
+
     await updatePad({ axis: -1, buttons: { 6: true } });
     const keysAtExit = await page.evaluate(() => window.controllerKeys.length);
     await page.evaluate(() => window.showControllerControls({ mounted: false }));
@@ -195,10 +211,15 @@ try {
     await updatePad({ axis: 0, buttons: { 6: false } });
     await updatePad({ axis: 1, buttons: { 2: true, 3: true, 7: true, 6: true } });
     assert.deepEqual(await actions(), afterExit, 'exited Rally receives no controller gameplay inputs');
-    await page.evaluate(() => window.stopControllerNavigation());
+    await page.evaluate(() => {
+        // A route discarded before its asynchronous import resolves owns no mapper.
+        window.showControllerControls({ mounted: true });
+        window.showControllerControls({ mounted: false });
+    });
+    await frame();
     assert.equal(await page.evaluate(() => window.controllerPendingFrames()), 0);
     assert.equal(await page.locator('html').getAttribute('data-gamepad-connected'), null);
-    report.checks.push('mode exit releases held movement/Burst and stops Rally actions; mapper teardown leaves zero RAF');
+    report.checks.push('actual Rally route hook releases keys on exit; asynchronous mount/unmount leaves zero mapper RAF');
     assert.deepEqual(report.errors, []);
     console.log(JSON.stringify({ passed: report.checks.length, checks: report.checks, errors: report.errors }, null, 2));
 } catch (error) {

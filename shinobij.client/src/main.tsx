@@ -54,33 +54,6 @@ const CinematicVnPreview = qaPreviewsEnabled
 
 initSentry()
 applyLiteFxClass()
-// Keep the controller runtime off the startup graph for touch/mouse players.
-// Gamepad connection is exposed by the browser as devices are connected, and
-// the current list handles controllers already present when the game launches.
-let gamepadNavigationLoading = false
-function enableGamepadNavigation() {
-    if (gamepadNavigationLoading) return
-    gamepadNavigationLoading = true
-    void import('./lib/gamepad-navigation.ts')
-        .then(({ installGamepadNavigation }) => installGamepadNavigation())
-        .catch(() => { gamepadNavigationLoading = false })
-}
-function enableGamepadNavigationIfConnected() {
-    try {
-        if (typeof navigator.getGamepads === 'function'
-            && navigator.getGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard')) {
-            enableGamepadNavigation()
-        }
-    } catch { /* Browser privacy settings can deny Gamepad API access. */ }
-}
-window.addEventListener('gamepadconnected', (event) => {
-    if ((event as GamepadEvent).gamepad?.mapping === 'standard') enableGamepadNavigation()
-})
-window.addEventListener('focus', enableGamepadNavigationIfConnected)
-document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') enableGamepadNavigationIfConnected()
-})
-enableGamepadNavigationIfConnected()
 registerAssetServiceWorker()
 
 // Legal/policy URLs (/privacy, /terms, /cookies, …) render the policy directly,
