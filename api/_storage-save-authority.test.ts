@@ -370,6 +370,28 @@ test('Standing Court archived receipts cannot reuse a missing pgKv snapshot from
         'local set/readback must not repopulate the authority cache either');
 });
 
+test('player trade markers, pending pointers and journals are read from shared storage on every worker', async () => {
+    // A retry, the admin reconcile and the recovery sweep each finish a trade
+    // from these under both save locks (api/player/_trade-settlement.ts). A
+    // worker-local pending marker that another worker has since released, or a
+    // journal it has since completed, would make this one finish it again.
+    for (const key of [
+        'trade:nonce:cache-race-sender:ryo-1-abc',
+        'trade:pending:player-trade:0123456789abcdef',
+        'economy-tx:player-trade:0123456789abcdef',
+    ]) {
+        await workerA._pgKvForTest.set(key, { revision: 1 });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
+        const readsBeforeRemoteWrite = selectCount.get(key) ?? 0;
+        settleInOtherProcess(key, { revision: 2 });
+
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 2 },
+            `${key} must observe the other worker's committed trade state`);
+        assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteWrite,
+            `${key} must re-read Postgres instead of serving a process-local snapshot`);
+    }
+});
+
 test('mentor records, discovery pointers and student markers are read from shared storage on every worker', async () => {
     // Pending mentor settlements live in `clan-mentor:<sensei>` and are only
     // replaced by exact CAS; a worker-local snapshot would hide another
