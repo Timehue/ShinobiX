@@ -72,7 +72,10 @@ const ECHOES_VERSION = new Set([
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
     'missions/report-raid.ts',
-    'pet/battle-result.ts',
+    // pet/battle-result.ts now commits every result, casual and ranked, through
+    // mutatePlayerSave or mutatePlayerSaves and names no BUMP_MARKER, so the
+    // "every mutatePlayerSave route acknowledges the committed version" test
+    // below covers it.
     'pet/showdown.ts',
     // player/_cross-heal-settlement.ts now commits both saves through
     // mutatePlayerSaves and names no BUMP_MARKER. It still returns the healer's
@@ -118,10 +121,10 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     'hollow-gate/settle.ts',
     'hollow-gate/use-consumable.ts',
     'missions/report-raid.ts',
-    // Ranked/base settlement moved behind writeVersionedPlayerSave, so this route
-    // no longer names a BUMP_MARKER itself. It still bumps — that helper builds a
-    // versionedPlayerRecord and commits it with compareSet — and it still rereads
-    // and echoes the authenticated caller's final `_saveVersion`.
+    // Each ranked, base and war-ground credit commits through
+    // mutatePlayerSaveLocked, under the save locks the route already holds, so
+    // this route names no BUMP_MARKER itself. It still bumps, and it still
+    // rereads and echoes the authenticated caller's final `_saveVersion`.
     'pvp/claim-rewards.ts',
     // Mentor milestone payouts moved into clan/_mentor-settlement.ts, which
     // credits each save through mutatePlayerSave (exact-CAS versioned writer).

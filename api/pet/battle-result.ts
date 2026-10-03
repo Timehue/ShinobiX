@@ -5,7 +5,6 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { resolveRankedPetDuel } from './_ranked-duel.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
@@ -19,8 +18,8 @@ import {
     type RitePlan,
 } from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
-import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
-import { mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
+import { mutatePlayerSave, mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -946,32 +945,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // short battle token is retired, so a lost response can replay safely.
         if (dungeonPetBinding && casualBattleTokenKey) {
             try {
-                const dungeonResult = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    if (!record) return { ok: false as const, status: 404, error: 'Your save is unavailable.' };
-                    const character = characterFromSave(record);
-                    if (!character) return { ok: false as const, status: 404, error: 'Your character is unavailable.' };
-                    const terminal = applyDungeonPetTerminal({
-                        character,
-                        dungeonRunToken: dungeonPetBinding!.runToken,
-                        proofId: battleToken,
-                        outcome: outcome!,
-                        petIds: casualPetIds,
-                    });
-                    if (!terminal.ok) return { ok: false as const, status: 409, error: terminal.error };
-
-                    let finalRecord = record;
-                    let finalCharacter = terminal.character;
-                    if (!terminal.alreadyApplied) {
-                        finalCharacter = spendSealedCasualConsumables(
-                            terminal.character,
-                            casualPetIds,
-                            casualPvePlayerPets,
-                        );
-                        finalRecord = bumpSaveVersion({ ...record, character: finalCharacter });
-                        await writeSaveProjected(saveKey, finalRecord, record);
-                    }
-
+                // Sealed under the save lock, after the terminal write when there
+                // is one, so a lost response can replay from it.
+                const sealDungeonReceipt = async (): Promise<void> => {
                     const receipt: DungeonPetResultReceipt = {
                         ...dungeonPetBinding!,
                         playerName,
@@ -994,14 +970,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         || JSON.stringify(durable.playerPetIds) !== JSON.stringify(casualPetIds)) {
                         throw new Error('Dungeon pet result receipt did not become durable.');
                     }
+                };
+                // mutatePlayerSave settles the idle recovery earned since the last
+                // save into the terminal write, which a raw write discarded.
+                const dungeonResult = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character }) => {
+                    const terminal = applyDungeonPetTerminal({
+                        character,
+                        dungeonRunToken: dungeonPetBinding!.runToken,
+                        proofId: battleToken,
+                        outcome: outcome!,
+                        petIds: casualPetIds,
+                    });
+                    if (!terminal.ok) return { ok: false, status: 409, error: terminal.error };
+                    if (terminal.alreadyApplied) {
+                        await sealDungeonReceipt();
+                        return { ok: true, value: null, character: terminal.character, write: false };
+                    }
                     return {
-                        ok: true as const,
-                        character: finalCharacter,
-                        _saveVersion: Number(finalRecord._saveVersion ?? record._saveVersion ?? 0),
+                        ok: true,
+                        value: null,
+                        character: spendSealedCasualConsumables(
+                            terminal.character,
+                            casualPetIds,
+                            casualPvePlayerPets,
+                        ),
+                        afterCommit: sealDungeonReceipt,
                     };
-                }, { failClosed: true }));
+                }));
                 if (!dungeonResult.ok) {
-                    return res.status(dungeonResult.status).json({ error: dungeonResult.error });
+                    const error = dungeonResult.code === 'save-not-found' ? 'Your save is unavailable.'
+                        : dungeonResult.code === 'character-not-found' ? 'Your character is unavailable.'
+                            : dungeonResult.error;
+                    return res.status(dungeonResult.status).json({ error });
                 }
                 await releaseCasualBattle();
                 return res.status(200).json({
@@ -1450,18 +1450,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
          }
 
-        // Apply under a per-player lock so simultaneous result POSTs (e.g.
-        // double-clicked Confirm) can't both award ryo + increment counters.
-        // A lost commit race re-runs the whole block once: it re-reads the save,
-        // and the token receipt keeps the re-run from paying twice.
-        const result = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            if (!record) return { error: 'no-save' as const };
-            const char = record.character as Record<string, unknown> | undefined;
-            if (!char) return { error: 'no-character' as const };
-            // Never mutate `record`/`char`: the writes below commit with
-            // compare-and-set against `record`, so an in-place change would make
-            // the stored row never match and every report would fail.
+        // mutatePlayerSave applies this under the player's save lock, so
+        // simultaneous result POSTs (e.g. double-clicked Confirm) can't both
+        // award ryo + increment counters, and settles the idle recovery earned
+        // since the last save into the write, which a raw write discarded. A
+        // lost commit race re-runs the whole block once: it re-reads the save,
+        // and the token receipt keeps the re-run from paying twice. Each branch
+        // decides its reply; the committed version and character join it below.
+        const settled = await retryOnSaveVersionConflict(() => mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character: char }) => {
             let receiptChar: Record<string, unknown> = char;
             if (casualBattleTokenKey) {
                 const receipts = Array.isArray(char.redeemedPetBattleTokens)
@@ -1482,17 +1478,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const replayReceipt = petWitnessReceiptForSettlement(char, `pet-casual:${casualBattleReceipt}`);
                     return {
                         ok: true,
-                        reward: 0,
-                        reason: 'invalid-or-spent-pet-battle-token',
-                        totalPetWins: Number(char.totalPetWins ?? 0),
-                        dailyPetWins: Number(char.dailyPetWins ?? 0),
-                        balances: { ryo: Number(char.ryo ?? 0) },
-                        chronicleCards: replayReceipt.granted,
-                        witnessedPets: replayReceipt.witnessed,
-                        livingWitnessProgress: replayReceipt.livingWitnessProgress,
-                        progressionEligible: paidMarker?.legacyApplied !== true && Boolean(paidMarker),
-                        _saveVersion: Number(record._saveVersion ?? 0),
+                        value: {
+                            ok: true,
+                            reward: 0,
+                            reason: 'invalid-or-spent-pet-battle-token',
+                            totalPetWins: Number(char.totalPetWins ?? 0),
+                            dailyPetWins: Number(char.dailyPetWins ?? 0),
+                            balances: { ryo: Number(char.ryo ?? 0) },
+                            chronicleCards: replayReceipt.granted,
+                            witnessedPets: replayReceipt.witnessed,
+                            livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                            progressionEligible: paidMarker?.legacyApplied !== true && Boolean(paidMarker),
+                        },
                         character: char,
+                        write: false,
                     };
                 }
                 receiptChar = { ...char, redeemedPetBattleTokens: [...receipts, casualBattleReceipt] };
@@ -1508,18 +1507,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // currently store losses anywhere — return ok so the client UI
             // can show "recorded" instead of silently no-op'ing.
             if (outcome === 'loss' || outcome === 'draw') {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome,
-                    reward: 0,
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins,
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome,
+                        reward: 0,
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins,
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1528,22 +1527,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // but cannot touch ryo, the daily/lifetime counters, Living Witness,
             // achievements/quests, or Legacy pet-duel progression.
             if (!paidProgressionEligible) {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome: 'win' as const,
-                    reward: 0,
-                    reason: 'casual-sparring',
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins: Number(char.dailyPetWins ?? 0),
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    chronicleCards: [],
-                    witnessedPets: [],
-                    livingWitnessProgress: [],
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome: 'win' as const,
+                        reward: 0,
+                        reason: 'casual-sparring',
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins: Number(char.dailyPetWins ?? 0),
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                        chronicleCards: [],
+                        witnessedPets: [],
+                        livingWitnessProgress: [],
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1551,22 +1550,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // currency. A capped win cannot farm leaderboard/achievement/quest
             // counters, Living Witness, Chronicle cards, or Legacy receipts.
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome: 'win' as const,
-                    reward: 0,
-                    capped: true,
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins,
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    chronicleCards: [],
-                    witnessedPets: [],
-                    livingWitnessProgress: [],
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome: 'win' as const,
+                        reward: 0,
+                        capped: true,
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins,
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                        chronicleCards: [],
+                        witnessedPets: [],
+                        livingWitnessProgress: [],
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1589,46 +1588,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 casualPvePlayerPets ?? undefined,
             );
             const updatedChar = witness.character;
-            const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
-            await writeSaveProjected(saveKey, updated, record);
-            if (casualBattleTokenKey) {
-                // AFTER the paying write, never before: a failed key write must
-                // not be able to swallow a reward the player earned. Until it
-                // lands the array receipt is still covering, and it is covering
-                // for a full day of wins. Only the paying branch needs it — the
-                // loss/draw and capped branches move no currency.
-                //
-                // It is also written BEFORE the token is released: while the
-                // token still exists a re-report is possible, and the durable
-                // receipt is what refuses it.
-                await kv.set(
-                    paidReceiptKey(playerName, casualBattleReceipt),
-                    { at: Date.now(), legacyApplied: false },
-                    { nx: true, ex: PAID_RECEIPT_TTL_SECONDS },
-                )
-                    .catch(() => undefined);
-            }
-            await releaseCasualBattle();
             return {
                 ok: true,
-                outcome: 'win' as const,
-                reward,
-                progressionEligible: true,
-                totalPetWins: updatedChar.totalPetWins,
-                dailyPetWins: updatedChar.dailyPetWins,
-                balances: { ryo: Number(updatedChar.ryo) },
-                chronicleCards: witness.granted,
-                witnessedPets: witness.witnessed,
-                livingWitnessProgress: witness.livingWitnessProgress,
-                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                value: {
+                    ok: true,
+                    outcome: 'win' as const,
+                    reward,
+                    progressionEligible: true,
+                    totalPetWins: updatedChar.totalPetWins,
+                    dailyPetWins: updatedChar.dailyPetWins,
+                    balances: { ryo: Number(updatedChar.ryo) },
+                    chronicleCards: witness.granted,
+                    witnessedPets: witness.witnessed,
+                    livingWitnessProgress: witness.livingWitnessProgress,
+                },
                 character: updatedChar,
+                afterCommit: async () => {
+                    if (casualBattleTokenKey) {
+                        // AFTER the paying write, never before: a failed key write must
+                        // not be able to swallow a reward the player earned. Until it
+                        // lands the array receipt is still covering, and it is covering
+                        // for a full day of wins. Only the paying branch needs it — the
+                        // loss/draw and capped branches move no currency.
+                        //
+                        // It is also written BEFORE the token is released: while the
+                        // token still exists a re-report is possible, and the durable
+                        // receipt is what refuses it.
+                        await kv.set(
+                            paidReceiptKey(playerName, casualBattleReceipt),
+                            { at: Date.now(), legacyApplied: false },
+                            { nx: true, ex: PAID_RECEIPT_TTL_SECONDS },
+                        )
+                            .catch(() => undefined);
+                    }
+                    await releaseCasualBattle();
+                },
             };
-        }, { failClosed: true }));
+        }));
 
-        if ('error' in result) {
-            const code = result.error === 'no-save' || result.error === 'no-character' ? 404 : 500;
-            return res.status(code).json({ error: result.error });
+        if (!settled.ok) {
+            const code = settled.code === 'save-not-found' ? 'no-save'
+                : settled.code === 'character-not-found' ? 'no-character'
+                    : settled.error;
+            return res.status(settled.status === 404 ? 404 : 500).json({ error: code });
         }
+        const result: Record<string, unknown> = {
+            ...settled.value,
+            _saveVersion: settled._saveVersion,
+            character: settled.character,
+        };
         if (outcome === 'win' && battleToken && result.progressionEligible === true) {
             const legacyDelivered = await bumpLegacyStats(
                 playerName,

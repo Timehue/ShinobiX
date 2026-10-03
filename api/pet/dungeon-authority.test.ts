@@ -270,6 +270,42 @@ describe('Dungeon Rare Beast server authority', () => {
         }
     });
 
+    it('keeps the idle recovery the player earned since their last save', async () => {
+        // The terminal write is a save write. A raw one fenced the regeneration
+        // cursor and erased the HP, chakra and stamina recovered since the last
+        // save. Re-seed a tired save after the start, so whatever recovery the
+        // committed save holds came from the result's own write.
+        const playerName = 'dungeonpetregenprobe';
+        const runToken = 'dungeonpetregen01';
+        const authToken = issuePlayerToken(playerName)!;
+        await installSave(playerName, runToken);
+        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.4.4');
+        assert.equal(started.statusCode, 200);
+        const at = Date.now() - 30_000;
+        const current = (await kv.get<Record<string, unknown>>(`save:${playerName}`))!;
+        await kv.set(`save:${playerName}`, {
+            ...current,
+            _saveAt: at,
+            _regenAt: at,
+            character: {
+                ...(current.character as Record<string, unknown>),
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+            },
+        });
+
+        const settled = await reportDungeonBattle(playerName, authToken, started, '127.0.4.5');
+        assert.equal(settled.statusCode, 200, JSON.stringify(settled.body));
+        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const character = save?.character as Record<string, unknown>;
+        assert.equal((character.activeDungeonRun as Record<string, unknown>).petDefeated, true, 'the terminal still landed');
+        for (const [where, shown] of [['committed save', character], ['reply', settled.body?.character]] as Array<[string, Record<string, unknown> | undefined]>) {
+            assert.ok(Number(shown?.hp) >= 40, `${where}: hp ${shown?.hp} lost the idle recovery`);
+            assert.ok(Number(shown?.chakra) >= 50, `${where}: chakra ${shown?.chakra} lost the idle recovery`);
+            assert.ok(Number(shown?.stamina) >= 30, `${where}: stamina ${shown?.stamina} lost the idle recovery`);
+        }
+        assert.equal(settled.body?._saveVersion, save?._saveVersion);
+    });
+
     it('settles concurrent reports once and retains the token across a result-receipt outage', async () => {
         const concurrentPlayer = 'dungeonpetconcurrent';
         const concurrentRun = 'dungeonpetconcur01';

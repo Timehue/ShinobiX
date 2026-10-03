@@ -836,6 +836,81 @@ test('a ranked result keeps the idle recovery both players earned since their la
     }
 });
 
+test('a casual result keeps the idle recovery the player earned since their last save', async () => {
+    // Every arena result is a save write. The raw one fenced the regeneration
+    // cursor and erased the HP, chakra and stamina recovered since the
+    // player's last save, so each win set their bars back.
+    const playerName = 'casualregenprobe';
+    const auth = await import('../_auth.js');
+    const playerToken = auth.issuePlayerToken(playerName)!;
+    const kickoffPet = {
+        id: 'regen-casual-pet', name: 'River Guardian', element: 'Water', rarity: 'rare', level: 40, xp: 0, maxLevel: 100,
+        hp: 10_000, attack: 10_000, defense: 10_000, speed: 200,
+        jutsus: [{ name: 'Tidal Verdict', power: 500, cooldown: 1, currentCooldown: 0, kind: 'damage' }],
+        unlockedForPve: true,
+    };
+    const at = Date.now() - 30_000;
+    await kv.set(`save:${playerName}`, {
+        _saveVersion: 1, _saveAt: at, _regenAt: at,
+        character: {
+            name: playerName, level: 40, ryo: 0, professionRank: 0,
+            starterCardsClaimed: true, tileCards: [], pets: [kickoffPet],
+            hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+        },
+    });
+    const [{ createCasualPveBattleSeal }, { replayCasualPetDuel }, { SERVER_ARENA_PETS }] = await Promise.all([
+        import('./_casual-pve-seal.js'),
+        import('./_duel-replay.js'),
+        import('./_arena-ai.js'),
+    ]);
+    const aiPet = SERVER_ARENA_PETS['generic-ai-pet-sparrow'];
+    const battleConfig = {
+        mode: '1v1' as const, seed: 73, damageMult: 1, hpMult: 1,
+        revive: false, applyItems: true, accuracy: true, terrain: null,
+    };
+    const casualPveSeal = createCasualPveBattleSeal([kickoffPet] as never, [aiPet], battleConfig);
+    const battleToken = 'CasualRegenReceipt01';
+    const authoritativeOutcome = replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, battleConfig, []).outcome;
+    assert.equal(authoritativeOutcome, 'win');
+    await kv.set(`pet:battle-token:${playerName}:${battleToken}`, {
+        playerName,
+        reportKey: `pet:${battleToken}`,
+        seed: battleConfig.seed,
+        opponentLevel: aiPet.level,
+        rewardRyo: 20,
+        playerPetIds: [kickoffPet.id],
+        opponentPetIds: [aiPet.id],
+        sealedParams: battleConfig,
+        casualPveSeal,
+        authoritativeOutcome,
+        mode: '1v1',
+    }, { ex: 15 * 60 });
+    await kv.set(`pet:battle-active:${playerName}`, battleToken, { ex: 15 * 60 });
+
+    const settled = response();
+    await resultHandler(request({
+        playerName,
+        outcome: 'win',
+        reportKey: `pet:${battleToken}`,
+        battleToken,
+        inputLog: [],
+    }, playerToken, '127.0.0.33'), settled.res);
+    assert.equal(settled.out.statusCode, 200, JSON.stringify(settled.out.body));
+    assert.equal(settled.out.body?.reward, 20, 'the win still paid');
+    const stored = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+    assert.equal(Number((stored?.character as Record<string, unknown>).ryo), 20);
+    for (const [where, character] of [
+        ['committed save', stored?.character],
+        ['reply', settled.out.body?.character],
+    ] as Array<[string, Record<string, unknown> | undefined]>) {
+        assert.ok(Number(character?.hp) >= 40, `${where}: hp ${character?.hp} lost the idle recovery`);
+        assert.ok(Number(character?.chakra) >= 50, `${where}: chakra ${character?.chakra} lost the idle recovery`);
+        assert.ok(Number(character?.stamina) >= 30, `${where}: stamina ${character?.stamina} lost the idle recovery`);
+    }
+    assert.equal(settled.out.body?._saveVersion, stored?._saveVersion, 'the reply carries the committed version');
+    assert.equal(await kv.get(`pet:battle-token:${playerName}:${battleToken}`), null, 'the proof was spent');
+});
+
 /*
  * The stalemate case: two mirror-image pets that cannot hurt each other. The
  * retired engine timed these out into a DRAW, and this test used to assert the
