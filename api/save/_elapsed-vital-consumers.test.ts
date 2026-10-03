@@ -96,9 +96,14 @@ after(async () => {
 });
 
 describe('durable elapsed vitals across raw-save consumers', { concurrency: false }, () => {
-    it('training start debits the stamina projected by the preceding owner settlement', async () => {
+    it('training start debits the stamina projected by the preceding owner settlement', async (t) => {
         const playerName = `${TEST_PREFIX}training`;
-        const settled = await seedAndSettle(playerName, Date.now());
+        // Stop the clock between the two consumers, as the bank case below
+        // does: training start settles idle recovery again with its own
+        // Date.now(), and a second passing in between would credit a tick.
+        const now = Date.now();
+        t.mock.method(Date, 'now', () => now);
+        const settled = await seedAndSettle(playerName, now);
         const projected = settled.record.character as Json;
         assert.equal(projected.stamina, 10, 'the owner settlement projects ten stamina');
 
