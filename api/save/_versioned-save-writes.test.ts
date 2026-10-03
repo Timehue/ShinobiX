@@ -332,11 +332,16 @@ test('the versionless-by-design escape hatch stays at its one intended call site
  * elder-win credit, the currency-ledger projection, the public-index refresh,
  * and the world-crisis level-crossing observers.
  *
- * Every writer that could move onto mutatePlayerSave, or mutatePlayerSaves for
- * two saves at once, has moved (docs/refactor-plan-2026-10-02.md, owner
+ * Every RAW writer that could move onto mutatePlayerSave, or mutatePlayerSaves
+ * for two saves at once, has moved (docs/refactor-plan-2026-10-02.md, owner
  * decision 2). The files left stay raw by design, and their entries say why.
  * Each count is EXACT: a new raw write fails here, and so does a change that
  * forgets to lower its entry.
+ *
+ * This counts raw writes only. A writer that builds the version through a
+ * helper (writeVersionedPlayerSave, writeSaveProjected, ...) skips the same
+ * settle without one: _unsettled-writer-ratchet.test.ts counts those, and
+ * "raw by design" here is no exemption there.
  */
 const RAW_PLAYER_SAVE_WRITES: Readonly<Record<string, number>> = {
     // ── Stays raw by design ─────────────────────────────────────────────────
