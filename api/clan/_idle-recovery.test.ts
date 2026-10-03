@@ -97,7 +97,8 @@ async function recovered(): Promise<Record<string, any>> {
     assert.ok(character.chakra >= 50, `chakra ${character.chakra} lost the idle recovery`);
     assert.ok(character.stamina >= 30, `stamina ${character.stamina} lost the idle recovery`);
     // None of these writes moves a vital, so each carries the settled cursor.
-    assert.ok(Number(saved._regenAt) >= tiredAt + 30_000 - 1_000, `cursor ${saved._regenAt} was fenced`);
+    assert.ok(Number(saved._regenAt) >= tiredAt + 30_000 - 1_000, `cursor ${saved._regenAt} fell behind the recovery`);
+    assert.equal((Number(saved._regenAt) - tiredAt) % 1_000, 0, `cursor ${saved._regenAt} was fenced to the write, not carried`);
     return saved;
 }
 

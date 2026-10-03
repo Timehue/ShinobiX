@@ -336,7 +336,8 @@ describe('ranked 2v2 rating', { concurrency: false }, () => {
             assert.ok(character.chakra >= 50, `${line.slug}: chakra ${character.chakra} lost the idle recovery`);
             assert.ok(character.stamina >= 30, `${line.slug}: stamina ${character.stamina} lost the idle recovery`);
             // Rating moves no vital, so the write carries the settled cursor.
-            assert.ok(Number(saved!._regenAt) >= at + 30_000 - 1_000, `${line.slug}: cursor ${saved!._regenAt} was fenced`);
+            assert.ok(Number(saved!._regenAt) >= at + 30_000 - 1_000, `${line.slug}: cursor ${saved!._regenAt} fell behind the recovery`);
+            assert.equal((Number(saved!._regenAt) - at) % 1_000, 0, `${line.slug}: cursor ${saved!._regenAt} was fenced to the write, not carried`);
         }
     });
 
