@@ -730,3 +730,56 @@ describe('training start/complete exact-CAS authority', { concurrency: false }, 
         assert.equal((await kv.get<Json>(`save:${name}`))?._saveVersion, 40);
     });
 });
+
+describe('training keeps the idle recovery the player earned', { concurrency: false }, () => {
+    // A save last written 30 s ago, tired enough to show any recovery.
+    const tired = (name: string) => ({
+        ...character(name, 0), hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, maxStamina: 100,
+    });
+
+    function assertRecovered(saved: Json, minimumStamina: number): void {
+        const char = saved.character as Record<string, number>;
+        assert.ok(char.hp >= 40, `hp ${char.hp} lost the idle recovery`);
+        assert.ok(char.chakra >= 50, `chakra ${char.chakra} lost the idle recovery`);
+        assert.ok(char.stamina >= minimumStamina, `stamina ${char.stamina} lost the idle recovery`);
+    }
+
+    it('starts a lesson from the stamina recovered since the last save', async () => {
+        // The stored save says 0 stamina, but the player's screen shows what
+        // 30 idle seconds restored. Training checked the stored 0 and refused
+        // the lesson; its write then fenced the recovery away.
+        const name = `${TEST_PREFIX}restedstart`;
+        const at = Date.now() - 30_000;
+        await seedSave(name, { _saveVersion: 1, _saveAt: at, _regenAt: at, character: tired(name) });
+
+        const out = await post(startHandler, { playerName: name, stat: 'strength', tierId: '15m' });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        const saved = (await kv.get<Json>(`save:${name}`))!;
+        assertRecovered(saved, 25);
+        // Spending stamina is a vital change, so this write fences the cursor.
+        assert.equal(Number(saved._regenAt), Number(saved._saveAt), 'a vital-changing write fences the cursor');
+    });
+
+    it('completes a lesson without discarding the recovery since the last save', async () => {
+        const name = `${TEST_PREFIX}restedcomplete`;
+        const token = 'restedcomplete0123456789abcde';
+        const lease = activeLease(token);
+        const at = Date.now() - 30_000;
+        await seedSave(name, { _saveVersion: 30, _saveAt: at, _regenAt: at, character: tired(name), activeTraining: lease });
+        await kv.set(`training-token:${name}:${token}`, {
+            playerName: name,
+            stat: 'strength',
+            tierId: '15m',
+            startedAt: lease.startedAt,
+            endsAt: lease.endsAt,
+            sealedGain: 6,
+            sealedXp: 0,
+        });
+
+        const out = await post(completeHandler, { playerName: name, token });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        const saved = (await kv.get<Json>(`save:${name}`))!;
+        assert.equal(((saved.character as Json).stats as Json).strength, 16, 'the lesson was still granted');
+        assertRecovered(saved, 30);
+    });
+});

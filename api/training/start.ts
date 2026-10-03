@@ -11,7 +11,7 @@ import { TRAINING_TIERS } from '../_training-config.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 import { moraleForCharacter, applyMoraleToGain } from '../_war-morale.js';
 import { boostMultiplier } from '../_boost-event.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { activeTrainingBlocksStart, normalizeActiveTrainingSession, trustedTrainingRewards, TRAINING_TOKEN_TTL_SECONDS } from './_session.js';
 
 /*
@@ -193,7 +193,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const storedCharacter = record?.character as Record<string, unknown> | undefined;
                 if (!record || !storedCharacter) return { ok: false as const, status: 404, error: 'Player save not found.' };
-                const character = await reconcileElderFocus(storedCharacter);
+                // The idle recovery earned since the last save settles first, as
+                // mutatePlayerSave does: the stamina check below reads what the
+                // player's screen shows, and the write keeps that recovery.
+                const recovery = await settleIdleRecovery(kv, playerName, record);
+                const character = await reconcileElderFocus(recovery.character);
 
                 const prior = normalizeActiveTrainingSession(record.activeTraining);
                 if (activeTrainingBlocksStart(prior)) {
@@ -235,7 +239,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // `record` is the exact predecessor. activeTraining belongs in
                     // the next-record patch; adding it to the predecessor makes a
                     // first start fail exact CAS every time.
-                    const written = await writeVersionedPlayerSave(saveKey, record, nextCharacter, { activeTraining });
+                    // Spending stamina touches a vital, so this fences the cursor;
+                    // the recovery settled above is already in nextCharacter.
+                    const written = await writeVersionedPlayerSave(saveKey, record, nextCharacter, { activeTraining }, {
+                        regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
+                    });
                     // Publish while the save lock is still held. Publishing after
                     // release lets an immediate completion/successor start win,
                     // then be overwritten by this older request's delayed cache.

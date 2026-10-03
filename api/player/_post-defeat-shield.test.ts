@@ -169,6 +169,40 @@ describe('world attack respects post-defeat recovery', { concurrency: false }, (
         const char = (await kv.get<Json>(`save:${ATTACKER}`))?.character as Record<string, unknown>;
         assert.equal(Math.floor(Number(char?.pvpShieldUntil ?? 0)), 0, 'attacking must spend the attacker\'s own shield');
     });
+
+    it('keeps the attacker\'s idle recovery when the raid spends their shield', async () => {
+        // The shield clear is a save write. It fenced the regeneration cursor
+        // to now and discarded the HP, chakra and stamina recovered since the
+        // attacker's last save.
+        const at = Date.now() - 30_000;
+        await kv.set(`save:${ATTACKER}`, {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: {
+                name: ATTACKER, level: 40, village: 'Mist',
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+                inventory: [], itemStacks: [], stats: {},
+                pvpShieldUntil: Date.now() + 90_000,
+            },
+        });
+
+        const out = await raid();
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        let saved: Json | null = null;
+        for (let i = 0; i < 40; i += 1) {
+            saved = await kv.get<Json>(`save:${ATTACKER}`);
+            if (!Math.floor(Number((saved?.character as Json | undefined)?.pvpShieldUntil ?? 0))) break;
+            await new Promise((resolve) => setImmediate(resolve));
+        }
+        const char = saved?.character as Record<string, number>;
+        assert.equal(Math.floor(Number(char.pvpShieldUntil ?? 0)), 0, 'the shield was still spent');
+        assert.ok(char.hp >= 40, `hp ${char.hp} lost the idle recovery`);
+        assert.ok(char.chakra >= 50, `chakra ${char.chakra} lost the idle recovery`);
+        assert.ok(char.stamina >= 30, `stamina ${char.stamina} lost the idle recovery`);
+        // The clear moves no vital, so it carries the settled cursor.
+        const cursor = Number(saved?._regenAt);
+        assert.ok(cursor >= at + 30_000 - 1_000, `cursor ${cursor} fell behind the recovery`);
+        assert.equal((cursor - at) % 1_000, 0, `cursor ${cursor} was fenced to the write, not carried`);
+    });
 });
 
 describe('the shield is server-owned', () => {
