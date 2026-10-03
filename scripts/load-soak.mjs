@@ -12,6 +12,7 @@
  *   npm run soak                          # 100 players, 60s, local server
  *   npm run soak -- --players=500 --seconds=120
  *   npm run soak -- --url=https://staging.example --players=300
+ *   npm run soak -- --port=4500           # boot on that port; unset = a free one
  *
  * ── Read the results honestly ───────────────────────────────────────────────
  * Against a LOCAL server this uses the in-memory storage backend, so it
@@ -28,6 +29,7 @@ import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { freePort } from './lib/free-port.mjs';
 
 const argv = process.argv.slice(2);
 const numArg = (name, fallback) => {
@@ -38,10 +40,16 @@ const EXTERNAL_URL = argv.find((a) => a.startsWith('--url='))?.slice('--url='.le
 const PLAYERS = numArg('players', 100);
 const SECONDS = numArg('seconds', 60);
 const RAMP_SECONDS = numArg('ramp', Math.min(30, Math.max(5, Math.round(PLAYERS / 20))));
-const PORT = numArg('port', 41_988);
+// An unset --port lets the OS pick a free one at boot (scripts/lib/free-port.mjs).
+// The old fixed default, 41988, sat inside Linux's ephemeral range, and a CI
+// runner's outbound connection held it: the server died with EADDRINUSE before
+// the soak measured anything.
+const REQUESTED_PORT = numArg('port', 0);
+let PORT = REQUESTED_PORT;
 // How many distinct sectors the population occupies (1 = worst-case hub crush).
 const SECTORS = numArg('sectors', 40);
-const BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
+// Settled at boot for a local server, whose port is only known then.
+let BASE = EXTERNAL_URL || `http://127.0.0.1:${PORT}`;
 
 // A real client autosaves on a debounce and the server enforces one save per
 // 3s per player (save-burst). Heartbeats are much more frequent. These mirror
@@ -291,18 +299,40 @@ function watchServerResponsiveness() {
     };
 }
 
-async function main() {
-    const server = EXTERNAL_URL ? null : bootServer();
-    if (!(await waitForHealth(60_000, server?.child ?? null))) {
-        console.error('[soak] server never became healthy');
-        if (server) {
-            // The captured output is the only record of why boot failed.
-            const { exitCode, signalCode } = server.child;
-            const ended = exitCode !== null ? ` (it exited with code ${exitCode})`
-                : signalCode !== null ? ` (it was killed by ${signalCode})` : ' (it was still running)';
-            console.error(`[soak] server output${ended}:\n${server.log.join('').slice(-8_000) || '(none)'}`);
-            server.child.kill();
+/**
+ * Boot the local server and wait until it answers. An explicit --port is used
+ * as given. Otherwise the OS picks a free port, and a boot that still loses it
+ * to another process in the moment before the server binds tries a fresh one.
+ * Returns null, having said why, when the server never comes up.
+ */
+async function bootHealthyServer() {
+    const attempts = REQUESTED_PORT ? 1 : 3;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+        PORT = REQUESTED_PORT || await freePort();
+        BASE = `http://127.0.0.1:${PORT}`;
+        const server = bootServer();
+        if (await waitForHealth(60_000, server.child)) return server;
+        const output = server.log.join('');
+        const { exitCode, signalCode } = server.child;
+        server.child.kill();
+        if (attempt < attempts && /EADDRINUSE/.test(output)) {
+            console.warn(`[soak] port ${PORT} was taken before the server could bind it; retrying on another`);
+            continue;
         }
+        console.error('[soak] server never became healthy');
+        // The captured output is the only record of why boot failed.
+        const ended = exitCode !== null ? ` (it exited with code ${exitCode})`
+            : signalCode !== null ? ` (it was killed by ${signalCode})` : ' (it was still running)';
+        console.error(`[soak] server output${ended}:\n${output.slice(-8_000) || '(none)'}`);
+        return null;
+    }
+    return null;
+}
+
+async function main() {
+    const server = EXTERNAL_URL ? null : await bootHealthyServer();
+    if (EXTERNAL_URL ? !(await waitForHealth(60_000, null)) : !server) {
+        if (EXTERNAL_URL) console.error('[soak] server never became healthy');
         process.exitCode = 2;
         return;
     }
