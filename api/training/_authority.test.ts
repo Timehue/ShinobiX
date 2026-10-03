@@ -20,7 +20,9 @@ test('training start debits trusted stamina and persists a versioned save', () =
     assert.match(start, /withKvLock\(saveKey/);
     assert.match(start, /stamina < tier\.staminaCost/);
     assert.match(start, /stamina: stamina - tier\.staminaCost/);
-    assert.match(start, /writeVersionedPlayerSave\(saveKey, record, nextCharacter, \{ activeTraining \}\)/);
+    // activeTraining rides in the next-record patch; the write options (the
+    // settled regeneration cursor) follow it.
+    assert.match(start, /writeVersionedPlayerSave\(saveKey, record, nextCharacter, \{ activeTraining \}, \{/);
 });
 
 test('training rewards ignore forged client modifiers and only one live lease can start', () => {
@@ -103,7 +105,8 @@ test('training completion credits the save once with a durable receipt', () => {
     assert.match(complete, /_trainingReceipts: nextReceipts/);
     // Character XP is retired: completion applies the sealed stat grant (with
     // the derived-level recompute inside) and never calls the old XP driver.
-    assert.match(complete, /applyTrainingGrant\(character/);
+    // ...applied to the character after its idle recovery settles.
+    assert.match(complete, /applyTrainingGrant\(recovery\.character/);
     assert.doesNotMatch(complete, /gainXp\(/);
     assert.ok(MAX_TRAINING_RECEIPTS >= 256);
     assert.match(complete, /activeTraining: null/);

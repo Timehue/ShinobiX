@@ -4,7 +4,7 @@ import { safeName, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { applyTrainingGrant } from './_grant.js';
 import { parseLegacyTraining } from './_legacy.js';
 import { MAX_TRAINING_RECEIPTS, activeTrainingMatches, storedTrainingGrant } from './_session.js';
@@ -151,7 +151,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Character XP is retired — the sealed stat gain (with any overflow
                 // rolled into the pool) IS the level progress; applyTrainingGrant
                 // ends with the derived-level recompute.
-                const grant = applyTrainingGrant(character, data.stat, gain, 0);
+                // The idle recovery earned since the last save settles into this
+                // write and the cursor carries, as mutatePlayerSave does (a
+                // level-up's full heal still fences it).
+                const recovery = await settleIdleRecovery(kv, playerName, record);
+                const grant = applyTrainingGrant(recovery.character, data.stat, gain, 0);
                 const redemption: TrainingRedemption = { token: redemptionToken, stat: data.stat, gain, xp: 0, applied: grant.applied, overflow: grant.overflow, cap: grant.cap };
                 const nextReceipts = [...receipts.filter((entry) => entry !== redemptionToken), redemptionToken].slice(-MAX_TRAINING_RECEIPTS);
                 const nextCharacter = { ...grant.character, redeemedTrainingTokens: [redemption] };
@@ -161,6 +165,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const written = await writeVersionedPlayerSave(saveKey, record, nextCharacter, {
                         _trainingReceipts: nextReceipts,
                         activeTraining: null,
+                    }, {
+                        regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
                     });
                     return { ok: true as const, character: nextCharacter, activeTraining: null, _saveVersion: written._saveVersion, value: { granted: true, alreadyGranted: false, ...redemption } };
                 } catch (error) {
