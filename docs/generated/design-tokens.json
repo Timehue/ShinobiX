@@ -2330,6 +2330,17 @@
       },
       {
         "direction": "max",
+        "axis": "height",
+        "valuePx": 380,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/features/sunscar/rally-render.css",
+            "line": 81
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "width",
         "valuePx": 380,
         "occurrences": [
@@ -2615,6 +2626,10 @@
           {
             "source": "shinobij.client/src/features/anbuInfiltration/stronghold.css",
             "line": 120
+          },
+          {
+            "source": "shinobij.client/src/features/sunscar/rally-render.css",
+            "line": 58
           },
           {
             "source": "shinobij.client/src/styles/battle-skin.css",
@@ -3254,6 +3269,10 @@
           {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
             "line": 50
+          },
+          {
+            "source": "shinobij.client/src/features/sunscar/rally-render.css",
+            "line": 55
           },
           {
             "source": "shinobij.client/src/styles/caravan-run.css",
