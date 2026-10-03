@@ -2,6 +2,7 @@ import { readVillageAnbu } from '../village/_anbu.js';
 import { safeName } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { isWildSector } from '../../shared/sector-geo.js';
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
@@ -189,8 +190,10 @@ async function pinAndFinalizeReceipt(
             throw new Error('raid-territory-row-conflict');
         }
     } catch (error) {
+        // `projectedRow` may be a settled breach, whose cleared fields are
+        // explicitly undefined; the read-back is the JSON form without them.
         const recovered = await kv.get<unknown>(territoryKey).catch(() => null);
-        if (!isDeepStrictEqual(recovered, pinned)) throw error;
+        if (!storedValueEquals(recovered, pinned)) throw error;
     }
     await publishDurableReceipt(receipt);
     const cleared = withoutPendingReceipt(pinned);
@@ -198,7 +201,7 @@ async function pinAndFinalizeReceipt(
         if (await kv.compareSet(territoryKey, pinned, cleared)) return cleared;
     } catch (error) {
         const recovered = await kv.get<unknown>(territoryKey).catch(() => null);
-        if (isDeepStrictEqual(recovered, cleared)) return cleared;
+        if (storedValueEquals(recovered, cleared)) return cleared;
         throw error;
     }
     const recovered = await kv.get<Record<string, unknown>>(territoryKey);
@@ -308,8 +311,10 @@ export async function settleRaidTerritoryDamage(params: {
                 try {
                     if (!(await kv.compareSet(key, expected, projected))) throw new Error('raid-territory-lifecycle-conflict');
                 } catch (error) {
+                    // A settled breach leaves its cleared fields explicitly
+                    // undefined; the read-back is the JSON form without them.
                     const recovered = await kv.get<unknown>(key).catch(() => null);
-                    if (!isDeepStrictEqual(recovered, projected)) throw error;
+                    if (!storedValueEquals(recovered, projected)) throw error;
                 }
                 current = projected;
                 expected = projected;

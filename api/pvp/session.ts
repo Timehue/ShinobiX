@@ -4,6 +4,7 @@ import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { withKvLock } from '../_lock.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
@@ -581,7 +582,8 @@ async function rollbackExactUnownedPvpSession(
         const current = await kv.get<unknown>(key);
         if (current === null) return;
         if (fence && pvpSessionPublicationTombstoneMatchesCapability(current, fence)) return;
-        if (!isDeepStrictEqual(current, expected)) {
+        // `current` is the stored JSON form; `expected` is the in-memory session.
+        if (!storedValueEquals(current, expected)) {
             throw new Error('pvp-session-publication-rollback-conflict');
         }
         if (!fence) {
@@ -3218,7 +3220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     : null;
                 if (recovered && (
                     (admission && playerRankedSessionMatchesAdmission(recovered, admission))
-                    || (!admission && isDeepStrictEqual(recovered, session))
+                    || (!admission && storedValueEquals(recovered, session))
                 )) {
                     publishedSession = recovered;
                 } else {
@@ -3244,7 +3246,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 try {
                     await requireClanWarPvpReservation(clanWarReservation);
                 } catch (error) {
-                    if (isDeepStrictEqual(publishedSession, session)) {
+                    if (storedValueEquals(publishedSession, session)) {
                         await rollbackExactUnownedPvpSession(session, publicationCapability);
                     }
                     if (creatorPointer) {
@@ -3320,7 +3322,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (exactPointer?.phase === 'active') {
                         // Exact readback proves activation; continue to success.
                     } else {
-                        if (isDeepStrictEqual(publishedSession, session)) {
+                        if (storedValueEquals(publishedSession, session)) {
                             await rollbackExactUnownedPvpSession(session, publicationCapability);
                         }
                         if (exactPointer?.phase === 'reserving') {

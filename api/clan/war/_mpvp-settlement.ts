@@ -73,6 +73,22 @@ function exactReceipt(value: unknown, expected: ClanWar2v2Receipt): boolean {
     return !!value && typeof value === 'object' && !Array.isArray(value) && isDeepStrictEqual(value, expected);
 }
 
+/** Does this war row hold the exact completion a 2v2 settlement wrote? */
+function recordsCompletion(
+    war: ClanWar | null,
+    challengeId: string,
+    result: ChallengeResult,
+    completedAt: number,
+): boolean {
+    return !!war && Array.isArray(war.completedChallenges) && war.completedChallenges.some(entry => (
+        entry.id === challengeId
+        && entry.status === 'completed'
+        && entry.result === result
+        && entry.pvpSettlementVersion === 1
+        && entry.completedAt === completedAt
+    ));
+}
+
 async function commitReceipt(receipt: ClanWar2v2Receipt): Promise<void> {
     if (await kv.set(receiptKey(receipt.matchId), receipt, { ex: RECEIPT_TTL_SECONDS, nx: true })) return;
     const observed = await kv.get<unknown>(receiptKey(receipt.matchId));
@@ -171,13 +187,22 @@ export async function settleClanWar2v2Match(
             ...projected.war,
             updatedAt: Math.max(Number(current.updatedAt) || 0, terminalAt),
         };
-        if (await kv.compareSet(warKey, current, candidate)) {
-            return {
-                war: candidate,
-                challenge: projected.completed,
-                outcome: 'applied' as const,
-                warEnded: projected.warJustEnded,
-            };
+        const applied = {
+            war: candidate,
+            challenge: projected.completed,
+            outcome: 'applied' as const,
+            warEnded: projected.warJustEnded,
+        };
+        try {
+            if (await kv.compareSet(warKey, current, candidate)) return applied;
+        } catch (error) {
+            // The write can land with its reply lost. A retry would then find the
+            // challenge completed and record it as superseded, so the duel's war
+            // points and war-end clan XP would never be paid. Under this lock only
+            // this call can have recorded this exact completion.
+            const recovered = await kv.get<ClanWar>(warKey).catch(() => null);
+            if (recordsCompletion(recovered, binding.challengeId, result, terminalAt)) return applied;
+            throw error;
         }
         throw new Error('clan-war-2v2-publication-busy');
     }, { failClosed: true });
