@@ -85,7 +85,8 @@ describe('village treasury transfer settlement', () => {
         assert.ok(saved?.character.chakra >= 50, `chakra ${saved?.character.chakra} lost the idle recovery`);
         assert.ok(saved?.character.stamina >= 30, `stamina ${saved?.character.stamina} lost the idle recovery`);
         // The credit moves no vital, so the write carries the settled cursor.
-        assert.ok(Number(saved?._regenAt) >= at + 30_000 - 1_000, `cursor ${saved?._regenAt} was fenced`);
+        assert.ok(Number(saved?._regenAt) >= at + 30_000 - 1_000, `cursor ${saved?._regenAt} fell behind the recovery`);
+        assert.equal((Number(saved?._regenAt) - at) % 1_000, 0, `cursor ${saved?._regenAt} was fenced to the write, not carried`);
     });
 
     it('retries after recipient persistence fails without duplicating the debit', { concurrency: false }, async () => {

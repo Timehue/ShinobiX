@@ -77,6 +77,8 @@ describe('mutatePlayerSaveLocked', { concurrency: false }, () => {
         // The write moved no vital, so it carries the settled cursor (whole
         // ticks past the stored one) instead of fencing it to the write instant.
         assert.ok(Number(stored._regenAt) >= at + 29_000 && Number(stored._regenAt) <= Number(stored._saveAt), `cursor ${stored._regenAt}`);
+        // Whole ticks: a cursor fenced to the write instant is almost never on one.
+        assert.equal((Number(stored._regenAt) - at) % 1_000, 0, `cursor ${stored._regenAt} was fenced to the write, not carried`);
     });
 
     it('answers 404 for a save that is not there, and writes nothing', async () => {
