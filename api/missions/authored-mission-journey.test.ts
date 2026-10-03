@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
-import { randomUUID } from 'node:crypto';
+import crypto, { randomUUID } from 'node:crypto';
+import { syncBuiltinESMExports } from 'node:module';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 
 process.env.NODE_ENV='test';
@@ -30,6 +31,22 @@ async function post(path:string,name:string,body:Record<string,unknown>,authenti
     return {code,data};
 }
 async function seed(name:string,level:number) {await kv.set(`save:${name}`,fixtures.missionPlayerSave(level,'Ninjutsu',name));}
+/**
+ * Scripts the solo-PvE escape roll, a fair coin (`randomInt(2)` in
+ * _action-service.ts), while `run` executes. Every other randomInt call passes
+ * through. Answers how many escape rolls were taken, so a pin that stopped
+ * applying fails instead of passing on a lucky coin.
+ */
+async function withEscapeRolls(rolls:boolean[],run:()=>Promise<void>):Promise<number> {
+    const original=crypto.randomInt; let taken=0;
+    crypto.randomInt=((...args:unknown[])=>{
+        if(args.length!==1||args[0]!==2) return Reflect.apply(original,crypto,args);
+        taken++; return rolls.shift()===false?1:0;
+    }) as typeof original;
+    syncBuiltinESMExports();
+    try {await run();} finally {crypto.randomInt=original;syncBuiltinESMExports();}
+    return taken;
+}
 
 describe('production-mounted ordinary mission journey (normal player authority)',()=>{
     it('enforces authentication, ownership, real admission, and rejects unearned rewards',async()=>{
@@ -97,10 +114,17 @@ describe('production-mounted ordinary mission journey (normal player authority)'
             const out=await post('/missions/combat-start',name,{missionId:'combat-s-crisis'});
             assert.equal(out.code,200);
             let s=out.data.session as SoloPveSession;
-            for(let guard=0;guard<30&&s.status==='active';guard++) {
-                const next=await post('/solo-pve/action',name,{sessionId:s.sessionId,expectedVersion:s.version,moveToken:randomUUID(),type:mode==='flee'?'flee':'wait'});
-                assert.equal(next.code,200,JSON.stringify(next)); s=next.data.session;
-            }
+            const fight=async()=>{
+                for(let guard=0;guard<30&&s.status==='active';guard++) {
+                    const next=await post('/solo-pve/action',name,{sessionId:s.sessionId,expectedVersion:s.version,moveToken:randomUUID(),type:mode==='flee'?'flee':'wait'});
+                    assert.equal(next.code,200,JSON.stringify(next)); s=next.data.session;
+                }
+            };
+            // A level-70 player dies on the seventh failed escape against the
+            // S-rank Crisis enemy, so a live coin lost this case about once in
+            // 128 runs. Script one failed escape, then a clean one.
+            if(mode==='flee') assert.equal(await withEscapeRolls([false,true],fight),2,'the escape rolls taken were the scripted two');
+            else await fight();
             assert.equal(s.outcome,mode==='flee'?'fled':'loss');
             assert.equal((await post('/missions/queue-combat-claim',name,{missionId:'combat-s-crisis',runId:s.sessionId})).data.queued,false);
             const saved=await kv.get<any>(`save:${name}`);
