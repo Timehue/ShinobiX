@@ -310,7 +310,8 @@ describe('Clan War 2v2 settlement', { concurrency: false }, () => {
         assert.ok(saved.character.chakra >= 50, `${slug}: chakra ${saved.character.chakra} lost the idle recovery`);
         assert.ok(saved.character.stamina >= 30, `${slug}: stamina ${saved.character.stamina} lost the idle recovery`);
         // Points and item charges move no vital, so the write carries the cursor.
-        assert.ok(Number(saved._regenAt) >= at + 30_000 - 1_000, `${slug}: cursor ${saved._regenAt} was fenced`);
+        assert.ok(Number(saved._regenAt) >= at + 30_000 - 1_000, `${slug}: cursor ${saved._regenAt} fell behind the recovery`);
+        assert.equal((Number(saved._regenAt) - at) % 1_000, 0, `${slug}: cursor ${saved._regenAt} was fenced to the write, not carried`);
         return saved;
     }
 

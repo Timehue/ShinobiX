@@ -59,10 +59,18 @@ const SETTLES_ITSELF = new Set([
     '_cross-key-settlement.ts',
     'clan/exchange/_settlement.ts',
     'clan/seal-pool/donate.ts',
+    // Mission claims re-apply the run-keyed claim receipts after the image
+    // merge, which mutatePlayerSave's generic write would not.
+    'missions/claim-mission.ts',
+    'missions/queue-combat-claim.ts',
 ]);
 
 // The calls that credit the recovery before a write.
 const SETTLERS = new Set(['settleIdleRecovery', 'settleVitalsRegen']);
+
+// The builders that stamp the regeneration cursor, so each must be handed the
+// settled one. writeSaveProjected only commits a record one of these built.
+const CURSOR_STAMPERS = new Set([...VERSION_BUILDERS].filter((name) => name !== 'writeSaveProjected'));
 
 const OPEN_HOLLOW_GATE_RUN = 'An open Hollow Gate run excludes idle recovery (canRegenVitals), and this writes a save whose run is open';
 const BY_DESIGN: Readonly<Record<string, string>> = {
@@ -86,9 +94,6 @@ const TO_CONVERT: Readonly<Record<string, number>> = {
     'village/claim-map-control.ts': 1,
     '_war-declaration-funding.ts': 2,
     '_war-mercenary-hire.ts': 1,
-    // Missions.
-    'missions/claim-mission.ts': 5,
-    'missions/queue-combat-claim.ts': 1,
     // Pets.
     'pet/breeding-hatch.ts': 1,
     'pet/breeding-start.ts': 1,
@@ -193,11 +198,12 @@ test('a writer listed as settling the recovery itself really does', () => {
         );
         // A listed file is exempt from the count, so a new bare build in it
         // would otherwise slip through.
-        const fenced = builds.filter((call) => !call.carriesSettledCursor).length;
+        const stamps = builds.filter((call) => CURSOR_STAMPERS.has(call.name));
+        const fenced = stamps.filter((call) => !call.carriesSettledCursor).length;
         assert.equal(
             fenced,
             0,
-            `${rel}: ${fenced} of its ${builds.length} version builds fence the cursor; `
+            `${rel}: ${fenced} of its ${stamps.length} version builds fence the cursor; `
             + 'pass regenAt: carriedRegenCursor(settled, next, regen)',
         );
     }

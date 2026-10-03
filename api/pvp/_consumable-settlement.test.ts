@@ -164,6 +164,8 @@ describe('legacy PvP consumable durable settlement', () => {
         assert.ok(Number(character.stamina) >= 30, `stamina ${character.stamina} lost the idle recovery`);
         // The deduction moves no vital, so it carries the settled cursor, not now.
         assert.ok(Number(record._regenAt) <= Date.now() && Number(record._regenAt) >= at + 30_000 - 1_000, `cursor ${record._regenAt}`);
+        // Whole ticks: a cursor fenced to the write instant is almost never on one.
+        assert.equal((Number(record._regenAt) - at) % 1_000, 0, `cursor ${record._regenAt} was fenced to the write, not carried`);
     });
 
     it('credits no recovery to a fighter still in a battle, read through the same store', async () => {
