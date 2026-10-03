@@ -322,3 +322,59 @@ describe('village-war mercenary target-first funding saga', { concurrency: false
         assert.equal(((await store.get<Record<string, unknown>>(SAVE_KEY))?.character as Record<string, unknown>).honorSeals, 800);
     });
 });
+
+/*
+ * Every write to the hiring player's save keeps the idle recovery they earned
+ * since their last save. None of these writes moves a vital, so the recovered
+ * HP, chakra and stamina settle into it and the cursor carries. They used to
+ * fence the cursor to "now" and throw that recovery away. Each test starts the
+ * player 30 s past their last save at HP 10/100, chakra 20/100 and stamina
+ * 0/100.
+ */
+describe('a mercenary hire keeps the hiring player\'s idle recovery', { concurrency: false }, () => {
+    let tiredAt = 0;
+
+    async function tiredHirer(balance: number) {
+        const { store, target } = await seeded(balance);
+        tiredAt = Date.now() - 30_000;
+        const stored = (await store.get<Record<string, any>>(SAVE_KEY))!;
+        await store.set(SAVE_KEY, {
+            ...stored,
+            _saveAt: tiredAt,
+            _regenAt: tiredAt,
+            character: { ...stored.character, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+        return { store, target };
+    }
+
+    function assertRecovered(save: Record<string, any>): void {
+        const character = save.character;
+        assert.ok(character.hp >= 40, `hp ${character.hp} lost the idle recovery`);
+        assert.ok(character.chakra >= 50, `chakra ${character.chakra} lost the idle recovery`);
+        assert.ok(character.stamina >= 30, `stamina ${character.stamina} lost the idle recovery`);
+        assert.ok(Number(save._regenAt) >= tiredAt + 30_000 - 1_000, `cursor ${save._regenAt} fell behind the recovery`);
+        assert.equal((Number(save._regenAt) - tiredAt) % 1_000, 0, `cursor ${save._regenAt} was fenced to the write, not carried`);
+    }
+
+    it('through the source intent and the debit', async () => {
+        const { store, target } = await tiredHirer(800);
+        const hired = await settleWarMercenaryHire(store, plan(target));
+        assert.equal(hired.status, 'active');
+        const save = (await store.get<Record<string, any>>(SAVE_KEY))!;
+        assert.equal(save.character.honorSeals, 300, 'the Seals were still spent');
+        assert.equal(save._saveVersion, 3, 'the intent and the debit each wrote the save');
+        if (hired.status === 'active') assert.deepEqual(hired.sourceRow, save, 'the reply carries the committed save');
+        assertRecovered(save);
+    });
+
+    it('through the source intent and the abort when the Seals run short', async () => {
+        const { store, target } = await tiredHirer(100);
+        const short = await settleWarMercenaryHire(store, plan(target));
+        assert.deepEqual(short, { status: 'insufficient', have: 100, cost: 500 });
+        const save = (await store.get<Record<string, any>>(SAVE_KEY))!;
+        assert.equal(save.character.honorSeals, 100, 'nothing was spent');
+        assert.deepEqual(Object.values(sourceReceipts(save)).map((entry) => (entry as { state: string }).state), ['aborted']);
+        assert.equal(save._saveVersion, 3, 'the intent and the abort each wrote the save');
+        assertRecovered(save);
+    });
+});

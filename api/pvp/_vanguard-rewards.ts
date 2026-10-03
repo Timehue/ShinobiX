@@ -9,6 +9,8 @@ import { hasRecentIpOrFpOverlap } from '../_player-ips.js';
 import { listActiveEscorters } from '../clan/pet-escort/_storage.js';
 import { masteryBonus, masteryHasCapstone } from '../_profession-mastery.js';
 import {
+    carriedRegenCursor,
+    settleIdleRecovery,
     writeVersionedPlayerSave,
     writeVersionedPlayerSaveWithStore,
 } from '../save/_mutate-player-save.js';
@@ -266,7 +268,7 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
                     const eRecord = await kv.get<Record<string, unknown>>(eKey);
                     const eChar = eRecord?.character as Record<string, unknown> | undefined;
                     if (!eRecord || !eChar || eChar.profession !== 'petTamer' || eChar.petEscortBonusReady === true) return;
-                    await writeVersionedPlayerSave(eKey, eRecord, { ...eChar, petEscortBonusReady: true });
+                    await writeVanguardSave(kv, eKey, eRecord, { ...eChar, petEscortBonusReady: true });
                 }, { failClosed: true });
             }));
 
@@ -283,7 +285,7 @@ async function grantVanguardRewardsForSessionLegacy(session: PvpSession): Promis
                 vanguardDailyResetDate: today,
             };
             winnerWriteAttempted = true;
-            await writeVersionedPlayerSave(winnerKey, winnerRecord, updatedCharacter);
+            await writeVanguardSave(kv, winnerKey, winnerRecord, updatedCharacter);
             await commitEconomicReceipt(kv, receiptKey, reservation, receiptTtl);
         } catch (error) {
             // Escort stamps are idempotent, so they can be retried. Once the
@@ -638,15 +640,42 @@ function legacyVanguardReceiptDisposition(
     return 'spent';
 }
 
+/** The settled vitals laid onto a write that changes none of its own. */
+function withSettledVitals(
+    character: Record<string, unknown>,
+    current: Record<string, unknown>,
+    settled: Record<string, unknown>,
+): Record<string, unknown> {
+    const stored = (current.character ?? {}) as Record<string, unknown>;
+    const vitals = ['hp', 'chakra', 'stamina'] as const;
+    if (vitals.some((key) => character[key] !== stored[key])) return character;
+    const next = { ...character };
+    for (const key of vitals) if (key in settled) next[key] = settled[key];
+    return next;
+}
+
+/**
+ * Every Vanguard write stamps a marker, a flag or the reward; none moves a
+ * vital. So the idle recovery the player earned since their last save
+ * settles onto the vitals being written and the cursor carries, as
+ * mutatePlayerSave does. An escorting Pet Tamer is rarely online when a
+ * clanmate's win flags them.
+ */
 async function writeVanguardSave(
     store: VanguardRewardStore,
     saveKey: string,
     current: Record<string, unknown>,
     character: Record<string, unknown>,
 ): Promise<{ record: Record<string, unknown>; _saveVersion: number }> {
+    const recovery = await settleIdleRecovery(store, saveKey.slice('save:'.length), current);
+    const next = withSettledVitals(character, current, recovery.character);
     return store === kv
-        ? writeVersionedPlayerSave(saveKey, current, character)
-        : writeVersionedPlayerSaveWithStore(store, saveKey, current, character);
+        ? writeVersionedPlayerSave(saveKey, current, next, {}, {
+            regenAt: carriedRegenCursor(recovery.character, next, recovery.regen),
+        })
+        : writeVersionedPlayerSaveWithStore(store, saveKey, current, next, {}, {
+            regenAt: carriedRegenCursor(recovery.character, next, recovery.regen),
+        });
 }
 
 async function abortVanguardIntent(
