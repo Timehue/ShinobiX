@@ -70,6 +70,11 @@ const SETTLES_ITSELF = new Set([
     'pet/breeding-status.ts',
     'pet/sanctuary-transfer.ts',
     'pet/showdown.ts',
+    // Training retries its own exact compare-and-set with a proposal token, and
+    // the attack drops a shield fire-and-forget under a fail-open lock.
+    'training/start.ts',
+    'training/complete.ts',
+    'player/attack.ts',
 ]);
 
 // The calls that credit the recovery before a write.
@@ -103,12 +108,6 @@ const TO_CONVERT: Readonly<Record<string, number>> = {
     '_war-mercenary-hire.ts': 1,
     // Towers entry fee and its refund.
     'towers/start.ts': 8,
-    // Training: start also checks its stamina cost against the unsettled
-    // stamina, refusing a lesson the player's screen shows they can afford.
-    'training/start.ts': 1,
-    'training/complete.ts': 1,
-    // Drops the attacker's PvP shield just before the fight reads their vitals.
-    'player/attack.ts': 1,
 };
 
 function collectTsFiles(dir: string, out: string[] = []): string[] {

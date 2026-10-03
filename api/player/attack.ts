@@ -8,7 +8,7 @@ import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { withKvLock } from '../_lock.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -105,7 +105,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const char = (rec?.character ?? null) as Record<string, unknown> | null;
                 if (!rec || !char) return;
                 if (Math.floor(Number(char.pvpShieldUntil ?? 0)) <= Date.now()) return;
-                await writeVersionedPlayerSave(`save:${identity.name}`, rec, { ...char, pvpShieldUntil: 0 });
+                // The attacker keeps the idle recovery earned since their last
+                // save: it settles into this write instead of being fenced away.
+                const recovery = await settleIdleRecovery(kv, identity.name, rec);
+                const next = { ...recovery.character, pvpShieldUntil: 0 };
+                await writeVersionedPlayerSave(`save:${identity.name}`, rec, next, {}, {
+                    regenAt: carriedRegenCursor(recovery.character, next, recovery.regen),
+                });
             }).catch(() => undefined);
         }
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
