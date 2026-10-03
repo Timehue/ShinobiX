@@ -14,6 +14,8 @@
  */
 
 import type { GameItem } from "../types/combat";
+import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
+import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
 import { isCombatConsumable, normalizeEquipmentSlot } from "./equipment";
 import { petFeedXpForItem } from "../data/pet-config";
 import {
@@ -80,6 +82,7 @@ const GEAR_SLOTS: ReadonlySet<string> = new Set([
  * weapon). Total: always returns exactly one category.
  */
 export function itemCategory(entry: string, item?: GameItem): ItemCategory {
+    if (entry === VILLAGE_TRANSFER_SCROLL_ID || entry === PROFESSION_CHANGE_APPROVAL_ID) return "consumable";
     // Event tokens win over the generic "item" slot they share with pet gear
     // and materials, so a Weekly Boss Core lands under Event, not Materials.
     if (EVENT_ITEM_IDS.has(entry)) return "event";

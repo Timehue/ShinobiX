@@ -101,6 +101,7 @@ test('profession choice explains the switching cost and reset before committing'
     await expect(picker.getByText(/base 200 Fate Shards.*resets profession rank, XP, and mastery/)).toBeVisible();
     await picker.getByRole('button', { name: /Walk the Healer's path/ }).click();
     await expect(picker.getByText(/base price is 200 Fate Shards/)).toBeVisible();
-    await expect(picker.getByText(/Each change consumes the approval and resets profession rank, XP, and mastery/)).toBeVisible();
+    await expect(picker.getByText(/Changes from level 20 require a Profession Change Scroll from the Grand Marketplace/)).toBeVisible();
+    await expect(picker.getByText(/Each change consumes the scroll and resets profession rank, XP, and mastery/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });

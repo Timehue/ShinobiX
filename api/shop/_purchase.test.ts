@@ -13,8 +13,8 @@ describe('catalog shop purchase', () => {
         assert.equal(result.ok, true);
         if (result.ok) { assert.equal(result.item.currency, 'fateShards'); assert.equal(result.item.unitCost, 19); }
     });
-    it('sells the profession approval for 200 Fate Shards from level 13', () => {
-        const result = purchaseCatalogItem({ level: 13, fateShards: 200, inventory: [] }, 'profession-change-approval', 1);
+    it('sells the profession scroll for 200 Fate Shards from level 20 after choosing a profession', () => {
+        const result = purchaseCatalogItem({ level: 20, profession: 'vanguard', fateShards: 200, inventory: [] }, 'profession-change-approval', 1);
         assert.equal(result.ok, true);
         if (result.ok) {
             assert.equal(result.item.currency, 'fateShards');
@@ -22,6 +22,15 @@ describe('catalog shop purchase', () => {
             assert.equal(result.character.fateShards, 0);
             assert.deepEqual(result.character.inventory, ['profession-change-approval']);
         }
+    });
+    it('rejects profession scroll purchases below level 20 or without a valid profession without charging', () => {
+        for (const overrides of [{ level: 19, profession: 'healer' }, { level: 20 }, { level: 100, profession: 'invalid' }]) {
+            const character = { fateShards: 500, inventory: [], ...overrides };
+            const before = structuredClone(character);
+            assert.equal(purchaseCatalogItem(character, 'profession-change-approval', 1).ok, false);
+            assert.deepEqual(character, before);
+        }
+        assert.equal(purchaseCatalogItem({ level: 20, profession: 'petTamer', fateShards: 199, inventory: [] }, 'profession-change-approval', 1).ok, false);
     });
     it('enforces consumable caps and rejects free reward items', () => {
         const capped = purchaseCatalogItem({ level: 100, ryo: 100000, inventory: Array(50).fill('item-attack-pill') }, 'item-attack-pill', 5);

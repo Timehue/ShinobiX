@@ -626,6 +626,10 @@ jobs:
         run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/stronghold-resources.log
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/5 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/playwright.log
+      - name: Village transfer purchase and recovery
+        if: ${{ matrix.shard == 4 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/village-transfer.log
       - name: Sector controls and spectator integration
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
@@ -637,6 +641,10 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.world-eras.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/world-eras.log
+      - name: Profession scroll purchase, inventory and change flow
+        if: ${{ matrix.shard == 3 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/profession-change.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true

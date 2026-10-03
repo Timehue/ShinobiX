@@ -1,0 +1,29 @@
+.village-transfer {
+    margin: 1rem 0 1.5rem;
+    padding: clamp(1rem, 3vw, 1.5rem);
+    border: 1px solid #9580b65c;
+    border-radius: 14px;
+    background: linear-gradient(130deg, #292035, #161b28);
+}
+.village-transfer-heading { display: flex; gap: 1rem; align-items: center; }
+.village-transfer-heading img { object-fit: contain; flex-shrink: 0; }
+.village-transfer-heading h3 { margin: 0 0 .3rem; color: #e3cdfa; }
+.village-transfer-heading p { margin: .25rem 0; }
+.village-transfer-eyebrow { color: #c2acd7; font-size: .75rem; text-transform: uppercase; letter-spacing: .12em; }
+.village-transfer-requirements { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem 1.2rem; margin: 1rem 0; }
+.village-transfer-requirements strong { display: inline-flex; align-items: center; gap: .35rem; color: #e3cdfa; }
+.village-transfer-destinations { display: grid; gap: .6rem; border: 0; padding: .8rem 0; margin: 0; }
+.village-transfer-destinations legend { font-weight: 700; }
+.village-transfer-destinations label { display: flex; align-items: center; gap: .7rem; padding: .85rem; border: 1px solid #9580b65c; border-radius: 8px; cursor: pointer; }
+.village-transfer-destinations label:has(input:checked) { background: #734d923d; border-color: #c2acd7; }
+.village-transfer-destinations input { width: auto; margin: 0; }
+.village-transfer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
+.village-transfer-modal .ui-modal-body { display: flex; flex-direction: column; overflow: hidden; }
+.village-transfer-details { overflow-y: auto; min-height: 0; }
+.village-transfer-actions { flex-shrink: 0; }
+
+.marketplace-scrolls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.marketplace-scrolls > .village-transfer { min-width: 0; }
+@media (max-width: 900px) {
+    .marketplace-scrolls { grid-template-columns: minmax(0, 1fr); }
+}
