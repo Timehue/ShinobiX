@@ -10,6 +10,7 @@ import {
     CLAN_WAR_REMATCH_COOLDOWN_SEC,
     clanWarCooldownKey,
     finalizeClanWarEnd,
+    isClanWarRowKey,
     type ClanWar,
 } from './war/_storage.js';
 
@@ -174,7 +175,7 @@ export async function dissolveClanUnderLock(
     }
 
     const finalizedWars: ClanWar[] = [];
-    const warKeys = (await kv.keys(`${CLAN_WAR_KEY_PREFIX}*`)).filter((key) => !key.startsWith('clan-war:cooldown:'));
+    const warKeys = (await kv.keys(`${CLAN_WAR_KEY_PREFIX}*`)).filter(isClanWarRowKey);
     for (const warKey of warKeys) {
         await withKvLock(warKey, async () => {
             const war = await kv.get<ClanWar>(warKey);
