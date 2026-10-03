@@ -165,27 +165,38 @@ const indexOfOrFail = (src: string, label: string, needle: string | RegExp): num
 describe('both handlers wire the durable receipt in the safe order', () => {
     for (const [label, src, payingWrite] of [
         ['showdown.ts', showdownSrc, 'await writeSaveProjected(saveKey, updated, record);'],
-        ['battle-result.ts', coliseumSrc, 'await writeSaveProjected(saveKey, updated, record);'],
+        // mutatePlayerSave commits the paying decision's character, then runs
+        // its afterCommit under the same lock: the commit is the paying write,
+        // and the receipt belongs in that afterCommit.
+        ['battle-result.ts', coliseumSrc, /character: updatedChar,\s*afterCommit: async \(\) => \{/],
     ] as const) {
+        const payingWriteAt = (): number => (typeof payingWrite === 'string'
+            ? src.lastIndexOf(payingWrite)
+            : src.search(payingWrite));
+
         it(`${label} checks the durable receipt before paying`, () => {
             const check = indexOfOrFail(
                 src,
                 label,
                 /await kv\.get(?:<[^>]+>)?\(\s*(?:paidReceiptKey\(|paidKey)/,
             );
-            const write = src.lastIndexOf(payingWrite);
+            const write = payingWriteAt();
+            assert.ok(write >= 0, `${label} must contain its paying write`);
             assert.ok(check < write, 'the durable receipt must be read before the paying write');
         });
 
         it(`${label} places the durable receipt only after the paying write`, () => {
             // Claiming it first would let a failed save write swallow a reward
             // the player earned, with no way to retry.
-            const write = src.lastIndexOf(payingWrite);
+            const write = payingWriteAt();
+            assert.ok(write >= 0, `${label} must contain its paying write`);
             const relativePlace = src.slice(write).search(/kv\.set\(\s*paidReceiptKey\(|kv\.set\(paidKey,/);
             const place = relativePlace < 0 ? -1 : write + relativePlace;
             assert.ok(place > write, `${label} must place the durable receipt after the paying write`);
-            assert.match(src.slice(place, place + 220), /nx: true/, 'placed NX so a retry cannot restart its TTL');
-            assert.match(src.slice(place, place + 220), /ex: PAID_RECEIPT_TTL_SECONDS/, 'placed with the durable TTL');
+            // The window spans just that one kv.set call, at any indentation.
+            const call = src.slice(place, place + 320);
+            assert.match(call, /nx: true/, 'placed NX so a retry cannot restart its TTL');
+            assert.match(call, /ex: PAID_RECEIPT_TTL_SECONDS/, 'placed with the durable TTL');
         });
     }
 
