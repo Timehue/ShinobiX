@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { PROFESSION_CHANGE_APPROVAL_COST } from "../../../shared/profession-change";
 import { createPortal } from "react-dom";
 import type { Character, Profession } from "../App";
+import type { VersionedCharacterCommit } from "../types/character";
 import { GameIcon, type GameIconName } from "../components/icons/GameIcon";
 import overviewArt from "../assets/professions/overview.webp";
 import healerArt from "../assets/professions/healer.webp";
@@ -115,11 +116,11 @@ function Embers() {
 
 export function ProfessionPicker({
     character,
-    onProfessionChosen,
+    onVersionedCharacter,
     sharedImages = {},
 }: {
     character: Character;
-    onProfessionChosen: (profession: Profession) => void;
+    onVersionedCharacter: VersionedCharacterCommit;
     sharedImages?: Record<string, string>;
 }) {
     const backdropImage = sharedImages["profession:backdrop"] ?? overviewArt;
@@ -158,19 +159,19 @@ export function ProfessionPicker({
                     profession: pending,
                 }),
             });
-            if (!res.ok) {
-                const data = await res.json().catch(() => ({}));
-                setError(data.error ?? `Server error (${res.status})`);
-                setSubmitting(false);
+            const data = await res.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
+            if (!res.ok || !data?.character) {
+                setError(data?.error ?? `Could not confirm your profession (${res.status}). Please retry.`);
                 return;
             }
-            // onProfessionChosen updates character.profession on the parent,
-            // which causes the overlay-condition in App.tsx to flip false and
-            // unmount this component. No setScreen redirect — the player stays
-            // on whatever screen they were on.
-            onProfessionChosen(pending);
+            // Adopt the complete server record, including the choice timestamp
+            // used to fence future scroll retries, through the shared save authority.
+            if (!onVersionedCharacter(data.character, data._saveVersion)) {
+                setError("A newer character record is already active. Refresh to see your profession.");
+            }
         } catch {
             setError("Network error. Try again.");
+        } finally {
             setSubmitting(false);
         }
     }
@@ -261,7 +262,7 @@ export function ProfessionPicker({
                         <div className="pp-warn-band">
                             <p className="pp-warn">
                                 <span className="pp-warn-mark" aria-hidden="true" />
-                                Changing later consumes a Grand Marketplace approval (base {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards) and resets profession rank, XP, and mastery.
+                                Changing from level 20 consumes a Profession Change Scroll from the Grand Marketplace (base {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards) and resets profession rank, XP, and mastery.
                             </p>
                         </div>
                     </header>
@@ -350,8 +351,8 @@ export function ProfessionPicker({
                     <p className="pp-kicker">Confirm your path</p>
                     <h2 className="pp-confirm-title">Become a {info.name}?</h2>
                     <p className="pp-confirm-copy">
-                        This becomes your profession now. Future changes require a Profession change approval from the Grand Marketplace;
-                        its base price is {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards, with any discount shown in the Marketplace. Each change consumes the approval and resets profession rank, XP, and mastery.
+                        This becomes your profession now. Changes from level 20 require a Profession Change Scroll from the Grand Marketplace;
+                        its base price is {PROFESSION_CHANGE_APPROVAL_COST} Fate Shards, with any discount shown in the Marketplace. Each change consumes the scroll and resets profession rank, XP, and mastery.
                     </p>
                     {error && (
                         <p className="pp-error" role="alert">

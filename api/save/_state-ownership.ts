@@ -384,7 +384,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new ANBU month'),
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
-    f('professionChosenAt', 'character', 'server-owned', 'profession', ['combat-strip-char']),
+    f('professionChosenAt', 'character', 'server-owned', 'profession', ['server-mirror-char', 'combat-strip-char'], 'profession choice generation; only /api/profession/choose advances it, including scroll changes'),
     // Village Stores per-player daily counters (api/_village-stores.ts): written
     // only by the cafeteria cook + treasury donate endpoints under the save lock.
     f('rationsCookedDate', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the cook counter'),

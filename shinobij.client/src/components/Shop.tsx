@@ -24,6 +24,10 @@ import { makeId } from "../lib/utils";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { Modal } from "./ui/Modal";
+import { VillageTransfer } from "./VillageTransfer";
+import { ProfessionChange } from "./ProfessionChange";
+import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
+import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 
 function shopArtworkIcon(item: GameItem): GameIconName {
     switch (normalizeEquipmentSlot(item.slot)) {
@@ -117,6 +121,8 @@ function ShopBase({
         // Drops, crafting materials, and keys ship with cost: 0 because they're
         // earned in-game, not bought. Exclude them from shop listings.
         return shopSlots.includes(item.slot)
+            && item.id !== VILLAGE_TRANSFER_SCROLL_ID
+            && item.id !== PROFESSION_CHANGE_APPROVAL_ID
             && filterRarities.includes(item.rarity)
             && !craftOnlyWeapon
             && !craftOnlyArmor
@@ -245,6 +251,11 @@ function ShopBase({
             {currency === "ryo" && (
                 <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toFixed(2)}%</strong></p>
             )}
+
+            {currency === "fateShards" && <div className="marketplace-scrolls">
+                <VillageTransfer key={`village-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
+                <ProfessionChange key={`profession-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
+            </div>}
 
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) =>

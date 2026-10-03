@@ -126,6 +126,7 @@ shop,thrown-senbon,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-serpent-dust,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,400,per unit,api/pvp/_item-catalog.ts,common thrown
 shop,training-katana,ryo,240,per unit,api/pvp/_item-catalog.ts,common hand
+shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,worldsplitter-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 bloodline-forge,B Rank,boneCharms,100,per forge,api/bloodlines/_forge.ts,

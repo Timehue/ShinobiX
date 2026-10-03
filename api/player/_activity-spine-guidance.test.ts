@@ -10,7 +10,7 @@ import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
 import { FLOOR_CATALOG } from '../towers/_floor-catalog.js';
 import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { PROFESSION_CHANGE_LEVEL } from '../../shared/profession-change.js';
+import { PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
 import { applyForge } from '../craft/_forge.js';
 import { showdownBusyIssue } from '../pet/_showdown-readiness.js';
 import { makePlayerRankedAdmission, PET_RANKED_SEASON_GATE_KEY, PET_RANKED_SEASON_GATE_VERSION } from '../pet/_ranked-preparation.js';
@@ -174,7 +174,7 @@ test('supplies are craftable only when the real immutable forge decision accepts
 });
 
 test('Legacy and profession preparation honor canonical floors and completion stays a review', () => {
-    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_CHANGE_LEVEL], ['ranked-pvp', RANKED_MIN_LEVEL]] as const) {
+    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_UNLOCK_LEVEL], ['ranked-pvp', RANKED_MIN_LEVEL]] as const) {
         for (const level of [minimum - 1, minimum, minimum + 1]) {
             assert.equal(first(input(focus, { level, profession: '' })).screen === 'training', level < minimum);
         }

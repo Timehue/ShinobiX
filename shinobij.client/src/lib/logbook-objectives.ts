@@ -244,7 +244,7 @@ export function buildLogbookObjectives(character: Character, ctx: ObjectiveConte
                             label: "Choose a profession",
                             progress: character.profession ? 1 : 0,
                             target: 1,
-                            detail: `Unlocks at level 13: Healer, Vanguard, or Pet Tamer. Changing later consumes an approval (base ${PROFESSION_CHANGE_APPROVAL_COST} Fate Shards) and resets profession rank, XP, and mastery.`,
+                            detail: `Unlocks at level 13: Healer, Vanguard, or Pet Tamer. Changes unlock at level 20 and consume a Profession Change Scroll (base ${PROFESSION_CHANGE_APPROVAL_COST} Fate Shards), resetting profession rank, XP, and mastery.`,
                             ...(character.level >= 13 ? { goScreen: "professions" as Screen, goLabel: "Pick Path" } : {}),
                         },
                         { label: "Reach level 15", progress: character.level, target: 15, detail: "Level 15 changes your rank to Genin; level 20 is the first exam hold", goScreen: "training", goLabel: "Earn Points" },

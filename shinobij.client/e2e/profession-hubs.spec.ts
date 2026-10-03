@@ -265,12 +265,51 @@ test('daily orders recover cleanly after a temporary server failure', async ({ p
     await expect(page.getByText('Orders temporarily unavailable')).toHaveCount(0);
 });
 
+test('first profession choice adopts the server record before using a change scroll', async ({ page }) => {
+    const { runtime, character } = await boot(page, '', {
+        level: 20, profession: undefined, professionChosenAt: undefined, professionRank: 0, professionXp: 0,
+        inventory: ['profession-change-approval'],
+    });
+    const serverChosenAt = 123456789;
+    let firstChoice = false;
+    await page.route('**/api/profession/choose', async route => {
+        const body = route.request().postDataJSON();
+        if (!body.respec) {
+            expect(body).toEqual({ playerName: 'AuditNinja', profession: 'vanguard' });
+            firstChoice = true;
+        } else {
+            expect(body).toEqual({ playerName: 'AuditNinja', profession: 'healer', fromProfession: 'vanguard', fromProfessionChosenAt: serverChosenAt, respec: true });
+        }
+        const next = { ...character, profession: body.profession, professionRank: 1, professionXp: 0,
+            professionChosenAt: body.respec ? serverChosenAt + 1 : serverChosenAt,
+            inventory: body.respec ? [] : ['profession-change-approval'], masterySpec: {},
+        };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(next, version);
+        await route.fulfill({ json: { ok: true, character: next, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'professions');
+    await page.locator('.pp-root').getByRole('button', { name: /Continue/ }).click();
+    await page.getByRole('button', { name: /Walk the Vanguard's path/ }).click();
+    await page.getByRole('button', { name: "Yes, I'm sure", exact: true }).click();
+    await expect(page.locator('.pp-root')).toHaveCount(0);
+    expect(firstChoice).toBe(true);
+    await expect(page.locator('.ph-hero h2')).toHaveText('Vanguard');
+    await page.getByRole('button', { name: 'Use scroll · Choose profession', exact: true }).click();
+    await page.getByRole('radio', { name: /Healer/ }).check();
+    await page.getByRole('button', { name: 'Become Healer', exact: true }).click();
+    await expect(page.locator('.ph-hero h2')).toHaveText('Healer');
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.ph-hero h2')).toHaveText('Healer');
+    expect(runtime.saveConflictCount()).toBe(0);
+});
+
 test('changing profession switches the hub, menu, missions and progression together', async ({ page }) => {
     const { runtime, character } = await boot(page, 'vanguard', { professionRank: 10, professionXp: 100_000, masterySpec: { 'seal-cap': 1 }, inventory: ['profession-change-approval'] });
     let activeProfession = 'vanguard';
     await page.route('**/api/missions/daily?*', route => route.fulfill({ json: { profession: activeProfession, missions: [{ id: `${activeProfession}-order`, name: `${activeProfession} assignment`, description: 'Serve your village.', target: 1, progress: 0, xpReward: 100, completedAt: null }] } }));
     await page.route('**/api/profession/choose', async route => {
-        expect(route.request().postDataJSON()).toEqual({ playerName: 'AuditNinja', profession: 'healer', respec: true });
+        expect(route.request().postDataJSON()).toEqual({ playerName: 'AuditNinja', profession: 'healer', fromProfession: 'vanguard', fromProfessionChosenAt: character.professionChosenAt ?? null, respec: true });
         activeProfession = 'healer';
         const next = { ...character, profession: 'healer', professionRank: 1, professionXp: 0, masterySpec: {}, inventory: [] };
         const version = runtime.currentVersion() + 1;
@@ -278,14 +317,15 @@ test('changing profession switches the hub, menu, missions and progression toget
         await route.fulfill({ json: { character: next, _saveVersion: version } });
     });
     await expectUiAuditBoot(page, runtime, 'professions');
-    await page.getByRole('button', { name: 'Change to Healer', exact: true }).click();
+    await page.getByRole('button', { name: 'Use scroll · Choose profession', exact: true }).click();
+    await page.getByRole('radio', { name: /Healer/ }).check();
     await page.getByRole('button', { name: 'Become Healer', exact: true }).click();
     await expect(page.locator('.ph-hero h2')).toHaveText('Healer');
     await expect(page.getByText('healer assignment', { exact: true })).toBeVisible();
     await expect(page.getByText('vanguard assignment', { exact: true })).toHaveCount(0);
     await expect(page.locator('.ph-rank-emblem strong')).toHaveText('01');
     await expect(page.getByText('0 points to spend', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Change to Vanguard', exact: true })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Use scroll · Choose profession', exact: true })).toHaveCount(0);
     await page.getByRole('button', { name: /Village Hospital/ }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'hospital');
     await openProfessionFromMenu(page, 'Healer');
