@@ -1,6 +1,6 @@
 import { creditElderWinDeltas } from '../../shared/elder-elections.js';
 import { bumpSaveVersion } from './_save-version.js';
-import { isDeepStrictEqual } from 'node:util';
+import { storedValueEquals } from '../_stored-value.js';
 import type { KvLike } from '../_storage.js';
 import { WORLD_CRISIS_TRIGGER_LEVEL } from '../../shared/world-crisis.js';
 import { WORLD_CRISIS_80_TRIGGER_LEVEL } from '../../shared/world-crisis-80.js';
@@ -108,17 +108,6 @@ export function versionedPlayerRecord(
         previousCharacter: hollowGateProvenanceRecorded ? character : previous,
     });
     return { record, _saveVersion: Number(record._saveVersion ?? 0) };
-}
-
-/**
- * Whether a read-back shows the value a write intended, compared the way the
- * store keeps it. Postgres keeps JSON: an `undefined` field is dropped, `-0`
- * reads back as `0`, and jsonb orders keys its own way. A plain deep-equal
- * called such a write lost when it had landed, so both sides go through JSON
- * first, then an order-insensitive comparison.
- */
-function storedValueEquals(stored: unknown, intended: unknown): boolean {
-    return isDeepStrictEqual(JSON.parse(JSON.stringify(stored ?? null)), JSON.parse(JSON.stringify(intended ?? null)));
 }
 
 /** Exact-CAS save write used by crash-recoverable settlement sagas. */
