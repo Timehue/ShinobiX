@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route, type TestInfo } from "@playwright/
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
 import AxeBuilder from "@axe-core/playwright";
+import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -367,16 +368,16 @@ async function installPetHomeApi(page: Page) {
 }
 
 async function openHome(page: Page) {
-    await page.goto("/#/home", { waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/home");
     // The SPA intentionally applies bookmarked hashes during boot rather than
     // reacting to hash-only changes after mount, so force the normal restore path.
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
 }
 
 async function reloadHome(page: Page) {
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
 }
 
@@ -458,7 +459,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const state = await installPetHomeApi(page);
 
-    await page.goto("/#/village", { waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/village");
     const homeFacility = page.getByRole("button", { name: "Enter Pet Home" });
     await expect(homeFacility).toBeVisible();
     await shot(page, testInfo, "01-village-home-facility");
@@ -665,8 +666,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await arenaReturn.click();
     await expect(page.locator(".stormveil-village-screen")).toBeVisible();
 
-    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/centralHub");
+    await reloadSettled(page);
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
@@ -715,7 +716,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
 
     delete selectedPet.training;
     selectedPet.expedition = { type: "scout", startedAt: past - 60_000, endsAt: past, durationMs: 60_000 };
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
@@ -727,7 +728,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
 
     delete selectedPet.expedition;
     state.character.petBreeding = session("breeding");
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
@@ -737,8 +738,8 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await expect(warfront.getByRole("button", { name: /Breeding in progress/ })).toBeDisabled();
     await expect(colosseum.getByRole("button", { name: /Committed to the Shinobi Hatchery/ })).toBeDisabled();
 
-    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/centralHub");
+    await reloadSettled(page);
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
@@ -961,7 +962,7 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
             await page.screenshot({ path: testInfo.outputPath("sunscar-trading-quarter.png"), animations: "disabled" });
         }
     }
-    await page.goto("/#/pets", { waitUntil: "networkidle", timeout: 120_000 });
+    await gotoSettled(page, "/#/pets", { timeout: 120_000 });
     await expect(page.locator(".pet-yard-refined")).toBeVisible();
     const hint = page.getByRole("button", { name: /got it/i });
     if (await hint.isVisible()) await hint.click();
@@ -994,8 +995,8 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("shinobix:open-pet-expedition", { detail: { petId: "qa-fire-1" } })));
     await expect(page.getByRole("heading", { name: "Expedition Board", exact: true })).toBeVisible();
 
-    await page.goto("/#/sunscarFestival", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/sunscarFestival");
+    await reloadSettled(page);
     await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
     await fit("sunscar-festival", ".sunscar-hub-refined");
     await page.getByRole("button", { name: "Enter the Exchange" }).click();
@@ -1057,7 +1058,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
         } else if (body.action === 'equip') current.loadout = { ...(current.loadout as object), [body.slot]: body.itemId };
         return json(route, { ok: true, pet: current, character: state.character, settledTraining: body.action === 'complete-training' ? 'bond' : null, _saveVersion: ++state.saveVersion });
     });
-    await page.goto('/#/pets', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/pets');
     await page.getByRole('button', { name: 'Select Sumi', exact: true }).click();
     await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Training desk unavailable');
@@ -1111,7 +1112,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
         overflow.xp = Number(overflow.xp) + 40;
         return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
     });
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
     await expect(page.getByRole('button', { name: 'Secure haul', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
@@ -1123,7 +1124,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
     await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();
     state.character.pets = [];
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(page.getByRole('button', { name: 'Go to World Map', exact: true })).toBeVisible();
     await expect(nav).toHaveCount(0);
 });
@@ -1165,7 +1166,7 @@ test("refined integration festival navigation, crate, and market retry", async (
         }
         return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, listings: lots.filter(lot => lot.state === 'active'), activity: trades, inventory: [], creatorItems: [], recoveryErrors: [] });
     });
-    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/sunscarFestival');
     for (const [selector, title, back] of [
         ['.sunscar-attraction-rally button', 'Pet Rally', '.sunscar-rally .sunscar-back'],
         ['.sunscar-attraction-caravan button', 'Caravan Run', '.caravan-mode .sunscar-back'],

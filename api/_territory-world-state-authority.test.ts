@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { before, beforeEach, describe, it } from 'node:test';
+import { before, beforeEach, describe, it, type TestContext } from 'node:test';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -7,6 +7,7 @@ process.env.SESSION_SECRET = 'territory-world-state-authority-test-secret';
 
 let kv: typeof import('./_storage.js').kv;
 let handler: typeof import('./world-state.js').default;
+let captureSectorForVillage: typeof import('./world-state.js').captureSectorForVillage;
 let issuePlayerToken: typeof import('./_auth.js').issuePlayerToken;
 
 const territoryKey = 'world:territory:40';
@@ -59,7 +60,29 @@ before(async () => {
     ({ issuePlayerToken } = await import('./_auth.js'));
     const world = await import('./world-state.js');
     handler = world.default as unknown as typeof handler;
+    captureSectorForVillage = world.captureSectorForVillage;
 });
+
+/**
+ * Production reads come back from Postgres in the JSON form, and the territory
+ * write's first landed compare-and-set loses its reply.
+ */
+function loseTerritoryReplyOnce(t: TestContext): () => number {
+    const realGet = kv.get.bind(kv);
+    const realCompareSet = kv.compareSet.bind(kv);
+    let lostReplies = 0;
+    t.mock.method(kv, 'get', async (key: string) => {
+        const value = await realGet(key);
+        return value === null ? null : JSON.parse(JSON.stringify(value));
+    });
+    t.mock.method(kv, 'compareSet', async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+        const landed = await realCompareSet(key, expected, value, options);
+        if (key !== territoryKey || !landed || lostReplies > 0) return landed;
+        lostReplies += 1;
+        throw new Error('Connection terminated unexpectedly');
+    });
+    return () => lostReplies;
+}
 
 beforeEach(async () => {
     const keys = await kv.keys('*');
@@ -113,5 +136,33 @@ describe('legacy world-state territory write authority', { concurrency: false },
         const appointed = await invoke('anbu', territory({ guards: ['Alice', 'Bob', 'Anbu'] }));
         assert.equal(appointed.statusCode, 200);
         assert.deepEqual((await kv.get<Record<string, unknown>>(territoryKey))?.guards, ['Alice', 'Bob', 'Anbu']);
+    });
+});
+
+describe('territory writes read back from Postgres', { concurrency: false }, () => {
+    it('a sector-war capture whose write landed but lost its reply still resolves', async (t) => {
+        // A capture sets the clan owner and the breach fields to explicit
+        // undefined. The read-back is the JSON form without them, so a deep-equal
+        // threw the lost reply out of the war settlement and it ran the capture again.
+        const lostReplies = loseTerritoryReplyOnce(t);
+        const captured = await captureSectorForVillage(40, 'Frostfang Village', Date.now());
+        assert.equal(lostReplies(), 1, 'the capture landed and only its reply was lost');
+        assert.equal(captured.ownerVillage, 'Frostfang Village');
+        const row = await kv.get<Record<string, unknown>>(territoryKey);
+        assert.equal(row?.ownerVillage, 'Frostfang Village');
+        assert.equal(row?.ownerClan, undefined, 'the defeated village’s clan no longer holds it');
+    });
+
+    it('a write to a clan-less sector that landed but lost its reply still answers 200', async (t) => {
+        // With no stored owner clan, the write carries `ownerClan: undefined`
+        // over from the row, so a deep-equal read-back turned every lost reply
+        // into a 500 even though the write had landed.
+        const { ownerClan: _clanless, ...villageOnly } = territory();
+        await kv.set(territoryKey, villageOnly);
+        const lostReplies = loseTerritoryReplyOnce(t);
+        // A villager of the owning village rewrites the row with its HP unchanged.
+        const out = await invoke('outsider', villageOnly);
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(lostReplies(), 1, 'the write landed and only its reply was lost');
     });
 });

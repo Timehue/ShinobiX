@@ -121,6 +121,33 @@ describe('territory inactivity sweep', () => {
         assert.equal((await store.get<Record<string, unknown>>('world:territory:40'))?.warSupply, 400);
     });
 
+    it('counts a release whose write landed but lost its reply as released, not as an error', async () => {
+        // Production reads come back from Postgres in the JSON form. A release
+        // leaves eight fields explicitly undefined, so a deep-equal read-back
+        // judged every landed release lost and the sweep reported an error.
+        const base = _makeMemoryKv();
+        await base.set('world:territory:40', owned()); // its clan record is gone
+        let lostReplies = 0;
+        const store = {
+            ...base,
+            get: async <T,>(key: string) => {
+                const value = await base.get<T>(key);
+                return value === null ? null : JSON.parse(JSON.stringify(value)) as T;
+            },
+            compareSet: async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
+                const landed = await base.compareSet(key, expected, value, options);
+                if (key !== 'world:territory:40' || !landed || lostReplies > 0) return landed;
+                lostReplies += 1;
+                throw new Error('Connection terminated unexpectedly');
+            },
+        };
+        const out = await runTerritoryLifecycleSweep({ store, lock: passLock, now: NOW });
+        assert.equal(lostReplies, 1, 'the release landed and only its reply was lost');
+        assert.deepEqual(out.errors, []);
+        assert.equal(out.missingClanReleased, 1);
+        assert.equal((await base.get<Record<string, unknown>>('world:territory:40'))?.ownerClan, undefined);
+    });
+
     it('resumes without retroactive supply catch-up when a member returns', async () => {
         const store = await seed({ Alice: NOW, Bob: NOW });
         await store.set('world:territory:40', owned({
