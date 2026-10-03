@@ -63,6 +63,13 @@ const SETTLES_ITSELF = new Set([
     // merge, which mutatePlayerSave's generic write would not.
     'missions/claim-mission.ts',
     'missions/queue-combat-claim.ts',
+    // Pet writers that already run the owned-pet migration and breeding
+    // settle under their own save lock, with replies callers depend on.
+    'pet/breeding-hatch.ts',
+    'pet/breeding-start.ts',
+    'pet/breeding-status.ts',
+    'pet/sanctuary-transfer.ts',
+    'pet/showdown.ts',
 ]);
 
 // The calls that credit the recovery before a write.
@@ -94,12 +101,6 @@ const TO_CONVERT: Readonly<Record<string, number>> = {
     'village/claim-map-control.ts': 1,
     '_war-declaration-funding.ts': 2,
     '_war-mercenary-hire.ts': 1,
-    // Pets.
-    'pet/breeding-hatch.ts': 1,
-    'pet/breeding-start.ts': 1,
-    'pet/breeding-status.ts': 1,
-    'pet/sanctuary-transfer.ts': 2,
-    'pet/showdown.ts': 2,
     // Towers entry fee and its refund.
     'towers/start.ts': 8,
     // Training: start also checks its stamina cost against the unsettled
