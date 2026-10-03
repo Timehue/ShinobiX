@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { gotoSettled, reloadSettled } from './helpers/network-settle';
 
 /*
  * The open market is filtered, sorted and paged by the SERVER: the browse reply
@@ -58,7 +59,7 @@ test('the Exchange shows the server\'s market page, and a typed search settles i
         });
     });
 
-    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/sunscarFestival');
     await page.getByRole('button', { name: 'Enter the Exchange', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Sunscar Exchange', exact: true })).toBeFocused();
 
@@ -117,7 +118,7 @@ test('a save that lands while the market is loading is re-read, not reported to 
         });
     });
 
-    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/sunscarFestival');
     await page.getByRole('button', { name: 'Enter the Exchange', exact: true }).click();
     await expect(page.locator('.sx-listing')).toHaveCount(PAGE_SIZE);
 
@@ -159,7 +160,7 @@ test('capacity guidance appears before submission and prepare-return revalidates
         return route.fulfill({ json: { ok: true, market, activity: [], inventory: [], creatorItems: [], recoveryErrors: [], character: save.character, _saveVersion: runtime.currentVersion() } });
     });
 
-    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/sunscarFestival');
     await page.getByRole('button', { name: 'Enter the Exchange', exact: true }).click();
     await page.getByRole('button', { name: /Dune Fox/ }).click();
     await expect(page.getByText(/roster is full/i)).toBeVisible();
@@ -177,7 +178,7 @@ test('capacity guidance appears before submission and prepare-return revalidates
     await expect(page.locator('.sx-success')).toHaveCount(0);
     await page.getByRole('button', { name: 'Retry listing check' }).click();
     await expect.poll(() => readinessChecks).toBe(3);
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(page.getByText('This listing is no longer available.')).toBeVisible();
     await expect(page.getByText(/Status: Sold/)).toBeVisible();
     await expect(page.getByRole('button', { name: /Buy for/ })).toHaveCount(0);
