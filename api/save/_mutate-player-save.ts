@@ -399,11 +399,12 @@ export async function mutatePlayerSave<T>(
 
 /**
  * mutatePlayerSave for a writer that already holds `save:<name>`'s lock, taken
- * failClosed. withKvLock is not re-entrant, so a settlement that locks a save
- * around several steps (PvP claim-rewards locks both fighters' saves across
- * its receipts and credits) cannot call mutatePlayerSave inside that lock.
+ * failClosed. A settlement can lock a save around several steps (PvP
+ * claim-rewards locks both fighters' saves across its receipts and credits).
  * This runs the same read, settle, decision and exact compare-and-set write
- * without taking the lock again. Outside that lock it is a race.
+ * without acquiring a lock; the caller owns that responsibility. The regular
+ * writer also supports reentry through the caller's original active lease.
+ * Outside that lock this variant is a race.
  */
 export async function mutatePlayerSaveLocked<T>(
     playerNameRaw: string,
