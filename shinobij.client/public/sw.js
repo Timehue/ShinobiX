@@ -36,12 +36,25 @@ self.addEventListener('install', (event) => {
 
 self.addEventListener('activate', (event) => {
     event.waitUntil((async () => {
-        const names = await caches.keys();
-        const current = new Set([ASSET_CACHE, IMAGE_CACHE, MODEL_CACHE, SHELL_CACHE]);
-        await Promise.all(names.filter((name) => name.startsWith('sj-') && !current.has(name)).map((name) => caches.delete(name)));
+        try {
+            const names = await caches.keys();
+            const current = new Set([ASSET_CACHE, IMAGE_CACHE, MODEL_CACHE, SHELL_CACHE]);
+            await Promise.all(names.filter((name) => name.startsWith('sj-') && !current.has(name)).map((name) => caches.delete(name)));
+        } catch { /* Unavailable browser storage must not prevent activation. */ }
         await self.clients.claim();
     })());
 });
+
+// Browser privacy settings, storage pressure, or a damaged cache can reject
+// reads as well as writes. Caching is optional: an online game must continue
+// fetching its files when CacheStorage is unavailable.
+async function openCache(name) {
+    try { return await caches.open(name); } catch { return null; }
+}
+
+async function matchCache(cache, key) {
+    try { return cache ? await cache.match(key) : undefined; } catch { return undefined; }
+}
 
 async function trimCache(cache, maxEntries) {
     const keys = await cache.keys();
@@ -100,8 +113,8 @@ self.addEventListener('fetch', (event) => {
             try {
                 return await fetch(request);
             } catch (networkError) {
-                const cache = await caches.open(SHELL_CACHE);
-                const offline = await cache.match(OFFLINE_URL);
+                const cache = await openCache(SHELL_CACHE);
+                const offline = await matchCache(cache, OFFLINE_URL);
                 if (offline) return offline;
                 throw networkError;   // nothing precached — surface the real failure
             }
@@ -111,15 +124,15 @@ self.addEventListener('fetch', (event) => {
 
     if (HASHED_ASSET_RE.test(url.pathname)) {
         event.respondWith((async () => {
-            const cache = await caches.open(ASSET_CACHE);
+            const cache = await openCache(ASSET_CACHE);
             const cacheKey = withoutRetryParam(url.href);
             // An explicit story retry bypasses a possibly malformed immutable
             // entry, then replaces its canonical key so the repair survives a
             // later reload. Ordinary content-addressed assets remain cache-first.
-            const cached = url.searchParams.has('story-retry') ? undefined : await cache.match(cacheKey);
+            const cached = url.searchParams.has('story-retry') ? undefined : await matchCache(cache, cacheKey);
             if (cached) return cached;
             const response = await fetch(request);
-            if (isCacheableHashedAssetResponse(response, url.pathname)) {
+            if (cache && isCacheableHashedAssetResponse(response, url.pathname)) {
                 const copy = response.clone();
                 event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_ASSET_ENTRIES)).catch(() => undefined));
             }
@@ -132,11 +145,11 @@ self.addEventListener('fetch', (event) => {
     // are non-fatal — the response is still returned, it just isn't cached.
     if (MODEL_ASSET_RE.test(url.pathname)) {
         event.respondWith((async () => {
-            const cache = await caches.open(MODEL_CACHE);
-            const cached = await cache.match(url.href);
+            const cache = await openCache(MODEL_CACHE);
+            const cached = await matchCache(cache, url.href);
             if (cached) return cached;
             const response = await fetch(request);
-            if (response.ok) {
+            if (cache && response.ok) {
                 const copy = response.clone();
                 event.waitUntil(cache.put(url.href, copy).then(() => trimCache(cache, MAX_MODEL_ENTRIES)).catch(() => undefined));
             }
@@ -148,15 +161,15 @@ self.addEventListener('fetch', (event) => {
     // Paint last-known-good art immediately, then refresh it in the background.
     if (request.destination !== 'image') return;
     event.respondWith((async () => {
-        const cache = await caches.open(IMAGE_CACHE);
+        const cache = await openCache(IMAGE_CACHE);
         const cacheKey = withoutRetryParam(url.href);
-        const cached = await cache.match(cacheKey);
+        const cached = await matchCache(cache, cacheKey);
         if (cached) {
             event.waitUntil(cacheSuccessfulImage(cache, cacheKey, request).catch(() => undefined));
             return cached;
         }
         const response = await fetch(request);
-        if (isCacheableImageResponse(response)) {
+        if (cache && isCacheableImageResponse(response)) {
             const copy = response.clone();
             event.waitUntil(cache.put(cacheKey, copy).then(() => trimCache(cache, MAX_IMAGE_ENTRIES)).catch(() => undefined));
         }

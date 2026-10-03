@@ -2444,7 +2444,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 473
+            "line": 483
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -2508,7 +2508,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 396
+            "line": 406
           },
           {
             "source": "shinobij.client/src/styles/world-map-mobile.css",
@@ -2704,6 +2704,14 @@
           {
             "source": "shinobij.client/src/components/RankUpCelebration.css",
             "line": 88
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 388
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 418
           }
         ]
       },
@@ -2768,6 +2776,17 @@
       },
       {
         "direction": "min",
+        "axis": "height",
+        "valuePx": 521,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 464
+          }
+        ]
+      },
+      {
+        "direction": "min",
         "axis": "width",
         "valuePx": 521,
         "occurrences": [
@@ -2815,7 +2834,7 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 430
+            "line": 440
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -2917,7 +2936,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
-            "line": 298
+            "line": 300
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -2960,7 +2979,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 473
+            "line": 483
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -2969,6 +2988,17 @@
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
             "line": 176
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "width",
+        "valuePx": 561,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 374
           }
         ]
       },
@@ -2985,6 +3015,17 @@
       },
       {
         "direction": "max",
+        "axis": "width",
+        "valuePx": 599,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 418
+          }
+        ]
+      },
+      {
+        "direction": "max",
         "axis": "height",
         "valuePx": 600,
         "occurrences": [
@@ -2995,6 +3036,17 @@
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
             "line": 1741
+          }
+        ]
+      },
+      {
+        "direction": "min",
+        "axis": "height",
+        "valuePx": 600,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 374
           }
         ]
       },
@@ -3066,6 +3118,10 @@
         "axis": "width",
         "valuePx": 600,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 388
+          },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
             "line": 1965
@@ -3375,8 +3431,16 @@
         "valuePx": 700,
         "occurrences": [
           {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 805
+          },
+          {
             "source": "shinobij.client/src/screens/PetShowdown.css",
             "line": 1632
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 464
           },
           {
             "source": "shinobij.client/src/styles/tower-tactical.css",
@@ -3450,6 +3514,10 @@
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
             "line": 757
+          },
+          {
+            "source": "shinobij.client/src/features/character-creator/character-creator.css",
+            "line": 805
           },
           {
             "source": "shinobij.client/src/styles/index/39-civic-facilities.css",
@@ -3797,7 +3865,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
-            "line": 254
+            "line": 256
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -3876,6 +3944,10 @@
           {
             "source": "shinobij.client/src/styles/landing-home.css",
             "line": 116
+          },
+          {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 464
           },
           {
             "source": "shinobij.client/src/styles/mission-arena-fight.css",
@@ -4210,6 +4282,10 @@
             "line": 776
           },
           {
+            "source": "shinobij.client/src/styles/landing-home.css",
+            "line": 374
+          },
+          {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
             "line": 199
           },
@@ -4219,11 +4295,15 @@
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 396
+            "line": 391
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
-            "line": 473
+            "line": 406
+          },
+          {
+            "source": "shinobij.client/src/styles/layout/adaptive-shell.css",
+            "line": 483
           },
           {
             "source": "shinobij.client/src/styles/layout/adaptive-stages.css",
@@ -4622,7 +4702,7 @@
           },
           {
             "source": "shinobij.client/src/styles/landing-home.css",
-            "line": 243
+            "line": 245
           },
           {
             "source": "shinobij.client/src/styles/veiled-steel.css",
@@ -4784,7 +4864,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/landing-home.css",
-            "line": 233
+            "line": 235
           }
         ]
       }

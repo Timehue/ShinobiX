@@ -10,6 +10,7 @@ import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { sectorPlace } from '../../shared/sector-geo.js';
 import {
     createStoryCombatBinding,
     storyBossEligibility,
@@ -34,11 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!enforceRateLimit(req, res, 'story-boss-start', 12, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'story-boss-start-preauth', (12) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own story battle.' });
+        if (!enforceRateLimit(req, res, 'story-boss-start', 12, 60_000, identity.admin ? playerName : identity.name)) return;
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
@@ -46,6 +48,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
+        const currentSector = Math.floor(Number(save.currentSector));
+        const fieldBiome = currentSector > 0 ? sectorPlace(currentSector)?.biome : undefined;
         // A hospitalized character starts no new fight — the same rule every
         // other fight entry point applies (api/_elapsed-state.ts). The Hospital
         // screen holds honest clients; this is the server's answer to the rest.
@@ -83,7 +87,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sourceId: binding.opponentId,
                 bindingId: runId,
             },
-            environment: { biome: STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central' },
+            environment: { biome: fieldBiome ?? STORY_VILLAGE_BIOMES[eligibility.village] ?? 'central' },
         });
         await writeSoloPveSession(session);
         await kv.set(storyCombatBindingKey(runId), binding, { ex: STORY_COMBAT_SESSION_TTL_SECONDS });

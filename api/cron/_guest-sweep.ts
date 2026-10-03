@@ -25,8 +25,11 @@
  * what they would have taken and take nothing.
  */
 import { kv } from './../_storage.js';
+import { isDeepStrictEqual } from 'node:util';
+import { withKvLock } from './../_lock.js';
+import { readPlayerSessionEpoch } from './../_auth.js';
 import { safeName } from './../_utils.js';
-import { GUEST_INACTIVITY_MS, isCredentialLessGuest, type AuthRecord } from './../player-auth.js';
+import { authKey, GUEST_INACTIVITY_MS, isCredentialLessGuest, type AuthRecord } from './../player-auth.js';
 import { deletePlayerAccount } from './../_delete-player-account.js';
 import { REGISTRY_KEY } from './../player/_public-index.js';
 
@@ -58,6 +61,18 @@ function parseLastSeen(raw: unknown): number {
     if (!entry || typeof entry !== 'object') return 0;
     const lastSeen = Number((entry as { lastSeen?: unknown }).lastSeen);
     return Number.isFinite(lastSeen) && lastSeen > 0 ? lastSeen : 0;
+}
+
+function serverActivity(value: unknown): number {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function guestResumeActivity(record: AuthRecord, now: number): number {
+    // Creation/resume alone can establish activity before the first save. Only
+    // the approved server-owned, well-formed authority fields imply that touch.
+    if (typeof record.guestResumeHash !== 'string' || !/^[a-f0-9]{64}$/.test(record.guestResumeHash)) return 0;
+    const expiry = serverActivity(record.guestResumeExpiresAt);
+    return expiry ? Math.max(0, Math.min(now, expiry - GUEST_INACTIVITY_MS)) : 0;
 }
 
 export async function runGuestSweep(now: number = Date.now()): Promise<GuestSweepResult> {
@@ -104,17 +119,41 @@ export async function runGuestSweep(now: number = Date.now()): Promise<GuestSwee
         if (!record || !isCredentialLessGuest(record)) continue;
         result.guests += 1;
 
-        const lastActive = Math.max(parseLastSeen(registry[slug]), Number(record.createdAt) || 0);
+        const lastActive = Math.max(parseLastSeen(registry[slug]), Number(record.createdAt) || 0, guestResumeActivity(record, now));
         // A guest with no timestamp at all is not evidence of abandonment — it
         // is evidence of missing data. Leave it rather than guess.
         if (!lastActive || lastActive >= cutoff) continue;
 
-        result.expired.push(slug);
-        if (!result.enabled) continue;
+        if (!result.enabled) {
+            result.expired.push(slug);
+            continue;
+        }
 
         try {
-            const deleted = await deletePlayerAccount(slug);
-            result.failures.push(...deleted.failures.map((f) => `${slug}: ${f}`));
+            // Match interactive deletion's save -> auth order. Holding both
+            // through teardown excludes claims, name reuse and fresh save writes
+            // before even social/billing cleanup starts. The inner auth lock in
+            // deletePlayerAccount reuses this owner instead of reacquiring it.
+            const reclaimed = await withKvLock(`save:${slug}`, () => withKvLock(authKey(slug), async () => {
+                const current = await kv.get<AuthRecord>(authKey(slug));
+                if (!current || !isCredentialLessGuest(current) || !isDeepStrictEqual(current, record)) return false;
+                if ((current.sessionEpoch ?? 0) !== await readPlayerSessionEpoch(slug)) return false;
+                const [freshRegistry, save] = await Promise.all([
+                    kv.hgetall<Record<string, unknown>>(REGISTRY_KEY),
+                    kv.get<{ _saveAt?: unknown }>(`save:${slug}`),
+                ]);
+                const currentActivity = Math.max(
+                    parseLastSeen(freshRegistry?.[slug]),
+                    serverActivity(current.createdAt),
+                    serverActivity(save?._saveAt),
+                    guestResumeActivity(current, now),
+                );
+                if (!currentActivity || currentActivity >= cutoff) return false;
+                const deleted = await deletePlayerAccount(slug);
+                result.failures.push(...deleted.failures.map((f) => `${slug}: ${f}`));
+                return deleted.removed.includes(authKey(slug));
+            }, { failClosed: true }), { failClosed: true });
+            if (reclaimed) result.expired.push(slug);
         } catch (err) {
             result.failures.push(`${slug} delete: ${(err as Error).message}`);
         }

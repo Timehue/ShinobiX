@@ -11,6 +11,8 @@
  */
 import { randomUUID } from 'node:crypto';
 import { kv, type KvLike } from '../_storage.js';
+import { withKvLeaseContext } from '../_kv-lock-context.js';
+import { runBackgroundWork } from '../_background-work.js';
 
 const LEASE_PREFIX = 'cron:lease:';
 
@@ -59,7 +61,7 @@ export async function withScheduledJobLeaseCore<T>(
 
     let holdUntilExpiry = false;
     try {
-        const value = await fn();
+        const value = await withKvLeaseContext(key, ownerToken, fn);
         holdUntilExpiry = options.holdUntilExpiryOnSuccess === true
             && (options.holdUntilExpiryWhen?.(value) ?? true);
         return { acquired: true, value };
@@ -78,5 +80,6 @@ export function withScheduledJobLease<T>(
     fn: () => Promise<T>,
     options: ScheduledJobLeaseOptions<T>,
 ): Promise<ScheduledJobLeaseResult<T>> {
-    return withScheduledJobLeaseCore(kv, jobName, fn, options);
+    return runBackgroundWork(() => withScheduledJobLeaseCore(kv, jobName, fn, options))
+        .then(result => result ?? { acquired: false });
 }

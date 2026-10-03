@@ -64,7 +64,7 @@ const FROZEN = {
         // pre-manifest combat projection as the authored onboarding arc expands.
         'onboardingStep', 'academySectorVisited', 'academyVow',
         'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal', 'firstContract',
-        'petTutorialProgress',
+        'petTutorialProgress', 'playRewardPurchaseReceipts',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
@@ -144,6 +144,9 @@ const FROZEN = {
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
+        // Reviewed 2026-10-02 extension: paid attunement is authoritative even
+        // when the strict raw-save rollout flag is disabled.
+        'hollowGateAttunement',
         'warGroundBountyDate', 'villageWarMissionDate', 'villageWarRaidProgress',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'professionRespecUsed',
@@ -244,6 +247,8 @@ const FROZEN = {
     // redeemedTebexPurchases added 2026-08-31 for the Tebex shard webhook: it
     // holds the Tebex transaction id, written in the same committed save as the
     // shards it paid for, which is what makes a redelivered webhook a no-op.
+    // playRewardPurchaseReceipts retains Play's repeatable currency offer
+    // token hashes in the same save write as the Ryo credit.
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
         'sunscarExchangeReceipts',
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
@@ -254,6 +259,7 @@ const FROZEN = {
         'claimedWarCrateIds', 'redeemedCardClashAiSessions',
         'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses', 'chroniclePetArenaProgressReceipts',
         'expeditionStartReceipts', 'petExpeditionLog',
+        'playRewardPurchaseReceipts',
     ],
     BOOLEAN_LATCH_CHARACTER_FIELDS: ['academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed'],
     DAILY_CLAIM_DATE_FIELDS: ['claimedVillageAgendaDate', 'claimedMapControlDate'],

@@ -109,6 +109,9 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
           <span><strong>{character.tileCards?.length ?? 0}</strong> owned cards</span>
         </div>
       </div>
+      <p className="chronicle-pack-gallery__odds">
+        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries. Within each eligible pool, every card is equally likely. There are no weighted tiers or pity timer. Each card is drawn independently from the full eligible pool, so duplicates can appear within a pack or across packs regardless of owned copies. Deck copy limits apply only when building a deck.
+      </p>
       <div className="chronicle-pack-gallery__section-head">
         <div><h3>Basic packs</h3><p>Five cards per pack · 100 Chronicle Points</p></div>
         {onOpenEchoesOfWar ? <button type="button" onClick={onOpenEchoesOfWar}>Earn points in Echoes of War →</button> : null}
@@ -118,9 +121,6 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
         <div><h3>Premium packs</h3><p>Single-card pulls and five-card rarity packs from the premium card pool</p></div>
       </div>
       <div className="chronicle-pack-gallery__grid chronicle-pack-gallery__grid--premium">{PREMIUM_PACKS.map(renderPack)}</div>
-      <p className="chronicle-pack-gallery__odds">
-        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries. Within each eligible pool, every card is equally likely. There are no weighted tiers or pity timer. Each card is drawn independently from the full eligible pool, so duplicates can appear within a pack or across packs regardless of owned copies. Deck copy limits apply only when building a deck.
-      </p>
       {reveal && revealPack ? <CardPackOpening
         key={reveal.nonce}
         packType={reveal.type}

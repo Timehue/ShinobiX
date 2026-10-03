@@ -267,6 +267,11 @@ export function Inventory({
             rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
             || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
 
+    const academyAutoScrollStackKey = academyInventoryStep
+        ? visibleBackpackStacks.find(({ item }) => item
+            && ACADEMY_STARTER_GEAR_IDS.some((id) => id === item.id))?.stackKey
+        : undefined;
+
     const backpackEmptyMessage = normalizedSearch
         ? `No items match "${itemSearch.trim()}".`
         : slotFilter
@@ -881,7 +886,7 @@ export function Inventory({
                                             type="button"
                                             className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}${academyStarterTarget ? " academy-click-target" : ""}`}
                                             data-academy-hint={academyStarterTarget ? "Next · select gear" : undefined}
-                                            data-academy-autoscroll={academyStarterTarget ? "true" : undefined}
+                                            data-academy-autoscroll={academyStarterTarget && stackKey === academyAutoScrollStackKey ? "true" : undefined}
                                             key={stackKey}
                                             onClick={() => {
                                                 setSelectedInventoryItem({

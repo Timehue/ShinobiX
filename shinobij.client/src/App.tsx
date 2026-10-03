@@ -13,7 +13,7 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, us
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
-import { canonicalNarrativeEvent, isReservedNarrativeId } from "./lib/canonical-narrative";
+import { canonicalNarrativeEvent, isReservedNarrativeId, sameNarrativeArtwork } from "./lib/canonical-narrative";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
@@ -56,7 +56,7 @@ import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTra
 import type { HiddenChamberState, HollowGateEventModal } from "./lib/hollow-gate-tile";
 import { nextSavePayloadRevision } from "./lib/save-flight";
 
-import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority";
+import { beginSessionLoad, sessionLoadFetch, sessionLoadMatchesAccount } from "./lib/session-load-authority";
 import { restoreAccountFromServer } from "./lib/boot-restore";
 
 import { saveConflictAccountKey } from "./lib/save-conflict";
@@ -233,6 +233,8 @@ import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
 import { BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
 import { readScreenPreference } from "./lib/navigation-trail";
+import { usePlayerAccountNameMirror } from "./lib/use-player-account-name-mirror";
+import { useAiFightCloseNavigation } from "./lib/use-ai-fight-close-navigation";
 import { setSectorReopen, worldMapReopenTarget } from "./lib/sector-return";
 import { useAppHistory } from "./lib/app-history";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
@@ -360,7 +362,6 @@ import {
 
 import type { Achievement } from "./constants/achievements";
 import { createAchievementSyncGate } from "./lib/achievement-sync";
-import { runAchievementSyncPass } from "./lib/achievement-sync-pass";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -771,14 +772,7 @@ export default function App() {
     }, [screen]);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
-    useEffect(() => {
-        if (!character?.accountName) return;
-        const accounts = loadPlayerAccounts();
-        const key = accountKey(character.name);
-        if (accounts[key]?.accountName === character.accountName) return;
-        accounts[key] = { ...accounts[key], accountName: character.accountName };
-        savePlayerAccounts(accounts);
-    }, [character?.name, character?.accountName]);
+    usePlayerAccountNameMirror(character);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
@@ -917,19 +911,21 @@ export default function App() {
     // loop (dirty save → server discards → re-hydrate reverts → effect re-fires),
     // which drove /api/save into 409s then 429s and re-rendered mid-combat. The
     // gate guarantees one request per distinct divergence — see lib/achievement-sync.ts.
-    // Each pass runs in lib/achievement-sync-pass.ts, which also survives a
-    // catalog chunk that fails to load.
+    // Load the sync pass only after gameplay opens; it owns the server check
+    // and safely skips a pass if its presentation catalog is unavailable.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
     const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
         const playerName = character?.name;
         if (!gameplayMutationsOpen || !character || !playerName) return;
         let cancelled = false;
-        void runAchievementSyncPass({
-            playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
-            characterRef, commitVersionedCharacter,
-            onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
-        });
+        void import("./lib/achievement-sync-pass").then(({ runAchievementSyncPass }) => {
+            if (!cancelled) return runAchievementSyncPass({
+                playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
+                characterRef, commitVersionedCharacter,
+                onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
+            });
+        }).catch(() => {});
         return () => { cancelled = true; };
     }, [character, gameplayMutationsOpen]);
 
@@ -3044,7 +3040,7 @@ export default function App() {
                 onFailure: revertRestoreToLogin,
                 onTimeout: () => setRestoringSession(false),
                 onSettled: () => { restoreCompleted = true; },
-                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(); },
+                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad); },
             });
         } else {
             // No stored account → brand-new / anonymous visitor: show the login
@@ -3260,46 +3256,48 @@ export default function App() {
     }
 
     // Returns true if the published-pet-template registry changed (caller re-normalizes).
-    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
+    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, accountName: string, isCurrent: () => boolean): boolean {
+        if (!isCurrent()) return false;
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
-        const contentAdmin = isContentAdminName(character?.name);
+        const contentAdmin = isContentAdminName(accountName);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
-        if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
-        if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
+        if (snap.creatorJutsus) setCreatorJutsus((prev) => isCurrent() ? mergeJutsusByRecency(prev, sharedCreatorJutsus) : prev);
+        if (snap.creatorAis) setCreatorAis((prev) => isCurrent() ? mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])) : prev);
         if (snap.creatorEvents) {
             const incoming = contentAdmin
                 ? snap.creatorEvents as CreatorEvent[]
                 : (snap.creatorEvents as CreatorEvent[]).filter(isReleaseSafeClientEvent);
-            setCreatorEvents((prev) => mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming));
+            setCreatorEvents((prev) => isCurrent() ? mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming) : prev);
         }
         if (contentAdmin) {
-            if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
-            if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+            if (snap.creatorMissions) setCreatorMissions((prev) => isCurrent() ? mergeById(prev, snap.creatorMissions as CreatorMission[]) : prev);
+            if (snap.creatorRaids) setCreatorRaids((prev) => isCurrent() ? mergeById(prev, snap.creatorRaids as CreatorRaid[]) : prev);
         } else {
-            setCreatorMissions([]);
-            setCreatorRaids([]);
+            setCreatorMissions((prev) => isCurrent() ? [] : prev);
+            setCreatorRaids((prev) => isCurrent() ? [] : prev);
         }
-        if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
-        if (snap.creatorItems) { rememberSharedAdminItems(snap.creatorItems as GameItem[]); setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[])); }
-        if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
-        if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+        if (snap.creatorCards) setCreatorCards((prev) => isCurrent() ? mergeById(prev, snap.creatorCards as TileCard[]) : prev);
+        if (snap.creatorItems) { rememberSharedAdminItems(snap.creatorItems as GameItem[]); setCreatorItems((prev) => isCurrent() ? mergeById(prev, snap.creatorItems as GameItem[]) : prev); }
+        if (snap.petEncounterVn) setPetEncounterVn((prev) => isCurrent() ? snap.petEncounterVn as CreatorEvent : prev);
+        if (snap.ancientChestVn) setAncientChestVn((prev) => isCurrent() ? snap.ancientChestVn as CreatorEvent : prev);
         // Event-gate config: recency-merged like the other shared content so
         // whichever admin edited it last wins across both admin slots.
         if (snap.hollowGateEventConfig) {
             const nextCfg = normalizeHollowGateEventConfig(snap.hollowGateEventConfig);
-            if (nextCfg) setHollowGateEventConfig(prev => (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
+            if (nextCfg) setHollowGateEventConfig(prev => isCurrent() && (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
         }
         // Publish admin-edited pet kits globally (normalizePet adopts authored templates).
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
 
-    async function pullSharedAdminContent() {
-        // Cached fallbacks first, live reads last (later wins); see the module.
-        const available = await pullSharedAdminSnapshots(pullSaveFromServer); // lazy device cache; live-only if its chunk fails
+    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>) {
+        const isCurrent = () => sessionLoadMatchesAccount(scope, currentAccountNameRef.current);
+        const available = await pullSharedAdminSnapshots(pullSaveFromServer);
+        if (!isCurrent()) return;
         if (!available.length) return;
-        const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
+        const petTemplatesChanged = available.map((snap) => applySharedAdminContentSnapshot(snap, scope.accountKey, isCurrent)).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
-        if (petTemplatesChanged) setCharacter((prev) => prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
+        if (petTemplatesChanged) setCharacter((prev) => isCurrent() && prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
         // Image manifests have their own short-lived cache and screen-specific
         // loader. Pulling shared metadata must not invalidate every image bucket.
         loadScreenImageCategories(screenRef.current);
@@ -3428,16 +3426,18 @@ export default function App() {
             setTriggerPage(0); setTriggerLine(0); setActiveTriggeredEvent(event);
         },
     };
-    // When sharedImages updates while any VN is open (images loaded after trigger fired),
-    // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
+    // Late metadata and image-store artwork hydrate the open reader without reopening it.
     useEffect(() => {
         setActiveTriggeredEvent(prev => {
             if (!prev) return prev;
-            // A discovered pet is bound by buildPetEncounterVn. Loading the
-            // template's art later must not turn that animal into its old NPC.
-            return overlayVnImages(prev, prev.id, sharedImages, { preserveCast: prev.id === 'sys-pet-encounter' });
+            const base = prev.id.startsWith('story-')
+                ? canonicalNarrativeEvent(prev, creatorEvents.find(event => event.id === prev.id))
+                : prev;
+            // The discovered animal's cast remains bound by buildPetEncounterVn.
+            const next = overlayVnImages(base, prev.id, sharedImages, { preserveCast: prev.id === 'sys-pet-encounter' });
+            return sameNarrativeArtwork(prev, next) ? prev : next;
         });
-    }, [sharedImages]);
+    }, [creatorEvents, sharedImages]);
 
     useEffect(() => {
         // Anonymous landing/account views have no vitals to regenerate.
@@ -4028,7 +4028,7 @@ export default function App() {
             console.error("[createPlayerAccount] first save failed", err);
             alert("Your character was created, but the first save to the server didn't go through. Keep this tab open — it will retry automatically. Don't refresh yet, or your new character could be lost.");
         }
-        void pullSharedAdminContent();
+        void pullSharedAdminContent(createLoad);
     }
 
     // Apply a full server snapshot. `authoritative: false` = cache paint, skips conflict classification (see rehydrate).
@@ -4170,7 +4170,7 @@ export default function App() {
             const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
             if (!loginLoad.isCurrent() || saveConflictAccountKey(serverSnapshot.character.name) !== loginLoad.accountKey) return "superseded";
             applyServerSnapshot(serverSnapshot);
-            void pullSharedAdminContent();
+            void pullSharedAdminContent(loginLoad);
             return "ok";
         }
         const failure = saveLoadFailure(saveRes.status);
@@ -4509,9 +4509,7 @@ export default function App() {
     // Stable identities for the memo'd RightMenu/MobileNav: navigate/logoutPlayer get a
     // fresh identity each render, defeating their memo. These latest-ref wrappers delegate
     // to the current fn — stable identity, no stale closure, behavior identical.
-    const navigateRef = useRef(navigate);
-    navigateRef.current = navigate;
-    const stableNavigate = useCallback((nextScreen: Screen) => navigateRef.current(nextScreen), []);
+    const { onClose: handleAiFightClosed, stableNavigate } = useAiFightCloseNavigation({ account: character?.name ?? '', sealedFightOpen, missionBattleActive, setMissionBattleActive, navigate });
     const logoutPlayerRef = useRef(logoutPlayer);
     logoutPlayerRef.current = logoutPlayer;
     // logoutPlayer is async (it awaits the final save); the menu props take a
@@ -5440,7 +5438,7 @@ export default function App() {
                         detail: { name: mission.name, xp: mission.xpReward, profession: "vanguard" },
                     }));
                 }
-            }} onFightOpenChange={setAiFightOpen} onClose={(back) => { setMissionBattleActive(false); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
+            }} onFightOpenChange={setAiFightOpen} onClose={handleAiFightClosed} onRecordBattle={recordBattle} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}

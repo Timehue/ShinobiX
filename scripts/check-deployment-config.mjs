@@ -7,6 +7,7 @@ export const REQUIRED_RAILWAY_DEPLOYMENT = Object.freeze({
   numReplicas: 1,
   startCommand: 'node dist/server.js',
   healthcheckPath: '/health',
+  minDrainingSeconds: 60,
 });
 
 export function deploymentConfigErrors(config) {
@@ -22,6 +23,12 @@ export function deploymentConfigErrors(config) {
   }
   if (config.deploy?.healthcheckPath !== REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath) {
     errors.push(`deploy.healthcheckPath must be exactly "${REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath}"`);
+  }
+  const configuredGrace = config.deploy?.drainingSeconds;
+  const drainingSeconds = typeof configuredGrace === 'string' || typeof configuredGrace === 'number'
+    ? Number(configuredGrace) : NaN;
+  if (!Number.isSafeInteger(drainingSeconds) || drainingSeconds < REQUIRED_RAILWAY_DEPLOYMENT.minDrainingSeconds) {
+    errors.push(`deploy.drainingSeconds must allow at least ${REQUIRED_RAILWAY_DEPLOYMENT.minDrainingSeconds} seconds for graceful shutdown`);
   }
   if (config.build?.builder !== 'DOCKERFILE' || config.build?.dockerfilePath !== 'Dockerfile') {
     errors.push('build must use the repository Dockerfile');

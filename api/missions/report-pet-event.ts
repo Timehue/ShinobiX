@@ -198,15 +198,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    // A small burst is valid when collecting queued pet actions. Rate limit
-    // BEFORE auth check so spam
-    // attempts at unknown names also get throttled. 12, not 6: a supporter
+    // A small burst is valid when collecting queued pet actions. Unknown
+    // callers are address-limited before auth; only the verified player can
+    // charge their collection allowance below. 12, not 6: a supporter
     // roster runs six expeditions, and collecting all six plus one retry in a
     // minute used to answer "Rate limit exceeded." This limit guards no payout —
     // every reward needs a single-use, time-gated token under a daily cap below.
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'report-pet-event', 12, 60_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'report-pet-event-preauth', 240, 60_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -232,6 +230,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only report your own events.' });
         }
+        if (!enforceRateLimit(req, res, 'report-pet-event', 12, 60_000, identity.admin ? playerName : identity.name)) return;
         if (event === 'pet-train') {
             return res.status(410).json({ error: 'Pet training progress is recorded only when a sealed training session completes.' });
         }

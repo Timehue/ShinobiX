@@ -16,15 +16,12 @@ const wrap = (character: Char) => ({ character });
 const sanitize = (incoming: Char, existing: Char | null) =>
     sanitizeCharacterSave(wrap(incoming), existing ? wrap(existing) : null).character as Record<string, any>;
 
-test('attunement: each node clamped to its catalog maxRank; unknown ids dropped', () => {
+test('attunement: forged upgrades cannot replace the authoritative purchased ranks', () => {
     const out = sanitize(
         { hollowGateAttunement: { 'extra-dive': 3, 'seasoned-delver': 9, 'key-forge': 2, 'made-up-node': 5 } },
         { hollowGateAttunement: {} },
     );
-    assert.equal(out.hollowGateAttunement['extra-dive'], 1, 'extra-dive maxRank 1');
-    assert.equal(out.hollowGateAttunement['seasoned-delver'], 2, 'seasoned-delver maxRank 2');
-    assert.equal(out.hollowGateAttunement['key-forge'], 1, 'key-forge maxRank 1');
-    assert.equal(out.hollowGateAttunement['made-up-node'], undefined, 'unknown node dropped');
+    assert.deepEqual(out.hollowGateAttunement, {}, 'clamping to catalog ranks must not grant unpaid upgrades');
 });
 
 test('hollowGateRun: a spendable-currency entry above current is preserved (legit mid-run spend not over-penalised)', () => {
@@ -206,7 +203,7 @@ test('legit HollowGate save passes through unchanged', () => {
             hollowGateRun: { floor: 3, keys: 1, entryCurrencies: { ryo: 4000 } },
             itemStacks: [{ itemId: 'hollow-gate-key', count: 3 }],
         },
-        { ryo: 4000, itemStacks: [{ itemId: 'hollow-gate-key', count: 1 }] },
+        { ryo: 4000, hollowGateAttunement: { 'greedy-hands': 2 }, itemStacks: [{ itemId: 'hollow-gate-key', count: 1 }] },
     );
     assert.equal(out.hollowGateAttunement['greedy-hands'], 2, 'legit rank (<= maxRank 3) untouched');
     assert.equal((out.hollowGateRun as any).entryCurrencies.ryo, 4000, 'legit entry snapshot untouched');

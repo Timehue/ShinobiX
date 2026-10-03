@@ -37,11 +37,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!enforceRateLimit(req, res, 'endless-wave-start', 40, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'endless-wave-start-preauth', (40) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your tower run.' });
+        if (!enforceRateLimit(req, res, 'endless-wave-start', 40, 60_000, identity.admin ? playerName : identity.name)) return;
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }

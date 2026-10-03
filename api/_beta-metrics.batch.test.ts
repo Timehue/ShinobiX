@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { assertKvLockContext, currentKvLockContext, poisonKvLockContext, withKvLeaseContext } from './_kv-lock-context.js';
 
 // Records on the shared store are queued and written in batches, so a reward
 // claim no longer waits on (or queues behind) the day's global telemetry lock.
@@ -84,4 +85,30 @@ test('a batch whose write fails is dropped, never written twice', async (t) => {
     await metrics.recordBetaMetric({ event: 'mission.claimed', level: 12, source: 'missions', ts: NOW });
     await metrics.flushBetaMetrics();
     assert.equal(dayWrites, 1, 'a second try could count the same events twice');
+});
+
+test('queued metrics keep their own authority after the originating request completes', async () => {
+    const key = metrics.betaMetricKey('2026-09-19');
+    await kv.del(key);
+    await withKvLeaseContext('lock:finished-request', 'request-owner', async () => {
+        await metrics.recordBetaMetric({ event: 'mission.claimed', level: 12, ts: NOW });
+    });
+    await metrics.flushBetaMetrics();
+    const snapshot = await metrics.readBetaMetricsSnapshot(1, { now: NOW });
+    assert.equal(snapshot.totals.events['mission.claimed'], 1);
+});
+
+test('queued metrics neither inherit nor repair a poisoned business request', async () => {
+    const key = metrics.betaMetricKey('2026-09-19');
+    await kv.del(key);
+    await withKvLeaseContext('lock:failed-request', 'request-owner', async () => {
+        await metrics.recordBetaMetric({ event: 'mission.claimed', level: 12, ts: NOW });
+        const context = currentKvLockContext()!;
+        const failure = new Error('business write response lost');
+        poisonKvLockContext(context, failure);
+        await metrics.flushBetaMetrics();
+        assert.throws(() => assertKvLockContext(context), error => error === failure);
+    });
+    const snapshot = await metrics.readBetaMetricsSnapshot(1, { now: NOW });
+    assert.equal(snapshot.totals.events['mission.claimed'], 1);
 });
