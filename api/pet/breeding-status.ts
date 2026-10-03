@@ -5,7 +5,7 @@ import { withKvLock } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { publicPetBreedingSession } from './_breeding.js';
 import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets } from './_owned-pet.js';
@@ -27,13 +27,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const stored = record?.character as Record<string, unknown> | undefined;
             if (!record || !stored) return { status: 404 as const };
-            const migrated = migrateCharacterOwnedPets(playerName, stored);
+            // A write here settles the idle recovery earned since the last save
+            // and carries the cursor, as mutatePlayerSave does. Recovery alone
+            // never makes this read write.
+            const recovery = await settleIdleRecovery(kv, playerName, record);
+            const migrated = migrateCharacterOwnedPets(playerName, recovery.character);
             const settled = settlePetBreedingSession(migrated.character, serverTime);
             const changed = migrated.changed || settled.changed;
             if (!changed) {
                 return { status: 200 as const, character: settled.character, version: Number(record._saveVersion ?? 0), changed };
             }
-            const written = await writeVersionedPlayerSave(`save:${playerName}`, record, settled.character);
+            const written = await writeVersionedPlayerSave(`save:${playerName}`, record, settled.character, {}, {
+                regenAt: carriedRegenCursor(recovery.character, settled.character, recovery.regen),
+            });
             return { status: 200 as const, character: settled.character, version: written._saveVersion, changed };
         }, { failClosed: true });
         if (result.status === 404) return res.status(404).json({ error: 'Player save not found.' });

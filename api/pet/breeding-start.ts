@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { petBreedingStartsEnabled } from '../_release-flags.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { buildSealedBreedingResult, breedingResultKey, deterministicBreedingSessionId, PET_BREEDING_DURATION_MS, publicPetBreedingSession, type SealedPetBreedingResult } from './_breeding.js';
 import { settlePetBreedingSession, type PetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets, PET_BREEDING_RULES_VERSION } from './_owned-pet.js';
@@ -46,7 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const stored = record?.character as Record<string, unknown> | undefined;
             if (!record || !stored) return { ok: false, status: 404, error: 'player-save-not-found' };
-            const migrated = migrateCharacterOwnedPets(playerName, stored);
+            // The idle recovery earned since the last save settles first, and the
+            // start write carries the cursor, as mutatePlayerSave does.
+            const recovery = await settleIdleRecovery(kv, playerName, record);
+            const migrated = migrateCharacterOwnedPets(playerName, recovery.character);
             const settled = settlePetBreedingSession(migrated.character, now);
             const character = settled.character;
             const existing = character.petBreeding as PetBreedingSession | null | undefined;
@@ -116,7 +119,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 petBreeding: session,
                 petBreedingReceipts: [...receipts, `start:${requestId}`],
             };
-            const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter);
+            const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
+                regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
+            });
             return { ok: true, character: nextCharacter, version: written._saveVersion, replayed: Boolean(recovered) };
         }, { failClosed: true });
         if (!result.ok) return res.status(result.status).json({ error: result.error, ...(result.message ? { message: result.message } : {}) });

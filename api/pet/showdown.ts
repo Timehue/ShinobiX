@@ -9,6 +9,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
@@ -358,9 +359,12 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
                 character: char,
             };
         }
+        // The payout settles the idle recovery earned since the last save and
+        // carries the cursor, as mutatePlayerSave does.
+        const recovery = await settleIdleRecovery(kv, playerName, record);
         const reward = petArenaRyoReward(session.sealedOpponentLevel);
         const paidCharacter = {
-            ...char,
+            ...recovery.character,
             redeemedPetBattleTokens: [...receipts, receipt],
             ryo: Number(char.ryo ?? 0) + reward,
             totalPetWins: Number(char.totalPetWins ?? 0) + 1,
@@ -380,7 +384,10 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             witnessedPlayerPets as unknown as Pet[],
         );
         const updatedChar = witness.character;
-        const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
+        const updated = bumpSaveVersion({ ...record, character: updatedChar }, {
+            previousCharacter: char,
+            regenAt: carriedRegenCursor(recovery.character, updatedChar, recovery.regen),
+        });
         await writeSaveProjected(saveKey, updated, record);
         // AFTER the paying write, never before: a failed key write must not be
         // able to swallow a reward the player earned. Until it lands the array

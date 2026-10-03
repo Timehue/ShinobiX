@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { safeLogValue } from '../_safe-log.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { settlePetBreedingSession } from './_breeding-requirements.js';
 import { migrateCharacterOwnedPets } from './_owned-pet.js';
 import { petBusyReason, petBusyMessage } from './_pet-busy.js';
@@ -46,7 +46,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const stored = record?.character as Record<string, unknown> | undefined;
             if (!record || !stored) return { ok: false, status: 404, error: 'player-save-not-found' };
-            const migrated = migrateCharacterOwnedPets(playerName, stored);
+            // The idle recovery earned since the last save settles first, and a
+            // transfer write carries the cursor, as mutatePlayerSave does.
+            const recovery = await settleIdleRecovery(kv, playerName, record);
+            const migrated = migrateCharacterOwnedPets(playerName, recovery.character);
             const settled = settlePetBreedingSession(migrated.character);
             const character = settled.character;
             const pets = Array.isArray(character.pets) ? character.pets as Array<Record<string, unknown>> : [];
@@ -80,7 +83,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(String(character.activePetId ?? '') === petId ? { activePetId: undefined } : {}),
                     ...(String(character.activePetId2v2 ?? '') === petId ? { activePetId2v2: undefined } : {}),
                 };
-                const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter);
+                const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
+                    regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
+                });
                 return { ok: true, character: nextCharacter, pet: carriedPet, version: written._saveVersion, action, replayed: false };
             }
 
@@ -95,7 +100,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const sanctuaryItem = await getPetFromSanctuary(playerName, petId);
                 if (!sanctuaryItem) return { ok: false, status: 404, error: 'pet-not-in-sanctuary' };
                 const nextCharacter = { ...character, pets: [...pets, sanctuaryItem.pet] };
-                const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter);
+                const written = await writeVersionedPlayerSave(`save:${playerName}`, record, nextCharacter, {}, {
+                    regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
+                });
                 await removePetFromSanctuary(playerName, petId).catch((error) => console.error('[pet/sanctuary/transfer] withdraw cleanup', safeLogValue(error)));
                 return { ok: true, character: nextCharacter, pet: sanctuaryItem.pet, version: written._saveVersion, action, replayed: false };
             }
