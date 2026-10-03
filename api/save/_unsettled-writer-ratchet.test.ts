@@ -46,15 +46,19 @@ const VERSION_BUILDERS = new Set([
 const DEFINERS = new Set(['save/_save-version.ts', 'save/_mutate-player-save.ts', 'save/_projected-write.ts']);
 
 // Settle the recovery into their own write; verified by the second test.
-// Each is a compare-and-set saga on an injected store whose embedded receipts
-// recover a lost acknowledgement, so it settles in place (settleIdleRecovery)
-// rather than moving onto mutatePlayerSave.
+// Each is a settlement saga whose own receipts and journal recover a lost
+// acknowledgement (some through an injected store), so it settles in place
+// (settleIdleRecovery) rather than moving onto mutatePlayerSave.
 const SETTLES_ITSELF = new Set([
     'pvp/_consumable-settlement.ts',
     // Both ranked fighters; the other one is usually offline.
     'pvp/_player-ranked-journal.ts',
     'pet/_ranked-settlement.ts',
     'village/_elder-ranked-win.ts',
+    // Every clan and village treasury gift, and every Seal pool distribution.
+    '_cross-key-settlement.ts',
+    'clan/exchange/_settlement.ts',
+    'clan/seal-pool/donate.ts',
 ]);
 
 // The calls that credit the recovery before a write.
@@ -78,18 +82,7 @@ const TO_CONVERT: Readonly<Record<string, number>> = {
     'cron/_ranked-season.ts': 1,
     // Vanguard seals on a PvP win, and the clan's escorting Pet Tamers, who are usually elsewhere.
     'pvp/_vanguard-rewards.ts': 4,
-    // Clans: dissolve and kick write members who are not there.
-    'clan/_dissolve.ts': 1,
-    'clan/kick.ts': 1,
-    'clan/leave.ts': 2,
-    'clan/exchange/_settlement.ts': 1,
-    'clan/exchange/purchase.ts': 1,
-    'clan/seal-pool/distribute.ts': 1,
-    'clan/seal-pool/donate.ts': 1,
-    'clan/treasury/transfer.ts': 1,
-    'clan/war/_mpvp-consumables.ts': 2,
-    'clan/war/_war-points.ts': 1,
-    'village/treasury/transfer.ts': 1,
+    // Village rewards, and Honor Seals spent on a village war.
     'village/claim-map-control.ts': 1,
     '_war-declaration-funding.ts': 2,
     '_war-mercenary-hire.ts': 1,

@@ -6,7 +6,6 @@ import { safeName, cors } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
 import { LockContendedError } from '../../_lock.js';
-import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { getDurableSettlement, settlementFingerprint, settlementTransactionId } from '../../_durable-settlement.js';
 import { settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
 import { loadPool, savePool, type ClanSealPool } from './_storage.js';
@@ -137,7 +136,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ...(poolBalanceAfterDebit !== null ? { poolBalance: poolBalanceAfterDebit } : {}),
                 },
             }),
-            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
 
         // The settlement result carries the RECIPIENT's save version. The
