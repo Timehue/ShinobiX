@@ -75,6 +75,9 @@ const SETTLES_ITSELF = new Set([
     'training/start.ts',
     'training/complete.ts',
     'player/attack.ts',
+    // The entry fee is charged under the run's own battle lease, so it settles
+    // up to the moment that lease began (settleIdleRecovery's ownBattleLock).
+    'towers/start.ts',
 ]);
 
 // The calls that credit the recovery before a write.
@@ -106,8 +109,6 @@ const TO_CONVERT: Readonly<Record<string, number>> = {
     'village/claim-map-control.ts': 1,
     '_war-declaration-funding.ts': 2,
     '_war-mercenary-hire.ts': 1,
-    // Towers entry fee and its refund.
-    'towers/start.ts': 8,
 };
 
 function collectTsFiles(dir: string, out: string[] = []): string[] {
