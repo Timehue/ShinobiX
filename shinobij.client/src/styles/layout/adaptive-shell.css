@@ -385,6 +385,16 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
   }
 }
 
+/* Start and creator screens hide the mobile navigation. Keep the notice at
+   the real safe-area edge so the reserved navigation gap cannot cover actions. */
+@supports selector(body:has(.app-shell.screen-start)) {
+  @media (max-width: 979px) {
+    body:has(.app-shell.screen-start) .storage-notice {
+      inset-block-end: env(safe-area-inset-bottom, 0px);
+    }
+  }
+}
+
 /* Reserve the whole measured stack in both document and desktop scrollers.
    Match the noncombat skin's specificity so lazy CSS cannot reduce it. */
 html body.coach-banner-open .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"] > .center-game {

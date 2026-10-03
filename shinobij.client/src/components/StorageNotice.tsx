@@ -98,6 +98,14 @@ export function StorageNotice() {
     if (dismissed) return null;
 
     function dismiss() {
+        const notice = noticeRef.current;
+        const landing = document.querySelector<HTMLElement>("#landing-home");
+        if (notice && landing) {
+            landing.style.setProperty(
+                "--landing-notice-clearance",
+                `${Math.ceil(notice.getBoundingClientRect().height + 8)}px`,
+            );
+        }
         try {
             localStorage.setItem(ACK_KEY, "1");
         } catch {
