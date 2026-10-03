@@ -14,7 +14,7 @@ import {
 import { RANKED_LEVEL_WARNING, RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
 import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
+import { PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
 import { STARTER_CARDS_MIN_LEVEL } from '../card-clash/_starter-cards.js';
 import { MAIN_DECK_SIZE } from '../../shared/chronicle-duel.js';
 

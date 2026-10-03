@@ -21,3 +21,9 @@
 .village-transfer-modal .ui-modal-body { display: flex; flex-direction: column; overflow: hidden; }
 .village-transfer-details { overflow-y: auto; min-height: 0; }
 .village-transfer-actions { flex-shrink: 0; }
+
+.marketplace-scrolls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.marketplace-scrolls > .village-transfer { min-width: 0; }
+@media (max-width: 900px) {
+    .marketplace-scrolls { grid-template-columns: minmax(0, 1fr); }
+}

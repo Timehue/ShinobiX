@@ -641,6 +641,10 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.world-eras.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/world-eras.log
+      - name: Profession scroll purchase, inventory and change flow
+        if: ${{ matrix.shard == 3 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/profession-change.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true

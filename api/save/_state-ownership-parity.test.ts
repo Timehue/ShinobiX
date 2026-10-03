@@ -195,6 +195,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'professionChosenAt', // Scroll retry fencing must survive all generic saves.
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'battleTowerRecords', // Tower settlement is the only writer.
         'accountName',
