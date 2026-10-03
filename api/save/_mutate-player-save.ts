@@ -315,6 +315,34 @@ export function carriedRegenCursor(
     return vitalsTouched || regen.excluded || !regen.cursor ? undefined : regen.cursor;
 }
 
+/**
+ * mutatePlayerSave's idle-recovery settle, for a writer that cannot use it: a
+ * crash-recoverable compare-and-set saga that reads and writes the save
+ * through its own injected store, whose embedded receipts are the authority
+ * for a commit whose acknowledgement was lost. Build the next character from
+ * `settled.character`, compare-and-set against the record you read, and give
+ * the version bump `regenAt: carriedRegenCursor(settled.character, next,
+ * settled.regen)`. The battle lock is read through the same store, under the
+ * same normalized name battleLockedFor uses.
+ */
+export async function settleIdleRecovery(
+    store: Pick<KvLike, 'get'>,
+    playerName: string,
+    record: PlayerSaveRecord,
+): Promise<{ character: PlayerCharacter; regen: { excluded: boolean; cursor: number } }> {
+    const [{ battleLockKey, settleVitalsRegen }, { safeName }] = await Promise.all([
+        import('../_elapsed-state.js'),
+        import('../_utils.js'),
+    ]);
+    const slug = safeName(playerName);
+    const battleLocked = slug ? Boolean(await store.get(battleLockKey(slug))) : false;
+    const regen = settleVitalsRegen(record, { now: Date.now(), battleLocked });
+    return {
+        character: (regen.record.character ?? record.character) as PlayerCharacter,
+        regen: { excluded: regen.excluded, cursor: regen.cursor },
+    };
+}
+
 /** Commit one decision's write with an exact compare-and-set. The caller holds the lock. */
 async function commitSaveWrite(loaded: LoadedSave, write: SaveWrite, options: PlayerSaveMutationOptions): Promise<CommittedSave> {
     // Bump _saveVersion on server-side player mutations so stale client

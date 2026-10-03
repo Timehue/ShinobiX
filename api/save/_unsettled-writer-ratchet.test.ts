@@ -21,7 +21,8 @@ import ts from 'typescript';
  * helper. So this one counts every call to the version builders below, per
  * file, and each file must be exactly one of:
  *   - SETTLES_ITSELF: it settles the recovery into its own write
- *     (settleVitalsRegen + carriedRegenCursor), checked below;
+ *     (settleIdleRecovery or settleVitalsRegen), and EVERY version it builds
+ *     passes `regenAt: carriedRegenCursor(...)`, checked below;
  *   - BY_DESIGN, with the reason;
  *   - TO_CONVERT, with the EXACT count of its builder calls. A conversion
  *     lowers the count (and deletes the entry at zero). A new builder call, in
@@ -45,10 +46,19 @@ const VERSION_BUILDERS = new Set([
 const DEFINERS = new Set(['save/_save-version.ts', 'save/_mutate-player-save.ts', 'save/_projected-write.ts']);
 
 // Settle the recovery into their own write; verified by the second test.
+// Each is a compare-and-set saga on an injected store whose embedded receipts
+// recover a lost acknowledgement, so it settles in place (settleIdleRecovery)
+// rather than moving onto mutatePlayerSave.
 const SETTLES_ITSELF = new Set([
-    // Settles through its injected store and carries the cursor (#268).
     'pvp/_consumable-settlement.ts',
+    // Both ranked fighters; the other one is usually offline.
+    'pvp/_player-ranked-journal.ts',
+    'pet/_ranked-settlement.ts',
+    'village/_elder-ranked-win.ts',
 ]);
+
+// The calls that credit the recovery before a write.
+const SETTLERS = new Set(['settleIdleRecovery', 'settleVitalsRegen']);
 
 const OPEN_HOLLOW_GATE_RUN = 'An open Hollow Gate run excludes idle recovery (canRegenVitals), and this writes a save whose run is open';
 const BY_DESIGN: Readonly<Record<string, string>> = {
@@ -66,12 +76,8 @@ const BY_DESIGN: Readonly<Record<string, string>> = {
 const TO_CONVERT: Readonly<Record<string, number>> = {
     // Season rollover: every ranked player, almost all of them offline.
     'cron/_ranked-season.ts': 1,
-    // Both ranked fighters, and up to four 2v2 players; the others are usually offline.
-    'pvp/_player-ranked-journal.ts': 1,
-    'pvp/_ranked-2v2-settlement.ts': 2,
-    'pet/_ranked-settlement.ts': 1,
+    // Vanguard seals on a PvP win, and the clan's escorting Pet Tamers, who are usually elsewhere.
     'pvp/_vanguard-rewards.ts': 4,
-    'village/_elder-ranked-win.ts': 1,
     // Clans: dissolve and kick write members who are not there.
     'clan/_dissolve.ts': 1,
     'clan/kick.ts': 1,
@@ -121,30 +127,45 @@ function calleeName(expression: ts.LeftHandSideExpression): string | null {
     return null;
 }
 
+type Call = { name: string; carriesSettledCursor: boolean };
+
+/** Whether a call passes `regenAt: carriedRegenCursor(...)` in an options object. */
+function carriesSettledCursor(call: ts.CallExpression): boolean {
+    return call.arguments.some((arg) => ts.isObjectLiteralExpression(arg) && arg.properties.some((prop) => (
+        ts.isPropertyAssignment(prop)
+        && ts.isIdentifier(prop.name)
+        && prop.name.text === 'regenAt'
+        && ts.isCallExpression(prop.initializer)
+        && calleeName(prop.initializer.expression) === 'carriedRegenCursor'
+    )));
+}
+
 /** Every call by name in a source file: comments, strings and declarations are not calls. */
-function callsIn(source: string, file: string): string[] {
+function callsIn(source: string, file: string): Call[] {
     const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
-    const names: string[] = [];
+    const found: Call[] = [];
     const walk = (node: ts.Node): void => {
         if (ts.isCallExpression(node)) {
             const name = calleeName(node.expression);
-            if (name) names.push(name);
+            if (name) found.push({ name, carriesSettledCursor: carriesSettledCursor(node) });
         }
         ts.forEachChild(node, walk);
     };
     walk(sourceFile);
-    return names;
+    return found;
 }
 
-const calls = new Map<string, string[]>();
+const isBuilder = (call: Call): boolean => VERSION_BUILDERS.has(call.name);
+
+const calls = new Map<string, Call[]>();
 for (const file of collectTsFiles(API_DIR)) {
     const rel = relative(API_DIR, file).replace(/\\/g, '/');
     if (DEFINERS.has(rel)) continue;
     calls.set(rel, callsIn(readFileSync(file, 'utf8'), file));
 }
 const builderCounts = new Map<string, number>();
-for (const [rel, names] of calls) {
-    const count = names.filter((name) => VERSION_BUILDERS.has(name)).length;
+for (const [rel, fileCalls] of calls) {
+    const count = fileCalls.filter(isBuilder).length;
     if (count > 0) builderCounts.set(rel, count);
 }
 
@@ -170,10 +191,22 @@ test('every save version built outside mutatePlayerSave is classified, and the t
 
 test('a writer listed as settling the recovery itself really does', () => {
     for (const rel of SETTLES_ITSELF) {
-        const names = calls.get(rel) ?? [];
-        assert.ok(builderCounts.has(rel), `${rel} no longer builds a version itself; drop it from SETTLES_ITSELF`);
-        assert.ok(names.includes('settleVitalsRegen'), `${rel} must settle the recovery (settleVitalsRegen) before it writes`);
-        assert.ok(names.includes('carriedRegenCursor'), `${rel} must carry the settled cursor (carriedRegenCursor), not fence it`);
+        const fileCalls = calls.get(rel) ?? [];
+        const builds = fileCalls.filter(isBuilder);
+        assert.ok(builds.length > 0, `${rel} no longer builds a version itself; drop it from SETTLES_ITSELF`);
+        assert.ok(
+            fileCalls.some((call) => SETTLERS.has(call.name)),
+            `${rel} must settle the recovery (settleIdleRecovery) before it writes`,
+        );
+        // A listed file is exempt from the count, so a new bare build in it
+        // would otherwise slip through.
+        const fenced = builds.filter((call) => !call.carriesSettledCursor).length;
+        assert.equal(
+            fenced,
+            0,
+            `${rel}: ${fenced} of its ${builds.length} version builds fence the cursor; `
+            + 'pass regenAt: carriedRegenCursor(settled, next, regen)',
+        );
     }
 });
 
@@ -189,8 +222,18 @@ test('the scan sees the version builders it is meant to police', () => {
     assert.ok(total >= 20, `only ${total} builder calls found; the AST scan is broken`);
     assert.equal(
         callsIn("bumpSaveVersion({}); /* writeSaveProjected(k, a, b) */ const s = 'versionedPlayerRecord(x)';", 'probe.ts')
-            .filter((name) => VERSION_BUILDERS.has(name)).length,
+            .filter(isBuilder).length,
         1,
         'calls count; comments and strings do not',
+    );
+    assert.deepEqual(
+        callsIn(
+            'bumpSaveVersion(r, { regenAt: carriedRegenCursor(a, b, c) });'
+            + ' writeVersionedPlayerSaveWithStore(s, k, r, n, {}, { regenAt: carriedRegenCursor(a, n, c) });'
+            + ' bumpSaveVersion(r); bumpSaveVersion(r, { regenAt: cursor }); bumpSaveVersion(r, { at: carriedRegenCursor(a, b, c) });',
+            'probe.ts',
+        ).filter(isBuilder).map((call) => call.carriesSettledCursor),
+        [true, true, false, false, false],
+        'only regenAt: carriedRegenCursor(...) carries the settled cursor',
     );
 });
