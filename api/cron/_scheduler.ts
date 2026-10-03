@@ -30,6 +30,7 @@ import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
 import { recoverPendingExchangeListings } from '../festival/_exchange.js';
 import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
+import { recoverPendingPlayerTrades } from '../player/_trade-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
 import { runKageInactivityPass } from '../village/_kage-inactivity.js';
@@ -126,6 +127,17 @@ export async function fireSettlementReconciliation(includeLegacyScan = false): P
                     for (const held of mentor.exceptions.slice(0, 5)) console.warn(`[cron-scheduler] mentor settlement ${held.settlementId} (${held.sensei} → ${held.student}) needs review at ${held.step}: ${held.reason}`);
                     if (mentor.failures.length) console.warn('[cron-scheduler] mentor recovery failures:', mentor.failures.slice(0, 5));
                 } catch (error) { console.warn('[cron-scheduler] mentor settlement recovery deferred:', (error as Error).message); }
+                // Player trades that died between the sender's debit and the
+                // recipient's credit, finished from their receipts exactly as
+                // the sender's own retry would. Bounded per run.
+                try {
+                    const trades = await recoverPendingPlayerTrades();
+                    if (trades.finished.length || trades.heldForReview.length || trades.failures.length) {
+                        console.log(`[cron-scheduler] player trades: ${trades.finished.length} finished, ${trades.heldForReview.length} held for review, ${trades.failures.length} retrying, ${trades.waiting} still settling${trades.truncated ? ' (budget reached)' : ''}.`);
+                    }
+                    for (const held of trades.heldForReview.slice(0, 5)) console.warn(`[cron-scheduler] player trade ${held.txId} needs review: ${held.reason}`);
+                    if (trades.failures.length) console.warn('[cron-scheduler] player trade recovery failures:', trades.failures.slice(0, 5));
+                } catch (error) { console.warn('[cron-scheduler] player trade recovery deferred:', (error as Error).message); }
                 return runSettlementReconciliation({ includeLegacyScan });
             },
             { ttlSec: LEASE_TTL.settlementReconciliation, holdUntilExpiryOnSuccess: true },

@@ -42,6 +42,7 @@ and is removed by the deletion process in §5.
 | Battle receipts (`receipt:*`) | Reward-dispute / debugging | **90-day** TTL (`api/_receipts.ts`) |
 | Mission progress receipts | Anti-replay of reward claims | **14-day** TTL (`api/missions/record-progress.ts`) |
 | Server-authoritative flow tokens — raid / expedition / combat-claim / arena lobby / story session / trade nonce / Google OAuth state | Anti-cheat sealed-reward flows | Short TTL: 5 min → 7 days depending on flow (see each `*-start` handler) |
+| Player-trade settlement journals and recovery pointers (`economy-tx:player-trade:*`, `trade:pending:*`) — sender and recipient names, currency, amounts | Finishing an interrupted transfer exactly once; admin reconciliation | **90-day** TTL (`api/_economy-tx.ts`); a pointer is deleted as soon as its trade finishes (`api/player/_trade-settlement.ts`) |
 | Moderation records — bans, silences, IP/fingerprint linkage (`mod:*`) | Safety, ban enforcement, repeat-abuse detection | Bans/silences expire at their set `until`; linkage indexes retained as security data while the account exists |
 | Moderation audit log (`mod:audit`) | Staff accountability | Rolling **last 5,000** entries (`api/admin/moderation.ts`) |
 | Domain audit logs (`audit:<domain>`) | Integrity/accountability (content, reward, sector, combat, legacy) | Rolling **last 5,000** per domain (`api/_audit.ts`) |
