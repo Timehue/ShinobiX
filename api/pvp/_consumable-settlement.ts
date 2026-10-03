@@ -2,8 +2,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from '../_storage.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { carriedRegenCursor } from '../save/_mutate-player-save.js';
-import { battleLockKey, settleVitalsRegen } from '../_elapsed-state.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { embedPvpSettlementReceipt, inspectPvpCredit, pvpSettlementId } from './_reward-settlement.js';
 import {
     confirmPlayerRankedItemSettlement,
@@ -103,12 +102,11 @@ async function settleLegacySide(
     // and discarded that recovery: a fighter who closed the game after the
     // fight lost it when the other side's claim settled their consumables.
     // Read through the injected store, like the save itself.
-    const battleLocked = Boolean(await store.get(battleLockKey(side.slug)));
     for (let attempt = 0; attempt < 24; attempt += 1) {
         const record = await store.get<Record<string, unknown>>(key);
         if (!record?.character) throw new Error(`pvp-items-save-unreadable:${side.slug}`);
-        const regen = settleVitalsRegen(record, { now: Date.now(), battleLocked });
-        const character = regen.record.character as Record<string, unknown>;
+        const settled = await settleIdleRecovery(store, side.slug, record);
+        const character = settled.character;
         const inspection = inspectPvpCredit(character, settlementId, 'items');
         if (!inspection.fresh && !inspection.needsBackfill) return;
 
@@ -134,8 +132,8 @@ async function settleLegacySide(
         );
         const next = mergePreservingImages(
             bumpSaveVersion(
-                { ...regen.record, character: withReceipt },
-                { regenAt: carriedRegenCursor(character, withReceipt, regen) },
+                { ...record, character: withReceipt },
+                { regenAt: carriedRegenCursor(character, withReceipt, settled.regen) },
             ),
             record,
         ) as Record<string, unknown>;

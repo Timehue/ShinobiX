@@ -155,6 +155,10 @@ const INDIRECT_VERSION_MUTATION_ROUTES = new Set([
     // treasury-share day already ran through the debit saga), and the helper
     // still returns that `_saveVersion` for village/tax.ts to echo.
     '_war-tax-apply.ts',
+    // Each fighter's rating now commits through mutatePlayerSave, so the 2v2
+    // settlement names no BUMP_MARKER. Every line still carries that fighter's
+    // exact committed `_saveVersion` for pvp/ranked-2v2.ts to echo.
+    'pvp/_ranked-2v2-settlement.ts',
 ]);
 
 /**

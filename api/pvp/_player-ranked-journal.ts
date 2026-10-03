@@ -4,6 +4,7 @@ import type { KvLike } from '../_storage.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { inspectSettlementReceipt } from '../_settlement-receipts.js';
 import {
@@ -752,8 +753,12 @@ async function settleSide(
     const legacyFingerprint = legacyRole ? `rating-${legacyRole}` : null;
     for (let attempt = 0; attempt < 32; attempt += 1) {
         const record = await store.get<Record<string, unknown>>(saveKey);
-        const character = (record?.character ?? null) as Record<string, unknown> | null;
-        if (!record || !character) throw new Error(`player-ranked-save-unreadable:${slug}`);
+        if (!record?.character) throw new Error(`player-ranked-save-unreadable:${slug}`);
+        // The idle recovery earned since the regeneration cursor settles into
+        // this write. The other fighter is usually offline when it runs, and a
+        // bare version bump fenced their cursor and discarded every point.
+        const settled = await settleIdleRecovery(store, slug, record);
+        const character = settled.character;
         const stamps = readStamps(character);
         const existing = stamps[terminal.matchId];
         if (existing) {
@@ -852,7 +857,10 @@ async function settleSide(
             const currentRating = Number(character.rankedRating);
             return Number.isFinite(currentRating) ? currentRating : ratingAfter;
         }
-        const next = bumpSaveVersion({ ...record, character: nextCharacter });
+        const next = bumpSaveVersion(
+            { ...record, character: nextCharacter },
+            { regenAt: carriedRegenCursor(character, nextCharacter, settled.regen) },
+        );
         try {
             if (await store.compareSet(saveKey, record, next)) {
                 await projectRankedLeaderboardSide(store, slug);

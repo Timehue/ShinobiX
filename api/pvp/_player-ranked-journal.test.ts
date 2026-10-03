@@ -137,6 +137,32 @@ describe('player ranked terminal journal', () => {
         assert.equal(char(await store.get('save:bob')).rankedRating, 988);
     });
 
+    it('keeps the idle recovery the offline loser earned since their last save', async () => {
+        // The winner's claim settles both ladders, usually long after the
+        // loser closed the game. A bare version bump fenced the loser's
+        // regeneration cursor to now and discarded every point recovered.
+        const { store, session } = await setup();
+        const at = Date.now() - 30_000;
+        const bob = await store.get<Record<string, unknown>>('save:bob');
+        await store.set('save:bob', {
+            ...bob, _saveAt: at, _regenAt: at,
+            character: { ...char(bob), hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+        const journal = await publishPlayerRankedTerminal(store, session, {
+            now: NOW + 3,
+            eligible: async () => true,
+        });
+        await settlePlayerRankedJournal(store, journal, NOW + 4);
+        const saved = await store.get<Record<string, unknown>>('save:bob');
+        const loser = char(saved);
+        assert.equal(loser.rankedRating, 988, 'the loss was still rated');
+        assert.ok(loser.hp >= 40, `hp ${loser.hp} lost the idle recovery`);
+        assert.ok(loser.chakra >= 50, `chakra ${loser.chakra} lost the idle recovery`);
+        assert.ok(loser.stamina >= 30, `stamina ${loser.stamina} lost the idle recovery`);
+        // Rating moves no vital, so the write carries the settled cursor.
+        assert.ok(Number(saved?._regenAt) >= at + 30_000 - 1_000, `cursor ${saved?._regenAt} was fenced`);
+    });
+
     it('seals one immutable terminal and ignores shared-receipt churn on replay', async () => {
         const { store, session } = await setup();
         const journal = await publishPlayerRankedTerminal(store, session, {
