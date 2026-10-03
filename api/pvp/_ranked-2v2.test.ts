@@ -308,6 +308,38 @@ describe('ranked 2v2 rating', { concurrency: false }, () => {
         assert.equal((await mod.ranked2v2Status(A1)).match, null);
     });
 
+    it('keeps the idle recovery all four fighters earned since their last save', async () => {
+        // Any one of the four settles all four, and the other three are
+        // usually offline by then. A raw version bump fenced their
+        // regeneration cursors to now and discarded every point recovered.
+        const base = await matchedPair();
+        // The route releases the terminal battle leases before it settles
+        // (towerPvpState); a held lease is a battle, not idle time.
+        const { releaseTowerBattleLeases } = await import('../towers/_battle-lease.js');
+        await releaseTowerBattleLeases(base.matchId, ALL);
+        const at = Date.now() - 30_000;
+        for (const slug of ALL) {
+            const saved = await kv.get<{ character: Record<string, unknown> }>(`save:${slug}`);
+            await kv.set(`save:${slug}`, {
+                ...saved, _saveVersion: 1, _saveAt: at, _regenAt: at,
+                character: { ...saved!.character, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+            });
+        }
+        const lines = await settle.settleRanked2v2Match({ ...base, status: 'done', winner: 'amber', updatedAt: Date.now() });
+        assert.equal(lines?.length, 4, 'every fighter is rated');
+        for (const line of lines!) {
+            const saved = await kv.get<Record<string, any>>(`save:${line.slug}`);
+            const character = saved!.character;
+            assert.equal(character.ranked2v2Rating, 1000 + (line.outcome === 'win' ? line.delta : -line.delta), `${line.slug} was rated`);
+            assert.equal(line.saveVersion, saved!._saveVersion, `${line.slug}: the line reports the committed version`);
+            assert.ok(character.hp >= 40, `${line.slug}: hp ${character.hp} lost the idle recovery`);
+            assert.ok(character.chakra >= 50, `${line.slug}: chakra ${character.chakra} lost the idle recovery`);
+            assert.ok(character.stamina >= 30, `${line.slug}: stamina ${character.stamina} lost the idle recovery`);
+            // Rating moves no vital, so the write carries the settled cursor.
+            assert.ok(Number(saved!._regenAt) >= at + 30_000 - 1_000, `${line.slug}: cursor ${saved!._regenAt} was fenced`);
+        }
+    });
+
     it('rates nobody for a duel that never happened', async () => {
         const base = await matchedPair();
         const cancelled = { ...base, status: 'cancelled' as const, winner: null, updatedAt: Date.now() };
