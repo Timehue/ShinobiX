@@ -26,6 +26,7 @@ import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { commitPetRankedStartingPair } from '../pet/_ranked-engine.js';
 import {
     getPetRankedJournal,
@@ -656,10 +657,17 @@ async function applySeasonSettlement(
         const record = await store.get<Record<string, unknown>>(key);
         const character = (record?.character ?? null) as Record<string, unknown> | null;
         if (!record || !character) throw new Error(`ranked-season-plan-save-unreadable:${slug}`);
-        const settlement = settleRankedSeasonCharacter(character, seasonId, reward);
+        // The rollover writes every ranked player, almost all of them offline.
+        // Each keeps the idle recovery earned since their last save: it settles
+        // into this write and the cursor carries, as mutatePlayerSave does.
+        const recovery = await settleIdleRecovery(store, slug, record);
+        const settlement = settleRankedSeasonCharacter(recovery.character, seasonId, reward);
         if (!settlement.changed) return;
         const updated = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: settlement.character }, { previousCharacter: character }),
+            bumpSaveVersion({ ...record, character: settlement.character }, {
+                previousCharacter: character,
+                regenAt: carriedRegenCursor(recovery.character, settlement.character, recovery.regen),
+            }),
             record,
         ) as Record<string, unknown>;
         try {
