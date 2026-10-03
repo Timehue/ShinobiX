@@ -15,7 +15,7 @@ export function RallySession({ children }: { children: ReactNode }) {
         role="dialog" aria-modal="true" aria-label="Pet Rally race" tabIndex={-1}
         onKeyDown={event => {
             if (event.key !== 'Tab') return;
-            const buttons = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), [tabindex="0"]')]
+            const buttons = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), select:not(:disabled), [tabindex="0"]')]
                 .filter(element => element.getClientRects().length > 0);
             const first = buttons[0], last = buttons.at(-1);
             if (!first || !last) { event.preventDefault(); return; }

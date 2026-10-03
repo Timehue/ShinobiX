@@ -36,12 +36,20 @@ function dunes(track: RallyTrack, light: boolean) {
 export function RallyDunes({ track, light }: { track: RallyTrack; light: boolean }) {
     const surface = useMemo(() => ({ geometry: dunes(track, light), texture: createSandTexture() }), [track, light]);
     useEffect(() => () => { surface.geometry.dispose(); surface.texture.dispose(); }, [surface]);
-    return <mesh geometry={surface.geometry} receiveShadow><meshStandardMaterial vertexColors map={surface.texture} roughness={1} side={THREE.DoubleSide}/></mesh>;
+    return <mesh geometry={surface.geometry} receiveShadow={!light}>{light
+        ? <meshLambertMaterial vertexColors map={surface.texture} side={THREE.DoubleSide}/>
+        : <meshStandardMaterial vertexColors map={surface.texture} roughness={1} side={THREE.DoubleSide}/>}</mesh>;
 }
 export function RallySun({ state, light: reduced }: { state: RefObject<RallyState>; light: boolean }) {
     const light = useRef<THREE.DirectionalLight>(null);
     const target = useMemo(() => new THREE.Object3D(), []);
+    const lastTick = useRef(-1);
+    useEffect(() => { lastTick.current = -1; }, [reduced]);
     useFrame(() => {
+        // Without shadows only the fixed light direction matters. Full mode
+        // moves the shadow camera once per simulation tick, not per display frame.
+        if (lastTick.current >= 0 && (reduced || lastTick.current === state.current.tick)) return;
+        lastTick.current = state.current.tick;
         const p = rallyPath(rallyTrackFromState(state.current), state.current.racers[0].distance);
         if (light.current) { light.current.position.set(p.x - 24, p.y + 32, p.z - 16); target.position.set(p.x, p.y, p.z - 15); target.updateMatrixWorld(); }
     });
