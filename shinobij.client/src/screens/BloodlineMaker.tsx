@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import bloodlineForgeHero from "../assets/facilities/bloodline-forge-hero.webp";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { gameToast } from "../components/GameToast";
@@ -18,7 +18,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
-import { replaceCharacterBloodline } from "../lib/bloodline-swap";
+import { equipOwnedBloodline } from "../lib/bloodline-swap";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
 import { specialties, jutsuElements, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets, starterSavedBloodlines } from "../data/jutsu";
 import { AiImagePrompt } from "../components/AiImagePrompt";
@@ -63,7 +63,7 @@ function normalizeCreatorDraftJutsu(jutsu: Jutsu, rank: Rank): Jutsu {
     return target === "SELF" ? { ...normalized, range: 0 } : normalized;
 }
 
-export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening, onAwakenComplete }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: (character: Character) => void; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void; onAwakenComplete?: () => void }) {
+export function BloodlineMaker({ initialRank, initialSpecialElement, character, updateCharacter, savedBloodlines, setSavedBloodlines, lockedRank, editingBloodline, onSaveBloodlines, onClose, onOpenAwakening, onAwakenComplete }: { initialRank: Rank; initialSpecialElement?: string; character: Character; updateCharacter: Dispatch<SetStateAction<Character | null>>; savedBloodlines: SavedBloodline[]; setSavedBloodlines: (bloodlines: SavedBloodline[]) => void; lockedRank?: boolean; editingBloodline?: SavedBloodline | null; onSaveBloodlines?: (bloodlines: SavedBloodline[], character?: Character) => void | Promise<void>; onClose?: () => void; onOpenAwakening?: () => void; onAwakenComplete?: () => void }) {
     const [rank, setRank] = useState<Rank>(editingBloodline?.rank ?? initialRank);
     const [bloodlineName, setBloodlineName] = useState(editingBloodline?.name ?? "Custom Bloodline");
     const [bloodlineLore, setBloodlineLore] = useState(editingBloodline?.lore ?? "");
@@ -79,6 +79,11 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     const [step, setStep] = useState(0);
     const [templateMsg, setTemplateMsg] = useState("");
     const [persisting, setPersisting] = useState(false);
+    // Idle regen replaces `character` every second while a vital is below max.
+    // Both saves below await first (a confirm, the image uploads), so they build
+    // on the latest character rather than the one this render captured.
+    const latestCharacterRef = useRef(character);
+    useLayoutEffect(() => { latestCharacterRef.current = character; }, [character]);
     const recommendedMax = pointBudgetForRank(rank);
     const elementSuggestions = ["Crystal", "Lava", "Storm", "Shadow Flame", "Ice", "Sand", "Steel", "Blood", "Magnet", "Light"];
 
@@ -327,29 +332,24 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         ]);
         const imageSaveFailed = imageResults.some((result) => result === false);
         const newBloodline = { id: finalId, name: bloodlineName, rank, image: bloodlineImage, specialElement: specialElement.trim(), weatherElement, lore: bloodlineLore.trim(), jutsus: finalizedJutsus, totalPoints: bloodlinePoints(finalizedJutsus, rank) };
+        // The uploads above can take seconds; build on the character as it is now.
+        const latest = latestCharacterRef.current;
         // When creating a NEW bloodline (not editing), keep up to the player's
         // stored-bloodline cap — Supporter perk: 1 for the base tier, 2 for
         // subscribers — newest first, dropping the oldest beyond the cap. The new
-        // one auto-equips below via replaceCharacterBloodline; a second stored
+        // one auto-equips below via equipOwnedBloodline; a second stored
         // bloodline can be swapped in from the Saved list. Editing replaces the
         // existing entry in place, preserving the previous id.
         const nextBloodlines = editingBloodline
             ? savedBloodlines.map((b) => b.id === finalId ? newBloodline : b)
-            : [newBloodline, ...savedBloodlines].slice(0, maxStoredBloodlines(character));
-        const swapped = replaceCharacterBloodline(character, newBloodline, savedBloodlines);
-        // Auto-grant level-1 mastery to the new bloodline's jutsu so they are
-        // immediately equippable + usable. Existing mastery is deliberately
-        // preserved by replaceCharacterBloodline; only genuinely new technique
+            : [newBloodline, ...savedBloodlines].slice(0, maxStoredBloodlines(latest));
+        // equipOwnedBloodline swaps the kit and auto-grants level-1 mastery to the
+        // new bloodline's jutsu so they are immediately equippable + usable.
+        // Existing mastery is deliberately preserved; only genuinely new technique
         // ids receive the baseline row, so editing or swapping can never reset
         // trained progress. The server independently grants the same baseline
         // after validating ownership and the purchased rank entitlement.
-        const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
-        const grantedMastery = finalizedJutsus
-            .filter((j) => !masteredIds.has(j.id))
-            .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
-        const nextCharacter = grantedMastery.length
-            ? { ...swapped, jutsuMastery: [...(swapped.jutsuMastery ?? []), ...grantedMastery] }
-            : swapped;
+        const nextCharacter = equipOwnedBloodline(latest, newBloodline, savedBloodlines);
         // The server save is the ownership boundary consumed by every combat
         // loader. Do not show/equip the draft locally until that authoritative
         // write acknowledges it; otherwise a rejected entitlement or network
@@ -366,7 +366,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
             setPersisting(false);
         }
         setSavedBloodlines(nextBloodlines);
-        updateCharacter(nextCharacter);
+        // Re-apply to the newest state so regen earned during the save is kept.
+        updateCharacter((prev) => prev && prev.name === latest.name ? equipOwnedBloodline(prev, newBloodline, savedBloodlines) : prev);
         if (!editingBloodline && onAwakenComplete) {
             gameToast(imageSaveFailed
                 ? `${bloodlineName} awakened and saved. One or more images did not upload to shared storage.`
@@ -386,18 +387,10 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     async function equipStoredBloodline(target: SavedBloodline) {
         if (persisting || target.id === character.equippedBloodlineId) return;
         if (!await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" })) return;
-        const swapped = replaceCharacterBloodline(character, target, savedBloodlines);
-        const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
-        const granted = target.jutsus
-            .filter((j) => !masteredIds.has(j.id))
-            .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
-        const next: Character = {
-            ...swapped,
-            jutsuMastery: [...(swapped.jutsuMastery ?? []), ...granted],
-        };
+        const latest = latestCharacterRef.current;
         setPersisting(true);
         try {
-            await onSaveBloodlines?.(savedBloodlines, next);
+            await onSaveBloodlines?.(savedBloodlines, equipOwnedBloodline(latest, target, savedBloodlines));
         } catch (error) {
             const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
             alert(`${target.name} was not equipped.${detail} Your current bloodline is unchanged.`);
@@ -405,7 +398,8 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
         } finally {
             setPersisting(false);
         }
-        updateCharacter(next);
+        // Re-apply to the newest state so regen earned during the save is kept.
+        updateCharacter((prev) => prev && prev.name === latest.name ? equipOwnedBloodline(prev, target, savedBloodlines) : prev);
     }
     const stepCount = bloodlineWizardStepCount(rank);
     const stepKind = bloodlineWizardStepKind(step, rank);
