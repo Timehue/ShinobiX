@@ -6,6 +6,8 @@
  * right now?" + the swap-bloodline character mutation.
  *
  *   • getCharacterBloodlines      — the single active bloodline
+ *   • getOriginalBloodline        — the built-in starter the character began with
+ *   • getOwnedBloodlines          — starter + stored bloodlines (the swap choices)
  *   • isBloodlineSpecialElementJutsu — is `jutsu` granted by an equipped
  *                                     bloodline's special element?
  *   • isBloodlineJutsu            — is `jutsu` in any equipped bloodline?
@@ -27,6 +29,28 @@ import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 export { replaceCharacterBloodline } from "./bloodline-swap";
 
+/** The built-in bloodline the character was created with ("Blue Blade Eyes" is its legacy name). */
+export function getOriginalBloodline(
+    character: Pick<Character, "bloodline">,
+): SavedBloodline | undefined {
+    const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
+    return starterSavedBloodlines.find((bloodline) => bloodline.name === starterBloodlineName);
+}
+
+/**
+ * Every bloodline the character may equip: the original starter, then each
+ * stored custom bloodline. These are exactly the ids the save endpoint accepts
+ * as an explicit equip intent; any other built-in bloodline is refused there.
+ */
+export function getOwnedBloodlines(
+    character: Pick<Character, "bloodline">,
+    savedBloodlines: SavedBloodline[],
+): SavedBloodline[] {
+    const original = getOriginalBloodline(character);
+    const owned = original ? [original, ...savedBloodlines] : [...savedBloodlines];
+    return owned.filter((bloodline, index) => owned.findIndex((entry) => entry.id === bloodline.id) === index);
+}
+
 /**
  * Return the selected bloodline. The original starter is active only until a
  * stored or built-in bloodline is explicitly equipped.
@@ -35,10 +59,8 @@ export function getCharacterBloodlines(
     character: Pick<Character, "bloodline" | "equippedBloodlineId">,
     savedBloodlines: SavedBloodline[],
 ): SavedBloodline[] {
-    const starterBloodlineName = character.bloodline === "Blue Blade Eyes" ? "Ashen Eyes" : character.bloodline;
-    const starterBloodline = starterSavedBloodlines.find((bloodline) => bloodline.name === starterBloodlineName);
     const equippedBloodline = [...savedBloodlines, ...starterSavedBloodlines].find((bloodline) => bloodline.id === character.equippedBloodlineId);
-    const active = equippedBloodline ?? starterBloodline;
+    const active = equippedBloodline ?? getOriginalBloodline(character);
     return active ? [active] : [];
 }
 

@@ -33,3 +33,25 @@ export function replaceCharacterBloodline(
         jutsuMastery: [...(character.jutsuMastery ?? [])],
     };
 }
+
+/**
+ * Equip an owned bloodline (the original starter or a stored custom one). This
+ * is the swap above plus a level-1 mastery row for each of the target's
+ * techniques that has never been trained, so its kit is equippable at once.
+ * Trained rows are never touched, so swapping back restores earned progress.
+ */
+export function equipOwnedBloodline(
+    character: Character,
+    target: SavedBloodline,
+    savedBloodlines: SavedBloodline[],
+): Character {
+    const swapped = replaceCharacterBloodline(character, target, savedBloodlines);
+    const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
+    const granted = target.jutsus
+        .filter((j) => !masteredIds.has(j.id))
+        .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
+    return {
+        ...swapped,
+        jutsuMastery: [...(swapped.jutsuMastery ?? []), ...granted],
+    };
+}
