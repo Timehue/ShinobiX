@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
+import { uniquePlayerName } from './helpers/player-names';
 
 type Session = {
     sessionId: string;
@@ -205,7 +206,7 @@ test(`a new player completes the full persisted Academy first session against bu
     }
 
     // Keep a space in this display name to exercise the client/server owner-slug boundary.
-    const playerName = `Journey ${Date.now().toString(36).slice(-7)}`;
+    const playerName = uniquePlayerName((stamp) => `Journey ${stamp.slice(-7)}`);
     const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
     const password = 'Journey!Pass1234';
     const runtimeErrors: string[] = [];

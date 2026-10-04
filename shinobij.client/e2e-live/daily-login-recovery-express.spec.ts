@@ -2,12 +2,13 @@ import { expect } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { quietRoadCooldowns } from './helpers/quiet-road';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 
 test('daily claim survives a lost response, receipt retry, logout and relogin', async ({ page, request, context }, info) => {
     test.setTimeout(90000);
-    const name = `daily${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `daily${info.project.name.includes('mobile') ? 'm' : 'd'}${stamp}`);
     const password = 'DailyRecovery!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status(), await registered.text()).toBe(200);

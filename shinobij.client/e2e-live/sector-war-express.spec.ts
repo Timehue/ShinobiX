@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 // Real handler responses span save, war-map, contest and replay schemas in this
@@ -40,7 +41,7 @@ function character(name: string, village: string, companion: Json) {
 }
 
 async function seedAccount(request: APIRequestContext, info: TestInfo, tag: string, village: string, companion: Json) {
-    const name = `sector${tag}${info.workerIndex}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `sector${tag}${info.workerIndex}${stamp}`);
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: PASSWORD } });
     expect(registered.status(), await registered.text()).toBe(200);
     const token = String((await registered.json()).token ?? '');
