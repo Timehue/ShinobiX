@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page, type Response, type TestInfo } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniqueNameStamp } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-showdown-contract';
@@ -129,7 +130,7 @@ function roster(tag: string) {
 }
 
 async function seedDiver(request: APIRequestContext, info: TestInfo) {
-    const tag = `${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const tag = uniqueNameStamp((stamp) => [`hgpet${stamp}`], { head: info.project.name.includes('mobile') ? 'm' : 'd' });
     const name = `hgpet${tag}`;
     const registered = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: 'HollowGatePetDuel!1234' },

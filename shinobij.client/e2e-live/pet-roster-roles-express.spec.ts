@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page, type TestInfo } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 /*
@@ -35,7 +36,7 @@ const PETS = [
 const SIXTH = 'Mist Serpent';
 
 async function seedSupporter(request: APIRequestContext, info: TestInfo, tag: string) {
-    const name = `roles${tag}${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `roles${tag}${info.project.name.includes('mobile') ? 'm' : 'd'}${stamp}`);
     const registration = await request.post('/api/player-auth', { data: { action: 'register', name, password: 'IsolatedRosterRoles!1234' } });
     expect(registration.status(), 'the isolated fixture account must register').toBe(200);
     const token = String((await registration.json()).token ?? '');
