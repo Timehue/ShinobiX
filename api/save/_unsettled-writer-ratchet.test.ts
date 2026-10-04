@@ -26,7 +26,8 @@ import ts from 'typescript';
  *   - BY_DESIGN, with the reason;
  *   - TO_CONVERT, with the EXACT count of its builder calls. A conversion
  *     lowers the count (and deletes the entry at zero). A new builder call, in
- *     any file, fails here.
+ *     any file, fails here. It has been empty since every audited writer was
+ *     converted (2026-10-03).
  * Each conversion carries a regen proof that drives the real handler (see
  * _settled-mutation-writers.test.ts for the pattern).
  */
@@ -78,6 +79,16 @@ const SETTLES_ITSELF = new Set([
     // The entry fee is charged under the run's own battle lease, so it settles
     // up to the moment that lease began (settleIdleRecovery's ownBattleLock).
     'towers/start.ts',
+    // Season rollover: every ranked player, almost all of them offline.
+    'cron/_ranked-season.ts',
+    // Vanguard seals on a PvP win, and the clan's escorting Pet Tamers, who are
+    // usually elsewhere. Every Vanguard write goes through writeVanguardSave.
+    'pvp/_vanguard-rewards.ts',
+    'village/claim-map-control.ts',
+    // Honor Seals spent on a village war or its mercenaries: sagas whose pure
+    // projections take the settled holder from their async callers.
+    '_war-declaration-funding.ts',
+    '_war-mercenary-hire.ts',
 ]);
 
 // The calls that credit the recovery before a write.
@@ -99,17 +110,11 @@ const BY_DESIGN: Readonly<Record<string, string>> = {
     'hollow-gate/use-consumable.ts': OPEN_HOLLOW_GATE_RUN,
 };
 
-// Audited 2026-10-03: each fences the cursor without settling the recovery.
-const TO_CONVERT: Readonly<Record<string, number>> = {
-    // Season rollover: every ranked player, almost all of them offline.
-    'cron/_ranked-season.ts': 1,
-    // Vanguard seals on a PvP win, and the clan's escorting Pet Tamers, who are usually elsewhere.
-    'pvp/_vanguard-rewards.ts': 4,
-    // Village rewards, and Honor Seals spent on a village war.
-    'village/claim-map-control.ts': 1,
-    '_war-declaration-funding.ts': 2,
-    '_war-mercenary-hire.ts': 1,
-};
+// Empty since 2026-10-03: every writer the audit found settles the recovery
+// now, or is listed by design. Keep it empty. A new builder call fails the
+// first test; commit through mutatePlayerSave instead, or settle and carry
+// the cursor and list the file in SETTLES_ITSELF.
+const TO_CONVERT: Readonly<Record<string, number>> = {};
 
 function collectTsFiles(dir: string, out: string[] = []): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
