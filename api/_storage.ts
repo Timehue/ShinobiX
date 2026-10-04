@@ -131,8 +131,10 @@ const _noCachePrefixes = [
     'game:tournaments:',
     // Direct-message inboxes, threads, and per-player deletion cutoffs are all
     // lock-coordinated live state. A worker-local snapshot can resurrect a
-    // deleted row or lose a concurrently delivered message.
-    'chat:village:', 'dm:',
+    // deleted row or lose a concurrently delivered message. Sector chat is the
+    // same shape, and its socket hint makes every reader refetch at once: a
+    // cached row would answer that hint with the line it was sent to announce.
+    'chat:village:', 'chat:sector:', 'dm:',
     // Solo-PvE move/state versions and their story bindings are likewise
     // distributed-lock authority. A cached pre-move session can accept an old
     // expectedVersion after another worker committed, overwriting that move and

@@ -89,6 +89,20 @@ describe('guest social gate wiring', () => {
         assert.ok(gate < silence, 'the battle-chat gate must run before the send path continues');
     });
 
+    it('stops an unclaimed guest speaking in sector chat while leaving it audible', () => {
+        const chat = source('sector/chat.ts');
+        assert.match(chat, /import \{ rejectUnclaimedGuest \} from '\.\.\/_guest-gate\.js';/);
+        assert.equal(chat.split(GATE).length - 1, 1, 'the sector-chat gate belongs on POST only, not GET');
+
+        const post = indexOf(chat, 'async function post(', 'POST path');
+        const gate = indexOf(chat, GATE, 'sector chat gate');
+        const limiter = indexOf(chat, "enforceRateLimitKv(req, res, 'sector-chat-post'", 'rate limiter');
+        const write = indexOf(chat, 'const text = cleanSectorChatText(rawText);', 'message construction');
+        assert.ok(post < gate, 'the sector-chat gate must live on the POST path');
+        assert.ok(limiter < gate, 'the sector-chat gate must run after the rate limiter');
+        assert.ok(gate < write, 'a locked guest must not reach message construction');
+    });
+
     it('reports the same lock to the client that the endpoints enforce', () => {
         // If account-status computed `socialLocked` from anything other than the
         // gate's own switch, a rollback would reopen the endpoints while the UI

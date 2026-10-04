@@ -248,7 +248,8 @@ gains a real credential. An account created anonymously, three per hour per
 fingerprint, with no email and no owner is the cheapest possible spam and
 harassment vehicle, so `api/_guest-gate.ts` gates the tavern (`village/chat`,
 read *and* post), direct messages (`messages`, POST only — an existing inbox
-stays readable), clan chat (`clan/chat/send`) and battle chat (`pvp/chat`).
+stays readable), clan chat (`clan/chat/send`), battle chat (`pvp/chat`) and
+sector chat (`sector/chat`, POST only — a guest can still hear the sector).
 
 Signs left in the world (`sector/trail-sign.ts`) are gated the same way, since
 they are name-attributed text strangers read. Only the `leave` path — `spark`

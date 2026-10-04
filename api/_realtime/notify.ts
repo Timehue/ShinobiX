@@ -15,6 +15,7 @@
  */
 
 import { safeName } from '../_utils.js';
+import { SECTOR_CHAT_EVENT } from '../../shared/sector-chat.js';
 
 type Emitter = (room: string, event: string, payload: unknown) => void;
 
@@ -84,6 +85,21 @@ export function pushSaveVersion(name: string | undefined | null, version: number
         _emit(`user:${canon(name)}`, 'save:version', { version });
     } catch {
         /* best-effort — the save route's 409 recovery remains authoritative */
+    }
+}
+
+/**
+ * Tell everyone in a sector that its chat has a new line. A hint, not the
+ * line: each reader refetches through api/sector/chat.ts, which applies that
+ * reader's block list. Broadcasting the text itself would show a blocked
+ * author's message to the person who blocked them.
+ */
+export function kickSectorChat(sector: number, ts: number): void {
+    if (!_emit || !Number.isInteger(sector) || sector < 1) return;
+    try {
+        _emit(`sector:${sector}`, SECTOR_CHAT_EVENT, { sector, ts });
+    } catch {
+        /* best-effort — the chat's own poll is the fallback */
     }
 }
 

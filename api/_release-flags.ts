@@ -73,6 +73,16 @@ export function sectorContractsEnabled(env: NodeJS.ProcessEnv = process.env): bo
     return env.DISABLE_SECTOR_CONTRACTS !== '1';
 }
 /**
+ * Sector chat (api/sector/chat.ts): players standing in the same wild sector
+ * can talk. Ships ON. DISABLE_SECTOR_CHAT is an INCIDENT VALVE for a spam or
+ * abuse wave the word filter and reports cannot keep up with — not a content
+ * toggle. When set, the route 404s and the client latches that 404 and hides
+ * the chat, so the panel goes quiet instead of showing errors.
+ */
+export function sectorChatEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_SECTOR_CHAT !== '1';
+}
+/**
  * Village Stores (Provisions + Materials): the ration cook recipes, donation
  * routing, daily spoil/burn/convert pass, garrison-feed toggle, and the
  * materials gate on structure levels 6–10. Default ON; the exact kill switch

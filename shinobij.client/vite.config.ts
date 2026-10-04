@@ -15,6 +15,7 @@ import { normalizeRecoveryCode, formatRecoveryCode } from './src/lib/recovery-co
 import { sectorExitById } from '../shared/sector-links.ts';
 import { SHRINE_DEFS } from '../shared/shrines.ts';
 import { sectorContractFor, utcDayOf } from '../shared/sector-contracts.ts';
+import { freshSectorChat, isSectorChatSector, sectorChatSince, SECTOR_CHAT_KEEP, SECTOR_CHAT_MAX_CHARS, type SectorChatMessage } from '../shared/sector-chat.ts';
 import { issueSignedDevSessionToken, verifySignedDevSessionToken } from './dev-session-auth.ts';
 
 // ── Cert setup (dev only — skipped on CI / Vercel / production builds) ────────
@@ -713,6 +714,37 @@ export default defineConfig({
                     } catch {
                         sendJson(res, 404, { error: 'Your save was not found.' });
                     }
+                });
+
+                // Sector chat (api/sector/chat). Same shared rules and response
+                // shapes; in-memory, no presence gate (the dev server has no
+                // presence store) and no socket hint, so dev runs on the panel's
+                // fallback poll. The word filter, rate limit and reports are
+                // production-only.
+                const devSectorChat = new Map<number, SectorChatMessage[]>();
+                server.middlewares.use('/api/sector/chat', async (req: IncomingMessage, res: ServerResponse, next) => {
+                    if (req.method !== 'GET' && req.method !== 'POST') { next(); return; }
+                    const playerId = devTokenPlayer(req);
+                    if (!playerId) { sendJson(res, 401, { error: 'Authentication required.' }); return; }
+                    const url = new URL(req.url ?? '/', 'http://vite.local');
+                    const now = Date.now();
+                    if (req.method === 'GET') {
+                        const sector = Number(url.searchParams.get('sector'));
+                        if (!isSectorChatSector(sector)) { sendJson(res, 400, { error: 'That place has no sector chat.' }); return; }
+                        const live = freshSectorChat(devSectorChat.get(sector), now);
+                        sendJson(res, 200, { messages: sectorChatSince(live, Number(url.searchParams.get('since') ?? 0)), now });
+                        return;
+                    }
+                    const parsed = parseJsonBody(await readBody(req));
+                    if ('error' in parsed) { sendJson(res, 400, { error: parsed.error }); return; }
+                    const body = parsed.body as { sector?: unknown; text?: unknown };
+                    const sector = Number(body.sector);
+                    if (!isSectorChatSector(sector)) { sendJson(res, 400, { error: 'That place has no sector chat.' }); return; }
+                    const text = String(body.text ?? '').trim().slice(0, SECTOR_CHAT_MAX_CHARS);
+                    if (!text) { sendJson(res, 400, { error: 'Message is empty or contains blocked content.' }); return; }
+                    const message: SectorChatMessage = { id: `${now}-dev${Math.random().toString(36).slice(2, 8)}`, name: playerId, text, ts: now };
+                    devSectorChat.set(sector, [...freshSectorChat(devSectorChat.get(sector), now), message].slice(-SECTOR_CHAT_KEEP));
+                    sendJson(res, 200, { ok: true, message });
                 });
 
                 server.middlewares.use('/api/sector/shrine-offer', async (req: IncomingMessage, res: ServerResponse, next) => {
