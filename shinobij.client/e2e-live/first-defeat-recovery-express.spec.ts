@@ -2,6 +2,7 @@ import { expect, type Route } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
 import { quietRoadCooldowns } from './helpers/quiet-road';
+import { uniqueNameStamp } from './helpers/player-names';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -45,7 +46,9 @@ function responseEvidence(value: unknown) {
 for (const recovery of ['paid', 'free', 'healer', 'external', 'external-stale', 'paid-lost', 'paid-timeout', 'terminal-lost', 'poor'] as const) {
 test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request, context }, info) => {
  test.setTimeout(180000);
- const name = `defeat${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+ // The external recoveries also register a healer, `${name}medic`, from the same stamp.
+ const side = info.project.name.includes('mobile') ? 'm' : 'd';
+ const name = `defeat${side}${uniqueNameStamp((stamp) => [`defeat${side}${stamp}`, `defeat${side}${stamp}medic`])}`;
  const password = 'DefeatJourney!1234';
  const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
  expect(registered.status(), await registered.text()).toBe(200);

@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Page, type Route, type TestInfo } from '@playwright/test';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { writeFile } from 'node:fs/promises';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
@@ -27,7 +28,7 @@ function economicState(record: Json) {
 }
 
 async function seedPackAccount(request: APIRequestContext, info: TestInfo, initialChroniclePoints: number) {
-    const name = `packqa${Date.now().toString(36)}${info.project.name.includes('mobile') ? 'm' : 'd'}`;
+    const name = uniquePlayerName((stamp) => `packqa${stamp}${info.project.name.includes('mobile') ? 'm' : 'd'}`);
     const registration = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: 'IsolatedPackJourney!1234' },
     });

@@ -1,12 +1,13 @@
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 const PASSWORD = 'RankedJourney!1234';
 const ADMIN = 'live-express-e2e-admin';
 
 async function seedFighter(request: APIRequestContext, info: TestInfo, side: string) {
-    const name = `rankedjourney${side}${info.workerIndex}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `rankedjourney${side}${info.workerIndex}${stamp}`);
     const registered = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: PASSWORD },
     });

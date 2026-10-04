@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniqueNameStamp } from './helpers/player-names';
 
 const village = 'Frostfang Village';
 const admin = { 'x-admin-password': 'live-express-e2e-admin' };
@@ -24,7 +25,7 @@ async function seed(request: APIRequestContext, name: string, level: number) {
 }
 
 test('Town Hall Kage acceptance hands the response to the challenger and seals a real official duel', async ({ page, request }) => {
-    const suffix = Date.now().toString(36);
+    const suffix = uniqueNameStamp((stamp) => [`clockkage${stamp}`, `clockrival${stamp}`]);
     const kage = await seed(request, `clockkage${suffix}`, 3);
     const challenger = await seed(request, `clockrival${suffix}`, 90);
     // Every project and repeat shares this in-memory server, and unlock seats a
