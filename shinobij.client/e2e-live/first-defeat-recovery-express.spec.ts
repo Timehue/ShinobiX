@@ -180,6 +180,8 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    await page.route('**/api/player/heartbeat', route => route.abort());
    const healerName = name + 'medic';
    const reg = await request.post('/api/player-auth', { data: { action: 'register', name: healerName, password } });
+   // A refused healer surfaces here with the server's reason, not as a 401 on the heal.
+   expect(reg.status(), await reg.text()).toBe(200);
    const healerToken = (await reg.json()).token;
    const snapshot = await save();
    await request.post(`/api/save/${healerName}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...snapshot, character: { ...snapshot.character, name: healerName, profession: 'healer', professionXp: 0, chakra: 1181, hp: 700, hospitalized: false, hospitalizedUntil: 0 } } });
