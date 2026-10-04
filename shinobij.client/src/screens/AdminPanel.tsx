@@ -5256,7 +5256,7 @@ export function AdminPanel({
                         <section className="summary-box">
                             <h4>⭐ Grant Subscription</h4>
                             <p className="hint" style={{ margin: "0 0 8px" }}>
-                                Comp the Shinobi Supporter perks (15 jutsu, 6 carried pets, custom avatar, 2 bloodlines) for the player named below — activates whether or not they paid, and auto-expires after the set days. No lookup needed.
+                                Comp the Shinobi Supporter perks (15 jutsu, 6 carried pets, custom avatar, 2 bloodlines, Profile bloodline switching) for the player named below — activates whether or not they paid, and auto-expires after the set days. No lookup needed.
                             </p>
                             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                                 <input

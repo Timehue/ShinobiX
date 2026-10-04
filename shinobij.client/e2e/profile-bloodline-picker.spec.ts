@@ -68,6 +68,43 @@ test("a supporter swaps the active bloodline from the Profile build dossier", as
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 });
 
+// Exact HP from the HUD tooltip ("HP 1,234/9,000"): the left card on desktop,
+// the status bar on phones.
+async function hudHp(page: Page): Promise<number> {
+    const title = await page.locator(".left-profile-stat[title^='HP '], .mthd-bar-hp[title^='HP ']")
+        .filter({ visible: true }).first().getAttribute("title");
+    return Number(String(title).replace(/^HP\s*/, "").split("/")[0].replace(/[^\d]/g, ""));
+}
+
+test("a slow confirm keeps the regen earned while the dialog was open", async ({ page }) => {
+    // Idle regen replaces the character every second while a vital is below max.
+    // The swap must build on the character as it is when Equip is pressed, not
+    // the one captured when the dropdown changed.
+    const save = pickerSave({ active: true });
+    save.character = { ...save.character, hp: 1_000 };
+    const runtime = await installUiAuditRuntime(page, save);
+    const postedHp: number[] = [];
+    page.on("request", (request) => {
+        if (request.method() !== "POST" || !request.headers()["x-bloodline-equip-intent"]) return;
+        postedHp.push(Number((request.postDataJSON() as UiAuditSave).character?.hp));
+    });
+    await expectUiAuditBoot(page, runtime, "profile");
+
+    const picker = buildRow(page).getByRole("combobox", { name: "Active bloodline" });
+    await picker.selectOption(STARTER_ID);
+    const confirm = page.getByRole("alertdialog", { name: "Swap bloodline" });
+    await expect(confirm).toBeVisible();
+    const atOpen = await hudHp(page);
+    await expect.poll(() => hudHp(page), { timeout: 15_000 }).toBeGreaterThan(atOpen);
+    const beforeEquip = await hudHp(page);
+    await confirm.getByRole("button", { name: "Equip" }).click();
+
+    await expect(picker).toHaveValue(STARTER_ID);
+    expect(postedHp, "the equip save should post the regenerated HP").toHaveLength(1);
+    expect(postedHp[0]).toBeGreaterThanOrEqual(beforeEquip);
+    expect(await hudHp(page), "the swap must not roll the HUD back").toBeGreaterThanOrEqual(beforeEquip);
+});
+
 test("cancelling the swap keeps the current bloodline", async ({ page }) => {
     const runtime = await installUiAuditRuntime(page, pickerSave({ active: true }));
     await expectUiAuditBoot(page, runtime, "profile");
