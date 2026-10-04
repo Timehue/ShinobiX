@@ -153,7 +153,16 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             save = JSON.parse(postedState) as UiAuditSave;
             saveVersion += 1;
             lastCommit = { baseVersion, version: saveVersion, postedState };
-            await json(route, { ok: true, _saveVersion: saveVersion });
+            // Production acknowledges an explicit bloodline equip with what it
+            // actually stored (api/save/[name].ts); the client refuses the swap
+            // without it.
+            const retained = Array.isArray(save.savedBloodlines) ? save.savedBloodlines as Array<{ id: string; rank: string }> : [];
+            await json(route, { ok: true, _saveVersion: saveVersion,
+                ...(request.headers()["x-bloodline-equip-intent"] ? {
+                    savedBloodlineIds: retained.map((bloodline) => bloodline.id),
+                    savedBloodlineRanks: Object.fromEntries(retained.map((bloodline) => [bloodline.id, bloodline.rank])),
+                    equippedBloodlineId: save.character?.equippedBloodlineId ?? null,
+                } : {}) });
             acknowledgedVersion = saveVersion;
             return;
         }

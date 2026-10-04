@@ -18,7 +18,7 @@ import { gameConfirm } from "../components/GameAlert";
 import { normalizeJutsu, blankJutsu } from "../lib/jutsu";
 import { bloodlineCreatorMethodAllowsTag, bloodlineCreatorRangeForTarget, bloodlineCreatorTargetForMethod, normalizeBloodlineCreatorMethodTags } from "../lib/bloodline-creator-methods";
 import { makeId } from "../lib/utils";
-import { replaceCharacterBloodline } from "../lib/bloodline-swap";
+import { equipOwnedBloodline, replaceCharacterBloodline } from "../lib/bloodline-swap";
 import { bloodlineWizardStepCount, bloodlineWizardStepKind, bloodlineWizardJutsuIndex, bloodlineWizardStepLabel, canLeaveBloodlineDetails, clampBloodlineWizardStep } from "../lib/bloodline-wizard";
 import { specialties, jutsuElements, bloodlineJutsuMethods, fortyApBlockedBloodlineTags, instantEffectGroundTags, jutsuTargets, starterSavedBloodlines } from "../data/jutsu";
 import { AiImagePrompt } from "../components/AiImagePrompt";
@@ -386,15 +386,7 @@ export function BloodlineMaker({ initialRank, initialSpecialElement, character, 
     async function equipStoredBloodline(target: SavedBloodline) {
         if (persisting || target.id === character.equippedBloodlineId) return;
         if (!await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" })) return;
-        const swapped = replaceCharacterBloodline(character, target, savedBloodlines);
-        const masteredIds = new Set((swapped.jutsuMastery ?? []).map((m) => m.jutsuId));
-        const granted = target.jutsus
-            .filter((j) => !masteredIds.has(j.id))
-            .map((j) => ({ jutsuId: j.id, level: 1, xp: 0 }));
-        const next: Character = {
-            ...swapped,
-            jutsuMastery: [...(swapped.jutsuMastery ?? []), ...granted],
-        };
+        const next = equipOwnedBloodline(character, target, savedBloodlines);
         setPersisting(true);
         try {
             await onSaveBloodlines?.(savedBloodlines, next);

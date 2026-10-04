@@ -2,7 +2,7 @@ import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
-import { replaceCharacterBloodline } from "./bloodline-swap";
+import { equipOwnedBloodline, replaceCharacterBloodline } from "./bloodline-swap";
 import type { Character } from "../types/character";
 import type { Jutsu, SavedBloodline } from "../types/combat";
 import { starterSavedBloodlines } from "../data/jutsu";
@@ -100,6 +100,36 @@ describe("replaceCharacterBloodline", () => {
         assert.equal(result.equippedBloodlineId, original.id);
         assert.deepEqual(result.equippedJutsuIds, [STARTER_TECH, "universal-tech"]);
         assert.equal(result.jutsuMastery.find((row) => row.jutsuId === "old-tech")?.level, 31);
+    });
+});
+
+describe("equipOwnedBloodline", () => {
+    it("grants level-1 mastery only to the target's never-trained techniques", () => {
+        const before = character({ jutsuMastery: [
+            { jutsuId: "old-tech", level: 31, xp: 4 },
+            { jutsuId: "second-trained", level: 18, xp: 6 },
+        ] });
+        const result = equipOwnedBloodline(
+            before,
+            bloodline("second-custom", ["second-trained", "second-new"]),
+            [bloodline("old-custom", ["old-tech"]), bloodline("second-custom", ["second-trained", "second-new"])],
+        );
+
+        assert.equal(result.equippedBloodlineId, "second-custom");
+        assert.deepEqual(result.jutsuMastery, [
+            { jutsuId: "old-tech", level: 31, xp: 4 },
+            { jutsuId: "second-trained", level: 18, xp: 6 },
+            { jutsuId: "second-new", level: 1, xp: 0 },
+        ]);
+        assert.equal(before.jutsuMastery.length, 2);
+    });
+
+    it("drops the outgoing kit from the loadout like a plain swap", () => {
+        const original = starterSavedBloodlines.find((entry) => entry.name === "Ashen Eyes")!;
+        const result = equipOwnedBloodline(character(), original, [bloodline("old-custom", ["old-tech"])]);
+        assert.equal(result.equippedBloodlineId, original.id);
+        assert.deepEqual(result.equippedJutsuIds, [STARTER_TECH, "universal-tech"]);
+        assert.equal(result.jutsuMastery.find((row) => row.jutsuId === STARTER_TECH)?.level, 24);
     });
 });
 
