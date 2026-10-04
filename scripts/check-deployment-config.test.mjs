@@ -2,13 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
 import {
+  RAILWAY_DEPLOY_TYPES,
   checkRepositoryDeploymentConfig,
   deploymentConfigErrors,
 } from './check-deployment-config.mjs';
 
 const valid = {
   build: { builder: 'DOCKERFILE', dockerfilePath: 'Dockerfile' },
-  deploy: { numReplicas: 1, startCommand: 'node dist/server.js', healthcheckPath: '/health', drainingSeconds: '60' },
+  deploy: { numReplicas: 1, startCommand: 'node dist/server.js', healthcheckPath: '/health', drainingSeconds: 60 },
 };
 
 test('repository Railway deployment remains single-instance and starts built server', async () => {
@@ -38,11 +39,41 @@ test('deployment config requires the unauthenticated shallow health endpoint', (
 });
 
 test('deployment config rejects absent, disabled, invalid and insufficient shutdown grace', () => {
-  for (const drainingSeconds of [undefined, null, false, [60], {}, '', '0', '50', '59', '60.5', 'NaN', 'Infinity']) {
+  for (const drainingSeconds of [undefined, null, false, [60], {}, '', 0, 50, 59, 60.5, NaN, Infinity, '0', '60', '90']) {
     const errors = deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds } });
-    assert.match(errors.join(' '), /drainingSeconds must allow at least 60 seconds/);
+    assert.match(errors.join(' '), /drainingSeconds must allow at least 60 seconds/, `drainingSeconds ${String(drainingSeconds)}`);
   }
-  assert.deepEqual(deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds: '90' } }), []);
+  assert.deepEqual(deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds: 90 } }), []);
+});
+
+test('a quoted number is refused, because Railway refuses the whole config for one', () => {
+  // The exact railway.json that failed every deploy from 2026-10-03 at
+  // initialization: "deploy.drainingSeconds: Invalid input: expected number,
+  // received string".
+  assert.match(
+    deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, drainingSeconds: '60' } }).join(' '),
+    /deploy\.drainingSeconds must be a JSON number/,
+  );
+  const wrong = { integer: '1', number: '1', boolean: 'true', string: 1 };
+  for (const [key, type] of Object.entries(RAILWAY_DEPLOY_TYPES)) {
+    const errors = deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, [key]: wrong[type] } });
+    assert.ok(
+      errors.some((error) => error.startsWith(`deploy.${key} must be a JSON ${type}`)),
+      `deploy.${key} = ${JSON.stringify(wrong[type])} must be refused: ${errors.join('; ')}`,
+    );
+  }
+  assert.match(
+    deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, preDeployTimeoutSeconds: 1.5 } }).join(' '),
+    /deploy\.preDeployTimeoutSeconds must be a JSON integer/,
+  );
+  // Railway's schema allows null, or the setting left out, for each of them.
+  for (const key of ['healthcheckTimeout', 'overlapSeconds', 'sleepApplication', 'region']) {
+    assert.deepEqual(deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, [key]: null } }), []);
+  }
+  assert.deepEqual(
+    deploymentConfigErrors({ ...valid, deploy: { ...valid.deploy, healthcheckTimeout: 120, restartPolicyMaxRetries: 10 } }),
+    [],
+  );
 });
 
 test('deployment config requires the repository Dockerfile', () => {
