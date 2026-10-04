@@ -459,6 +459,8 @@ shinobij.client/playwright-report/
 shinobij.client/test-results/
 shinobij.client/.playwright-dist-*/
 shinobij.client/dist-perf/
+# The UX-journey audit's temporary client build (docs/audits/player-journey-ux-2026-09-13.md).
+shinobij.client/.ux-audit-dist/
 qa-*.jpeg
 qa-*.png
 
