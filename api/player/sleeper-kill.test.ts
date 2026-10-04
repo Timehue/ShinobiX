@@ -335,6 +335,17 @@ test('sleeper-kill handler: a Vanguard attacker banks capped Honor Seals; anyone
     assert.equal((await charOf('plainjo')).honorSeals, 0);
 });
 
+test('sleeper-kill handler: reward credit does not restore a shield spent by the attack', async () => {
+    const shieldUntil = Date.now() + 120_000;
+    await seedSave('shieldedhunter', 0, { ryo: 0, pvpShieldUntil: shieldUntil });
+    await stage('shieldedhunter', 'dozer', 8);
+
+    const out = await postKill('shieldedhunter', 'dozer', '10.9.0.8');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    assert.equal((out.body.character as Record<string, unknown>).pvpShieldUntil, 0);
+    assert.equal((await charOf('shieldedhunter')).pvpShieldUntil, 0, 'persisted credit keeps the shield cleared');
+});
+
 test('sleeper-kill handler: an attacker standing in a DIFFERENT sector is refused, and nothing is paid', async () => {
     await seedSave('faraway', 0, { ryo: 500 });
     await seedSave('elsewhere', 6);
