@@ -158,6 +158,31 @@ describe('the personal Map Control reward is paid once per day', { concurrency: 
         assert.equal(await ryo(), 1_000);
     });
 
+    test('a claim keeps the idle recovery earned since the last save', async () => {
+        // The reward write moves no vital, so the HP, chakra and stamina
+        // recovered since the last save settle into it and the cursor carries.
+        const tiredAt = Date.now() - 30_000;
+        const stored = (await kv.get<Record<string, any>>(SAVE_KEY))!;
+        await kv.set(SAVE_KEY, {
+            ...stored,
+            _saveAt: tiredAt,
+            _regenAt: tiredAt,
+            character: { ...stored.character, hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 },
+        });
+
+        const reply = await claim();
+        assert.equal(reply.status, 200, JSON.stringify(reply.body));
+        assert.equal(reply.body?.alreadyClaimed, false);
+        const saved = (await kv.get<Record<string, any>>(SAVE_KEY))!;
+        assert.ok(saved.character.ryo > 1_000, 'the reward was still paid');
+        assert.equal(reply.body?._saveVersion, saved._saveVersion, 'the reply echoes the committed version');
+        assert.ok(saved.character.hp >= 40, `hp ${saved.character.hp} lost the idle recovery`);
+        assert.ok(saved.character.chakra >= 50, `chakra ${saved.character.chakra} lost the idle recovery`);
+        assert.ok(saved.character.stamina >= 30, `stamina ${saved.character.stamina} lost the idle recovery`);
+        assert.ok(Number(saved._regenAt) >= tiredAt + 30_000 - 1_000, `cursor ${saved._regenAt} fell behind the recovery`);
+        assert.equal((Number(saved._regenAt) - tiredAt) % 1_000, 0, `cursor ${saved._regenAt} was fenced to the write, not carried`);
+    });
+
     test('a forged identity is refused and moves nothing', async () => {
         await kv.set('save:mapforger', { _saveVersion: 1, character: { name: 'mapforger', village: VILLAGE, ryo: 0 } });
         assert.equal((await claim('mapforger', PLAYER)).status, 403);
