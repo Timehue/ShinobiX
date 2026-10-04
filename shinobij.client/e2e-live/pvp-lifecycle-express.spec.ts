@@ -1,12 +1,13 @@
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS } from '../src/lib/pvp-reward-claim';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 
 async function seed(request: APIRequestContext, suffix: string) {
-    const name = `duel${suffix}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `duel${suffix}${stamp}`);
     const registered = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: 'DuelJourney!1234' },
     });
