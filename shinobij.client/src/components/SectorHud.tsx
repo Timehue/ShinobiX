@@ -8,6 +8,7 @@ import { useDismissGesture } from '../lib/use-dismiss-gesture';
 import { SectorHudIdentity } from './SectorHudIdentity';
 import { SectorNearby } from './SectorNearby';
 import { SectorRoutes } from './SectorRoutes';
+import { SectorChat } from './SectorChat';
 import { SectorHudPanel } from './SectorHudPanel';
 import { WorldSectorCommandPanel } from './WorldSectorCommandPanel';
 import type { WorldSectorCommandPanelProps } from './WorldSectorCommandPanel.types';
@@ -16,11 +17,18 @@ import '../styles/sector-hud.css';
 export function SectorHud(props: WorldSectorCommandPanelProps & {
     rosterState: SectorRosterState; playerAction: SectorPlayerActionState;
     onPlayerAction: (key: string, sector: number, intent: SectorPlayerIntent, originCurrent?: () => boolean) => void;
+    /** The viewer's character name, so sector chat can tell their own lines apart. */
+    chatName?: string;
 }) {
-    const { sector, present, biome, players, hunt, territory, sectorContest,
+    const { sector, present, biome, players, hunt, territory, sectorContest, chatName = '',
         rosterState, playerAction, onPlayerAction, onExplore, onFindRicherGround,
         onHunt, onOpenSectorContest, villageWarAdmissionOpen } = props;
-    const [open, setOpen] = useState(false);
+    // One sheet over the board at a time: Sector Info, or sector chat when the
+    // nearby column is too short to hold it docked.
+    const [sheet, setSheet] = useState<'info' | 'chat' | null>(null);
+    const open = sheet === 'info';
+    const setOpen = (next: boolean) => setSheet(next ? 'info' : null);
+    const setChatSheet = (next: boolean) => setSheet(current => next ? 'chat' : current === 'chat' ? null : current);
     const rootRef = useRef<HTMLDivElement>(null);
     useSectorHudLayout(rootRef);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -72,6 +80,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
         <section className="sector-nearby" aria-label="Nearby players">
             <SectorNearby sector={sector} biome={biome} players={players} present={present}
                 rosterState={rosterState} action={playerAction} onAction={run} />
+            <SectorChat sector={sector} present={present} playerName={chatName} hudRef={rootRef}
+                sheetOpen={sheet === 'chat'} onSheet={setChatSheet} />
         </section>
         {open && <SectorHudPanel id={`${id}-info`} rootRef={rootRef} onClose={close} title="Sector Info">
             <WorldSectorCommandPanel {...props} />

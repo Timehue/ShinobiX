@@ -1,4 +1,5 @@
 @import './sector-info.css';
+@import './sector-chat.css';
 
 /* Painted sector controls. Actors retain the existing measured grid parent. */
 .map-instance .instance-frame.sector-instance-frame {
