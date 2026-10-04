@@ -324,19 +324,35 @@ export function carriedRegenCursor(
  * the version bump `regenAt: carriedRegenCursor(settled.character, next,
  * settled.regen)`. The battle lock is read through the same store, under the
  * same normalized name battleLockedFor uses.
+ *
+ * `ownBattleLock` is for a writer that runs under the battle lock it has just
+ * taken to BEGIN that battle, such as a Tower entry fee charged under the
+ * run's own lease. The time before that lock began was idle and the time
+ * after it was not, so a lock it recognises settles the recovery up to the
+ * lock's `startedAt` instead of excluding it. Any other lock, or one without
+ * a usable start, still excludes it.
  */
 export async function settleIdleRecovery(
     store: Pick<KvLike, 'get'>,
     playerName: string,
     record: PlayerSaveRecord,
+    opts: { ownBattleLock?: (lock: unknown) => boolean } = {},
 ): Promise<{ character: PlayerCharacter; regen: { excluded: boolean; cursor: number } }> {
     const [{ battleLockKey, settleVitalsRegen }, { safeName }] = await Promise.all([
         import('../_elapsed-state.js'),
         import('../_utils.js'),
     ]);
     const slug = safeName(playerName);
-    const battleLocked = slug ? Boolean(await store.get(battleLockKey(slug))) : false;
-    const regen = settleVitalsRegen(record, { now: Date.now(), battleLocked });
+    const lock = slug ? await store.get<unknown>(battleLockKey(slug)) : null;
+    const now = Date.now();
+    const lockStartedAt = Number((lock as { startedAt?: unknown } | null)?.startedAt);
+    const ownLockStart = lock && opts.ownBattleLock?.(lock) === true && Number.isFinite(lockStartedAt) && lockStartedAt > 0
+        ? Math.min(now, lockStartedAt)
+        : null;
+    const regen = settleVitalsRegen(record, {
+        now: ownLockStart ?? now,
+        battleLocked: Boolean(lock) && ownLockStart === null,
+    });
     return {
         character: (regen.record.character ?? record.character) as PlayerCharacter,
         regen: { excluded: regen.excluded, cursor: regen.cursor },
