@@ -3140,6 +3140,15 @@ export default function App() {
         return saveCoordinator.pushSaveToServer(characterToSave, name, overrides, opts);
     }
 
+    // The authoritative bloodline write shared by Bloodline Maker and Profile: a swap carries only the equip intent.
+    async function saveBloodlinesToServer(nextBloodlines: SavedBloodline[], nextCharacter?: Character) {
+        if (!character || !currentAccountName) throw new Error("No active player save is available.");
+        const target = nextCharacter ?? character;
+        const committed = await pushSaveToServer(target, currentAccountName, { savedBloodlines: nextBloodlines }, { bloodlineEquipIntent: target.equippedBloodlineId,
+            bloodlineWriteIntent: nextBloodlines === savedBloodlines ? undefined : target.equippedBloodlineId });
+        assertBloodlineSaveAcknowledged(committed.value, nextBloodlines, target.equippedBloodlineId);
+    }
+
     // Re-authenticate after a session-expiry WITHOUT reloading game state, then
     // persist the live in-memory save. This is what prevents the "refresh and
     // lose levels" data loss: the player's unsaved progress is still in memory,
@@ -6151,6 +6160,7 @@ export default function App() {
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
                         onVersionedCharacter={commitVersionedCharacter}
+                        onSaveBloodlines={saveBloodlinesToServer}
                         onOpenBattle={(battleId) => { setViewedBattleId(battleId); setScreen("battleLog"); }}
                         onTrainJutsu={() => navigate("jutsuTraining")}
                     />
@@ -6428,14 +6438,7 @@ export default function App() {
                         setSavedBloodlines={setSavedBloodlines}
                         lockedRank={bloodlineMaker.rankLocked}
                         editingBloodline={bloodlineMaker.editingBloodline}
-                        onSaveBloodlines={async (nextBloodlines, nextCharacter) => {
-                            if (!character || !currentAccountName) throw new Error("No active player save is available.");
-                            const committed = await pushSaveToServer(nextCharacter ?? character, currentAccountName,
-                                { savedBloodlines: nextBloodlines },
-                                { bloodlineEquipIntent: (nextCharacter ?? character).equippedBloodlineId,
-                                    bloodlineWriteIntent: nextBloodlines === savedBloodlines ? undefined : (nextCharacter ?? character).equippedBloodlineId });
-                            assertBloodlineSaveAcknowledged(committed.value, nextBloodlines, (nextCharacter ?? character).equippedBloodlineId);
-                        }}
+                        onSaveBloodlines={saveBloodlinesToServer}
                         onClose={() => bloodlineMaker.close(isAdminAccountName(character.name) ? "adminPanel" : "centralHub")}
                         onOpenAwakening={isAdminAccountName(character.name) ? undefined : bloodlineMaker.openAwakening}
                         onAwakenComplete={bloodlineMaker.rankLocked && !isAdminAccountName(character.name) ? () => setScreen("profile") : undefined}
