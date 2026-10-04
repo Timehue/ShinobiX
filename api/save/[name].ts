@@ -265,13 +265,12 @@ export function stripForgedItems(list: unknown): unknown[] {
  * (no ITEM_CATALOG entry, not on the admin slots), so a POST from a client that
  * had not yet seen the forge silently erased it while its id stayed in
  * `character.equipment` — leaving gear that resolves to nothing and is dropped
- * from every fight. The `_baseSaveVersion` guard rejects most such writes; this
- * closes the rest.
+ * from every fight. A stale client could also change bonuses under the same ID.
+ * The `_baseSaveVersion` guard rejects most such writes; this closes the rest.
  *
- * Deliberately narrow: only ids matching the server-minted pattern are revived,
- * and only when absent from the incoming array. Everything else keeps
- * replace-semantics, so an admin-deleted item still disappears normally and the
- * array cannot grow without bound.
+ * Deliberately narrow: only stored IDs matching the server-minted pattern are
+ * retained. Everything else keeps replace-semantics, so an admin-deleted item
+ * still disappears normally and the array cannot grow without bound.
  */
 export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: number): unknown {
     return projectedPreserveForgedItems(sanitized, stored, cap);

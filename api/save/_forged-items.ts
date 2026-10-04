@@ -21,35 +21,41 @@ export function stripForgedItems(list: unknown): unknown[] {
 }
 
 /**
- * Re-attach server-forged items the incoming save omits.
+ * Preserve server-forged item definitions when reconciling a client save.
  *
  * `creatorItems` is normally replaced wholesale by the client's copy, which is
- * fine for the admin-content mirror that makes up the rest of the array. It is
- * NOT fine for a forged named weapon/armor: that definition exists nowhere else
- * (no ITEM_CATALOG entry, not on the admin slots), so a POST from a client that
- * had not yet seen the forge silently erased it while its id stayed in
- * `character.equipment` — leaving gear that resolves to nothing and is dropped
- * from every fight. The `_baseSaveVersion` guard rejects most such writes; this
- * closes the rest.
+ * fine for the admin-content mirror that makes up the rest of the array. A
+ * forged named weapon/armor exists nowhere else (no ITEM_CATALOG entry, not on
+ * the admin slots), so save sanitization keeps the stored definition for any
+ * existing forged ID. This prevents stale clients from erasing the item or
+ * changing its combat bonuses under the same ID. The `_baseSaveVersion` guard
+ * rejects most stale writes; this closes the rest.
  *
- * Deliberately narrow: only ids matching the server-minted pattern are revived,
- * and only when absent from the incoming array. Everything else keeps
- * replace-semantics, so an admin-deleted item still disappears normally and the
- * array cannot grow without bound.
+ * Deliberately narrow: only ids matching the server-minted pattern are retained
+ * from stored state. Everything else keeps replace-semantics, so an admin-deleted
+ * item still disappears normally and the array cannot grow without bound.
  */
 export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: number): unknown {
     if (!Array.isArray(sanitized) || !Array.isArray(stored)) return sanitized;
-    const present = new Set(
-        (sanitized as Array<Record<string, unknown>>)
-            .map((item) => (item && typeof item === 'object' ? String(item.id ?? '') : ''))
-            .filter(Boolean),
-    );
-    const missingForged = (stored as Array<Record<string, unknown>>).filter((item) => {
-        if (!item || typeof item !== 'object') return false;
+    const storedForged = new Map<string, Record<string, unknown>>();
+    for (const item of stored as Array<Record<string, unknown>>) {
+        if (!item || typeof item !== 'object') continue;
         const id = String(item.id ?? '');
-        return FORGED_ITEM_ID.test(id) && !present.has(id);
+        if (FORGED_ITEM_ID.test(id)) storedForged.set(id.toLowerCase(), item);
+    }
+    const present = new Set<string>();
+    const canonicalized = (sanitized as Array<Record<string, unknown>>).map((item) => {
+        if (!item || typeof item !== 'object') return item;
+        const id = String(item.id ?? '');
+        if (!id) return item;
+        const canonicalId = id.toLowerCase();
+        present.add(canonicalId);
+        return storedForged.get(canonicalId) ?? item;
     });
-    if (missingForged.length === 0) return sanitized;
+    const missingForged = [...storedForged.entries()]
+        .filter(([id]) => !present.has(id))
+        .map(([, item]) => item);
+    if (missingForged.length === 0) return canonicalized;
     // Forged pieces go first so the cap can never be what drops them.
-    return [...missingForged, ...(sanitized as unknown[])].slice(0, cap);
+    return [...missingForged, ...canonicalized].slice(0, cap);
 }

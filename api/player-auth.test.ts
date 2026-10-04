@@ -781,11 +781,41 @@ describe('player auth hardening', () => {
             'x-player-token': String(guest.body?.token),
         });
         assert.equal(failed.statusCode, 503);
-        assert.equal((store.get('auth:poisonedguest') as { sessionEpoch: number }).sessionEpoch, 0, 'poisoned compensation cannot publish');
+        assert.equal((store.get('auth:poisonedguest') as { sessionEpoch: number }).sessionEpoch, 1, 'fresh-context repair synchronizes the unchanged guest row');
         assert.equal(Number(store.get('auth-session:poisonedguest')), 1);
         const resumed = await post({ action: 'guest-resume', name: 'poisonedguest', guestResume: guest.body?.guestResume });
         assert.equal(resumed.statusCode, 200);
         assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'poisonedguest');
+        assert.equal(await verifyPlayerToken(String(guest.body?.token)), null);
+    });
+
+    it('keeps a legacy-index-only guest resumable after a failed first-password write poisons the lock context', async () => {
+        const guest = await post({ action: 'guest', name: 'legacywritefail' });
+        const resume = String(guest.body?.guestResume);
+        const auth = store.get('auth:legacywritefail') as Record<string, unknown>;
+        delete auth.guestResumeHash;
+        delete auth.guestResumeExpiresAt;
+        store.set('auth:legacywritefail', auth);
+        assert.deepEqual(store.get(`guest-resume:${resume}`), { name: 'legacywritefail' });
+
+        beforeStoreSet = (key) => {
+            if (key !== 'auth:legacywritefail') return;
+            beforeStoreSet = undefined;
+            const failure = new Error('simulated fenced credential write failure');
+            poisonKvLockContext(currentKvLockContext()!, failure);
+            throw failure;
+        };
+        const failed = await post({ action: 'change', name: 'legacywritefail', newPassword: 'Replacement2' }, {
+            'x-player-token': String(guest.body?.token),
+        });
+        assert.equal(failed.statusCode, 503);
+        const repaired = store.get('auth:legacywritefail') as { sessionEpoch: number; legacyGuestResumeEpoch?: number };
+        assert.equal(repaired.sessionEpoch, 1);
+        assert.equal(repaired.legacyGuestResumeEpoch, 1);
+
+        const resumed = await post({ action: 'guest-resume', name: 'legacywritefail', guestResume: resume });
+        assert.equal(resumed.statusCode, 200);
+        assert.equal(await verifyPlayerToken(String(resumed.body?.token)), 'legacywritefail');
         assert.equal(await verifyPlayerToken(String(guest.body?.token)), null);
     });
 

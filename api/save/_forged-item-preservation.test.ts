@@ -50,6 +50,12 @@ describe('preserveForgedItems', () => {
         assert.equal((out as Array<{ id: string }>).filter((i) => i.id === DASHED).length, 1);
     });
 
+    it('keeps the stored definition when a stale client changes a forged item with the same ID', () => {
+        const altered = { ...forged, bonuses: { lifeStealPercent: 100 } };
+        const out = preserveForgedItems([altered, { id: 'rustfang-kunai' }], [forged], 500) as Array<Record<string, unknown>>;
+        assert.deepEqual(out[0], forged, 'same-ID client edits cannot change the authoritative combat definition');
+    });
+
     it('leaves non-forged removals alone (admin deletions still take effect)', () => {
         // 'custom-blade' vanished from the incoming array — it is NOT server-minted,
         // so replace-semantics stand and it must stay gone.
@@ -92,6 +98,22 @@ describe('sanitizeCharacterSave wiring', () => {
             const out = sanitizeCharacterSave(incoming, stored);
             const ids = (out.creatorItems as Array<{ id: string }>).map((i) => i.id);
             assert.ok(ids.includes(DASHED), `forged item was erased: ${JSON.stringify(ids)}`);
+        } finally {
+            if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
+            else process.env.STRICT_RAW_SAVE_LEDGER = previous;
+        }
+    });
+
+    it('keeps the stored forged definition on the non-strict path when a stale client changes its bonuses', () => {
+        const previous = process.env.STRICT_RAW_SAVE_LEDGER;
+        process.env.STRICT_RAW_SAVE_LEDGER = '0';
+        try {
+            const altered = { ...forged, bonuses: { lifeStealPercent: 100 } };
+            const out = sanitizeCharacterSave({
+                character: { name: 'Tester', level: 30, equipment: { hand: DASHED } },
+                creatorItems: [altered, { id: 'rustfang-kunai' }],
+            }, stored);
+            assert.deepEqual((out.creatorItems as Array<Record<string, unknown>>)[0], forged);
         } finally {
             if (previous === undefined) delete process.env.STRICT_RAW_SAVE_LEDGER;
             else process.env.STRICT_RAW_SAVE_LEDGER = previous;

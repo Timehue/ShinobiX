@@ -17,7 +17,7 @@ import {
     SIGNUP_TICKET_TTL_SECONDS,
     type GoogleHandoffTicket,
 } from './_google-auth.js';
-import { alreadyHoldsKvLock } from './_kv-lock-context.js';
+import { alreadyHoldsKvLock, withoutKvLeaseContext } from './_kv-lock-context.js';
 import { withKvLock } from './_lock.js';
 import {
     clearRecoveryCode,
@@ -95,6 +95,8 @@ export type AuthRecord = {
     guestResumeHash?: string;
     /** Authoritative server deadline for that credential. */
     guestResumeExpiresAt?: number;
+    /** Narrow recovery marker for an unchanged legacy guest after a failed first-password write. */
+    legacyGuestResumeEpoch?: number;
     /**
      * When the account was created. Only the guest sweep reads it, as the floor
      * for a guest who registered but never saved — ongoing activity comes from
@@ -166,6 +168,7 @@ export function withoutGuestResumeAuthority(record: AuthRecord): AuthRecord {
     const claimed = { ...record };
     delete claimed.guestResumeHash;
     delete claimed.guestResumeExpiresAt;
+    delete claimed.legacyGuestResumeEpoch;
     return claimed;
 }
 
@@ -881,7 +884,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!hasBoundAuthority) {
                     const suppliedToken = headerValue(req, 'x-player-token');
                     const currentTokenProof = !!suppliedToken && await verifyPlayerToken(suppliedToken) === safeName(name);
-                    if (!currentTokenProof && (recordEpoch !== 0 || currentEpoch !== 0)) return unavailable();
+                    const repairedLegacyProof = record.legacyGuestResumeEpoch === currentEpoch && recordEpoch === currentEpoch;
+                    if (!currentTokenProof && !repairedLegacyProof && (recordEpoch !== 0 || currentEpoch !== 0)) return unavailable();
                 }
 
                 // Current digest/token proof or the restricted legacy path
@@ -893,6 +897,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     guestResumeExpiresAt: Date.now() + GUEST_INACTIVITY_MS,
                     sessionEpoch: currentEpoch,
                 };
+                delete record.legacyGuestResumeEpoch;
                 await kv.set(key, record);
                 const token = await issuePlayerTokenForRecord(name, record);
                 if (!token) throw new Error('Guest session could not be issued. Retry from current state.');
@@ -1049,6 +1054,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(400).json({ ok: false, error: 'New password must differ from the current password.' });
             }
         }
+        let failedGuestCredentialRecord: AuthRecord | null = null;
         try {
             return await withKvLock(key, async () => {
                 const record = await kv.get<AuthRecord>(key);
@@ -1073,6 +1079,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!tokenProvesOwnership || await verifyPlayerToken(suppliedToken) !== safeName(name)) {
                         return res.status(401).json({ ok: false, error: 'Sign in again before setting a password.' });
                     }
+                    if (isCredentialLessGuest(record)) failedGuestCredentialRecord = record;
                     const ban = await getActiveBan(name);
                     if (ban) {
                         return res.status(403).json({
@@ -1135,6 +1142,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 });
             }, { failClosed: true });
         } catch (err) {
+            // A guarded write can poison the current lock context. In that case
+            // even the compensating read above is rejected. After the context
+            // ends, use a fresh fenced lock to repair only the unchanged guest
+            // row's epoch. The failed password write still revokes old tokens.
+            if (failedGuestCredentialRecord) {
+                try {
+                    await withoutKvLeaseContext(() => withKvLock(key, async () => {
+                        const current = await kv.get<AuthRecord>(key);
+                        if (current && isCredentialLessGuest(current)
+                            && JSON.stringify(current) === JSON.stringify(failedGuestCredentialRecord)) {
+                            const currentEpoch = await readPlayerSessionEpoch(name);
+                            await kv.set(key, {
+                                ...current,
+                                sessionEpoch: currentEpoch,
+                                ...(current.guestResumeHash === undefined && current.guestResumeExpiresAt === undefined
+                                    ? { legacyGuestResumeEpoch: currentEpoch }
+                                    : {}),
+                            });
+                        }
+                    }, { failClosed: true }));
+                } catch (repairError) {
+                    console.error('[player-auth change guest-repair]', String(repairError));
+                }
+            }
             console.error('[player-auth change]', String(err));
             return res.status(503).json({ ok: false, error: 'Storage unavailable. Try again.' });
         }
