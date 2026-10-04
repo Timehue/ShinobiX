@@ -85,6 +85,9 @@ describe("Profile bloodline picker wiring", () => {
         assert.match(app, /<BloodlineMaker[\s\S]*?onSaveBloodlines=\{saveBloodlinesToServer\}/);
         assert.match(app, /bloodlineEquipIntent: target\.equippedBloodlineId/);
         assert.match(profile, /profileBloodlinePickerChoices\(character, savedBloodlines\)/);
-        assert.match(profile, /await onSaveBloodlines\(savedBloodlines, next\)[\s\S]*?updateCharacter\(next\)/);
+        // Built from the latest character (idle regen replaces it every second) and
+        // re-applied to the newest state only after the server acknowledges it.
+        assert.match(profile, /useLayoutEffect\(\(\) => \{ latestCharacterRef\.current = character; \}, \[character\]\)/);
+        assert.match(profile, /await onSaveBloodlines\(savedBloodlines, equipOwnedBloodline\(latest, target, savedBloodlines\)\)[\s\S]*?updateCharacter\(\(prev\) => [^\n]*equipOwnedBloodline\(prev, target, savedBloodlines\)/);
     });
 });

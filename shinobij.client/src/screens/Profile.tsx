@@ -1,7 +1,7 @@
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
-import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
@@ -106,6 +106,10 @@ export function Profile({
     const equippedBloodline = getCharacterBloodlines(character, savedBloodlines)[0];
     // Shinobi Supporter perk: pick the active bloodline from the Build dossier.
     const bloodlineChoices = profileBloodlinePickerChoices(character, savedBloodlines);
+    // Idle regen replaces `character` every second while a vital is below max, so
+    // a swap confirmed after a pause must build on the latest character.
+    const latestCharacterRef = useRef(character);
+    useLayoutEffect(() => { latestCharacterRef.current = character; }, [character]);
     const auraSphereEquipped = hasEquippedAuraSphere(character);
     const auraBonuses = getActiveAuraSphereBonuses(character);
     const auraDustNeeded = auraSphereDustNeeded(character.auraSphereLevel);
@@ -389,15 +393,16 @@ export function Profile({
         if (!target || target.id === equippedBloodline?.id) return;
         await runProfileMutation(async () => {
             if (!(await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" }))) return false;
-            const next = equipOwnedBloodline(character, target, savedBloodlines);
+            const latest = latestCharacterRef.current;
             try {
-                await onSaveBloodlines(savedBloodlines, next);
+                await onSaveBloodlines(savedBloodlines, equipOwnedBloodline(latest, target, savedBloodlines));
             } catch (error) {
                 const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
                 alert(`${target.name} was not equipped.${detail} Your current bloodline is unchanged.`);
                 return false;
             }
-            updateCharacter(next);
+            // Re-apply the swap to the newest state so regen earned during the save is kept.
+            updateCharacter((prev) => prev && prev.name === latest.name ? equipOwnedBloodline(prev, target, savedBloodlines) : prev);
             return true;
         });
     }
