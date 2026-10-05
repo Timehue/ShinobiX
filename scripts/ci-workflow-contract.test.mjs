@@ -275,3 +275,19 @@ test('every workflow takes its Node version from .nvmrc', () => {
         }
     }
 });
+
+test('named forge and Chronicle packs run every dedicated project in required CI', () => {
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    for (const [label, config, shard, log] of [
+        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 4, 'named-forge.log'],
+        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 5, 'chronicle-packs.log'],
+        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 4, 'rally-recovery.log'],
+    ]) {
+        const step = responsive?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
+        assert.ok(step, `${label} must run in the required responsive job`);
+        assert.ok(step.includes(`matrix.shard == ${shard}`));
+        assert.ok(step.includes(`--config ${config} --retries=0 --forbid-only`));
+        assert.ok(step.includes(log), 'retain the dedicated suite output');
+        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
+    }
+});

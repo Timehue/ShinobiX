@@ -6,6 +6,7 @@ import { RALLY_ATTACK_NAMES, RALLY_TECHNIQUES } from '../../../../shared/sunscar
 import { playPetSfx, primePetSfx } from '../../lib/pet-sfx';
 import type { RallyResponse } from '../../lib/sunscar-rally';
 import { RallyControls } from './RallyControls';
+import RallyEconomyCanvas from './RallyEconomyCanvas';
 import { PetModelBoundary } from '../../components/PetModelBoundary';
 import { festivalPrestige } from '../../../../shared/sunscar/prestige';
 import { startGameAmbience, stopGameAmbience } from '../../lib/game-audio';
@@ -16,7 +17,8 @@ import { advanceRallyFinishPresentation, RALLY_FINISH_PRESENTATION_SECONDS } fro
 import './rally-render.css';
 
 const RallyCanvas = lazy(() => import('./RallyCanvas'));
-const RallyEconomyCanvas = lazy(() => import('./RallyEconomyCanvas'));
+// Keep the small 2D fallback with the race screen. A rejected dynamic import
+// remains cached across race-desk remounts, so it cannot be a recovery path.
 function raceHud(race: RallyState) {
     const player = race.racers[0], track = rallyTrack(race.trackId);
     const section = rallySection(track, Math.max(0, player.distance));

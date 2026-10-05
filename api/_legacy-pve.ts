@@ -1,5 +1,6 @@
 import type { LegacyStatDeltas } from './_legacy-track.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
+import { soloPveLegacyTotals } from './solo-pve/_legacy-totals.js';
 import type { TowerSession } from './towers/_tower-session.js';
 
 const STYLES: Record<string, { kill: keyof LegacyStatDeltas; damage: keyof LegacyStatDeltas }> = {
@@ -17,27 +18,8 @@ export function pveStyleDeltas(specialty: unknown, kills: number, damage = 0): L
 /** Applied server event facts. Practice and reward eligibility belong to caller. */
 export function extractSoloPveLegacyDeltas(session: SoloPveSession, kills = 1): LegacyStatDeltas {
     if (session.huntCombat?.battle) return extractTowerLegacyDeltas(session.huntCombat.battle, session.ownerSlug, kills);
-    let healing = 0, shields = 0, blocked = 0, damage = 0;
-    for (const event of session.events ?? []) {
-        const combat = event.combat;
-        if (!combat?.applied) continue;
-        // Shield expiration also produces a negative resource delta. Actual
-        // resolver absorption lines distinguish a hit from retiring the pool.
-        const absorbed = (role: 'player' | 'enemy', fallback: number) => {
-            if (!Array.isArray(event.log)) return fallback;
-            const name = session[role].name;
-            return event.log.reduce((total, line) => {
-                const match = /^(\d+) absorbed by (.+)'s shield\.$/.exec(line);
-                return total + (match?.[2] === name ? Number(match[1]) : 0);
-            }, 0);
-        };
-        for (const fact of combat.healing) if (fact.role === 'player') healing += fact.applied;
-        for (const fact of combat.shielding) if (fact.role === 'player' && fact.applied > 0) shields++;
-        for (const fact of combat.damage) {
-            if (fact.target === 'player') blocked += absorbed('player', fact.toShield);
-            if (fact.source === 'player' && fact.target === 'enemy') damage += fact.toHp + absorbed('enemy', fact.toShield);
-        }
-    }
+    const { healingDone: healing, shieldsApplied: shields, damageBlocked: blocked, damageDealt: damage }
+        = session.legacyTotals ?? soloPveLegacyTotals(session, session.events ?? []);
     return {
         ...pveStyleDeltas(session.player.character.specialty, kills, damage),
         ...(healing > 0 ? { healingDone: healing } : {}),
