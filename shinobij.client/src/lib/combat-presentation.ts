@@ -220,29 +220,31 @@ export function combatWeatherPresentation(weather: WeatherType | null | undefine
 }
 
 /**
- * Which sky a fight is standing under. Precedence:
- *   1. an authored cinematic backdrop (story boss art) — weather would fight
- *      the illustration, so none;
- *   2. the weather the SERVER sealed into the session (the modifiers the
- *      environment strip already shows) — the board must agree with its own
- *      +5% / −2% chips;
- *   3. the world sky over the sector the player is standing in, read once at
- *      fight start (no polling; the same deterministic clock the map uses).
- * Lookups are injected so this stays pure and node-testable.
+ * Which sky a fight is standing under: the weather the SERVER sealed into the
+ * session, or none. The board draws only weather that is actually in play —
+ * the same sky whose +5% / −2% chips the environment strip shows.
+ *
+ * An authored cinematic backdrop (story boss art) draws none either, since
+ * weather would fight the illustration.
+ *
+ * A sealed CLEAR sky arrives as empty strings, not absent fields, and is still
+ * the fight's sky (it draws nothing). Absent fields mean the fight sealed no
+ * weather at all, and it draws nothing too. It used to fall back to the sky
+ * over the player's current world sector, which painted the overworld's rain
+ * into Weekly Boss, Hollow Gate, Endless Tower, dungeon and practice fights that
+ * no weather affects. Every fight fought on a wild sector seals its sky now
+ * (missions, world encounters, exploration, raids, sector-war garrison, the
+ * ANBU vault and stronghold patrols), so the fallback only ever drew weather
+ * that was not there. A weatherless fight therefore reads as clear on the board.
+ * The lookup is injected so this stays pure and node-testable.
  */
 export function combatWeatherSource(input: {
     sealedPositive?: string | null;
     sealedNegative?: string | null;
     authoredBackdrop?: boolean;
-    sector?: number | null;
     weatherFromElements: (positive: string, negative: string) => WeatherType;
-    weatherForSector: (sector: number) => WeatherType;
 }): WeatherType | null {
     if (input.authoredBackdrop) return null;
-    const positive = String(input.sealedPositive ?? "");
-    const negative = String(input.sealedNegative ?? "");
-    if (positive || negative) return input.weatherFromElements(positive, negative);
-    const sector = input.sector;
-    if (typeof sector === "number" && Number.isFinite(sector)) return input.weatherForSector(sector);
-    return null;
+    if (input.sealedPositive == null && input.sealedNegative == null) return null;
+    return input.weatherFromElements(String(input.sealedPositive ?? ""), String(input.sealedNegative ?? ""));
 }

@@ -50,9 +50,6 @@ import {
     type CombatActorReactionKind,
 } from "../lib/combat-presentation";
 import { weatherFromElements } from "../../../shared/sector-weather";
-import { weatherForSector } from "../lib/world-state";
-import { biomeForWorldSector } from "../data/sectors";
-import { getLiveSectorContext } from "../lib/presence-store";
 import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import { CombatSideHud, type CombatHudStatus } from "../components/CombatSideHud";
@@ -681,23 +678,18 @@ export function MissionArenaFight({
         enemyMovementQueueRef.current = [];
     }, []);
     const biome = String(session.map.biome ?? "central");
-    // The sky over this fight, for the ambient weather layer only. The sealed
-    // environment (the +5% / −2% chips in the strip) wins; otherwise the world's
-    // sky over the sector the player is standing in. An authored story backdrop
-    // shows no weather. Display-only — nothing here feeds combat math.
+    // The sky over this fight, for the ambient weather layer only: the sealed
+    // environment (the +5% / −2% chips in the strip), or none. An authored story
+    // backdrop shows no weather. Display-only — nothing here feeds combat math.
     const sealedWeatherPositive = session.weather?.positiveElement;
     const sealedWeatherNegative = session.weather?.negativeElement;
     const authoredBackdrop = !!storyTheme?.backdropImage;
-    // Read once per fight: the sky is a snapshot at fight start (no polling).
-    const [playerSector] = useState(() => getLiveSectorContext());
     const combatWeather = useMemo(() => combatWeatherSource({
         sealedPositive: sealedWeatherPositive,
         sealedNegative: sealedWeatherNegative,
         authoredBackdrop,
-        sector: playerSector,
         weatherFromElements,
-        weatherForSector: (sector) => weatherForSector(sector, biomeForWorldSector(sector)),
-    }), [sealedWeatherPositive, sealedWeatherNegative, authoredBackdrop, playerSector]);
+    }), [sealedWeatherPositive, sealedWeatherNegative, authoredBackdrop]);
     const gateFloor = hollowGate?.floor;
     const gateKind = hollowGate?.kind;
     const gateEnemyHp = enemy?.hp;
