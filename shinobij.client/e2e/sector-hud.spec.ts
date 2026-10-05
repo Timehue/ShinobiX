@@ -549,6 +549,144 @@ test('a hidden sector HUD retires its pending spectator navigation even after re
 });
 
 
+type ChatLine = {id:string;name:string;text:string;ts:number;village?:string;level?:number};
+async function chatServer(page: Page, options: {refuseFirstPost?: boolean} = {}) {
+    const messages: ChatLine[] = [
+        {id:'c1',name:'Shinobi001',village:'Stormveil Village',level:41,text:'Anyone hunting near the cove?',ts:Date.now()-5*60_000},
+        {id:'c2',name:'Shinobi002',village:'Moonshadow Village',level:42,text:'Heading to the north gate now.',ts:Date.now()-60_000},
+    ];
+    const posts: unknown[] = [];
+    let refuse = options.refuseFirstPost ?? false;
+    await page.route('**/api/sector/chat**', route => {
+        const request = route.request();
+        if (request.method() !== 'POST') return route.fulfill({json:{messages,now:Date.now()}});
+        const body = request.postDataJSON() as {sector:number;text:string};
+        posts.push(body);
+        if (refuse) { refuse = false; return route.fulfill({status:429,json:{error:'Slow down.',code:'RATE_LIMITED',retryAfterMs:4000}}); }
+        const message = {id:`p${posts.length}`,name:'AuditNinja',village:'Ashen Leaf Village',level:40,text:body.text,ts:Date.now()};
+        messages.push(message);
+        return route.fulfill({json:{ok:true,message}});
+    });
+    return {posts,messages};
+}
+// The chat decides open-or-folded once the HUD has measured its column, which
+// can land between a read of aria-expanded and the click that follows (seen on
+// WebKit). Retry the whole read-then-click rather than trusting one read.
+async function openChat(page: Page) {
+    const toggle = page.getByRole('button', {name: /^Sector chat/});
+    await expect(toggle).toBeVisible();
+    await expect(async () => {
+        if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true', {timeout: 1_000});
+    }).toPass({timeout: 15_000});
+}
+
+for (const [width,height] of [[1366,768],[390,844]]) test(`sector chat listens and speaks from the foot of the roster at ${width}x${height}`,async({page})=>{
+    await page.setViewportSize({width,height});
+    let server!: Awaited<ReturnType<typeof chatServer>>;
+    await boot(page,3,async()=>{ server = await chatServer(page); });
+    const chat = page.locator('.sector-nearby > .sector-chat');
+    await expect(chat).toBeVisible();
+    // It sits under everything else in the column, inside the HUD's own budget.
+    expect((await chat.boundingBox())!.y).toBeGreaterThan((await page.locator('.sector-nearby-heading').boundingBox())!.y);
+    await openChat(page);
+    await expect(page.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.fill('  Holding the east torii.  ');
+    await box.press('Enter');
+    await expect(page.getByText('Holding the east torii.', {exact:true})).toBeVisible();
+    await expect(box).toHaveValue('');
+    expect(server.posts).toEqual([{sector:22,text:'Holding the east torii.'}]);
+    await expect(page.locator('.sector-chat-line.is-own')).toHaveCount(1);
+    const hud = await page.locator('.sector-hud').boundingBox();
+    const nav = await page.locator('.mobile-bottom-nav').boundingBox();
+    expect(hud!.y + hud!.height).toBeLessThanOrEqual((nav?.height ? nav.y : height) + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const log = page.locator('.sector-chat-log');
+    expect(await log.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('on a phone the chat opens as a sheet over the board and shares the slot with Sector Info',async({page})=>{
+    await page.setViewportSize({width:390,height:844});
+    await boot(page,3,async()=>{ await chatServer(page); });
+    await expect(page.locator('.sector-chat')).toHaveAttribute('data-layout', /compact|tight/);
+    await openChat(page);
+    const sheet = page.getByRole('dialog', {name:'Sector chat', exact:true});
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    // The whole composer is on screen and actually takes the tap.
+    const box = sheet.getByRole('textbox', {name: /Message everyone in/});
+    const hit = await box.evaluate(element => { const r = element.getBoundingClientRect();
+        return document.elementFromPoint(r.x + 20, r.y + r.height / 2) === element && r.bottom <= innerHeight; });
+    expect(hit).toBe(true);
+    const bounds = await sheet.boundingBox();
+    const hud = await page.locator('.sector-hud').boundingBox();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(hud!.y);
+    // Sector Info takes the slot; the two never stack.
+    await page.getByRole('button', {name:'Sector Info'}).click();
+    await expect(page.getByRole('dialog', {name:'Sector Info', exact:true})).toBeVisible();
+    await expect(sheet).toHaveCount(0);
+    await page.getByRole('button',{name:'Close Sector Info'}).click();
+    // Dismissing the sheet with a board tap consumes that tap: the player stays put.
+    await openChat(page);
+    const tile = page.locator('.sector-player-tile');
+    const original = await tile.getAttribute('aria-label');
+    await page.getByRole('button',{name:'Move to tile row 1 column 2',exact:true}).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(tile).toHaveAttribute('aria-label', original!);
+});
+
+test('a refused line keeps its draft, and the retry lands',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    let server!: Awaited<ReturnType<typeof chatServer>>;
+    await boot(page,1,async()=>{ server = await chatServer(page,{refuseFirstPost:true}); });
+    await openChat(page);
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.fill('Too fast?');
+    await page.getByRole('button',{name:'Send message'}).click();
+    await expect(page.getByText(/speaking too fast/)).toBeVisible();
+    await expect(box).toHaveValue('Too fast?');
+    await page.getByRole('button',{name:'Send message'}).click();
+    await expect(page.locator('.sector-chat-text').getByText('Too fast?',{exact:true})).toBeVisible();
+    await expect(box).toHaveValue('');
+    expect(server.posts).toHaveLength(2);
+});
+
+test('a server without sector chat shows none',async({page})=>{
+    await boot(page,1,async()=>{
+        await page.route('**/api/sector/chat**',route=>route.fulfill({status:404,json:{error:'Sector chat is unavailable.',disabled:true}}));
+    });
+    await expect(page.locator('.sector-nearby-heading')).toBeVisible();
+    await expect(page.locator('.sector-chat')).toHaveCount(0);
+});
+
+test('typing in sector chat never walks, explores or crosses',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    let explores=0;
+    await boot(page,1,async()=>{
+        await chatServer(page);
+        await page.route('**/api/world/explore',route=>{explores++;return route.fulfill({json:{ok:true}});});
+    });
+    await openChat(page);
+    const tile = page.locator('.sector-player-tile');
+    const original = await tile.getAttribute('aria-label');
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.click();
+    await page.keyboard.type('wasd e wwww dddd');
+    await expect(box).toHaveValue('wasd e wwww dddd');
+    await expect(tile).toHaveAttribute('aria-label', original!);
+    expect(explores).toBe(0);
+});
+
+test('sector chat accessibility',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    await boot(page,2,async()=>{ await chatServer(page); });
+    await openChat(page);
+    await expect(page.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    expect((await new AxeBuilder({page}).include('.sector-chat').analyze()).violations).toEqual([]);
+});
+
 test('a sleeper waking during a click never changes Strike Down into Attack',async({page})=>{
     await page.goto('/e2e/fixtures/sector-hud.html');
     await expect(page.locator('.sector-hud')).toBeVisible();

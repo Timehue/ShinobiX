@@ -33,8 +33,10 @@ type LegalDocument = {
 // payments. Both are corrected here.
 // 1.9: the Shinobi Supporter benefit list adds switching bloodlines from the
 // Profile, so it matches the Premium Shop's description of the subscription.
+// 1.10: the conduct rules name sector chat (players standing in the same wild
+// sector) alongside the other chat channels it now sits beside.
 const LAST_UPDATED = "October 4, 2026";
-const VERSION = "1.9";
+const VERSION = "1.10";
 
 const documents: Record<LegalPageSlug, LegalDocument> = {
     terms: {
@@ -202,7 +204,7 @@ const documents: Record<LegalPageSlug, LegalDocument> = {
             {
                 id: "privacy-content",
                 title: "Protect privacy and keep content appropriate",
-                content: <p>Do not share another person's private information, impersonate players or staff, send malicious links, post fake staff messages, or use abusive clan chat, village chat, private messages, custom titles, named weapons, images, or AI prompts.</p>,
+                content: <p>Do not share another person's private information, impersonate players or staff, send malicious links, post fake staff messages, or use abusive clan chat, village chat, sector chat, private messages, custom titles, named weapons, images, or AI prompts.</p>,
             },
             {
                 id: "fair-play",
