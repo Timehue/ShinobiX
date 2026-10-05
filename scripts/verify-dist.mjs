@@ -57,13 +57,11 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-// 2026-10-02: The approved Rally feature adds 161 active six-pose atlases
-// (3,816,022 B). With the new item art, the complete artifact measured
-// 544,996,017 B against the former 516 MiB ceiling. Reserve 520 MiB for this
-// content, and independently cap Rally at 4 MiB below. Exhaustive reference
-// review found no safe 3.9 MB asset removal; retain compressed delivery and
-// compatibility fallbacks. JavaScript/CSS and startup budgets are unchanged.
-const maxClientArtifactBytes = 520 * 1024 * 1024;
+// 2026-09-30: Reviewed high-resolution pet-pose repairs bring the production
+// artifact to 548,713,084 B (523.3 MiB). Reserve 528 MiB for the shipped runtime
+// art, leaving 4.7 MiB of headroom. JavaScript/CSS startup and product budgets
+// remain independently gated by sizecheck.
+const maxClientArtifactBytes = 528 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {

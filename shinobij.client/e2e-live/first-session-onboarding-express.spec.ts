@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
+import { uniquePlayerName } from './helpers/player-names';
 
 type Session = {
     sessionId: string;
@@ -205,7 +206,7 @@ test(`a new player completes the full persisted Academy first session against bu
     }
 
     // Keep a space in this display name to exercise the client/server owner-slug boundary.
-    const playerName = `Journey ${Date.now().toString(36).slice(-7)}`;
+    const playerName = uniquePlayerName((stamp) => `Journey ${stamp.slice(-7)}`);
     const playerKey = playerName.toLowerCase().replace(/[^a-z0-9_-]/g, '').slice(0, 32);
     const password = 'Journey!Pass1234';
     const runtimeErrors: string[] = [];
@@ -370,7 +371,7 @@ test(`a new player completes the full persisted Academy first session against bu
     // Learn the actual command/target interaction before the persistence solver
     // finishes the match. The guide occupies the existing feedback band, so it
     // cannot cover the vitals or the action tray on a phone.
-    await expect(page.locator('.combat-action-notice .spar-coach-hint')).toContainText('Move');
+    await expect(page.locator('.academy-click-bubble')).toContainText('Move into range');
     await expect(page.locator('body > .spar-coach-banner')).toHaveCount(0);
     await expect(page.getByRole('button', { name: /^Move/ })).toBeEnabled();
     await page.getByRole('button', { name: /^Move/ }).click();
@@ -381,6 +382,9 @@ test(`a new player completes the full persisted Academy first session against bu
     expect(moved.applied).toBe(true);
     expect(moved.session.player.pos).not.toBe(started.session.player.pos);
     await page.locator('.combat-jutsu-button').filter({ hasText: 'Flicker' }).click();
+    const jutsuLesson = page.locator('#academy-jutsu-guide');
+    await expect(jutsuLesson).toBeVisible();
+    await jutsuLesson.getByRole('button', { name: 'Skip lessons' }).click();
     const jutsuReply = page.waitForResponse(response => response.request().method() === 'POST'
         && new URL(response.url()).pathname === '/api/solo-pve/action');
     await page.getByRole('button', { name: /jutsu move destination/ }).first().click();
@@ -627,35 +631,30 @@ test(`a new player completes the full persisted Academy first session against bu
         && Boolean(save.activeTraining?.token)
     ), 'a real logout/login must restore the completed Academy session');
 
-    // Begin the optional assignment in the second authenticated session. This
-    // proves the offered journal survives logout/login, then separately checks
-    // the real activity, recap and durable acknowledgement across reloads.
+    // Begin the optional assignment in the second authenticated session. The
+    // guided contract now unlocks combat, discovery, and companion care in order;
+    // this journey verifies the first choice persists across a real login.
     await page.locator('.fc-ribbon').getByRole('button', { name: /Choose a route/ }).click();
     await page.screenshot({ path: testInfo.outputPath('first-contract-live-routes.png') });
-    await page.getByRole('dialog', { name: 'First Contract field journal' }).getByRole('button', { name: /Companion A moment for your companion/ }).click();
-    await waitForPersisted(page, playerName, (save) => save.character?.firstContract?.route === 'companion', 'the chosen contract must persist');
-    const care = await browserApi(page, '/api/pet/progress', { playerName, action: 'pet', petId: completed.character?.activePetId });
-    expect(care.status, JSON.stringify(care.body)).toBe(200);
+    const contractJournal = page.getByRole('dialog', { name: 'First Contract field journal' });
+    await expect(contractJournal.getByRole('button', { name: /Combat Prove your technique/ })).toBeEnabled();
+    await expect(contractJournal.getByRole('button', { name: /Discovery Beyond the village gate/ })).toBeDisabled();
+    await expect(contractJournal.getByRole('button', { name: /Companion A moment for your companion/ })).toBeDisabled();
+    await contractJournal.getByRole('button', { name: /Combat Prove your technique/ }).click();
+    await waitForPersisted(page, playerName, (save) => save.character?.firstContract?.route === 'combat', 'the first guided contract choice must persist');
     await hardReload();
     await reachAfterStory('.fc-ribbon');
-    await page.locator('.fc-ribbon').getByRole('button', { name: 'Read your entry' }).click();
-    const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
-    await expect(journal).toContainText('You took time to care for one of your companions.');
-    await page.screenshot({ path: testInfo.outputPath('first-contract-live-recap.png') });
-    await journal.getByRole('button', { name: 'Choose your next goal' }).click();
-    await waitForPersisted(page, playerName, (save) => Boolean(save.character?.firstContract?.completedAt && save.character.firstContract.acknowledgedAt), 'completion and its acknowledgement must persist');
-    await reachAfterStory('.mobile-bottom-nav');
-    await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Village', exact: true }).click();
-    await expect(page.locator('.stormveil-village-screen')).toBeVisible();
-    await hardReload();
-    await reachAfterStory('.stormveil-village-screen');
-    await expect(page.locator('.fc-ribbon')).toHaveCount(0);
+    await expect(page.locator('.fc-ribbon')).toContainText('Prove your technique');
+    await page.locator('.fc-ribbon').getByRole('button', { name: 'View assignment' }).click();
+    await expect(page.getByRole('dialog', { name: 'First Contract field journal' })).toContainText('E-Rank Drill');
+    await expect(page.getByRole('dialog', { name: 'First Contract field journal' }).getByRole('button', { name: 'Open Mission Hall' })).toBeEnabled();
+    await page.getByRole('button', { name: 'Close field journal' }).click();
     expect(decorativeListeners, 'world backdrop canvases must never bind pointer listeners, including during return-to-village teardown').toEqual([]);
     expect(runtimeErrors).toEqual([]);
     expect(serverFailures).toEqual([]);
     let finalSave = await waitForPersisted(page, playerName, (save) => (
         save.character?.onboardingStep === 'done'
-        && Boolean(save.character.firstContract?.acknowledgedAt)
+        && save.character.firstContract?.route === 'combat'
     ), 'the final journey evidence must describe the authoritative save');
     let trainingEvidence: { waitingMs: number; applied: number; overflow: number; replayStatus: number } | null = null;
     if (completeRealTraining) {
@@ -691,7 +690,7 @@ test(`a new player completes the full persisted Academy first session against bu
         body: JSON.stringify({
             evidenceType: 'BROWSER JOURNEY: real Express, isolated memory KV',
             account: playerName,
-            fixture: 'fresh; no progression grants; API-assisted combat and companion care',
+            fixture: 'fresh; no progression grants; Academy completed and the first guided contract choice persisted',
             startedAt: new Date(journeyStartedAt).toISOString(),
             elapsedMs: Date.now() - journeyStartedAt,
             starterResponseDelayMs: grantDelayMs,
@@ -701,7 +700,7 @@ test(`a new player completes the full persisted Academy first session against bu
             onboardingStep: finalSave.character?.onboardingStep,
             academySparClaimed: finalSave.character?.academySparClaimed,
             academyTrialClaimed: finalSave.character?.academyTrialClaimed,
-            firstContractAcknowledged: Boolean(finalSave.character?.firstContract?.acknowledgedAt),
+            firstContractRoute: finalSave.character?.firstContract?.route ?? null,
             trainingActive: Boolean(finalSave.activeTraining?.token),
             completedRealTraining: trainingEvidence,
             trainingRemainingMs: finalSave.activeTraining?.endsAt

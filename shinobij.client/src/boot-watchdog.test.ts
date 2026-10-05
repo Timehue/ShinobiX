@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import vm from 'node:vm'
-import { minifyRuntimeSource } from '../../scripts/runtime-asset-minifier.mjs'
+import { minifyRuntimeSource } from '../scripts/runtime-asset-minifier.mjs'
 
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const watchdogSource = readFileSync(new URL('../public/boot-watchdog.js', import.meta.url), 'utf8')

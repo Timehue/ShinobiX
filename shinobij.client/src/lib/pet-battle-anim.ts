@@ -128,7 +128,7 @@ function breedingMythicPortrait(artIds: readonly string[]): string {
 // `/pet-poses/<id>-idle.webp` URLs and are cleaned/overwritten IN PLACE, so a CDN
 // or browser would otherwise keep serving the stale (dark-background) version.
 // Bump this whenever the pose art is re-cleaned or regenerated.
-export const POSE_ASSET_V = 7;
+export const POSE_ASSET_V = 6;
 const idlePoseUrl = (id: string) => versionPetArtUrl(`/pet-poses/${id}-idle.webp?v=${POSE_ASSET_V}`);
 
 /**

@@ -34,6 +34,21 @@ function request(body: Record<string, unknown>, authToken: string, remoteAddress
     } as never;
 }
 
+/**
+ * What a Postgres jsonb read hands back: the JSON form, with every object's keys
+ * in jsonb order (shorter keys first, then bytewise) rather than insertion order.
+ */
+function postgresRead(value: unknown): unknown {
+    const order = (entry: unknown): unknown => {
+        if (Array.isArray(entry)) return entry.map(order);
+        if (!entry || typeof entry !== 'object') return entry;
+        return Object.fromEntries(Object.entries(entry)
+            .sort(([a], [b]) => Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)))
+            .map(([key, child]) => [key, order(child)]));
+    };
+    return value === null ? null : order(JSON.parse(JSON.stringify(value)));
+}
+
 const PLAYER_PET_ID = 'dungeon-pet-hero';
 
 function readyCharacter(playerName: string, runToken: string) {
@@ -270,6 +285,59 @@ describe('Dungeon Rare Beast server authority', () => {
         }
     });
 
+    it('settles a Rare Beast result once Postgres has reordered the sealed token', async (t) => {
+        // The fixed Beast snapshot is compared with the one sealed in the battle
+        // token. jsonb returns that token with its keys reordered (hp, id, xp,
+        // name, ...), so comparing JSON text refused every Rare Beast result.
+        const playerName = 'dungeonpetjsonbprobe';
+        const runToken = 'dungeonpetjsonb01';
+        const authToken = issuePlayerToken(playerName)!;
+        await installSave(playerName, runToken);
+        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.12.1');
+        assert.equal(started.statusCode, 200);
+        const realGet = kv.get.bind(kv);
+        t.mock.method(kv, 'get', async (key: string) => postgresRead(await realGet(key)));
+        const settled = await reportDungeonBattle(playerName, authToken, started, '127.0.12.2');
+        assert.equal(settled.statusCode, 200, JSON.stringify(settled.body));
+        assert.equal(settled.body?.outcome, 'win', 'the sealed server replay still decides the result');
+    });
+
+    it('keeps the idle recovery the player earned since their last save', async () => {
+        // The terminal write is a save write. A raw one fenced the regeneration
+        // cursor and erased the HP, chakra and stamina recovered since the last
+        // save. Re-seed a tired save after the start, so whatever recovery the
+        // committed save holds came from the result's own write.
+        const playerName = 'dungeonpetregenprobe';
+        const runToken = 'dungeonpetregen01';
+        const authToken = issuePlayerToken(playerName)!;
+        await installSave(playerName, runToken);
+        const started = await startDungeonBattle(playerName, authToken, runToken, '127.0.4.4');
+        assert.equal(started.statusCode, 200);
+        const at = Date.now() - 30_000;
+        const current = (await kv.get<Record<string, unknown>>(`save:${playerName}`))!;
+        await kv.set(`save:${playerName}`, {
+            ...current,
+            _saveAt: at,
+            _regenAt: at,
+            character: {
+                ...(current.character as Record<string, unknown>),
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+            },
+        });
+
+        const settled = await reportDungeonBattle(playerName, authToken, started, '127.0.4.5');
+        assert.equal(settled.statusCode, 200, JSON.stringify(settled.body));
+        const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
+        const character = save?.character as Record<string, unknown>;
+        assert.equal((character.activeDungeonRun as Record<string, unknown>).petDefeated, true, 'the terminal still landed');
+        for (const [where, shown] of [['committed save', character], ['reply', settled.body?.character]] as Array<[string, Record<string, unknown> | undefined]>) {
+            assert.ok(Number(shown?.hp) >= 40, `${where}: hp ${shown?.hp} lost the idle recovery`);
+            assert.ok(Number(shown?.chakra) >= 50, `${where}: chakra ${shown?.chakra} lost the idle recovery`);
+            assert.ok(Number(shown?.stamina) >= 30, `${where}: stamina ${shown?.stamina} lost the idle recovery`);
+        }
+        assert.equal(settled.body?._saveVersion, save?._saveVersion);
+    });
+
     it('settles concurrent reports once and retains the token across a result-receipt outage', async () => {
         const concurrentPlayer = 'dungeonpetconcurrent';
         const concurrentRun = 'dungeonpetconcur01';
@@ -396,10 +464,8 @@ describe('Dungeon Rare Beast server authority', () => {
         await runCleanupCrash('token-gone', 2);
     });
 
-    it('retires a completed Dungeon lease before admitting a new social pet battle', async () => {
+    it('retires a completed Dungeon lease before admitting the next pet battle', async () => {
         const playerName = 'dungeonpetnextadmit';
-        const opponentName = 'dungeonpetnextfoe';
-        const opponentPetId = 'dungeon-pet-next-foe';
         const runToken = 'dungeonpetnext001';
         const authToken = issuePlayerToken(playerName)!;
         await installSave(playerName, runToken);
@@ -428,30 +494,20 @@ describe('Dungeon Rare Beast server authority', () => {
         const claimed = await settleDungeonRun(playerName, authToken, runToken, '127.0.11.3');
         assert.equal(claimed.statusCode, 200);
 
+        // The next admission is the Rare Beast battle of a fresh Dungeon run. (It
+        // used to be an unchallenged social duel; that path was retired with the
+        // legacy duel sim on 2026-10-02.)
+        const nextRunToken = 'dungeonpetnext002';
         const playerSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const playerCharacter = playerSave?.character as Record<string, unknown>;
-        const playerPet = (playerCharacter.pets as Array<Record<string, unknown>>)[0];
-        await kv.set(`save:${opponentName}`, {
-            _saveVersion: 1,
-            character: {
-                ...playerCharacter,
-                name: opponentName,
-                activePetId: opponentPetId,
-                activeDungeonRun: null,
-                pets: [{ ...playerPet, id: opponentPetId, name: 'Social Recovery Foil', nickname: 'Foil' }],
-            },
+        await kv.set(`save:${playerName}`, {
+            ...playerSave,
+            character: { ...playerCharacter, activeDungeonRun: readyCharacter(playerName, nextRunToken).activeDungeonRun },
         });
 
-        const next = response();
-        await startHandler(request({
-            playerName,
-            playerPetIds: [PLAYER_PET_ID],
-            opponentName,
-            opponentPetIds: [opponentPetId],
-            mode: '1v1',
-        }, authToken, '127.0.11.4'), next.res);
-        assert.equal(next.out.statusCode, 200);
-        const nextToken = String(next.out.body?.token ?? '');
+        const next = await startDungeonBattle(playerName, authToken, nextRunToken, '127.0.11.4');
+        assert.equal(next.statusCode, 200);
+        const nextToken = String(next.body?.token ?? '');
         assert.ok(nextToken);
         assert.notEqual(nextToken, oldBattleToken);
         assert.equal(await kv.get(oldTokenKey), null);

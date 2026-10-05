@@ -33,6 +33,9 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'missions/claim-mission.ts', mechanism: 'in-save-receipt', markers: ['claimedServerMissions'] },
     { file: 'missions/report-raid.ts', mechanism: 'single-use-token', markers: ['consumeSingleUseToken'] },
     { file: 'missions/report-pet-event.ts', mechanism: 'single-use-token', markers: ['redeemedPetExpeditionTokens'] },
+    // Daily-mission profession XP and newbie ryo: the completion records a
+    // pending grant, and the credit stamps its id into serverSettlementReceipts.
+    { file: 'missions/_progress.ts', mechanism: 'in-save-receipt', markers: ['inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt', 'pendingXpGrants', 'pendingRyoGrants'] },
     { file: 'world/explore.ts', mechanism: 'in-save-receipt', markers: ['redeemedSectorExplorations'] },
     { file: 'world/open-chest.ts', mechanism: 'in-save-receipt', markers: ['redeemedAncientChests'] },
     { file: 'pet/befriend.ts', mechanism: 'in-save-receipt', markers: ['redeemedPetEncounters'] },
@@ -60,7 +63,10 @@ const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: re
     { file: 'village/treasury/transfer.ts', mechanism: 'state-machine', markers: ['settleCrossKeyTransfer'] },
     { file: 'card-clash/open-pack.ts', mechanism: 'state-machine', markers: ['mutatePlayerSave'] },
     { file: 'card-clash/ai-move.ts', mechanism: 'in-save-receipt', markers: ['redeemedCardClashAiSessions'] },
-    { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'trade:nonce:'] },
+    { file: 'player/trade.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'failEconomyTx', 'tradeNonceKey'] },
+    // A trade's two writes each carry an in-save receipt, which is what lets a
+    // retry of its nonce, or the admin reconcile, finish it exactly once.
+    { file: 'player/_trade-settlement.ts', mechanism: 'in-save-receipt', markers: ['trade:nonce:', 'inspectSettlementReceipt', 'receiptAbsenceProvable', 'appendSettlementReceipt'] },
     { file: 'cron/_ranked-season.ts', mechanism: 'in-save-receipt', markers: ['SEASON_SETTLEMENT_RECEIPTS_FIELD', 'settleRankedSeasonCharacter'] },
     // Retry-safe save->shared settlements (issue #179, api/_save-debit-saga.ts):
     // an in-save receipt on the debit, a shared-record receipt on the credit,
@@ -146,9 +152,10 @@ describe('reward-settlement contract inventory', () => {
     it('every currency-mutating settlement passes failClosed to its lock (spot inventory)', () => {
         // The full lock audit lives in docs/audits/concurrency-and-locking-audit.md;
         // this pins the currency-path convention on the highest-value endpoints.
-        for (const rel of ['player/trade.ts', 'pvp/claim-rewards.ts']) {
-            assert.match(read(rel), /failClosed:\s*true/, `${rel} must lock failClosed`);
-        }
+        assert.match(read('pvp/claim-rewards.ts'), /failClosed:\s*true/, 'pvp/claim-rewards.ts must lock failClosed');
+        // player/trade.ts takes both save locks through mutatePlayerSaves.
+        assert.match(read('player/trade.ts'), /mutatePlayerSaves</, 'player/trade.ts must lock both saves through mutatePlayerSaves');
+        assert.match(read('save/_mutate-player-save.ts'), /const lockOptions = \{ failClosed: true/, 'mutatePlayerSaves must lock failClosed');
         for (const rel of ['clan/treasury/transfer.ts', 'village/treasury/transfer.ts']) {
             assert.match(read(rel), /settleCrossKeyTransfer/, `${rel} must use the shared cross-key settlement lock`);
         }

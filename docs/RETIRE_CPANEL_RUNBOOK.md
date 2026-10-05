@@ -1,31 +1,37 @@
 # Deployment topology and cPanel retirement record
 
-## Current operating topology — 2026-08-03
+> **2026-10-02 — decommission complete; the overlay code is removed.** The owner
+> confirmed cPanel is fully shut down. The disk overlay, the remote KV proxy
+> (`api/kv-proxy.ts`, `/kv/:op`), the routing wrapper, and both overlay migration
+> endpoints (`/admin/migrate-kv`, `/admin/migrate-to-base`) were deleted from the
+> server. `DISK_KV_DIR`, `KV_PROXY_URL` and `REQUIRE_DISK_OVERLAY` now only log a
+> boot warning, and `scripts/kv-backup.mjs` refuses to restore a pre-cutover
+> backup whose saves lived on the overlay. **There is no rollback path to cPanel
+> any more.** Every step below is history: none of the endpoints or variables it
+> names exist in the current server.
 
-Railway is the active deployment direction. The active server command is
+## Current operating topology — 2026-10-02
+
+Railway is the only deployment. The active server command is
 `node dist/server.js` from the container image, and the health path is
-`/health`. The active base store is PostgreSQL through `DATABASE_URL` (with
-the repository's supported Supabase PostgreSQL fallback variable where used).
+`/health`. The only store is PostgreSQL through `DATABASE_URL` (with the
+repository's supported Supabase PostgreSQL fallback variable where used), and
+every key, including `save:*`, lives there.
 
-Vercel is retired and compatibility-only. cPanel/Passenger is retired from
-normal traffic and retained only for rollback and data-recovery work while its
-data is intentionally preserved. The cPanel `app.js` entry point, disk overlay,
-route aliases, and migration utilities must not be treated as current Railway
-operating instructions. Do not run the historical steps below unless a new
-operator explicitly starts a rollback or migration procedure with the required
-approval and backup.
+Vercel is retired and compatibility-only. cPanel/Passenger is shut down. The
+dormant `app.js` entry point remains only as a local-run convenience.
 
-The repository does not claim live Railway, production PostgreSQL, or cPanel
-state verification in this document; those require an authorized operational
-check outside this code change.
+The repository does not claim live Railway or production PostgreSQL state
+verification in this document; that requires an authorized operational check
+outside this code change.
 
 ---
 
 ## Historical cutover record — not a current operating procedure
 
-The following record documents the 2026-07-17 cPanel overlay retirement and
-remains for rollback/data recovery. It is deliberately preserved rather than
-deleted because the old store may still be needed to recover data safely.
+The following record documents the 2026-07-17 cPanel overlay retirement. It is
+kept as history; the rollback it describes is no longer possible, because the
+code it relies on was removed on 2026-10-02.
 
 # Retire cPanel — move `save:*` off the disk overlay into Postgres (Option B)
 

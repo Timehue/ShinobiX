@@ -95,3 +95,18 @@ export function rallyLanePosition(track: RallyTrack, distance: number, lateral: 
     const frame = rallyPathFrame(track, distance);
     return { x: path.x + frame.rightX * lateral, y: path.y, z: path.z + frame.rightZ * lateral };
 }
+
+/** Project a world point back onto the course's local forward/right axes. */
+export function rallyTrackCoordinates(track: RallyTrack, x: number, z: number, distanceGuess = -z) {
+    let distance = clamp(distanceGuess, -50, track.length + 50);
+    for (let i = 0; i < 3; i++) {
+        const path = rallyPath(track, distance), frame = rallyPathFrame(track, distance);
+        const dx = x - path.x, dz = z - path.z;
+        const forwardX = frame.rightZ, forwardZ = -frame.rightX;
+        const correction = dx * forwardX + dz * forwardZ;
+        distance = clamp(distance + correction, -50, track.length + 50);
+        if (Math.abs(correction) < .001) break;
+    }
+    const path = rallyPath(track, distance), frame = rallyPathFrame(track, distance);
+    return { distance, lateral: (x - path.x) * frame.rightX + (z - path.z) * frame.rightZ };
+}

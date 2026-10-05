@@ -6,8 +6,9 @@ import { withKvLock } from '../_lock.js';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { fieldMissionById, huntMissionById } from './_mission-catalog.js';
+import { fieldMissionById, hasDailyMissionSlot, huntMissionById } from './_mission-catalog.js';
 import { canPlayerReceiveMission, missionEligibilityFailureBody } from './_eligibility.js';
+import { utcDateKey } from './_progress.js';
 import { cleanMissionProgressReceipt, missionProgressReceiptKey } from './_mission-progress-receipt.js';
 import {
     newFieldMissionRun,
@@ -103,6 +104,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     character,
                     value: { state: existing, acceptedMissionIds: accepted, missionProgress: projectedProgress, replayed: true },
                     write: false as const,
+                };
+            }
+            if (action === 'accept' && !hasDailyMissionSlot(character, utcDateKey())) {
+                return {
+                    ok: false as const,
+                    status: 409,
+                    error: JSON.stringify({
+                        error: 'Daily mission limit reached (20/20). Resets at midnight UTC.',
+                        reason: 'daily-cap',
+                    }),
                 };
             }
             if (action === 'state' && !isAccepted) {

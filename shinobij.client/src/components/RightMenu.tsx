@@ -47,6 +47,7 @@ export const RightMenu = memo(function RightMenu({
     profession,
     screen,
     currentSector,
+    openWorldMapOverview,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -58,6 +59,7 @@ export const RightMenu = memo(function RightMenu({
     profession: Profession | null;
     screen: Screen;
     currentSector: number;
+    openWorldMapOverview: () => void;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
     // Menu screens only change the panel, not the player's town. Preserve which
@@ -72,7 +74,8 @@ export const RightMenu = memo(function RightMenu({
         if (next === lastNavigationRef.current && now < navLockUntilRef.current) return;
         lastNavigationRef.current = next;
         navLockUntilRef.current = now + 300;
-        navigate(next);
+        if (next === "worldMap") openWorldMapOverview();
+        else navigate(next);
     };
 
     return (
@@ -114,7 +117,7 @@ export const RightMenu = memo(function RightMenu({
                                 <div className="right-menu-section-grid">
                                     {group.items.map(([target, label, Icon]) => (
                                         <button key={target} aria-current={screen === target ? "page" : undefined} onClick={() => guardedNavigate(target)} onPointerDown={() => preloadScreen(target, storyVillage)} title={target === "tavern" ? `Enter the ${characterVillage} tavern from anywhere` : target === "professions" ? (profession ? `${PROFESSION_LABEL[profession]} profession hub` : "View the three professions") : undefined}>
-                                            <span className="right-menu-action-icon"><Icon size={16} /></span><span className="right-menu-action-label">{target === "professions" && profession ? PROFESSION_LABEL[profession] : label}</span>{target === "messages" ? <MailUnreadBadge /> : null}
+                                            <span className="right-menu-action-icon"><Icon size={16} /></span><span className="right-menu-action-label">{target === "worldMap" ? "World Map" : target === "professions" && profession ? PROFESSION_LABEL[profession] : label}</span>{target === "messages" ? <MailUnreadBadge /> : null}
                                         </button>
                                     ))}
                                 </div>

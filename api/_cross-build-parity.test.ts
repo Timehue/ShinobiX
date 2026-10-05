@@ -278,6 +278,9 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
         assert.match(GALLERY, /Pack odds:/);
         assert.match(GALLERY, /Within each eligible pool, every card is equally likely/i);
         assert.match(GALLERY, /Elemental packs draw only matching-element Monsters/);
+        assert.match(GALLERY, /drawn independently from the full eligible pool/);
+        assert.match(GALLERY, /duplicates can appear within a pack or across packs regardless of owned copies/);
+        assert.match(GALLERY, /There are no weighted tiers or pity timer/);
     });
 
     it('shows the rarities and element restriction implemented by the server', () => {
@@ -290,13 +293,14 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
         assert.match(PACKS, /legendary: \{[^\n]*rarities: \['legendary'\]/);
         assert.match(GALLERY, /Elite draws a Marketplace Rare or Epic/);
         assert.match(GALLERY, /Legendary is always Legendary/);
+        // The five-card premium packs: what the server draws must match the odds text.
+        assert.match(PACKS, /'epic-five': \{[^\n]*count: 5, rarities: \['epic'\], pool: 'marketplace'/);
+        assert.match(PACKS, /'legendary-five': \{[^\n]*count: 5, rarities: \['legendary'\], pool: 'marketplace'/);
+        assert.match(GALLERY, /Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries/);
     });
 
-    it('discloses independent draws and duplicates without a pity timer', () => {
-        // Actual index-to-card coverage and replacement behavior are exercised
-        // in _pack.test.ts; source variable names cannot prove random odds.
-        assert.match(GALLERY, /There are no weighted tiers or pity timer/);
-        assert.match(GALLERY, /Each card is drawn independently from the full eligible pool/);
-        assert.match(GALLERY, /duplicates can appear within a pack or across packs regardless of owned copies/);
+    it('draws uniformly from eligible playable cards', () => {
+        assert.match(PACKS, /pickIndex\(pool\.length\)/);
+        assert.doesNotMatch(PACKS, /luckBonus|pityCounter|weightedPick/i);
     });
 });

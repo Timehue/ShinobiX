@@ -21,7 +21,7 @@ describe('starter pet entitlement', () => {
         assert.equal(validateStarterPet({ ...FIRE, attack: 9999 }), null);
     });
     it('rolls the starter trait on the server and applies its bonus once', () => {
-        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min, max) => min === 0 ? 0 : min);
+        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min) => min);
         assert.equal(result.ok, true);
         if (result.ok) {
             const pet = (result.character.pets as Array<Record<string, unknown>>)[0];
@@ -31,7 +31,7 @@ describe('starter pet entitlement', () => {
         }
     });
     it('applies the rolled Aggressive bonus to the starter base stats', () => {
-        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min, max) => min === 0 ? 1 : min);
+        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min) => min === 0 ? 1 : min);
         assert.equal(result.ok, true);
         if (result.ok) {
             const pet = (result.character.pets as Array<Record<string, unknown>>)[0];

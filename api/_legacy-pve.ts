@@ -1,7 +1,7 @@
 import type { LegacyStatDeltas } from './_legacy-track.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
-import type { TowerSession } from './towers/_tower-session.js';
 import { soloPveLegacyTotals } from './solo-pve/_legacy-totals.js';
+import type { TowerSession } from './towers/_tower-session.js';
 
 const STYLES: Record<string, { kill: keyof LegacyStatDeltas; damage: keyof LegacyStatDeltas }> = {
     Ninjutsu: { kill: 'ninjutsuKills', damage: 'ninjutsuDamage' },
@@ -18,8 +18,8 @@ export function pveStyleDeltas(specialty: unknown, kills: number, damage = 0): L
 /** Applied server event facts. Practice and reward eligibility belong to caller. */
 export function extractSoloPveLegacyDeltas(session: SoloPveSession, kills = 1): LegacyStatDeltas {
     if (session.huntCombat?.battle) return extractTowerLegacyDeltas(session.huntCombat.battle, session.ownerSlug, kills);
-    const { healingDone: healing, shieldsApplied: shields, damageBlocked: blocked, damageDealt: damage } =
-        session.legacyTotals ?? soloPveLegacyTotals(session, session.events ?? []);
+    const { healingDone: healing, shieldsApplied: shields, damageBlocked: blocked, damageDealt: damage }
+        = session.legacyTotals ?? soloPveLegacyTotals(session, session.events ?? []);
     return {
         ...pveStyleDeltas(session.player.character.specialty, kills, damage),
         ...(healing > 0 ? { healingDone: healing } : {}),

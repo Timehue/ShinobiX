@@ -7,7 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { clanSlugBare } from './_kick-core.js';
 import { applyClanSuccession, resolveClanSuccession } from './_succession.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 
 /*
  * /api/clan/leave — POST only
@@ -54,7 +54,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!slug) return res.status(400).json({ error: 'Invalid clan name.' });
 
         const clanSaveKey = `save:clan-${slug}`;
-        const leaverSaveKey = `save:${playerName}`;
 
         const result = await withKvLock(clanSaveKey, async () => {
             const clanRec = await kv.get<Record<string, unknown>>(clanSaveKey);
@@ -73,24 +72,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // if the roster write below never lands, they are already out and the
             // stale members[] entry self-cleans on the next clan write. The
             // reverse order would let them re-add themselves on the next load.
-            await withKvLock(leaverSaveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(leaverSaveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return;
-                if (clanSlugBare(String(char.clan ?? '')) !== slug) return;
+            // mutatePlayerSave takes that save's lock inside this one and keeps
+            // the idle recovery earned since their last save.
+            const left = await mutatePlayerSave<boolean>(playerName, ({ character }) => {
+                if (clanSlugBare(String(character.clan ?? '')) !== slug) {
+                    return { ok: true, value: false, character, write: false };
+                }
                 // Explicit JSON nulls: dropping the keys makes the save merger
                 // preserve — and therefore resurrect — the stored clan fields.
-                const written = await writeVersionedPlayerSave(leaverSaveKey, rec, {
-                    ...char,
-                    clan: null,
-                    clanUpgradeLevels: null,
-                    clanDoctrine: null,
-                    clanFounder: false,
-                    guardQueued: false,
-                });
-                leaverSaveVersion = Number(written._saveVersion ?? 0);
-                leaverCharacter = (written.record?.character ?? null) as Record<string, unknown> | null;
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    value: true,
+                    character: { ...character, clan: null, clanUpgradeLevels: null, clanDoctrine: null, clanFounder: false, guardQueued: false },
+                };
+            });
+            if (left.ok && left.value) {
+                leaverSaveVersion = left._saveVersion;
+                leaverCharacter = left.character;
+            }
 
             // Hand the successor their founder flag. Best-effort by design: the
             // clan record's `founderName` below is the authority every gate reads
@@ -98,14 +97,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // client hint and self-corrects on their next clan load — it can
             // never leave the clan headless.
             if (succession.kind === 'succeeded') {
-                const successorKey = `save:${succession.successorSlug}`;
-                await withKvLock(successorKey, async () => {
-                    const rec = await kv.get<Record<string, unknown>>(successorKey);
-                    const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                    if (!rec || !char) return;
-                    if (clanSlugBare(String(char.clan ?? '')) !== slug) return;
-                    await writeVersionedPlayerSave(successorKey, rec, { ...char, clanFounder: true });
-                }, { failClosed: true }).catch(() => undefined);
+                await mutatePlayerSave(succession.successorSlug, ({ character }) => (
+                    clanSlugBare(String(character.clan ?? '')) === slug
+                        ? { ok: true, value: undefined, character: { ...character, clanFounder: true } }
+                        : { ok: true, value: undefined, character, write: false }
+                )).catch(() => undefined);
             }
 
             await kv.set(clanSaveKey, {

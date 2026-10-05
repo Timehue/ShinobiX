@@ -1,3 +1,4 @@
+import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
 import { Component, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ComponentType, type MutableRefObject, type ReactNode } from "react";
 import type { Pet } from "../types/pet";
 import { DUEL_TPS, type DuelObjectiveSnap, type DuelResult } from "../lib/pet-duel-sim";
@@ -95,6 +96,7 @@ export type StageFighter = {
 
 export type PetWarfrontRiteStageProps = {
     sceneKey: number;
+    paused?: boolean;
     result: DuelResult;
     fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
@@ -449,12 +451,14 @@ function drawArena(
     };
 }
 
-function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
+function Canvas2DStage({ sceneKey, paused = false, result, fighters, clockRef, quality, reducedMotion, onReady, onLoadProgress, onRendererAvailability, onAssetFailure }: PetWarfrontRiteStageProps & Readonly<{ onAssetFailure: () => void }>) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const urls = useMemo(() => fighters.map((fighter) => impostorUrl(fighter.pet)), [fighters]);
     const [images, setImages] = useState<readonly HTMLImageElement[] | null>(null);
     const [heroImpactSprite, setHeroImpactSprite] = useState<HTMLImageElement | null>(null);
     const [elementImpactAtlas, setElementImpactAtlas] = useState<HTMLImageElement | null>(null);
+    const actionTimeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
+        [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
     const cues = useMemo(() => warfrontAttackCues(result.events), [result.events]);
     const heroCue = useMemo(() => warfrontHeroAttackCue(cues), [cues]);
     const fighterByActorId = useMemo(() => new Map(fighters.map((fighter) => [
@@ -597,6 +601,9 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         const spectaclePhases = Array.from({ length: WARFRONT_SPECTACLE_OVERLAP_CAP }, createWarfrontSpectaclePhase);
         const activeSpectacleCues: WarfrontAttackCue[] = [];
         const activeSpectaclePriorities: number[] = [];
+        const actionQaEnabled = new URLSearchParams(window.location.search).get("riteqa") === "1";
+        let paintCount = 0;
+        const elementalActorsSeen = new Set<string>();
         const renderedActors = new Map<string, {
             x: number;
             footY: number;
@@ -611,6 +618,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
 
         const paint = (now: number) => {
             if (document.hidden) { frame = 0; return; }
+            if (actionQaEnabled) canvas.dataset.riteRenderFrame = String(++paintCount);
             const cssWidth = Math.max(1, canvas.clientWidth);
             const cssHeight = Math.max(1, canvas.clientHeight);
             const dpr = Math.min(1.15, window.devicePixelRatio || 1);
@@ -852,7 +860,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                     }
                 } else {
                     drawWarfrontElementTell(context, signature, ox, oy - 12, radius, phase.tell, cueIndex + cue.contactTick * 0.013);
-                    drawWarfrontElementTravel(context, signature, ox, oy - 12, tx, ty - 12, phase.travel, Math.max(phase.travel, phase.contact), cueIndex + cue.contactTick * 0.017);
+                    // Travel is painted once above actor silhouettes below.
                 }
             }
             maxActiveCues = Math.max(maxActiveCues, activeCues);
@@ -1254,6 +1262,26 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 }
             }
             maxActorLocalHpBars = Math.max(maxActorLocalHpBars, actorLocalHpBars);
+            // Readable chest-height elemental travel for EVERY actor, including
+            // melee, misses and support, above bodies rather than hidden at feet.
+            const actionVisuals = actionTimeline[Math.floor(tick)] ?? [];
+            for (const action of actionVisuals) {
+                const [ox, oy] = project(action.ox, action.oz);
+                const [tx, ty] = project(action.tx, action.tz);
+                const sourceHeight = renderedActors.get(action.actorId)?.baseSize ?? 60;
+                const targetHeight = renderedActors.get(action.targetId)?.baseSize ?? 60;
+                const progress = warfrontActionProgress(action, tick);
+                const strength = tick <= action.contact ? 1 : Math.max(0, 1 - (tick - action.contact) / 3);
+                drawWarfrontElementTravel(context, warfrontElementSignature(action.element),
+                    ox, oy - sourceHeight * 0.48, tx, ty - targetHeight * 0.48,
+                    Math.max(0.03, progress), strength, action.contact * 0.017);
+                if (actionQaEnabled) elementalActorsSeen.add(action.actorId);
+            }
+            if (actionQaEnabled) {
+                canvas.dataset.riteElementalActorsSeen = [...elementalActorsSeen].join(",");
+                canvas.dataset.riteElementalActionsActive = String(actionVisuals.length);
+                canvas.dataset.riteElementalActorsActive = actionVisuals.map((action) => action.actorId).join(",");
+            }
             // Contact/result paint after bodies: the target owns the brightest
             // edge while the directional tracer remains behind silhouettes.
             let heroHpDelta = 0;
@@ -1611,7 +1639,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 if (gap > 100) gaps++;
             }
             lastFrameAt = now;
-            frame = requestAnimationFrame(paint);
+            if (!paused) frame = requestAnimationFrame(paint);
         };
         const handleVisibility = () => {
             cancelAnimationFrame(frame);
@@ -1636,7 +1664,7 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
                 root.style.removeProperty("--wfr-camera-shift-y");
             }
         };
-    }, [clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
+    }, [actionTimeline, paused, clockRef, cues, elementImpactAtlas, fighterByActorId, fighters.length, groundingQaEnabled, heroCue, heroImpactSprite, images, onAssetFailure, quality, reducedMotion, result]);
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -1658,93 +1686,95 @@ function Canvas2DStage({ sceneKey, result, fighters, clockRef, quality, reducedM
         const canvas = canvasRef.current;
         if (!canvas) return;
         const fractions = framingFractions(canvas.clientWidth || window.innerWidth, canvas.clientHeight || window.innerHeight);
-        canvas.dataset.riteRequestedQuality = quality.id;
-        canvas.dataset.riteRenderBudget = fighters.length >= 8 ? "eight-rig" : "standard";
-        canvas.dataset.riteTextureAnisotropy = "1";
-        canvas.dataset.riteDpr = Math.min(1.15, window.devicePixelRatio || 1).toFixed(2);
-        canvas.dataset.riteCapabilityTier = "constrained";
-        canvas.dataset.riteRenderer = "Canvas2D exact-model impostors";
-        canvas.dataset.riteSilhouette = "model-impostor";
-        canvas.dataset.riteActorRenderMode = "model-impostor";
-        canvas.dataset.riteImpostorActors = String(fighters.length);
-        canvas.dataset.riteRuntimeRoute = "model-impostor";
-        canvas.dataset.riteRuntimeRouteStatus = "locked";
-        canvas.dataset.riteRuntimeRouteReason = "safe-default";
-        canvas.dataset.riteRuntimeRoutePersisted = "false";
-        canvas.dataset.riteRuntimeRouteQaCanary = "false";
-        canvas.dataset.riteRuntimeRouteSwitches = "0";
-        canvas.dataset.riteRuntimeRouteBeforeReveal = "true";
-        canvas.dataset.riteRigChunkStatus = "not-requested";
-        canvas.dataset.riteRigChunkRequested = "false";
-        canvas.dataset.riteImpostorAssetsReady = String(Boolean(images));
-        canvas.dataset.riteHeroImpactSpritePrewarmed = String(Boolean(heroImpactSprite));
-        canvas.dataset.ritePetLodEnabled = "false";
-        canvas.dataset.ritePetLodActors = "0";
-        canvas.dataset.ritePetLodFallbacks = "0";
-        canvas.dataset.ritePetSourceTriangles = "0";
-        canvas.dataset.ritePetSelectedTriangles = "0";
-        canvas.dataset.ritePreflightThresholdMs = String(WARFRONT_PREFLIGHT_THRESHOLD_MS);
-        canvas.dataset.ritePreflightFrameGaps = "0";
-        canvas.dataset.ritePreflightFrameGapMaxMs = "0";
-        canvas.dataset.ritePreflightLongTasks = "0";
-        canvas.dataset.ritePreflightLongTaskMaxMs = "0";
-        canvas.dataset.riteRouteValidationFrameGaps = "0";
-        canvas.dataset.riteRouteValidationFrameGapMaxMs = "0";
-        canvas.dataset.riteRouteValidationLongTasks = "0";
-        canvas.dataset.riteRouteValidationLongTaskMaxMs = "0";
-        canvas.dataset.riteRenderCalls = "1";
-        canvas.dataset.riteRenderTriangles = "0";
-        canvas.dataset.riteRenderPrograms = "0";
-        canvas.dataset.riteSceneMeshes = "1";
-        canvas.dataset.riteSceneSkinnedMeshes = "0";
-        canvas.dataset.riteVisibleMeshes = "1";
-        canvas.dataset.riteVisibleTriangles = "0";
-        canvas.dataset.riteCameraMaxDelta = "0";
-        canvas.dataset.riteBoardVisible = "true";
-        canvas.dataset.riteBoardMaxX = fractions.x.toFixed(4);
-        canvas.dataset.riteBoardMaxY = fractions.y.toFixed(4);
-        canvas.dataset.riteInitialActorsVisible = String(result.snapshots[0]?.actors.length ?? 0);
-        canvas.dataset.riteInitialActorsExpected = String(fighters.length);
-        canvas.dataset.riteAttackCues = String(cues.length);
-        canvas.dataset.riteAttackStreakMs = String(ATTACK_STREAK_DURATION_MS);
-        canvas.dataset.riteContactHoldFrames = "2";
-        canvas.dataset.riteBodyReactionEvents = String([...beatsByActor.values()].reduce((sum, beats) => sum + beats.length, 0));
-        canvas.dataset.riteBodyLethalEvents = String([...beatsByActor.values()].reduce((sum, beats) => sum + beats.filter((beat) => beat.lethal).length, 0));
-        canvas.dataset.riteBodyRootMode = "presentation-child";
-        canvas.dataset.riteBodyReactionMaxActive = "0";
-        canvas.dataset.riteBodyReactionMaxOffset = "0";
-        canvas.dataset.riteGroundingPermanentPads = "0";
-        canvas.dataset.riteGroundingWideAuras = "0";
-        canvas.dataset.riteGroundingShadowMode = "feathered-ao";
-        canvas.dataset.riteGroundingActiveRings = "0";
-        canvas.dataset.riteGroundingMaxActiveRings = "0";
-        canvas.dataset.riteGroundingIdleActors = "0";
-        canvas.dataset.riteGroundingDeadActors = "0";
-        canvas.dataset.riteGroundingIdleRings = "0";
-        canvas.dataset.riteGroundingDeadRings = "0";
-        canvas.dataset.riteArenaPrototypeDressingDraws = "0";
-        canvas.dataset.riteArenaPrototypeDressingMeshes = "0";
-        canvas.dataset.riteArenaGlyphDebrisDraws = "0";
-        canvas.dataset.riteArenaGlyphDebrisMeshes = "0";
-        canvas.dataset.riteArenaFloorDecalDraws = "0";
-        canvas.dataset.riteArenaFloorDecalMaxAlpha = "0";
-        canvas.dataset.riteArenaFloorDecalMaxRadiusPx = "0";
-        canvas.dataset.riteArenaFloorDecalMaxRadiusWorld = "0";
-        canvas.dataset.riteArenaScrollPropDraws = "0";
-        canvas.dataset.riteArenaScrollPropMeshes = "0";
-        canvas.dataset.riteArenaActorLightMode = "position-aware-multiply-mask";
-        canvas.dataset.riteArenaActorLightOverlays = "0";
-        canvas.dataset.riteArenaActorLightMaxAlpha = "0";
-        canvas.dataset.riteArenaActorLightMultiplyMaxAlpha = "0";
-        canvas.dataset.riteArenaActorLightMultiplyCap = "0.170";
-        canvas.dataset.riteArenaActorLightEdgeRecoveryMaxAlpha = "0";
-        canvas.dataset.riteArenaSideLights = "0";
-        canvas.dataset.riteLongTaskSample = "pending";
-        canvas.dataset.riteLongTasksOver100ms = "0";
-        canvas.dataset.riteLongTaskMaxMs = "0";
-        canvas.dataset.riteFrameGapsOver100ms = "0";
-        canvas.dataset.riteFrameGapMaxMs = "0";
-        canvas.dataset.riteHydrationPhase = images && heroImpactSprite ? "1" : "0";
+        Object.assign(canvas.dataset, {
+            riteRequestedQuality: quality.id,
+            riteRenderBudget: fighters.length >= 8 ? "eight-rig" : "standard",
+            riteTextureAnisotropy: "1",
+            riteDpr: Math.min(1.15, window.devicePixelRatio || 1).toFixed(2),
+            riteCapabilityTier: "constrained",
+            riteRenderer: "Canvas2D exact-model impostors",
+            riteSilhouette: "model-impostor",
+            riteActorRenderMode: "model-impostor",
+            riteImpostorActors: String(fighters.length),
+            riteRuntimeRoute: "model-impostor",
+            riteRuntimeRouteStatus: "locked",
+            riteRuntimeRouteReason: "safe-default",
+            riteRuntimeRoutePersisted: "false",
+            riteRuntimeRouteQaCanary: "false",
+            riteRuntimeRouteSwitches: "0",
+            riteRuntimeRouteBeforeReveal: "true",
+            riteRigChunkStatus: "not-requested",
+            riteRigChunkRequested: "false",
+            riteImpostorAssetsReady: String(Boolean(images)),
+            riteHeroImpactSpritePrewarmed: String(Boolean(heroImpactSprite)),
+            ritePetLodEnabled: "false",
+            ritePetLodActors: "0",
+            ritePetLodFallbacks: "0",
+            ritePetSourceTriangles: "0",
+            ritePetSelectedTriangles: "0",
+            ritePreflightThresholdMs: String(WARFRONT_PREFLIGHT_THRESHOLD_MS),
+            ritePreflightFrameGaps: "0",
+            ritePreflightFrameGapMaxMs: "0",
+            ritePreflightLongTasks: "0",
+            ritePreflightLongTaskMaxMs: "0",
+            riteRouteValidationFrameGaps: "0",
+            riteRouteValidationFrameGapMaxMs: "0",
+            riteRouteValidationLongTasks: "0",
+            riteRouteValidationLongTaskMaxMs: "0",
+            riteRenderCalls: "1",
+            riteRenderTriangles: "0",
+            riteRenderPrograms: "0",
+            riteSceneMeshes: "1",
+            riteSceneSkinnedMeshes: "0",
+            riteVisibleMeshes: "1",
+            riteVisibleTriangles: "0",
+            riteCameraMaxDelta: "0",
+            riteBoardVisible: "true",
+            riteBoardMaxX: fractions.x.toFixed(4),
+            riteBoardMaxY: fractions.y.toFixed(4),
+            riteInitialActorsVisible: String(result.snapshots[0]?.actors.length ?? 0),
+            riteInitialActorsExpected: String(fighters.length),
+            riteAttackCues: String(cues.length),
+            riteAttackStreakMs: String(ATTACK_STREAK_DURATION_MS),
+            riteContactHoldFrames: "2",
+            riteBodyReactionEvents: String([...beatsByActor.values()].reduce((sum, beats) => sum + beats.length, 0)),
+            riteBodyLethalEvents: String([...beatsByActor.values()].reduce((sum, beats) => sum + beats.filter((beat) => beat.lethal).length, 0)),
+            riteBodyRootMode: "presentation-child",
+            riteBodyReactionMaxActive: "0",
+            riteBodyReactionMaxOffset: "0",
+            riteGroundingPermanentPads: "0",
+            riteGroundingWideAuras: "0",
+            riteGroundingShadowMode: "feathered-ao",
+            riteGroundingActiveRings: "0",
+            riteGroundingMaxActiveRings: "0",
+            riteGroundingIdleActors: "0",
+            riteGroundingDeadActors: "0",
+            riteGroundingIdleRings: "0",
+            riteGroundingDeadRings: "0",
+            riteArenaPrototypeDressingDraws: "0",
+            riteArenaPrototypeDressingMeshes: "0",
+            riteArenaGlyphDebrisDraws: "0",
+            riteArenaGlyphDebrisMeshes: "0",
+            riteArenaFloorDecalDraws: "0",
+            riteArenaFloorDecalMaxAlpha: "0",
+            riteArenaFloorDecalMaxRadiusPx: "0",
+            riteArenaFloorDecalMaxRadiusWorld: "0",
+            riteArenaScrollPropDraws: "0",
+            riteArenaScrollPropMeshes: "0",
+            riteArenaActorLightMode: "position-aware-multiply-mask",
+            riteArenaActorLightOverlays: "0",
+            riteArenaActorLightMaxAlpha: "0",
+            riteArenaActorLightMultiplyMaxAlpha: "0",
+            riteArenaActorLightMultiplyCap: "0.170",
+            riteArenaActorLightEdgeRecoveryMaxAlpha: "0",
+            riteArenaSideLights: "0",
+            riteLongTaskSample: "pending",
+            riteLongTasksOver100ms: "0",
+            riteLongTaskMaxMs: "0",
+            riteFrameGapsOver100ms: "0",
+            riteFrameGapMaxMs: "0",
+            riteHydrationPhase: images && heroImpactSprite ? "1" : "0",
+        });
     }, [beatsByActor, cues.length, fighters.length, heroImpactSprite, images, quality.id, result.snapshots]);
 
     return (

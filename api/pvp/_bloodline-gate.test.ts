@@ -129,11 +129,9 @@ describe('bloodline gate in loadout resolution (resolveEquippedLoadout)', () => 
 
 describe('gear specialty-stat fold (server = client Arena build)', () => {
     it('folds equipped-item stat bonuses into the sealed combat stats', () => {
-        // This level-40 body armor carries a flat ninjutsuOffense bonus of 30.
-        // Relics now provide PvE-only percentages, so they do not exercise this fold.
+        // Legendary armor carries flat offense stats; relics now use only PvE percentages.
         const character = {
-            name: 'Geared',
-            level: 40,
+            name: 'Geared', level: 40,
             equipment: { body: 'legendary-chest' },
             stats: { ninjutsuOffense: 100, strength: 50 },
         };
@@ -146,7 +144,6 @@ describe('gear specialty-stat fold (server = client Arena build)', () => {
     it('does not fold for save-less (NPC) fighters', () => {
         const npc = {
             name: 'Bandit',
-            level: 40,
             equipment: { body: 'legendary-chest' },
             stats: { ninjutsuOffense: 100 },
         };

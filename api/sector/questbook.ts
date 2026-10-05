@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave, type PlayerSaveMutation, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { worldContextWinProofCount } from '../missions/_world-ai-fight.js';
 import {
     QUEST_BOOK,
@@ -73,17 +74,46 @@ function mirrorOf(sealed: Sealed) {
     };
 }
 
-async function persist(player: string, saveKey: string, rec: Record<string, unknown>, char: Record<string, unknown>, sealed: Sealed): Promise<number> {
-    const updated = { ...char, activeQuestbook: mirrorOf(sealed) };
-    // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
-    // so an in-flight epic survives the KV TTL and the Postgres cutover.
-    const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: sealed, character: updated });
-    await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-    // The save-resident seal is authoritative. Populate the TTL cache only
-    // after that durable write so a cache success + save failure cannot strand
-    // the player behind a 14-day phantom "busy" seal.
-    await kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS }).catch(() => undefined);
-    return Number(nextRecord._saveVersion ?? 0);
+/** A quest reply; `echo` acknowledges the save version, `withCharacter` hands back the character. */
+type Reply = { body: Record<string, unknown>; echo?: boolean; withCharacter?: boolean };
+type Decision = PlayerSaveMutation<Reply>;
+
+function replyFor(committed: PlayerSaveMutationResult<Reply>): { status: number; body: Record<string, unknown> } {
+    if (!committed.ok) {
+        return committed.status === 404
+            ? { status: 404, body: { error: 'Your save was not found.' } }
+            : { status: committed.status, body: { error: committed.error } };
+    }
+    const { body, echo, withCharacter } = committed.value;
+    return {
+        status: 200,
+        body: {
+            ...body,
+            ...(withCharacter ? { character: committed.character } : {}),
+            ...(echo ? { _saveVersion: committed._saveVersion } : {}),
+        },
+    };
+}
+
+/** Answer without writing the save. */
+function unwritten(char: Record<string, unknown>, body: Record<string, unknown>, echo = false): Decision {
+    return { ok: true, write: false, character: char, value: { body, echo } };
+}
+
+/** Write a (re)sealed epic: the durable seal and its display mirror, then the TTL cache. */
+function persist(player: string, char: Record<string, unknown>, sealed: Sealed, body: Record<string, unknown>): Decision {
+    return {
+        ok: true,
+        character: { ...char, activeQuestbook: mirrorOf(sealed) },
+        // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
+        // so an in-flight epic survives the KV TTL and the Postgres cutover.
+        recordPatch: { activeQuestbookSeal: sealed },
+        value: { body, echo: true },
+        // The save-resident seal is authoritative. Populate the TTL cache only
+        // after that durable write so a cache success + save failure cannot strand
+        // the player behind a 14-day phantom "busy" seal.
+        afterCommit: () => kv.set(questKeyFor(player), sealed, { ex: QUESTBOOK_TTL_SECONDS }).then(() => undefined, () => undefined),
+    };
 }
 
 function exactBossProofExists(character: Record<string, unknown>, sealed: Sealed, stageIdx: number): boolean {
@@ -98,33 +128,35 @@ function exactBossProofExists(character: Record<string, unknown>, sealed: Sealed
 }
 
 type LoadedSeal =
-    | { ok: true; rec: Record<string, unknown>; char: Record<string, unknown>; sealed: Sealed; durable: boolean }
-    | { ok: false; result: { status: number; body: unknown } };
+    | { ok: true; sealed: Sealed; durable: boolean }
+    | { ok: false; decision: Decision };
 
 /**
- * Read the save + resolve the epic seal DURABLE-FIRST (the save-resident copy,
- * then the KV fallback). If neither exists the display mirror is stranded — the
- * seal expired (14d TTL) or was lost in the cutover — so self-heal: clear the
+ * Resolve the epic seal DURABLE-FIRST (the save-resident copy, then the KV
+ * fallback). If neither exists the display mirror is stranded — the seal
+ * expired (14d TTL) or was lost in the cutover — so self-heal: clear the
  * mirror + durable seal and surface `none` + the cleared character, mirroring
- * wanderer-quest / rift-quest. Callers use the returned rec/char/sealed directly.
+ * wanderer-quest / rift-quest.
  */
-async function loadSealed(player: string, saveKey: string): Promise<LoadedSeal> {
-    const rec = await kv.get<Record<string, unknown>>(saveKey);
-    const char = (rec?.character ?? null) as Record<string, unknown> | null;
-    if (!rec || !char) return { ok: false, result: { status: 404, body: { error: 'Your save was not found.' } } };
+async function loadSealed(player: string, rec: Record<string, unknown>, char: Record<string, unknown>): Promise<LoadedSeal> {
     const durableSeal = parseQuestbookSeal(rec.activeQuestbookSeal);
     const sealed = durableSeal ?? parseQuestbookSeal(await kv.get(questKeyFor(player)));
     if (!sealed) {
         await kv.del(questKeyFor(player)).catch(() => undefined);
         if (char.activeQuestbook || rec.activeQuestbookSeal !== undefined) {
-            const updated = { ...char, activeQuestbook: null };
-            const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated });
-            await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-            return { ok: false, result: { status: 200, body: { ok: false, reason: 'none', activeQuestbook: null, character: updated, _saveVersion: Number(nextRecord._saveVersion ?? 0) } } };
+            return {
+                ok: false,
+                decision: {
+                    ok: true,
+                    character: { ...char, activeQuestbook: null },
+                    recordPatch: { activeQuestbookSeal: null },
+                    value: { body: { ok: false, reason: 'none', activeQuestbook: null }, echo: true, withCharacter: true },
+                },
+            };
         }
-        return { ok: false, result: { status: 200, body: { ok: false, reason: 'none' } } };
+        return { ok: false, decision: unwritten(char, { ok: false, reason: 'none' }) };
     }
-    return { ok: true, rec, char, sealed, durable: !!durableSeal };
+    return { ok: true, sealed, durable: !!durableSeal };
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -146,7 +178,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, `questbook-${action}`, 20, 60_000, identity.name))) return;
 
         const questKey = questKeyFor(playerName);
-        const saveKey = `save:${playerName}`;
 
         // ── ACCEPT ───────────────────────────────────────────────────────────
         if (action === 'accept') {
@@ -154,33 +185,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!isQuestBookId(questId)) return res.status(400).json({ error: 'Unknown quest.' });
             const entry = QUEST_BOOK[questId];
 
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 // Busy if a seal exists in EITHER store — the durable one still marks an
                 // active epic after the KV seal's 14d TTL lapses (or a migration).
                 if (parseQuestbookSeal(rec.activeQuestbookSeal) ?? parseQuestbookSeal(await kv.get(questKey))) {
-                    return { status: 200, body: { ok: false, reason: 'busy' } };
+                    return unwritten(char, { ok: false, reason: 'busy' });
                 }
                 const cooling = await kv.get(doneKeyFor(playerName, questId));
-                if (cooling) return { status: 200, body: { ok: false, reason: 'cooldown' } };
-                if (!bandMatches(entry, num(char.level) || 1)) return { status: 200, body: { ok: false, reason: 'band' } };
+                if (cooling) return unwritten(char, { ok: false, reason: 'cooldown' });
+                if (!bandMatches(entry, num(char.level) || 1)) return unwritten(char, { ok: false, reason: 'band' });
 
                 const sealed = sealStage(questId, 0, char, {}, Date.now());
-                const saveVersion = await persist(playerName, saveKey, rec, char, sealed);
-                return { status: 200, body: { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null, _saveVersion: saveVersion } };
-            }, { failClosed: true });
+                return persist(playerName, char, sealed, { ok: true, id: questId, stage: 0, target: entry.stages[0].count, deadline: sealed.deadline ?? null });
+            });
 
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── ADVANCE ──────────────────────────────────────────────────────────
         if (action === 'advance') {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const loaded = await loadSealed(playerName, saveKey);
-                if (!loaded.ok) return loaded.result;
-                const { rec, char, sealed } = loaded;
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                const loaded = await loadSealed(playerName, rec, char);
+                if (!loaded.ok) return loaded.decision;
+                const { sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
@@ -196,76 +224,74 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     } else if (now > sealed.deadline) {
                         const resetIdx = timerResetStage(entry, stageIdx);
                         const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
-                        const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
-                        return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
+                        return persist(playerName, char, reseal, { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, deadline: reseal.deadline ?? null });
                     }
                 }
 
-                const persistMigratedTimer = async (): Promise<Record<string, number>> => {
-                    if (working === sealed) return {};
-                    return { _saveVersion: await persist(playerName, saveKey, rec, char, working) };
-                };
+                // A lazily armed timer is persisted with the reply (which then
+                // acknowledges its version); otherwise nothing is written.
+                const persistMigratedTimer = (body: Record<string, unknown>): Decision =>
+                    working === sealed ? unwritten(char, body) : persist(playerName, char, working, body);
 
                 // Branch: a choice stage advances only via `choose`.
                 if (stageIsChoice(stage) && !choices[stage.key]) {
-                    return { status: 200, body: { ok: false, reason: 'choose', stage: stageIdx, ...(await persistMigratedTimer()) } };
+                    return persistMigratedTimer({ ok: false, reason: 'choose', stage: stageIdx });
                 }
 
                 const current = num(char[stage.metric]);
                 if (!exactBossProofExists(char, working, stageIdx)
                     || !questStageComplete(num(working.baseline), current, stage.count)) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(working.baseline)), target: stage.count, deadline: working.deadline ?? null, ...(await persistMigratedTimer()) } };
+                    return persistMigratedTimer({ ok: false, reason: 'incomplete', stage: stageIdx, progress: Math.max(0, current - num(working.baseline)), target: stage.count, deadline: working.deadline ?? null });
                 }
                 if (stageIdx >= finalIdx) {
-                    return { status: 200, body: { ok: true, stage: stageIdx, readyToClaim: true, ...(await persistMigratedTimer()) } };
+                    return persistMigratedTimer({ ok: true, stage: stageIdx, readyToClaim: true });
                 }
 
                 const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
-                const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
-                return { status: 200, body: { ok: true, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
-            }, { failClosed: true });
+                return persist(playerName, char, reseal, { ok: true, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null });
+            });
 
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── CHOOSE (branch) ──────────────────────────────────────────────────
         if (action === 'choose') {
             const optionKey = typeof body.optionKey === 'string' ? body.optionKey : '';
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const loaded = await loadSealed(playerName, saveKey);
-                if (!loaded.ok) return loaded.result;
-                const { rec, char, sealed } = loaded;
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                const loaded = await loadSealed(playerName, rec, char);
+                if (!loaded.ok) return loaded.decision;
+                const { sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 const stageIdx = Math.max(0, Math.min(finalIdx, Math.floor(num(sealed.stage))));
                 const stage = entry.stages[stageIdx];
-                if (!stageIsChoice(stage)) return { status: 200, body: { ok: false, reason: 'no-choice' } };
-                if (!choiceOption(stage, optionKey)) return { status: 200, body: { ok: false, reason: 'bad-option' } };
+                if (!stageIsChoice(stage)) return unwritten(char, { ok: false, reason: 'no-choice' });
+                if (!choiceOption(stage, optionKey)) return unwritten(char, { ok: false, reason: 'bad-option' });
 
                 const now = Date.now();
                 const choices = { ...(sealed.choices ?? {}), [stage.key]: optionKey };
                 if (stageIdx >= finalIdx) {
-                    const saveVersion = await persist(playerName, saveKey, rec, char, { ...sealed, choices });
-                    return { status: 200, body: { ok: true, chose: optionKey, readyToClaim: true, _saveVersion: saveVersion } };
+                    return persist(playerName, char, { ...sealed, choices }, { ok: true, chose: optionKey, readyToClaim: true });
                 }
                 const reseal = sealStage(sealed.id, stageIdx + 1, char, choices, now);
-                const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
-                return { status: 200, body: { ok: true, chose: optionKey, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null, _saveVersion: saveVersion } };
-            }, { failClosed: true });
+                return persist(playerName, char, reseal, { ok: true, chose: optionKey, advanced: true, stage: reseal.stage, target: entry.stages[reseal.stage].count, deadline: reseal.deadline ?? null });
+            });
 
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── CLAIM ────────────────────────────────────────────────────────────
         if (action === 'claim') {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
-                const loaded = await loadSealed(playerName, saveKey);
-                if (!loaded.ok) return loaded.result;
-                const { rec, char, sealed } = loaded;
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                const loaded = await loadSealed(playerName, rec, char);
+                if (!loaded.ok) return loaded.decision;
+                const { sealed } = loaded;
                 const entry = QUEST_BOOK[sealed.id];
                 const finalIdx = finalStageIndex(entry);
                 if (Math.floor(num(sealed.stage)) < finalIdx) {
-                    return { status: 200, body: { ok: false, reason: 'not-final', stage: num(sealed.stage) } };
+                    return unwritten(char, { ok: false, reason: 'not-final', stage: num(sealed.stage) });
                 }
                 const stage = entry.stages[finalIdx];
                 const choices = sealed.choices ?? {};
@@ -276,7 +302,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (prior) {
                     await kv.set(doneKeyFor(playerName, sealed.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS }).catch(() => undefined);
                     await kv.del(questKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    return unwritten(char, { ok: true, replayed: true, ryo: num(prior.ryo), totalRyo: num(char.ryo), fateShards: num(prior.fateShards), title: prior.title, standings: prior.standings, clearedRivalry: prior.clearedRivalry === true }, true);
                 }
 
                 const now = Date.now();
@@ -284,17 +310,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (stageTimerMs(stage) > 0 && sealed.deadline && now > sealed.deadline) {
                     const resetIdx = timerResetStage(entry, finalIdx);
                     const reseal = sealStage(sealed.id, resetIdx, char, choices, now);
-                    const saveVersion = await persist(playerName, saveKey, rec, char, reseal);
-                    return { status: 200, body: { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count, _saveVersion: saveVersion } };
+                    return persist(playerName, char, reseal, { ok: false, reason: 'expired', resetToStage: resetIdx, target: entry.stages[resetIdx].count });
                 }
                 if (stageIsChoice(stage) && !choices[stage.key]) {
-                    return { status: 200, body: { ok: false, reason: 'choose', stage: finalIdx } };
+                    return unwritten(char, { ok: false, reason: 'choose', stage: finalIdx });
                 }
 
                 const current = num(char[stage.metric]);
                 if (!exactBossProofExists(char, sealed, finalIdx)
                     || !questStageComplete(num(sealed.baseline), current, stage.count)) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count } };
+                    return unwritten(char, { ok: false, reason: 'incomplete', stage: finalIdx, progress: Math.max(0, current - num(sealed.baseline)), target: stage.count });
                 }
 
                 // Apply sealed branch effects to the reward.
@@ -314,40 +339,44 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const updated: Record<string, unknown> = { ...char, ryo: totalRyo, fateShards, questTitles, questStandings, activeQuestbook: null, redeemedQuestbookRuns: [...receipts.slice(-49), receipt] };
                 // The capstone ends the rivalry for good (its whole point).
                 if (entry.clearsRivalry) updated.wandererNemesis = null;
-                const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated }, { previousCharacter: char });
-                await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-                await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
-                await kv.del(questKey).catch(() => undefined);
-                return { status: 200, body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: updated,
+                    recordPatch: { activeQuestbookSeal: null },
+                    value: { body: { ok: true, ryo, totalRyo, fateShards: fateAward, title: awardTitle, standings: fx.standings, clearedRivalry: !!entry.clearsRivalry }, echo: true },
+                    // The completion cooldown and the cache cleanup follow the
+                    // committed payout, still under the save lock.
+                    afterCommit: async () => {
+                        await kv.set(doneKeyFor(playerName, entry.id), Date.now(), { ex: DONE_COOLDOWN_SECONDS });
+                        await kv.del(questKey).catch(() => undefined);
+                    },
+                };
+            });
 
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── ABANDON ──────────────────────────────────────────────────────────
         if (action === 'abandon') {
-            const out = await withKvLock<{ status: number; body: unknown }>(saveKey, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 await kv.del(questKey).catch(() => undefined);
-                const rec = await kv.get<Record<string, unknown>>(saveKey);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (rec && char) {
-                    const updated = { ...char, activeQuestbook: null };
-                    if (!char.activeQuestbook && rec.activeQuestbookSeal == null) {
-                        return { status: 200, body: { ok: true, _saveVersion: Number(rec._saveVersion ?? 0) } };
-                    }
-                    const nextRecord = bumpSaveVersion({ ...rec, activeQuestbookSeal: null, character: updated });
-                    await kv.set(saveKey, mergePreservingImages(nextRecord, rec));
-                    return { status: 200, body: { ok: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
-                }
-                return { status: 200, body: { ok: true } };
-            }, { failClosed: true });
-
+                if (!char.activeQuestbook && rec.activeQuestbookSeal == null) return unwritten(char, { ok: true }, true);
+                return {
+                    ok: true,
+                    character: { ...char, activeQuestbook: null },
+                    recordPatch: { activeQuestbookSeal: null },
+                    value: { body: { ok: true }, echo: true },
+                };
+            });
+            // Abandoning with no save at all has nothing to clear.
+            const out = !committed.ok && committed.status === 404 ? { status: 200, body: { ok: true } } : replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Could not update the quest — please retry.' });
         }
         console.error('[sector/questbook]', safeLogValue(err));

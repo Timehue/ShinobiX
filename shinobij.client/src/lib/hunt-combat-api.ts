@@ -1,16 +1,13 @@
 import { parseHuntCombatAction } from '../../../shared/hunt-combat';
-import { submitSoloPveAction, type SoloPveActionInput, type SoloPveSession } from './solo-pve-api';
+import type { SoloPveActionInput, SoloPveSession } from './solo-pve-api';
 import type { TowerActionInput, TowerActionResponse, TowerSession } from './towers-api';
-import { presentEmbeddedTowerLog } from '../../../shared/tower-encounter-log';
 
 /** Presentation projection only; all mutations go through the hunt's original
  * authenticated, versioned fight endpoint and its existing settlement receipt. */
 export function huntSessionForTower(session: SoloPveSession): TowerSession {
     if (!session.huntCombat) throw new Error('The server did not return a hunt battlefield.');
-    const battle = session.huntCombat.battle;
     return {
-        ...battle,
-        log: presentEmbeddedTowerLog(battle.log, battle.floor, 'hunt'),
+        ...session.huntCombat.battle,
         actionVersion: session.version,
     };
 }
@@ -28,6 +25,9 @@ export async function submitHuntCombatAction(sessionId: string, playerName: stri
     if (intent.type !== 'forfeit' && !parsed) throw new Error('That command is not available in a hunt.');
     const action: SoloPveActionInput = intent.type === 'forfeit' ? { type: 'abandon' } : { type: 'huntAction', action: parsed! };
     const moveToken = crypto.randomUUID();
+    // Resolved at call time so this lazy hunt chunk reuses the host's solo-PvE client
+    // instead of forcing a shared chunk into the initial graph.
+    const { submitSoloPveAction } = await import('./solo-pve-api');
     const request = () => submitSoloPveAction({ sessionId, playerName, expectedVersion: expectedVersion ?? 0, moveToken, action });
     let response;
     try { response = await request(); } catch { response = await request(); }

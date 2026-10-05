@@ -521,6 +521,12 @@ engine forever; it is the list of what actually has to move first.
 
 ### The wanderer is DONE (2026-08-15) — and `PetArena.tsx` is off the legacy engine
 
+> **Superseded 2026-10-02.** Road beasts moved to an unpaid Colosseum duel
+> (`api/pet/_wanderer-showdown.ts`, 2026-09-22) that fields the species the World
+> Map shows (`shared/wanderer-beast.ts`). The battle-start duel described below,
+> `_wanderer-duel.ts` and `_wanderer-session.ts` were deleted; battle-start now
+> refuses a wanderer request.
+
 `api/pet/_wanderer-duel.ts` builds the beast; `battle-start` resolves the bout on
 Showdown and hands back the script. The selector shrank to nothing worth
 trusting: the request says only "this is a wanderer duel", and the tier and

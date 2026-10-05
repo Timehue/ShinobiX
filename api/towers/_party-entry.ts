@@ -1,7 +1,12 @@
 import { createHash } from 'node:crypto';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
 import { debitTowerStoryEntry, refundTowerEntry, type TowerEntryCharacter } from './_entry-fee.js';
-import { hollowGateCreditBasis, recordHollowGateExternalCredits, type HollowGateCreditBasis } from '../hollow-gate/_external-credits.js';
+import {
+    hollowGateCreditBasis,
+    recordHollowGateExternalCredits,
+    type HollowGateCreditBasis,
+    type HollowGateCurrencySource,
+} from '../hollow-gate/_external-credits.js';
 
 type PartyEntryReceiptValue = {
     kind: 'tower-party-entry';
@@ -32,7 +37,18 @@ export type PartyEntryReservation =
     | { ok: false; code: 'invalid-receipt' };
 
 export type PartyEntryRefund =
-    | { ok: true; character: TowerEntryCharacter; changed: boolean }
+    | {
+        ok: true;
+        character: TowerEntryCharacter;
+        changed: boolean;
+        /**
+         * How a changed refund classified itself against the Hollow Gate run it
+         * was charged in. A versioned writer that records currency provenance
+         * again from the pre-refund character must pass this same source, or a
+         * same-checkpoint reversal would be counted as protected income.
+         */
+        hollowGateCurrencySource?: HollowGateCurrencySource;
+    }
     | { ok: false; code: 'missing-receipt' | 'invalid-receipt' };
 
 function identity(partyId: string, runId: string) {
@@ -199,8 +215,8 @@ export function refundTowerPartyEntryReservation(input: {
     // Classify before either the immediate or delayed writer commits the refund.
     // A same-checkpoint reversal is not income. Legacy receipts keep their old
     // conservative behavior: missing provenance cannot create protected currency.
-    const trackedRefund = recordHollowGateExternalCredits(input.character, refunded,
-        chargedBasis === undefined || sameBasis ? 'run' : 'external');
+    const hollowGateCurrencySource: HollowGateCurrencySource = chargedBasis === undefined || sameBasis ? 'run' : 'external';
+    const trackedRefund = recordHollowGateExternalCredits(input.character, refunded, hollowGateCurrencySource);
     return {
         ok: true,
         character: stamp(
@@ -217,6 +233,7 @@ export function refundTowerPartyEntryReservation(input: {
             chargedBasis,
         ),
         changed: true,
+        hollowGateCurrencySource,
     };
 }
 

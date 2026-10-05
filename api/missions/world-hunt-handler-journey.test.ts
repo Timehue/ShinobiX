@@ -342,7 +342,7 @@ describe('sealed hunt handler journey', () => {
         assert.equal((reaccepted.body?.missionProgress as Record<string, unknown>)[MISSION_ID], 0);
     });
 
-    it('accepts, settles an early pack loss, rematches the target, and claims exactly once', async () => {
+    it('accepts repeat hunts while keeping each kill claim idempotent', async () => {
         const player = 'huntjourneycomplete';
         await seedPlayer(player);
         const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
@@ -427,6 +427,18 @@ describe('sealed hunt handler journey', () => {
         assert.notEqual(rematch.body?.token, firstTarget.body?.token);
         assert.deepEqual((rematch.body?.worldContext as Record<string, unknown>)?.huntFormation,
             (firstTarget.body?.worldContext as Record<string, unknown>)?.huntFormation);
+        // The hunt's Tower battle fights under the sky its Solo session sealed
+        // from the sector (ai-fight-start), not on an unweathered board. A sealed
+        // clear sky is still a string, so `undefined` here means nothing sealed.
+        const rematchSession = rematch.body?.session as {
+            environment: Record<string, unknown>;
+            huntCombat: { battle: { weather?: unknown } };
+        };
+        assert.equal(typeof rematchSession.environment.weatherPositiveElement, 'string', 'the hunt seals its sector sky');
+        assert.deepEqual(rematchSession.huntCombat.battle.weather, {
+            positiveElement: rematchSession.environment.weatherPositiveElement,
+            negativeElement: rematchSession.environment.weatherNegativeElement,
+        });
         await playHuntToVictory(player, String(rematch.body?.sessionId));
         const targetWin = await post(reportHandler, player, { aiFightToken: rematch.body?.token });
         assert.equal(targetWin.statusCode, 200, JSON.stringify(targetWin.body));
@@ -452,10 +464,26 @@ describe('sealed hunt handler journey', () => {
         assert.equal(claimReplay.statusCode, 200);
         assert.equal(claimReplay.body?.applied, false);
         assert.equal(Number((claimReplay.body?.character as Record<string, unknown>).ryo), paidRyo);
+        // Older releases stored one unsuffixed receipt per contract/day. Keep
+        // such a receipt from preventing a fresh hunt run after the rollout.
+        await patchSave(player, (save) => {
+            const character = save.character as Record<string, unknown>;
+            const claimed = Array.isArray(character.claimedServerMissions)
+                ? character.claimedServerMissions.map(String)
+                : [];
+            return {
+                ...save,
+                character: {
+                    ...character,
+                    claimedServerMissions: [...claimed, `${new Date().toISOString().slice(0, 10)}:hunt:${MISSION_ID}`],
+                },
+            };
+        });
         const reaccept = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         assert.equal(reaccept.statusCode, 200);
-        assert.equal(reaccept.body?.claimedToday, true, 'the settled hunt receipt must prevent same-day reacceptance');
-        assert.equal(reaccept.body?.state, null);
+        assert.notEqual(reaccept.body?.claimedToday, true);
+        assert.ok(reaccept.body?.state);
+        assert.equal((reaccept.body?.state as Record<string, unknown>).missionId, MISSION_ID);
     });
 
     it('rejects a forged generic hunt-kill receipt without the sealed trail target proof', async () => {

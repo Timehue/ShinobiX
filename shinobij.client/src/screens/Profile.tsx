@@ -1,7 +1,7 @@
 import { useActivitySection, useActivitySectionRequests } from "../lib/use-activity-section";
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
 import { getAllJutsus, liveEquippedJutsuIds } from "../lib/jutsu-loadout";
-import { useState, useEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
+import { useState, useEffect, useLayoutEffect, useMemo, useRef, type ChangeEvent, type ReactNode } from "react";
 import "../styles/index/25-mobile-profile-tabs.css";
 import "../styles/profile-skin.css";
 import "../styles/training-skin.css";
@@ -27,6 +27,8 @@ import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { auraSphereDustNeeded, getActiveAuraSphereBonuses, hasEquippedAuraSphere } from "../lib/aura-sphere";
 import { feedAuraSphereServer } from "../lib/aura-feed-api";
 import { canEquipElementJutsu, getCharacterBloodlines } from "../lib/bloodline";
+import { equipOwnedBloodline } from "../lib/bloodline-swap";
+import { profileBloodlinePickerChoices } from "../lib/profile-bloodline-picker";
 import { bloodlineNamesByJutsuId } from "../lib/bloodline-marker";
 import { STAT_KEYS, allocatedStatPoints, capStat, earnedForLevel, earnedStatPoints, normalizeStats } from "../lib/stats";
 import { compressDataUrl, isAnimatedImageFile, publishSharedImage } from "../lib/shared-images";
@@ -50,6 +52,7 @@ type ProfileDossierRow = {
     value: ReactNode;
     detail?: ReactNode;
     tone?: "neutral" | "gold" | "danger" | "village" | "legacy";
+    className?: string;
 };
 
 type ProfileDossierSection = {
@@ -66,6 +69,7 @@ export function Profile({
     onOpenBattle,
     onTrainJutsu,
     onVersionedCharacter,
+    onSaveBloodlines,
 }: {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
@@ -76,6 +80,8 @@ export function Profile({
     onOpenBattle?: (battleId: string) => void;
     onTrainJutsu?: () => void;
     onVersionedCharacter: VersionedCharacterCommit;
+    /** Authoritative bloodline save; rejects when the server does not keep the equip. */
+    onSaveBloodlines: (bloodlines: SavedBloodline[], character?: Character) => Promise<void>;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -101,6 +107,12 @@ export function Profile({
         .map((id) => getItemById(allItems, id))
         .filter((item): item is GameItem => Boolean(item));
     const equippedBloodline = getCharacterBloodlines(character, savedBloodlines)[0];
+    // Shinobi Supporter perk: pick the active bloodline from the Build dossier.
+    const bloodlineChoices = profileBloodlinePickerChoices(character, savedBloodlines);
+    // Idle regen replaces `character` every second while a vital is below max, so
+    // a swap confirmed after a pause must build on the latest character.
+    const latestCharacterRef = useRef(character);
+    useLayoutEffect(() => { latestCharacterRef.current = character; }, [character]);
     const auraSphereEquipped = hasEquippedAuraSphere(character);
     const auraBonuses = getActiveAuraSphereBonuses(character);
     const auraDustNeeded = auraSphereDustNeeded(character.auraSphereLevel);
@@ -147,7 +159,7 @@ export function Profile({
                 const apply = async (img: string) => {
                     const ok = await publishSharedImage('avatar:' + character.name.toLowerCase(), img);
                     if (!ok) {
-                        alert("Your avatar couldn't be saved to the server — it may be too large. Please try a smaller image.");
+                        alert("Your avatar couldn't be saved to the server. The image may be too large, or you have uploaded many images recently. Try a smaller image, or wait a few minutes and try again.");
                         return;
                     }
                     updateCharacter((prev) => prev ? ({ ...prev, avatarImage: img }) : prev);
@@ -385,6 +397,28 @@ export function Profile({
         });
     }
 
+    // Same swap the Bloodline Maker archive performs: confirm, keep every trained
+    // mastery row, save with an explicit equip intent, and change the local
+    // character only after the server acknowledges the new equipped bloodline.
+    async function equipBloodline(bloodlineId: string) {
+        const target = bloodlineChoices?.find((bloodline) => bloodline.id === bloodlineId);
+        if (!target || target.id === equippedBloodline?.id) return;
+        await runProfileMutation(async () => {
+            if (!(await gameConfirm(`Equip ${target.name}? Your other bloodline keeps its jutsu mastery for when you swap back.`, { title: "Swap bloodline", confirmLabel: "Equip" }))) return false;
+            const latest = latestCharacterRef.current;
+            try {
+                await onSaveBloodlines(savedBloodlines, equipOwnedBloodline(latest, target, savedBloodlines));
+            } catch (error) {
+                const detail = error instanceof Error && error.message ? ` ${error.message}` : "";
+                alert(`${target.name} was not equipped.${detail} Your current bloodline is unchanged.`);
+                return false;
+            }
+            // Re-apply the swap to the newest state so regen earned during the save is kept.
+            updateCharacter((prev) => prev && prev.name === latest.name ? equipOwnedBloodline(prev, target, savedBloodlines) : prev);
+            return true;
+        });
+    }
+
     function unequipJutsu(id: string) {
         if (!character.equippedJutsuIds.includes(id)) return;
         updateCharacter({
@@ -504,7 +538,27 @@ export function Profile({
         {
             title: "Build",
             rows: [
-                { label: "Bloodline", value: equippedBloodlineName, detail: equippedBloodline?.rank ? `${equippedBloodline.rank} rank` : "active identity", tone: "legacy" },
+                {
+                    label: "Bloodline",
+                    value: bloodlineChoices ? (
+                        <select
+                            className="profile-dossier-bloodline-select"
+                            aria-label="Active bloodline"
+                            value={equippedBloodline?.id ?? ""}
+                            disabled={profileMutationBusy}
+                            onChange={(event) => void equipBloodline(event.target.value)}
+                        >
+                            {bloodlineChoices.map((bloodline) => (
+                                <option key={bloodline.id} value={bloodline.id}>{`${bloodline.name} · ${bloodline.rank}`}</option>
+                            ))}
+                        </select>
+                    ) : equippedBloodlineName,
+                    // Rank values already read "A Rank", so no suffix is appended.
+                    detail: bloodlineChoices ? "choose your active bloodline" : equippedBloodline?.rank ?? "active identity",
+                    tone: "legacy",
+                    // The dropdown needs the full row width, so its label sits above it.
+                    className: bloodlineChoices ? "profile-dossier-row--stacked" : undefined,
+                },
                 { label: "Specialty", value: disciplineLabel, detail: "effect lens" },
                 { label: "Elements", value: elementsLabel, detail: ownedElements.length ? `${ownedElements.length} awakened` : "not awakened" },
                 ...(equippedBloodline?.specialElement
@@ -649,7 +703,7 @@ export function Profile({
                             </summary>
                             <div className="profile-dossier-rows">
                                 {section.rows.map((row) => (
-                                    <div className={`profile-dossier-row tone-${row.tone ?? "neutral"}`} key={`${section.title}-${row.label}`}>
+                                    <div className={`profile-dossier-row tone-${row.tone ?? "neutral"}${row.className ? ` ${row.className}` : ""}`} key={`${section.title}-${row.label}`}>
                                         <span>{row.label}</span>
                                         <strong>{row.value}</strong>
                                         {row.detail ? <small>{row.detail}</small> : null}

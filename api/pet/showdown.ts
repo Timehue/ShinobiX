@@ -9,7 +9,8 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, writeSaveProjected } from '../save/_projected-write.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { startNaturalWandererShowdown } from './_wanderer-showdown.js';
 import {
@@ -103,7 +104,9 @@ import {
  *             from the catalog, and mint an unpaid practice KV session. The
  *             ENGINE RUNS ONLY HERE on the server; the client is presentation.
  *   wanderer — validate a natural road beast, roll a fieldable 1v1/2v2/3v3
- *             format and random AI team, and enter an unpaid interactive fight.
+ *             format led by the pet the beast picked out, against a sparring
+ *             team led by the beast's own species (shared/wanderer-beast.ts),
+ *             and enter an unpaid interactive fight.
  *   hollow-gate — open or resume the Showdown duel a Pet-mode Hollow Gate
  *             encounter names: the road draw's random 1v1/2v2/3v3 against the
  *             run's own Hounds, unpaid here and settled by the Gate.
@@ -293,7 +296,9 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
     const saveKey = `save:${playerName}`;
     const receipt = `sd:${session.sessionId}`;
     const paidKey = paidReceiptKey(playerName, receipt);
-    return withKvLock(saveKey, async () => {
+    // A lost commit race re-runs the whole block once: it re-reads the save, and
+    // the session receipt keeps the re-run from paying twice.
+    return retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
         const record = await kv.get<Record<string, unknown>>(saveKey);
         const char = record?.character as Record<string, unknown> | undefined;
         if (!record || !char) return { reward: 0 };
@@ -354,9 +359,12 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
                 character: char,
             };
         }
+        // The payout settles the idle recovery earned since the last save and
+        // carries the cursor, as mutatePlayerSave does.
+        const recovery = await settleIdleRecovery(kv, playerName, record);
         const reward = petArenaRyoReward(session.sealedOpponentLevel);
         const paidCharacter = {
-            ...char,
+            ...recovery.character,
             redeemedPetBattleTokens: [...receipts, receipt],
             ryo: Number(char.ryo ?? 0) + reward,
             totalPetWins: Number(char.totalPetWins ?? 0) + 1,
@@ -376,7 +384,10 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             witnessedPlayerPets as unknown as Pet[],
         );
         const updatedChar = witness.character;
-        const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
+        const updated = bumpSaveVersion({ ...record, character: updatedChar }, {
+            previousCharacter: char,
+            regenAt: carriedRegenCursor(recovery.character, updatedChar, recovery.regen),
+        });
         await writeSaveProjected(saveKey, updated, record);
         // AFTER the paying write, never before: a failed key write must not be
         // able to swallow a reward the player earned. Until it lands the array
@@ -396,7 +407,7 @@ export async function settleShowdownWin(playerName: string, session: ShowdownSes
             _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
             character: updatedChar,
         };
-    }, { failClosed: true });
+    }, { failClosed: true }));
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -1199,7 +1210,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        // A lost commit race wrote nothing and the finished session replays its
+        // settle exactly, so it gets the same retryable 503 the client auto-retries.
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Showdown is busy — please retry.' });
         }
         console.error('[pet/showdown]', err);

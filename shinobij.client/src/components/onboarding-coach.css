@@ -22,6 +22,17 @@ body.coach-banner-open .game-toast-stack {
     z-index: 8999;
 }
 
+/* Reward confirmations should sit under the tutorial guide instead of
+   covering its pet or speech bubble. */
+body.coach-banner-open .game-toast-stack {
+    z-index: 8999;
+}
+/* Yield while a player scrolls or tabs an actionable control under the guide. */
+.onboarding-coach-banner.coach-guide-yielding {
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
 .coach-guide-pet {
     width: clamp(88px, 12vmin, 128px);
     height: clamp(88px, 12vmin, 128px);

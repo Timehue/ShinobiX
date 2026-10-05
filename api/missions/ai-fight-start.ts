@@ -18,6 +18,7 @@ import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../s
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
     EXPLORE_BATTLE_MARKER_TTL_SECONDS,
@@ -211,11 +212,7 @@ async function sealAiFightEncounter(
         const save = await augmentSaveWithForgedDefs(rawSave);
         if (!save?.character) throw new Error('Authoritative player save is unavailable.');
         const sessionId = `aifight-${randomUUID().replace(/-/g, '')}`;
-        const fightSector = Math.floor(Number(genericAuthority?.sector ?? save.currentSector));
-        const fightBiome = worldSpec?.environment.biome
-            ?? sectorPlace(fightSector)?.biome
-            ?? STORY_VILLAGE_BIOMES[String((save.character as Record<string, unknown>).village ?? '')]
-            ?? 'central';
+
         // Step 3c: scaling from SERVER state. `body.opponentLevel` is never read
         // for the encounter — a client-chosen level is a client-chosen
         // difficulty. Combat missions are the only entry point that re-levels
@@ -226,14 +223,20 @@ async function sealAiFightEncounter(
             battleKind: body.battleKind,
             playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
         });
+        const now = Date.now();
+        // A world encounter's sector is its validated context; an exploration or
+        // raid fight's is the one its receipt / token proved. Practice, dungeon
+        // and the sectorless Apex hunt have none and stay weatherless.
+        const sky = await sealedSectorWeather(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, now);
         const session = buildSoloPveAiEncounter({
             playerName,
             save,
             profile,
             sessionId,
-            now: Date.now(),
+            now,
             ...(scaling ? { scaling } : {}),
-            environment: worldSpec?.environment ?? { biome: fightBiome },
+            // Generic fights keep their central board, and only the sky is added.
+            environment: worldSpec ? { ...worldSpec.environment, ...sky } : { biome: 'central', ...sky },
             ...(worldSpec ? {
                 encounter: {
                     kind: 'world-ai',

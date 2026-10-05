@@ -25,14 +25,14 @@ import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../li
 
 import { memo, useEffect, useState, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
-import { getBlackMarketUsage, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
+import { useBlackMarketUsage, utcDay, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
 import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
 
 import { levelProgress } from "../lib/character-progress";
 import { useOwnAvatar } from "../lib/own-avatar";
 import type { Character } from "../types/character";
 import type { DailyLoginCommitFactory } from "../lib/daily-login-api";
-import type { Screen } from "../types/core";
+import type { Biome, Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { DAILY_MISSION_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
@@ -45,6 +45,7 @@ import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 import { openPetExpedition } from "../lib/pet-expedition-navigation";
+import { SectorSkyForecast } from "./SectorSkyForecast";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { getCharacterElements } from "../lib/elements";
 
@@ -54,6 +55,7 @@ type ProfileCardProps = {
     character: Character;
     updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>;
     currentSector: number;
+    currentBiome: Biome;
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
@@ -71,6 +73,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
     updateCharacter,
     beginDailyLogin,
     currentSector,
+    currentBiome,
     setScreen,
     activeTraining,
     activeJutsuTraining,
@@ -101,6 +104,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
                 character={character}
                 updateCharacter={updateCharacter}
                 currentSector={currentSector}
+                currentBiome={currentBiome}
                 setScreen={setScreen}
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}
@@ -118,6 +122,7 @@ export const LeftProfileCard = memo(function LeftProfileCard({
 export const ProfileCardBody = memo(function ProfileCardBody({
     character,
     currentSector,
+    currentBiome,
     setScreen,
     activeTraining,
     activeJutsuTraining,
@@ -140,10 +145,8 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     const now = serverNow();
     const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
     const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
-    const todayUtc = new Date(now).toISOString().slice(0, 10);
-    const sealedCratesUsed = character.dailyBlackMarketCratesDay === todayUtc
-        ? character.dailyBlackMarketCrates ?? 0
-        : brokerUsage?.day === todayUtc ? brokerUsage.used : 0;
+    // Today's Broker crates at the Sunscar Festival; null until the count loads.
+    const sealedCrates = useBlackMarketUsage(character.name, utcDay(now));
 
     return (
         <>
@@ -172,7 +175,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             <div className="left-profile-stat">Chakra {character.chakra}/{character.maxChakra}</div>
             <div className="left-profile-stat">Stamina {character.stamina}/{character.maxStamina}</div>
             <div className="left-profile-stat">Sector {currentSector}</div>
-            <div className="left-profile-stat">Weather Clear Skies</div>
+            <div className="left-profile-stat">Weather <SectorSkyForecast sector={currentSector} biome={currentBiome} variant="name" /></div>
 
             {/* Core currencies — bloodline materials live on the character page. */}
             <div className="left-currencies">
@@ -206,13 +209,15 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                         <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
                         <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
-                    <div className="left-caps-cell" title="Daily sealed crates claimed from the Broker in Sunscar Festival">
-                        <span className="left-caps-label"><GameIcon name="gift" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
-                        <span className="left-caps-value" style={{ color: sealedCratesUsed >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCratesUsed}/{BLACK_MARKET_DAILY_CAP}</span>
-                    </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
                         <span className="left-caps-value" style={{ color: "var(--text-dim)" }}>{(() => { const now = new Date(); const ms = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)).getTime() - now.getTime(); const h = Math.floor(ms / 3600000); const m = Math.floor((ms % 3600000) / 60000); const s = Math.floor((ms % 60000) / 1000); return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`; })()}</span>
+                    </div>
+                    {/* Last and full-width: the name is too long for a half-width
+                        cell in the desktop rail, and it fills the grid's odd slot. */}
+                    <div className="left-caps-cell" style={{ gridColumn: "1 / -1" }} title="Sealed crates bought from the Broker at the Sunscar Festival today">
+                        <span className="left-caps-label"><GameIcon name="gift" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
+                        <span className="left-caps-value" style={{ color: (sealedCrates ?? 0) >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCrates ?? "–"}/{BLACK_MARKET_DAILY_CAP}</span>
                     </div>
                 </div>
             </div>

@@ -1,5 +1,6 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { SHOWDOWN_FORMAT_SIZE, type ShowdownFormat } from '../../shared/pet-showdown-contract.js';
+import { wandererBeastName, wandererBeastRival, wandererBeastSpecies } from '../../shared/wanderer-beast.js';
 import { buildColosseumAiTeam } from '../_pet-showdown/ai.js';
 import { createShowdownSession, type ShowdownSession } from '../_pet-showdown/engine.js';
 import { activeCarriedPets } from '../_entitlements.js';
@@ -17,6 +18,7 @@ import {
     withWandererUseState,
 } from '../sector/_wanderer-encounter.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
+import { PET_CATALOG } from './_catalog.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 
 // The session lease matches /api/pet/showdown's ordinary 45-minute lease.
@@ -127,17 +129,26 @@ export async function startNaturalWandererShowdown(playerName: string, rawRef: u
             if (!ready.length) {
                 return { ok: false as const, status: 409, error: 'You need a ready carried pet to answer this challenge.' };
             }
-            const { format, chosen } = rollShowdownTeam(ready);
+            // The beast the map showed: it locked onto `rival`, who leads, and it
+            // is `species`, which takes the beast's slot 0. Same shared rule as
+            // the World Map, so the fight is the creature the player walked up to.
+            const rival = wandererBeastRival(wanderer.id, ready);
+            const species = rival ? wandererBeastSpecies(wanderer.id, rival.rarity, Object.values(PET_CATALOG)) : null;
+            const { format, chosen } = rollShowdownTeam(ready, rival ? { lead: rival } : {});
             const seed = randomInt(1, 0x7fffffff);
-            const built = buildColosseumAiTeam(chosen, chosen.length, 'warrior', seed, true);
+            const built = buildColosseumAiTeam(chosen, chosen.length, 'warrior', seed, true,
+                species ? { leadTemplateId: String(species.id) } : undefined);
             if (built.pets.length !== chosen.length) {
                 return { ok: false as const, status: 500, error: 'The beast could not assemble its team.' };
             }
             const sessionId = randomUUID().replace(/-/g, '');
             const challenger = resolveNaturalWorldWanderer(wanderer.id, character, wanderer.sector, Date.now());
+            const beastName = challenger && species && built.pets[0]?.templateId === String(species.id)
+                ? wandererBeastName(challenger.name, String(species.name))
+                : challenger?.name ?? built.teamName;
             session = createShowdownSession({
                 sessionId, playerName, format, tier: 'warrior', seed,
-                playerPets: chosen, enemyPets: built.pets, enemyTeamName: challenger?.name ?? built.teamName,
+                playerPets: chosen, enemyPets: built.pets, enemyTeamName: beastName,
                 rewardEligible: false,
             });
             pointer = { sessionId, wanderer, createdAt: Date.now(), petIds: chosen.map((pet) => pet.id) };

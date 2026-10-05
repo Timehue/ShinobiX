@@ -10,6 +10,7 @@ Tower-specific objectives. Pet and Card participant models remain independent.
 ## Owner decisions
 
 - One human shinobi against one AI uses `solo-pve` and the normal Arena UI.
+- The daily Sunscar Caravan uses Tower for its solo 1-vs-3-to-5 road ambushes; its parent Caravan route owns the delivery rewards and run progress.
 - Player-versus-player combat stays in `pvp`.
 - Battle Towers (solo or party), Endless Spire, Clan Boss, Tower PvP, and the
   declared headless village-war mercenary battle use Tower. Tower is not the
@@ -50,7 +51,7 @@ keyspace, and rollback narrative remains in
 |---|---|
 | `pvp` | Casual, ranked, direct challenges, human-defender Sector War shinobi duels, Clan War shinobi 1v1, and the Sector War ANBU-garrison liveness fallback (Sector War orchestrates the scoring; the fight itself runs on `solo-pve`); Clan War shinobi 2v2 names PvP as its intended owner but new progression is retired fail-closed until a four-player lifecycle exists |
 | `solo-pve` | Generic/published AI (including Apex, explore ambushes, and village-guard raids), server-reconstructed World-context hunts/wanderers, all combat missions, Academy spar, story bosses, normal Endless waves, Hollow Gate shinobi encounters, Weekly Boss attempts, ANBU infiltration, and (under Sector War's `pvp`-labeled orchestration) the Sector War garrison fallback |
-| `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, and declared headless village-war mercenary battles; the Sector garrison fallback stays off Tower for good — it now runs on `solo-pve` |
+| `tower` | Battle Towers, Tower parties, Endless Spire, Clan Boss, Tower PvP, Sunscar Caravan's solo 1-vs-3-to-5 ambush, and declared headless village-war mercenary battles; the Sector garrison fallback stays off Tower for good — it now runs on `solo-pve` |
 | `pet-showdown` | Showdown practice, the sole new paid Coliseum admission and progression settlement, Showdown ladder, and Showdown-backed Sector/Clan War pet fights |
 | `pet-warfront` | Pet Warfront, Pet Ladder Warfront, and co-op Tactical preview; standalone Tactical remains a distinct missing surface even where Warfront-family reuse is allowed |
 | `pet-gauntlet-grid` | Pet Gauntlet's deterministic grid draft, transcript replay, and capped settlement |

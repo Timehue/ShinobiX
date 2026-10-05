@@ -860,6 +860,7 @@ type LayoutMeasurement = {
     gridTemplateRows: string;
     layoutHasActionNotice: boolean;
     mainGridRowCount: number;
+    actionNoticeVisible: boolean;
     mainGridTemplateColumns: string;
     mainGridTemplateRows: string;
     visibleTileCount: number;
@@ -1091,6 +1092,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             gridTemplateRows: style?.gridTemplateRows ?? '',
             layoutHasActionNotice: layoutNode?.classList.contains('has-action-notice') === true,
             mainGridRowCount: countGridTracks(trackStyle?.gridTemplateRows ?? ''),
+            actionNoticeVisible: Boolean(rect(noticeNode)),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
             mainGridTemplateRows: trackStyle?.gridTemplateRows ?? '',
             visibleTileCount: tiles.length,
@@ -1876,15 +1878,12 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             : intermediateDesktopDossiers
                 ? 8
                 : mode === 'solo'
-                    ? (current.viewport.width >= 1024
-                        ? 6
-                        : current.viewport.height <= 500
-                            ? 4
-                            : current.layoutHasActionNotice ? 7 : 6)
+                    ? (current.viewport.width >= 1024 ? 6 : current.viewport.height <= 500 ? 4 : current.viewport.width < 980 ? 6 : 7)
                     : current.viewport.width < 980
                         ? (current.viewport.height <= 500 ? 4 : 6)
                         : 7;
         expect(current.mainGridRowCount, `${label} unexpected implicit main-grid row`).toBe(expectedMainRows);
+        if (mode === 'solo') expect(current.actionNoticeVisible, `${label} mobile hint row must be removed`).toBe(current.viewport.width >= 980);
         if (mode === 'solo') {
             // Solo intentionally renders the battlefield directly, without an
             // aspect-locking CombatBoardStage. Its row height changes by viewport;

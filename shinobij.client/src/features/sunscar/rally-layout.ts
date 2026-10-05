@@ -1,4 +1,4 @@
-import { rallyLanePosition, rallyPath, rallyPathFrame, rallySection } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyPath, rallyPathFrame, rallySection, rallyTrackCoordinates } from '../../../../shared/sunscar/rally-tracks';
 import { sunscarRandom } from '../../../../shared/sunscar/random';
 import type { RallyTrack } from '../../../../shared/sunscar/rally-types';
 
@@ -16,9 +16,9 @@ export const RALLY_CROWD_BAND = { inner: 1.6, depth: 1.5, count: 15, spacing: 1.
 const PAVILION_HALF = 2.6;
 
 type Vec3 = [number, number, number];
-export type RallyRock = { position: Vec3; rotation: Vec3; scale: Vec3 };
+export type RallyRock = { position: Vec3; rotation: Vec3; scale: Vec3; distance: number; lateral: number };
 /** Ground a boulder must not enter, beside the road on one side, between two course distances. */
-export type RallyKeepOut = { name: string; side: -1 | 1; from: number; to: number; minX: number; maxX: number };
+export type RallyKeepOut = { name: string; side: -1 | 1; from: number; to: number; minLateral: number; maxLateral: number };
 
 /** Half the drawn road width. Between ribbon samples the width interpolates, so
  * a section seam tapers over one step rather than snapping. */
@@ -31,13 +31,12 @@ export function rallyRoadHalfWidth(track: RallyTrack, distance: number): number 
     return (a + (b - a) * t) / 2;
 }
 
-/** Outermost drawn road edge on one side across a stretch of the course. */
-export function rallyRoadEdge(track: RallyTrack, from: number, to: number, side: -1 | 1): number {
-    let edge = side * -Infinity;
+/** Widest half-road along a rock's footprint. */
+function rallyRoadHalfWidthOver(track: RallyTrack, from: number, to: number): number {
+    let half = 0;
     for (let distance = from; ; distance = Math.min(to, distance + 1)) {
-        const x = rallyPath(track, distance).x + side * rallyRoadHalfWidth(track, distance);
-        edge = side > 0 ? Math.max(edge, x) : Math.min(edge, x);
-        if (distance >= to) return edge;
+        half = Math.max(half, rallyRoadHalfWidth(track, distance));
+        if (distance >= to) return half;
     }
 }
 
@@ -74,30 +73,32 @@ export function rallyCrowdSpots(track: RallyTrack): number[] {
 /** Every set piece a boulder must stay clear of, from the same placements the scene draws. */
 export function rallyKeepOuts(track: RallyTrack): RallyKeepOut[] {
     const out: RallyKeepOut[] = [];
-    const sideOf = (x: number, distance: number): -1 | 1 => x > rallyPath(track, distance).x ? 1 : -1;
     for (const [i, p] of rallyPavilions(track).entries()) {
-        out.push({ name: `pavilion ${i}`, side: sideOf(p.x, -p.z), from: -p.z - PAVILION_HALF, to: -p.z + PAVILION_HALF, minX: p.x - PAVILION_HALF, maxX: p.x + PAVILION_HALF });
+        const distance = -p.z;
+        const center = rallyTrackCoordinates(track, p.x, p.z, distance).lateral;
+        out.push({ name: `pavilion ${i}`, side: center > 0 ? 1 : -1, from: distance - PAVILION_HALF, to: distance + PAVILION_HALF, minLateral: center - PAVILION_HALF, maxLateral: center + PAVILION_HALF });
     }
     for (const stand of rallyGrandstands(track)) {
         // Rows reach 1.5 inboard and 3.5 outboard of the group; its pavilion sits 2 outboard and 8 towards the finish.
         const d = -stand.z, s = stand.side;
+        const center = rallyTrackCoordinates(track, stand.x, stand.z, d).lateral;
         out.push({ name: `grandstand ${s}`, side: s, from: d - 9, to: d + 8 + PAVILION_HALF,
-            minX: stand.x + (s > 0 ? -1.5 : -2 - PAVILION_HALF), maxX: stand.x + (s > 0 ? 2 + PAVILION_HALF : 1.5) });
+            minLateral: center + (s > 0 ? -1.5 : -2 - PAVILION_HALF), maxLateral: center + (s > 0 ? 2 + PAVILION_HALF : 1.5) });
     }
     for (const spot of rallyCrowdSpots(track)) {
         // One slot per spectator, so a block on a bend follows the road.
         for (let i = 0; i < RALLY_CROWD_BAND.count; i++) {
             const d = spot + i * RALLY_CROWD_BAND.spacing;
             for (const side of [-1, 1] as const) {
-                const edge = rallyPath(track, d).x + side * rallyRoadHalfWidth(track, d);
-                const near = edge + side * RALLY_CROWD_BAND.inner, far = edge + side * (RALLY_CROWD_BAND.inner + RALLY_CROWD_BAND.depth);
-                out.push({ name: `crowd ${spot}${side > 0 ? 'R' : 'L'} #${i}`, side, from: d - .5, to: d + .5, minX: Math.min(near, far) - .3, maxX: Math.max(near, far) + .3 });
+                const near = side * (rallyRoadHalfWidth(track, d) + RALLY_CROWD_BAND.inner);
+                const far = side * (rallyRoadHalfWidth(track, d) + RALLY_CROWD_BAND.inner + RALLY_CROWD_BAND.depth);
+                out.push({ name: `crowd ${spot}${side > 0 ? 'R' : 'L'} #${i}`, side, from: d - .5, to: d + .5, minLateral: Math.min(near, far) - .3, maxLateral: Math.max(near, far) + .3 });
             }
         }
     }
     for (const d of [0, track.length]) {
-        const p = rallyPath(track, d), { post } = rallyArch(track, d);
-        for (const side of [-1, 1] as const) out.push({ name: `arch ${d}${side > 0 ? 'R' : 'L'}`, side, from: d - 1, to: d + 1, minX: p.x + side * post - .6, maxX: p.x + side * post + .6 });
+        const { post } = rallyArch(track, d);
+        for (const side of [-1, 1] as const) out.push({ name: `arch ${d}${side > 0 ? 'R' : 'L'}`, side, from: d - 1, to: d + 1, minLateral: side * post - .6, maxLateral: side * post + .6 });
     }
     return out;
 }
@@ -122,29 +123,31 @@ export function rallyRocks(track: RallyTrack): RallyRock[] {
     const keepOuts = rallyKeepOuts(track);
     const rocks: RallyRock[] = [];
     for (let d = 0; d < track.length + 40; d += 12) {
-        const p = rallyPath(track, d);
         const width = rallySection(track, d).width;
         for (const side of [-1, 1] as const) {
             const high = track.scenery === 'canyon' ? 6 + random() * 12 : 1 + random() * 5;
             const offset = width / 2 + 6 + random() * 12;
             const along = d + random() * 8;
-            const rotation: Vec3 = [random() * .5, random() * 6, random() * .4];
+            const frame = rallyPathFrame(track, along);
+            const rotation: Vec3 = [random() * .5, frame.yaw + random() * 6, random() * .4];
             const scale: Vec3 = [high * .7, high, high * .8];
-            const extent = rallyRockHalfExtents(rotation, scale);
-            const road = rallyRoadEdge(track, along - extent.z, along + extent.z, side) + side * (RALLY_ROCK_CLEARANCE + extent.x);
-            let x = side > 0 ? Math.max(p.x + offset, road) : Math.min(p.x - offset, road);
+            const worldExtent = rallyRockHalfExtents(rotation, scale);
+            const lateralExtent = Math.abs(frame.rightX) * worldExtent.x + Math.abs(frame.rightZ) * worldExtent.z;
+            const longitudinalExtent = Math.abs(frame.rightZ) * worldExtent.x + Math.abs(frame.rightX) * worldExtent.z;
+            let lateral = side * Math.max(offset, rallyRoadHalfWidthOver(track, along - longitudinalExtent, along + longitudinalExtent) + RALLY_ROCK_CLEARANCE + lateralExtent);
             for (let moved = true; moved;) {
                 moved = false;
                 for (const zone of keepOuts) {
-                    if (zone.side !== side || zone.to < along - extent.z || zone.from > along + extent.z) continue;
-                    if (x + extent.x <= zone.minX - RALLY_SET_PIECE_CLEARANCE || x - extent.x >= zone.maxX + RALLY_SET_PIECE_CLEARANCE) continue;
-                    const beyond = side > 0 ? zone.maxX + RALLY_SET_PIECE_CLEARANCE + extent.x : zone.minX - RALLY_SET_PIECE_CLEARANCE - extent.x;
+                    if (zone.side !== side || zone.to < along - longitudinalExtent || zone.from > along + longitudinalExtent) continue;
+                    if (lateral + lateralExtent <= zone.minLateral - RALLY_SET_PIECE_CLEARANCE || lateral - lateralExtent >= zone.maxLateral + RALLY_SET_PIECE_CLEARANCE) continue;
+                    const beyond = side > 0 ? zone.maxLateral + RALLY_SET_PIECE_CLEARANCE + lateralExtent : zone.minLateral - RALLY_SET_PIECE_CLEARANCE - lateralExtent;
                     // Only ever outward, and only by a real amount: rounding can
                     // leave a boulder that already sits on the far edge "touching" it.
-                    if (side * (beyond - x) > 1e-6) { x = beyond; moved = true; }
+                    if (side * (beyond - lateral) > 1e-6) { lateral = beyond; moved = true; }
                 }
             }
-            rocks.push({ position: [x, p.y + high * .25 - 1, -along], rotation, scale });
+            const point = rallyLanePosition(track, along, lateral);
+            rocks.push({ position: [point.x, point.y + high * .25 - 1, point.z], rotation, scale, distance: along, lateral });
         }
     }
     return rocks;

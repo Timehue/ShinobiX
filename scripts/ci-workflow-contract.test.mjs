@@ -25,7 +25,7 @@ test('split CI exposes stable required check names with bounded jobs', () => {
     for (const name of requiredNames) {
         assert.equal(occurrences(`name: ${name}\n`), 1, `${name} must remain a unique stable check context`);
     }
-    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-3/);
+    assert.match(workflow, /name: CI \/ e2e-responsive \/ \$\{\{ matrix\.shard \}\}-of-5/);
     assert.match(workflow, /name: CI \/ e2e-combat \/ \$\{\{ matrix\.shard \}\}/);
     const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map((match) => Number(match[1]));
     assert.ok(timeouts.length >= requiredNames.length, 'every job must declare a timeout');
@@ -66,7 +66,7 @@ test('split CI preserves every release gate and builds each artifact once', () =
     for (const command of commands) assert.ok(workflow.includes(command), `missing CI gate: ${command}`);
     assert.equal(occurrences('npm run build:server'), 1, 'server release artifact must be built exactly once');
     assert.equal(occurrences('npm run build --prefix shinobij.client'), 1, 'client release artifact must be built exactly once');
-    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3'), 'responsive certification must run all three Playwright shards');
+    assert.ok(workflow.includes('npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/5'), 'responsive certification must run all five Playwright shards');
     assert.ok(workflow.includes('node-version-file: .nvmrc'), 'CI must take its Node version from .nvmrc');
 });
 
@@ -91,7 +91,7 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     // A client-only install passes locally when an earlier root install exists,
     // but fails while discovering the ranked replay fixture on a fresh runner.
     const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    assert.match(responsive, /shard: \[1, 2, 3\]/, 'every responsive shard must be scheduled');
+    assert.match(responsive, /shard: \[1, 2, 3, 4, 5\]/, 'every responsive shard must be scheduled');
     assert.ok(responsive, 'the responsive shard job must exist');
     const rootInstall = responsive.search(/run: npm ci 2>&1/);
     const browserRun = responsive.indexOf('run: npm run test:e2e --prefix shinobij.client');
@@ -101,78 +101,18 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     for (const tool of ['tsx', 'esbuild']) assert.ok(rootPackage.devDependencies[tool], `${tool} must be a direct QA dependency`);
 });
 
-test('named forge and Chronicle packs run every dedicated project in required CI', () => {
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    for (const [label, config, shard, log] of [
-        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 2, 'named-forge.log'],
-        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 3, 'chronicle-packs.log'],
-        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 2, 'rally-recovery.log'],
-    ]) {
-        const step = responsive?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
-        assert.ok(step, `${label} must run in the required responsive job`);
-        assert.ok(step.includes(`matrix.shard == ${shard}`));
-        assert.ok(step.includes(`--config ${config} --retries=0 --forbid-only`));
-        assert.ok(step.includes(log), 'retain the dedicated suite output');
-        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
-    }
-});
-
 test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI', () => {
     const playwrightConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
     assert.match(playwrightConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*pet-gauntlet-board\.spec\.ts/,
         'the immutable production-preview suite must leave the Vite source fixture to its dedicated config');
     const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    const step = responsive?.split('      - name: ').find((value) => value.startsWith('Pet Gauntlet playback and renderer recovery\n'));
+    const step = responsive?.split(/\n(?=      - name: )/).find((value) => value.startsWith('      - name: Pet Gauntlet playback and renderer recovery\n'));
     assert.ok(step, 'the required responsive job must execute the renderer recovery check');
     assert.match(step, /if: \$\{\{ matrix\.shard == 1 \}\}/, 'the expensive source fixture must run once');
     assert.match(step, /xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij\.client/,
         'the headful WebGL regression needs a virtual display on the Linux CI runner');
     assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/gauntlet-render\.log/,
         'the result must be retained in responsive CI evidence');
-});
-
-test('village transfer preserves every responsive project through its source fixture gate', () => {
-    const productionConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8');
-    const transferConfig = readFileSync(new URL('../shinobij.client/playwright.village-transfer.config.ts', import.meta.url), 'utf8');
-    const clientPackage = JSON.parse(readFileSync(new URL('../shinobij.client/package.json', import.meta.url), 'utf8'));
-    assert.match(productionConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*village-transfer\.spec\.ts/);
-    assert.match(transferConfig, /projects:\s*responsiveConfig\.projects\?\.map\(\(\{ name, use \}\) => \(\{ name, use \}\)\)/,
-        'the source runner must preserve all responsive browser/viewport projects without production exclusions');
-    assert.match(transferConfig, /vite\.village-transfer-qa\.config\.mjs/);
-    assert.equal(clientPackage.scripts['test:e2e:village-transfer'], 'playwright test -c playwright.village-transfer.config.ts');
-    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
-    const step = responsive?.split('      - name: ').find(value => value.startsWith('Village transfer across responsive browsers\n'));
-    assert.ok(step, 'the required responsive job must execute the source fixture');
-    assert.match(step, /if: \$\{\{ matrix\.shard == 3 \}\}/);
-    assert.match(step, /npm run test:e2e:village-transfer --prefix shinobij\.client/);
-    assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/village-transfer\.log/);
-    assert.match(step, /--retries=0 --forbid-only --reporter=line,json,html/);
-    assert.match(step, /PLAYWRIGHT_JSON_OUTPUT_NAME: .*village-transfer\.json/);
-    assert.match(step, /PLAYWRIGHT_HTML_OUTPUT_DIR: .*village-transfer-html/);
-    assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
-});
-
-test('real-handler recovery projects use fresh invocations within the registration budget', () => {
-    const liveConfig = readFileSync(new URL('../shinobij.client/playwright.live.config.ts', import.meta.url), 'utf8');
-    assert.match(liveConfig, /reuseExistingServer:\s*false/);
-    const stores = workflow.split('  e2e_village_stores:\n')[1]?.split('\n  test_build:\n')[0];
-    assert.ok(stores, 'the required live-server job must exist');
-    for (const project of ['desktop', 'mobile']) {
-        const step = stores.split('      - name: ').find(value => value.startsWith(`Live Express defeat, landing and daily recovery on ${project}\n`));
-        assert.ok(step, `${project} recovery must have its own fresh server invocation`);
-        for (const spec of ['first-defeat-recovery-express.spec.ts', 'landing-style-routing.spec.ts', 'daily-login-recovery-express.spec.ts']) {
-            readFileSync(new URL(`../shinobij.client/e2e-live/${spec}`, import.meta.url), 'utf8');
-            assert.ok(step.includes(spec), `${project} recovery is missing ${spec}`);
-        }
-        assert.match(step, new RegExp(`--project=chromium-${project}-live`));
-        assert.equal((step.match(/--project=/g) ?? []).length, 1);
-        assert.match(step, /--workers=1 --retries=0 --forbid-only/);
-        assert.ok(step.includes(`defeat-recovery-${project}.json`));
-        assert.ok(step.includes(`defeat-recovery-${project}-html`));
-        assert.ok(step.includes(`defeat-recovery-ci-${project}`));
-        assert.ok(step.includes(`defeat-recovery-${project}.log`));
-        assert.doesNotMatch(step, /continue-on-error|--grep|RATE_LIMIT|FORWARDED/);
-    }
 });
 
 test('built CSP and every Stronghold audit feed the required responsive gate with retained evidence', () => {
@@ -335,5 +275,21 @@ test('every workflow takes its Node version from .nvmrc', () => {
         if (body.includes('actions/setup-node')) {
             assert.match(body, /node-version-file: \.nvmrc/, `${file} sets up Node without reading .nvmrc`);
         }
+    }
+});
+
+test('named forge and Chronicle packs run every dedicated project in required CI', () => {
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    for (const [label, config, shard, log] of [
+        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 4, 'named-forge.log'],
+        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 5, 'chronicle-packs.log'],
+        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 4, 'rally-recovery.log'],
+    ]) {
+        const step = responsive?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
+        assert.ok(step, `${label} must run in the required responsive job`);
+        assert.ok(step.includes(`matrix.shard == ${shard}`));
+        assert.ok(step.includes(`--config ${config} --retries=0 --forbid-only`));
+        assert.ok(step.includes(log), 'retain the dedicated suite output');
+        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
     }
 });

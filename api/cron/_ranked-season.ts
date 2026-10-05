@@ -21,10 +21,12 @@
  */
 import { isDeepStrictEqual } from 'node:util';
 import { kv, type KvLike } from '../_storage.js';
+import { storedValueEquals } from '../_stored-value.js';
 import { mergePreservingImages } from '../_utils.js';
 import { withKvLock } from '../_lock.js';
 import { DEFAULT_RANKED_RATING } from '../_ranked-rating.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import { commitPetRankedStartingPair } from '../pet/_ranked-engine.js';
 import {
     getPetRankedJournal,
@@ -366,10 +368,12 @@ async function putImmutable(
         if (await store.set(key, value, { nx: true, ex: ttlSeconds }) === 'OK') return;
     } catch (error) {
         const recovered = await store.get<unknown>(key).catch(() => null);
-        if (isDeepStrictEqual(recovered, value)) return;
+        if (storedValueEquals(recovered, value)) return;
         throw error;
     }
-    if (isDeepStrictEqual(await store.get<unknown>(key), value)) return;
+    // The plan and archive carry `village: undefined` for a save without a
+    // village. The stored row has no such key, so compare in the JSON form.
+    if (storedValueEquals(await store.get<unknown>(key), value)) return;
     throw new Error(`ranked-season-immutable-conflict:${key}`);
 }
 
@@ -653,10 +657,17 @@ async function applySeasonSettlement(
         const record = await store.get<Record<string, unknown>>(key);
         const character = (record?.character ?? null) as Record<string, unknown> | null;
         if (!record || !character) throw new Error(`ranked-season-plan-save-unreadable:${slug}`);
-        const settlement = settleRankedSeasonCharacter(character, seasonId, reward);
+        // The rollover writes every ranked player, almost all of them offline.
+        // Each keeps the idle recovery earned since their last save: it settles
+        // into this write and the cursor carries, as mutatePlayerSave does.
+        const recovery = await settleIdleRecovery(store, slug, record);
+        const settlement = settleRankedSeasonCharacter(recovery.character, seasonId, reward);
         if (!settlement.changed) return;
         const updated = mergePreservingImages(
-            bumpSaveVersion({ ...record, character: settlement.character }, { previousCharacter: character }),
+            bumpSaveVersion({ ...record, character: settlement.character }, {
+                previousCharacter: character,
+                regenAt: carriedRegenCursor(recovery.character, settlement.character, recovery.regen),
+            }),
             record,
         ) as Record<string, unknown>;
         try {

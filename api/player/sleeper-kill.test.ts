@@ -5,20 +5,18 @@ process.env.SESSION_SECRET = 'sleeper-kill-test-secret-32-bytes-long';
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
 
-// The shared sleeper-KO settlement (`settleSleeperKoLocked`, used by the player
+// The shared sleeper-KO decision (`decideSleeperKo`, committed by the player
 // handler AND by NPC merc raids in api/_merc-auto.ts) plus the player handler
 // itself. Runs against the isolated in-memory KV.
 //
 // The settlement tests below used to call a `koSleeperCamp` wrapper that ONLY
-// this file called — api/_merc-auto.ts takes the lock and calls
-// settleSleeperKoLocked directly — so a green run proved nothing about either
-// real caller. The wrapper is gone; these tests now take the same lock the merc
-// raid takes, and the handler has its own coverage further down.
+// this file called, so a green run proved nothing about either real caller.
+// They now call `settleSleeperKo`, exactly what api/_merc-auto.ts calls (minus
+// its cooldown gate), and the handler has its own coverage further down.
 
 let kv: typeof import('../_storage.js').kv;
-let settleSleeperKoLocked: typeof import('./sleeper-kill.js').settleSleeperKoLocked;
+let settleSleeperKo: typeof import('./sleeper-kill.js').settleSleeperKo;
 let handler: (req: never, res: never) => Promise<unknown>;
-let withKvLock: typeof import('../_lock.js').withKvLock;
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let issuePlayerToken: typeof import('../_auth.js').issuePlayerToken;
 let computePvpWinGains: typeof import('../_xp-engine.js').computePvpWinGains;
@@ -30,9 +28,8 @@ let getSleeperCamp: typeof import('../_realtime/sleeper-camps.js').getSleeperCam
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
-    ({ settleSleeperKoLocked } = await import('./sleeper-kill.js'));
+    ({ settleSleeperKo } = await import('./sleeper-kill.js'));
     handler = (await import('./sleeper-kill.js')).default as unknown as typeof handler;
-    ({ withKvLock } = await import('../_lock.js'));
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ computePvpWinGains } = await import('../_xp-engine.js'));
@@ -41,9 +38,9 @@ before(async () => {
     ({ stampPlayerIp, hasRecentIpOrFpOverlap } = await import('../_player-ips.js'));
 });
 
-/** Exactly what api/_merc-auto.ts does: take the target's save lock, settle. */
+/** Exactly what api/_merc-auto.ts calls, minus its cooldown gate. */
 function koUnderLock(targetSlug: string, opts: { now?: number; expectSector?: number } = {}) {
-    return withKvLock(`save:${targetSlug}`, () => settleSleeperKoLocked(targetSlug, opts), { failClosed: true });
+    return settleSleeperKo(targetSlug, opts);
 }
 
 function seedSave(name: string, sector: number, extra: Record<string, unknown> = {}) {
@@ -53,7 +50,7 @@ function seedSave(name: string, sector: number, extra: Record<string, unknown> =
     });
 }
 
-test('settleSleeperKoLocked: an offline camper in a wild sector is hospitalized, sent to the village, and the camp is cleared', async () => {
+test('settleSleeperKo: an offline camper in a wild sector is hospitalized, sent to the village, and the camp is cleared', async () => {
     const NOW = 1_800_000_000_000;
     await seedSave('zed', 7);
     await setSleeperCamp({ name: 'zed', displayName: 'Zed', sector: 7, createdAt: NOW - 1000 });
@@ -73,7 +70,7 @@ test('settleSleeperKoLocked: an offline camper in a wild sector is hospitalized,
     assert.equal(again.status, 409);
 });
 
-test('settleSleeperKoLocked: a camp that moved to another sector is refused when the caller pins the sector', async () => {
+test('settleSleeperKo: a camp that moved to another sector is refused when the caller pins the sector', async () => {
     await seedSave('mia', 9);
     await setSleeperCamp({ name: 'mia', displayName: 'Mia', sector: 9, createdAt: 1 });
     const r = await koUnderLock('mia', { now: 2, expectSector: 4 });
@@ -82,7 +79,7 @@ test('settleSleeperKoLocked: a camp that moved to another sector is refused when
     assert.equal(after?.character.hospitalized, undefined, 'untouched');
 });
 
-test('settleSleeperKoLocked: a village / Central logout never becomes a camp, so it cannot be KO\'d', async () => {
+test('settleSleeperKo: a village / Central logout never becomes a camp, so it cannot be KO\'d', async () => {
     await seedSave('home', 0);
     await setSleeperCamp({ name: 'home', displayName: 'Home', sector: 0, createdAt: 1 }); // store refuses sector < 1
     assert.equal(await getSleeperCamp('home'), null);
@@ -92,7 +89,7 @@ test('settleSleeperKoLocked: a village / Central logout never becomes a camp, so
     assert.equal(after?.character.hp, 400, 'untouched');
 });
 
-test('settleSleeperKoLocked: an already-hospitalized camper is not hit twice', async () => {
+test('settleSleeperKo: an already-hospitalized camper is not hit twice', async () => {
     await seedSave('down', 5, { hospitalized: true, hospitalizedUntil: Date.now() + 60_000 });
     await setSleeperCamp({ name: 'down', displayName: 'Down', sector: 5, createdAt: 1 });
     const r = await koUnderLock('down', { now: Date.now() });
@@ -195,6 +192,52 @@ test('sleeper-kill handler: returns the bumped save version so the attacker can 
     assert.ok(stored > before, 'the credit must bump the stored version (bumpSaveVersion contract)');
     assert.equal(out.body._saveVersion, stored,
         'the response must carry the version that actually landed on the save');
+});
+
+test('sleeper-kill handler: the attacker keeps the recovery earned since their last save', async () => {
+    // The raw credit write fenced the attacker's regeneration cursor and erased
+    // every point of HP, chakra and stamina recovered since their last save.
+    const at = Date.now() - 30_000;
+    await kv.set('save:restful', {
+        _saveVersion: 1, _saveAt: at, _regenAt: at, currentSector: 0,
+        character: {
+            name: 'restful', village: 'Stormveil Village', level: 12, ryo: 0,
+            hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+        },
+    });
+    await stage('restful', 'snoozer', 8);
+    const out = await postKill('restful', 'snoozer', '10.9.0.5');
+    assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+    const attacker = await charOf('restful');
+    assert.ok(Number(attacker.hp) >= 40, `hp ${attacker.hp} lost the idle recovery`);
+    assert.ok(Number(attacker.chakra) >= 50, `chakra ${attacker.chakra} lost the idle recovery`);
+    assert.ok(Number(attacker.stamina) >= 30, `stamina ${attacker.stamina} lost the idle recovery`);
+});
+
+test('sleeper-kill handler: the repeat-opponent counter advances once, and only for a credit that landed', async () => {
+    await seedSave('stalker', 0, { ryo: 0 });
+    await stage('stalker', 'quarry', 6);
+    // The KO commits first; then the attacker's credit write fails.
+    const original = kv.compareSet;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (key === 'save:stalker') throw new Error('attacker-write-down');
+        return original.call(kv, key, expected, value, options);
+    };
+    let failed: ResponseOut;
+    try {
+        failed = await postKill('stalker', 'quarry', '10.9.0.6');
+    } finally {
+        kv.compareSet = original;
+    }
+    assert.equal(failed.statusCode, 500, JSON.stringify(failed.body));
+    assert.equal((await charOf('quarry')).hospitalized, true, 'the KO landed, as before');
+    assert.equal(await kv.get('pvp:pairwins:stalker:quarry'), null,
+        'a credit that never landed is not counted against the next kill');
+
+    await stage('stalker', 'prey', 6);
+    const ok = await postKill('stalker', 'prey', '10.9.0.7');
+    assert.equal(ok.statusCode, 200, JSON.stringify(ok.body));
+    assert.equal(Number(await kv.get('pvp:pairwins:stalker:prey')), 1, 'a clean kill counts exactly once');
 });
 
 test('sleeper-kill handler: collects the head bounty, once, and clears it from the board', async () => {

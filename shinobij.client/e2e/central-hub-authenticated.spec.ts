@@ -74,8 +74,6 @@ async function installAuthenticatedApi(page: Page) {
                 saveVersion += 1;
                 save = {
                     ...incoming,
-                    // Hub reloads require a town save; bookmarks cannot move a
-                    // character out of the creator's initial field sector.
                     currentSector: 0,
                     character: {
                         ...(incoming.character ?? {}),

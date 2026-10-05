@@ -87,6 +87,14 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
     }
 }
 
+export function hollowGateSealRunMarkers(result: Awaited<ReturnType<typeof sealHollowGateFloor>>) {
+    return {
+        detourTileIndex: result.detour?.tileIndex,
+        detourExtraSteps: result.detour?.extraSteps,
+        riftSignalTileIndex: result.riftSignal?.tileIndex,
+    };
+}
+
 export function hollowGateRewardLines(reward?: HollowGateEventReward): string[] {
     const currencies = reward?.currencies ?? {};
     const items = reward?.items ?? {};

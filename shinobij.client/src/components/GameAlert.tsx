@@ -83,7 +83,9 @@ function useDialogFocusTrap(
             // immediate focus() call. Restore on the next frame, once React
             // has removed the dialog node, and only if the opener still exists.
             requestAnimationFrame(() => {
-                if (previouslyFocused?.isConnected) previouslyFocused.focus();
+                // A confirmation can resolve into a notice before this frame runs.
+                // Keep focus in the successor dialog instead of its old opener.
+                if (!document.querySelector(".game-alert-backdrop") && previouslyFocused?.isConnected) previouslyFocused.focus();
             });
         };
     }, [open, cardRef, restoreFocusRef]);

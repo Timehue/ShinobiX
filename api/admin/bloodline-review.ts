@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, mergePreservingImages, safeName } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { isAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { recordAudit } from '../_audit.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
-import { withKvLock } from '../_lock.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { retryOnSaveVersionConflict } from '../save/_projected-write.js';
 
 const APPROVED_BLOODLINES_KEY = 'admin:approvedBloodlines';
 const ADMIN_CONTENT_OWNER_KEYS = new Set(['admin', 'admin1', 'admin2']);
@@ -109,13 +109,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const approved = await loadApprovedBloodlines();
 
         if ((action === 'delete' || action === 'update') && !ADMIN_CONTENT_OWNER_KEYS.has(cleanOwnerKey)) {
-            const saveKey = `save:${cleanOwnerKey}`;
             const adminLockKey = `admin-lock:${cleanOwnerKey}`;
             const resetSignalKey = `reset-signal:${cleanOwnerKey}`;
-            const mutationResult = await withKvLock(saveKey, async () => {
-                const snap = await kv.get<Record<string, unknown>>(saveKey);
-                if (!snap) return 'missing' as const;
-                const rawBloodlines = Array.isArray(snap.savedBloodlines) ? snap.savedBloodlines : [];
+            // The edit is recomputed from the fresh save, so a lost
+            // compare-and-set re-runs it once. A missing save is 'missing'.
+            const mutation = await retryOnSaveVersionConflict(() => mutatePlayerSave<'missing' | 'updated' | 'deleted'>(cleanOwnerKey, ({ record, character }) => {
+                const rawBloodlines = Array.isArray(record.savedBloodlines) ? record.savedBloodlines : [];
                 // Pre-check: does the bloodlineId actually exist on this
                 // save? If not, the filter/map below is a no-op and we'd
                 // still write the save + spam the player with a force-
@@ -127,34 +126,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Nothing to do — owner doesn't actually hold this bloodline.
                     // Still update the approved-list below so admin can curate
                     // entries pre-emptively.
-                    return 'missing' as const;
-                } else {
-                    const nextBloodlines = action === 'delete'
-                        ? rawBloodlines.filter((savedBloodline) => {
-                            return !(savedBloodline && typeof savedBloodline === 'object' && String((savedBloodline as { id?: unknown }).id ?? '') === bloodlineId);
-                        })
-                        : rawBloodlines.map((savedBloodline) => {
-                            if (!(savedBloodline && typeof savedBloodline === 'object' && String((savedBloodline as { id?: unknown }).id ?? '') === bloodlineId)) return savedBloodline;
-                            // Allowlist-merge: only known bloodline fields can be overwritten
-                            // by the admin payload. Stops arbitrary properties from being
-                            // injected into player saves via this endpoint.
-                            return { ...(savedBloodline as Record<string, unknown>), ...filterBloodlineFields(bloodline), id: bloodlineId };
-                        });
-                    const next = mergePreservingImages(
-                        bumpSaveVersion({ ...snap, savedBloodlines: nextBloodlines }),
-                        snap,
-                    );
+                    return { ok: true, write: false, character, value: 'missing' };
+                }
+                const nextBloodlines = action === 'delete'
+                    ? rawBloodlines.filter((savedBloodline) => {
+                        return !(savedBloodline && typeof savedBloodline === 'object' && String((savedBloodline as { id?: unknown }).id ?? '') === bloodlineId);
+                    })
+                    : rawBloodlines.map((savedBloodline) => {
+                        if (!(savedBloodline && typeof savedBloodline === 'object' && String((savedBloodline as { id?: unknown }).id ?? '') === bloodlineId)) return savedBloodline;
+                        // Allowlist-merge: only known bloodline fields can be overwritten
+                        // by the admin payload. Stops arbitrary properties from being
+                        // injected into player saves via this endpoint.
+                        return { ...(savedBloodline as Record<string, unknown>), ...filterBloodlineFields(bloodline), id: bloodlineId };
+                    });
+                return {
+                    ok: true,
+                    character,
+                    // savedBloodlines lives on the save record, not the character.
+                    recordPatch: { savedBloodlines: nextBloodlines },
+                    value: action === 'update' ? 'updated' : 'deleted',
                     // Publish the reload fence before releasing the same save
                     // lock used by ordinary player writes. No autosave can slip
                     // between the admin mutation and its invalidation signal.
-                    await Promise.all([
-                        kv.set(saveKey, next),
-                        kv.set(adminLockKey, 1, { ex: 300 }),
-                        kv.set(resetSignalKey, 1, { ex: 300 }),
-                    ]);
-                    return action === 'update' ? 'updated' as const : 'deleted' as const;
-                }
-            }, { failClosed: true });
+                    afterCommit: async () => {
+                        await Promise.all([
+                            kv.set(adminLockKey, 1, { ex: 300 }),
+                            kv.set(resetSignalKey, 1, { ex: 300 }),
+                        ]);
+                    },
+                };
+            }));
+            // The target's own next load adopts the bumped version; this reply
+            // must never carry it (see OTHER_PLAYER_MUTATION_ROUTES in
+            // api/save/_version-echo-coverage.test.ts).
+            const mutationResult = mutation.ok ? mutation.value : 'missing';
             if (action === 'update' && mutationResult !== 'updated') {
                 return res.status(409).json({ error: 'Bloodline no longer exists in that player save.' });
             }

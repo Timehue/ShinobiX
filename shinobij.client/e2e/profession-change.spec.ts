@@ -102,7 +102,11 @@ test('backpack scroll shows its artwork and leads to the marketplace change acti
     await details.screenshot({ path: info.outputPath('backpack-scroll.png') });
     await details.getByRole('button', { name: 'Use scroll at Grand Marketplace', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Grand Marketplace', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Use scroll · Choose profession', exact: true }).click();
+    // The scroll cards sit below every item group; the hand-off must land on this
+    // card. Checked before any click, because a Playwright click scrolls by itself.
+    const useScroll = page.getByRole('button', { name: 'Use scroll · Choose profession', exact: true });
+    await expect(useScroll).toBeInViewport();
+    await useScroll.click();
     await expect(page.getByRole('dialog', { name: 'Choose your new profession' }).getByRole('radio')).toHaveCount(2);
 });
 

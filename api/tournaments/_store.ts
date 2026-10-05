@@ -1,5 +1,5 @@
-import { kv } from '../_storage.js';
 import { runBackgroundWork } from '../_background-work.js';
+import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
 import type { Tournament, TournamentEntry, TournamentMatch } from '../../shared/tournaments.js';
@@ -30,17 +30,6 @@ function applyCombatResult(match: TournamentMatch, combat: StoredTowerPvpMatch) 
 }
 async function startMatch(event: Tournament, match: TournamentMatch, now: number) {
     const members = matchMembers(event, match);
-    // A tournament round is published asynchronously after players ready. Recheck
-    // live health here as well as at the ready endpoint so a hospitalization
-    // between readiness and publication cannot seal a new fight.
-    const incapacitated = (await Promise.all(members.map(async id => {
-        const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${id}`);
-        return !save?.character || isIncapacitated(save.character, now) ? id : null;
-    }))).filter((id): id is string => id !== null);
-    if (incapacitated.length) {
-        match.ready = match.ready.filter(id => !incapacitated.includes(id));
-        return;
-    }
     const a = event.entries.find(e => e.id === match.a)!, b = event.entries.find(e => e.id === match.b)!;
     const snapshots = await Promise.all(members.map(id => kv.get<TournamentLoadout>(loadoutKey(event.id, id))));
     if (snapshots.some(s => !s)) throw new Error('Tournament loadout missing.');
@@ -59,6 +48,13 @@ async function startMatch(event: Tournament, match: TournamentMatch, now: number
     }
     const existing = await readTowerPvpMatch(match.battleId);
     if (existing) { match.status = 'active'; applyCombatResult(match, existing); return; }
+    // Loadouts were sealed at signup; admission must use each player's current save.
+    const saves = await Promise.all(members.map(id => kv.get<{ character?: unknown }>(`save:${id}`)));
+    const unavailable = members.filter((_, i) => !saves[i]?.character || isIncapacitated(saves[i]!.character, now));
+    if (unavailable.length) {
+        match.ready = match.ready.filter(id => !unavailable.includes(id));
+        return; // Recover, then ready again within the existing round deadline.
+    }
     const lease = await claimTowerBattleLeases({ runId: match.battleId, members, mode: 'tournament' });
     if (!lease.ok) {
         match.ready = match.ready.filter(id => !lease.members.includes(id));
@@ -150,6 +146,7 @@ export function startTournamentClock() {
         catch (error) { if (!(error instanceof LockContendedError)) console.error('[tournaments] Timer update failed', error instanceof Error ? error.message : 'Unknown error'); }
         finally { running = false; }
     };
-    const timer = setInterval(() => { void runBackgroundWork(tick); }, 5000); timer.unref(); void runBackgroundWork(tick);
+    const runTick = () => { void runBackgroundWork(tick); };
+    const timer = setInterval(runTick, 5000); timer.unref(); runTick();
     return () => clearInterval(timer);
 }

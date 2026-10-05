@@ -14,6 +14,7 @@
  */
 import { test, before } from 'node:test';
 import assert from 'node:assert/strict';
+import { isDeepStrictEqual } from 'node:util';
 import { ERA_CHAPTERS, type EraJourney } from '../../shared/era-chapters.js';
 
 process.env.ENABLE_LEGACY = '1';
@@ -94,6 +95,13 @@ before(async () => {
         if (options?.nx && store.has(key)) return null;
         store.set(key, clone(value));
         return 'OK' as const;
+    };
+    // Player saves commit through mutatePlayerSave's exact compare-and-set.
+    kv.compareSet = async (key: string, expected: unknown, value: unknown) => {
+        const current = store.has(key) ? clone(store.get(key)) : null;
+        if (expected === null ? current !== null : !isDeepStrictEqual(current, clone(expected))) return false;
+        store.set(key, clone(value));
+        return true;
     };
     kv.del = async (...keys: string[]) => keys.reduce((n, k) => n + (store.delete(k) ? 1 : 0), 0);
     kv.delIfEqual = async (key: string, expected: string) => {
@@ -343,20 +351,22 @@ test('ordinary stats GET repairs an expired marker-only accept exactly once acro
 
     const storage = await import('../_storage.js');
     const kv = storage.kv;
-    const originalSet = kv.set;
+    // The acceptance commits with an exact compare-and-set; this one fails
+    // without committing (its read-back finds the save unchanged).
+    const originalCompareSet = kv.compareSet;
     let failSave = true;
-    kv.set = async (key: string, value: unknown, options?: { ex?: number; nx?: boolean }) => {
+    kv.compareSet = async (key: string, expected: unknown, value: unknown, options?: { ex?: number }) => {
         if (failSave && key === `save:${player}`) {
             failSave = false;
             throw new Error('injected acceptance save failure');
         }
-        return originalSet(key, value, options);
+        return originalCompareSet(key, expected, value, options);
     };
     response = fakeRes();
     try {
         await sage(fakeReq('POST', { action: 'accept', playerName: player, legacyId: offered }), response.res);
     } finally {
-        kv.set = originalSet;
+        kv.compareSet = originalCompareSet;
     }
     assert.equal(response.out.statusCode, 500);
     assert.ok(store.get(`legacy:accepted:${player}`), 'the permanent choice remains sealed for repair');

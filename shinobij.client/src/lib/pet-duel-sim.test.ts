@@ -1,48 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Pet, PetJutsu } from "../types/pet";
-import { runPetDuel, runPetPartyDuel, DUEL_TPS, KIND_ACCURACY, type DuelSnapshot } from "./pet-duel-sim";
+import { DUEL_TPS, KIND_ACCURACY, elementMult, terrainPetMult } from "./pet-duel-sim";
 import { petMoveAccuracy } from "./pet-moves";
 
 /*
- * Coverage for the continuous-duel engine (pet-duel-sim.ts), Phases A+B. The
- * load-bearing invariant is DETERMINISM (ranked replays — see the redesign plan
- * §0/§6): the same (pets…, seed) must yield byte-identical snapshots + events on
- * any machine. We also guard numeric safety, clean termination, real interaction
- * (the pets move + trade hits), stronger-pet-wins, and that the Phase-B layer
- * (abilities, elements, statuses, ultimates) actually fires — in BOTH 1v1 and 2v2.
+ * Coverage for the shared duel contract (pet-duel-sim.ts). The legacy engine
+ * that used to live in that module, and the 26 tests that exercised it, were
+ * retired on 2026-10-02. What stays is read by the live cinematic engine and
+ * its generated server mirror, so these pins guard balance numbers that decide
+ * real coliseum and Warfront fights.
  */
-
-const J = (over: Partial<PetJutsu> & Pick<PetJutsu, "name" | "kind">): PetJutsu => ({
-    power: 90, cooldown: 0, currentCooldown: 0, ...over,
-});
-
-function makePet(over: Partial<Pet> = {}): Pet {
-    return {
-        id: "pet", name: "Tester", rarity: "rare", level: 25, xp: 0, maxLevel: 50,
-        hp: 900, attack: 130, defense: 70, speed: 95, unlockedForPve: true,
-        element: "Fire", trait: "Aggressive", moveRange: 2,
-        jutsus: [J({ name: "Strike", kind: "damage", power: 110 })],
-        ...over,
-    };
-}
-
-function assertAllNumbersFinite(value: unknown, path = "result"): void {
-    if (typeof value === "number") {
-        assert.ok(Number.isFinite(value), `non-finite number at ${path}: ${String(value)}`);
-        return;
-    }
-    if (Array.isArray(value)) { value.forEach((v, i) => assertAllNumbersFinite(v, `${path}[${i}]`)); return; }
-    if (value && typeof value === "object") {
-        for (const [k, v] of Object.entries(value)) assertAllNumbersFinite(v, `${path}.${k}`);
-    }
-}
-
-const SEEDS = [1, 7, 12345, 98765, 2024];
-const CAP = DUEL_TPS * 30;
-const actor = (s: DuelSnapshot, team: "player" | "enemy", slot = 0) => s.actors.find((a) => a.team === team && a.slot === slot)!;
-
-// ── accuracy / miss-chance (flag-gated, default off) ───────────────────────────
 
 test("accuracy: KIND_ACCURACY mirrors pet-moves KIND_SPECS (no drift between the inlined copy and the source)", () => {
     for (const kind of Object.keys(KIND_ACCURACY) as Array<keyof typeof KIND_ACCURACY>) {
@@ -50,319 +17,32 @@ test("accuracy: KIND_ACCURACY mirrors pet-moves KIND_SPECS (no drift between the
     }
 });
 
-test("accuracy flag: off draws no rng; on (the default constant) adds misses and stays deterministic", () => {
-    // Two moves so the pets both KO each other (Strike) and roll often (Frost 85%).
-    const p = (id: string) => makePet({ id, jutsus: [
-        J({ name: "Strike", kind: "damage", power: 110 }),
-        J({ name: "Frost", kind: "freeze", power: 80, cooldown: 0, rounds: 1 }),
-    ] });
-    const whiffs = (r: ReturnType<typeof runPetDuel>) => r.events.filter((e) => e.type === "whiff").length;
-    let on = 0, off = 0;
-    for (let seed = 1; seed <= 30; seed++) {
-        const rOff = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false);
-        const rOn  = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, true);
-        off += whiffs(rOff); on += whiffs(rOn);
-        // The default is the PET_ACCURACY_DEFAULT constant (ON) in every environment
-        // — no localStorage read — so the default path equals explicit accuracy=true
-        // in Node exactly as it does in a browser (server replay == client render).
-        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), rOn, `seed ${seed}: default must equal explicit on`);
-    }
-    assert.ok(on > off, `accuracy on must add misses (whiffs on=${on}, off=${off})`);
-    const a = runPetDuel(p("a"), p("b"), 4242, 1, 1, false, false, true);
-    const b = runPetDuel(p("a"), p("b"), 4242, 1, 1, false, false, true);
-    assert.deepEqual(a, b, "accuracy-on battles must stay deterministic (ranked replays)");
+test("the duel clock runs at 30 ticks per second", () => {
+    assert.equal(DUEL_TPS, 30);
 });
 
-// ── plantedMotion (casual cinematic face-off) flag, default off ───────────────
-
-test("plantedMotion flag: default (off) is byte-identical to explicit off; on stays deterministic + still resolves a real fight", () => {
-    const p = (id: string) => makePet({ id, jutsus: [J({ name: "Strike", kind: "damage", power: 110 })] });
-    for (const seed of SEEDS) {
-        // SAFETY: authoritative paths (sector-war / ladder / ranked) run plantedMotion=false.
-        // The DEFAULT must equal explicit-off byte-for-byte so those outcomes never shift.
-        // (accuracy is passed as its ON default so only plantedMotion is under test.)
-        const off = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, true, null, false);
-        assert.deepEqual(runPetDuel(p("a"), p("b"), seed), off, `seed ${seed}: default must equal explicit plantedMotion=off`);
-        // The planted (casual cinematic) path is itself deterministic (same seed → identical).
-        const on1 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
-        const on2 = runPetDuel(p("a"), p("b"), seed, 1, 1, false, false, false, null, true);
-        assert.deepEqual(on1, on2, `seed ${seed}: planted battles must stay deterministic`);
-        assert.ok(["win", "loss", "draw"].includes(on1.result), `planted seed ${seed}: bad result`);
-        // Planted (casual) uses a raised 75s cap (long cinematic fights that reach a real
-        // KO instead of a timer stop) vs the 30s authoritative cap.
-        assert.ok(on1.ticks >= 1 && on1.ticks <= DUEL_TPS * 75, `planted seed ${seed}: ticks out of range ${on1.ticks}`);
-        assertAllNumbersFinite(on1, `planted.seed${seed}`);
-    }
-    // Planted still resolves a REAL fight: spawns apart, closes to melee, ends in a KO.
-    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), 7, 1, 1, false, false, false, null, true);
-    assert.ok(Math.abs(actor(r.snapshots[0], "player").x) > 3 && Math.abs(actor(r.snapshots[0], "enemy").x) > 3, "planted: should spawn apart");
-    assert.ok(r.snapshots.some((s) => Math.abs(actor(s, "enemy").x - actor(s, "player").x) < 1.6), "planted: never closed to melee");
-    assert.ok(r.events.some((e) => e.type === "hit"), "planted: no hits landed");
-    // A clearly stronger pet still wins under planted motion (balance sanity).
-    assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024, 1, 1, false, false, false, null, true).result, "win");
-});
-
-test("feint whiffs (move:'Feint') exist ONLY on the planted path; wind-ups carry the called move", () => {
-    // The feint's viewer payoff (a "Feint" whiff event) may never appear in an
-    // authoritative stream — pendingFeint is set exclusively behind plantedMotion.
-    let plantedFeints = 0, calledWindups = 0;
-    for (const seed of SEEDS) {
-        const auth = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed);
-        assert.ok(!auth.events.some((e) => e.type === "whiff" && e.move === "Feint"), `authoritative feint leaked (seed ${seed})`);
-        const on = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), seed, 1, 1, false, false, false, null, true);
-        for (const e of on.events) {
-            if (e.type === "whiff" && e.move === "Feint") plantedFeints++;
-            // A named-ability wind-up announces its move BEFORE the blow (the "called attack").
-            if (e.type === "windup" && e.move) calledWindups++;
-        }
-    }
-    assert.ok(plantedFeints > 0, "no feint ever fired across the planted seeds (rate 9% — several expected)");
-    assert.ok(calledWindups > 0, "no wind-up carried its move name — the called-attack payload is missing");
-});
-
-test("cinematic speed EVADE: a much faster pet slips blows (move:'Evade'), planted-only", () => {
-    let evades = 0;
-    for (const seed of SEEDS) {
-        const on = runPetDuel(makePet({ id: "a", speed: 20 }), makePet({ id: "b", speed: 230, element: "Water" }), seed, 1, 1, false, false, false, null, true);
-        for (const e of on.events) if (e.type === "dodge" && e.move === "Evade") evades++;
-        // The speed-evade rng draw lives behind plantedMotion — authoritative streams never see it.
-        const auth = runPetDuel(makePet({ id: "a", speed: 20 }), makePet({ id: "b", speed: 230, element: "Water" }), seed);
-        assert.ok(!auth.events.some((e) => e.type === "dodge" && e.move === "Evade"), `authoritative evade leaked (seed ${seed})`);
-    }
-    assert.ok(evades > 0, "a +210-speed pet never evaded a single blow across the planted seeds");
-});
-
-// ── 1v1 ──────────────────────────────────────────────────────────────────────
-
-test("1v1 is deterministic — same seed yields byte-identical snapshots + events", () => {
-    for (const seed of SEEDS) {
-        const a = runPetDuel(makePet({ id: "a", element: "Fire" }), makePet({ id: "b", element: "Wind", trait: "Swift", speed: 140 }), seed);
-        const b = runPetDuel(makePet({ id: "a", element: "Fire" }), makePet({ id: "b", element: "Wind", trait: "Swift", speed: 140 }), seed);
-        assert.deepEqual(a, b, `seed ${seed} diverged`);
-    }
-});
-
-test("1v1 produces a valid, numerically-safe, terminating result for every seed", () => {
-    for (const seed of SEEDS) {
-        const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water", speed: 110 }), seed);
-        assert.ok(["win", "loss", "draw"].includes(r.result), `unexpected result "${r.result}"`);
-        assert.ok(r.ticks >= 1 && r.ticks <= CAP, `ticks out of range: ${r.ticks}`);
-        assert.equal(r.snapshots.length, r.ticks, "one snapshot per tick");
-        for (const s of r.snapshots) assert.equal(s.actors.length, 2, "1v1 has two actors");
-        assertAllNumbersFinite(r, `1v1.seed${seed}`);
-    }
-});
-
-test("the pets actually fight — they close the gap and trade hits", () => {
-    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), 7);
-    const first = r.snapshots[0];
-    assert.ok(Math.abs(actor(first, "player").x) > 4 && Math.abs(actor(first, "enemy").x) > 4, "should spawn at the edges");
-    assert.ok(r.snapshots.some((s) => Math.abs(actor(s, "enemy").x - actor(s, "player").x) < 1.6), "never closed to melee");
-    assert.ok(r.events.some((e) => e.type === "windup"), "no telegraphed wind-ups");
-    assert.ok(r.events.some((e) => e.type === "hit"), "no hits landed");
-    assert.ok(r.events.some((e) => e.type === "ko"), "fight should end in a KO");
-});
-
-test("the fighters keep spacing — they don't permanently pile up", () => {
-    // The engagement bubble: pets should spend real time apart at a neutral
-    // distance (circling / between exchanges), not glued together in a scrum.
-    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b", element: "Water" }), 7);
-    const apart = r.snapshots.filter((s) => Math.abs(actor(s, "enemy").x - actor(s, "player").x) + Math.abs(actor(s, "enemy").y - actor(s, "player").y) > 2.2).length;
-    assert.ok(apart > r.snapshots.length * 0.25, `pets stayed piled up (${apart}/${r.snapshots.length} frames apart)`);
-});
-
-test("a clearly stronger pet wins (1v1)", () => {
-    assert.equal(runPetDuel(makePet({ id: "a", hp: 1400, attack: 220 }), makePet({ id: "b", hp: 500, attack: 60 }), 2024).result, "win");
-    assert.equal(runPetDuel(makePet({ id: "a", hp: 500, attack: 60 }), makePet({ id: "b", hp: 1400, attack: 220 }), 2024).result, "loss");
-});
-
-test("degenerate pets never crash or emit non-finite numbers", () => {
-    const r = runPetDuel(
-        makePet({ id: "a", hp: 0, attack: 0, speed: 0, defense: 0, jutsus: [] }),
-        makePet({ id: "b", hp: 1, attack: 0, speed: 0, defense: 0, jutsus: [] }),
-        1,
-    );
-    assert.ok(["win", "loss", "draw"].includes(r.result));
-    assertAllNumbersFinite(r, "degenerate");
-});
-
-test("state is quantized — positions land on the 1/256 grid", () => {
-    const r = runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), 12345);
-    for (const s of r.snapshots) for (const a of s.actors) {
-        assert.equal(a.x, Math.round(a.x * 256) / 256, "x off-grid");
-        assert.equal(a.y, Math.round(a.y * 256) / 256, "y off-grid");
-    }
-});
-
-// ── Phase B: abilities / elements / statuses / ultimates ─────────────────────
-
-test("a burn jutsu lands a DoT status on the enemy", () => {
-    const burner = makePet({ id: "a", element: "Fire", jutsus: [J({ name: "Strike", kind: "damage", power: 100 }), J({ name: "Cinder", kind: "burn", power: 80, cooldown: 2, rounds: 3 })] });
-    const got = SEEDS.some((seed) => {
-        const r = runPetDuel(burner, makePet({ id: "b", element: "Earth" }), seed);
-        return r.snapshots.some((s) => s.actors.some((a) => a.team === "enemy" && a.statuses.includes("burn")));
+test("element chart: Fire > Wind > Lightning > Earth > Water > Fire, ±15%", () => {
+    const cycle = ["Fire", "Wind", "Lightning", "Earth", "Water"];
+    cycle.forEach((attacker, index) => {
+        const beaten = cycle[(index + 1) % cycle.length];
+        assert.equal(elementMult(attacker, beaten), 1.15, `${attacker} should beat ${beaten}`);
+        assert.equal(elementMult(beaten, attacker), 0.85, `${beaten} should be resisted by ${attacker}`);
     });
-    assert.ok(got, "no enemy was ever burning despite a burn jutsu");
+    // Off-cycle pairs, mirrors, "None" and missing elements are all neutral.
+    assert.equal(elementMult("Fire", "Earth"), 1);
+    assert.equal(elementMult("Water", "Water"), 1);
+    assert.equal(elementMult("None", "Wind"), 1);
+    assert.equal(elementMult("Fire", null), 1);
+    assert.equal(elementMult(undefined, "Fire"), 1);
 });
 
-test("hit events carry the attacker's element", () => {
-    const r = runPetDuel(makePet({ id: "a", element: "Lightning" }), makePet({ id: "b", element: "Earth" }), 7);
-    // Each side's hits carry its own element — independent of who strikes first.
-    const playerHit = r.events.find((e) => e.type === "hit" && e.side === "player");
-    assert.ok(playerHit && playerHit.element === "Lightning", "a player hit should record Lightning");
-});
-
-test("a signature jutsu fires an ultimate event", () => {
-    const ult = makePet({ id: "a", jutsus: [J({ name: "Strike", kind: "damage", power: 100 }), J({ name: "Finisher", kind: "lifesteal", power: 160, cooldown: 4, signature: true })] });
-    const got = SEEDS.some((seed) => runPetDuel(ult, makePet({ id: "b" }), seed).events.some((e) => e.type === "ultimate"));
-    assert.ok(got, "no ultimate event despite a signature jutsu");
-});
-
-// ── 2v2 ──────────────────────────────────────────────────────────────────────
-
-test("2v2 is deterministic — same seed yields byte-identical results", () => {
-    for (const seed of SEEDS) {
-        const mk = () => runPetPartyDuel(
-            makePet({ id: "pl", element: "Fire" }), makePet({ id: "pr", element: "Water", jutsus: [J({ name: "Mend", kind: "heal", power: 120, cooldown: 3 })] }),
-            makePet({ id: "el", element: "Wind" }), makePet({ id: "er", element: "Earth", speed: 120 }),
-            seed,
-        );
-        assert.deepEqual(mk(), mk(), `2v2 seed ${seed} diverged`);
-    }
-});
-
-test("2v2 is valid, numerically-safe, terminating, with four actors", () => {
-    for (const seed of SEEDS) {
-        const r = runPetPartyDuel(
-            makePet({ id: "pl" }), makePet({ id: "pr", element: "Water" }),
-            makePet({ id: "el", element: "Wind" }), makePet({ id: "er", element: "Earth" }),
-            seed,
-        );
-        assert.ok(["win", "loss", "draw"].includes(r.result));
-        assert.ok(r.ticks >= 1 && r.ticks <= CAP);
-        assert.equal(r.snapshots.length, r.ticks);
-        for (const s of r.snapshots) assert.equal(s.actors.length, 4, "2v2 has four actors");
-        assertAllNumbersFinite(r, `2v2.seed${seed}`);
-    }
-});
-
-test("2v2 ends by eliminating a whole team", () => {
-    // Strong player team vs weak enemy team → player wins, both enemies down.
-    const r = runPetPartyDuel(
-        makePet({ id: "pl", hp: 1200, attack: 200 }), makePet({ id: "pr", hp: 1200, attack: 200 }),
-        makePet({ id: "el", hp: 400, attack: 50 }), makePet({ id: "er", hp: 400, attack: 50 }),
-        2024,
-    );
-    assert.equal(r.result, "win");
-    const last = r.snapshots[r.snapshots.length - 1];
-    assert.ok(last.actors.filter((a) => a.team === "enemy").every((a) => a.hp <= 0), "both enemies should be down");
-});
-
-test("a 2v2 healer keeps a fragile ally alive longer (heal events fire)", () => {
-    const healer = makePet({ id: "pr", hp: 700, attack: 80, jutsus: [J({ name: "Mend", kind: "heal", power: 140, cooldown: 2 })] });
-    const fragile = makePet({ id: "pl", hp: 360, attack: 110 });
-    const got = SEEDS.some((seed) => runPetPartyDuel(
-        fragile, healer,
-        makePet({ id: "el", attack: 170 }), makePet({ id: "er", attack: 170 }),
-        seed,
-    ).events.some((e) => e.type === "heal"));
-    assert.ok(got, "a heal jutsu never fired for a hurt ally");
-});
-
-test("2v1 works when a reserve is missing", () => {
-    const r = runPetPartyDuel(makePet({ id: "pl" }), makePet({ id: "pr" }), makePet({ id: "el" }), null, 7);
-    assert.ok(["win", "loss", "draw"].includes(r.result));
-    for (const s of r.snapshots) assert.equal(s.actors.length, 3, "2v1 has three actors");
-    assertAllNumbersFinite(r, "2v1");
-});
-
-// ── PvE balance regression fixtures (Phase D — scripts/pet-duel-balance.ts) ───
-// These lock in the first tuning pass: the PvE damage multiplier, the resolved-
-// damage scale, and the symmetric-collision fairness fix. They are coarse guards
-// (wide tolerances), not a balance spec — the harness is the tuning instrument.
-
-const FAIR_SEEDS = Array.from({ length: 40 }, (_, i) => i * 97 + 3);
-const scoreFrac = (results: string[]) =>
-    results.reduce((a, r) => a + (r === "win" ? 1 : r === "draw" ? 0.5 : 0), 0) / Math.max(1, results.length);
-
-test("playerDamageMult is deterministic and monotone — more bonus never fewer player wins", () => {
-    const mk = (mult: number, seed: number) => runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), seed, mult);
-    for (const seed of SEEDS) assert.deepEqual(mk(2, seed), mk(2, seed), `mult seed ${seed} diverged`);
-    // A big player damage bonus must win strictly more mirror matches than no bonus.
-    const wins = (mult: number) => FAIR_SEEDS.filter((s) => mk(mult, s).result === "win").length;
-    const lo = wins(1), hi = wins(3);
-    assert.ok(hi >= lo, `mult must not reduce wins (mult1=${lo}, mult3=${hi})`);
-    assert.ok(hi > lo, `a 3x player damage bonus should win more (mult1=${lo}, mult3=${hi})`);
-});
-
-test("position is fair — identical-pet mirrors score ~50% across realistic pets (no spawn-side bias)", () => {
-    // The player is ALWAYS the left/"player" team in PvE, so an asymmetric map
-    // would silently rig every fight. Guards the symmetric-collision fix. Averaged
-    // over representative rare-tier configs × many seeds — a single glass-cannon
-    // has high per-seed variance; the SYSTEMATIC side bias is what we guard.
-    const configs = [
-        makePet({ id: "m1", hp: 600, attack: 60, defense: 40, speed: 90, element: "Fire" }),
-        makePet({ id: "m2", hp: 480, attack: 50, defense: 30, speed: 110, element: "Water" }),
-        makePet({ id: "m3", hp: 720, attack: 45, defense: 55, speed: 70, element: "Earth" }),
-    ];
-    const results: string[] = [];
-    for (const p of configs) for (const s of FAIR_SEEDS) results.push(runPetDuel(p, p, s).result);
-    const score = scoreFrac(results);
-    assert.ok(score >= 0.42 && score <= 0.58, `mirror player score ${(score * 100).toFixed(0)}% over ${results.length} matches — spawn-side bias`);
-});
-
-test("fights resolve — most default matchups end in a KO before the 30s cap", () => {
-    // Guards the damage scale: too low and matches time out as HP-fraction draws.
-    const koed = FAIR_SEEDS.filter((s) => {
-        const r = runPetDuel(makePet({ id: "a", element: "Fire" }), makePet({ id: "b", element: "Water", speed: 110 }), s);
-        return r.events.some((e) => e.type === "ko") && r.ticks < CAP;
-    }).length;
-    assert.ok(koed >= FAIR_SEEDS.length * 0.6, `only ${koed}/${FAIR_SEEDS.length} matches KO'd before the cap — damage too low?`);
-});
-
-// ── PvP-ladder items (applyItems flag — PVP gear stat-mods/procs + consumables) ──
-// The ladder runs BOTH sides' equipped gear + consumables through the engine; casual/
-// PvE leave applyItems off. Guards: determinism with items, back-compat (a loadout is
-// inert when items are off), gear is actually applied, and a consumable changes a fight.
-
-test("items: same seed + same loadout is byte-identical", () => {
-    for (const seed of SEEDS) {
-        const mk = () => runPetDuel(
-            makePet({ id: "a", loadout: { pvp: "pvp-spiked-war-harness", consumable: "consum-thornmail-oil" } }),
-            makePet({ id: "b", loadout: { pvp: "pvp-aegis-pendant" } }),
-            seed, 1, 1, false, true,
-        );
-        assert.deepEqual(mk(), mk(), `items seed ${seed} diverged`);
-    }
-});
-
-test("items off: an equipped loadout has zero effect (back-compat)", () => {
-    for (const seed of SEEDS) {
-        const geared = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-arena-champion-regalia", consumable: "consum-second-wind" } }), makePet({ id: "b" }), seed);
-        const bare = runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), seed);
-        assert.deepEqual(geared, bare, `loadout leaked into the items-off path (seed ${seed})`);
-    }
-});
-
-test("items: a start-shield gear opens the fight with a shield on its wearer only", () => {
-    const r = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-aegis-pendant" } }), makePet({ id: "b" }), 7, 1, 1, false, true);
-    const t0 = r.snapshots[0].actors;
-    assert.ok(t0.find((a) => a.team === "player")!.statuses.includes("shield"), "wearer should open with a gear shield");
-    assert.ok(!t0.find((a) => a.team === "enemy")!.statuses.includes("shield"), "the un-geared foe should not");
-});
-
-test("items: equipping gear changes the deterministic fight", () => {
-    const geared = runPetDuel(makePet({ id: "a", loadout: { pvp: "pvp-berserkers-muzzle" } }), makePet({ id: "b" }), 7, 1, 1, false, true);
-    const bare = runPetDuel(makePet({ id: "a" }), makePet({ id: "b" }), 7, 1, 1, false, true);
-    assert.notDeepEqual(geared, bare, "equipping attack gear should change the fight");
-});
-
-test("items: an endure consumable delays an otherwise-lethal blow", () => {
-    const weak = (cons?: string) => makePet({ id: "a", hp: 80, attack: 8, defense: 0, speed: 40, jutsus: [], ...(cons ? { loadout: { consumable: cons } } : {}) });
-    const strong = makePet({ id: "b", hp: 1400, attack: 320, defense: 0, speed: 80, jutsus: [] });
-    const base = runPetDuel(weak(), strong, 7, 1, 1, false, true);
-    const endured = runPetDuel(weak("consum-second-wind"), strong, 7, 1, 1, false, true);
-    assert.equal(base.result, "loss");
-    assert.equal(endured.result, "loss");
-    assert.ok(endured.ticks > base.ticks, `endure should delay death (base=${base.ticks}, endure=${endured.ticks})`);
+test("terrain home-ground bonus: +10% only for the sector's own element", () => {
+    assert.equal(terrainPetMult("volcano", "Fire"), 1.1);
+    assert.equal(terrainPetMult("snow", "Water"), 1.1);
+    assert.equal(terrainPetMult("forest", "Earth"), 1.1);
+    assert.equal(terrainPetMult("shadow", "Lightning"), 1.1);
+    assert.equal(terrainPetMult("volcano", "Water"), 1);
+    assert.equal(terrainPetMult("central", "Fire"), 1);
+    assert.equal(terrainPetMult(null, "Fire"), 1);
+    assert.equal(terrainPetMult("volcano", null), 1);
 });

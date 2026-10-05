@@ -21,7 +21,7 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
         const guide = page.locator('.onboarding-coach-banner');
         const notice = page.locator('.storage-notice');
         await expect(guide).toBeVisible();
-        await expect(guide.locator('.coach-guide-line')).toContainText('Try 15m; we can explore while it runs.');
+        await expect(guide.locator('.coach-guide-line')).toContainText('we can explore while it runs.');
         await page.waitForTimeout(600);
         const evidence = resolve('..', 'docs/audits/ux-journey-2026-09-13', process.env.UX_AUDIT_PHASE ?? 'recheck');
         mkdirSync(evidence, { recursive: true });

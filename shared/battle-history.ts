@@ -50,8 +50,8 @@ function startsWithFighterName(text: string, name: string): boolean {
  * squad members, allied npcs, and enemies) into owner-attributed actions.
  * Unlike the 1v1 grouper, side is decided by matching each line's leading
  * fighter name against the ally / enemy name lists; lines that name no known
- * fighter (objective/floor narration) become ownerless system lines. Round
- * markers emitted by the Tower engine are retained on each action.
+ * fighter (objective/floor narration) become ownerless system lines. The tower
+ * log may include round markers; unmarked legacy logs remain tagged round 1.
  */
 export function buildActionsFromTowerLog(
     log: ReadonlyArray<string>,

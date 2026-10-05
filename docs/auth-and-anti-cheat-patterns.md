@@ -39,6 +39,16 @@ an account's epoch is still zero.
 then password path, and the **same ban gate applies to both** — a token can
 never bypass a ban.
 
+The password path runs blocking `scryptSync`, so it carries two per-IP budgets,
+both checked before any scrypt work:
+
+- **Failures**: 12 per 5 minutes, always on (`PASSWORD_FAIL_LIMIT`).
+- **Every attempt**: 20 per minute, but only while `SESSION_SECRET` is set
+  (`PASSWORD_ATTEMPT_LIMIT`). Honest clients then authenticate by token, so this
+  only stops an account sending its own correct password to stall the event loop
+  (reproduced at ~44 req/s on 2026-10-01). With `SESSION_SECRET` unset the
+  password path carries all traffic, so successes stay free there.
+
 ### Client side (`shinobij.client/src/authFetch.ts`)
 
 A global `window.fetch` interceptor (`installAuthFetch`) attaches auth to every
@@ -238,7 +248,8 @@ gains a real credential. An account created anonymously, three per hour per
 fingerprint, with no email and no owner is the cheapest possible spam and
 harassment vehicle, so `api/_guest-gate.ts` gates the tavern (`village/chat`,
 read *and* post), direct messages (`messages`, POST only — an existing inbox
-stays readable), clan chat (`clan/chat/send`) and battle chat (`pvp/chat`).
+stays readable), clan chat (`clan/chat/send`), battle chat (`pvp/chat`) and
+sector chat (`sector/chat`, POST only — a guest can still hear the sector).
 
 Signs left in the world (`sector/trail-sign.ts`) are gated the same way, since
 they are name-attributed text strangers read. Only the `leave` path — `spark`
@@ -358,6 +369,23 @@ token deletion for exactly-once semantics.
   currency/economy critical section. Lock the **shared resource** key
   (e.g. `clan-seal-pool:<clan>`), not just the actor's `save:<name>` — two
   different actors hold different save locks and would still race the shared row.
+- **Commit with compare-and-set, not a plain `kv.set`.** `withKvLock`'s TTL
+  (5s default) is not renewed, and a pool wait can reach 15s under load, so a
+  slow holder can outlive its lock while another writer commits. Commit with
+  `kv.compareSet(key, <row you read>, next)` and answer a lost race with a 409
+  (the player autosave, `writeVersionedPlayerSaveWithStore` and
+  `writeSaveProjected` all do). A plain upsert silently overwrites the other
+  writer's commit.
+  - `writeSaveProjected` throws `player-save-version-conflict` on a lost race and
+    writes nothing. Wrap the WHOLE `withKvLock(...)` call in
+    `retryOnSaveVersionConflict` (it re-reads and recomputes; safe only when the
+    result is receipt-keyed), and map a second loss to the retryable
+    `SAVE_VERSION_CONFLICT_REPLY` 409 rather than a 500.
+  - **Never mutate the row you read** (or its `character`) before committing:
+    the comparison is against that object, so an in-place change makes every
+    write fail. Build a copy (`{ ...char, field }`).
+  - Many older writers still commit with a plain `kv.set` on `save:` keys; move
+    them to this pattern when you touch them.
 - **Debit before credit; never re-credit.** `collect-supply` keeps a deliberate
   "lose, never duplicate" stance: it zeroes sectors first, then credits the
   treasury; on a credit failure it records an unreconciled-loss audit key and

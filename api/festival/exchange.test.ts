@@ -1,3 +1,4 @@
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
 import { before, beforeEach, after, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
@@ -495,7 +496,8 @@ it('uses distinct recovery pointers for later trade phases after an expired list
             id = (expected as Obj).character.sunscarExchangeReceipts[0].split(':')[0];
             // Expire the outer lease while its active-listing cleanup is waiting.
             await kv.del(`lock:sunscar-exchange:listing:${id}`);
-            const result = await competingRequest.runInAsyncScope(() => buy(id));
+            // A competing request is a different async authority scope.
+            const result = await withoutKvLeaseContext(() => buy(id));
             assert.equal(result.status, 503); // seller save lock is still held
             assert.equal((await record('buyer')).character.ryo, 9000);
         }

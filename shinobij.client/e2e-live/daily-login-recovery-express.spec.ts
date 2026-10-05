@@ -1,11 +1,14 @@
 import { expect } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { quietRoadCooldowns } from './helpers/quiet-road';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 
 test('daily claim survives a lost response, receipt retry, logout and relogin', async ({ page, request, context }, info) => {
     test.setTimeout(90000);
-    const name = `daily${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `daily${info.project.name.includes('mobile') ? 'm' : 'd'}${stamp}`);
     const password = 'DailyRecovery!1234';
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
     expect(registered.status(), await registered.text()).toBe(200);
@@ -24,15 +27,23 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
         lastLoginRewardDate: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10),
         onboardingStep: 'done', academyChecklistClaimed: true, storyProgress: 9,
         storyVillage: 'Moonshadow Village', storyTraits: [],
-        profession: 'vanguard', professionChosenAt: 1 };
+        profession: 'vanguard', professionChosenAt: 1,
+        // The journey waits on its sector's board between logout attempts, long
+        // enough for a hunting bandit to walk up and park its encounter over the
+        // Logout button. See quietRoadCooldowns.
+        wandererCooldowns: quietRoadCooldowns([40]) };
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
-        data: { character, currentSector: 40, acceptedMissionIds: [], missionProgress: {},
+        // worldGeoV marks the sector as current numbering. Without it the owner
+        // read runs the one-time 2026-07 renumbering and moves the player from
+        // 40 to 13, a road the cooldowns above don't cover.
+        data: { character, worldGeoV: WORLD_GEO_VERSION, currentSector: 40, acceptedMissionIds: [], missionProgress: {},
             triggeredEvents: ['builtin-awakening-lv2', 'builtin-aura-sphere-lv9', 'builtin-hidden-dungeon'] },
     });
     expect(seeded.status(), await seeded.text()).toBe(200);
     const owned = await request.get(`/api/save/${name}`, { headers });
     const before = await owned.json();
+    expect(before.currentSector, 'the quiet road covers the sector the player stands in').toBe(40);
     await request.post(`/api/save/${name}?ack=1`, { headers });
     await context.addInitScript(({ name, token, before, patch }) => {
         if (localStorage.getItem('daily-qa-installed')) return;
@@ -60,8 +71,15 @@ test('daily claim survives a lost response, receipt retry, logout and relogin', 
     const claim = briefing.getByRole('button', { name: /Claim \+/ });
     await claim.click();
     await expect.poll(() => dropped).toBe(true);
-    await expect(claim).toBeEnabled();
-    await claim.click();
+    // The claim committed and only its reply was lost. Usually the button comes
+    // back, and the player's retry is answered from the server's receipt. The
+    // client can also catch up first: an autosave meets the bumped version and
+    // refetches the save, and the briefing shows the collected state with no
+    // Claim button left to press. Both must end collected exactly once, which
+    // the fateShards check below pins (25, never 30).
+    const collected = briefing.getByText("Today's login reward already collected");
+    await expect(claim.or(collected).first()).toBeVisible();
+    if (await claim.isVisible()) await claim.click({ timeout: 10_000 }).catch(() => undefined);
     await expect(briefing).toContainText("Today's login reward already collected");
     await expect(briefing).toContainText('7-day streak');
     await page.screenshot({ path: info.outputPath('daily-recovered.png'), fullPage: true });

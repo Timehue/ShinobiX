@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route, type TestInfo } from "@playwright/
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_CAP_BASE } from "../src/lib/entitlements";
 import AxeBuilder from "@axe-core/playwright";
+import { gotoSettled, reloadSettled } from "./helpers/network-settle";
 
 type PetFixture = Record<string, unknown> & {
     id: string;
@@ -258,6 +259,10 @@ async function installPetHomeApi(page: Page) {
                 const path = url.pathname.toLowerCase();
                 if (method === "GET" && path === "/api/player/capabilities") return reply(replies.capabilities);
                 if (method === "GET" && path === "/api/images") return reply(url.searchParams.get("ids") === "1" ? replies.imageManifest : {});
+                // The player card reads today's Sunscar crate count on every boot.
+                // GET only: the festival test's crate pulls are POSTs to the same
+                // path and must still reach its own page.route.
+                if (method === "GET" && path === "/api/festival/black-market") return reply(replies.generic);
                 if (replies.shellBootPaths.includes(path)) return reply(replies.generic);
             }
             return nativeFetch(input, init);
@@ -363,16 +368,16 @@ async function installPetHomeApi(page: Page) {
 }
 
 async function openHome(page: Page) {
-    await page.goto("/#/home", { waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/home");
     // The SPA intentionally applies bookmarked hashes during boot rather than
     // reacting to hash-only changes after mount, so force the normal restore path.
-    await page.reload({ waitUntil: "domcontentloaded" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
 }
 
 async function reloadHome(page: Page) {
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
 }
 
@@ -454,7 +459,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     page.on("pageerror", (error) => pageErrors.push(error.message));
     const state = await installPetHomeApi(page);
 
-    await page.goto("/#/village", { waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/village");
     const homeFacility = page.getByRole("button", { name: "Enter Pet Home" });
     await expect(homeFacility).toBeVisible();
     await shot(page, testInfo, "01-village-home-facility");
@@ -661,8 +666,8 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await arenaReturn.click();
     await expect(page.locator(".stormveil-village-screen")).toBeVisible();
 
-    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/centralHub");
+    await reloadSettled(page);
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
@@ -705,13 +710,13 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     let readiness = page.locator(".pet-battle-readiness");
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
-    await expect(warfront).toContainText("Deployment ready");
+    await expect(warfront).not.toContainText("Training results unclaimed");
     await expect(warfront.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
     await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
 
     delete selectedPet.training;
     selectedPet.expedition = { type: "scout", startedAt: past - 60_000, endsAt: past, durationMs: 60_000 };
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
@@ -723,7 +728,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
 
     delete selectedPet.expedition;
     state.character.petBreeding = session("breeding");
-    await page.reload({ waitUntil: "networkidle" });
+    await reloadSettled(page);
     await expect(page.getByRole("heading", { name: /Pet Yard/ }).first()).toBeVisible();
     await page.getByRole("navigation", { name: "Pet Yard activities" }).getByRole("button", { name: "Battle & techniques" }).click();
     readiness = page.locator(".pet-battle-readiness");
@@ -733,8 +738,8 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await expect(warfront.getByRole("button", { name: /Breeding in progress/ })).toBeDisabled();
     await expect(colosseum.getByRole("button", { name: /Committed to the Shinobi Hatchery/ })).toBeDisabled();
 
-    await page.goto("/#/centralHub", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/centralHub");
+    await reloadSettled(page);
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
@@ -767,7 +772,7 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await expect(page.locator(".pet-arena-readiness")).toContainText("6 companions");
     await warfrontTab.click();
     await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(1);
+    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toBeVisible();
     await expect(page.locator(".pet-pick")).toHaveCount(6);
     await expect(page.getByText("Your team (4/4)")).toBeVisible();
 
@@ -957,7 +962,7 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
             await page.screenshot({ path: testInfo.outputPath("sunscar-trading-quarter.png"), animations: "disabled" });
         }
     }
-    await page.goto("/#/pets", { waitUntil: "networkidle", timeout: 120_000 });
+    await gotoSettled(page, "/#/pets", { timeout: 120_000 });
     await expect(page.locator(".pet-yard-refined")).toBeVisible();
     const hint = page.getByRole("button", { name: /got it/i });
     if (await hint.isVisible()) await hint.click();
@@ -990,8 +995,8 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     await page.evaluate(() => window.dispatchEvent(new CustomEvent("shinobix:open-pet-expedition", { detail: { petId: "qa-fire-1" } })));
     await expect(page.getByRole("heading", { name: "Expedition Board", exact: true })).toBeVisible();
 
-    await page.goto("/#/sunscarFestival", { waitUntil: "networkidle" });
-    await page.reload({ waitUntil: "networkidle" });
+    await gotoSettled(page, "/#/sunscarFestival");
+    await reloadSettled(page);
     await expect(page.locator(".sunscar-hub-refined")).toBeVisible();
     await fit("sunscar-festival", ".sunscar-hub-refined");
     await page.getByRole("button", { name: "Enter the Exchange" }).click();
@@ -1053,7 +1058,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
         } else if (body.action === 'equip') current.loadout = { ...(current.loadout as object), [body.slot]: body.itemId };
         return json(route, { ok: true, pet: current, character: state.character, settledTraining: body.action === 'complete-training' ? 'bond' : null, _saveVersion: ++state.saveVersion });
     });
-    await page.goto('/#/pets', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/pets');
     await page.getByRole('button', { name: 'Select Sumi', exact: true }).click();
     await page.getByRole('button', { name: 'Collect Results', exact: true }).click();
     await expect(page.getByRole('alertdialog')).toContainText('Training desk unavailable');
@@ -1107,7 +1112,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
         overflow.xp = Number(overflow.xp) + 40;
         return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, petXpEarned: 40, story: 'Returned safely from Cactus Flats.' });
     });
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await page.getByRole('button', { name: /Select Stoneback Tanuki/ }).click();
     await expect(page.getByRole('button', { name: 'Secure haul', exact: true })).toBeEnabled();
     await page.getByRole('button', { name: 'Secure haul', exact: true }).click();
@@ -1119,7 +1124,7 @@ test("refined integration companion actions and recovery", async ({ page }, test
     await expect(page.getByRole('button', { name: 'Select Stoneback Tanuki', exact: true })).toBeFocused();
     await expect(page.getByRole('button', { name: 'Launch expedition', exact: true })).toBeDisabled();
     state.character.pets = [];
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(page.getByRole('button', { name: 'Go to World Map', exact: true })).toBeVisible();
     await expect(nav).toHaveCount(0);
 });
@@ -1161,7 +1166,7 @@ test("refined integration festival navigation, crate, and market retry", async (
         }
         return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion, listings: lots.filter(lot => lot.state === 'active'), activity: trades, inventory: [], creatorItems: [], recoveryErrors: [] });
     });
-    await page.goto('/#/sunscarFestival', { waitUntil: 'networkidle' });
+    await gotoSettled(page, '/#/sunscarFestival');
     for (const [selector, title, back] of [
         ['.sunscar-attraction-rally button', 'Pet Rally', '.sunscar-rally .sunscar-back'],
         ['.sunscar-attraction-caravan button', 'Caravan Run', '.caravan-mode .sunscar-back'],
@@ -1213,4 +1218,65 @@ test("refined integration festival navigation, crate, and market retry", async (
     expect(purchases[1]).toEqual(purchases[0]);
     expect(state.character.ryo).toBe(929_900);
     await expect(page.getByRole('dialog')).toHaveCount(0);
+});
+
+
+test("Warfront failed settlement allows Leave and recovers the exact report after navigation", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    const state = await installPetHomeApi(page);
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const bodies: Record<string, unknown>[] = [];
+    let recovered = false;
+    await page.route("**/api/pet/warfront-start", async (route) => {
+        const body = route.request().postDataJSON();
+        if (body.resumeOnly) return route.fulfill({ status: 204 });
+        return json(route, {
+            token: "qa-warfront-exact-seal", seed: 23, reportKey: "23:tactical", theme: "central",
+            stance: body.stance, doctrine: body.doctrine, buyPolicy: body.buyPolicy,
+            opponentBuyPolicy: "balanced", opponentStance: "balanced", opponentDoctrine: "vanguard",
+            bluePets: body.playerPetIds.map((id: string) => state.character.pets.find((p) => p.id === id)),
+            redPets: state.character.pets.map((p, i) => ({ ...p, id: `rival-${i}`, hp: 1, attack: 1, defense: 1 })),
+            expiresAt: Date.now() + 3_600_000, settleAfter: Date.now() - 1000,
+            matchDurationMs: 120_000, safePlaybackForMs: 3_000_000,
+        });
+    });
+    await page.route("**/api/pet/battle-result", async (route) => {
+        bodies.push(route.request().postDataJSON());
+        if (!recovered) return json(route, { error: "QA temporary settlement outage" }, 503);
+        return json(route, { ok: true, character: state.character, _saveVersion: ++state.saveVersion });
+    });
+    await openHome(page);
+    await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
+    await page.getByRole("button", { name: /Beastbound Warfront/ }).click();
+    await page.getByRole("button", { name: "Start vs AI", exact: true }).click();
+    await page.getByRole("button", { name: "Lock formation", exact: true }).click({ timeout: 30_000 });
+    const report = page.getByRole("dialog", { name: "Tactical report and re-form" });
+    for (let clash = 0; clash < 5; clash++) {
+        await expect.poll(async () => await page.locator(".wfr-result").isVisible() || await report.isVisible(), { timeout: 90_000 }).toBe(true);
+        if (await page.locator(".wfr-result").isVisible()) break;
+        const acknowledge = page.getByRole("button", { name: "Report read, re-form band" });
+        if (await acknowledge.isVisible()) await acknowledge.click();
+        await report.getByRole("button", { name: "Lock & rematch" }).click();
+        await expect(report).toBeHidden();
+    }
+    await expect(page.locator(".wfr-result")).toBeVisible();
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    const leave = page.getByRole("button", { name: "Leave the Warfront", exact: true });
+    await expect(leave).toBeEnabled();
+    await page.screenshot({ path: testInfo.outputPath("failed-report-leave-enabled.png") });
+    await leave.click();
+    await expect(page.locator(".wfr-result")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Pet Yard", exact: true }).click();
+    recovered = true;
+    await page.getByRole("button", { name: "Pet Arena", exact: true }).click();
+    await expect.poll(() => bodies.length).toBe(2);
+    await expect(page.getByRole("button", { name: "Retry Settlement", exact: true })).toHaveCount(0);
+    expect(bodies[1]).toEqual(bodies[0]);
+    expect(bodies[0].battleToken).toBe("qa-warfront-exact-seal");
+    expect(bodies[0].warfrontPlan).toBeTruthy();
+    const storage = await page.evaluate(() => JSON.stringify({ ...localStorage, ...sessionStorage }));
+    expect(storage).not.toContain("qa-warfront-exact-seal");
+    expect(errors).toEqual([]);
 });

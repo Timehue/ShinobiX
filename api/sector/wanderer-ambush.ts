@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
 import { bumpEraDiscoveryContribution } from '../_era.js';
@@ -59,25 +60,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const today = utcDateKey();
             let legacyReceiptId = '';
 
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            type Reply = Record<string, unknown>;
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ character: char }) => {
+                const answer = (body: Reply) => ({ ok: true as const, write: false, character: char, value: body });
                 const receipts = Array.isArray(char.redeemedWandererAmbushes) ? char.redeemedWandererAmbushes as Array<Record<string, unknown>> : [];
                 const pending = cleanWorldAiPendingOutcome(char.worldAiPendingOutcome);
                 const fresh = await kv.get<{ baseline: number; at?: number; authority?: string; chainId?: string; kind?: string; sourceId?: string; sector?: number }>(tokenKey);
                 if (!pending && !fresh) {
                     const priorWorld = [...receipts].reverse().find((entry) => entry.source === 'world-ai-chain');
-                    if (!priorWorld) return { status: 200, body: { ok: false, reason: 'none' } };
+                    if (!priorWorld) return answer({ ok: false, reason: 'none' });
                     legacyReceiptId = String(priorWorld.id ?? '');
-                    return { status: 200, body: { ok: true, replayed: true, reward: priorWorld.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    return answer({ ok: true, replayed: true, reward: priorWorld.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } });
                 }
                 const receiptId = pending ? `world:${pending.claimId}` : `${fresh!.baseline}:${Number(fresh!.at ?? 0)}`;
                 legacyReceiptId = receiptId;
                 const prior = receipts.find((entry) => entry.id === receiptId);
                 if (prior) {
                     await kv.del(tokenKey).catch(() => undefined);
-                    return { status: 200, body: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) }, character: char, _saveVersion: Number(rec._saveVersion ?? 0) } };
+                    if (pending) {
+                        // A save paid before the pending outcome was cleared on
+                        // claim still carries it, so every resume probe offered the
+                        // paid ambush again. Clear it now; the payout stays as is.
+                        return {
+                            ok: true,
+                            character: { ...char, worldAiPendingOutcome: null },
+                            value: { ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } },
+                        };
+                    }
+                    return answer({ ok: true, replayed: true, reward: prior.reward, totals: { ryo: num(char.ryo), fateShards: num(char.fateShards), boneCharms: num(char.boneCharms) } });
                 }
 
                 const chainWins = Array.isArray(char.worldAiChainWins) ? char.worldAiChainWins as Array<Record<string, unknown>> : [];
@@ -99,22 +109,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? hasSealedWorldChain
                     : ambushCleared(num(fresh?.baseline), num(char.totalAiKills));
                 if (!verified) {
-                    return { status: 200, body: { ok: false, reason: 'incomplete' } };
+                    return answer({ ok: false, reason: 'incomplete' });
                 }
 
-                // Burn the single-use token only now that the claim is verified,
-                // inside the save lock and before payout. The delete rowcount is
-                // the consume gate; a storage failure must not fail open into a
-                // replayable reward token.
+                // The in-save receipt below is the single-use gate: it commits
+                // with the payout, and a replay finds it above. The legacy token
+                // is burned only after that commit, still under the save lock.
                 const claimedSoFar = char.wandererAmbushRewardDate === today ? Math.max(0, num(char.wandererAmbushRewardCount)) : 0;
                 if (claimedSoFar >= AMBUSH_REWARDS_PER_DAY) {
-                    return { status: 200, body: { ok: false, reason: 'daily-cap' } };
+                    return answer({ ok: false, reason: 'daily-cap' });
                 }
 
                 const reward = rollAmbushReward(num(char.level) || 1, Math.random);
-                const { worldAiPendingOutcome: _clearedPending, ...withoutPending } = char;
                 const updated = {
-                    ...withoutPending,
+                    ...char,
+                    // Null, not an omitted key: the save write deep-merges over the
+                    // stored record, so a dropped key would keep the paid outcome
+                    // and the resume probe would offer this claim again.
+                    worldAiPendingOutcome: null,
                     ryo: num(char.ryo) + reward.ryo,
                     fateShards: num(char.fateShards) + reward.fateShards,
                     boneCharms: num(char.boneCharms) + reward.boneCharms,
@@ -122,20 +134,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     wandererAmbushRewardCount: claimedSoFar + 1,
                     redeemedWandererAmbushes: [...receipts.slice(-49), { id: receiptId, source: pending ? 'world-ai-chain' : 'legacy', claimId: pending?.claimId, reward }],
                 };
-                const record = bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char });
-                await kv.set(`save:${playerName}`, mergePreservingImages(record, rec));
-                await kv.del(tokenKey).catch(() => undefined);
                 return {
-                    status: 200,
-                    body: {
+                    ok: true,
+                    character: updated,
+                    value: {
                         ok: true,
                         reward,
                         totals: { ryo: updated.ryo, fateShards: updated.fateShards, boneCharms: updated.boneCharms },
-                        character: updated,
-                        _saveVersion: Number(record._saveVersion ?? 0),
                     },
+                    afterCommit: () => kv.del(tokenKey).then(() => undefined, () => undefined),
                 };
-            }, { failClosed: true });
+            });
+            if (!committed.ok) {
+                if (committed.status === 404) return res.status(404).json({ error: 'Your save was not found.' });
+                return res.status(committed.status).json({ error: committed.error });
+            }
+            // Every paid or replayed claim answers with the save it reflects.
+            const out = { status: 200, body: committed.value };
+            if (committed.value.ok === true) {
+                committed.value.character = committed.character;
+                committed.value._saveVersion = committed._saveVersion;
+            }
 
             // Legacy tracking (ENABLE_LEGACY): a cleared ambush gauntlet is a
             // hidden find + an elite takedown (the warlord boss).
@@ -162,7 +181,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Could not grant the reward — please retry.' });
         }
         console.error('[sector/wanderer-ambush]', safeLogValue(err));

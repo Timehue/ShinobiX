@@ -20,6 +20,40 @@ import { TOWER_PVP_READY_MS, type TowerPvpFighterSeed } from './_pvp-session.js'
 const NOW = 1_800_000_000_000;
 const MATCH_ID = `tpvp-${'b'.repeat(32)}`;
 
+/**
+ * What a Postgres jsonb read hands back: the JSON form, with every object's keys
+ * in jsonb order (shorter keys first, then bytewise) rather than insertion order.
+ */
+function postgresRead(value: unknown): unknown {
+    const order = (entry: unknown): unknown => {
+        if (Array.isArray(entry)) return entry.map(order);
+        if (!entry || typeof entry !== 'object') return entry;
+        return Object.fromEntries(Object.entries(entry)
+            .sort(([a], [b]) => Buffer.byteLength(a) - Buffer.byteLength(b) || Buffer.compare(Buffer.from(a), Buffer.from(b)))
+            .map(([key, child]) => [key, order(child)]));
+    };
+    return value === null ? null : order(JSON.parse(JSON.stringify(value)));
+}
+
+/** A store whose reads come back in jsonb key order and whose `lose` write commits, then throws once. */
+function lossyPostgresKv(lose: (key: string) => boolean): { kv: TowerKv; dropped: () => boolean } {
+    const base = _makeMemoryKv() as unknown as TowerKv;
+    let dropped = false;
+    const kv: TowerKv = {
+        ...base,
+        get: (async (key: string) => postgresRead(await base.get(key))) as TowerKv['get'],
+        set: async (key, value, options) => {
+            const result = await base.set(key, value, options);
+            if (!dropped && lose(key)) {
+                dropped = true;
+                throw new Error('lost acknowledgement');
+            }
+            return result;
+        },
+    };
+    return { kv, dropped: () => dropped };
+}
+
 function keyedLock(): TowerLock {
     const tails = new Map<string, Promise<void>>();
     return async <T>(key: string, fn: () => Promise<T>): Promise<T> => {
@@ -198,6 +232,28 @@ describe('Tower MPvP queue and ready coordinator', () => {
         assert.ok(await readTowerPvpMatch(MATCH_ID, deps));
         assert.deepEqual(await readTowerPvpQueue(deps), []);
         assert.equal(dropped, true);
+    });
+
+    it('recovers a lost publication acknowledgement when Postgres reorders the match keys', async () => {
+        // jsonb returns the match with its keys reordered (combat.map comes back
+        // as biome, width, height, …), so comparing JSON text judged every landed
+        // publication lost: the join failed and all four leases were released.
+        const { kv, dropped } = lossyPostgresKv(key => key === towerPvpMatchKey(MATCH_ID));
+        const deps = setup(kv);
+        await joinFour(deps);
+        assert.equal(dropped(), true, 'the publication landed and only its reply was lost');
+        assert.ok(await readTowerPvpMatch(MATCH_ID, deps));
+        assert.deepEqual(await readTowerPvpQueue(deps), []);
+    });
+
+    it('keeps a queue write whose reply was lost when Postgres reorders the entry keys', async () => {
+        // A queue entry is written as slug, displayName, skill, joinedAt,
+        // requestId; jsonb returns slug, skill, joinedAt, requestId, displayName.
+        const { kv, dropped } = lossyPostgresKv(key => key === TOWER_PVP_QUEUE_KEY);
+        const deps = setup(kv);
+        await joinTowerPvpQueue({ fighter: roster[0]!, requestId: request('alpha') }, deps);
+        assert.equal(dropped(), true, 'the queue write landed and only its reply was lost');
+        assert.deepEqual((await readTowerPvpQueue(deps)).map(entry => entry.slug), ['alpha']);
     });
 
     it('releases every lease when match publication definitely fails', async () => {

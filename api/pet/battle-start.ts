@@ -5,7 +5,6 @@ import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { runPetDuel, runPetPartyDuel } from '../_pet-sim/pet-duel-sim.js';
 import { replayCasualPetDuel } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
@@ -40,12 +39,6 @@ import {
     parseDungeonPetResultReceipt,
     type DungeonPetBattleBinding,
 } from './_dungeon-battle.js';
-// The sector wanderer runs as its own sealed session rather than through the
-// generic opponent flow: it owns a durable use-cooldown proof, the sector move,
-// and a resume that re-serves the first verdict. `_wanderer-duel.ts`'s inline
-// `buildWandererBeast` is the simpler shape this supersedes — see the early
-// return in the handler.
-import { startNaturalWandererPetSession } from './_wanderer-session.js';
 import { loadPvpPetDuel, pvpPetDuelOutcomeFor, pvpSettlementSnapshot, resolvePvpPetDuel } from './_pvp-duel.js';
 
 /*
@@ -108,10 +101,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.pvpChallengeId.trim().slice(0, 80)
             : '';
         const bodyMode = body.mode === '2v2' ? '2v2' : '1v1';
-        // (Nothing parses `body.wanderer` here. A sector wanderer duel is claimed
-        // by the sealed wanderer session a few lines below, which validates the
-        // encounter id AND the sector against the caller's own save before it
-        // resolves anything.)
+        // (Nothing parses `body.wanderer` here. Road beasts are fought in the
+        // Colosseum, and a request naming one is refused a few lines below.)
         const requestedPlayerPetIds: string[] = Array.isArray(body.playerPetIds) ? body.playerPetIds.map((value: unknown) => String(value)).slice(0, 2) : [];
         // `let`, not `const`: the Dungeon Rare Beast branch below replaces these
         // with the ids of the beast the SERVER built, so the token seals what was
@@ -129,37 +120,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'Can only start your own pet battles.' });
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'pet-battle-start', 30, 60_000, identity.name))) return;
-        // Natural sector pet wanderers are a distinct server-owned journey.
-        // Isolate it before any generic opponent/HG/Dungeon branch can infer a
-        // different authority from overlapping request fields.
-        //
-        // This returns before any generic opponent handling below ever runs, and
-        // deliberately so. A simpler inline version of this duel is possible —
-        // pick a template by the caller's level, scale it, resolve one bout — but
-        // it stamps none of the durable state a wanderer owes the world: the
-        // per-encounter use cooldown, the sector move, the save-version echo, and
-        // a resume that re-serves the FIRST verdict instead of restaging the
-        // fight. See api/pet/wanderer-authority.test.ts for the whole contract.
+        // Road beasts are fought in the Colosseum (POST /api/pet/showdown,
+        // action 'wanderer'), which fields the species the World Map shows
+        // (shared/wanderer-beast.ts). This endpoint's own wanderer duel is
+        // retired. Refuse one here, before any generic opponent branch can read
+        // the request as an ordinary AI fight. See api/pet/wanderer-authority.test.ts.
         if (body.wanderer !== undefined) {
-            const started = await startNaturalWandererPetSession(playerName, body as Record<string, unknown>);
-            if (!started.ok) return res.status(started.status).json({ error: started.error });
-            const { session } = started;
-            return res.status(200).json({
-                ok: true,
-                token: session.token,
-                reportKey: session.reportKey,
-                seed: session.seed,
-                resumed: started.resumed,
-                playerPets: session.playerPets,
-                opponentPets: session.opponentPets,
-                showdownScript: session.showdownScript,
-                outcome: session.outcome,
-                wanderer: session.wanderer,
-                cooldownUntil: session.cooldownUntil,
-                moveToSector: session.moveToSector,
-                character: started.character,
-                _saveVersion: started._saveVersion,
-            });
+            return res.status(410).json({ error: 'Road beasts are fought in the Colosseum now. Approach the beast again from the World Map.' });
         }
         /*
          * THE SEALED PLAYER DUEL, if this is one.
@@ -320,14 +287,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             isAiOpponent = true;
             hollowGate = { runId };
         } else if (opponentName) {
+            // An unchallenged duel against another player's pets resolved on the
+            // legacy duel sim, retired on 2026-10-02. The client no longer sends
+            // one: a fight with another player is a sealed challenge
+            // (pvpChallengeId, above), and this path never paid or ranked anything.
+            // Refuse only once the named player's pets resolve. A name that
+            // resolves none still falls through to the AI-receipt recovery below,
+            // exactly as before.
             const oppSave = await kv.get<Record<string, unknown>>(`save:${opponentName}`);
             const oppChar = oppSave?.character as Record<string, unknown> | undefined;
             const stored = activeCarriedPets<Record<string, unknown>>(oppChar ?? {});
-            opponentPets = opponentPetIds.map((id) => stored.find((pet) => String(pet?.id ?? '') === id)).filter(Boolean) as unknown as Pet[];
-            if (opponentPets.some((pet) => petCombatBusyReason(oppChar ?? {}, pet as unknown as Record<string, unknown>))) {
-                return res.status(409).json({ error: 'The selected opponent pet is currently unavailable.' });
+            if (opponentPetIds.some((id) => stored.some((pet) => String(pet?.id ?? '') === id))) {
+                return res.status(410).json({
+                    error: 'Unchallenged duels against another player are retired. Send a pet challenge instead.',
+                });
             }
-            if (opponentPets.length && oppChar) realOpponentLevel = clampLevel(Number(oppChar.level ?? 1));
         }
         if (!opponentPets.length && opponentPetIds.some((id) => Boolean(SERVER_ARENA_PETS[id]))) {
             // Recovery only: an older client may have lost the response carrying
@@ -396,20 +370,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // the player's inputs. Seal everything that replay needs; the client
         // restates none of it when it reports the result.
         //
-        // A wanderer duel is excluded: it resolves on Showdown below, so there is
-        // no local fight to replay and nothing for these params to describe.
-        //
-        // With the wanderer ported, NOTHING IN THE APP produces a casualPveSeal
-        // any more — the sealed-params branch below, and the legacy sims it feeds,
-        // are reachable only by a caller naming a SERVER_ARENA_PETS id directly.
-        // They are kept rather than deleted for two reasons: battle-result must
-        // still settle tokens minted before this deploy (15-minute TTL), and
-        // `_duel-replay.ts` is still the live-PvP lockstep path's replay. Both go
-        // when live PvP ports.
-        // Gated on `isAiOpponent` alone. A wanderer duel never reaches this line
-        // — it is answered by the sealed session and returned far above — so an
-        // extra wanderer term here could only ever read as true, while implying
-        // a second wanderer path through this function that does not exist.
+        // NOTHING IN THE APP produces a casualPveSeal any more — the
+        // sealed-params branch below, and the legacy sims it feeds, are reachable
+        // only by a caller naming a SERVER_ARENA_PETS id directly. They are kept
+        // rather than deleted for two reasons: battle-result must still settle
+        // tokens minted before this deploy (15-minute TTL), and `_duel-replay.ts`
+        // is still the live-PvP lockstep path's replay. Both go when live PvP
+        // ports.
+        // Gated on `isAiOpponent` alone. A wanderer request never reaches this
+        // line — it is refused far above.
         const sealedParams: SealedDuelParams | null = isAiOpponent ? {
             mode,
             seed,
@@ -429,28 +398,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             : null;
 
         // Baseline outcome, used when the report carries no input log — the flag
-        // is off, an older client, or the player just watched. For a PvE fight
-        // this now runs the CINEMATIC engine the coliseum actually renders (an
-        // empty log reproduces the uncommanded AI fight exactly), so the sealed
-        // value finally agrees with the fight on screen instead of coming from
-        // the retired pet-duel-sim engine. Non-PvE casual duels are untouched.
-        /*
-         * There is deliberately no wanderer branch in this chain. A sector
-         * wanderer duel is resolved by the sealed wanderer session and returned
-         * at the top of this handler, together with the cooldown and relocation
-         * it writes — it never falls through to here. A second resolution at
-         * this point would decide the same encounter a second way, which is the
-         * exact class of split this endpoint has been closing.
-         */
+        // is off, an older client, or the player just watched. A sealed player
+        // duel was already decided on Showdown; every other admitted battle is a
+        // sealed PvE fight, which runs the CINEMATIC engine the coliseum actually
+        // renders (an empty log reproduces the uncommanded AI fight exactly).
+        // There is deliberately no wanderer branch in this chain: a road beast
+        // is refused at the top of this handler and fought in the Colosseum.
         const result = pvpOutcome
-            // Already decided, on Showdown, for both participants at once. The
-            // legacy sims below never run for a player challenge again.
+            // Already decided, on Showdown, for both participants at once.
             ? pvpOutcome
             : casualPveSeal
             ? replayCasualPetDuel(casualPveSeal.playerPets, casualPveSeal.opponentPets, casualPveSeal.params, []).outcome
-            : mode === '2v2'
-                ? runPetPartyDuel(playerPets[0], playerPets[1] ?? null, opponentPets[0], opponentPets[1] ?? null, seed, damageMult, hpMult, revive, false, false, true).result
-                : runPetDuel(playerPets[0], opponentPets[0], seed, damageMult, hpMult, revive, false, false, null, true).result;
+            : null;
+        // Nothing else reaches this line: the only other battle, the unchallenged
+        // player duel refused above, resolved on the retired legacy duel sim. A
+        // battle with no authoritative engine fails closed instead of minting.
+        if (!result) return res.status(409).json({ error: 'This pet battle has no authoritative engine.' });
 
         const tokenKey = `pet:battle-token:${playerName}:${token}`;
         const tokenData = {

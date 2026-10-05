@@ -12,12 +12,13 @@
  * were just knocked out in. The Hospital screen clears it on entry to prevent
  * that. Module scope so it survives WorldMap's unmount/remount during a battle.
  */
+import { isWildSector } from "./screen-guards";
+
 let pendingSectorReopen: number | null = null;
 
 export function setSectorReopen(sector: number | null) {
     pendingSectorReopen = sector;
 }
-
 // Read-and-clear: WorldMap calls this on mount to reopen the sector exactly once.
 export function takeSectorReopen(): number | null {
     const sector = pendingSectorReopen;
@@ -27,6 +28,11 @@ export function takeSectorReopen(): number | null {
 
 export function clearSectorReopen() {
     pendingSectorReopen = null;
+}
+
+/** Preserve the field detail for ordinary Travel, but let an explicit global-map action opt out. */
+export function worldMapReopenTarget(screen: string, sector: number, overview = false): number | null {
+    return !overview && screen !== "worldMap" && isWildSector(sector) ? sector : null;
 }
 
 /*

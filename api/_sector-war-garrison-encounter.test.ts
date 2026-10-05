@@ -99,6 +99,20 @@ test('builder is deterministic for the same authoritative inputs', () => {
     assert.deepEqual(build(), build());
 });
 
+test('the sealed sector sky rides along while the defender\'s terrain stays the board', () => {
+    const session = buildGarrisonEncounter({
+        runId: 'garrison-sky', now: NOW,
+        attacker: fighter('attacker', 'Attacker', 9_000), anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000),
+        terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
+        attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+        weather: { weatherPositiveElement: 'Lightning', weatherNegativeElement: 'Wind' },
+    });
+    assert.equal(session.environment.biome, 'forest');
+    assert.equal(session.environment.weatherPositiveElement, 'Lightning');
+    assert.equal(session.environment.weatherNegativeElement, 'Wind');
+    assert.equal(build().environment.weatherPositiveElement, undefined, 'no sky passed, none sealed');
+});
+
 test('garrisonSessionMatches rejects every hostile binding substitution', () => {
     const session = build();
     const run = {

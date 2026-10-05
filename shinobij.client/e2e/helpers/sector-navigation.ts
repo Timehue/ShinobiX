@@ -6,6 +6,6 @@ export async function returnToWorldAtlas(page: Page) {
     if (await info.isVisible()) {
         await info.getByRole('button', { name: 'Close Sector Info', exact: true }).click();
     }
-    await page.getByRole('button', { name: 'Travel', exact: true }).click();
+    await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
     await expect(page.locator('.world-atlas-card')).toBeVisible();
 }

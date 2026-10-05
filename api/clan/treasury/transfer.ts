@@ -5,7 +5,6 @@ import { kv } from '../../_storage.js';
 import { cors, safeName, clanRecordKey } from '../../_utils.js';
 import { authedPlayerOrAdmin } from '../../_auth.js';
 import { enforceRateLimitKv } from '../../_ratelimit.js';
-import { writeVersionedPlayerSave } from '../../save/_mutate-player-save.js';
 import { crossKeyTransferReply, settleCrossKeyTransfer, SettlementValidationError } from '../../_cross-key-settlement.js';
 import { planTreasuryGift } from '../../_treasury-gift-tax.js';
 import { hasRecentIpOrFpOverlap } from '../../_player-ips.js';
@@ -272,7 +271,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 inventory.push(itemId!);
                 return { character: { ...character, inventory }, result: { itemId } };
             },
-            saveRecipient: async (record, character) => (await writeVersionedPlayerSave(recipientKey, record, character)).record,
         });
         // The gate is held from before the check inside the settlement until
         // after the charge, so the officer's next gift cannot read the ledger

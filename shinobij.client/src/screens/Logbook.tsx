@@ -220,6 +220,7 @@ export function Logbook({
             return alert("This creator field mission is awaiting a published server contract. Nothing was accepted.");
         }
         if (acceptedMissionIds.includes(mission.id) || fieldTrailPending) return;
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         setFieldTrailPending(mission.id);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
@@ -514,7 +515,7 @@ export function Logbook({
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null || !hasDailyMissionSlot(character)} onClick={() => { void acceptMission(mission); }}>{hasDailyMissionSlot(character) ? "Accept" : "Daily Limit Reached"}</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
                                 </div>
                             </div>
                         );

@@ -1,0 +1,5 @@
+
+> shinobix-api@1.0.0 build:server
+> tsc -p tsconfig.cpanel.json
+
+api/pvp/_committed-terminal-effects.ts(1,41): error TS2307: Cannot find module './_relic-reward.js' or its corresponding type declarations.

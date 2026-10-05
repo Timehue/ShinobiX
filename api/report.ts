@@ -4,6 +4,8 @@ import { cors } from './_utils.js';
 import { authedPlayer, isAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { randomUUID } from 'crypto';
+import { sectorChatKey } from './sector/_chat.js';
+import { isSectorChatSector, type SectorChatMessage } from '../shared/sector-chat.js';
 
 /**
  * Player-submitted abuse/content reports (EU DSA notice-and-action + UK Online
@@ -51,7 +53,30 @@ interface StoredReport {
     targetId: string | null;
     context: string | null;
     note: string | null;
+    /** A server-side copy of a reported line that will not outlive review. */
+    evidence?: { name: string; text: string; ts: number };
     status: 'open';
+}
+
+/**
+ * Sector chat lines fade within the hour (shared/sector-chat.ts), long before
+ * staff can review a report, so a report on one keeps its own copy of what was
+ * said. The copy is read from storage by id, never taken from the reporter, so
+ * a report cannot put words in someone else's mouth. Best effort: a miss or a
+ * storage error files the report without it.
+ */
+async function sectorChatEvidence(targetType: string, context: string | null, targetId: string | null): Promise<StoredReport['evidence']> {
+    const match = /^sector-chat:(\d+)$/.exec(context ?? '');
+    if (targetType !== 'message' || !match || !targetId) return undefined;
+    const sector = Number(match[1]);
+    if (!isSectorChatSector(sector)) return undefined;
+    try {
+        const lines = await kv.get<SectorChatMessage[]>(sectorChatKey(sector));
+        const line = Array.isArray(lines) ? lines.find((m) => m?.id === targetId) : undefined;
+        return line ? { name: clip(line.name, SHORT_MAX), text: clip(line.text, NOTE_MAX), ts: Number(line.ts) || 0 } : undefined;
+    } catch {
+        return undefined;
+    }
 }
 
 /**
@@ -86,6 +111,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!CATEGORIES.has(category)) return res.status(400).json({ error: 'Invalid category.' });
 
         const id = randomUUID();
+        const targetId = clip(body.targetId, ID_MAX) || null;
+        const context = clip(body.context, SHORT_MAX) || null;
+        const evidence = await sectorChatEvidence(targetType, context, targetId);
         const record: StoredReport = {
             id,
             createdAt: Date.now(),
@@ -93,9 +121,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             targetType,
             category,
             targetName: clip(body.targetName, SHORT_MAX) || null,
-            targetId: clip(body.targetId, ID_MAX) || null,
-            context: clip(body.context, SHORT_MAX) || null,
+            targetId,
+            context,
             note: clip(body.note, NOTE_MAX) || null,
+            ...(evidence ? { evidence } : {}),
             status: 'open',
         };
 

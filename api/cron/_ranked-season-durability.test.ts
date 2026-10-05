@@ -454,3 +454,43 @@ describe('ranked season transition durability', () => {
         assert.equal((await readPetRankedSeasonGateFresh(store))?.state, 'open');
     });
 });
+
+describe('the season rollover keeps the idle recovery each player earned', () => {
+    it('settles an offline player\'s recovery into the season write and carries the cursor', async () => {
+        // The rollover writes every ranked player, almost all of them offline.
+        // A fixed clock keeps the settle exact: 30.5 s past the last save is
+        // 30 whole ticks, and a cursor fenced to the write would sit half a
+        // tick later than the carried one.
+        const realDateNow = Date.now;
+        const at = NOW + 1;
+        Date.now = () => at;
+        try {
+            const store = await seededStore();
+            const tiredAt = at - 30_500;
+            const stored = save('charlie');
+            await store.set('save:charlie', {
+                ...stored,
+                _saveAt: tiredAt,
+                _regenAt: tiredAt,
+                character: {
+                    ...stored.character,
+                    rankedRating: 1500,
+                    hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+                },
+            });
+
+            const rolled = await runRankedSeasonRolloverWithStore(store, at, { force: true, lock });
+            assert.equal(rolled.ok, true, String(rolled.error ?? 'ranked rollover failed'));
+            assert.equal(rolled.action, 'rolled-over');
+
+            const saved = (await store.get<Record<string, any>>('save:charlie'))!;
+            assert.ok(saved.character.rankedRating < 1500, 'the season still reset the rating');
+            assert.ok(saved.character.hp >= 40, `hp ${saved.character.hp} lost the idle recovery`);
+            assert.ok(saved.character.chakra >= 50, `chakra ${saved.character.chakra} lost the idle recovery`);
+            assert.ok(saved.character.stamina >= 30, `stamina ${saved.character.stamina} lost the idle recovery`);
+            assert.equal(saved._regenAt, tiredAt + 30_000, `cursor ${saved._regenAt} was fenced to the write, not carried`);
+        } finally {
+            Date.now = realDateNow;
+        }
+    });
+});

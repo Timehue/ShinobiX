@@ -351,6 +351,92 @@ function settlement(runId: string, settledAt: number): CombatMissionClaimSettlem
     };
 }
 
+describe('mission writes keep the idle recovery the player earned', { concurrency: false }, () => {
+    // A save last written 30 s ago, tired enough to show any recovery.
+    async function tire(playerName: string): Promise<number> {
+        const at = Date.now() - 30_000;
+        const record = (await kv.get<Record<string, unknown>>(`save:${playerName}`))!;
+        await kv.set(`save:${playerName}`, {
+            ...record,
+            _saveAt: at,
+            _regenAt: at,
+            character: {
+                ...(record.character as Record<string, unknown>),
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+            },
+        });
+        return at;
+    }
+
+    async function assertRecovered(playerName: string, at: number): Promise<Record<string, unknown>> {
+        const saved = (await kv.get<Record<string, unknown>>(`save:${playerName}`))!;
+        const character = saved.character as Record<string, number>;
+        assert.ok(character.hp >= 40, `hp ${character.hp} lost the idle recovery`);
+        assert.ok(character.chakra >= 50, `chakra ${character.chakra} lost the idle recovery`);
+        assert.ok(character.stamina >= 30, `stamina ${character.stamina} lost the idle recovery`);
+        // No mission write here moves a vital, so each carries the settled
+        // cursor: whole ticks from where it was, never the write's own instant.
+        const cursor = Number(saved._regenAt);
+        assert.ok(cursor >= at + 30_000 - 1_000, `cursor ${cursor} fell behind the recovery`);
+        assert.equal((cursor - at) % 1_000, 0, `cursor ${cursor} was fenced to the write, not carried`);
+        return character;
+    }
+
+    it('a queue retry, after the fight itself was settled', async () => {
+        // The fight's own save write landed and the queue write after it did
+        // not. The retry can come long after, and its write fenced the cursor.
+        const player = 'missionsagarestqueue';
+        await seedPlayer(player);
+        const runId = await seedWonRun(player, 'restqueue');
+        const failed = await withSetFault(
+            (key, value) => key === `save:${player}` && hasPendingClaim(value),
+            'throw-before-commit',
+            () => queue(player, runId),
+        );
+        assert.notEqual(failed.body?.queued, true, 'the first queue write was rejected');
+        const at = await tire(player);
+        const retry = await queue(player, runId);
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        assert.equal(retry.body?.queued, true);
+        await assertRecovered(player, at);
+        assert.equal(hasPendingClaim(await kv.get(`save:${player}`)), true, 'the claim was still queued');
+    });
+
+    it('a mission claim', async () => {
+        const player = 'missionsagarestclaim';
+        await seedPlayer(player);
+        const runId = await seedWonRun(player, 'restclaim');
+        assert.equal((await queue(player, runId)).statusCode, 200);
+        const at = await tire(player);
+        const claimed = await claim(player);
+        assert.equal(claimed.statusCode, 200, JSON.stringify(claimed.body));
+        const character = await assertRecovered(player, at);
+        assert.ok(Number(character.ryo) > 100, 'the payout still landed');
+    });
+
+    it('post-claim effects helped forward after a crash', async () => {
+        // The payout landed, then the claim crashed before its run-bound
+        // effects. Finishing them on a later claim can come long after.
+        const player = 'missionsagaresteffects';
+        await seedPlayer(player, 100, null);
+        await seedNewbieDaily(player);
+        const runId = await seedWonRun(player, 'resteffects');
+        assert.equal((await queue(player, runId)).statusCode, 200);
+        const failed = await withSetFault(
+            (key, value) => key === `save:${player}` && hasSettlementEffect(value, 'newbieAppliedAt'),
+            'throw-before-commit',
+            () => claim(player),
+        );
+        assert.equal(failed.statusCode, 500);
+        await kv.del(tokenKey(player, MISSION_ID));
+        const at = await tire(player);
+        const retry = await claim(player);
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+        const character = await assertRecovered(player, at);
+        assert.equal(Number(character.ryo), 440, 'the newbie rewards still landed exactly once');
+    });
+});
+
 describe('mission claim authority shape and retention', { concurrency: false }, () => {
     it('accepts the previous rolling-deploy token shape but keeps run + mission binding', () => {
         const parsed = parseCombatMissionClaimToken({

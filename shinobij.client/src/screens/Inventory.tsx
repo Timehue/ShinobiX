@@ -54,6 +54,7 @@ import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
 import { storesItemSignpost } from "../lib/village-stores-signposts";
+import { openMarketplaceScroll } from "../lib/marketplace-scroll-navigation";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
@@ -1164,7 +1165,7 @@ export function Inventory({
                                 <div className="item-popup-actions">
                                     {selectedMarketplaceScroll && setScreen && selected.source === "backpack" && (
                                         <button type="button" className="item-action-primary"
-                                            onClick={() => { setSelectedInventoryItem(null); setScreen("grandMarketplace"); }}>
+                                            onClick={() => { setSelectedInventoryItem(null); openMarketplaceScroll(selectedGameItem?.id === VILLAGE_TRANSFER_SCROLL_ID ? "village" : "profession", setScreen); }}>
                                             Use scroll at Grand Marketplace
                                         </button>
                                     )}

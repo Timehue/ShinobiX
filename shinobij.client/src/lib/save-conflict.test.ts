@@ -307,6 +307,17 @@ describe("save-conflict drafts", () => {
         assert.deepEqual(detectSaveConflictAreas(local, server), ["Server-managed progress"]);
     });
 
+    it("ignores shared admin items a slimmed server save no longer carries, but not the player's forged gear", () => {
+        // The device holds every admin item it pulled; a slimmed save holds only
+        // the player's own items. That alone must never be a recoverable draft.
+        const forged = { id: "named-weapon-0f1e2d3c-4b5a-6978-8a9b-0c1d2e3f4a5b", name: "Kaya's Edge" };
+        const local = { character: { name: "Kaya" }, creatorItems: [{ id: "admin-blade", name: "Blade" }, forged] };
+        const server = { character: { name: "Kaya" }, creatorItems: [forged] };
+        assert.deepEqual(detectSaveConflictAreas(local, server), ["Save timing only"]);
+        const renamed = { character: { name: "Kaya" }, creatorItems: [{ ...forged, name: "Renamed" }] };
+        assert.notDeepEqual(detectSaveConflictAreas(renamed, server), ["Save timing only"], "a forged-item difference is still detected");
+    });
+
     it("recognizes an unload guard that the server already persisted", () => {
         const local = { character: { name: "Kaya", level: 9, portrait: "" }, _baseSaveVersion: 12 };
         const server = { character: { name: "Kaya", level: 9, portrait: "https://cdn/avatar.webp" }, _saveVersion: 13, _saveAt: 123_456 };

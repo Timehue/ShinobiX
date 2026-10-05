@@ -16,7 +16,6 @@ shop,bulwark-gloves,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary h
 shop,bulwark-legs,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary legs
 shop,bulwark-waist,fateShards,150,per unit,api/pvp/_item-catalog.ts,legendary waist
 shop,chain-obi,ryo,320,per unit,api/pvp/_item-catalog.ts,rare waist
-shop,chakra-ring,ryo,600,per unit,api/pvp/_item-catalog.ts,rare relic
 shop,cloth-hood,ryo,120,per unit,api/pvp/_item-catalog.ts,common head
 shop,cloth-pants,ryo,105,per unit,api/pvp/_item-catalog.ts,common legs
 shop,cloth-robe,ryo,150,per unit,api/pvp/_item-catalog.ts,common body
@@ -127,6 +126,7 @@ shop,thrown-senbon,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-serpent-dust,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,400,per unit,api/pvp/_item-catalog.ts,common thrown
 shop,training-katana,ryo,240,per unit,api/pvp/_item-catalog.ts,common hand
+shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 shop,worldsplitter-katana,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand
 bloodline-forge,B Rank,boneCharms,100,per forge,api/bloodlines/_forge.ts,
@@ -141,7 +141,7 @@ profile,customTitle,fateShards,10,per action,api/profile/_settlement.ts,
 profile,titleStyle,fateShards,40,per action,api/profile/_settlement.ts,
 profile,titleIcon,fateShards,25,per action,api/profile/_settlement.ts,
 festival,black-market-pull,ryo,75000,per pull,api/festival/_black-market.ts,
-craft,named-forge,ryo,1000,per forge,api/craft/_named.ts,
+craft,named-forge,fateShards,200,per forge,shared/named-forge-economy.ts,
 kage,declare-challenge,ryo,250000,per challenge,api/village/_kage-challenge.ts,
 shrine,communal-offering,ryo,10-250000,per offering,shared/shrines.ts,Pure sink; no payout.
 war,declare-war,warResources,800,per declaration,api/_war-economy.ts,

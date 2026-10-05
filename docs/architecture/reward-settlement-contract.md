@@ -54,7 +54,8 @@ loss is more than trivially recoverable by replaying gameplay.
   and writes the client nonce receipt as `pending` BEFORE the sender debit —
   a retry of a half-committed transfer returns `409 pending` instead of
   re-debiting, and an interrupted transfer leaves a reconcile record instead
-  of silently burning the sender's funds.
+  of silently burning the sender's funds. (Since 2026-10-02 such a transfer is
+  finished rather than parked; see *Player trades finish from their receipts*.)
 - **Combat-mission win handoff** (`shinobij.client/src/lib/claim-outbox.ts`):
   the Arena→queue handoff now persists un-acked mission wins in a localStorage
   outbox and re-posts them until the server acks (the queue endpoint is
@@ -151,6 +152,114 @@ balance check, the budget and the debit), and a villager could reset
 `agendaClaimReceipts` and collect the daily agenda's treasury tithe again.
 Both fields are now pinned for every blob writer, admin included.
 
+## Daily-mission rewards are receipted grants (2026-10-02)
+
+A daily mission's completion lives in its daily row (`missions:daily:<player>`,
+or `missions:newbie-daily:<player>` before a profession is chosen), and its
+reward lives in the save: profession XP, or newbie ryo. `reportMissionEvent`
+and `reportNewbieEvent` used to record the completion first and then credit
+the save once, with nothing to retry it. A contended save lock (an autosave
+under load trips the fail-closed acquire after about 0.5 s), a crash, or a lost
+reply left the mission complete and the reward unpaid for good.
+`report-pvp-win` makes that permanent: its NX marker answers the retry with
+`alreadyReported`.
+
+| Step | Written in ONE write | Proves |
+| --- | --- | --- |
+| Complete | the mission's progress + a `pendingXpGrants` / `pendingRyoGrants` entry (random id, amount, mission ids, time) | this completion is owed exactly this reward |
+| Credit | the XP or ryo + a `serverSettlementReceipts` entry keyed by the grant id | this grant is paid |
+| Clear | the grant removed from the daily row | nothing more to do |
+
+Every report settles what its row still owes, and so does `GET
+/api/missions/daily`, which echoes the committed `_saveVersion` to the player
+(never to an admin). A failed credit no longer fails the report: its completion
+has already committed, and the next report or read pays the grant. A missing
+receipt pays only while `receiptAbsenceProvable` holds; a grant whose proof may
+have aged out of the 50-entry list is logged for reconciliation and not paid.
+A row that owes a grant keeps no TTL and carries the grant across the day
+rollover. Profession XP is voided if the player changed profession first; newbie
+ryo is still paid after a profession is chosen, the rule the combat-claim saga
+already applies. Callers that credit the XP themselves (`deferXpAward`, the raid
+progression saga) record no grant. Amounts are unchanged.
+
+## Daily-mission events across a failed report and a new day (2026-10-02)
+
+A producer's mission EVENT is its own daily-row write, after the producer's
+settlement commits. A pet expedition settles its currency, log entry and
+`redeemedPetExpeditionTokens` receipt in one save write, and its
+`reportMissionEvent` follows. When that report failed (the
+`missions:daily:<player>` lock contended past its fail-closed acquire, as when
+several pets are collected at once, or the row write failing), the collect
+answered 500. The retry then replayed the spent receipt without reporting, so
+the expedition's mission progress was lost for good.
+
+- `report-pet-event` now reports under the receipt `pet-expedition:<token>`,
+  and both of its replay paths report again. The row matches a receipt by id
+  AND kind, so one id covers both kinds a 4-hour expedition reports, and the
+  re-report counts only what never landed. A kind the row already holds stays
+  out of the reply's `missionsCompleted`, so a replay never toasts a completion
+  twice.
+- The receipts live in the day's row, and a new UTC day starts a fresh row. A
+  replay therefore reports again only for an expedition settled on the current
+  UTC day, and it uses one clock reading for that check and the report. An
+  older expedition may already count in a row that is gone, so it stays lost
+  rather than count twice (loss-only). A replay after the player chose a
+  profession again (`professionChosenAt` later than the settle) reports nothing
+  either, because the board it would count toward is a fresh one.
+- A pet training (`pet/progress`, Collect or Start's self-heal) had the same
+  gap, and its retry could not replay at all: the session was already
+  collected, so it only answered "Training is not complete." The settle's
+  `afterCommit` now lists the event under `pet-train-missions:<player>` (36 h
+  TTL, at most 8 events) before the report runs, and a report that lands clears
+  it. The player's next Collect or Start, on any pet, reports what is still
+  listed under the receipt `pet-train:<petId>:<startedAt>:<endsAt>`, with the
+  same day and profession rules. A failed report no longer fails the collect,
+  whose session has settled. The listing never throws, because the handler's
+  catch would hand back a Prodigy claim whose session already committed. The
+  reply re-reads the save after a report, since the profession XP it pays
+  moves the save version past the one the settle committed.
+- `loadOrIssueDailyMissions` no longer replaces a stored board with a set for an
+  earlier UTC day. The raid saga reports at its proof time
+  (`now: new Date(proofAt)`), which can fall on the previous day. Issuing that
+  day's set overwrote the current board: its progress and event receipts were
+  wiped, and the next report reissued the day's missions, so ones already
+  completed and paid could pay again. Such a report now counts nothing
+  (loss-only).
+
+## Player trades finish from their receipts (2026-10-02)
+
+A trade is two save writes, the sender's debit and then the recipient's credit
+(`api/player/trade.ts`, both saves locked by `mutatePlayerSaves`). Each write
+now carries a receipt for the trade in the same compare-and-set as the money it
+moves, and the economy-tx journal stamps `debitAppliedAt` / `creditAppliedAt`
+as each one commits. `tradeStage()` (`api/player/_trade-settlement.ts`) reads
+both saves and the journal and says what moved: both (close the books), only
+the debit (roll the credit forward), neither, provably (run it, or cancel it),
+or something it cannot prove (a human decides).
+
+Three doors finish an interrupted trade, all from that table and all under both
+save locks:
+
+- the sender's retry of the same nonce, once the earlier attempt has been idle
+  for 15 s;
+- the recovery sweep in the five-minute settlement tick
+  (`recoverPendingPlayerTrades`), which finds unfinished trades through
+  `trade:pending:<txId>` pointers written before each journal, and finishes one
+  idle for two minutes whether or not anyone retries;
+- `POST /api/admin/economy-reconcile { txId }`, also the admin economy view's
+  Reconcile button.
+
+The books close under the locks and report whether *this* call completed the
+trade. Only that call writes the audit row and the burn telemetry, so a trade
+is counted once whichever door finished it. The send budget is charged when the
+debit commits, so finishing a trade never charges it again. A cancel frees the
+nonce only while its marker still names that trade (`releaseTradeNonce`).
+Absence is proven against the journal's `createdAt` minus five minutes,
+because other flows stamp receipts with their request's start time. Journals
+written before receipts existed (no `meta.receiptBacked`) are left to a human.
+The client keeps an unconfirmed transfer's nonce in `sessionStorage`, so the
+retry after a reload still reaches the same trade.
+
 ## Current settlement notes and remaining trade-offs
 
 - `claim-mission.ts` consumes the combat token before the payout write:
@@ -189,3 +298,13 @@ Both fields are now pinned for every blob writer, admin included.
 - Tower/weekly-boss/HG NX receipts keep their rollback-in-catch shape; a hard
   process kill can still strand one (loss-only). Migration to mechanism 1 is
   future hardening, not P0-2.
+- A pet expedition's Tamer XP (`missions/report-pet-event.ts`, 2026-10-02) now
+  commits in the expedition's own write, beside `redeemedPetExpeditionTokens`.
+  It used to follow as a second save write (`awardProfessionXp`). When that
+  write failed (an autosave holding the save lock past the fail-closed
+  acquire, a crash, a lost reply), the retry replayed the spent receipt and the
+  XP was never paid. The amount, the Pet-Tamer-only rule and the rank
+  multiplier are unchanged (`professionXpAfterAward`). The expedition's
+  daily-mission event still runs after the receipt commits. A replay on the
+  same UTC day reports it again under its receipt (see "Daily-mission events
+  across a failed report and a new day" above).

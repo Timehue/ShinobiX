@@ -903,8 +903,26 @@
 #combat.tower-tactical-combat button.tower-board-actor:focus-visible {
     outline: none !important;
     outline-offset: 0;
-    border: 0;
-    box-shadow: none;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+    filter: none !important;
+}
+
+/* Global button hover/focus paint is meant for controls, not map hit targets.
+   Keep actor anchors visually transparent so they cannot form a gold rectangle
+   around the portrait, health bar, and name; the actor art keeps its own cues. */
+@media (hover: hover) {
+    #combat.tower-tactical-combat button.tower-board-actor:hover {
+        border: 0 !important;
+        outline: none !important;
+        outline-offset: 0;
+        background: transparent !important;
+        box-shadow: none !important;
+        transform: none !important;
+        filter: none !important;
+    }
 }
 
 /* Global button hover/focus paint is meant for controls, not map hit targets.

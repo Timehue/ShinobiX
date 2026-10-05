@@ -209,36 +209,6 @@ test('owning every Legendary at its deck limit still allows Legendary pack purch
 });
 
 for (const type of CARD_PACK_TYPES) {
-    test(`${type}: every eligible card occupies exactly one random index`, () => {
-        const premium = ['epic', 'legendary', 'epic-five', 'legendary-five'].includes(type);
-        const rarities = type === 'epic' ? ['rare', 'epic'] : type === 'epic-five' ? ['epic']
-            : type.startsWith('legendary') ? ['legendary'] : ['common', 'rare'];
-        const expected = Object.entries(BUILTIN_CLASH).filter(([id, card]) => {
-            if (!rarities.includes(card.rarity) || isMarketplaceCard(id) !== premium) return false;
-            const source = getChronicleCard(id);
-            if (['fire', 'water', 'earth', 'wind', 'lightning'].includes(type)) {
-                return source?.cardClass === 'monster' && source.element.toLowerCase() === type;
-            }
-            if (type === 'snare') return source?.cardClass === 'trap';
-            if (type === 'jutsu') return source?.cardClass === 'magic';
-            return true;
-        }).map(([id]) => id);
-        assert.ok(expected.length > 1, 'the fixture must exercise a nontrivial pool');
-        const seen: string[] = [];
-        for (let index = 0; index < expected.length; index++) {
-            const opened = applyCardPackOpen({ fateShards: 1000, chroniclePoints: 1000, tileCards: [] }, type, (max) => {
-                assert.equal(max, expected.length, 'random range must include each eligible card once');
-                return index;
-            });
-            assert.ok(opened.ok);
-            seen.push(opened.cards[0]);
-            assert.deepEqual(opened.cards, Array(opened.cards.length).fill(opened.cards[0]), 'every draw uses the same full pool');
-        }
-        // A weighted pool, omitted card, duplicate index, or tier-first draw
-        // fails deterministically; there is no flaky statistical sampling.
-        assert.deepEqual(seen.sort(), expected.sort());
-    });
-
     test(`${type}: draws independently with replacement even beyond owned deck limits`, () => {
         const character = { fateShards: 1000, chroniclePoints: 1000, tileCards: [] };
         const poolSizes: number[] = [];

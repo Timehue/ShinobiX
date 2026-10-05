@@ -30,17 +30,19 @@ function RiteHarness() {
         const riteBand = (side: "blue" | "red"): ArenaSlot[] => {
             const roles: ArenaRole[] = ["defender", "tracker", "assassin", "sage"];
             const wanted = ["Fire", "Water", "Wind", "Earth"];
+            const requestedPets = QA ? (PARAMS.get("ritepets") ?? "").split(",") : [];
             return wanted.map((element, index) => {
-                const template = (PARAMS.get("riteqa") === "1" && element === "Wind" && PARAMS.get("avian") === "1"
+                const requestedPet = rawPetPool.find((entry) => entry.id === requestedPets[index]);
+                const template = requestedPet ?? (PARAMS.get("riteqa") === "1" && element === "Wind" && PARAMS.get("avian") === "1"
                     ? rawPetPool.find((entry) => entry.name === "Tempest Hawk") : null)
                     ?? rawPetPool.find((entry) => entry.element === element) ?? rawPetPool[index];
                 const balanced = balanceBuiltInPetTemplate(template as Pet);
                 return {
                     pet: {
                         ...balanced,
-                        id: `${side}-${balanced.id}`,
+                        id: requestedPet ? `${side}-${balanced.id}-${index}` : `${side}-${balanced.id}`,
                         templateId: PARAMS.get("riteqa") === "1" && PARAMS.get("ritemissingmodelqa") === "1" ? "missing-warfront-model" : balanced.id,
-                        name: PARAMS.get("avian") === "1" && element === "Wind" ? template.name : `${side === "blue" ? "Azure" : "Crimson"} ${element}`,
+                        name: requestedPet || (PARAMS.get("avian") === "1" && element === "Wind") ? template.name : `${side === "blue" ? "Azure" : "Crimson"} ${element}`,
                     } as Pet,
                     role: roles[index],
                 };

@@ -1,0 +1,162 @@
+/* Sector chat: the voice of the place you are standing in. Where the nearby
+   column has room it docks at the foot, under the roster, and takes whatever
+   room the roster leaves (data-layout="roomy"). Where it does not, it is one
+   bar and opens as a sheet over the board, the same SectorHudPanel Sector Info
+   uses: at the foot of the column ("compact"), or at its top when the column
+   cannot hold even the bar below the roster heading ("tight").
+   ⚠ .sector-chat and .sector-nearby must stay UNPOSITIONED: the sheet renders
+   inside them but has to take .sector-hud as its containing block, both to
+   sit where Sector Info sits and to escape .sector-nearby's overflow clip. */
+.sector-chat {
+    display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0;
+    padding: 0 12px 12px; border-top: 1px solid #684b55;
+}
+.sector-chat[data-layout="compact"], .sector-chat[data-layout="tight"] { padding-bottom: 0; }
+.sector-chat[data-layout="tight"] { order: -1; }
+/* Docked, the roster keeps what it needs up to half the column and the chat
+   takes the rest: measured 2026-10-04, a full roster otherwise left a 1080p
+   chat log 84px tall. */
+.sector-chat.is-open[data-layout="roomy"] { flex: 1 1 0; min-height: 220px; }
+.sector-nearby:has(> .sector-chat.is-open[data-layout="roomy"]) > .sector-nearby-scroll { flex: 0 1 auto; max-height: 50%; }
+
+.sector-chat-head { position: relative; margin: 0; font: inherit; }
+/* A gilded seam with a diamond at its centre marks where the chat begins. */
+.sector-chat-head::before {
+    content: ''; position: absolute; top: -1px; left: 0; right: 0; height: 1px; pointer-events: none;
+    background: linear-gradient(90deg, transparent, #b9935c 28%, #f1d9a6 50%, #b9935c 72%, transparent); opacity: .7;
+}
+.sector-chat-head::after {
+    content: ''; position: absolute; top: -4px; left: 50%; width: 6px; height: 6px; pointer-events: none;
+    transform: translateX(-50%) rotate(45deg); background: #171319; border: 1px solid #d9b77f; box-shadow: 0 0 6px #e8c48a66;
+}
+/* The folded chat's sheet: a fixed height (SectorHudPanel caps it to the room
+   above the HUD) so the log fills it and the composer stays pinned below. */
+.sector-hud-panel:has(> .sector-hud-panel-scroll > .sector-chat-body) { height: 440px; }
+.sector-hud-panel-scroll:has(> .sector-chat-body) { display: flex; flex-direction: column; flex: 1 1 auto; overflow: hidden; padding-top: 8px; }
+.sector-hud-panel .sector-chat-body { flex: 1 1 auto; }
+.sector-hud-panel .sector-chat-frame { min-height: 80px; }
+.map-instance .sector-hud .sector-chat-toggle {
+    width: 100%; justify-content: flex-start; gap: 9px; min-height: 44px; padding: 9px 0 7px;
+    border: 0; border-radius: 0; background: transparent; box-shadow: none; text-align: left;
+}
+.sector-chat-title { flex: none; white-space: nowrap; font: 500 17px/1.3 var(--font-display); color: #f4ece1; }
+.sector-chat-state {
+    display: inline-flex; align-items: center; gap: 5px; min-width: 0; white-space: nowrap; color: #c4b2a4;
+    font-size: 10px; font-weight: 600; letter-spacing: .09em; text-transform: uppercase;
+}
+.sector-chat-state > i { width: 6px; height: 6px; border-radius: 50%; background: #8a7680; }
+.sector-chat-state[data-state="live"] > i { background: #86d9a9; animation: sector-chat-pulse 2.4s ease-out infinite; }
+.sector-chat-state[data-state="polling"] > i { background: #dcbc84; }
+.sector-chat-unread {
+    flex: none; margin-left: auto; padding: 2px 8px; white-space: nowrap; border: 1px solid #c98a7f; border-radius: 999px;
+    background: linear-gradient(135deg, #7b3242, #4b1f2c); color: #fff0e6;
+    font-size: 10px; font-weight: 700; letter-spacing: .04em; box-shadow: 0 0 10px #c46a6a40;
+}
+.sector-chat-chevron {
+    flex: none; width: 7px; height: 7px; margin-left: auto; margin-right: 4px;
+    border-right: 1.5px solid #d6bcb3; border-bottom: 1.5px solid #d6bcb3;
+    transform: translateY(-2px) rotate(45deg); transition: transform 160ms ease;
+}
+.sector-chat-unread + .sector-chat-chevron { margin-left: 6px; }
+.sector-chat.is-open .sector-chat-chevron { transform: translateY(2px) rotate(-135deg); }
+
+.sector-chat-body { display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0; min-height: 0; }
+.sector-chat-frame { position: relative; display: flex; flex: 1 1 auto; min-width: 0; min-height: 76px; }
+.sector-chat-log {
+    display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; box-sizing: border-box;
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y;
+    scrollbar-width: thin; scrollbar-color: #997784 #211a22;
+    padding: 6px 4px 6px 6px; border: 1px solid #4b3642; border-radius: 4px;
+    background: linear-gradient(180deg, #0d0a0ef0, #18121bf0), url('/ui/sector-ink-panel-v1.webp') center / cover;
+    box-shadow: inset 0 1px 0 #ffffff0a, inset 0 12px 18px -14px #000;
+}
+.sector-chat-log:focus-visible { outline: 2px solid #ecd6ae; outline-offset: -2px; }
+/* Newest at the bottom, like a conversation, even when only a few lines exist. */
+.sector-chat-list { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; min-width: 0; margin: auto 0 0; padding: 0; list-style: none; }
+.sector-chat-line {
+    position: relative; min-width: 0; padding: 6px 34px 4px 8px; border-left: 2px solid transparent; border-radius: 2px;
+    animation: sector-chat-arrive 220ms ease-out;
+}
+.sector-chat-line.is-continued { padding-top: 1px; }
+.sector-chat-line.is-own { border-left-color: #d9b77f; background: linear-gradient(90deg, #d9b77f17, transparent 72%); }
+.sector-chat-meta { display: flex; align-items: baseline; gap: 6px; min-width: 0; overflow: hidden; }
+.sector-chat-sigil {
+    flex: none; width: 7px; height: 7px; transform: translateY(-1px) rotate(45deg);
+    background: var(--sigil, #94a3b8); box-shadow: 0 0 0 1px #0009, 0 0 6px #0006;
+}
+.sector-chat-name {
+    flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    color: #f3e7db; font-size: 12.5px; font-weight: 600; letter-spacing: .01em;
+}
+.sector-chat-line.is-own .sector-chat-name { color: #e8c991; }
+.sector-chat-level { flex: none; color: #ab98a0; font-size: 9.5px; letter-spacing: .08em; text-transform: uppercase; }
+.sector-chat-meta > time { flex: none; margin-left: auto; color: #a3909a; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.sector-chat-text {
+    margin: 2px 0 0; color: #ebe2dc; font-size: 13px; line-height: 1.45;
+    overflow-wrap: anywhere; white-space: pre-wrap;
+}
+.sector-chat-report { position: absolute; top: 1px; right: 0; opacity: 0; transition: opacity 140ms ease; }
+.sector-chat-line:focus-within .sector-chat-report { opacity: 1; }
+.map-instance .sector-hud .sector-chat-report button { min-width: 34px; min-height: 34px; }
+/* Touch screens show the flag at rest; a tap-stuck :hover must not be the only way to find it. */
+@media (hover: none) { .sector-chat-report { opacity: .75; } }
+
+.sector-chat-empty {
+    margin: auto; padding: 14px 10px; max-width: 250px; text-align: center;
+    color: #c2b3b9; font-size: 12px; line-height: 1.5;
+}
+.sector-chat-empty > b { display: block; margin-bottom: 4px; color: #ecdcc5; font: 500 15px/1.3 var(--font-display); }
+.sector-chat-body > .sector-chat-empty { margin: 4px auto 6px; }
+
+.map-instance .sector-hud .sector-chat-jump {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    min-width: 0; min-height: 34px; padding: 4px 14px; border-color: #c9a46a; border-radius: 999px;
+    background: #2a1d26f2; color: #f4ddb0; font-size: 11px; letter-spacing: .03em; box-shadow: 0 6px 14px #000a;
+}
+
+.sector-chat-compose { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 6px; }
+.sector-chat-field { position: relative; display: block; min-width: 0; }
+.sector-chat-field > input {
+    box-sizing: border-box; width: 100%; min-height: 44px; margin: 0; padding: 10px 40px 10px 12px;
+    border: 1px solid #6c505a; border-radius: 3px; color: #f4ede6; font: inherit; font-size: 13.5px; font-weight: 400;
+    background: linear-gradient(180deg, #0d090e, #1b141d); box-shadow: inset 0 2px 7px #000b, inset 0 0 0 1px #ffffff06;
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+.sector-chat-field > input::placeholder { color: #95838c; font-style: italic; font-weight: 400; }
+.sector-chat-field > input:focus { outline: none; border-color: #d9b77f; box-shadow: inset 0 2px 7px #000b, 0 0 0 2px #ecd6ae45; }
+.sector-chat-field > input:disabled { opacity: .6; }
+.sector-chat-count {
+    position: absolute; top: 50%; right: 11px; transform: translateY(-50%);
+    color: #d4b07a; font-size: 10.5px; font-variant-numeric: tabular-nums; pointer-events: none;
+}
+.map-instance .sector-hud .sector-chat-send {
+    padding: 0; border-color: #b68177; color: #fff1e7;
+    background: linear-gradient(135deg, #8b3e4e, #4a2030); box-shadow: inset 0 1px 0 #f3c3ac45, 0 2px 8px #0009;
+}
+.map-instance .sector-hud .sector-chat-send svg { width: 18px; height: 18px; fill: currentColor; }
+.map-instance .sector-hud .sector-chat-send:disabled { opacity: .45; }
+
+.sector-chat-notice { margin: 0; color: #f1c8aa; font-size: 12px; line-height: 1.45; }
+.sector-chat-sr {
+    position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+    clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+@media (hover: hover) {
+    .sector-chat-line:hover .sector-chat-report { opacity: 1; }
+    .map-instance .sector-hud .sector-chat-toggle:hover:not(:disabled) { background: transparent; border-color: transparent; }
+    .map-instance .sector-hud .sector-chat-toggle:hover .sector-chat-title { color: #fff6ea; }
+    .map-instance .sector-hud .sector-chat-send:hover:not(:disabled) { background: linear-gradient(135deg, #a34b5c, #5b2738); border-color: #d7a79b; }
+    .map-instance .sector-hud .sector-chat-jump:hover { background: #3a2832f2; }
+}
+@keyframes sector-chat-arrive { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@keyframes sector-chat-pulse {
+    0% { box-shadow: 0 0 0 0 #86d9a970; }
+    70% { box-shadow: 0 0 0 6px #86d9a900; }
+    100% { box-shadow: 0 0 0 0 #86d9a900; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .sector-chat-line, .sector-chat-state > i { animation: none !important; }
+    .sector-chat-chevron, .sector-chat-report, .sector-chat-field > input { transition: none; }
+}
+html.lite-fx .sector-chat-line, html.lite-fx .sector-chat-state > i { animation: none; }

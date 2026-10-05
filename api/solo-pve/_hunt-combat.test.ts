@@ -36,23 +36,24 @@ function session(formation = forms[4]!, blockedTiles: number[] = []) {
 }
 
 describe('Tower-powered hunt encounters', () => {
-    it('seals all five formations deterministically for the accepted run', () => {
+    it('seals formations deterministically: the target is one creature, a pack ambush is three', () => {
         const seen = new Set<string>();
         for (let i = 0; i < 200; i++) {
-            const form = huntFormationFor(`accepted-${i}`, 'hunt-target');
-            assert.deepEqual(form, huntFormationFor(`accepted-${i}`, 'hunt-target'));
+            assert.deepEqual(huntFormationFor(`accepted-${i}`, 'hunt-target', 'd'), { version: 1, kind: 'single', count: 1 });
+            const form = huntFormationFor(`accepted-${i}`, 'hunt-pack', `decision-${i}`);
+            assert.deepEqual(form, huntFormationFor(`accepted-${i}`, 'hunt-pack', `decision-${i}`));
             seen.add(`${form.kind}:${form.count}`);
         }
-        assert.deepEqual([...seen].sort(), forms.map(f => `${f.kind}:${f.count}`).sort());
+        assert.deepEqual([...seen].sort(), ['pack:3', 'waves:3']);
     });
 
-    for (const form of forms) it(`preserves vitals and total health in ${form.kind}:${form.count}`, () => {
+    for (const form of forms) it(`gives every creature full health and keeps player vitals in ${form.kind}:${form.count}`, () => {
         const s = session(form);
         const b = s.huntCombat!.battle;
         const all = [...b.actors, ...(b.pendingEnemyWaves ?? []).flatMap(w => w.actors)];
         const enemies = all.filter(a => a.side === 'enemy');
         assert.equal(enemies.length, form.count);
-        assert.equal(enemies.reduce((total, a) => total + a.maxHp, 0), 1000);
+        for (const enemy of enemies) assert.equal(enemy.maxHp, 1000, 'each creature keeps the full encounter HP');
         assert.equal(enemies.filter(a => a.character.huntContractTarget).length, 1);
         assert.equal(s.player.hp, 740);
         assert.equal(s.player.chakra, 210);
@@ -88,9 +89,6 @@ describe('Tower-powered hunt encounters', () => {
         assert.equal(s.status, 'done');
         assert.equal(s.outcome, 'win');
         assert.equal(s.huntCombat!.battle.winner, 'squad');
-        assert.ok(s.log.includes('--- Round 1 ---'), 'the hunt result preserves its opening round marker');
-        assert.ok(s.log.includes('Hunt encounter cleared!'), 'the hunt projection replaces internal floor wording');
-        assert.equal(s.log.some(line => line.startsWith('Floor 9501')), false);
         assert.equal(s.huntCombat!.battle.pendingEnemyWaves?.length ?? 0, 0);
         assert.equal(s.huntCombat!.battle.actors.filter(a => a.side === 'enemy' && a.hp > 0).length, 0);
         if (form.kind === 'waves') assert.equal(casts, form.count);
@@ -102,7 +100,6 @@ describe('Tower-powered hunt encounters', () => {
         const floor = b.encounterFloor!;
         b.round = 5;
         startRound(b);
-        assert.ok(b.log.includes('--- Round 5 ---'), 'the shared Tower engine marks later hunt rounds');
         assert.equal(b.actors.filter(a => a.side === 'enemy').length, 1, 'waiting does not deploy waves');
         for (let cleared = 1; cleared <= 3; cleared++) {
             b.actors.filter(a => a.side === 'enemy').forEach(a => { a.hp = 0; });
@@ -115,6 +112,23 @@ describe('Tower-powered hunt encounters', () => {
             }
         }
         assert.equal(b.winner, 'squad');
+    });
+
+    it('keeps hunt logs grouped by their real round and uses hunt completion text', () => {
+        const s = session(forms[0]);
+        const b = s.huntCombat!.battle;
+        for (const round of [2, 3, 4]) {
+            b.round = round;
+            startRound(b);
+        }
+        b.actors.filter(actor => actor.side === 'enemy').forEach(actor => { actor.hp = 0; });
+        checkTowerWinner(b, b.encounterFloor!);
+
+        assert.deepEqual(b.log.filter(line => /^--- Round \d+ ---$/.test(line)), [
+            '--- Round 1 ---', '--- Round 2 ---', '--- Round 3 ---', '--- Round 4 ---',
+        ]);
+        assert.ok(b.log.includes('Hunt encounter cleared!'));
+        assert.ok(!b.log.some(line => line.includes('Floor 9501')));
     });
 
     it('resolves selected targets and AoE through Tower combat and rejects forged targets', () => {

@@ -214,7 +214,7 @@ export function PremiumOffers({ character, onVersionedCharacter }: {
 
             <h2 style={{ marginTop: "1.4rem" }}>Shinobi Supporter</h2>
             <p style={{ color: "#aaa", marginBottom: "0.8rem" }}>
-                A monthly subscription: a larger jutsu loadout, an extra pet and bloodline slot, and a custom avatar.
+                A monthly subscription: a larger jutsu loadout, an extra pet and bloodline slot, bloodline switching from your Profile, and a custom avatar.
                 Convenience and cosmetics — it buys no combat power.
             </p>
 

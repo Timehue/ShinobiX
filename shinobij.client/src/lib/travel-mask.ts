@@ -28,3 +28,20 @@ export function travelMaskMs(travelMs: unknown): number {
     if (!Number.isFinite(ms)) return TRAVEL_MASK_MS;
     return Math.max(0, Math.min(TRAVEL_MASK_MAX_MS, ms));
 }
+
+// The trip whose mask is on screen, and when the player started watching it.
+let watchedTrip: { arrivalAt: number; startedAt: number } | null = null;
+
+/**
+ * When the player started watching the mask for the trip ending at `arrivalAt`.
+ *
+ * A refresh mid-trip shows the mask twice in a row: first from the screen
+ * loading fallback, while the World Map chunk downloads, then from WorldMap
+ * itself once it mounts. Both are the SAME trip, so the second mount continues
+ * the progress bar instead of emptying it. A different `arrivalAt` is a new
+ * trip and starts fresh.
+ */
+export function travelMaskStartedAt(arrivalAt: number, now: number = Date.now()): number {
+    if (watchedTrip?.arrivalAt !== arrivalAt) watchedTrip = { arrivalAt, startedAt: now };
+    return watchedTrip.startedAt;
+}

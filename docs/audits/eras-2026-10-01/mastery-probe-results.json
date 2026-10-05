@@ -1,0 +1,121 @@
+{
+  "generatedAt": "2026-10-02T04:24:54.171Z",
+  "spireCatalog": "endless-spire-v8",
+  "attempts": 288,
+  "blessingWeek": 0,
+  "limitations": [
+    "Deterministic four-member policy fixtures, not observed players.",
+    "One blessing, no learning-time or completion-time measurement.",
+    "Stronger fixture is sensitivity evidence; no gear tuning promoted."
+  ],
+  "rows": [
+    {
+      "fixture": "geared-four",
+      "tier": 12,
+      "seeds": 24,
+      "wins": 22,
+      "cleanPar": 3,
+      "qualified": 2,
+      "par": 18
+    },
+    {
+      "fixture": "geared-four",
+      "tier": 15,
+      "seeds": 24,
+      "wins": 18,
+      "cleanPar": 0,
+      "qualified": 0,
+      "par": 20
+    },
+    {
+      "fixture": "geared-four",
+      "tier": 16,
+      "seeds": 24,
+      "wins": 16,
+      "cleanPar": 2,
+      "qualified": 1,
+      "par": 16
+    },
+    {
+      "fixture": "geared-four",
+      "tier": 17,
+      "seeds": 24,
+      "wins": 16,
+      "cleanPar": 6,
+      "qualified": 5,
+      "par": 18
+    },
+    {
+      "fixture": "geared-four",
+      "tier": 18,
+      "seeds": 24,
+      "wins": 12,
+      "cleanPar": 1,
+      "qualified": 1,
+      "par": 18
+    },
+    {
+      "fixture": "geared-four",
+      "tier": 20,
+      "seeds": 24,
+      "wins": 8,
+      "cleanPar": 0,
+      "qualified": 0,
+      "par": 20
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 12,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 24,
+      "qualified": 7,
+      "par": 18
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 15,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 24,
+      "qualified": 1,
+      "par": 20
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 16,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 24,
+      "qualified": 7,
+      "par": 16
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 17,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 23,
+      "qualified": 7,
+      "par": 18
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 18,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 23,
+      "qualified": 10,
+      "par": 18
+    },
+    {
+      "fixture": "stronger-four",
+      "tier": 20,
+      "seeds": 24,
+      "wins": 24,
+      "cleanPar": 23,
+      "qualified": 8,
+      "par": 20
+    }
+  ]
+}

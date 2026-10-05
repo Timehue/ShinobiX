@@ -32,7 +32,6 @@ import { sealCompanionFromSave } from '../combat-core/companion.js';
 import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
-import { presentEmbeddedTowerLog } from '../../shared/tower-encounter-log.js';
 
 /** Profiles use existing catalog kits, AI rules and level curves. Encounters
  * get their Sunscar identity here without changing the main combat engine. */
@@ -212,7 +211,7 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
         if (!history?.some(entry => entry.id === id)) {
             const entry = makeBattleEntry({ id, ts: session!.lastActionAt, mode: 'Caravan ambush', opponent: `${session!.actors.filter(a => a.side === 'enemy').length} raiders`, self: actor.name,
                 outcome: winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss', rounds: session!.round,
-                actions: buildActionsFromTowerLog(presentEmbeddedTowerLog(session!.log, session!.floor, 'caravan'), [actor.name], session!.actors.filter(a => a.side === 'enemy').map(a => a.name)) });
+                actions: buildActionsFromTowerLog(session!.log, [actor.name], session!.actors.filter(a => a.side === 'enemy').map(a => a.name)) });
             next.battleHistory = appendBattleHistory(history, entry);
         }
         return { ok: true, character: next, value: { outcome: winner ? 'win' : 'loss' }, write: true };

@@ -18,6 +18,7 @@ import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { terminalizeLapsedSoloPveSession } from '../solo-pve/_abandon.js';
 import { advanceStronghold, isDeathsGateStronghold, STRONGHOLD_INTEL_TILE, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 
 const TTL = 24 * 60 * 60;
 export const strongholdVisitKey = (name: string, sector: number) => `stronghold:${name}:${sector}`;
@@ -147,13 +148,16 @@ export async function handleStrongholdAction(playerName: string, action: string,
                 const profiles = ['story-ai-ashen-leaf-village-15', 'story-ai-stormveil-village-15', 'story-ai-frostfang-village-25'];
                 const profile = builtinAiProfile(profiles[(Math.floor(visit.steps / 25) - 1) % profiles.length]);
                 if (!profile) return fail('The patrol could not be prepared.', 503);
+                // The sector's sky, the same one the vault fight in this
+                // stronghold seals (api/village/anbu-infiltration.ts).
+                const sky = await sealedSectorWeather(sector, Date.now());
                 session = buildSoloPveAiEncounter({ sessionId: visit.patrolId, playerName, save, now: Date.now(),
                     admin: await loadAdminCombatContent(), profile: { ...profile, name: (isDeathsGateStronghold(sector)
                         ? ['Cinder Sentry', 'Ash Stalker', 'Obsidian Warden']
                         : ['Stronghold Sentry', 'Stronghold Skirmisher', 'Stronghold Sealkeeper'])[(Math.floor(visit.steps / 25) - 1) % 3] },
                     scaling: { level: Math.max(1, Math.min(100, Number(character.level) - 10)) },
                     continuousVitals: true, encounter: { kind: 'stronghold-patrol', id: String(sector), bindingId: visit.id, metadata: { sector } },
-                    environment: { biome: sectorPlace(sector)?.biome ?? 'central' },
+                    environment: { biome: sectorPlace(sector)?.biome ?? 'central', ...sky },
                 });
                 // An attack may have been reserved while the loadout was loading.
                 if (onlineStore.get(playerName)?.inBattle || onlineStore.get(playerName)?.pendingAttacker) return snapshot(playerName, visit, { combatBlocked: true });

@@ -38,6 +38,8 @@ type ModReport = {
     targetType: string; category: string;
     targetName: string | null; targetId: string | null;
     context: string | null; note: string | null; status: string;
+    /** Server copy of a reported sector chat line (those fade within the hour). */
+    evidence?: { name: string; text: string; ts: number };
 };
 
 export function ModerationPanel({ adminPw }: { adminPw: string }) {
@@ -432,6 +434,9 @@ export function ModerationPanel({ adminPw }: { adminPw: string }) {
                                     <div style={{ fontSize: "0.78rem", color: "#94a3b8", marginTop: 2 }}>
                                         by {rep.reporter} · {new Date(rep.createdAt).toLocaleString()}{rep.context ? ` · ${rep.context}` : ""}{rep.targetId ? ` · id ${rep.targetId}` : ""}
                                     </div>
+                                    {rep.evidence && <blockquote style={{ margin: "4px 0 0", padding: "0.25rem 0.5rem", borderLeft: "2px solid #94a3b8", color: "#e2e8f0", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                        <span style={{ color: "#94a3b8", fontSize: "0.75rem" }}>Said by {rep.evidence.name} · {new Date(rep.evidence.ts).toLocaleString()}</span><br />{rep.evidence.text}
+                                    </blockquote>}
                                     {rep.note && <div style={{ marginTop: 4, color: "#cbd5e1", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{rep.note}</div>}
                                 </div>
                             ))}

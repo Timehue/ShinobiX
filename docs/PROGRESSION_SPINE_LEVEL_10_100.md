@@ -4,7 +4,7 @@ This uses existing systems and does not claim the endgame is balanced.
 
 | Milestone | Primary direction | Optional/social | Beta or gated note |
 | --- | --- | --- | --- |
-| 13 | Choose Healer, Vanguard, or Pet Tamer; continue missions/training | Pet and clan exploration | Choice is permanent; explain the role before confirmation |
+| 13 | Choose Healer, Vanguard, or Pet Tamer; continue missions/training | Pet and clan exploration | Explain the role and later switching cost: an approval costs 200 Fate Shards before discounts and resets profession rank, XP, and mastery |
 | 15 | Genin rank; fill the four-jutsu loadout and continue core missions | PvP, pets, Card Clash | Advanced side modes are optional |
 | 20 | XP is held for the Genin Exam; open Logbook and complete the shown requirements | Clan can wait | The hold is intentional, not a save bug |
 | 30 | Chunin milestone; step into stronger missions and profession growth | Clan/PvP become more relevant | Do not imply war participation is required |
@@ -17,7 +17,7 @@ This uses existing systems and does not claim the endgame is balanced.
 
 ## Copy rules for existing guidance surfaces
 
-- At 13: “Choose a profession. This permanent role changes your long-term activities; inspect all three before confirming.”
+- At 13: “Choose a profession. Inspect all three before confirming. A later change consumes a Marketplace approval (base 200 Fate Shards) and resets profession rank, XP, and mastery.”
 - At 15: “You reached Genin. Keep missions, training, and your loadout as the main path; social and competitive modes are optional.”
 - At 20: “Your level is intentionally held for the Genin Exam. Open Logbook to see the exact requirements and where to go.”
 - At 30: “You reached Chunin. Stronger missions and profession mastery are your main path; clans and PvP are optional.”

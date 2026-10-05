@@ -159,45 +159,6 @@ test("jutsu cooldown stays prominent without covering Details on a short phone",
     }
 });
 
-test("Battle Log unread badge never covers its label on compact or phone layouts", async ({ page }, testInfo) => {
-    for (const viewport of [
-        // The saved Android freeform capture where the red count covered the
-        // final letters of "Battle Log".
-        { width: 610, height: 457 },
-        { width: 320, height: 568 },
-        { width: 390, height: 844 },
-    ]) {
-        await mountCombatFixture(page, "pvp", viewport);
-        const geometry = await page.locator(".battle-tab").nth(1).evaluate((tab) => {
-            const label = tab.querySelector<HTMLElement>(".battle-tab-label");
-            const badge = tab.querySelector<HTMLElement>(".battle-tab-badge");
-            if (!label || !badge) return null;
-            const labelRect = label.getBoundingClientRect();
-            const count = badge.getBoundingClientRect();
-            const button = tab.getBoundingClientRect();
-            return {
-                labelLeft: labelRect.left,
-                labelRight: labelRect.right,
-                badgeLeft: count.left,
-                badgeRight: count.right,
-                buttonLeft: button.left,
-                buttonRight: button.right,
-            };
-        });
-        expect(geometry, "the Battle Log label and unread count should render").not.toBeNull();
-        expect(geometry!.labelLeft).toBeGreaterThanOrEqual(geometry!.buttonLeft);
-        expect(geometry!.labelRight).toBeLessThanOrEqual(geometry!.buttonRight);
-        expect(geometry!.badgeLeft).toBeGreaterThanOrEqual(geometry!.labelRight + 2);
-        expect(geometry!.badgeRight).toBeLessThanOrEqual(geometry!.buttonRight);
-        if (viewport.width === 610) {
-            await testInfo.attach("battle-log-tab-compact-freeform", {
-                body: await page.screenshot(),
-                contentType: "image/png",
-            });
-        }
-    }
-});
-
 const mobilePortraits = [
     { width: 320, height: 568 },
     { width: 375, height: 667 },

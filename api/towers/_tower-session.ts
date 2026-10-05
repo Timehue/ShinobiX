@@ -238,11 +238,13 @@ export type TowerSession = {
     caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
 
     /**
-     * Sealed weather for the encounter (combat missions). Adds the Arena's
+     * Sealed weather for the encounter. Hunt encounters copy their Solo
+     * session's weather here (api/solo-pve/_hunt-combat.ts). Adds the Arena's
      * weather term (+5% matching-element / −2% opposed-element outgoing damage)
-     * via the engine's wMult junction. Optional + minted with the session, never
-     * client-accepted; absent for every other tower/spire/clan-boss run, so those
-     * paths read ×1 (weatherMultiplier) and stay byte-identical.
+     * via the engine's wMult junction, keyed on a jutsu's weatherElement before
+     * its element. Optional + minted with the session, never client-accepted;
+     * absent for every other tower/spire/clan-boss run, so those paths read ×1
+     * (weatherMultiplier) and stay byte-identical.
      */
     weather?: { positiveElement?: string; negativeElement?: string };
 
@@ -255,7 +257,9 @@ export type TowerSession = {
      * cycle costs nothing.)
      */
     pendingCompanion?: import('./_companion.js').CompanionSeal;
-    /** Sealed companion loadout cost recorded when the pet is summoned. */
+    /** Sealed binding for a Caravan-owned Tower combat session. */
+    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
+    /** Pet resource receipts used by Caravan's normal defeat/win settlement. */
     companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
 
     /**

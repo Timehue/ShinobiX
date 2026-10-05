@@ -36,8 +36,8 @@ const opening: FirstFightCoachState = {
 const line = (overrides: Partial<FirstFightCoachState>, seen: Set<string> = new Set()) =>
     firstFightCoachLine({ ...opening, ...overrides, history: { ...opening.history, ...(overrides.history ?? {}) } }, seen);
 
-test("spar: introduces a ready jutsu before a basic attack can finish the dummy", () => {
-    assert.match(line({})?.text ?? "", /Choose a lit jutsu/);
+test("spar: move into range, then introduce a ready jutsu before attacking", () => {
+    assert.match(line({})?.text ?? "", /^Move → tap a lit tile/);
     assert.match(line({ enemyInMelee: true, canAttack: true })?.text ?? "", /Choose a lit jutsu/);
     assert.match(line({ canCastJutsu: false })?.text ?? "", /^Move → tap a lit tile/);
     assert.match(line({ canCastJutsu: false, enemyInMelee: true, canAttack: true, myAp: 70, attackAp: 50 })?.text ?? "", /Attack costs 50 AP. You have 70 AP/);

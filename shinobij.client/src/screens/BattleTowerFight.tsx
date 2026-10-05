@@ -26,7 +26,7 @@ import { useBoardScale } from "../lib/use-board-scale";
 import { useBattleTabs } from "../lib/use-battle-tabs";
 import {
     buildTowerMilestoneReceipt, buildTowerTileLabel, clampTowerPan, clampTowerZoom,
-    estimateTowerActionDamage,
+    estimateTowerActionDamage, towerPreviewTargetInRange,
     TOWER_ZOOM_MAX, TOWER_ZOOM_MIN, TOWER_ZOOM_STEP, type TowerPan,
 } from "../lib/tower-tactical-ui";
 import type { StoryFightTheme } from "../lib/story-fight-theme";
@@ -63,7 +63,6 @@ import towerWardenFallback from "../assets/towers/enemies/warden.webp";
 import roleDefenderFallback from "../assets/roles/role-defender.webp";
 import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment";
 import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
-import { presentEmbeddedTowerLog } from "../../../shared/tower-encounter-log";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
@@ -480,6 +479,7 @@ export function BattleTowerFight({
     storyTheme?: StoryFightTheme;
     variant?: "tower" | "team-pvp" | "hunt" | "caravan-ambush";
     pvpContextLabel?: string;
+    /** Hunt encounters show the creature's own artwork instead of a Tower warden. */
     enemyAvatarOverride?: string;
 }) {
     const isTeamPvp = variant === "team-pvp";
@@ -1521,6 +1521,7 @@ export function BattleTowerFight({
             if (ownAvatar) return ownAvatar;
         }
         const sealed = a.character?.avatarImage;
+        if (isHunt && a.side === "enemy" && enemyAvatarOverride) return enemyAvatarOverride;
         if (isTeamPvp && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
             return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
@@ -1532,6 +1533,7 @@ export function BattleTowerFight({
     function isUnknownCombatant(a: TowerActor): boolean {
         if (isHunt && enemyAvatarOverride) return false;
         if (a.side !== "enemy") return false;
+        if (isHunt && enemyAvatarOverride) return false;
         if (isTeamPvp && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }
@@ -1583,7 +1585,7 @@ export function BattleTowerFight({
     const encounterArt = !isTeamPvp && sealedStoryFloor?.artKey
         ? resolveTowerStoryArt(sealedStoryFloor.artKey)
         : null;
-    const storyEncounterTitle = isCaravanAmbush ? (combatFloor?.name ?? 'Caravan Ambush') : isHunt ? (sealedStoryFloor?.name ?? 'Hunt encounter') : sealedStoryFloor?.name
+    const storyEncounterTitle = isCaravanAmbush ? (sealedStoryFloor?.name ?? 'Caravan Ambush') : isHunt ? (sealedStoryFloor?.name ?? 'Hunt encounter') : sealedStoryFloor?.name
         ? `Floor ${session.floor} · ${sealedStoryFloor.name}`
         : `Floor ${session.floor} · ${objective.replace(/-/g, " ")}`;
     // The squad rail also lists protect-target npcs (allies) so the player can watch
@@ -1734,10 +1736,7 @@ export function BattleTowerFight({
         if (!target) {
             return { title: armedActionName, target: "Hover or select an enemy", metrics, detail: "Reachable targets are outlined on the battlefield." };
         }
-        // Self-target jutsu are legal at distance zero; the shared enemy range
-        // set intentionally contains only opposing actors.
-        const selfTarget = mode === "jutsu" && isSelfCastJutsu(selJutsu) && target.id === myActor.id;
-        const inRange = selfTarget || enemiesInRange.has(target.id);
+        const inRange = towerPreviewTargetInRange(target.id, myActor.id, enemiesInRange, mode === "jutsu" && isSelfCastJutsu(selJutsu));
         const effectPower = mode === "attack" ? 10
             : mode === "weapon" ? Number(armedWeapon?.item.weaponEp ?? 15)
                 : Number(selJutsu?.effectPower ?? 0);
@@ -1898,7 +1897,7 @@ export function BattleTowerFight({
                                     } else if (isHunt) {
                                         if (await gameConfirm('Retreat from this encounter? You lose 10% of maximum HP and keep the hunt contract for later.')) void send({ type: 'forfeit' });
                                     } else if (isTeamPvp) {
-                                        if (await gameConfirm(`Forfeit your fighter from this 2v2 match? This is immediate.${session.actors.filter(a => a.side === 'squad').length > 1 ? ' Your teammate may have to continue alone.' : ''}`)) void send({ type: "forfeit" });
+                                        if (await gameConfirm(`Forfeit your fighter from this match? This is immediate.${session.actors.filter(a => a.side === 'squad').length > 1 ? ' Your teammate may have to continue alone.' : ''}`)) void send({ type: "forfeit" });
                                     } else if (await gameConfirm("Leave the battle view? The server run will continue and may auto-pass your turns. Reopen Battle Towers to recover it.")) {
                                         (onLeaveActive ?? onExit)();
                                     }
@@ -2528,7 +2527,8 @@ export function BattleTowerFight({
                         <div className="tower-completion-body">
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
                         {isTeamPvp && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
-                        {(isHunt || isCaravanAmbush) && <p className="hint">{settlement.phase === 'settled' ? isCaravanAmbush ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Hunt progress saved. Return to the map to continue or turn in your contract.' : isCaravanAmbush ? 'Saving the convoy report…' : 'Saving hunt progress…'}</p>}
+                        {isCaravanAmbush && <p className="hint">{settlement.phase === 'settled' ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Saving the convoy report…'}</p>}
+                        {isHunt && <p className="hint">{settlement.phase === 'settled' ? 'Hunt progress saved. Return to the map to continue or turn in your contract.' : 'Saving hunt progress…'}</p>}
                         {!isTeamPvp && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
                                 ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>

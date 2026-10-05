@@ -18,7 +18,6 @@
  * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import "../../styles/index/29-clan-exchange-storefront.css";
 import "../../styles/index/33-hollow-gate-cinematic.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";

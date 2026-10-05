@@ -8,7 +8,6 @@ import { applyAction, checkTowerWinner, endTurn, humanHasTowerAction, runAiUntil
 import type { TowerFloor } from '../towers/_floor-catalog.js';
 import { makeRng } from '../towers/_sim.js';
 import { companionConsumableHealPct } from '../combat-core/companion.js';
-import { presentEmbeddedTowerLog } from '../../shared/tower-encounter-log.js';
 
 export type HuntCombatState = {
     formation: HuntFormation;
@@ -36,10 +35,9 @@ export function attachHuntCombat(session: SoloPveSession, context: WorldAiFightC
     player.itemCharges = { ...session.itemCharges };
     const enemies = Array.from({ length: formation.count }, (_, index) => {
         const actor = fighterActor(session.enemy, `hunt-enemy-${index}`, null, spawn([33, 57, 81][index]!));
-        // Share the encounter's existing HP budget across the creatures. Packs
-        // also split offensive strength because all members can act in one round.
-        actor.maxHp = Math.max(1, Math.floor(session.enemy.maxHp / formation.count) + (index === formation.count - 1 ? session.enemy.maxHp % formation.count : 0));
-        actor.hp = actor.maxHp;
+        // Every creature keeps the encounter's full HP, so a pack costs as much
+        // effort as the three fights it replaces. Only a simultaneous pack trims
+        // offensive strength, because all members can act in the same round.
         if (formation.kind === 'pack') {
             const stats = actor.character.stats as Record<string, number>;
             actor.character.stats = Object.fromEntries(Object.entries(stats).map(([key, value]) => [key, Math.max(1, Math.floor(value / Math.sqrt(formation.count)))]));
@@ -98,7 +96,7 @@ function projectHuntCombat(session: SoloPveSession): void {
     session.activeSide = activeActor(battle)?.side === 'enemy' ? 'enemy' : 'player';
     session.ap[session.activeSide] = battle.activeAp;
     session.actionsThisTurn = battle.actionsThisTurn;
-    session.log = presentEmbeddedTowerLog(battle.log, battle.floor, 'hunt');
+    session.log = [...battle.log];
     session.status = battle.status;
     session.winner = battle.winner === 'squad' ? 'player' : battle.winner === 'enemy' ? 'enemy' : battle.winner === 'draw' ? 'draw' : null;
     if (battle.status === 'done') session.outcome = session.outcome === 'fled' ? 'fled' : session.winner === 'player' ? 'win' : session.winner === 'draw' ? 'draw' : 'loss';

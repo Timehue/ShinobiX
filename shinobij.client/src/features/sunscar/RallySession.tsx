@@ -1,11 +1,13 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useBodyScrollLock } from '../../lib/useBodyScrollLock';
+import { useRallyGamepadNavigation } from './use-rally-gamepad-navigation';
 
 /** Keep the course and touch controls together, outside the town's scrolling shell. */
 export function RallySession({ children }: { children: ReactNode }) {
     const root = useRef<HTMLDivElement>(null);
     useBodyScrollLock(true);
+    useRallyGamepadNavigation();
     useEffect(() => {
         const previous = document.activeElement as HTMLElement | null;
         root.current?.focus({ preventScroll: true });

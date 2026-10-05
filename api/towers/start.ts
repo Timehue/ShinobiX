@@ -28,7 +28,8 @@ import { sealPveAiMastery } from '../_pve-ai-mastery.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 import {
     refundTowerDirectEntryReservation,
     refundTowerPartyEntryReservation,
@@ -40,7 +41,7 @@ import { initializeTowerActionVersion } from './_action-idempotency.js';
 import { floorForSession, sealTowerCatalogFloor, sealedStoryFloorForSession } from './_session-floor.js';
 import { recordTowerRunStarted } from './_telemetry.js';
 import { towerModeDisabled } from './_mode-control.js';
-import { battleLockKey, claimTowerBattleLeases, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
+import { battleLockKey, claimTowerBattleLeases, matchingTowerLease, releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { isTowerBattleLock } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { activeClanBossConflictMembers } from './_clan-boss-conflict.js';
@@ -408,12 +409,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 let saveVersion = 0;
                 if (mode === 'story' && !identity.admin) {
                     const saveKey = `save:${hostName}`;
-                    const reservation = await withKvLock(saveKey, async () => {
+                    // Receipt-keyed per (party, run): a re-run after a lost commit
+                    // race re-reads the save and cannot charge twice.
+                    const reservation = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
                         const record = await kv.get<Record<string, unknown>>(saveKey);
                         const character = record?.character as Record<string, unknown> | undefined;
                         if (!record || !character) throw new Error('Tower party host save missing during launch replay.');
+                        // The host keeps the recovery earned before this run's
+                        // lease began; the time since then is the run's own.
+                        const recovery = await settleIdleRecovery(kv, hostName, record, {
+                            ownBattleLock: (lock) => matchingTowerLease(lock, runId),
+                        });
                         const reserved = reserveTowerPartyEntry({
-                            character,
+                            character: recovery.character,
                             partyId: prepared.party.id,
                             runId,
                             day: new Date().toISOString().slice(0, 10),
@@ -422,10 +430,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         });
                         if (!reserved.ok) return { ok: false as const, reserved };
                         if (!reserved.changed) return { ok: true as const, charged: reserved.charged, character, saveVersion: Number(record._saveVersion ?? 0) };
-                        const nextRecord = bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character });
+                        const nextRecord = bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character }, {
+                            regenAt: carriedRegenCursor(recovery.character, reserved.character as Record<string, unknown>, recovery.regen),
+                        });
                         await writeSaveProjected(saveKey, nextRecord, record);
                         return { ok: true as const, charged: reserved.charged, character: reserved.character as Record<string, unknown>, saveVersion: Number(nextRecord._saveVersion ?? 0) };
-                    }, { failClosed: true });
+                    }, { failClosed: true }));
                     if (!reservation.ok) return res.status(409).json({ error: 'The Tower entry reservation could not be recovered.', errorCode: reservation.reserved.code });
                     chargedRyo = reservation.charged;
                     authoritativeCharacter = reservation.character;
@@ -568,13 +578,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const saveKey = `save:${hostName}`;
             let reservationWriteAttempted = false;
-            const debit = await withKvLock(saveKey, async () => {
+            // Receipt-keyed per run: a re-run after a lost commit race re-reads
+            // the save and cannot charge twice.
+            const debit = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
                 const record = await kv.get<Record<string, unknown>>(saveKey);
                 const character = record?.character as Record<string, unknown> | undefined;
                 if (!record || !character) return { ok: false as const, status: 404, error: 'Your save was not found.' };
+                // The fee is charged under this run's own lease. The host keeps
+                // the recovery earned before that lease began; the time since
+                // then is the run's own.
+                const recovery = await settleIdleRecovery(kv, hostName, record, {
+                    ownBattleLock: (lock) => matchingTowerLease(lock, runId),
+                });
                 if (authoritativeParty) {
                     const reserved = reserveTowerPartyEntry({
-                        character,
+                        character: recovery.character,
                         partyId: authoritativeParty.id,
                         runId,
                         day: entryDay,
@@ -588,7 +606,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         return { ok: false as const, status: 409, error, errorCode: reserved.code };
                     }
                     const nextRecord = reserved.changed
-                        ? bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character })
+                        ? bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character }, {
+                            regenAt: carriedRegenCursor(recovery.character, reserved.character as Record<string, unknown>, recovery.regen),
+                        })
                         : record;
                     if (reserved.changed) {
                         reservationWriteAttempted = true;
@@ -604,7 +624,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     };
                 }
                 const reserved = reserveTowerDirectEntry({
-                    character,
+                    character: recovery.character,
                     runId,
                     day: entryDay,
                     floorId: entryFloor.id,
@@ -617,7 +637,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return { ok: false as const, status: 409, error, errorCode: reserved.code };
                 }
                 const nextRecord = reserved.changed
-                    ? bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character })
+                    ? bumpSaveVersion<Record<string, unknown>>({ ...record, character: reserved.character }, {
+                        regenAt: carriedRegenCursor(recovery.character, reserved.character as Record<string, unknown>, recovery.regen),
+                    })
                     : record;
                 if (reserved.changed) {
                     reservationWriteAttempted = true;
@@ -631,12 +653,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     character: reserved.character,
                     saveVersion: Number(nextRecord._saveVersion ?? 0),
                 };
-            }, { failClosed: true }).catch(error => {
+            }, { failClosed: true })).catch(error => {
                 // A remote save write may commit before its acknowledgement is
                 // lost. Preserve the minted run/lease so confirmed-missing
                 // recovery can inspect and compensate the durable receipt;
-                // reopening with a new run here could double-charge.
-                if (reservationWriteAttempted) publicationInconclusive = true;
+                // reopening with a new run here could double-charge. A lost
+                // compare-and-set race is different: it PROVES nothing was
+                // written, so it releases the lease and reopens the party below
+                // like any other refused debit instead of locking the player out.
+                if (reservationWriteAttempted && !isPlayerSaveVersionConflict(error)) publicationInconclusive = true;
                 throw error;
             });
             if (!debit.ok) {
@@ -668,24 +693,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sessionPublished = true;
             } else if (entryReserved) {
                 const saveKey = `save:${hostName}`;
-                const compensation = await withKvLock(saveKey, async () => {
+                // Idempotent (an already-refunded receipt changes nothing), so a
+                // lost commit race re-runs once. If it still loses, keep the lease
+                // and the party's launching state so receipt-based recovery can
+                // refund the charge — never release them after a failed refund.
+                const compensation = await retryOnSaveVersionConflict(() => withKvLock(saveKey, async () => {
                     const record = await kv.get<Record<string, unknown>>(saveKey);
                     const character = record?.character as Record<string, unknown> | undefined;
                     if (!record || !character) throw new Error('Tower entry compensation save missing.');
+                    // The run never published, and its lease still marks where
+                    // it would have begun: settle the recovery up to there.
+                    const recovery = await settleIdleRecovery(kv, hostName, record, {
+                        ownBattleLock: (lock) => matchingTowerLease(lock, runId),
+                    });
                     let refunded: Record<string, unknown>;
                     if (authoritativeParty) {
-                        const result = refundTowerPartyEntryReservation({ character, partyId: authoritativeParty.id, runId, now: Date.now() });
+                        const result = refundTowerPartyEntryReservation({ character: recovery.character, partyId: authoritativeParty.id, runId, now: Date.now() });
                         if (!result.ok) throw new Error(`Tower party entry compensation failed: ${result.code}`);
                         refunded = result.character as Record<string, unknown>;
                     } else {
-                        const result = refundTowerDirectEntryReservation({ character, runId, now: Date.now() });
+                        const result = refundTowerDirectEntryReservation({ character: recovery.character, runId, now: Date.now() });
                         if (!result.ok) throw new Error(`Tower direct entry compensation failed: ${result.code}`);
                         refunded = result.character as Record<string, unknown>;
                     }
-                    const nextRecord = bumpSaveVersion<Record<string, unknown>>({ ...record, character: refunded });
+                    const nextRecord = bumpSaveVersion<Record<string, unknown>>({ ...record, character: refunded }, {
+                        regenAt: carriedRegenCursor(recovery.character, refunded, recovery.regen),
+                    });
                     await writeSaveProjected(saveKey, nextRecord, record);
                     return { character: refunded, saveVersion: Number(nextRecord._saveVersion ?? 0) };
-                }, { failClosed: true });
+                }, { failClosed: true })).catch(error => {
+                    if (isPlayerSaveVersionConflict(error)) publicationInconclusive = true;
+                    throw error;
+                });
                 authoritativeCharacter = compensation.character;
                 saveVersion = compensation.saveVersion;
             }
@@ -714,6 +753,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!sessionPublished && !publicationInconclusive) {
             await releaseClaimedLease().catch(() => undefined);
+        }
+        // A lost entry-debit race wrote nothing and was cleaned up above, so the
+        // player can simply start again.
+        if (isPlayerSaveVersionConflict(error) && !sessionPublished && !publicationInconclusive) {
+            return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         }
         console.error('[towers/start]', error);
         return res.status(500).json({ error: 'Internal server error.' });

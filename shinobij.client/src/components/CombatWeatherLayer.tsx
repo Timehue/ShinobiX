@@ -12,7 +12,8 @@
  * the particles on top of SceneAmbience's own low-end cut.
  *
  * VISUAL ONLY. The weather it draws is the one the server sealed into the
- * fight (or the sector sky at fight start); it never feeds any combat number.
+ * fight, and only that (lib/combat-presentation combatWeatherSource); it never
+ * feeds any combat number.
  * It runs no timer of its own — SceneAmbience in this mode reads its `weather`
  * prop once and polls nothing — and unmounting the screen cancels its rAF,
  * observer and listeners.

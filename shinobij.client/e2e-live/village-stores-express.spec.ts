@@ -1,5 +1,6 @@
 import { expect, type APIRequestContext, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 
 /*
  * Village Stores — the player loop, driven end to end in a real browser against
@@ -93,7 +94,7 @@ function countOwned(save: Record<string, unknown>, itemId: string): number {
  * cannot collide.
  */
 async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo) {
-    const name = `storesqa${Date.now().toString(36)}${testInfo.project.name.includes('mobile') ? 'm' : 'd'}`;
+    const name = uniquePlayerName((stamp) => `storesqa${stamp}${testInfo.project.name.includes('mobile') ? 'm' : 'd'}`);
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: PASSWORD } });
     expect(registered.status(), 'the disposable stores account must register').toBe(200);
     const token = String((await registered.json()).token ?? '');

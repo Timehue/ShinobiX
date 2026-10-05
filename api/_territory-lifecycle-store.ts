@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { kv, type KvLike } from './_storage.js';
+import { storedValueEquals } from './_stored-value.js';
 import { withKvLock } from './_lock.js';
 import { clanRecordKey, safeName } from './_utils.js';
 import { REGISTRY_KEY, parsePublicPlayerIndexEntry, publicIndexKey } from './player/_public-index.js';
@@ -48,7 +49,7 @@ async function compareSetExact(
         throw new Error('territory-lifecycle-conflict');
     } catch (error) {
         const recovered = await store.get(key).catch(() => null);
-        if (isDeepStrictEqual(recovered, after)) return;
+        if (storedValueEquals(recovered, after)) return;
         throw error;
     }
 }

@@ -3,9 +3,9 @@ import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { authedPlayerOrAdmin, isFullAdmin } from '../_auth.js';
 import { cors, safeName } from '../_utils.js';
 import { kv } from '../_storage.js';
+import { isIncapacitated } from '../_elapsed-state.js';
 import { LockContendedError } from '../_lock.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { isIncapacitated } from '../_elapsed-state.js';
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from '../../shared/ranked-eligibility.js';
 import { TOURNAMENT_MODES, TOURNAMENT_WINDOW_MS, type Tournament, type TournamentMode } from '../../shared/tournaments.js';
 import { loadTowerPvpFighter, readTowerPvpMatch } from '../towers/_pvp-store.js';
@@ -129,7 +129,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 return { event: current, serverNow: Date.now(), playerId };
                             }
                             if (current.status !== 'live' || match!.status !== 'waiting' || Date.now() >= match!.readyEndsAt) fail(409, 'The ready window has closed.');
-                            if (isIncapacitated(await character(playerId), Date.now())) fail(409, 'Recover before readying for a tournament battle.');
+                            if (current.mode !== 'pet' && isIncapacitated(await character(playerId))) {
+                                fail(409, 'You are in the hospital. Recover before entering a tournament battle.');
+                            }
                             if (!match!.ready.includes(playerId)) match!.ready.push(playerId);
                             // Persist readiness before publication so a lost response can be retried safely.
                             await kv.set(TOURNAMENT_KEY, current);

@@ -130,6 +130,35 @@ describe('Colosseum progression and AI side ownership', () => {
         }
     });
 
+    it('a road beast fields its named species in slot 0 without changing the mirror', () => {
+        const players = [
+            { ...pet('lead', 30), rarity: 'standard' }, { ...pet('b', 50), rarity: 'rare' },
+            { ...pet('c', 12), rarity: 'legendary' },
+        ] as Pet[];
+        const standards = Object.values(PET_CATALOG)
+            .filter((tpl) => tpl.rarity === 'standard' && tpl.wildSpawnable !== false && Array.isArray(tpl.jutsus));
+        for (let seed = 1; seed <= 24; seed++) {
+            const named = String(standards[seed % standards.length].id);
+            const plain = buildColosseumAiTeam(players, 3, 'warrior', seed, true);
+            const beast = buildColosseumAiTeam(players, 3, 'warrior', seed, true, { leadTemplateId: named });
+            assert.equal(beast.pets[0].templateId, named);
+            assert.deepEqual(beast.pets.map((p) => [p.level, p.rarity]), plain.pets.map((p) => [p.level, p.rarity]));
+            assert.equal(new Set(beast.pets.map((p) => p.templateId)).size, 3);
+            assert.deepEqual(beast, buildColosseumAiTeam(players, 3, 'warrior', seed, true, { leadTemplateId: named }));
+        }
+    });
+
+    it('ignores a named lead from outside the slot-0 rarity, or with no lead named', () => {
+        const players = [{ ...pet('lead', 30), rarity: 'standard' }] as Pet[];
+        const mythic = Object.values(PET_CATALOG).find((tpl) => tpl.rarity === 'mythic' && tpl.wildSpawnable !== false)!;
+        for (let seed = 1; seed <= 12; seed++) {
+            const plain = buildColosseumAiTeam(players, 1, 'warrior', seed, true);
+            assert.deepEqual(buildColosseumAiTeam(players, 1, 'warrior', seed, true, { leadTemplateId: String(mythic.id) }), plain,
+                'a mythic must never stand in a standard rival slot');
+            assert.deepEqual(buildColosseumAiTeam(players, 1, 'warrior', seed, true, {}), plain);
+        }
+    });
+
     it('seals AI exactly like an owned pet of the same species, trait and allocation', () => {
         for (const level of [1, 25, 50, 100]) for (const tier of ['scrapper', 'warrior', 'champion'] as const) {
             for (const ai of buildColosseumAiTeam([pet('a', level)], 1, tier, 812).pets) {

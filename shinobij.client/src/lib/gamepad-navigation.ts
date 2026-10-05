@@ -1,5 +1,3 @@
-import { createGamepadTextEntry } from "./gamepad-text-entry";
-
 type Direction = 'up' | 'down' | 'left' | 'right';
 type ControllerState = {
     confirm: boolean;
@@ -261,7 +259,6 @@ export function installGamepadNavigation(): () => void {
     if (typeof window === 'undefined' || typeof navigator.getGamepads !== 'function') return () => {};
 
     const lastPressed = new Map<number, ControllerState>();
-    const textEntry = createGamepadTextEntry();
     let frame = 0;
     let lastNavigationAt = 0;
     let lastMovementAt = 0;
@@ -276,8 +273,12 @@ export function installGamepadNavigation(): () => void {
         }
     };
 
+    const readGamepads = () => {
+        try { return navigator.getGamepads(); }
+        catch { return []; } // Privacy denial sleeps polling until focus/connection retries.
+    };
     const hasStandardGamepad = () =>
-        navigator.getGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard');
+        readGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard');
 
     const syncConnection = () => {
         const connected = hasStandardGamepad();
@@ -302,7 +303,7 @@ export function installGamepadNavigation(): () => void {
             return;
         }
         let anyConnected = false;
-        for (const gamepad of navigator.getGamepads()) {
+        for (const gamepad of readGamepads()) {
             if (!gamepad?.connected || gamepad.mapping !== 'standard') continue;
             anyConnected = true;
             const modal = activeModal();
@@ -327,11 +328,9 @@ export function installGamepadNavigation(): () => void {
                 : modal?.querySelector<HTMLElement>('[data-gamepad-mode]')
                     ?? (modal ? null : document.querySelector<HTMLElement>('[data-gamepad-mode]')))?.dataset.gamepadMode;
             const confirm = isPressed(gamepad, 0);
-            if (confirm && !previous.confirm) {
+            if (confirm && !previous.confirm && !isTextEntry(document.activeElement)) {
                 const target = document.activeElement;
-                if (target instanceof HTMLElement && isTextEntry(target)) {
-                    textEntry.open(target);
-                } else if (mode === 'visual-novel' && target instanceof HTMLElement && modal?.contains(target)
+                if (mode === 'visual-novel' && target instanceof HTMLElement && modal?.contains(target)
                     && !target.matches(ACTIONABLE)) {
                     // The focused novel stage already owns the canonical
                     // Enter behavior: reveal the current line or advance it.
@@ -404,7 +403,17 @@ export function installGamepadNavigation(): () => void {
     const onConnected = (event: GamepadEvent) => {
         if (event.gamepad.mapping === 'standard') syncConnection();
     };
-    const onDisconnected = () => syncConnection();
+    const onDisconnected = (event: GamepadEvent) => {
+        // Another connected pad keeps polling alive, so release the removed
+        // pad's held keys before dropping its per-controller edge state.
+        const index = event.gamepad?.index;
+        const state = index !== undefined ? lastPressed.get(index) : undefined;
+        if (index !== undefined && state) {
+            releaseHeldControllerKeys(new Map([[index, state]]));
+            lastPressed.delete(index);
+        }
+        syncConnection();
+    };
     const onVisibilityChange = () => {
         if (document.visibilityState !== 'visible') {
             releaseHeldControllerKeys(lastPressed);
@@ -422,7 +431,6 @@ export function installGamepadNavigation(): () => void {
         active = false;
         if (frame) cancelAnimationFrame(frame);
         releaseHeldControllerKeys(lastPressed);
-        textEntry.close();
         window.removeEventListener('gamepadconnected', onConnected);
         window.removeEventListener('gamepaddisconnected', onDisconnected);
         window.removeEventListener('focus', syncConnection);

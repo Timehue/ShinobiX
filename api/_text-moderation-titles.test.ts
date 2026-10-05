@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import { hasReservedTitleTerm, isAllowedCustomTitle } from './_text-moderation.js';
 import { KNOWN_EARNED_TITLES, ACHIEVEMENT_TITLES, isKnownEarnedTitle, isServerCreditedTitle, isLegacyOnlyTitle, normalizeTitleKey } from './_titles-registry.js';
 import { LEGACY_DEFS } from './_legacy-defs.js';
-import { PLAY_GAMES_REWARD_PRODUCTS } from '../shared/play-games-rewards.js';
 import { ownsKnownProfileTitle } from './player/_profile-title-ownership.js';
 import { ERA_CHAPTERS } from '../shared/era-chapters.js';
 

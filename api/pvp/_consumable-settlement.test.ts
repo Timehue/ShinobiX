@@ -142,6 +142,49 @@ describe('legacy PvP consumable durable settlement', () => {
         assert.equal(((record.character as Record<string, unknown>).itemStacks as Array<{ count: number }>)[0].count, 2);
     });
 
+    it("keeps the idle recovery the fighter earned since their last save", async () => {
+        // The other side's claim settles this fighter's consumables, often long
+        // after they closed the game. A bare version bump fenced the
+        // regeneration cursor to now and discarded every point recovered since.
+        const store = _makeMemoryKv();
+        const at = Date.now() - 30_000;
+        await store.set('save:spender', {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: {
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+                itemStacks: [{ itemId: 'smoke', count: 2 }], inventory: [],
+            },
+        });
+        await settlePvpConsumablesDurably(store, session, lock, { now: 10 });
+        const record = (await store.get<Record<string, unknown>>('save:spender'))!;
+        const character = record.character as Record<string, unknown>;
+        assert.deepEqual(character.itemStacks, [{ itemId: 'smoke', count: 1 }], 'the item was still deducted');
+        assert.ok(Number(character.hp) >= 40, `hp ${character.hp} lost the idle recovery`);
+        assert.ok(Number(character.chakra) >= 50, `chakra ${character.chakra} lost the idle recovery`);
+        assert.ok(Number(character.stamina) >= 30, `stamina ${character.stamina} lost the idle recovery`);
+        // The deduction moves no vital, so it carries the settled cursor, not now.
+        assert.ok(Number(record._regenAt) <= Date.now() && Number(record._regenAt) >= at + 30_000 - 1_000, `cursor ${record._regenAt}`);
+        // Whole ticks: a cursor fenced to the write instant is almost never on one.
+        assert.equal((Number(record._regenAt) - at) % 1_000, 0, `cursor ${record._regenAt} was fenced to the write, not carried`);
+    });
+
+    it('credits no recovery to a fighter still in a battle, read through the same store', async () => {
+        const store = _makeMemoryKv();
+        const at = Date.now() - 30_000;
+        await store.set('save:spender', {
+            _saveVersion: 1, _saveAt: at, _regenAt: at,
+            character: {
+                hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100,
+                itemStacks: [{ itemId: 'smoke', count: 2 }], inventory: [],
+            },
+        });
+        await store.set('battle-lock:spender', { battleId: 'another-fight' });
+        await settlePvpConsumablesDurably(store, session, lock, { now: 10 });
+        const character = (await store.get<Record<string, unknown>>('save:spender'))!.character as Record<string, unknown>;
+        assert.deepEqual(character.itemStacks, [{ itemId: 'smoke', count: 1 }]);
+        assert.deepEqual([character.hp, character.chakra, character.stamina], [10, 20, 0], 'time in battle is not idle recovery');
+    });
+
     it('does not mistake a precommit CAS failure for a durable backfill acknowledgement', async () => {
         const store = _makeMemoryKv();
         const settlementId = pvpSettlementId('items', battleId);

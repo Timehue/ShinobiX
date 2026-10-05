@@ -1,12 +1,13 @@
 import { expect, type APIRequestContext } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 
 const ADMIN = 'live-express-e2e-admin';
 
 async function seedWildExplorer(request: APIRequestContext) {
-    const name = `wildjourney${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `wildjourney${stamp}`);
     const registered = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: 'WildJourney!1234' },
     });

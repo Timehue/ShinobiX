@@ -1,12 +1,13 @@
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 const PASSWORD = 'RankedJourney!1234';
 const ADMIN = 'live-express-e2e-admin';
 
 async function seedFighter(request: APIRequestContext, info: TestInfo, side: string) {
-    const name = `rankedjourney${side}${info.workerIndex}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `rankedjourney${side}${info.workerIndex}${stamp}`);
     const registered = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: PASSWORD },
     });
@@ -27,7 +28,9 @@ async function seedFighter(request: APIRequestContext, info: TestInfo, side: str
     };
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': ADMIN },
-        data: { character, currentSector: 1, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
+        // This scenario enters a town lobby directly; a field-sector save must
+        // instead restore to the world map before any town navigation.
+        data: { character, currentSector: 0, acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
     });
     expect(seeded.status(), await seeded.text()).toBe(200);
     const headers = { 'x-player-name': name, 'x-player-token': token };

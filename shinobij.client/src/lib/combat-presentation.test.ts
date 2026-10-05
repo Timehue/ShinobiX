@@ -113,16 +113,16 @@ test("a clear sky draws nothing; every real sky stays below full intensity and o
     }
 });
 
-test("combatWeatherSource prefers the sealed sky, then the sector sky, and none under authored art", () => {
+test("combatWeatherSource draws only the sealed sky, and none under authored art", () => {
     const calls: string[] = [];
-    const lookups = {
-        weatherFromElements: (p: string, n: string) => { calls.push(`el:${p}/${n}`); return "rain" as const; },
-        weatherForSector: (s: number) => { calls.push(`sector:${s}`); return "ashfall" as const; },
-    };
-    assert.equal(combatWeatherSource({ sealedPositive: "Water", sealedNegative: "Fire", sector: 4, ...lookups }), "rain");
-    assert.equal(combatWeatherSource({ sealedPositive: "", sealedNegative: "", sector: 4, ...lookups }), "ashfall");
-    assert.equal(combatWeatherSource({ sector: 4, ...lookups }), "ashfall");
-    assert.equal(combatWeatherSource({ sector: undefined, ...lookups }), null);
-    assert.equal(combatWeatherSource({ sealedPositive: "Water", sealedNegative: "Fire", sector: 4, authoredBackdrop: true, ...lookups }), null);
-    assert.deepEqual(calls, ["el:Water/Fire", "sector:4", "sector:4"]);
+    const weatherFromElements = (p: string, n: string) => { calls.push(`el:${p}/${n}`); return p || n ? "rain" as const : "clear" as const; };
+    assert.equal(combatWeatherSource({ sealedPositive: "Water", sealedNegative: "Fire", weatherFromElements }), "rain");
+    // A sealed CLEAR sky is empty strings, and it is still the fight's sky.
+    assert.equal(combatWeatherSource({ sealedPositive: "", sealedNegative: "", weatherFromElements }), "clear");
+    // Absent fields mean no weather is in play: the board draws none, rather
+    // than the overworld sky a dungeon, tower or practice bout is not under.
+    assert.equal(combatWeatherSource({ weatherFromElements }), null);
+    assert.equal(combatWeatherSource({ sealedPositive: undefined, sealedNegative: null, weatherFromElements }), null);
+    assert.equal(combatWeatherSource({ sealedPositive: "Water", sealedNegative: "Fire", authoredBackdrop: true, weatherFromElements }), null);
+    assert.deepEqual(calls, ["el:Water/Fire", "el:/"]);
 });

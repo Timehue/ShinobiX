@@ -1,10 +1,9 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin, bodyNameMatchesAuth } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
-import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
 import { checkEvolve, evolvePet, type PetLike } from './_evolution.js';
 import { activeBreedingParentIds } from './_pet-busy.js';
 
@@ -15,8 +14,9 @@ import { activeBreedingParentIds } from './_pet-busy.js';
 // pet on the player's OWN save, validates the level gate + required item +
 // expected tier, consumes ONE evolution stone from the inventory, and writes
 // the evolved pet computed from the sealed spec (_evolution.ts). The whole
-// read-modify-write runs under the per-save lock with { failClosed: true } so a
-// double-submit (or contention) can never evolve twice or consume two stones.
+// read-modify-write commits through mutatePlayerSave (the per-save lock with
+// failClosed, and an exact compare-and-set) so a double-submit (or contention)
+// can never evolve twice or consume two stones.
 //
 // The stone itself is bought in the Grand Marketplace with Fate Shards (the
 // existing client shop flow); this endpoint only verifies possession + spends
@@ -47,32 +47,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!enforceRateLimit(req, res, 'pet-evolve', 10, 60_000, rateLimitIdentity)) return;
         if (!enforceRateLimit(req, res, 'pet-evolve-burst', 1, EVOLVE_RATE_LIMIT_MS, rateLimitIdentity)) return;
 
-        const saveKey = `save:${playerName}`;
-
-        const result = await withKvLock(saveKey, async () => {
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            if (!record) return { error: 'no-save' as const };
-            const char = record.character as Record<string, unknown> | undefined;
-            if (!char) return { error: 'no-character' as const };
-
+        type Outcome =
+            | { error: 'no-pet' }
+            | { reject: { code: string; message: string } }
+            | { ok: true; pet: PetLike; stage: NonNullable<ReturnType<typeof checkEvolve>['nextStage']> };
+        // The stone is consumed in the same write as the evolution, so re-running
+        // the whole mutation after a lost compare-and-set evolves the pet once.
+        const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<Outcome>(playerName, ({ character: char }) => {
+            const refuse = (value: Outcome) => ({ ok: true as const, write: false, character: char, value });
             const pets = Array.isArray(char.pets) ? (char.pets as PetLike[]) : [];
             const idx = pets.findIndex((p) => String(p?.id ?? '') === petId);
-            if (idx < 0) return { error: 'no-pet' as const };
+            if (idx < 0) return refuse({ error: 'no-pet' });
             if (activeBreedingParentIds(char).has(petId)) {
-                return { reject: { code: 'pet-is-breeding' as const, message: 'This pet is in the Shinobi Hatchery.' } };
+                return refuse({ reject: { code: 'pet-is-breeding', message: 'This pet is in the Shinobi Hatchery.' } });
             }
 
             const inventory = Array.isArray(char.inventory) ? (char.inventory as unknown[]).map(String) : [];
 
             const check = checkEvolve(pets[idx], inventory);
             if (!check.ok || !check.spec || !check.line || !check.nextStage) {
-                return { reject: { code: check.code ?? 'not-evolvable', message: check.message ?? 'Cannot evolve.' } };
+                return refuse({ reject: { code: check.code ?? 'not-evolvable', message: check.message ?? 'Cannot evolve.' } });
             }
 
             // Consume exactly ONE of the required stone.
             const itemIdx = inventory.indexOf(check.spec.requiredItem);
             if (itemIdx < 0) {
-                return { reject: { code: 'missing-item' as const, message: `Missing required item (${check.spec.requiredItem}).` } };
+                return refuse({ reject: { code: 'missing-item', message: `Missing required item (${check.spec.requiredItem}).` } });
             }
             const nextInventory = inventory.slice();
             nextInventory.splice(itemIdx, 1);
@@ -81,28 +81,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const nextPets = pets.slice();
             nextPets[idx] = evolved;
 
-            const updatedChar = { ...char, pets: nextPets, inventory: nextInventory };
-            const updated = { ...record, character: updatedChar };
-            // Return the new version: bumping it without telling the client leaves the
-            // client's `_baseSaveVersion` stale, so its next autosave 409s and the
-            // conflict path replaces local state with the server snapshot (progress
-            // silently reverts). authFetch adopts any `_saveVersion` in a response body
-            // monotonically, so including it here is enough.
-            const versioned = bumpSaveVersion<Record<string, unknown>>(updated);
-            await kv.set(saveKey, mergePreservingImages(versioned, record));
-            const nextVersion = Number(versioned._saveVersion);
             return {
-                ok: true as const,
-                pet: evolved,
-                stage: check.nextStage,
-                ...(Number.isFinite(nextVersion) ? { _saveVersion: nextVersion } : {}),
+                ok: true,
+                character: { ...char, pets: nextPets, inventory: nextInventory },
+                value: { ok: true, pet: evolved, stage: check.nextStage },
             };
-        }, { failClosed: true });
-
-        if ('error' in result) {
-            const code = result.error === 'no-save' || result.error === 'no-character' || result.error === 'no-pet' ? 404 : 500;
-            return res.status(code).json({ error: result.error });
+        }));
+        if (!committed.ok) {
+            if (committed.status === 404) {
+                return res.status(404).json({ error: committed.code === 'character-not-found' ? 'no-character' : 'no-save' });
+            }
+            return res.status(committed.status).json({ error: committed.error });
         }
+        // Return the new version: bumping it without telling the client leaves the
+        // client's `_baseSaveVersion` stale, so its next autosave 409s and the
+        // conflict path replaces local state with the server snapshot (progress
+        // silently reverts). authFetch adopts any `_saveVersion` in a response body
+        // monotonically, so including it here is enough.
+        const result = 'ok' in committed.value
+            ? { ...committed.value, _saveVersion: committed._saveVersion }
+            : committed.value;
+
+        if ('error' in result) return res.status(404).json({ error: result.error });
         if ('reject' in result && result.reject) {
             const rej = result.reject;
             // 409 for state conflicts (already evolved / wrong tier), 400 otherwise.
@@ -111,6 +111,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(result);
     } catch (err) {
+        if (isPlayerSaveVersionConflict(err)) return res.status(503).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[pet/evolve]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

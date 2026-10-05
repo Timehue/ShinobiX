@@ -6,7 +6,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
 import { computeMapControlReward } from '../_map-control-reward.js';
-import { writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
 import { MERIT_MAP_CONTROL, meritNum } from './_village-merit.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 
@@ -137,8 +137,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         saveVersion: Number(rec._saveVersion ?? 0),
                     };
                 }
+                // The idle recovery earned since the last save settles into
+                // this write and the cursor carries, as mutatePlayerSave does.
+                const recovery = await settleIdleRecovery(kv, playerName, rec);
                 const nextChar = {
-                    ...char,
+                    ...recovery.character,
                     ryo: num(char.ryo) + granted.ryo,
                     honorSeals: num(char.honorSeals) + granted.honorSeals,
                     boneCharms: num(char.boneCharms) + granted.boneCharms,
@@ -148,7 +151,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     villageMerit: meritNum(char.villageMerit) + MERIT_MAP_CONTROL,
                     claimedMapControlDate: date,
                 };
-                const written = await writeVersionedPlayerSave(`save:${playerName}`, rec, nextChar);
+                const written = await writeVersionedPlayerSave(`save:${playerName}`, rec, nextChar, {}, {
+                    regenAt: carriedRegenCursor(recovery.character, nextChar, recovery.regen),
+                });
                 // Best-effort, for a previous build still answering during a
                 // deploy, which only knows the marker.
                 await kv.set(marker, { ts: Date.now() }, { nx: true, ex: CLAIM_MARKER_TTL_SEC }).catch(() => undefined);
