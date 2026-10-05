@@ -199,6 +199,9 @@ export type SoloPveSession = {
     terminalEvidence?: SoloPveTerminalEvidence;
     log: string[];
     events: SoloPveCombatEvent[];
+    /** Lifetime applied facts, independent of the bounded presentation history.
+     * Optional for active sessions created before this field was introduced. */
+    legacyTotals?: import('./_legacy-totals.js').SoloPveLegacyTotals;
     eventSeq: number;
     fx?: CombatFxTarget[];
     fxSeq?: number;

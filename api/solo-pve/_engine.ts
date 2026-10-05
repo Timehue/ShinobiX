@@ -1,6 +1,7 @@
 import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { COMBAT_RESOURCES_V2, v2ResourceRegen } from '../_combat-resources.js';
 import { applyHuntCombatAction } from './_hunt-combat.js';
+import { appendSoloPveCombatEvent } from './_legacy-totals.js';
 import {
     pveAiCompetence,
     pveEasyBandAllowsLethal,
@@ -75,7 +76,6 @@ import {
     type EnemyTurnSnapshot,
 } from './_ai-turn-policy.js';
 import {
-    SOLO_PVE_EVENT_HISTORY,
     type SoloPveAction,
     type SoloPveActionResult,
     type SoloPveCombatEvent,
@@ -621,8 +621,7 @@ function appendCompanionEvent(
             ...(resolution ? { resolution } : {}),
         }),
     };
-    session.eventSeq = event.seq;
-    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+    appendSoloPveCombatEvent(session, event);
 }
 
 function companionDealDamage(session: SoloPveSession, companion: SoloPveCompanion, move: CompanionMove | null): CombatResolutionFacts & { dealt: number } {
@@ -1421,8 +1420,7 @@ function directAction(
             ...(result.resolution ? { resolution: result.resolution } : {}),
         }),
     };
-    session.eventSeq = event.seq;
-    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+    appendSoloPveCombatEvent(session, event);
     session.log = trimPvpLog(session.log);
     return { ...result, event };
 }
@@ -1806,8 +1804,7 @@ function enemyActsOnCompanion(session: SoloPveSession): boolean {
             resolution: { rawDamage: resolvedDamage, resolvedDamage },
         }),
     };
-    session.eventSeq = event.seq;
-    session.events = [...session.events, event].slice(-SOLO_PVE_EVENT_HISTORY);
+    appendSoloPveCombatEvent(session, event);
     return true;
 }
 

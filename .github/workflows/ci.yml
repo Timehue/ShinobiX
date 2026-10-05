@@ -645,6 +645,18 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/profession-change.log
+      - name: Named forge purchase and recovery
+        if: ${{ matrix.shard == 4 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.named-forge.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/named-forge.log
+      - name: Chronicle pack purchase and recovery
+        if: ${{ matrix.shard == 5 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.chronicle-packs.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/chronicle-packs.log
+      - name: Rally renderer recovery
+        if: ${{ matrix.shard == 4 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.rally-recovery.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/rally-recovery.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
