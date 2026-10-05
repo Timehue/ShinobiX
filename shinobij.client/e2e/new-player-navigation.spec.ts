@@ -15,40 +15,35 @@ async function bootInField(page: Page, screen: string) {
     return runtime;
 }
 
-test("desktop field shortcuts keep the world overview reachable across menus and reloads", async ({ page }, info: TestInfo) => {
-    // Desktop-only: the right-hand menu and its Return to Village shortcut do not exist
-    // on the touch layouts, which navigate through the bottom bar instead.
-    test.skip(Boolean(info.project.use.isMobile), "Desktop shortcuts are not rendered on touch layouts.");
+test("desktop right menu keeps the world overview reachable across menus and reloads", async ({ page }, info: TestInfo) => {
+    // Desktop-only: the right-hand menu does not exist on the touch layouts,
+    // which navigate through the bottom bar instead.
+    test.skip(Boolean(info.project.use.isMobile), "The right menu is not rendered on touch layouts.");
     await bootInField(page, "missions");
-    const travelRequests: string[] = [];
-    page.on("request", (request) => {
-        if (request.url().endsWith("/api/player/travel")) travelRequests.push(request.method());
-    });
+    const rightMenu = page.locator(".right-menu-panel");
 
-    await expect(page.getByRole("button", { name: "World Map", exact: true }).first()).toBeVisible();
-    await expect(page.getByRole("button", { name: "Return to Village", exact: true })).toBeVisible();
+    // The field-only World Map / Return to Village pair was removed; the World
+    // group's World Map entry is the single overview shortcut.
+    await expect(rightMenu.getByRole("button", { name: "World Map", exact: true })).toHaveCount(1);
+    await expect(rightMenu.getByRole("button", { name: "Return to Village", exact: true })).toHaveCount(0);
     await page.screenshot({ path: info.outputPath("desktop-field-navigation.png"), animations: "disabled" });
 
-    await page.getByRole("button", { name: "Guides", exact: true }).click();
+    await rightMenu.getByRole("button", { name: "Guides", exact: true }).click();
     await expect(page.locator('.app-shell[data-screen="guides"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Return to Village", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Tavern", exact: true }).click();
+    await rightMenu.getByRole("button", { name: "Tavern", exact: true }).click();
     await expect(page.locator('.app-shell[data-screen="tavern"]')).toBeVisible();
-    await expect(page.getByRole("button", { name: "Return to Village", exact: true })).toBeVisible();
 
-    await page.getByRole("button", { name: "World Map", exact: true }).first().click();
+    await rightMenu.getByRole("button", { name: "World Map", exact: true }).click();
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await expect(page.locator(".sector-image-map")).toHaveCount(0);
     await page.reload();
     await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
-    await page.getByRole("button", { name: "World Map", exact: true }).first().click();
+    // The map's first mount after a reload reopens the field sector. Let that
+    // restore land before asking for the overview, or it can win over the click.
+    await expect(page.locator(".sector-image-map, .world-atlas-card").first()).toBeVisible();
+    await rightMenu.getByRole("button", { name: "World Map", exact: true }).click();
     await expect(page.locator(".world-atlas-card")).toBeVisible();
     await expect(page.locator(".sector-image-map")).toHaveCount(0);
-
-    const returnHome = page.getByRole("button", { name: "Return to Village", exact: true });
-    await returnHome.dblclick();
-    await expect(page.locator('.app-shell[data-screen="village"]')).toBeVisible();
-    expect(travelRequests.filter((method) => method === "POST")).toHaveLength(1);
 });
 
 test("Tavern's Village return travels home from the field", async ({ page }) => {
