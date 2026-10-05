@@ -1,4 +1,5 @@
 import { safeLogValue } from '../_safe-log.js';
+import { extractSoloPveLegacyDeltas } from '../_legacy-pve.js';
 import { recordCircuitCombatVictory } from '../dojo-circuit/_store.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { randomInt } from 'node:crypto';
@@ -487,12 +488,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (paysReward && legacyEnabled() && dailyCount <= AI_FIGHT_SOFT_CAP_PER_DAY) {
             try {
                 const char = result.character;
-                const deltas: LegacyStatDeltas = { pveKills: 1 };
-                const specialty = String(char?.specialty ?? '');
-                if (specialty === 'Ninjutsu') deltas.ninjutsuKills = 1;
-                else if (specialty === 'Genjutsu') deltas.genjutsuKills = 1;
-                else if (specialty === 'Taijutsu') deltas.taijutsuKills = 1;
-                else if (specialty === 'Bukijutsu') deltas.bukijutsuKills = 1;
+                const deltas: LegacyStatDeltas = { pveKills: 1, ...extractSoloPveLegacyDeltas(settledUsageSession) };
                 const bootstrapCharacter = {
                     ...char,
                     // This payout already raised the save mirror. A brand-new

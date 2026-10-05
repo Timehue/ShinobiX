@@ -28,6 +28,8 @@
         "check:story-content": "node --import tsx scripts/generate-story-content.mts --check",
         "generate:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs",
         "check:runtime-mode-docs": "node --import tsx scripts/generate-runtime-mode-docs.mjs --check",
+        "generate:legacy-roster": "node --import tsx scripts/generate-legacy-roster.mts",
+        "check:legacy-roster": "node --import tsx scripts/generate-legacy-roster.mts --check",
         "release:health": "node scripts/release-health-check.mjs",
         "beta:report": "node scripts/beta-daily-report.mjs",
         "beta:certify": "node scripts/beta-certification.mjs",
@@ -58,7 +60,7 @@
         "express": "^5.0.1",
         "pg": "^8.23.0",
         "socket.io": "^4.8.3",
-        "undici": "^6.26.0"
+        "undici": "^6.29.0"
     },
     "devDependencies": {
         "@types/compression": "^1.8.1",

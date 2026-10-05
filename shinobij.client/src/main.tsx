@@ -6,7 +6,9 @@ import './styles/veiled-steel.css' // final player-facing studio theme; intentio
 import './styles/layout/adaptive-shell.css' // sole normal-page geometry and scrolling authority
 import './styles/layout/adaptive-stages.css' // coordinate-preserving maps and specialized board stages
 import './styles/layout/adaptive-tools.css' // responsive admin, creator, and authoring tools
+import './styles/input-accessibility.css'
 import './styles/lite-fx-compositing.css' // LAST: html.lite-fx drops backdrop-filter on weak devices
+import './lib/play-reward-event-inbox.ts' // capture Android receipts before the platform integration chunk loads
 import './lib/imageErrorGuard.ts' // install the global broken-image guard before first render
 import './lib/perfTelemetry.ts' // register load/refresh perf observers before first paint
 import { initSentry } from './lib/sentry.ts' // env-gated crash reporting (no-op without VITE_SENTRY_DSN)
@@ -16,19 +18,23 @@ import App from './App.tsx'
 import { ErrorBoundary } from './components/ErrorBoundary.tsx'
 import { LiveCapabilitiesProvider } from './components/LiveCapabilitiesProvider.tsx'
 import { legalPageForPath } from './data/legal.ts'
+import { hasPlayerIdentity } from './authFetch.ts'
 
 // Keep the mobile-only product layer out of the desktop initial graph. Request
-// it immediately on phones/tablets, and once on a later desktop-to-mobile
-// resize; after loading, its own data-ui-mode gates still exclude combat.
+// it immediately on phones/tablets, touch-enabled large screens, and once on a
+// later capability/viewport change; after loading, its data-ui-mode gates still
+// exclude combat.
 // If the stylesheet fails to load, phones keep the adaptive-shell layout above.
 // Vite's preload helper never requests a failed stylesheet again in this page,
 // so the rejection is dropped instead of escaping unhandled.
 const mobileProductViewport = window.matchMedia('(max-width: 979px)')
+const coarsePointerViewport = window.matchMedia('(pointer: coarse)')
 function ensureMobileProductLayer() {
-    if (mobileProductViewport.matches) void import('./styles/mobile-noncombat-aaa.css').catch(() => {})
+    if (mobileProductViewport.matches || coarsePointerViewport.matches) void import('./styles/mobile-noncombat-aaa.css').catch(() => {})
 }
 ensureMobileProductLayer()
 mobileProductViewport.addEventListener('change', ensureMobileProductLayer)
+coarsePointerViewport.addEventListener('change', ensureMobileProductLayer)
 
 // LegalPage carries all the policy prose (every /terms, /privacy, … document),
 // so it is lazy-loaded: keeping it off the entry chunk holds the entry-JS and
@@ -54,6 +60,33 @@ const CinematicVnPreview = qaPreviewsEnabled
 
 initSentry()
 applyLiteFxClass()
+// Keep the controller runtime off the startup graph for touch/mouse players.
+// Gamepad connection is exposed by the browser as devices are connected, and
+// the current list handles controllers already present when the game launches.
+let gamepadNavigationLoading = false
+function enableGamepadNavigation() {
+    if (gamepadNavigationLoading) return
+    gamepadNavigationLoading = true
+    void import('./lib/gamepad-navigation.ts')
+        .then(({ installGamepadNavigation }) => installGamepadNavigation())
+        .catch(() => { gamepadNavigationLoading = false })
+}
+function enableGamepadNavigationIfConnected() {
+    try {
+        if (typeof navigator.getGamepads === 'function'
+            && navigator.getGamepads().some(gamepad => gamepad?.connected && gamepad.mapping === 'standard')) {
+            enableGamepadNavigation()
+        }
+    } catch { /* Browser privacy settings can deny Gamepad API access. */ }
+}
+window.addEventListener('gamepadconnected', (event) => {
+    if ((event as GamepadEvent).gamepad?.mapping === 'standard') enableGamepadNavigation()
+})
+window.addEventListener('focus', enableGamepadNavigationIfConnected)
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') enableGamepadNavigationIfConnected()
+})
+enableGamepadNavigationIfConnected()
 registerAssetServiceWorker()
 
 // Legal/policy URLs (/privacy, /terms, /cookies, …) render the policy directly,
@@ -66,6 +99,14 @@ const legalSlug = (() => {
 })()
 const introPreview = qaPreviewsEnabled && new URLSearchParams(window.location.search).get('preview') === 'intro'
 const cinematicVnPreview = qaPreviewsEnabled && new URLSearchParams(window.location.search).get('preview') === 'vn'
+
+// The first-time landing is the only place that needs landing-home.css during
+// cold boot. Start fetching it as soon as the entry module evaluates instead of
+// waiting for React to resolve StartScreen's lazy chunk; authenticated restores
+// and standalone policy/preview routes keep the stylesheet out of their path.
+if (!hasPlayerIdentity() && !legalSlug && !introPreview && !cinematicVnPreview) {
+    void import('./styles/landing-home.css').catch(() => {})
+}
 
 const root = createRoot(document.getElementById('root')!)
 root.render(

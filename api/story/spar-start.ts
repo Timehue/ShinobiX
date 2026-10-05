@@ -9,7 +9,8 @@ import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
-import { storyCombatBindingKey, STORY_COMBAT_SESSION_TTL_SECONDS } from './_authoritative-story-combat.js';
+import { sectorPlace } from '../../shared/sector-geo.js';
+import { storyCombatBindingKey, STORY_COMBAT_SESSION_TTL_SECONDS, STORY_VILLAGE_BIOMES } from './_authoritative-story-combat.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import {
     ACADEMY_SPAR_OPPONENT_ID,
@@ -34,11 +35,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!enforceRateLimit(req, res, 'story-spar-start', 12, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'story-spar-start-preauth', (12) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own sparring match.' });
+        if (!enforceRateLimit(req, res, 'story-spar-start', 12, 60_000, identity.admin ? playerName : identity.name)) return;
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
@@ -46,6 +48,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;
         if (!save || !char) return res.status(404).json({ error: 'Player save not found.' });
+        const currentSector = Math.floor(Number(save.currentSector));
+        const fieldBiome = currentSector > 0
+            ? sectorPlace(currentSector)?.biome
+            : undefined;
+        const sparBiome = fieldBiome ?? STORY_VILLAGE_BIOMES[String(char.village ?? '')] ?? 'central';
         // A spar can no longer put anyone in the hospital, but a player who is
         // already admitted still starts no new fight (api/_elapsed-state.ts).
         if (!identity.admin && isIncapacitated(char)) {
@@ -75,7 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 sourceId: binding.opponentId,
                 bindingId: runId,
             },
-            environment: { biome: 'central' },
+            environment: { biome: sparBiome },
         });
         await writeSoloPveSession(session);
         await kv.set(

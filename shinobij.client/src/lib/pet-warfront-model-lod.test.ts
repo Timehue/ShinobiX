@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import { WARFRONT_PET_LOD_MANIFEST, WARFRONT_PET_LOD_REVISION } from "../generated/pet-warfront-lod-manifest";
 import type { PetCombatModelConfig } from "./pet-3d-models";
 import {
     warfrontPetLodEnabled,
@@ -38,4 +40,21 @@ test("source A/B and unknown assets retain the authored model", () => {
     const unknown = { ...source, url: "/pet-models/future-pet.glb?v=1" };
     assert.equal(warfrontPetModelConfig(unknown, true), unknown);
     assert.equal(warfrontPetModelConfig(null, true), null);
+});
+
+test("compact runtime metadata retains every certified expanded LOD entry exactly", () => {
+    const certified = JSON.parse(readFileSync(new URL("../../public/pet-models/warfront-lod/manifest.json", import.meta.url), "utf8")) as {
+        revision: string;
+        entries: Array<{ sourceUrl: string; lodUrl: string; sourceTriangles: number; lodTriangles: number }>;
+    };
+    assert.equal(certified.entries.length, 160);
+    assert.equal(WARFRONT_PET_LOD_REVISION, certified.revision);
+    const expected = Object.fromEntries(certified.entries.map(({ sourceUrl, lodUrl, sourceTriangles, lodTriangles }) => [
+        sourceUrl, { lodUrl, sourceTriangles, lodTriangles },
+    ]));
+    assert.deepEqual(Object.keys(WARFRONT_PET_LOD_MANIFEST), Object.keys(expected), "entry order and exact source keys remain stable");
+    assert.deepEqual(WARFRONT_PET_LOD_MANIFEST, expected, "every URL, revision suffix and triangle count matches the certified asset reference");
+    for (const entry of certified.entries) {
+        assert.deepEqual(warfrontPetLodEntry(`${entry.sourceUrl}?v=owner-revision`), expected[entry.sourceUrl]);
+    }
 });

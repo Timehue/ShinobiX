@@ -115,13 +115,13 @@ export function sanitizeProgression(
     }
 
     // Profession: lock the profession choice (the server-side picker and its
-    // one-time respec flow write it via /api/profession/choose), reject client
+    // scroll change flow write it via /api/profession/choose), reject client
     // XP gains, and recompute rank from XP so a malicious client can't claim a
     // higher rank than its XP earns.
     //
     // Two-state lockdown:
     //   • exChar HAS a profession  → preserve it (only the dedicated endpoint
-    //     may spend the one-time change and replace it).
+    //     may consume a change scroll and replace it).
     //   • exChar has NO profession → ALSO preserve `undefined`. The dedicated
     //     /api/profession/choose endpoint is the only path that may set the
     //     initial value. Without this branch a fresh-account save POST could

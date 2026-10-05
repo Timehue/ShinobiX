@@ -117,6 +117,145 @@ test('landing and creator journey render without runtime, image, or responsive f
     expect(runtimeFailures).toEqual([]);
 });
 
+test('phone and open-fold storage notice dismissal preserves landing actions', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'chromium-mobile', 'this geometry check runs in the mobile Chromium project');
+    await page.addInitScript(() => localStorage.removeItem('shinobix:storage-notice-ack'));
+
+    for (const viewport of [{ width: 390, height: 844 }, { width: 195, height: 422 }, { width: 852, height: 795 }]) {
+        await page.setViewportSize(viewport);
+        await page.goto('/');
+
+        const notice = page.locator('.storage-notice');
+        await expect(notice).toBeVisible();
+        const measureActions = () => page.evaluate(() => {
+            const notice = document.querySelector<HTMLElement>('.storage-notice')?.getBoundingClientRect();
+            const actions = [...document.querySelectorAll<HTMLElement>('#landing-home .landing-hero-actions .landing-cta')]
+                .map((element) => {
+                    const rect = element.getBoundingClientRect();
+                    return { label: element.textContent?.trim() ?? '', top: rect.top, bottom: rect.bottom };
+                });
+            return {
+                actions,
+                overlap: Boolean(notice && actions.some((action) => action.top < notice.bottom && action.bottom > notice.top)),
+            };
+        });
+
+        const before = await measureActions();
+        expect(before.actions).toHaveLength(2);
+        expect(before.overlap).toBe(false);
+        await page.getByRole('button', { name: 'Got it' }).click();
+        await expect(notice).toHaveCount(0);
+
+        const after = await measureActions();
+        expect(after.actions.map((action) => action.label)).toEqual(before.actions.map((action) => action.label));
+        for (let index = 0; index < before.actions.length; index++) {
+            expect(Math.abs(after.actions[index].top - before.actions[index].top)).toBeLessThanOrEqual(1);
+        }
+
+        const actions = page.locator('#landing-home .landing-hero-actions .landing-cta');
+        for (let index = 0; index < await actions.count(); index++) {
+            const action = actions.nth(index);
+            await action.scrollIntoViewIfNeeded();
+            await expect(action).toBeInViewport();
+            const receivesTap = await action.evaluate((element) => {
+                const rect = element.getBoundingClientRect();
+                return document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2) === element;
+            });
+            expect(receivesTap, 'each landing action must remain tappable after dismissing the notice').toBe(true);
+        }
+    }
+});
+
+for (const viewport of [{ width: 842, height: 641 }, { width: 844, height: 390 }]) {
+    test(`landing entry action clears the storage notice at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
+        await page.goto('/');
+
+        const enterWorld = page.getByTestId('start-create');
+        const notice = page.locator('.storage-notice');
+        await expect(enterWorld).toBeInViewport();
+        await expect(notice).toBeVisible();
+        const placement = await page.evaluate(() => {
+            const button = document.querySelector<HTMLElement>('[data-testid="start-create"]')!;
+            const notice = document.querySelector<HTMLElement>('.storage-notice')!;
+            const action = button.getBoundingClientRect();
+            const banner = notice.getBoundingClientRect();
+            const hitTarget = document.elementFromPoint(action.left + action.width / 2, action.top + action.height / 2);
+            return { actionBottom: action.bottom, noticeTop: banner.top, hitTarget: hitTarget === button };
+        });
+        expect(placement.actionBottom).toBeLessThanOrEqual(placement.noticeTop + 1);
+        expect(placement.hitTarget).toBe(true);
+        await enterWorld.click();
+        await expect(page.getByRole('heading', { name: 'Begin as a Shinobi' })).toBeVisible();
+    });
+
+    test(`creator next step stays reachable in a short window at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
+        await page.goto('/');
+        await startCreateButton(page).click();
+        await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+
+        const nextStep = page.getByRole('button', { name: 'Choose Bloodline', exact: true });
+        const notice = page.locator('.storage-notice');
+        await expect(nextStep).toBeInViewport();
+        await expect(notice).toBeVisible();
+        const placement = await nextStep.evaluate((button) => {
+            const rect = button.getBoundingClientRect();
+            const banner = document.querySelector<HTMLElement>('.storage-notice')!.getBoundingClientRect();
+            const hitTarget = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            return { top: rect.top, bottom: rect.bottom, noticeTop: banner.top, hitTarget: hitTarget === button };
+        });
+        expect(placement.bottom).toBeLessThanOrEqual(placement.noticeTop + 1);
+        expect(placement.top).toBeGreaterThan(0);
+        expect(placement.hitTarget).toBe(true);
+        await nextStep.click();
+        await expect(page.getByRole('heading', { name: 'Your First Jutsu Kit' })).toBeVisible();
+    });
+
+    test(`account fields and submit action stay clear at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+        await page.setViewportSize(viewport);
+        await page.route('**/api/**', (route) => route.fulfill({ contentType: 'application/json', body: '{}' }));
+        await page.goto('/');
+        await startCreateButton(page).click();
+        await page.getByRole('button', { name: 'Choose Village', exact: true }).click();
+        await page.locator('.cc-village-card').first().click();
+        await page.getByRole('button', { name: 'Choose Bloodline', exact: true }).click();
+        await page.locator('.cc-bloodline-card').first().click();
+        await page.getByRole('button', { name: 'Choose Avatar', exact: true }).click();
+        await page.locator('.cc-avatar-card').first().click();
+        await page.getByRole('button', { name: 'Preview Shinobi', exact: true }).click();
+        await page.getByRole('button', { name: 'Name and Password', exact: true }).click();
+
+        const confirmation = page.locator('#cc-confirm-password');
+        const consent = page.locator('.cc-legal-consent');
+        const enterWorld = page.getByRole('button', { name: 'Enter the World', exact: true });
+        await expect(confirmation).toBeVisible();
+        await expect(consent).toBeVisible();
+        const flow = await page.evaluate(() => {
+            const confirmation = document.querySelector<HTMLElement>('#cc-confirm-password')!.getBoundingClientRect();
+            const consent = document.querySelector<HTMLElement>('.cc-legal-consent')!.getBoundingClientRect();
+            const action = document.querySelector<HTMLElement>('.cc-actions')!.getBoundingClientRect();
+            return { confirmationBottom: confirmation.bottom, consentBottom: consent.bottom, actionTop: action.top };
+        });
+        expect(flow.confirmationBottom, 'the dock must not cover the confirmation field').toBeLessThanOrEqual(flow.consentBottom);
+        // Touching normal-flow edges can differ by less than 0.001 CSS px in Firefox DOMRects.
+        expect(flow.actionTop + 0.001, 'submit follows the readable consent text').toBeGreaterThanOrEqual(flow.consentBottom);
+
+        await enterWorld.scrollIntoViewIfNeeded();
+        await expect(enterWorld).toBeInViewport();
+        const placement = await enterWorld.evaluate((button) => {
+            const rect = button.getBoundingClientRect();
+            const notice = document.querySelector<HTMLElement>('.storage-notice')!.getBoundingClientRect();
+            const hitTarget = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+            return { actionBottom: rect.bottom, noticeTop: notice.top, hitTarget: hitTarget === button };
+        });
+        expect(placement.actionBottom, 'the scrolled submit action must clear the notice').toBeLessThanOrEqual(placement.noticeTop + 1);
+        expect(placement.hitTarget).toBe(true);
+    });
+}
+
 test('landing and creator have no serious WCAG A/AA axe violations', async ({ page }) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     const landing = await new AxeBuilder({ page })

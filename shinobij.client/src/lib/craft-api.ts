@@ -3,8 +3,9 @@ import type { GameItem } from '../types/combat';
 import { makeId } from './utils';
 
 export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
-export const NAMED_WEAPON_TAGS = ['Siphon', 'Absorb', 'Poison', 'Wound', 'Reflect', 'Shield', 'Drain', 'Ignition', 'Heal', 'Increase Damage Given', 'Increase Generals', 'Decrease Damage Taken'] as const;
-export const NAMED_ARMOR_SPECIALS = ['Absorb', 'Shield', 'Reflect', 'Life Steal', 'Increase Damage'] as const;
+export { NAMED_WEAPON_TAGS } from '../../../shared/named-forge-roll';
+import { NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS } from '../../../shared/named-forge-roll';
+export const NAMED_ARMOR_SPECIALS = ARMOR_SPECIALS.map((special) => special.kind);
 export async function forgeServer(playerName: string, kind: CraftKind, recipeId: string, quantity = 1): Promise<{ character?: Character; _saveVersion?: number; error?: string }> {
     try {
         const response = await fetch('/api/craft/forge', {

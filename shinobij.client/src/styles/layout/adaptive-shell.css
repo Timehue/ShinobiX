@@ -347,12 +347,24 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
 
   .mobile-bottom-nav :where(button, a),
   .mobile-top-hud :where(button, a) {
-    min-inline-size: var(--touch-target-min);
-    min-block-size: var(--touch-target-min);
+    /* Android recommends a 48dp interactive area for reliable touch input. */
+    min-inline-size: 48px;
+    min-block-size: 48px;
   }
 
   .storage-notice {
     inset-block-end: calc(var(--shell-mobile-nav-height) + var(--sp-2) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* Start/landing screens hide the mobile navigation. Keep the storage notice at
+   the real safe-area edge there instead of leaving an empty navigation-height
+   gap beneath it, which can cover the primary entry action in short windows. */
+@supports selector(body:has(.app-shell.screen-start)) {
+  @media (max-width: 979px) {
+    body:has(.app-shell.screen-start) .storage-notice {
+      inset-block-end: env(safe-area-inset-bottom, 0px);
+    }
   }
 }
 

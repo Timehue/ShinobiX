@@ -27,6 +27,45 @@
          same-origin, or the preload is refetched and wasted. -->
     <link rel="preload" href="/fonts/inter-v20-latin-wght-400-800.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/marcellus-v14-latin-regular.woff2" as="font" type="font/woff2" crossorigin />
+    <style id="boot-splash-style">
+      #boot-splash { background-color:#0f172a; background-position:center; background-size:cover; }
+      html.landing-guest #boot-splash {
+        background-image:linear-gradient(135deg,rgba(5,10,23,.36),rgba(5,10,23,.77)),url("/landing/hero-shinobi.webp?v=20261001-1440-q84");
+      }
+      @media (max-width:560px) {
+        html.landing-guest #boot-splash {
+          background-image:linear-gradient(135deg,rgba(5,10,23,.36),rgba(5,10,23,.77)),url("/landing/hero-shinobi-mobile.webp?v=20261001-mobile-q82");
+        }
+      }
+      #boot-splash-panel {
+        box-sizing:border-box; padding:1.2rem 1.35rem; border:1px solid rgba(231,190,120,.3); border-radius:1.1rem;
+        background:linear-gradient(145deg,rgba(10,16,33,.84),rgba(10,16,33,.68));
+        box-shadow:0 1.5rem 4rem rgba(0,0,0,.4),inset 0 1px rgba(255,245,225,.08);
+      }
+      #boot-splash-panel img { filter:drop-shadow(0 .35rem .8rem rgba(0,0,0,.55)); }
+      #boot-splash-panel h1 {
+        font-family:Marcellus,Georgia,serif!important; font-size:1.35rem!important; letter-spacing:.16em!important;
+        text-shadow:0 2px 18px rgba(0,0,0,.8);
+      }
+      #boot-splash-panel p {
+        max-width:29rem; margin-right:auto!important; margin-left:auto!important; color:#e2e8f0!important;
+        text-shadow:0 1px 5px rgba(0,0,0,.75);
+      }
+      #boot-loading-state {
+        display:inline-flex; align-items:center; min-height:2.25rem; margin-top:1rem!important; padding:.2rem .85rem;
+        border:1px solid rgba(231,190,120,.2); border-radius:999px; background:rgba(3,8,20,.55); color:#f3d9a4;
+      }
+      #boot-recovery { text-align:left; }
+      @media (max-width:480px) { #boot-splash-panel { padding:1rem; } }
+      @media (max-height:480px) {
+        #boot-splash { padding:.65rem!important; }
+        #boot-splash-panel { padding:.65rem .85rem; }
+        #boot-splash-panel img { width:2.8rem!important; height:2.8rem!important; margin-bottom:.35rem!important; }
+        #boot-splash-panel h1 { font-size:1.1rem!important; }
+        #boot-splash-panel p { margin-top:.35rem!important; font-size:.76rem!important; }
+        #boot-loading-state { min-height:1.8rem; margin-top:.55rem!important; }
+      }
+    </style>
 
     <!-- The landing hero is NOT preloaded here. It is the LCP element for
          a first-time visitor and worth fetching at high priority for them, but it
@@ -52,14 +91,14 @@
     <meta property="og:title" content="Shinobi Journey" />
     <meta property="og:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
     <meta property="og:site_name" content="Shinobi Journey" />
-    <meta property="og:image" content="https://shinobijourney.com/landing/hero-shinobi.webp" />
-    <meta property="og:image:width" content="1672" />
-    <meta property="og:image:height" content="941" />
+    <meta property="og:image" content="https://shinobijourney.com/landing/hero-shinobi.webp?v=20261001-1440-q84" />
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="810" />
     <meta property="og:image:alt" content="A shinobi and fox companion overlooking a hidden mountain village at sunset" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Shinobi Journey" />
     <meta name="twitter:description" content="Create your shinobi, train your chakra, fight in PvP arenas, raid hidden dungeons, raise pets, and shape four rival villages." />
-    <meta name="twitter:image" content="https://shinobijourney.com/landing/hero-shinobi.webp" />
+    <meta name="twitter:image" content="https://shinobijourney.com/landing/hero-shinobi.webp?v=20261001-1440-q84" />
     <meta name="twitter:image:alt" content="A shinobi and fox companion overlooking a hidden mountain village at sunset" />
 
   </head>
@@ -73,12 +112,12 @@
         <!-- Boot splash: shown during the initial module fetch/parse so a cold
              load isn't a blank page. React's first render replaces #root's
              contents; the pre-module watchdog reveals recovery if it never can. -->
-        <div id="boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Shinobi Journey is loading" itemprop="mainEntity" itemscope itemtype="https://schema.org/VideoGame" itemid="https://shinobijourney.com/#game" style="position:fixed;inset:0;z-index:99999;display:flex;overflow:auto;padding:1.25rem;background:#0f172a;color:#94a3b8;font-family:system-ui,-apple-system,sans-serif;box-sizing:border-box;">
+        <div id="boot-splash" role="status" aria-live="polite" aria-busy="true" aria-label="Shinobi Journey is loading" itemprop="mainEntity" itemscope itemtype="https://schema.org/VideoGame" itemid="https://shinobijourney.com/#game" style="position:fixed;inset:0;z-index:99999;display:flex;overflow:auto;padding:1.25rem;background-color:#0f172a;color:#94a3b8;font-family:system-ui,-apple-system,sans-serif;box-sizing:border-box;">
           <link itemprop="url" href="https://shinobijourney.com/" />
           <meta itemprop="genre" content="Role-playing game" />
           <meta itemprop="gamePlatform" content="Web browser" />
           <meta itemprop="isAccessibleForFree" content="true" />
-          <div style="width:min(30rem,100%);margin:auto;text-align:center;">
+          <div id="boot-splash-panel" style="width:min(30rem,100%);margin:auto;text-align:center;">
           <!-- The name and purpose live here in STATIC markup, not only in the
                React tree, because this is all anything that does not execute
                JavaScript ever receives. Google's OAuth brand verification

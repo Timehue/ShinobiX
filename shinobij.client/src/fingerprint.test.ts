@@ -56,3 +56,45 @@ test('fingerprint releases its temporary GPU context without changing its result
         });
     }
 });
+
+test('priming the fingerprint waits for browser idle time', async () => {
+    let idleCallback: (() => void) | null = null;
+    let loadCallback: (() => void) | null = null;
+    let idleTimeout = 0;
+    let canvasCreates = 0;
+    const globals = {
+        window: {
+            addEventListener(event: string, callback: () => void) {
+                if (event === 'load') loadCallback = callback;
+            },
+            requestIdleCallback(callback: () => void, options?: { timeout: number }) {
+                idleCallback = callback;
+                idleTimeout = options?.timeout ?? 0;
+                return 1;
+            },
+        },
+        document: { readyState: 'loading', createElement() { canvasCreates++; return { getContext: () => null }; } },
+        sessionStorage: { getItem: () => null, setItem: () => {} },
+    };
+    const originals = Object.keys(globals).map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)] as const);
+    try {
+        for (const [key, value] of Object.entries(globals)) Object.defineProperty(globalThis, key, { configurable: true, value });
+        const { primeFingerprint, getFingerprint } = await import('./fingerprint.ts?idle-prime-test');
+        primeFingerprint();
+        primeFingerprint();
+        assert.equal(canvasCreates, 0, 'the initial screen should not pay the fingerprint canvas cost');
+        assert.equal(idleTimeout, 0, 'fingerprint work should not start before page load');
+        assert.ok(loadCallback, 'fingerprint work should wait for page load');
+        loadCallback();
+        assert.equal(idleTimeout, 5000, 'fingerprint work must eventually run if the browser stays busy');
+        assert.ok(idleCallback, 'fingerprint work should be scheduled for idle time');
+        idleCallback();
+        await getFingerprint();
+        assert.equal(canvasCreates, 2, 'the canvas and WebGL probes should run after idle time');
+    } finally {
+        for (const [key, descriptor] of originals) {
+            if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+            else Reflect.deleteProperty(globalThis, key);
+        }
+    }
+});

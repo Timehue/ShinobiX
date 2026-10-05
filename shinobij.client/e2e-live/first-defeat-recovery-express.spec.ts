@@ -41,7 +41,7 @@ function responseEvidence(value: unknown) {
 
 // Real player handlers with deterministic account/exploration fixtures. No
 // terminal combat, healing, wallet, or save responses are fabricated.
-for (const recovery of ['paid', 'free', 'healer', 'external', 'external-stale', 'paid-lost', 'paid-timeout', 'terminal-lost', 'poor'] as const) {
+for (const recovery of ['paid', 'free', 'healer', 'external', 'external-stale', 'paid-lost', 'paid-timeout', 'terminal-lost', 'terminal-retry', 'poor'] as const) {
 test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request, context }, info) => {
  test.setTimeout(180000);
  const name = `defeat${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
@@ -52,7 +52,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
  const headers = { 'x-player-name': name, 'x-player-token': token };
  const receipt = 'defeat-explore-receipt-001';
  const character = {
-  name, village: 'Moonshadow Village', specialty: 'Ninjutsu', bloodline: 'None', level: 3, rankTitle: 'Academy Student', xp: 0, ryo: recovery === 'poor' ? 100 : 10000,
+  name, village: 'Moonshadow Village', specialty: 'Ninjutsu', bloodline: 'None', level: 3, rankTitle: 'Academy Student', xp: 0, ryo: recovery === 'poor' ? 50 : 10000,
   hp: 40, maxHp: 700, chakra: 35, maxChakra: 1181, stamina: 45, maxStamina: 1181, unspentStats: 0,
   stats: Object.fromEntries(['strength','speed','intelligence','willpower','bukijutsuOffense','bukijutsuDefense','taijutsuOffense','taijutsuDefense','genjutsuOffense','genjutsuDefense','ninjutsuOffense','ninjutsuDefense'].map(key => [key, 20])),
   onboardingStep: 'done', profession: recovery === 'healer' ? 'healer' : 'vanguard', professionChosenAt: 1, inventory: [], itemStacks: [], equipment: {}, pets: [], jutsuMastery: [], equippedJutsuIds: [],
@@ -116,6 +116,9 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   }
   await capture('02-combat');
   let terminalDropped = false;
+  if (recovery === 'terminal-retry') {
+   await page.route('**/api/missions/report-ai-fight', route => route.abort());
+  }
   if (recovery === 'terminal-lost') {
    await page.route('**/api/missions/report-ai-fight', async route => {
     if (terminalDropped) { await route.abort(); return; }
@@ -132,6 +135,20 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   }
   await expect(page.getByRole('dialog', { name: 'Fight lost', exact: true })).toBeVisible();
   await capture('03-defeat');
+  if (recovery === 'terminal-retry') {
+   const failed = page.getByRole('dialog', { name: 'Fight lost', exact: true });
+   await expect(failed).toContainText('The outcome could not be confirmed');
+   await failed.getByRole('button', { name: 'Return', exact: true }).click();
+   const syncing = page.getByRole('alertdialog');
+   await expect(syncing).toContainText('The fight is still syncing with the combat server');
+   await syncing.getByRole('button', { name: 'OK', exact: true }).click();
+   await expect(failed).toBeVisible();
+   await expect(page.locator('.mission-arena-fight')).toBeVisible();
+   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
+   await capture('03-settlement-blocked');
+   await page.unroute('**/api/missions/report-ai-fight');
+   await failed.getByRole('button', { name: 'Retry', exact: true }).click();
+  }
   if (recovery === 'terminal-lost') {
    await expect.poll(() => terminalDropped).toBe(true);
    await page.unroute('**/api/missions/report-ai-fight');
@@ -207,10 +224,10 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   } else if (recovery === 'free' || recovery === 'poor') {
    if (recovery === 'poor') {
     await expect(page.getByRole('button', { name: 'Pay & discharge', exact: true })).toBeDisabled();
-    await expect(page.locator('.hospital-screen--admitted')).toContainText('short 2,400 ryo');
+    await expect(page.locator('.hospital-screen--admitted')).toContainText('short 25 ryo');
     const refused = await request.post('/api/player/heal', { headers, data: { targetName: name, paySkip: true, hospitalizedAt: settled.character.hospitalizedAt } });
     expect(refused.status()).toBe(402);
-    expect((await save()).character.ryo).toBe(100);
+    expect((await save()).character.ryo).toBe(character.ryo);
    }
    await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0, { timeout: 80000 });
   } else if (recovery === 'healer') {
@@ -248,7 +265,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await expect(page.locator('.stormveil-village-screen')).toBeVisible();
   await capture('06-recovered');
   const recovered = await save(); events.push({ moment: 'recovered', save: recovered });
-  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'external-stale'].includes(recovery) ? 2500 : 0;
+  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'terminal-retry', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
   expect(recovered.character.ryo).toBe(character.ryo - expectedCharge);
   expect(recovered.character.hp).toBe(recovered.character.maxHp);
   expect(recovered.character.hospitalized).toBe(false);
@@ -289,7 +306,17 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
   await capture('07-recovered-reload');
   await page.unrouteAll({ behavior: 'wait' });
-  events.push({ moment: 'recoveredReload', save: await save() });
+  const recoveredReload = await save();
+  events.push({ moment: 'recoveredReload', save: recoveredReload });
+  // A stale admitted preview intentionally auto-exits to Village when its
+  // owner read confirms discharge (Hospital.wasAdmittedRef). This assertion
+  // covers a fresh healthy deep link, so first await the real preview mirror.
+  const readPreview = () => page.evaluate(account => JSON.parse(localStorage.getItem(`ninjav-save-preview-v1:${account}`) ?? 'null'), name);
+  await expect.poll(async () => {
+   const preview = await readPreview();
+   return { hp: preview?.character?.hp, hospitalized: preview?.character?.hospitalized, ryo: preview?.character?.ryo };
+  }, { timeout: 30000 }).toEqual({ hp: recoveredReload.character.hp, hospitalized: false, ryo: recoveredReload.character.ryo });
+  events.push({ moment: 'healthyPreviewBeforeOtherTab', save: await readPreview() });
   const otherTab = await context.newPage();
   await otherTab.goto('/#/hospital');
   await expect(otherTab.locator('.hospital-screen')).toBeVisible();

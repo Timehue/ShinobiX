@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import "../styles/index/29-clan-exchange-storefront.css";
 
 // Mirrors TREASURY_GIFT_TAX_PCT in api/_treasury-gift-tax.ts and the ryo cap in
 // api/clan/treasury/donate.ts. Display only — the server is authoritative — but

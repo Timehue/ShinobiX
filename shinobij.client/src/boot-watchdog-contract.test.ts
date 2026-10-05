@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { describe, it } from "node:test";
 import { PLAYER_ACCOUNTS_STORAGE } from "./constants/game";
 
@@ -11,12 +11,13 @@ import { PLAYER_ACCOUNTS_STORAGE } from "./constants/game";
 // stopping those copies from drifting.
 const watchdog = readFileSync(new URL("../public/boot-watchdog.js", import.meta.url), "utf8");
 const indexHtml = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const bootSplashCss = /<style id="boot-splash-style">([\s\S]*?)<\/style>/u.exec(indexHtml)?.[1] ?? "";
 
 describe("boot watchdog / app constant parity", () => {
     it("uses the same localStorage key the app writes accounts to", () => {
         // If PLAYER_ACCOUNTS_STORAGE is ever renamed, the watchdog would silently
         // read a key that never exists — every returning player would look like a
-        // first-time visitor and pay the 193 KB hero preload again.
+        // first-time visitor and pay the 171 KB hero preload again.
         assert.match(
             watchdog,
             new RegExp(`PLAYER_ACCOUNTS_STORAGE\\s*=\\s*'${PLAYER_ACCOUNTS_STORAGE}'`, "u"),
@@ -24,7 +25,6 @@ describe("boot watchdog / app constant parity", () => {
         );
     });
 });
-
 describe("landing hero preload", () => {
     it("is not a static preload in index.html", () => {
         // A static <link rel=preload> fires for EVERY visitor, including the
@@ -47,15 +47,33 @@ describe("landing hero preload", () => {
             "a first-time visitor's LCP still wants the high-priority hint");
         assert.match(watchdog, /^\s*preloadLandingHero\(\);/mu,
             "the injector must actually be called at install time");
+        assert.match(watchdog, /document\.documentElement\.classList\.add\('landing-guest'\)/u,
+            "the static splash must receive the same first-visit gate as the hero preload");
     });
 
     it("points at an image that ships", () => {
-        const href = /LANDING_HERO\s*=\s*'([^']+)'/u.exec(watchdog)?.[1];
-        assert.ok(href, "boot-watchdog.js must declare LANDING_HERO");
-        // landing-home.css is what actually paints it; if the two ever disagree
-        // the preload warms a file nothing uses, which is worse than no preload.
+        const desktopHref = /LANDING_HERO_DESKTOP\s*=\s*'([^']+)'/u.exec(watchdog)?.[1];
+        const mobileHref = /LANDING_HERO_MOBILE\s*=\s*'([^']+)'/u.exec(watchdog)?.[1];
+        assert.ok(desktopHref, "boot-watchdog.js must declare LANDING_HERO_DESKTOP");
+        assert.ok(mobileHref, "boot-watchdog.js must declare LANDING_HERO_MOBILE");
+        // The watchdog, inline splash and landing CSS must select the same
+        // responsive file or the high-priority preload is wasted.
         const landingSkin = readFileSync(new URL("./styles/landing-home.css", import.meta.url), "utf8");
-        assert.ok(landingSkin.includes(href!), `landing-home.css must reference ${href}`);
+        assert.ok(landingSkin.includes(desktopHref!), `landing-home.css must reference ${desktopHref}`);
+        assert.ok(landingSkin.includes(mobileHref!), `landing-home.css must reference ${mobileHref}`);
+        assert.ok(bootSplashCss.includes(desktopHref!), `boot-splash.css must paint ${desktopHref}`);
+        assert.ok(bootSplashCss.includes(mobileHref!), `boot-splash.css must paint ${mobileHref}`);
+        assert.match(watchdog, /matchMedia\('\(max-width: 560px\)'\)\.matches[\s\S]*?landingHero = LANDING_HERO_MOBILE/u,
+            "phone-sized first visits must preload the smaller composition");
+        assert.match(bootSplashCss, /html\.landing-guest #boot-splash/u,
+            "the landing art must be omitted from saved-session restore screens");
+        assert.ok(bootSplashCss, "the critical boot splash styles must be inline before the app module starts");
+        for (const href of [desktopHref!, mobileHref!]) {
+            const assetPath = new URL(href, "https://shinobijourney.com").pathname;
+            const asset = new URL(`../public${assetPath}`, import.meta.url);
+            const size = statSync(asset).size;
+            assert.ok(size <= 256 * 1024, `the first-visit hero preload must stay within its 256 KiB transfer budget (actual ${size} B for ${assetPath})`);
+        }
     });
 
     it("fails open: an unreadable localStorage preloads rather than skipping", () => {

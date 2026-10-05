@@ -45,6 +45,7 @@ export type TowerPvpRosterMember = {
  * 1v1 continuation in api/clan/war/_pvp-settlement.ts.
  */
 export type TowerPvpBinding =
+    | { kind: 'tournament'; eventId: string; bracketMatchId: string; endsAt: number; tieWinner: TowerPvpTeamId }
     | { kind: 'public-queue' }
     | { kind: 'clan-war'; warId: string; challengeId: string; fromClan: string; toClan: string }
     /**
@@ -103,7 +104,7 @@ export type TowerPvpMatch<TCombat = unknown> = {
     }>;
     settlement: TowerPvpSettlement;
     rules: {
-        teamSize: typeof TOWER_PVP_TEAM_SIZE;
+        teamSize: 1 | typeof TOWER_PVP_TEAM_SIZE;
         /** 'disabled' in the open queue, which settles no economy; a reward-bearing
          *  bound match seals real charges like every other rated fight. */
         consumables: 'disabled' | 'enabled';
@@ -183,10 +184,10 @@ export type TowerPvpSettleResponse<TCombat = unknown> = {
  * and when it could only spell the literal 'mpvp' the other two modes fell
  * through to the Towers lobby with a PvP match id in the co-op run key.
  */
-export type TowerBattleLeaseMode = 'mpvp' | 'clan-war-mpvp' | 'ranked-2v2';
+export type TowerBattleLeaseMode = 'mpvp' | 'clan-war-mpvp' | 'ranked-2v2' | 'tournament';
 
 /** True for every mode that runs the Tower MPvP match store rather than a
  *  `tower:<runId>` co-op session. */
 export function isMpvpLeaseMode(mode: unknown): boolean {
-    return mode === 'mpvp' || mode === 'clan-war-mpvp' || mode === 'ranked-2v2';
+    return mode === 'mpvp' || mode === 'clan-war-mpvp' || mode === 'ranked-2v2' || mode === 'tournament';
 }

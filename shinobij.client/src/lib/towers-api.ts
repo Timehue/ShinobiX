@@ -157,7 +157,7 @@ export type TowerSession = {
     map: TowerMap;
     actors: TowerActor[];
     /** Enemy pods sealed for a future round; never infer these from current board HP. */
-    pendingEnemyWaves?: Array<{ round: number; actors: TowerActor[] }>;
+    pendingEnemyWaves?: Array<{ round: number; afterClear?: boolean; actors: TowerActor[] }>;
     turnQueue: string[];
     activeIndex: number;
     round: number;
@@ -179,6 +179,7 @@ export type TowerSession = {
     /** the player's sealed active pet, summonable onto the field once via {type:'summon'};
      *  server-consumed on use, so its presence is what enables the Pet action */
     pendingCompanion?: { petId: string; name: string; hp: number; damage: number };
+    companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
     // ── Endless Spire (sealed at entry; present only on ascension runs) ──────────
     ascensionTier?: number;
     spireBossId?: string;
@@ -197,6 +198,7 @@ export type TowerSession = {
     encounterFloor?: TowerFloorView;
     /** Present only on the sealed level-80 world-crisis triad encounter. */
     worldCrisis80?: { crisisId: string; village: string; sourceId: string };
+    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
     /** Monotonic server action revision used by optional reconnect-safe commands. */
     actionVersion?: number;
     /**

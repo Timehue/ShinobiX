@@ -1,5 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
-import { expectUiAuditBoot, installUiAuditRuntime } from "./helpers/ui-audit-runtime";
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 /*
  * The defender half of an open-world sector raid, in a real browser.
@@ -137,7 +137,8 @@ test("an incoming sector raid pulls the defender into the battle and joins it", 
     test.skip(test.info().project.name !== "chromium-desktop",
         "one deterministic Chromium pass is enough — this pins client routing, not layout");
 
-    const runtime = await installUiAuditRuntime(page);
+    // Match the raid's live session and heartbeat: the defender is in the field.
+    const runtime = await installUiAuditRuntime(page, { ...uiAuditSave(), currentSector: 12 });
     const harness = await installRaidDelivery(page);
     await expectUiAuditBoot(page, runtime, "worldMap");
 

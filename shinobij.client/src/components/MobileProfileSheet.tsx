@@ -95,6 +95,10 @@ export const MobileProfileSheet = memo(function MobileProfileSheet({
                         setScreen={(s) => { onClose(); setScreen(s); }}
                         activeTraining={activeTraining}
                         activeJutsuTraining={activeJutsuTraining}
+                        onOpenDailyBriefing={() => {
+                            onClose();
+                            window.dispatchEvent(new CustomEvent("shinobix:open-daily-briefing"));
+                        }}
                     />
                 </div>
             </div>

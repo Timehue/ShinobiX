@@ -4,19 +4,55 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- navigator.vibrate() in card packs, the hub and pet battles. -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Play Games Rewards are granted outside the app and delivered through
+         Google Play Billing's unacknowledged one-time-purchase query. -->
+    <uses-permission android:name="com.android.vending.BILLING" />
+    <!-- Optional controller support enables Play's Gamepad badge and search
+         filter without filtering out touch-only devices. -->
+    <uses-feature android:name="android.hardware.gamepad" android:required="false" />
+    <!-- Identifies this as PC-input-aware to Google Play Games on PC while
+         keeping phones and tablets eligible for installation. -->
+    <uses-feature android:name="android.hardware.type.pc" android:required="false" />
 
     <!-- No backup: the WebView's storage now holds the player's session token
          and guest key, which must not be restored onto another device. -->
     <application
         android:label="Shinobi"
-        android:name="${applicationName}"
+        android:name=".ShinobiApplication"
+        android:appCategory="game"
         android:icon="@mipmap/ic_launcher"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="false">
+        <!-- Level Up's Vulkan guideline covers game renderers beyond Unity and
+             Unreal too. On Android 17+, request ANGLE for this WebGL-based
+             game; Android may fall back to the vendor GLES driver if needed.
+             Compare frame pacing and WebView/Flutter stability on reference
+             devices before release because this is a driver preference. -->
+        <meta-data
+            android:name="com.android.graphics.driver.prefer_angle"
+            android:value="true" />
+        <meta-data
+            android:name="com.google.android.gms.games.APP_ID"
+            android:value="@string/game_services_project_id" />
+        <!-- The WebView plugin writes camera captures to app-specific external
+             storage and returns them through this provider. No camera
+             permission is needed because capture is delegated to the system
+             camera app. -->
+        <provider
+            android:name="com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFileProvider"
+            android:authorities="${applicationId}.flutter_inappwebview_android.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/provider_paths" />
+        </provider>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:resizeableActivity="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
             android:theme="@style/LaunchTheme"

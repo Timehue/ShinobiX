@@ -1,7 +1,8 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { rallyPath } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyPath } from '../../../../shared/sunscar/rally-tracks';
 import type { RallyTrack } from '../../../../shared/sunscar/rally-types';
+import { rallyArch, rallyRoadHalfWidth } from './rally-layout';
 
 /** One static mesh for lane guides and shape-coded road warnings. */
 export function RallyRouteMarkings({ track }: { track: RallyTrack }) {
@@ -9,15 +10,20 @@ export function RallyRouteMarkings({ track }: { track: RallyTrack }) {
         const positions: number[] = [], colors: number[] = [];
         const color = new THREE.Color();
         const stroke = (x1: number, d1: number, x2: number, d2: number, width: number, tint: string) => {
-            const a = rallyPath(track, d1), b = rallyPath(track, d2);
-            const dx = b.x + x2 - a.x - x1, dz = b.z - a.z, length = Math.hypot(dx, dz);
+            const a = rallyLanePosition(track, d1, x1), b = rallyLanePosition(track, d2, x2);
+            const dx = b.x - a.x, dz = b.z - a.z, length = Math.hypot(dx, dz);
             const ox = -dz / length * width / 2, oz = dx / length * width / 2;
-            const corners = [[a.x + x1 - ox, a.y + .035, a.z - oz], [a.x + x1 + ox, a.y + .035, a.z + oz],
-                [b.x + x2 - ox, b.y + .035, b.z - oz], [b.x + x2 + ox, b.y + .035, b.z + oz]];
+            const corners = [[a.x - ox, a.y + .035, a.z - oz], [a.x + ox, a.y + .035, a.z + oz],
+                [b.x - ox, b.y + .035, b.z - oz], [b.x + ox, b.y + .035, b.z + oz]];
             color.set(tint);
-            for (const i of [0, 1, 2, 1, 3, 2]) { positions.push(...corners[i]); colors.push(color.r, color.g, color.b); }
+            for (const i of [0, 1, 2, 1, 3, 2]) { positions.push(...corners[i]); colors.push(color.r, color.g, color.b, .72); }
         };
-        for (let d = 4; d < track.length; d += 9) for (const x of [-1.325, 1.325]) stroke(x, d, x, Math.min(track.length, d + 4), .065, '#f5dfb5');
+        for (let d = 4; d < track.length; d += 8) for (const x of [-1.325, 1.325]) stroke(x, d, x, Math.min(track.length, d + 5), .11, '#f5dfb5');
+        for (let d = 0; d < track.length; d += 4) {
+            const end = Math.min(track.length, d + 3.3);
+            for (const side of [-1, 1]) stroke(side * (rallyRoadHalfWidth(track, d) - .22), d,
+                side * (rallyRoadHalfWidth(track, end) - .22), end, .13, track.palette.accent);
+        }
         for (const obstacle of track.obstacles) {
             const x = obstacle.lane * 2.65, d = obstacle.at;
             const shortcut = obstacle.kind === 'shortcut' || obstacle.kind === 'ramp';
@@ -35,11 +41,23 @@ export function RallyRouteMarkings({ track }: { track: RallyTrack }) {
                 stroke(x + .65, d - 8, x, d - 6.5, .2, '#ffdf87');
             }
         }
+        // Both checkered strips share the existing road-marking draw call.
+        // Their exact width and tile count still follow each course's arches.
+        for (const d of [0, track.length]) {
+            const p = rallyPath(track, d), { half, tiles, tile } = rallyArch(track, d);
+            for (let i = 0; i < tiles; i++) {
+                const x1 = p.x - half + tile * i, x2 = x1 + tile;
+                const corners = [[x1, p.y + .045, p.z + .85], [x2, p.y + .045, p.z + .85],
+                    [x1, p.y + .045, p.z - .85], [x2, p.y + .045, p.z - .85]];
+                color.set(i % 2 ? '#51413a' : '#f3dfb6');
+                for (const vertex of [0, 1, 2, 1, 3, 2]) { positions.push(...corners[vertex]); colors.push(color.r, color.g, color.b, 1); }
+            }
+        }
         const result = new THREE.BufferGeometry();
         result.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        result.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        result.setAttribute('color', new THREE.Float32BufferAttribute(colors, 4));
         return result;
     }, [track]);
     useEffect(() => () => geometry.dispose(), [geometry]);
-    return <mesh geometry={geometry}><meshBasicMaterial vertexColors side={THREE.DoubleSide} transparent opacity={.72} depthWrite={false}/></mesh>;
+    return <mesh geometry={geometry}><meshBasicMaterial vertexColors side={THREE.DoubleSide} transparent depthWrite={false}/></mesh>;
 }

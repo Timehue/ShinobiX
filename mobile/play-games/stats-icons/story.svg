@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs><linearGradient id="plate" x2="0" y2="1"><stop stop-color="#263246"/><stop offset="1" stop-color="#111b2a"/></linearGradient><linearGradient id="pages" x2="0.7" y2="1"><stop stop-color="#fff2c9"/><stop offset="1" stop-color="#d7bb8a"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="12"/></filter></defs>
+  <circle cx="256" cy="256" r="218" fill="#8bd3db" opacity=".22" filter="url(#glow)"/><circle cx="256" cy="256" r="210" fill="url(#plate)" stroke="#e9c474" stroke-width="10"/><circle cx="256" cy="256" r="190" fill="none" stroke="#526376" stroke-width="3"/>
+  <path d="M253 187c-39-28-81-36-134-22v194c51-13 94-4 137 25 43-29 86-38 137-25V165c-53-14-95-6-134 22v196Z" fill="url(#pages)" stroke="#fff0c4" stroke-width="9" stroke-linejoin="round"/>
+  <path d="M256 191v190M151 211c36-8 66-2 92 12M151 252c36-8 66-2 92 12M151 293c36-8 66-2 92 12M361 211c-36-8-66-2-92 12M361 252c-36-8-66-2-92 12M361 293c-36-8-66-2-92 12" fill="none" stroke="#4d5968" stroke-width="10" stroke-linecap="round"/>
+  <path d="m256 99 13 25 28 4-21 20 5 28-25-13-25 13 5-28-21-20 28-4Z" fill="#fff1b6" stroke="#e5ba69" stroke-width="7"/>
+</svg>

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
-import { STRONGHOLD_SPAWN, type StrongholdVisit } from '../../shared/sector-stronghold.js';
+import { STRONGHOLD_INTEL_TILE, STRONGHOLD_SPAWN, type StrongholdVisit } from '../../shared/sector-stronghold.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -70,6 +70,57 @@ test('admission needs actual sector presence and level 100', async () => {
     assert.equal((await action('shlow', 'stronghold-enter', { sector })).status, 403);
     await seed('shwrong');
     assert.equal((await action('shwrong', 'stronghold-enter', { sector: 21 })).status, 409);
+});
+
+test('War Archives intel is optional, visit-bound, idempotent, and has no economic payout', async () => {
+    const name = 'shintel'; await seed(name);
+    let visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    assert.equal((await action(name, 'stronghold-intel', { sector, presenceId: undefined })).status, 409, 'presence lease is required');
+    assert.equal((await action(name, 'stronghold-intel', { sector, presenceId: `test-tab-${name}` })).status, 409,
+        'the cache cannot be claimed remotely');
+    visit = { ...visit, tile: STRONGHOLD_INTEL_TILE, visited: [...visit.visited, STRONGHOLD_INTEL_TILE] };
+    await kv.set(`stronghold:${name}:${sector}`, visit);
+    const before = await kv.get<{ character: Record<string, unknown> }>(`save:${name}`);
+    const claimed = await action(name, 'stronghold-intel', { sector });
+    assert.equal(claimed.status, 200, JSON.stringify(claimed.body));
+    assert.equal(visitOf(claimed).intelClaimed, true);
+    assert.equal(visitOf(claimed).threat, visit.threat);
+    assert.equal(visitOf(claimed).version, visit.version + 1);
+    const replay = await action(name, 'stronghold-intel', { sector });
+    assert.equal(replay.status, 200);
+    assert.equal(visitOf(replay).version, visit.version + 1, 'retry returns the same claimed state');
+    const claimedVisit = visitOf(claimed);
+    await kv.set(`stronghold:${name}:${sector}`, { ...claimedVisit, tile: STRONGHOLD_SPAWN });
+    const movedReplay = await action(name, 'stronghold-intel', { sector });
+    assert.equal(movedReplay.status, 200, 'a retry after movement returns the completed receipt');
+    assert.equal(visitOf(movedReplay).version, claimedVisit.version);
+    assert.equal(visitOf(movedReplay).tile, STRONGHOLD_SPAWN);
+    assert.deepEqual(await kv.get(`save:${name}`), before, 'intel grants no currency or items');
+});
+
+test('War Archives intel waits until an owed patrol is resolved', async () => {
+    const name = 'shintelpatrol'; await seed(name);
+    let visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    visit = { ...visit, tile: STRONGHOLD_INTEL_TILE, visited: [...visit.visited, STRONGHOLD_INTEL_TILE],
+        threat: 100, patrolId: 'owed-intel-patrol' };
+    await kv.set(`stronghold:${name}:${sector}`, visit);
+    const result = await action(name, 'stronghold-intel', { sector });
+    assert.equal(result.status, 409);
+    assert.match(String(result.body.error), /patrol/i);
+    assert.equal((await kv.get<StrongholdVisit>(`stronghold:${name}:${sector}`))?.intelClaimed, undefined);
+});
+
+test('War Archives intel cannot be claimed during combat', async () => {
+    const name = 'shintelcombat'; await seed(name);
+    let visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    visit = { ...visit, tile: STRONGHOLD_INTEL_TILE, visited: [...visit.visited, STRONGHOLD_INTEL_TILE] };
+    await kv.set(`stronghold:${name}:${sector}`, visit);
+    onlineStore.setPendingAttacker(name, { name: 'rival' });
+    const result = await action(name, 'stronghold-intel', { sector });
+    assert.equal(result.status, 409);
+    assert.match(String(result.body.error), /combat or travel/i);
+    assert.equal((await kv.get<StrongholdVisit>(`stronghold:${name}:${sector}`))?.intelClaimed, undefined);
+    onlineStore.clearPendingAttacker(name);
 });
 
 test('the authenticated public route drives entry, movement and exit and rejects another identity', async () => {

@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { floorForSession } from './_session-floor.js';
 import { activeActor } from './_tower-session.js';
-import { applyAction, endTurn, runAiUntilHuman, type TowerAction } from './_engine.js';
+import { applyAction, endTurn, humanHasTowerAction, runAiUntilHuman, type TowerAction } from './_engine.js';
 import { isTowerActionType } from './_action-types.js';
 import { makeRng } from './_sim.js';
 import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliation, writeSession } from './_tower-store.js';
@@ -75,10 +75,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const runId = String(body.runId ?? '');
         if (!playerName || !runId) return res.status(400).json({ error: 'Missing player or run.' });
-        if (!enforceRateLimit(req, res, 'towers-action', 120, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'towers-action-preauth', (120) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
+        if (!enforceRateLimit(req, res, 'towers-action', 120, 60_000, identity.admin ? playerName : identity.name)) return;
 
         let realtimeSession: TowerSession | null = null;
         let realtimeReason: 'action' | 'afk' = 'action';
@@ -114,7 +115,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
             }
 
-            const ownsTowerLease = !!session.worldCrisis80 || isPublicTowerRun(session) || isSpireRun(session);
+            const ownsTowerLease = !!session.worldCrisis80 || !!session.caravanAmbush || isPublicTowerRun(session) || isSpireRun(session);
             if (ownsTowerLease && session.rewardSettlementState === 'settled') {
                 await releaseTowerBattleLeases(runId, towerBattleLeaseMembers(session));
             } else if (ownsTowerLease) {
@@ -241,7 +242,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { applied: false, reason: result.reason, session, currentVersion: towerActionVersion(session) } };
             }
             recordClanBossContribution(session, actor.id, contributionBefore);
-            if (action.type === 'wait') {
+            if (action.type === 'wait' || (session.status === 'active' && !humanHasTowerAction(session, actor))) {
                 endTurn(session, floor);
                 runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
             }

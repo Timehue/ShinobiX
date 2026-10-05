@@ -190,6 +190,14 @@ export function PetGauntlet({ sharedImages = {}, character, updateCharacter }: {
         [run, fielded],
     );
     const enemyEffective = useMemo(() => (run ? enemySquadForRound(run) : []), [run]);
+    // Warm the exact render assets while the player arranges their formation.
+    // Placement/stat changes reuse the loader cache instead of downloading again.
+    useEffect(() => {
+        if (!playerEffective.length) return;
+        void import("../lib/pet-gauntlet-preload")
+            .then(({ preloadGauntletPets }) => preloadGauntletPets([...playerEffective, ...enemyEffective]))
+            .catch(() => undefined); // The arena owns visible loading/recovery.
+    }, [playerEffective, enemyEffective]);
     const playerTotals = useMemo(() => teamStatTotals(playerEffective), [playerEffective]);
     const enemyTotals = useMemo(() => teamStatTotals(enemyEffective), [enemyEffective]);
     const playerEdge = useMemo(() => elementalEdge(playerEffective, enemyEffective), [playerEffective, enemyEffective]);

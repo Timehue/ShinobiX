@@ -18,6 +18,9 @@ import { kv } from './_storage.js';
 import { withKvLock } from './_lock.js';
 import type { LegacyStatKey } from './_legacy-defs.js';
 
+// Guard input evidence and completion receipts outlive 48-hour terminal repair.
+export const LEGACY_PVP_RECEIPT_TTL_SECONDS = 7 * 24 * 60 * 60;
+
 export function legacyEnabled(): boolean {
     return process.env.ENABLE_LEGACY === '1';
 }
@@ -33,7 +36,7 @@ export type LegacyStats = Partial<Record<LegacyStatKey, number>> & {
     bootstrappedAt?: number;
     /** Farming/abuse signals; gates legendary+ offers (see _legacy-score.ts). */
     suspicionFlags?: number;
-    /** Raw kill counts per PvP target, for repeat-kill decay. Capped size. */
+    /** Encounter counts per UTC day + PvP target, for repeat decay. Capped size. */
     repeatKills?: Record<string, number>;
     /** Rolling PvP win streak; bestKillStreak records its high-water mark. */
     winStreak?: number;
@@ -105,6 +108,23 @@ const EVENTS_CAP = 200;
 // already catch as alts.
 const REPEAT_KILLS_CAP = 300;
 const ACTIVITY_RECEIPTS_CAP = 256;
+const RECEIPT_DAY_MS = 86_400_000;
+const PVP_RECOVERY_RECEIPT = /^pvp-recovery:(\d+):(.+)$/;
+
+function activityReceiptValue(receipt: string): string {
+    return PVP_RECOVERY_RECEIPT.exec(receipt)?.[2] ?? receipt;
+}
+
+/** Keep battle proof beyond count-based churn, then retire it after recovery. */
+function prunePvpRecoveryReceipts(stats: LegacyStats): LegacyStats {
+    const oldestDay = Math.floor(Date.now() / RECEIPT_DAY_MS) - 3;
+    const durable = stats.durableActivityReceipts ?? [];
+    const retained = durable.filter((receipt) => {
+        const timed = PVP_RECOVERY_RECEIPT.exec(receipt);
+        return !timed || Number(timed[1]) >= oldestDay;
+    });
+    return retained.length === durable.length ? stats : { ...stats, durableActivityReceipts: retained };
+}
 
 export function hasLegacyActivityReceipt(
     stats: LegacyStats,
@@ -112,7 +132,7 @@ export function hasLegacyActivityReceipt(
 ): boolean {
     return Boolean(receiptId) && (
         stats.activityReceipts?.includes(receiptId) === true
-        || stats.durableActivityReceipts?.includes(receiptId) === true
+        || stats.durableActivityReceipts?.some((receipt) => activityReceiptValue(receipt) === receiptId) === true
     );
 }
 
@@ -120,8 +140,17 @@ export function appendLegacyActivityReceipt(
     stats: LegacyStats,
     receiptId: string,
     durable = false,
+    recoverableAt?: number,
 ): LegacyStats {
     if (!receiptId) return stats;
+    stats = prunePvpRecoveryReceipts(stats);
+    if (!durable && Number.isFinite(recoverableAt)) {
+        const timedId = `pvp-recovery:${Math.floor(Number(recoverableAt) / RECEIPT_DAY_MS)}:${receiptId}`;
+        return {
+            ...stats,
+            durableActivityReceipts: [timedId, ...(stats.durableActivityReceipts ?? []).filter((id) => id !== timedId)],
+        };
+    }
     if (durable) {
         return {
             ...stats,
@@ -283,6 +312,7 @@ export async function getLegacyStats(
     if (claimed !== 'OK') {
         const raced = await kv.get<LegacyStats>(key);
         if (raced && typeof raced === 'object') return raced;
+        throw new Error('Legacy activity baseline was not committed.');
     }
     return seeded;
 }
@@ -317,6 +347,10 @@ export async function bumpLegacyStats(
         characterForBootstrap?: Record<string, unknown> | null;
         /** PvP target name — applies repeat-kill decay to EVERY delta in the call. */
         pvpTarget?: string;
+        /** Same battle may deliver combat and war effects in separate receipts. */
+        pvpAttributionId?: string;
+        /** Sealed terminal clock; retries retain the original UTC-day window. */
+        pvpAttributionAt?: number;
         /** Winner-minus-loser level; >=LEVEL_GAP_ZERO zeroes PvP credit. */
         pvpLevelGap?: number;
         suspicion?: boolean;
@@ -335,8 +369,9 @@ export async function bumpLegacyStats(
     let writtenStats: LegacyStats | undefined;
     try {
         await withKvLock(legacyStatsKey(playerName), async () => {
-            const stats = await getLegacyStats(playerName, opts?.characterForBootstrap ?? null);
+            const stats = prunePvpRecoveryReceipts(await getLegacyStats(playerName, opts?.characterForBootstrap ?? null));
             const receiptId = typeof opts?.receiptId === 'string' ? opts.receiptId.trim().slice(0, 160) : '';
+            const recoveryAt = opts?.pvpAttributionId ? opts.pvpAttributionAt ?? Date.now() : undefined;
             if (hasLegacyActivityReceipt(stats, receiptId)) {
                 completed = true;
                 return;
@@ -345,9 +380,18 @@ export async function bumpLegacyStats(
             let pvpWeight = 1;
             if (opts?.pvpLevelGap !== undefined && opts.pvpLevelGap >= LEVEL_GAP_ZERO) pvpWeight = 0;
             if (opts?.pvpTarget) {
-                const map = { ...(stats.repeatKills ?? {}) };
-                const prior = num(map[opts.pvpTarget]) + 1;
-                map[opts.pvpTarget] = prior;
+                const day = new Date(opts.pvpAttributionAt ?? Date.now()).toISOString().slice(0, 10);
+                const targetKey = `${day}:${opts.pvpTarget}`;
+                const weightPrefix = opts.pvpAttributionId ? `pvp-weight:${opts.pvpAttributionId}:` : '';
+                const cached = weightPrefix ? [...(stats.activityReceipts ?? []), ...(stats.durableActivityReceipts ?? [])]
+                    .map(activityReceiptValue).find((id) => id.startsWith(weightPrefix)) : undefined;
+                // A late recovery from yesterday must not erase today's decay.
+                // Keep the full 48-hour terminal recovery horizon plus boundary
+                // headroom; pre-upgrade lifetime keys naturally retire here.
+                const oldest = new Date(Math.max(Date.now(), opts.pvpAttributionAt ?? 0) - 3 * 86400_000).toISOString().slice(0, 10);
+                const map = Object.fromEntries(Object.entries(stats.repeatKills ?? {}).filter(([key]) => /^\d{4}-\d{2}-\d{2}:/.test(key) && key.slice(0, 10) >= oldest));
+                const prior = num(map[targetKey]) + (cached ? 0 : 1);
+                map[targetKey] = prior;
                 // Bound the map: keep the highest counts (they carry the decay info).
                 const entries = Object.entries(map);
                 if (entries.length > REPEAT_KILLS_CAP) {
@@ -356,7 +400,8 @@ export async function bumpLegacyStats(
                 } else {
                     next.repeatKills = map;
                 }
-                pvpWeight = Math.min(pvpWeight, repeatKillWeight(prior));
+                pvpWeight = Math.min(pvpWeight, cached ? num(cached.slice(weightPrefix.length)) : repeatKillWeight(prior));
+                if (weightPrefix) next = appendLegacyActivityReceipt(next, cached ?? `${weightPrefix}${pvpWeight}`, opts?.durableReceipt === true, recoveryAt);
             }
             // Decay applies to EVERY stat in a pvp-attributed call — style kills,
             // same-rank wins, comeback wins, support totals — not just pvpKills.
@@ -369,6 +414,12 @@ export async function bumpLegacyStats(
                 if (delta <= 0) continue;
                 if (decayed) delta *= pvpWeight;
                 if (delta <= 0) continue;
+                if (opts?.pvpAttributionId && ['warPvpKills', 'defensiveWins', 'sectorDefenses'].includes(stat)) {
+                    const deedId = `pvp-deed:${opts.pvpAttributionId}:${stat}`;
+                    const alreadyApplied = hasLegacyActivityReceipt(next, deedId);
+                    next = appendLegacyActivityReceipt(next, deedId, opts.durableReceipt === true, recoveryAt);
+                    if (alreadyApplied) continue;
+                }
                 const prev = num(next[stat]);
                 const value = MAX_STATS.has(stat) ? Math.max(prev, delta) : prev + delta;
                 next[stat] = value;
@@ -378,10 +429,14 @@ export async function bumpLegacyStats(
             // Ring detection: track credited win targets and flag rotations
             // (at most one flag per 24h so a ring doesn't nuke the counter
             // in a single session — admins see it on the suspects queue).
-            if (opts?.pvpTarget && pvpWeight > 0) {
-                next.recentWinTargets = [opts.pvpTarget, ...(stats.recentWinTargets ?? [])].slice(0, RING_WINDOW);
+            if (opts?.pvpTarget && pvpWeight > 0 && opts?.streak === 'win') {
+                const day = new Date(opts.pvpAttributionAt ?? Date.now()).toISOString().slice(0, 10);
+                const targets = [`${day}:${opts.pvpTarget}`, ...(stats.recentWinTargets ?? [])].slice(0, RING_WINDOW * 3);
+                // Delayed terminal help must neither mix days into a ring nor
+                // discard newer opponents already observed by today's matches.
+                next.recentWinTargets = targets;
                 const lastFlag = num(stats.ringFlagAt);
-                if (isWinTradingRing(next.recentWinTargets) && Date.now() - lastFlag > 24 * 60 * 60 * 1000) {
+                if (isWinTradingRing(targets.filter((target) => target.startsWith(`${day}:`))) && Date.now() - lastFlag > 24 * 60 * 60 * 1000) {
                     next.ringFlagAt = Date.now();
                     suspicionRaised = true;
                 }
@@ -401,9 +456,9 @@ export async function bumpLegacyStats(
                 next.winStreak = 0;
             }
             if (receiptId) {
-                next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true);
+                next = appendLegacyActivityReceipt(next, receiptId, opts?.durableReceipt === true, recoveryAt);
             }
-            await kv.set(legacyStatsKey(playerName), next);
+            if (await kv.set(legacyStatsKey(playerName), next) !== 'OK') throw new Error('Legacy activity receipt was not committed.');
             writtenStats = next;
             // Surface flagged players on the admin suspects queue (dedup,
             // newest-first, capped). Own lock on the GLOBAL list — two

@@ -1,9 +1,9 @@
 import type { PlayerCharacter } from '../save/_mutate-player-save.js';
 import { BUILTIN_CLASH, isMarketplaceCard } from '../clan/war/_card-catalog.js';
-import { countChronicleCardsWithStarter, deckLimitForCard, getChronicleCard, type ChronicleElement } from '../../shared/chronicle-duel.js';
+import { getChronicleCard, type ChronicleElement } from '../../shared/chronicle-duel.js';
 import { canAppendPackableChronicleCards, CARD_COLLECTION_CAP } from './_collection-cap.js';
 
-export const CARD_PACK_TYPES = ['standard', 'fire', 'water', 'earth', 'wind', 'lightning', 'snare', 'jutsu', 'epic', 'legendary'] as const;
+export const CARD_PACK_TYPES = ['standard', 'fire', 'water', 'earth', 'wind', 'lightning', 'snare', 'jutsu', 'epic', 'legendary', 'epic-five', 'legendary-five'] as const;
 export type CardPackType = typeof CARD_PACK_TYPES[number];
 
 export type CardPackCurrency = 'ryo' | 'fateShards' | 'chroniclePoints';
@@ -39,6 +39,8 @@ const PACKS: Record<CardPackType, PackDefinition> = {
     // covers top Rares + Epics; the Legendary pack guarantees the top rarity.
     epic: { currency: 'fateShards', baseCost: 10, count: 1, rarities: ['rare', 'epic'], pool: 'marketplace' },
     legendary: { currency: 'fateShards', baseCost: 30, count: 1, rarities: ['legendary'], pool: 'marketplace' },
+    'epic-five': { currency: 'fateShards', baseCost: 35, count: 5, rarities: ['epic'], pool: 'marketplace' },
+    'legendary-five': { currency: 'fateShards', baseCost: 100, count: 5, rarities: ['legendary'], pool: 'marketplace' },
 };
 
 export { CARD_COLLECTION_CAP } from './_collection-cap.js';
@@ -109,26 +111,13 @@ export function applyCardPackOpen(
         .map(([id]) => id);
     if (pool.length === 0) return { ok: false, status: 503, error: 'Card pack pool is unavailable.' };
     const cards: string[] = [];
-    const ownedCounts = countChronicleCardsWithStarter(owned);
-    const usefulCopiesRemaining = pool.reduce(
-        (total, id) => total + Math.max(0, deckLimitForCard(id) - (ownedCounts.get(id) ?? 0)),
-        0,
-    );
-    if (usefulCopiesRemaining < def.count) {
-        return {
-            ok: false,
-            status: 409,
-            error: `This pack tier cannot provide ${def.count === 1 ? 'another playable card' : `${def.count} playable cards`}. No currency was spent.`,
-        };
-    }
     for (let i = 0; i < def.count; i++) {
-        // Duplicates remain useful until the card's format limit. Packs never
-        // charge currency for a copy that cannot be added to a legal deck.
-        const usefulPool = pool.filter((id) => (ownedCounts.get(id) ?? 0) < deckLimitForCard(id));
-        const rawIndex = Math.floor(Number(pickIndex(usefulPool.length)) || 0);
-        const id = usefulPool[Math.max(0, Math.min(usefulPool.length - 1, rawIndex))];
+        // Each slot draws from the full eligible pool with replacement. Owned
+        // copies and earlier pulls never change the odds; deck limits apply
+        // only when building a deck, not when collecting cards.
+        const rawIndex = Math.floor(Number(pickIndex(pool.length)) || 0);
+        const id = pool[Math.max(0, Math.min(pool.length - 1, rawIndex))];
         cards.push(id);
-        ownedCounts.set(id, (ownedCounts.get(id) ?? 0) + 1);
     }
     const nextBalance = balance - cost;
     return {

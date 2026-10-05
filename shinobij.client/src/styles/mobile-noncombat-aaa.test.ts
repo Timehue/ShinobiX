@@ -11,6 +11,7 @@ const shell = readFileSync(join(HERE, "..", "components", "layout", "AdaptiveGam
 const app = readFileSync(join(HERE, "..", "App.tsx"), "utf8");
 const nav = readFileSync(join(HERE, "..", "components", "MobileNav.tsx"), "utf8");
 const training = readFileSync(join(HERE, "..", "screens", "Training.tsx"), "utf8");
+const trainingCss = readFileSync(join(HERE, "training-skin.css"), "utf8");
 const jutsuCss = readFileSync(join(HERE, "jutsu-training-skin.css"), "utf8");
 const missionCss = readFileSync(join(HERE, "hub-screens-skin.css"), "utf8");
 const sectorFigures = {
@@ -38,8 +39,27 @@ test("AAA mobile layer is last and battle-gated at the shell boundary", () => {
     const mobileIndex = main.indexOf("./styles/mobile-noncombat-aaa.css");
     assert.ok(adaptiveIndex >= 0 && mobileIndex > adaptiveIndex, "the final mobile layer must load after adaptive authorities");
     assert.ok(main.includes("window.matchMedia('(max-width: 979px)')"), "the mobile-only layer must stay out of the desktop initial graph");
+    assert.ok(main.includes("window.matchMedia('(pointer: coarse)')"), "touch-enabled large displays must also load the final target layer");
     assert.ok(main.includes("import('./styles/mobile-noncombat-aaa.css')"), "the product layer must remain an async mobile chunk");
     assert.ok(main.includes("mobileProductViewport.addEventListener('change', ensureMobileProductLayer)"), "desktop-to-mobile resize must request the layer");
+    assert.ok(main.includes("coarsePointerViewport.addEventListener('change', ensureMobileProductLayer)"), "pointer-capability changes must request the target layer");
+});
+
+test("large touch displays get 48px targets without changing desktop composition or combat", () => {
+    assert.match(css, /@media \(pointer: coarse\) and \(min-width: 980px\)/);
+    assert.match(css, /@media \(pointer: coarse\) and \(min-width: 980px\)[\s\S]*?data-ui-mode="noncombat"[\s\S]*?min-inline-size: 48px !important;[\s\S]*?min-block-size: 48px !important;/);
+    assert.match(css, /@media \(pointer: coarse\) and \(min-width: 980px\)[\s\S]*?body:not\(\.in-battle\)/);
+    assert.match(css, /@media \(pointer: coarse\) and \(min-width: 980px\)[\s\S]*?:not\(\.sector-avatar-figure, \.scene-tile\)/);
+});
+
+test("training timer portal uses a responsive 2×2 choice grid and compact short-landscape sheet", () => {
+    assert.match(training, /backdropClassName="training-timer-backdrop"/);
+    assert.match(training, /className="training-timer-modal"/);
+    assert.match(trainingCss, /\.training-timer-modal \.training-timer-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\) !important;/s);
+    assert.match(trainingCss, /\.training-timer-modal \.training-timer-grid > \.location-button\s*\{(?=[^}]*display:\s*flex !important;)(?=[^}]*flex-direction:\s*column !important;)(?=[^}]*min-height:\s*100px;)[^}]*\}/s);
+    assert.match(trainingCss, /\.training-timer-modal \.training-timer-grid > \.location-button\s*\{[^}]*text-align:\s*center !important;/s);
+    assert.match(trainingCss, /@media \(orientation: landscape\) and \(max-height: 520px\)[\s\S]*?\.ui-modal-backdrop\.training-timer-backdrop\s*\{[^}]*align-items:\s*center;[^}]*\}[\s\S]*?\.training-timer-modal \.training-timer-grid > \.location-button\s*\{[^}]*min-height:\s*72px;/s);
+    assert.match(trainingCss, /\.training-timer-modal \.training-timer-grid \.tile-icon img\s*\{[^}]*width:\s*22px !important;[^}]*height:\s*22px !important;/s);
 });
 
 test("portaled combat suppresses ambient mobile hint expansion before body mode settles", () => {
@@ -80,6 +100,13 @@ test("accepted field missions keep their abandon action in mobile flow", () => {
     assert.match(missionCss, /\.mh-field-secondary-action \{[\s\S]*min-height: 30px;/);
 });
 
+test("portrait Mission Hall combat cards use full-width compact rows", () => {
+    assert.match(
+        missionCss,
+        /@media \(max-width: 700px\)[\s\S]*?\.mission-hall \.mh-combat-grid\s*\{\s*grid-template-columns:\s*minmax\(0, 1fr\) !important;/,
+    );
+});
+
 test("profile dossier accordions fill the mobile content width", () => {
     assert.match(css, /\.screen-profile \.profile-dossier-grid \{[\s\S]*width:\s*100% !important;[\s\S]*grid-template-columns:\s*minmax\(0, 1fr\) !important;[\s\S]*justify-items:\s*stretch !important;/);
     assert.match(css, /\.screen-profile \.profile-dossier-section,[\s\S]*\.screen-profile \.profile-dossier-rows,[\s\S]*\.screen-profile \.profile-dossier-row \{[\s\S]*width:\s*100% !important;[\s\S]*max-width:\s*none !important;/);
@@ -100,9 +127,9 @@ test("profile dossier accordions fill the mobile content width", () => {
  */
 test("the mobile touch floor exempts sector-board geometry", () => {
     const floor = css.match(
-        /\n\s*(\.app-shell\[data-ui-mode="noncombat"\] \.center-game :where\(button[^{]*?)\{\s*min-inline-size: 44px !important;\s*min-block-size: 44px !important;\s*\}/,
+        /\n\s*(\.app-shell\[data-ui-mode="noncombat"\] \.center-game :where\(button[^{]*?)\{\s*min-inline-size: 48px !important;\s*min-block-size: 48px !important;\s*\}/,
     );
-    assert.ok(floor, "the 44px mobile touch floor must remain in this layer");
+    assert.ok(floor, "the 48px mobile touch floor must remain in this layer");
 
     const selector = floor[1];
     // Split on the comma ending each selector half, tolerating either line ending.
@@ -143,7 +170,7 @@ test("every clickable sector figure is reached by that exemption, and keeps a fu
     // A11y is preserved by padding the target, not the portrait.
     assert.match(
         css,
-        /\.app-shell\[data-ui-mode="noncombat"\] \.center-game \.sector-wanderer-figure::after \{[\s\S]*?inline-size: max\(44px, 100%\);[\s\S]*?block-size: max\(44px, 100%\);[\s\S]*?pointer-events: auto;/,
-        "clickable sector figures must keep a transparent 44px hit area",
+        /\.app-shell\[data-ui-mode="noncombat"\] \.center-game \.sector-wanderer-figure::after \{[\s\S]*?inline-size: max\(48px, 100%\);[\s\S]*?block-size: max\(48px, 100%\);[\s\S]*?pointer-events: auto;/,
+        "clickable sector figures must keep a transparent 48px hit area",
     );
 });

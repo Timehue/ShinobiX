@@ -18,7 +18,13 @@ export function completeStarterPetCommit(
     const ownerKey = saveConflictAccountKey(current.name);
     if (!ownerKey || ownerKey !== authority.activeAccountKey || !result.character
         || saveConflictAccountKey(result.character.name) !== ownerKey || !result.character.pets?.length) return false;
-    if (authority.commitCharacter(reconcileOwnedStarter(current, result.character, optimisticPetId), result._saveVersion)) return true;
-    return typeof result._saveVersion === "number" && Number.isSafeInteger(result._saveVersion)
-        && result._saveVersion > 0 && result._saveVersion < authority.latestVersion;
+    const reconciled = reconcileOwnedStarter(current, result.character, optimisticPetId);
+    if (authority.commitCharacter(reconciled, result._saveVersion)) return true;
+    // A later save can supersede the starter receipt while its response is in
+    // flight. Keep that newer character state, but still merge the one pet
+    // minted by this receipt at the latest accepted version so its server-rolled
+    // trait and stats replace the optimistic template copy.
+    if (typeof result._saveVersion !== "number" || !Number.isSafeInteger(result._saveVersion)
+        || result._saveVersion <= 0 || result._saveVersion >= authority.latestVersion) return false;
+    return authority.commitCharacter(reconciled, authority.latestVersion);
 }

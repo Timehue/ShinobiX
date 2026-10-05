@@ -160,7 +160,9 @@ describe('executable multi-engine runtime registry', () => {
     // Explore encounter, Showdown turns, and server-settled capture.
     // 66 as of 2026-09-23: one Hollow Gate rift ambush uses a run-bound
     // Chronicle match and a server-settled parent-run receipt.
-    assert.equal(ids.length, 66, 'The corrected inventory must retain the independently pinned 66-row model.');
+    // 67 as of 2026-10-01: Sunscar's daily Caravan ambush runs a sealed Tower
+    // encounter and returns settlement to the parent Caravan run.
+    assert.equal(ids.length, 67, 'The corrected inventory must retain the independently pinned 67-row model.');
     assert.equal(new Set(ids).size, ids.length, 'Runtime mode ids must be unique.');
     assert.equal(new Set(labels).size, labels.length, 'Runtime mode labels must be unique.');
     assert.equal(new Set(expectedIds).size, expectedIds.length, 'Independent expected mode ids must be unique.');

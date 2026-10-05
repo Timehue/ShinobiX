@@ -1,6 +1,7 @@
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { battleFrameloopFor } from "./use-battle-frameloop";
 
 // A body-portaled fight covers the launching screen. Three things must stay
 // tied together for the "hide what is covered" optimisation to be safe:
@@ -33,7 +34,7 @@ test("every overlay that must float above a fight is rendered outside <main clas
     assert.ok(toasts > mainClose, "<ToastStacks renders after </main>");
 });
 
-test("the decorative frame loops pause on the combat cover; the fight's own weather canvas never does", () => {
+test("decorative frame loops pause when covered or hidden; the fight's weather canvas keeps drawing", () => {
     const ambience = src("components/SceneAmbience.tsx");
     assert.match(ambience, /from "\.\.\/lib\/combat-cover"/);
     assert.match(ambience, /const insideCombat = !!canvas\.closest\("\.combat-instance"\);/);
@@ -43,7 +44,32 @@ test("the decorative frame loops pause on the combat cover; the fight's own weat
     for (const scene of ["components/SceneAmbience3DScene.tsx", "components/SectorScene3DScene.tsx"]) {
         const source = src(scene);
         assert.match(source, /const covered = useCombatCover\(\);/, `${scene} reads the cover`);
-        assert.match(source, /frameloop=\{covered \? "never" : "always"\}/, `${scene} stops its render loop while covered`);
+        assert.match(source, /frameloop=\{covered \|\| !visible \? "never" : "always"\}/, `${scene} stops its render loop while covered or hidden`);
+        assert.match(source, /useDocumentVisible\(\)/, `${scene} follows page visibility without window-focus assumptions`);
+        assert.match(source, /from "\.\.\/lib\/use-battle-frameloop"/);
         assert.doesNotMatch(source, /frameloop="always"/, `${scene} has no unconditional loop left`);
     }
+    const visibilityHook = src("lib/use-battle-frameloop.ts");
+    assert.match(visibilityHook, /document\.visibilityState === 'visible'/, "visibility starts from the current document state");
+    assert.match(visibilityHook, /document\.addEventListener\('visibilitychange', update\)/, "visibility changes are subscribed");
+    assert.match(visibilityHook, /document\.removeEventListener\('visibilitychange', update\)/, "visibility listeners are released on teardown");
+});
+
+test("the 3D Pet Arena retires its continuous renderer after the result beat and resumes on replay", () => {
+    const stage = src("components/PetArena3DStage.tsx");
+    assert.match(stage, /useBattleFrameloop\(finished\)/, "the 3D stage uses the shared result lifecycle");
+    assert.match(stage, /<Canvas frameloop=\{frameloop\}/, "the arena renderer follows that lifecycle");
+    const match = src("components/pet-coliseum/arena-match.tsx");
+    assert.match(match, /<PetArena3DStage[^>]*finished=\{ended\}/, "the match's settled result state reaches the visual stage");
+    assert.match(match, /setEnded\(false\)/, "replay clears the finish state so animation resumes");
+});
+
+test("background tab visibility cannot pause battle simulation", () => {
+    assert.equal(battleFrameloopFor(false, false), "always", "active combat keeps advancing while backgrounded");
+    assert.equal(battleFrameloopFor(false, true), "always", "settled state alone cannot pause an active match");
+    assert.equal(battleFrameloopFor(true, false), "always", "the result beat gets time to finish");
+    assert.equal(battleFrameloopFor(true, true), "demand", "only a settled result retires continuous rendering");
+    const hook = src("lib/use-battle-frameloop.ts");
+    const battleHook = hook.slice(hook.indexOf("export function useBattleFrameloop"));
+    assert.doesNotMatch(battleHook, /useDocumentVisible/, "visibility is reserved for decorative canvases, not frame-driven battle simulation");
 });

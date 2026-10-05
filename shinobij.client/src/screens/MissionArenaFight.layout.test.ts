@@ -25,11 +25,11 @@ const towerSource = readFileSync(new URL("./BattleTowerFight.tsx", import.meta.u
 // the command bar's `auto` row. Measured on this screen: 362px -> 30px, i.e. the
 // board vanished the moment a jutsu was armed. `has-action-notice` is the class
 // that reserves the extra track on every tier.
-test("mission fight reserves a row for its action notice instead of displacing the board", () => {
+test("mission fight reserves desktop feedback space and removes the mobile hint row", () => {
     assert.match(
         missionSource,
-        /<CombatHudLayout className="combat-log-wide" hasActionNotice>/,
-        "the combat grid must always reserve the persistent action-notice row",
+        /<CombatHudLayout className="combat-log-wide" hasActionNotice=\{!mobileCombat\}>/,
+        "only desktop reserves the persistent action-notice row",
     );
     assert.match(
         combatHudSource,
@@ -41,12 +41,13 @@ test("mission fight reserves a row for its action notice instead of displacing t
     // The next band after it is the phone action tray, which owns the command
     // bar; see the CombatActionTray coverage below.
     const wrapper = missionSource.match(
-        /<div className="combat-action-notice">([\s\S]*?)<\/div>\s*\{\/\*[\s\S]*?\*\/\}\s*<CombatActionTray>/,
+        /!mobileCombat && <div className="combat-action-notice">([\s\S]*?)<\/div>\}\s*\{\/\*[\s\S]*?\*\/\}\s*<CombatActionTray>/,
     );
     assert.ok(wrapper, "the notices must be wrapped in a single .combat-action-notice grid child");
     assert.match(wrapper![1], /className=\{`combat-targeting-hint/, "the targeting hint belongs in the wrapper");
     assert.match(wrapper![1], /actionNotice \? <span>\{actionNotice\}<\/span>/, "action feedback takes precedence over Academy guidance");
     assert.match(wrapper![1], /: <span>\{"\\u00a0"\}<\/span>/, "the idle row must remain mounted");
+    assert.match(missionSource, /mobileCombat && reject && <div className="combat-mobile-feedback" role="alert">/, "mobile still announces rejected actions inside the action tray");
     assert.match(missionCss, /#combat\.mission-arena-fight \.combat-action-notice\s*\{[^}]*background:\s*transparent\s*!important;[^}]*border-color:\s*transparent\s*!important;/, "action feedback must not paint a dark bar");
 
     // Nothing may render either notice as a direct child of .combat-main-area.
@@ -135,17 +136,17 @@ test("mission fight reserves a row for its action notice instead of displacing t
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?\.combat-main-area > \.hex-battlefield\s*\{[^}]*grid-area:\s*board\s*!important;[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
+        /@media \(orientation:\s*landscape\) and \(min-width:\s*480px\) and \(max-width:\s*1023px\) and \(max-height:\s*500px\)[\s\S]*?grid-template-rows:\s*60px minmax\(0, 1fr\)\s*!important;[\s\S]*?"player opponent"\s*"main main"\s*!important;[\s\S]*?\.combat-main-area > \.hex-battlefield\s*\{[^}]*grid-area:\s*board\s*!important;[\s\S]*?grid-template-rows:\s*32px 10px 8px\s*!important;[\s\S]*?row-gap:\s*1px\s*!important;[\s\S]*?\.mission-arena-fight \.combat-side-hud \.resource-line--hp\s*\{[^}]*display:\s*none\s*!important;[\s\S]*?\.mission-arena-fight \.combat-mobile-effects\s*\{[^}]*max-height:\s*8px\s*!important;[\s\S]*?grid-template-columns:\s*repeat\(8, minmax\(0, 1fr\)\)\s*!important;[\s\S]*?\.mission-arena-fight \.combat-jutsu-card-wrap\s*\{[^}]*aspect-ratio:\s*1\.05 \/ 1\s*!important;/,
         "short landscape mission combat must use its width for compact dossiers and a contained board-left/control-right composition",
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.55fr\) minmax\(203px, 0\.85fr\)\s*!important;/,
+        /@media \(orientation:\s*landscape\) and \(min-width:\s*480px\) and \(max-width:\s*1023px\) and \(max-height:\s*500px\)[\s\S]*?\.combat-layout\.has-action-notice > \.combat-main-area\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1\.55fr\) minmax\(203px, 0\.85fr\)\s*!important;/,
         "the 200%-zoom short-landscape board must retain its 280px tactical-width floor",
     );
     assert.match(
         missionCss,
-        /@media \(min-width:\s*480px\) and \(max-width:\s*932px\) and \(max-height:\s*500px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8px\s*!important;[^}]*white-space:\s*nowrap\s*!important;/,
+        /@media \(orientation:\s*landscape\) and \(min-width:\s*480px\) and \(max-width:\s*1023px\) and \(max-height:\s*500px\)[\s\S]*?\.summon-pet-command > span\s*\{[^}]*font-size:\s*8px\s*!important;[^}]*white-space:\s*nowrap\s*!important;/,
         "short landscape must preserve the complete Summon label on one line",
     );
 
@@ -195,7 +196,7 @@ test("the enemy HP badge clears the AI's full-body sprite instead of its face", 
 test("the mission summon command contains its icon and long lock copy", () => {
     assert.match(missionSource, /className="summon-pet-command"/);
     assert.equal((missionSource.match(/type: "summon"/g) ?? []).length, 1, "mission combat must render one authoritative summon control");
-    assert.match(missionSource, /<CombatHudLayout className="combat-log-wide" hasActionNotice>/);
+    assert.match(missionSource, /<CombatHudLayout className="combat-log-wide" hasActionNotice=\{!mobileCombat\}>/);
     assert.doesNotMatch(missionSource, /combat-companion-panel|combat-companion-summon/);
     assert.match(
         battleSkinCss,

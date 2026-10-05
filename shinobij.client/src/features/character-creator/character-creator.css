@@ -470,7 +470,7 @@
     display: block;
 }
 
-.cc-password-wrap input {
+.app-shell[data-ui-mode="noncombat"] .center-game .cc-field .cc-password-wrap input {
     min-height: 52px;
     padding-right: 80px;
 }
@@ -796,5 +796,35 @@
     .cc-actions button,
     .cc-primary--wide {
         width: 100%;
+    }
+}
+
+/* Keep the next creator step in reach on phones and short tablet/foldable windows.
+   These layouts can show several rows of meaningful choices,
+   so pin the action row to the safe viewport edge while the choices scroll. */
+@media (max-height: 700px), (max-width: 720px) {
+    .cc-stage {
+        overflow: visible;
+        padding-bottom: 92px;
+    }
+
+    .cc-actions {
+        position: sticky;
+        bottom: calc(var(--storage-notice-height, 0px) + env(safe-area-inset-bottom, 0px));
+        z-index: 10;
+        margin: auto -16px -92px;
+        padding: 14px 16px max(12px, env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid rgba(202, 138, 4, 0.3);
+        background: linear-gradient(180deg, rgba(5, 9, 18, 0.82), rgba(5, 9, 18, 0.98) 28%);
+        backdrop-filter: blur(10px);
+    }
+
+    /* The account form and consent text need to scroll as one reading flow.
+       Keep their action after the fields so the dock cannot cover a password
+       control; the stage's bottom padding still lets the action clear notices. */
+    .cc-stage:has(.cc-legal-consent) .cc-actions {
+        position: static;
+        bottom: auto;
+        margin: 0 -16px 0;
     }
 }

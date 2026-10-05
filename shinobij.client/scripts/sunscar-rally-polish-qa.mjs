@@ -35,7 +35,7 @@ try {
     await page.keyboard.press('KeyQ');
     assert.equal((await player()).shotsFired, 0, 'unready shots are rejected');
     await page.keyboard.down('Shift');
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].burst && window.sunscarRallyQa.state.racers[0].stamina < 95);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].burst && window.sunscarRallyQa.state.racers[0].stamina < 95);
     const burst = await player();
     await capture(page, 'burst-desktop');
     await page.keyboard.press('Escape');
@@ -47,17 +47,17 @@ try {
     await page.waitForTimeout(350);
     assert.equal(await page.evaluate(() => window.sunscarRallyQa.state.tick), pausedAt);
     await page.getByRole('button', { name: 'Continue race' }).click();
-    await page.waitForFunction(() => !window.sunscarRallyQa.state.racers[0].burst);
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].attackCharge === 100);
+    await page.waitForFunction(() => window.sunscarRallyQa && !window.sunscarRallyQa.state.racers[0].burst);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].attackCharge === 100);
     await page.keyboard.press('KeyQ');
     const shot = await (await page.waitForFunction(() => {
-        const racer = window.sunscarRallyQa.state.racers[0];
-        return racer.shotsFired === 1 && racer;
+        const racer = window.sunscarRallyQa?.state.racers[0];
+        return racer?.shotsFired === 1 && racer;
     })).jsonValue();
     assert.ok(shot.recoilTicks > 0 && shot.attackCharge < 10, 'firing spends charge and starts recoil');
     await capture(page, 'shot-desktop');
     await page.keyboard.press('KeyE');
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].techniqueUsed);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].techniqueUsed);
     await expect(page.locator('.rally-technique')).toBeDisabled();
     await expect(page.locator('.rally-technique')).toHaveClass(/is-used/);
     await expect(page.locator('.rally-technique')).toContainText('Used');
@@ -74,17 +74,17 @@ try {
     }
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole('button', { name: 'Continue race' }).click();
-    const burstButton = page.getByRole('button', { name: 'Hold Burst, Shift' });
+    const burstButton = page.getByRole('button', { name: 'Hold Burst, left trigger or Shift' });
     const bounds = await burstButton.boundingBox();
     await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
     await page.mouse.down();
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].burst);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].burst);
     await page.mouse.move(5, 5); await page.mouse.up();
-    await page.waitForFunction(() => !window.sunscarRallyQa.state.racers[0].burst);
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].attackCharge === 100);
+    await page.waitForFunction(() => window.sunscarRallyQa && !window.sunscarRallyQa.state.racers[0].burst);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].attackCharge === 100);
     await expect(page.locator('.rally-attack')).toBeEnabled();
     await page.locator('.rally-attack').focus(); await page.keyboard.press('Space');
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].shotsFired === 2);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].shotsFired === 2);
     assert.equal((await player()).jump, 0, 'Space on the shot button must not also jump');
     await capture(page, 'racing-mobile');
     const metrics = await page.evaluate(() => { const { state, ...metrics } = window.sunscarRallyQa; return metrics; });
@@ -94,9 +94,10 @@ try {
     await page.getByRole('button', { name: 'Prepare Grand Prix' }).click();
     await expect(page.getByRole('button', { name: 'Ready to race' })).toBeEnabled();
     await page.getByRole('button', { name: 'Ready to race' }).click();
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].attackCharge === 100);
+    // Automatic graphics recovery briefly replaces the QA renderer snapshot.
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].attackCharge === 100);
     await page.keyboard.press('KeyQ');
-    await page.waitForFunction(() => window.sunscarRallyQa.state.racers[0].shotsFired === 1);
+    await page.waitForFunction(() => window.sunscarRallyQa?.state.racers[0].shotsFired === 1);
     await page.getByRole('button', { name: 'Pause race' }).click();
     await expect(page.getByRole('button', { name: 'Continue race' })).toBeEnabled();
     await page.getByRole('button', { name: 'Save & return' }).click();

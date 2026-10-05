@@ -516,6 +516,8 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
     onArmAudio: () => void;
 }) {
     const bars = useRef<Record<string, HTMLSpanElement | null>>({});
+    const rosterRows = useRef<Record<string, HTMLLIElement | null>>({});
+    const standing = useRef<HTMLSpanElement>(null);
     const clockOut = useRef<HTMLOutputElement>(null);
     const audioProbe = useRef<HTMLButtonElement>(null);
     const hud = useRef<HTMLDivElement>(null);
@@ -537,16 +539,29 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
         const paint = () => {
             const t = Math.max(0, Math.min(snaps.length - 1, clockRef.current));
             let poseIndex = 0;
+            let blueStanding = 0;
+            let redStanding = 0;
             for (const [team, side] of [["player", clash.blue], ["enemy", clash.red]] as const) {
                 for (const combatant of side) {
                     const actor = sampleActorInto(clash.result, team, combatant.lane, t, poseSlots[poseIndex++]);
                     const frac = Math.max(0, actor.maxHp > 0 ? actor.hp / actor.maxHp : 0) * combatant.entryHp;
+                    const alive = actor.hp > 0;
+                    if (alive) {
+                        if (team === "player") blueStanding++;
+                        else redStanding++;
+                    }
+                    const row = rosterRows.current[`${team}-${combatant.lane}`];
+                    if (row && row.dataset.fallen !== String(!alive)) row.dataset.fallen = String(!alive);
                     const bar = bars.current[`${team}-${combatant.lane}`];
                     if (bar) {
                         bar.style.width = `${(frac * 100).toFixed(1)}%`;
                         bar.style.background = frac > 0.5 ? "" : frac > 0.2 ? "#ffd166" : "#ff5470";
                     }
                 }
+            }
+            if (standing.current) {
+                const count = `${blueStanding} vs ${redStanding} standing`;
+                if (standing.current.textContent !== count) standing.current.textContent = count;
             }
             // The playback clock, surfaced for tests. A frozen tick is the single
             // clearest symptom of the mode breaking, and it is otherwise
@@ -566,7 +581,7 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
                 if (!pet) return null;
                 const position = deploymentLabel(c.node);
                 return (
-                    <li key={`${team}-${c.lane}`} title={`Deployed ${position}`}>
+                    <li key={`${team}-${c.lane}`} ref={(node) => { rosterRows.current[`${team}-${c.lane}`] = node; }} data-fallen="false" title={`Deployed ${position}`}>
                         <span className="wfr-roster-job" aria-label={position}>{position.slice(0, 1)}</span>
                         <PetPortrait pet={pet} sharedImages={sharedImages} size={34} />
                         <span className="wfr-roster-meta">
@@ -579,6 +594,7 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
                                 />
                             </span>
                         </span>
+                        <span className="wfr-roster-ko" aria-hidden="true">KO</span>
                     </li>
                 );
             })}
@@ -594,6 +610,7 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
                 <span className="wfr-rounds" aria-label="Clashes won">
                     <b>{rounds.blue}</b><i>—</i><b>{rounds.red}</b>
                 </span>
+                <span ref={standing} className="wfr-standing" aria-live="polite" aria-atomic="true">{clash.blue.length} vs {clash.red.length} standing</span>
                 <span className="wfr-rule-state" aria-label="Formation combat rules">
                     <strong>FORMATION LIVE · 28s VERDICT</strong>
                 </span>

@@ -615,6 +615,9 @@ export async function refreshTowerPvpLeases(
 ): Promise<TowerBattleLeaseClaim> {
     if (match.status !== 'ready' && match.status !== 'active') return { ok: true, members: members(match), replayed: true };
     const deps = depsOf(dependencies);
+    if (match.binding?.kind === 'tournament' && !dependencies.claim) {
+        return claimTowerBattleLeases({ runId: match.matchId, members: members(match), mode: 'tournament' }, { kv: deps.kv, lock: deps.lock, now: deps.now });
+    }
     return deps.claim(match.matchId, members(match));
 }
 

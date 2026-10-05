@@ -75,7 +75,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "level-100", name: "Centenarian",      desc: "Reach max level 100.", category: "Progression", icon: "👑", check: c => c.level >= MAX_LEVEL },
 
     // PvE Combat
-    { id: "pve-first", name: "First Blood",        desc: "Defeat your first AI opponent.", category: "Combat", icon: "🩸", check: c => (c.totalAiKills ?? 0) >= 1 },
+    { id: "pve-first", name: "First Blood",        desc: "Win your first field battle.", category: "Combat", icon: "🩸", check: c => (c.totalAiKills ?? 0) >= 1 },
     { id: "pve-100",   name: "Skirmisher",         desc: "Defeat 100 AI opponents.",       category: "Combat", icon: "⚔️", check: c => (c.totalAiKills ?? 0) >= 100 },
     { id: "pve-500",   name: "Bladebreaker",       desc: "Defeat 500 AI opponents.",       category: "Combat", icon: "🗡", check: c => (c.totalAiKills ?? 0) >= 500 },
     { id: "pve-2500",  name: "Slayer of Thousands",desc: "Defeat 2,500 AI opponents.",     category: "Combat", icon: "💀", check: c => (c.totalAiKills ?? 0) >= 2500 },
@@ -153,7 +153,7 @@ export const ACHIEVEMENTS: ReadonlyArray<Achievement> = [
     { id: "jutsu-versatile-10", name: "Thousand Forms", desc: "Raise 10 jutsu to mastery 20.", category: "Jutsu", icon: "🌀", check: c => jutsuAtLevel(c, 20) >= 10, progress: c => numericProgress(jutsuAtLevel(c, 20), 10, "jutsu mastered") },
 
     // Story, road epics, and Legacy
-    { id: "story-chapter-1", name: "Ink on the Page", desc: "Begin the main village Chronicle.", category: "Story", icon: "📖", check: c => whole(c.storyProgress) >= 1, progress: c => numericProgress(c.storyProgress, 1, "chapters") },
+    { id: "story-chapter-1", name: "Ink on the Page", desc: "Defeat the first village Chronicle boss.", category: "Story", icon: "📖", check: c => whole(c.storyProgress) >= 1, progress: c => numericProgress(c.storyProgress, 1, "chapters") },
     { id: "story-chapter-5", name: "At the Crossroads", desc: "Reach chapter 5 of the main village Chronicle.", category: "Story", icon: "🛤", check: c => whole(c.storyProgress) >= 5, progress: c => numericProgress(c.storyProgress, 5, "chapters") },
     { id: "story-chapter-9", name: "Living Chronicle", desc: "Complete the current main village Chronicle.", category: "Story", icon: "📚", check: c => whole(c.storyProgress) >= 9, progress: c => numericProgress(c.storyProgress, 9, "chapters") },
     { id: "questbook-first", name: "Road-Lore Keeper", desc: "Complete your first Quest Book epic.", category: "Story", icon: "🗺", check: c => count(c.redeemedQuestbookRuns) >= 1, progress: c => arrayProgress(c.redeemedQuestbookRuns, 1, "epics") },

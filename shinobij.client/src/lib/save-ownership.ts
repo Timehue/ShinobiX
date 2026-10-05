@@ -71,6 +71,9 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     // quest accept resets it, so a local draft must never be restored over the
     // server's copy — that would silently rewind (or forge) the objective.
     'relicSurvey', 'relicSurveyCount',
+    // Server conversion stamp and sealed reward outcomes cannot be restored
+    // from a device draft; ordinary inventory remains restorable.
+    'relicRosterVersion', 'relicRewardLedger',
     'serverFreeDungeonProbeDate', 'serverFreeDungeonProbesToday', 'serverFreeDungeonProbeReceipts',
     'serverChestDate', 'serverChestsToday', 'redeemedAncientChests', 'unlockedAchievements',
     'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles', 'endlessTowerRun',
@@ -86,7 +89,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'worldAiChainHeals', 'worldAiContextWins', 'worldAiPendingChain', 'worldAiPendingOutcome',
     'serverHuntTrails', 'serverFieldMissionRuns', 'raidProgressionSettlements',
     'redeemedShopPurchases', 'redeemedShopSales', 'redeemedCrafts', 'redeemedNamedForges',
-    'redeemedTebexPurchases',
+    'redeemedTebexPurchases', 'playRewardPurchaseReceipts',
     'redeemedStoryBattles', 'redeemedPetEncounters', 'claimedCreatorEvents',
     'redeemedCardClashAiSessions', 'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses',
     'chroniclePetArenaProgressReceipts', 'tournamentWinReceipts',
@@ -118,7 +121,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'battleTowerBestFloor', 'battleTowerRating', 'battleTowerClearedFloors',
     'totalTournamentsCompleted', 'totalTilesExplored', 'hollowGateWardenKills',
     'rankedWins', 'rankedLosses', 'villageWarMissionsCompleted', 'totalMissionsCompleted',
-    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices',
+    'cardClashWins', 'cardClashLosses', 'cardClashDraws', 'echoesOfWar', 'echoesWitnessChoices', 'eraJourneys',
     // Clan
     'clanPoints', 'weeklyClanPoints', 'weeklyClanPointsWeek', 'lifetimeClanPoints',
     'clanPointHistory', 'clanExchangePurchases', 'clanExchangeSettlements', 'clanMissionPointReceipts',

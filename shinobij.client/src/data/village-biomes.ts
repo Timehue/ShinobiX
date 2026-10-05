@@ -7,10 +7,11 @@
  */
 
 import type { Biome } from "../types/core";
+import { VILLAGE_OUTSKIRTS, sectorBiomeOf } from "../../../shared/sector-geo";
 
-export const villageBiomeMap: Record<string, Biome> = {
-    "Stormveil Village": "forest",
-    "Ashen Leaf Village": "volcano",
-    "Frostfang Village": "snow",
-    "Moonshadow Village": "shadow",
-};
+// A village's home biome is the biome of its gate sector. Derive it from the
+// shared geography registry so village scenes, story fights, and the world map
+// cannot drift away from the painted sector map assignments.
+export const villageBiomeMap: Record<string, Biome> = Object.fromEntries(
+    Object.entries(VILLAGE_OUTSKIRTS).map(([village, sector]) => [village, sectorBiomeOf(sector)]),
+);

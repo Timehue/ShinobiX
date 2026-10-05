@@ -618,10 +618,39 @@ jobs:
         run: node scripts/stronghold-browser-qa.mjs --resources --output=../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/stronghold-resources.log
       - name: Cross-browser responsive and accessibility smoke
         run: npm run test:e2e --prefix shinobij.client -- --shard=${{ matrix.shard }}/3 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/playwright.log
+      - name: Dojo Circuit gamepad flow
+        if: ${{ matrix.shard == 1 }}
+        working-directory: shinobij.client
+        run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/dojo-circuit.log
       - name: Sector controls and spectator integration
         if: ${{ matrix.shard == 1 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.sector-hud.config.ts --project chromium 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/sector-hud.log
+      - name: Pet Gauntlet playback and renderer recovery
+        if: ${{ matrix.shard == 1 }}
+        run: xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij.client 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/gauntlet-render.log
+      - name: Era campaigns and admission refresh
+        if: ${{ matrix.shard == 3 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.world-eras.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/world-eras.log
+      - name: Named forge purchase and recovery
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.named-forge.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/named-forge.log
+      - name: Chronicle pack purchase and recovery
+        if: ${{ matrix.shard == 3 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.chronicle-packs.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/chronicle-packs.log
+      - name: Rally renderer recovery
+        if: ${{ matrix.shard == 2 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.rally-recovery.config.ts --retries=0 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/rally-recovery.log
+      - name: Village transfer across responsive browsers
+        if: ${{ matrix.shard == 3 }}
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/village-transfer.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/village-transfer-html
+        run: npm run test:e2e:village-transfer --prefix shinobij.client -- --retries=0 --forbid-only --reporter=line,json,html 2>&1 | tee .ci-evidence/e2e-responsive-${{ matrix.shard }}-of-3/village-transfer.log
       - name: Retain responsive browser evidence
         if: always()
         continue-on-error: true
@@ -887,10 +916,21 @@ jobs:
       # routing and save lifecycle used by the economy and Academy journeys.
       - name: Live Express economy, Academy persistence and route wiring
         run: npm run test:e2e:live --prefix shinobij.client -- village-stores-express.spec.ts first-session-onboarding-express.spec.ts server-route-smoke-express.spec.ts --project=chromium-desktop-live 2>&1 | tee .ci-evidence/e2e-village-stores/playwright.log
-      - name: Live Express defeat and daily reward recovery on desktop and mobile
-        run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/defeat-recovery-ci 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery.log
+      # Each project creates 14 accounts including external healers and landing
+      # restoration. Give each invocation a fresh server so the real 25/IP/15m
+      # registration budget is respected while retaining every recovery case.
+      - name: Live Express defeat, landing and daily recovery on desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-desktop-html
+        run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-desktop-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-desktop 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-desktop.log
+      - name: Live Express defeat, landing and daily recovery on mobile
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile.json
+          PLAYWRIGHT_HTML_OUTPUT_DIR: ../.ci-evidence/e2e-village-stores/defeat-recovery-mobile-html
+        run: npm run test:e2e:live --prefix shinobij.client -- first-defeat-recovery-express.spec.ts landing-style-routing.spec.ts daily-login-recovery-express.spec.ts --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --reporter=line,json,html --output=test-results/defeat-recovery-ci-mobile 2>&1 | tee .ci-evidence/e2e-village-stores/defeat-recovery-mobile.log
       # Its own step, so its own server: registration is limited to 25 accounts
-      # per IP per 15 minutes, and the recovery matrix above already registers 18.
+      # per IP per 15 minutes, and each recovery project has its own budget.
       - name: Live Express hospital ward and roaming Weekly Boss on desktop and mobile
         run: npm run test:e2e:live --prefix shinobij.client -- mmorpg-behaviors-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=2 --output=test-results/mmo-behaviors-ci 2>&1 | tee .ci-evidence/e2e-village-stores/mmo-behaviors.log
       - name: Live Express authored missions on desktop and mobile

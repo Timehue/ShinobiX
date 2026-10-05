@@ -9,6 +9,7 @@ import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.j
 import { isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
+import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 
 export type ShopPackId = 'standard' | 'epic' | 'legendary';
 // 'chroniclePoints' is valid for card packs only (the Basic Card Pack); shop
@@ -180,6 +181,10 @@ export function applyItemPurchase(
     const prior = inspect(character, requestId, fingerprint);
     if (!prior.fresh) return prior.result;
     if (!isPurchasableItem(item)) return { ok: false, status: 400, error: 'That item is not sold by this shop.' };
+    if (item.id === PROFESSION_CHANGE_APPROVAL_ID) {
+        const error = professionChangeUnlockError(character);
+        if (error) return { ok: false, status: 400, error };
+    }
 
     const level = whole(character.level);
     if (level === null) return { ok: false, status: 409, error: 'Stored level is invalid. Contact support.' };

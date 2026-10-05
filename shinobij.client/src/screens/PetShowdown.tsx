@@ -182,13 +182,12 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
         if (!carriedPetIds.has(pet.id)) return "Resting in Sanctuary";
         switch (colosseumPetBusyReason(pet, breedingPetIds)) {
             case "expedition": return "On expedition";
-            case "training": return "Training";
             case "breeding": return "Shinobi Hatchery";
             default: return null;
         }
     }, [breedingPetIds, carriedPetIds]);
 
-    /** Pets that are not away training/expeditioning — what the roster can field. */
+    /** Pets available for combat; training continues while they fight. */
     const available = useMemo(() => pets.filter((p) => !busyReason(p)), [pets, busyReason]);
 
     const selectedPets = useMemo(
@@ -230,7 +229,10 @@ export function PetShowdown({ character, updateCharacter, setScreen, sharedImage
             if (state && !state.finished) {
                 if (crumb.roadChallenge) {
                     setRoadChallenge(true);
-                    setRoadOpponentName(crumb.roadOpponentName ?? "Road Beast");
+                    // Older breadcrumbs stored the wanderer's pet name in the
+                    // owner slot. Keep resumed battles on the correct identity:
+                    // the road encounter is owned by the roaming AI.
+                    setRoadOpponentName("Roaming AI");
                 }
                 // A resumed fight mounts just as directly as a fresh one, so it
                 // needs the same warm-up — after a reload nothing is cached.

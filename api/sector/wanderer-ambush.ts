@@ -8,7 +8,7 @@ import { withKvLock, LockContendedError } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { rollAmbushReward, ambushCleared, AMBUSH_REWARDS_PER_DAY } from './_wanderer-ambush.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContributionOnce } from '../_era.js';
+import { bumpEraDiscoveryContribution } from '../_era.js';
 import { cleanWorldAiPendingOutcome } from '../missions/_world-ai-fight.js';
 
 /*
@@ -149,14 +149,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         characterForBootstrap: (out.body as { character?: Record<string, unknown> }).character ?? null,
                     },
                 );
-                if (!delivered) {
+                if (!delivered || !(await bumpEraDiscoveryContribution(playerName, receiptId))) {
                     return res.status(503).json({
                         error: 'The ambush reward is safe, but its Legacy record is still being sealed. Retry the same claim.',
                         code: 'legacy-delivery-pending',
                         retryable: true,
                     });
                 }
-                await bumpEraContributionOnce('discoveries', receiptId);
             }
             return res.status(out.status).json(out.body);
         }

@@ -115,7 +115,8 @@ test('all seven earned seats have real ANBU powers and rotate at UTC month rollo
 });
 
 test('village changes remove appointed and earned powers and do not block the next candidate', async () => {
-    for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: new Date().toISOString().slice(0, 7) });
+    const currentMonth = new Date(Date.now()).toISOString().slice(0, 7);
+    for (let i = 0; i < 8; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: currentMonth });
     await request(anbu, 'kage', { action: 'appoint', seat: 0, appointee: 'operative' });
     for (const name of ['operative', 'fighter0']) {
         const saved = await kv.get<any>(`save:${name}`);
@@ -213,8 +214,9 @@ test('shared frame clears stale Kage seats and returns the same verified ANBU an
 test('committed PvP rewards refresh earned seats before the next client autosave', async () => {
     const { mutatePlayerSave } = await import('../save/_mutate-player-save.js');
     assert.equal((await roster(village)).members.includes('operative'), false);
+    const currentMonth = new Date(Date.now()).toISOString().slice(0, 7);
     const result = await mutatePlayerSave('operative', ({ character }) => ({ ok: true as const, character: {
-        ...character, monthlyPvpKills: 1, pvpKillMonth: new Date().toISOString().slice(0, 7), totalPvpKills: 101,
+        ...character, monthlyPvpKills: 1, pvpKillMonth: currentMonth, totalPvpKills: 101,
     }, value: {} }));
     assert.equal(result.ok, true);
     assert.equal((await roster(village)).earned.includes('operative'), true);

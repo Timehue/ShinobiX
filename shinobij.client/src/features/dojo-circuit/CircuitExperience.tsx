@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Character } from '../../types/character';
 import { CIRCUIT_DISCIPLINES, circuitPhase, circuitFeatured, type CircuitDiscipline, type CircuitResponse } from '../../../../shared/dojo-circuit';
 import { cardGameLockStatus } from '../../lib/chronicle-lock';
@@ -22,6 +22,7 @@ export function CircuitExperience(props: Props) {
 function CircuitExperienceContent({ character, data, busy = false, error = '', archive = false, preview = false, onBack, onAction, onLaunch, onRefresh, onHistory }: Props) {
     const [tab, setTab] = useState<'trials' | 'board' | 'honours'>(archive ? 'honours' : 'trials');
     const [brief, setBrief] = useState<CircuitDiscipline | null>(null);
+    const circuitRoot = useRef<HTMLElement>(null);
     const serverNow = data?.serverNow;
     const [clock, setClock] = useState(() => ({ serverNow, now: serverNow ?? Date.now() }));
     // New responses are reflected immediately; only timer callbacks update state.
@@ -31,6 +32,15 @@ function CircuitExperienceContent({ character, data, busy = false, error = '', a
         const tick = setInterval(() => setClock({ serverNow, now: (serverNow ?? receivedAt) + Date.now() - receivedAt }), 10_000);
         return () => clearInterval(tick);
     }, [serverNow]);
+    useEffect(() => {
+        if (!brief || document.documentElement.dataset.gamepadConnected !== 'true') return;
+        const frame = requestAnimationFrame(() => {
+            const action = circuitRoot.current?.querySelector<HTMLButtonElement>('#dc-brief .dc-brief-actions button:not(:disabled)');
+            action?.focus({ preventScroll: true });
+            action?.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+        });
+        return () => cancelAnimationFrame(frame);
+    }, [brief]);
     const event = data?.event ? { ...data.event, featured: circuitFeatured(data.event, now) } : null;
     const phase = circuitPhase(archive || !!data?.enabled, event, now);
     const mine = event?.entrants.find(e => e.name.toLowerCase() === character.name.toLowerCase());
@@ -40,7 +50,7 @@ function CircuitExperienceContent({ character, data, busy = false, error = '', a
     const lockedReason = (d: CircuitDiscipline) => d === 'cards' && cardGameLockStatus(character).locked ? cardGameLockStatus(character).body : d === 'pets' && !character.pets.length ? 'Adopt a companion before entering this discipline.' : '';
     const act = (action: string, discipline?: CircuitDiscipline) => { if (!preview) onAction(action, discipline); };
     const target = phase === 'upcoming' ? event?.startsAt : event?.endsAt;
-    return <main className="dojo-circuit" data-village-tone={villageTone(character.village)} aria-label="Dojo Circuit">
+    return <main ref={circuitRoot} className="dojo-circuit" data-village-tone={villageTone(character.village)} aria-label="Dojo Circuit">
         <div className="dc-topline"><button className="dc-back" onClick={onBack}><span aria-hidden="true">←</span> {archive ? 'Current Circuit' : 'Return to village'}</button><span>{preview ? 'ADMIN PREVIEW · No activity recorded' : archive ? 'CIRCUIT ARCHIVE' : 'WORLD EVENT · ALL FOUR VILLAGES'}</span></div>
         <header className="dc-hero">
             <picture><source media="(max-width: 700px)" srcSet={heroMobile} /><img src={hero} alt="Dojo courtyard at dusk with four village pennants, a card table, and a carved companion guardian" fetchPriority="high" /></picture>

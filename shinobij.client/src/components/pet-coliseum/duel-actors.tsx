@@ -12,6 +12,7 @@ import { petVisualId } from "../../data/pet-evolutions";
 import { petCombatModel } from "../../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "../PetModel3D";
 import { PetModelBoundary } from "../PetModelBoundary";
+import { PetSummon3D } from "../PetSummon3D";
 import { boundedBurstStep, petDuelAttackRhythm, petDuelImpactStrength } from "../../lib/pet-duel-presentation";
 import { petHeroMoveAt, petHeroMoveStyle, petHeroMoveWindows, type PetHeroMoveStyle } from "../../lib/pet-hero-moves";
 import { petDuelModelCalibration } from "../../lib/pet-duel-model-presentation";
@@ -829,6 +830,7 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
     return (
         <group>
             <group ref={group}>
+                <PetSummon3D enabled={side === "player" && clock.current.t === 0}>
                 {combatModel ? (
                     <group ref={poseG}>
                         <PetModelBoundary onFail={() => setFailedModelUrl(combatModel.url)}>
@@ -856,6 +858,7 @@ export function DuelStandee({ duel, clock, id, pet, mirror, sharedImages, freeRo
                         </group>
                     </Billboard>
                 )}
+                </PetSummon3D>
                 {showIdentity && <Html position={[0, combatModel ? combatModel.targetHeight * (modelCalibration?.modelScale ?? 1) + (modelCalibration?.labelOffset ?? 0.5) : L.contentWorldH + 0.4, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     <div ref={nameWrap} style={{ textAlign: "center", font: "700 12px Inter, system-ui, sans-serif", whiteSpace: "nowrap", userSelect: "none" }}>
                         <div style={{ color: "#fff", textShadow: "0 1px 3px #000", marginBottom: 2 }}>Lv.{pet.level} {petDisplayName(pet)}</div>

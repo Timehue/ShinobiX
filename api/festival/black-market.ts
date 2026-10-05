@@ -10,7 +10,7 @@ import { rollBlackMarket, settleBlackMarketPull, BLACK_MARKET_COST, BLACK_MARKET
 import { recordEconomyTxn } from '../_economy.js';
 
 /*
- * /api/festival/black-market — POST (one ryo-gamble pull)
+ * /api/festival/black-market — GET today's Broker crate count; POST one pull
  *
  * Server-authoritative gamble in the Sunscar Festival. Fully resolved on the
  * server in one shot (no client-reported outcome): under the save lock we check
@@ -35,11 +35,14 @@ function dateKeyUTC(now: number): string {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
+    res.setHeader('Cache-Control', 'private, no-store');
     if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).end();
+    if (req.method !== 'POST' && req.method !== 'GET') return res.status(405).end();
 
     try {
-        const body = (typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
+        const body = (req.method === 'GET'
+            ? req.query ?? {}
+            : typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {})) as Record<string, unknown>;
         const playerName = safeName(String(body.playerName ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing playerName.' });
 
@@ -51,18 +54,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'black-market', 30, 60_000, identity.name))) return;
 
         const now = Date.now();
-        const countKey = `${COUNT_PREFIX}${playerName}:${dateKeyUTC(now)}`;
+        const day = dateKeyUTC(now);
+        const countKey = `${COUNT_PREFIX}${playerName}:${day}`;
+
+        if (req.method === 'GET') {
+            const [storedUsed, save] = await Promise.all([
+                kv.get<number>(countKey),
+                kv.get<{ character?: Record<string, unknown> }>(`save:${playerName}`),
+            ]);
+            const character = save?.character;
+            const savedUsed = character?.dailyBlackMarketCratesDay === day
+                ? num(character.dailyBlackMarketCrates)
+                : 0;
+            const used = Math.max(num(storedUsed), savedUsed);
+            return res.status(200).json({ ok: true, dailyUsed: used, dailyCap: BLACK_MARKET_DAILY_CAP, day });
+        }
 
         const out = await withKvLock<{ status: number; body: Record<string, unknown> }>(`save:${playerName}`, async () => {
             const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const char = (rec?.character ?? null) as Record<string, unknown> | null;
             if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
 
-            const used = num(await kv.get<number>(countKey));
+            const storedUsed = num(await kv.get<number>(countKey));
+            const savedUsed = char.dailyBlackMarketCratesDay === day
+                ? num(char.dailyBlackMarketCrates)
+                : 0;
+            const used = Math.max(storedUsed, savedUsed);
             const settled = settleBlackMarketPull({ character: char, used, roll: rollBlackMarket(Math.random) });
             if (!settled.ok) return { status: settled.status, body: settled.body };
 
-            const { reward, nextCharacter: nextChar, nextUsed } = settled;
+            const { reward, nextCharacter: settledChar, nextUsed } = settled;
+            const nextChar: Record<string, unknown> = {
+                ...settledChar,
+                dailyBlackMarketCrates: nextUsed,
+                dailyBlackMarketCratesDay: day,
+            };
             const updatedRecord = bumpSaveVersion<Record<string, unknown>>({ ...rec, character: nextChar }, { previousCharacter: char });
             // Save BEFORE the counter, deliberately: a crash between them costs
             // the house one uncounted pull, never the player a paid-for one.

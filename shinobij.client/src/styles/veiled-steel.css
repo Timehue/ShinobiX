@@ -366,8 +366,10 @@ html body.ui-scroll-locked {
   box-shadow: inset 0 1px 4px rgba(0, 0, 0, 0.22);
 }
 
-.app-shell:not(.screen-start) :where(input, select, textarea):hover:not(:disabled) {
-  border-color: var(--sj-border-strong);
+@media (hover: hover) and (pointer: fine) {
+  .app-shell:not(.screen-start) :where(input, select, textarea):hover:not(:disabled) {
+    border-color: var(--sj-border-strong);
+  }
 }
 
 .app-shell:not(.screen-start) :where(input, select, textarea):disabled {
@@ -963,6 +965,52 @@ html body.ui-scroll-locked {
   }
 }
 
+/* Compact return-to-village icon in the lower right rail on village hubs. */
+.app-shell:not(.screen-start) .realm-wayfinder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 134px;
+  min-height: 146px;
+  margin: clamp(28px, 5vh, 54px) auto 10px;
+  padding: 8px 5px;
+  overflow: visible;
+  color: #ead7a6;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .app-shell:not(.screen-start) .realm-wayfinder:hover {
+    transform: translateY(-2px);
+  }
+}
+
+.app-shell:not(.screen-start) .realm-wayfinder > img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: contain;
+  border: 0;
+  border-radius: 0;
+  filter: drop-shadow(0 7px 8px rgba(0, 0, 0, 0.48));
+}
+
+.app-shell:not(.screen-start) .realm-wayfinder__label {
+  color: #ead7a6;
+  font: 800 0.56rem/1.2 var(--font-display);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+}
+
 @media (max-width: 1100px) {
   .app-shell:not(.screen-start) .inventory-page {
     grid-template-columns: 1fr;
@@ -1395,7 +1443,7 @@ body.coach-banner-open .onboarding-coach-banner.coach-guide {
 }
 
 body.coach-banner-open .coach-guide-pet {
-  width: clamp(64px, 7vmin, 92px);
+  width: clamp(84px, 9vmin, 116px);
   margin-right: -4px;
 }
 
@@ -1943,7 +1991,7 @@ body.coach-banner-open .coach-guide-actions .location-button {
   }
 
   body.coach-banner-open .coach-guide-pet {
-    width: 54px;
+    width: 82px;
   }
 
   body.coach-banner-open .coach-guide-bubble {

@@ -38,37 +38,17 @@ that; the other rows re-check everything else the shell does natively.
 These come from reading the code. The rows named here record what really
 happens.
 
-1. **Camera in the image picker attaches nothing (row 12).** The WebView plugin
+1. **Camera in the image picker attaches nothing on 2.0.1 (6) (row 12).** The WebView plugin
    (flutter_inappwebview 6.2.0-beta.3) offers the camera in the picker. It saves
    the photo through a file provider that neither the plugin nor this app
    declares, so the photo's address is empty and the page gets no file. There is
    no error message. Gallery and file picks are not affected. The merged
    manifest of the 2.0.1 (6) release build confirms it: its only provider is
-   `androidx-startup`. The fix for build 7, still to be proven on a phone, is
-   to declare the provider in `android/app/src/main/AndroidManifest.xml`
-   (inside `<application>`):
-
-   ```xml
-   <provider
-       android:name="com.pichillilorenzo.flutter_inappwebview_android.InAppWebViewFileProvider"
-       android:authorities="${applicationId}.flutter_inappwebview_android.fileprovider"
-       android:exported="false"
-       android:grantUriPermissions="true">
-       <meta-data
-           android:name="android.support.FILE_PROVIDER_PATHS"
-           android:resource="@xml/provider_paths" />
-   </provider>
-   ```
-
-   and add `android/app/src/main/res/xml/provider_paths.xml`, where the plugin
-   writes the photo (`getExternalFilesDir(null)`):
-
-   ```xml
-   <paths><external-files-path name="captures" path="." /></paths>
-   ```
-
-   Add an assertion for the provider to `test/webview_settings_test.dart` in
-   the same change.
+   `androidx-startup`. The source fix is now in place for **2.0.2 (7)**:
+   `AndroidManifest.xml` declares the plugin's non-exported FileProvider, and
+   `provider_paths.xml` exposes only the app-specific external files directory
+   used by the plugin. The source test pins both. The camera capture flow still
+   needs confirmation on a phone running the signed build 7; row 12 records it.
 2. **The website's shop through a legal page (row 5).** Legal pages open in a
    Chrome tab, and their "← Back to Home" link loads the full website in that
    tab. The app's User-Agent token is absent there. Whether the website still
@@ -104,7 +84,7 @@ Result counts as a fail. Keep a screenshot for rows 1–3 and for every FAIL.
 | 9 | Back in navigation | Open two screens from the hub and press Back twice. Then log out and press Back. | Back goes screen by screen. After logout, Back never shows your game as if you were still signed in. | |
 | 10 | Back on the start screen | Force-stop the app, open it signed out, and press Back on the start screen. | The app closes. | |
 | 11 | Legal and external links | During character creation (row 6's new account), tap Terms of Service and close the tab. Tap Community ↗ or Discord. | The terms open over the game and the half-made character is still there. Discord opens in its app or the browser. | |
-| 12 | Image picker and permissions | On row 6's new account, change the avatar: cancel the picker once, then pick an image from the gallery. If the picker offers Camera, take a photo. | Cancel keeps the old avatar and the gallery image is accepted. The app never asks for camera, microphone or location permission. Record what Camera does (known issue 1). | |
+| 12 | Image picker and permissions | On row 6's new account, change the avatar: cancel the picker once, then pick an image from the gallery. If the picker offers Camera, take a photo. | Cancel keeps the old avatar; the gallery image and camera photo are accepted. The app never asks for camera, microphone or location permission. | |
 | 13 | Keyboard and chat | Open tavern chat, tap the message box, type and send. | The keyboard never covers the box, and the message sends. | |
 | 14 | Clipboard | On row 6's new account: Settings → Generate a recovery code → Copy, then paste into another app. | The code pastes. (A native confirm dialog appears only on the error screen's Reset Local Save; if you meet one, Cancel must change nothing.) | |
 | 15 | Audio | With music playing, press Home for 10 seconds and come back. Lock the screen and unlock it. | Music is silent while the app is hidden and plays again when it is back. | |
@@ -121,5 +101,6 @@ build newer than 6 on the track.
 
 - Every row is `PASS` or a justified `N/A`: record the tester, date and phone
   above. 2.0.1 (6) is then device-checked and can go further on Play.
-- Any `FAIL`: list the rows and screenshots here. A shell fix needs build 7.
+- Any `FAIL`: list the rows and screenshots here. A shell fix needs a versionCode
+  higher than 7.
   A website fix (for example row 5) needs no Play release.

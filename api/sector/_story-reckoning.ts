@@ -215,7 +215,7 @@ export function storyReckoningPresenceReason(
     return validSector ? null : 'wrong-place';
 }
 
-export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown }, itemId: string): number {
+export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown; equipment?: unknown }, itemId: string): number {
     let count = 0;
     if (Array.isArray(char.inventory)) {
         for (const entry of char.inventory) if (entry === itemId) count += 1;
@@ -224,6 +224,11 @@ export function ownedItemCount(char: { inventory?: unknown; itemStacks?: unknown
         for (const stack of char.itemStacks as Array<{ itemId?: unknown; count?: unknown }>) {
             if (stack?.itemId === itemId) count += Math.max(0, Math.floor(Number(stack.count) || 0));
         }
+    }
+    // Equipping a keepsake removes it from the backpack. It is still valid
+    // turn-in proof and must not cause another copy to be granted on recovery.
+    if (char.equipment && typeof char.equipment === 'object' && !Array.isArray(char.equipment)) {
+        for (const equipped of Object.values(char.equipment)) if (equipped === itemId) count += 1;
     }
     return count;
 }

@@ -58,7 +58,7 @@ const HEARTBEAT_INTERVAL_MS = 15_000;
 // in this process (api/_kv-write-signal.ts), until the turn clock is due, or
 // until SAFETY_POLL_MS. The Postgres and in-memory backends signal every write;
 // the safety poll covers the writes the stream cannot hear: another process
-// (a deploy overlap), the dormant REST and overlay backends, and a
+// (a deploy overlap), unguarded REST and dormant overlay writes, and a
 // compare-and-set whose commit acknowledgement was lost. The turn clock never
 // wakes it more often than the old MIN_WAKE_MS cadence, even for an overdue
 // turn; a write wakes it at once, and each wake costs at most one read.

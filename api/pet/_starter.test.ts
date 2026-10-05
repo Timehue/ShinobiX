@@ -20,13 +20,23 @@ describe('starter pet entitlement', () => {
         assert.ok(validateStarterPet(FIRE));
         assert.equal(validateStarterPet({ ...FIRE, attack: 9999 }), null);
     });
-    it('grants once and applies the canonical trait bonus', () => {
-        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE);
+    it('rolls the starter trait on the server and applies its bonus once', () => {
+        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min, max) => min === 0 ? 0 : min);
         assert.equal(result.ok, true);
         if (result.ok) {
             const pet = (result.character.pets as Array<Record<string, unknown>>)[0];
-            assert.equal(pet.attack, Math.round(56 * 1.15));
+            assert.equal(pet.trait, 'Loyal', 'the server roll may differ from the template seed trait');
+            assert.equal(pet.attack, 56, 'Loyal adds no spawn stat bonus');
             assert.equal(result.character.onboardingStep, 'training');
+        }
+    });
+    it('applies the rolled Aggressive bonus to the starter base stats', () => {
+        const result = chooseStarterPet({ onboardingStep: 'starter', pets: [] }, FIRE, (min, max) => min === 0 ? 1 : min);
+        assert.equal(result.ok, true);
+        if (result.ok) {
+            const pet = (result.character.pets as Array<Record<string, unknown>>)[0];
+            assert.equal(pet.trait, 'Aggressive');
+            assert.equal(pet.attack, Math.round(56 * 1.15));
         }
     });
     it('persists the cinematic starter before the companion-introduction pass', () => {

@@ -34,6 +34,18 @@ export type BlackMarketResult = {
     _saveVersion?: unknown;
 };
 
+export async function getBlackMarketUsage(playerName: string): Promise<{ dailyUsed: number; dailyCap: number; day: string } | null> {
+    try {
+        const query = new URLSearchParams({ playerName });
+        const res = await fetch(`/api/festival/black-market?${query.toString()}`);
+        const data = await res.json().catch(() => ({})) as { dailyUsed?: number; dailyCap?: number; day?: string };
+        if (!res.ok || !Number.isFinite(data.dailyUsed) || !data.day) return null;
+        return { dailyUsed: Number(data.dailyUsed), dailyCap: Number(data.dailyCap ?? BLACK_MARKET_DAILY_CAP), day: data.day };
+    } catch {
+        return null;
+    }
+}
+
 export async function pullBlackMarket(playerName: string): Promise<BlackMarketResult> {
     try {
         const res = await fetch('/api/festival/black-market', {

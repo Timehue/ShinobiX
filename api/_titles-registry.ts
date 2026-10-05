@@ -15,8 +15,10 @@
  */
 import { LEGACY_DEFS } from './_legacy-defs.js';
 import { ERA_DEFS } from './_era-defs.js';
+import { ERA_CHAPTERS } from '../shared/era-chapters.js';
 import { SUNSCAR_TITLES } from '../shared/sunscar/prestige.js';
 import { provenTitleFor, mythicTitleFor } from './_legacy-core.js';
+import { PLAY_GAMES_REWARD_TITLES } from '../shared/play-games-rewards.js';
 
 /** Every legacy title plus its Stage-4/5 prestige variants ("Proven X",
  *  "Eternal X") — all server-credited, granted only by the trial endpoint. */
@@ -100,9 +102,11 @@ export const KNOWN_EARNED_TITLES: ReadonlySet<string> = new Set([
     ...ACHIEVEMENT_TITLES,
     ...ALL_LEGACY_TITLES,
     ...ERA_DEFS.flatMap((e) => (e.trigger ? [e.trigger.title] : [])),
+    ...ERA_CHAPTERS.map(chapter => chapter.rewardTitle),
     ...Object.values(KAGE_LIBERATOR_TITLES),
     ...Object.values(FIRST_PACT_TITLES),
     ...SUNSCAR_TITLES,
+    ...PLAY_GAMES_REWARD_TITLES,
 ].map((t) => t.toLowerCase()));
 
 /**
@@ -158,13 +162,18 @@ const LIBERATOR_TITLE_SET: ReadonlySet<string> = new Set(
 const FIRST_PACT_TITLE_SET: ReadonlySet<string> = new Set(
     Object.values(FIRST_PACT_TITLES).map((t) => t.toLowerCase()),
 );
+const PLAY_GAMES_REWARD_TITLE_SET: ReadonlySet<string> = new Set(
+    PLAY_GAMES_REWARD_TITLES.map((title) => title.toLowerCase()),
+);
 
 /** Server-credited titles that require the strict (server-owned) ownership
  *  source rather than client-writable earnedTitles. */
 export function isServerCreditedTitle(text: string): boolean {
     const key = normalizeTitleKey(text);
     return LEGACY_ONLY_TITLES.has(key) || ERA_TRIGGER_TITLES.has(key)
+        || ERA_CHAPTERS.some(chapter => chapter.rewardTitle.toLowerCase() === key)
         || LIBERATOR_TITLE_SET.has(key) || FIRST_PACT_TITLE_SET.has(key)
+        || PLAY_GAMES_REWARD_TITLE_SET.has(key)
         || SUNSCAR_TITLES.some(title => title.toLowerCase() === key);
 }
 

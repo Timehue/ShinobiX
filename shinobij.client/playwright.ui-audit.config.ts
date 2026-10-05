@@ -4,8 +4,9 @@ import { previewRootFor, uiAuditE2ePort } from "./e2e-ports";
 // Full non-combat artwork/layout audit. The gated smoke suite
 // (playwright.config.ts) keeps the screen walk on one desktop and one mobile
 // project so a missing asset still reddens CI; this config is the deep pass —
-// same two viewports, but its own port, its own snapshot root, and serialized
-// workers so the screen-by-screen walk stays readable.
+// Google's six Android form-factor anchors plus Google Play Games on PC's
+// landscape ratios, its own port, its own snapshot root, and serialized workers
+// so the screen-by-screen walk stays readable.
 //
 // The port comes from e2e-ports.ts rather than a literal, so this suite gets the
 // same per-worktree window every other suite has (CI keeps a fixed port). That
@@ -52,8 +53,8 @@ export default defineConfig({
         url: baseURL,
         env: { VITE_SKIP_HTTPS: "1" },
         reuseExistingServer: false,
-        // This command SNAPSHOTS the whole build (~370 MB / 4,589 files, copied
-        // then hash-verified) before vite preview binds, so the budget covers far
+        // This command SNAPSHOTS the whole build (about 548 MB / 5,841 files,
+        // copied then hash-verified) before vite preview binds, so the budget covers far
         // more than server boot. Measured at ~14s warm on 2026-09-01; raised to
         // 300s because the gate has twice died here with a bare
         // "Timed out waiting ..." and no specs executed, which reads like a
@@ -63,10 +64,27 @@ export default defineConfig({
         timeout: 300_000,
     },
     projects: [
-        { name: "chromium-desktop", use: { viewport: { width: 1440, height: 900 } } },
+        // Keep these canonical project names: broader e2e files route setup
+        // and assertions by name. Their touch-enabled viewports also cover the
+        // Android 16:10 and 9:21 anchors, respectively.
+        {
+            name: "chromium-desktop",
+            use: { viewport: { width: 1280, height: 800 }, isMobile: true, hasTouch: true },
+        },
         {
             name: "chromium-mobile",
-            use: { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+            use: { viewport: { width: 432, height: 1008 }, isMobile: true, hasTouch: true },
         },
+        { name: "chromium-anchor-landscape-4-3", use: { viewport: { width: 1024, height: 768 }, isMobile: true, hasTouch: true } },
+        { name: "chromium-anchor-landscape-21-9", use: { viewport: { width: 1680, height: 720 }, isMobile: true, hasTouch: true } },
+        { name: "chromium-anchor-portrait-3-4", use: { viewport: { width: 768, height: 1024 }, isMobile: true, hasTouch: true } },
+        { name: "chromium-anchor-portrait-10-16", use: { viewport: { width: 640, height: 1024 }, isMobile: true, hasTouch: true } },
+        // Level Up's current Google Play Games on PC guidance sets 16:9 as
+        // the minimum landscape ratio and recommends 16:10, 21:9, and 3:2.
+        // These projects emulate actual mouse/keyboard desktops (no touch).
+        { name: "chromium-pc-landscape-16-9", use: { viewport: { width: 1920, height: 1080 }, isMobile: false, hasTouch: false } },
+        { name: "chromium-pc-landscape-16-10", use: { viewport: { width: 1920, height: 1200 }, isMobile: false, hasTouch: false } },
+        { name: "chromium-pc-landscape-21-9", use: { viewport: { width: 2520, height: 1080 }, isMobile: false, hasTouch: false } },
+        { name: "chromium-pc-landscape-3-2", use: { viewport: { width: 1440, height: 960 }, isMobile: false, hasTouch: false } },
     ],
 });

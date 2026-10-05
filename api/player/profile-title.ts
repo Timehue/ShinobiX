@@ -7,6 +7,7 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { isAllowedCustomTitle, sanitizeUserText, TEXT_LIMITS } from '../_text-moderation.js';
 import { TITLE_ICON_SET, TITLE_STYLE_IDS, isKnownEarnedTitle, normalizeTitleKey } from '../_titles-registry.js';
 import { getActiveSilence } from '../admin/moderation.js';
+import { ownsKnownProfileTitle } from './_profile-title-ownership.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req); if (req.method === 'OPTIONS') return res.status(200).end(); if (req.method !== 'POST') return res.status(405).end();
@@ -34,9 +35,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 field = 'customTitle'; value = sanitizeUserText(body.value, TEXT_LIMITS.customTitle);
                 if (!value) cost = 0;
                 else if (isKnownEarnedTitle(value)) {
-                    const legacy = character.legacy as { titles?: string[] } | undefined;
-                    const owned = [...(Array.isArray(character.earnedTitles) ? character.earnedTitles as string[] : []), ...(Array.isArray(character.serverTitles) ? character.serverTitles as string[] : []), ...(Array.isArray(legacy?.titles) ? legacy.titles : [])];
-                    if (!owned.some((title) => normalizeTitleKey(title) === normalizeTitleKey(value))) return { ok: false as const, status: 403, error: 'That title has not been earned.' };
+                    if (!ownsKnownProfileTitle(character, value)) return { ok: false as const, status: 403, error: 'That title has not been earned.' };
                 } else { if (!isAllowedCustomTitle(value)) return { ok: false as const, status: 400, error: 'That title is not allowed.' }; cost = 10; }
             } else if (action === 'style') {
                 field = 'customTitleStyle'; value = String(body.value ?? ''); if (!TITLE_STYLE_IDS.has(value)) return { ok: false as const, status: 400, error: 'Invalid title style.' }; cost = value ? 40 : 0;

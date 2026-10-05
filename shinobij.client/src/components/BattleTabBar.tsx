@@ -37,7 +37,7 @@ export function BattleTabBar({
                 onKeyDown={handleHorizontalTabKeyDown}
                 onClick={() => setTab("log")}
             >
-                Battle Log
+                <span className="battle-tab-label">Battle Log</span>
                 {unread > 0 && (
                     <span className="battle-tab-badge" aria-label={`${unread} new log entries`}>
                         {unread > 99 ? "99+" : unread}

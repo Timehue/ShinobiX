@@ -6,6 +6,7 @@ import type {
 import type { PvpFighter, PvpGroundEffect } from '../pvp/session.js';
 import type { CompanionMove, CompanionSeal } from '../combat-core/companion.js';
 import type { AuthoritativeCombatEvent } from '../combat-core/events.js';
+import { timeStartingShield } from '../combat-core/shields.js';
 import { assertSoloPveLoadoutCompatible } from './_compatibility.js';
 
 export const SOLO_PVE_RUNTIME = 'solo-pve' as const;
@@ -174,6 +175,9 @@ export type SoloPveSession = {
     encounter: SoloPveEncounter;
     player: PvpFighter;
     enemy: PvpFighter;
+    /** Hunt combat is resolved only by the embedded Tower engine. Player/enemy
+     * below remain settlement projections; the actor collection owns combat. */
+    huntCombat?: import('./_hunt-combat.js').HuntCombatState;
     round: number;
     activeSide: SoloPveSide;
     ap: Record<SoloPveSide, number>;
@@ -195,6 +199,9 @@ export type SoloPveSession = {
     terminalEvidence?: SoloPveTerminalEvidence;
     log: string[];
     events: SoloPveCombatEvent[];
+    /** Lifetime applied facts, independent of the bounded presentation history.
+     * Optional for active sessions created before this field was introduced. */
+    legacyTotals?: import('./_legacy-totals.js').SoloPveLegacyTotals;
     eventSeq: number;
     fx?: CombatFxTarget[];
     fxSeq?: number;
@@ -232,8 +239,8 @@ function cloneFighter(fighter: PvpFighter): PvpFighter {
 
 export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPveSession {
     const now = Math.max(0, Math.floor(params.now));
-    const player = cloneFighter(params.player);
-    const enemy = cloneFighter(params.enemy);
+    const player = timeStartingShield(cloneFighter(params.player));
+    const enemy = timeStartingShield(cloneFighter(params.enemy));
     assertSoloPveLoadoutCompatible(player.character);
     assertSoloPveLoadoutCompatible(enemy.character);
     const difficultyLevel = Number(params.difficultyEnemyLevel);
@@ -324,6 +331,7 @@ export type SoloPveJutsu = CombatJutsu & {
 export type SoloPveItem = CombatItem;
 
 export type SoloPveAction =
+    | { type: 'huntAction'; action: import('../../shared/hunt-combat.js').HuntCombatAction }
     | { type: 'move'; tile: number }
     | { type: 'basicAttack' }
     | { type: 'basicHeal' }

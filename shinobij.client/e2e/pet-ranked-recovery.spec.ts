@@ -249,7 +249,7 @@ test('Pet Colosseum lineup queues, resolves, updates Elo, and allows another mat
     expect(errors).toEqual([]);
 });
 
-test('Warfront rank and offline result remain viewable while a defense pet trains', async ({ page }, testInfo) => {
+test('Warfront training permits challenges while expedition defense keeps rank and offline results viewable', async ({ page }, testInfo) => {
     test.setTimeout(45_000);
     await page.addInitScript(() => sessionStorage.setItem('petLadder.mode', 'tactical'));
     const save = uiAuditSave();
@@ -257,7 +257,7 @@ test('Warfront rank and offline result remain viewable while a defense pet train
         id: `warfront-${index}`, name: `Warfront Pet ${index}`, templateId: `standard-${index}`,
         rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80,
         element: 'Fire', role: 'defender', jutsus: [],
-        ...(index === 1 ? { training: { startedAt: Date.now() } } : {}),
+        ...(index === 1 ? { training: { type: 'strength', endsAt: Date.now() + 60_000 } } : {}),
     }));
     save.character = { ...save.character, pets, activePetId: pets[0].id };
     const runtime = await installUiAuditRuntime(page, save);
@@ -271,6 +271,24 @@ test('Warfront rank and offline result remain viewable while a defense pet train
         notifications: [{ from: 'Rival', mode: 'tactical', won: true, at: Date.now() }],
     }));
     await expectUiAuditBoot(page, runtime, 'petLadder');
+    await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
+    await expect(page.getByText('#2')).toBeVisible();
+    await expect(page.getByText('While you were away')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeEnabled();
+    await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toHaveCount(0);
+
+    // Training remains compatible with combat. An actual expedition retains
+    // the separate unavailable-defense gate without hiding the sealed result.
+    const expeditionStartedAt = Date.now();
+    runtime.commitServerCharacter({
+        ...save.character,
+        pets: pets.map((pet, index) => index === 0 ? {
+            ...pet,
+            training: undefined,
+            expedition: { type: 'scout', startedAt: expeditionStartedAt, endsAt: expeditionStartedAt + 60_000, durationMs: 60_000 },
+        } : pet),
+    }, runtime.currentVersion() + 1);
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
     await expect(page.getByText('#2')).toBeVisible();
     await expect(page.getByText('While you were away')).toBeVisible();

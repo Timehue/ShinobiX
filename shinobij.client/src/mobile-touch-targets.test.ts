@@ -93,3 +93,18 @@ test('landing page nav and footer links keep 44px touch targets (SX-009)', () =>
     assert.match(landingCss, /\.landing-footer-links a,\s*\.landing-footer-links button\s*\{[^}]*min-height:\s*44px/s, 'landing footer links need a 44px hit box');
     assert.match(landingCss, /\.landing-footer-policy-links a\s*\{[^}]*min-height:\s*44px/s, 'landing legal/policy links need a 44px hit box');
 });
+
+test('narrow landscape landing keeps both entry actions inside a compact hero', () => {
+    const landingCss = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'styles', 'landing-home.css'), 'utf8');
+    const start = landingCss.indexOf('@media (orientation: landscape) and (max-height: 520px) and (max-width: 599px)');
+    assert.notEqual(start, -1, 'narrow landscape needs its own responsive tier');
+    const compactLandscape = landingCss.slice(start);
+    assert.match(compactLandscape, /\.landing-menu-toggle\s*\{[^}]*width:\s*44px;[^}]*min-height:\s*44px;/s,
+        'the compact header must preserve an accessible menu target');
+    assert.match(compactLandscape, /\.landing-hero\s*\{[^}]*min-height:\s*max\(260px, calc\(100svh - 55px\)\);[^}]*background-size:\s*auto 100%;/s,
+        'the hero should use the remaining short viewport instead of phone-portrait height');
+    assert.match(compactLandscape, /\.landing-hero-actions \.landing-cta\s*\{[^}]*flex:\s*1 1 0;[^}]*width:\s*auto;[^}]*min-height:\s*44px;/s,
+        'both entry actions should share the compact row and keep 44px tap height');
+    assert.match(compactLandscape, /\.landing-cta-note\s*\{[^}]*font-size:\s*8px;/s,
+        'the free-to-play note remains visible in the compact composition');
+});

@@ -1,6 +1,7 @@
 import type { Character } from '../types/character';
 import type { SoloPveSession } from './solo-pve-api';
 import type { StorySettlementDelivery } from '../../../shared/story-settlement-presentation';
+import { recordServerConfirmedPlayEvent } from './google-play-games';
 
 /*
  * Server-authoritative story-boss combat (mirrors lib/hollow-gate-combat-api).
@@ -80,7 +81,15 @@ export async function settleStoryBossCombat(params: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...params, kind: 'storyBoss' }),
     });
-    return readStorySettlement(response, 'The story reward could not be verified.');
+    const result = await readStorySettlement(response, 'The story reward could not be verified.');
+    // Story progression advances only on this server-sealed boss settlement;
+    // a recovered response must not count the chapter twice.
+    if (!result.replayed) {
+        if (Number.isSafeInteger(result.progress) && result.progress >= 0) {
+            void recordServerConfirmedPlayEvent('story_chapter_completed', { chapter: result.progress });
+        }
+    }
+    return result;
 }
 
 /*

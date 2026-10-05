@@ -1,4 +1,4 @@
-import { offerFirstContract, readFirstContract, isFirstContractRoute, firstContractReturnedLater } from '../../shared/first-contract.js';
+import { offerFirstContract, readFirstContract, isFirstContractRoute, firstContractReturnedLater, nextFirstContractRoute } from '../../shared/first-contract.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
 export const ACADEMY_NARRATIVE_ACTIONS = ['incident', 'trace', 'seal', 'logbook', 'complete', 'skip', 'combat', 'discovery', 'companion', 'contract-acknowledge', 'contract-return'] as const;
 export type AcademyNarrativeAction = typeof ACADEMY_NARRATIVE_ACTIONS[number];
@@ -49,13 +49,18 @@ export function applyAcademyNarrativeAction(
         if (step !== 'done' || !state) return { ok: false, status: 409, error: 'Finish or skip the Academy before choosing your first assignment.' };
         const now = Date.now();
         if (isFirstContractRoute(action)) {
-            if (state.completedAt || state.route === action) return { ok: true, character, changed: false };
-            if (action === 'companion' && (!Array.isArray(character.pets) || !character.pets.length)) {
-                return { ok: false, status: 409, error: 'Choose combat or discovery until you have a companion.' };
+            if (state.route === action) return { ok: true, character, changed: false };
+            const completedRoutes = nextFirstContractRoute(state);
+            const startingUnroutedContract = !state.route && !state.completedAt && completedRoutes === 'combat';
+            if ((!state.completedAt && !startingUnroutedContract) || completedRoutes !== action) {
+                return { ok: false, status: 409, error: 'Complete the current assignment before choosing the next one.' };
             }
-            return { ok: true, character: { ...character, firstContract: { ...state, route: action, selectedAt: now } }, changed: true };
+            if (action === 'companion' && (!Array.isArray(character.pets) || !character.pets.length)) {
+                return { ok: false, status: 409, error: 'Add a companion to your roster before the final assignment.' };
+            }
+            return { ok: true, character: { ...character, firstContract: { ...state, route: action, selectedAt: now, completedAt: undefined, evidence: undefined, acknowledgedAt: undefined, returnedAt: undefined } }, changed: true };
         }
-        if (!state.completedAt) return { ok: false, status: 409, error: 'Complete your assignment before closing its journal entry.' };
+        if (!state.completedAt || nextFirstContractRoute(state)) return { ok: false, status: 409, error: 'Complete all three assignments before closing this journal entry.' };
         if (action === 'contract-return' && (!firstContractReturnedLater(state, now) || state.returnedAt)) return { ok: true, character, changed: false };
         if (action === 'contract-acknowledge' && state.acknowledgedAt) return { ok: true, character, changed: false };
         return { ok: true, character: { ...character, firstContract: { ...state, [action === 'contract-return' ? 'returnedAt' : 'acknowledgedAt']: now } }, changed: true };
@@ -112,9 +117,15 @@ export function applyAcademyNarrativeAction(
             ACADEMY_LEVEL_FLOORS.graduation,
         );
         const graduated: Character = offerFirstContract(floor.character, 'academy');
-        if (isFirstContractRoute(rawRoute) && readFirstContract(graduated.firstContract)) {
-            const selected = applyAcademyNarrativeAction(graduated, record, rawRoute);
-            return selected.ok ? { ...selected, changed: true } : selected;
+        const contract = readFirstContract(graduated.firstContract);
+        if (isFirstContractRoute(rawRoute) && contract) {
+            if (nextFirstContractRoute(contract) !== rawRoute) {
+                return { ok: false, status: 409, error: 'Begin with the first field assignment.' };
+            }
+            if (rawRoute === 'companion' && (!Array.isArray(graduated.pets) || !graduated.pets.length)) {
+                return { ok: false, status: 409, error: 'Add a companion to your roster before the final assignment.' };
+            }
+            return { ok: true, character: { ...graduated, firstContract: { ...contract, route: rawRoute, selectedAt: Date.now() } }, changed: true };
         }
         return { ok: true, character: graduated, changed: true };
     }

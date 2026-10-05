@@ -84,6 +84,7 @@ import {
     type WarfrontRewardSeal,
 } from "../lib/pet-arena-settlement";
 import { rankedDelta } from "../lib/progression";
+import { recordServerConfirmedPlayEvent } from "../lib/google-play-games";
 import { makeId } from "../lib/utils";
 import { genericPetArenaOpponents, type PetArenaOpponent } from "../data/pet-arena-opponents";
 import { type DuelChallenge } from "../App";
@@ -260,6 +261,7 @@ type PetBattleSettlementResponse = PetChronicleSettlementPayload & {
     capped?: boolean;
     outcome?: "win" | "loss" | "draw";
     reason?: string;
+    replayed?: boolean;
     _saveVersion?: number;
     retryAfterMs?: number;
 };
@@ -578,7 +580,16 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     };
 
     function postPetBattleSettlement(body: Record<string, unknown>): Promise<PetBattleSettlementResponse> {
-        return postPetBattleReceipt<PetBattleSettlementResponse>(body);
+        return postPetBattleReceipt<PetBattleSettlementResponse>(body).then((result) => {
+            // All pet match modes settle through this endpoint. Report one
+            // completed match only for a fresh server receipt; a recovered
+            // replay must not increment the platform counter again.
+            if (result.ok === true && result.replayed !== true
+                && (result.outcome === "win" || result.outcome === "loss" || result.outcome === "draw")) {
+                void recordServerConfirmedPlayEvent("pet_match_completed", { result: result.outcome });
+            }
+            return result;
+        });
     }
 
     async function runPetSettlementAttempt(attempt: PetSettlementAttempt): Promise<void> {
@@ -688,7 +699,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             return;
         }
         if (!isLivePetDuelAvailable(selectedPet, character.petBreeding)) {
-            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with training, breeding, or an expedition reward.`);
+            setPetChallengeMsg(`${petDisplayName(selectedPet)} is busy with breeding or an expedition reward.`);
             return;
         }
         // A requested 2v2 stays 2v2. Auto-pick supplies the local reserve; if
@@ -1140,7 +1151,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
 
     const selectedPet = combatEligiblePets.find((pet) => pet.id === selectedPetId) ?? combatEligiblePets.find((pet) => !isPetOnExpedition(pet));
     // The exact roster a live duel may send. Filters pets that are busy for any
-    // reason (expedition, training, breeding), not just expeditions, so a 2v2
+    // reason (expedition, breeding), not just expeditions, so a 2v2
     // cannot be assembled from a pet the server will refuse.
     const liveDuelPets = buildPetArenaLiveRoster(combatEligiblePets, selectedPet, reservePetId, character.petBreeding);
 
@@ -1576,7 +1587,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
         // player watches a name and portrait that never fought.
         const sealedWandererPet = opponent.wanderer ? battleSeal.opponentPets?.[0] : undefined;
         const shownOpponent = sealedWandererPet
-            ? { ...opponent, owner: battleSeal.wandererName ?? opponent.owner, pet: sealedWandererPet }
+            ? { ...opponent, owner: "Roaming AI", pet: sealedWandererPet }
             : opponent;
         // The same response carried the save the kickoff wrote — the encounter's
         // use cooldown and the wanderer's relocation. Adopt it through the normal
@@ -2334,7 +2345,7 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                                             <p style={{ margin: 0, fontWeight: 600, fontSize: "0.85rem" }}>Your team ({tacticalPicks.length}/{tacticalSize}) — choose pets to add or remove</p>
                                             <div style={{ marginTop: 6 }}>
                                                 {available.length < tacticalSize
-                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding, training, and expedition assignments do not count until cleared.</p>
+                                                    ? <p className="hint" style={{ color: "var(--gold-2)", margin: 0 }}>This 4v4 mode requires {tacticalSize} available pets. You currently have {available.length}; breeding and expedition assignments do not count until cleared.</p>
                                                     // The kickoff already sealed these four; while it waits
                                                     // out the pace, the grid must keep showing that band.
                                                     : <div className="pet-pick-panel">{pickGrid(tacticalPicks, setTacticalPicks, tacticalSize, warfrontPaceSeconds !== null)}</div>}

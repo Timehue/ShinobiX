@@ -12,6 +12,7 @@ import { BattleArenaLobby } from "../features/arena/components/BattleArenaLobby"
 import { ArenaDistrictLobby } from "../features/arena/components/ArenaDistrictLobby";
 import type { ArenaDistrictTab, BattleArenaLobbyTab } from "../features/arena/types";
 import { hasActiveTeamArenaMatch } from "../lib/screen-guards";
+import { readArenaTab, rememberArenaTab } from "../lib/arena-navigation";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { enhanceClanData } from "../lib/clan-math";
 import { fetchClanData } from "../lib/clan-api";
@@ -20,6 +21,8 @@ import { availablePetBattleCount, isPetOnExpedition } from "../lib/pet";
 import { publicEligiblePets } from "../lib/public-pet-roster";
 import type { PlayerRankedAuthority } from "../lib/player-ranked-authority";
 import type { RankedQueueClientSession } from "../lib/ranked-queue-lifecycle";
+import type { PvpRecoveryContext } from "../lib/pvp-pending-session";
+import { fetchArenaActiveFights, verifyPvpSpectatorBattle } from "../lib/sector-spectate";
 import { pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery } from "../lib/pvp-session-create";
 import {
@@ -60,6 +63,9 @@ type ArenaProps = {
     setScreen: (screen: Screen) => void;
     setPvpBattleId?: (id: string) => void;
     setPvpRole?: (role: "p1" | "p2") => void;
+    setPvpBattleContext?: (context: PvpRecoveryContext) => void;
+    returnToSpectateTab?: boolean;
+    onSpectateReturnConsumed?: () => void;
     setPendingPetBattleOpponent?: (opponent: PetArenaOpponent | null) => void;
     onAcceptChallenge: (challenge: DuelChallenge) => void;
     onDeclineChallenge: (challenge: DuelChallenge) => void;
@@ -95,6 +101,9 @@ export function Arena({
     setScreen,
     setPvpBattleId,
     setPvpRole,
+    setPvpBattleContext,
+    returnToSpectateTab = false,
+    onSpectateReturnConsumed,
     setPendingPetBattleOpponent,
     onAcceptChallenge,
     onDeclineChallenge,
@@ -109,20 +118,38 @@ export function Arena({
         leaveRankedQueue,
         isRankedSessionCurrent,
     } = useRankedQueue({ character, launchRankedMatch });
+    const [tournamentFightActive, setTournamentFightActive] = useState(false);
     const [aiLevel, setAiLevel] = useState(character.level);
     const [sparSearch, setSparSearch] = useState("");
-    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>("ranked");
+    const [activeArenaTab, setActiveArenaTab] = useState<ArenaDistrictTab>(() => {
+        try { if (sessionStorage.getItem('tournament-resume')) return 'tournaments'; } catch { /* optional recovery marker */ }
+        return returnToSpectateTab ? 'spectate' : readArenaTab(character.name, 'district');
+    });
+    useEffect(() => {
+        if (!returnToSpectateTab) return;
+        setActiveArenaTab("spectate");
+        onSpectateReturnConsumed?.();
+    }, [returnToSpectateTab, onSpectateReturnConsumed]);
     // Open on Team Arena when a live 2v2 breadcrumb is present, so a refresh
     // mid-fight lands back on the board instead of the default Spar tab. The
     // match itself is re-entered from authoritative presence, not this key —
     // the key only decides which tab to show first.
     const [battleArenaTab, setBattleArenaTab] = useState<BattleArenaLobbyTab>(
-        () => (hasActiveTeamArenaMatch() ? "teamArena" : "spar"),
+        () => (hasActiveTeamArenaMatch() ? "teamArena" : readArenaTab(character.name, 'battle')),
     );
+    useEffect(() => { rememberArenaTab(character.name, 'district', activeArenaTab); }, [character.name, activeArenaTab]);
+    useEffect(() => { rememberArenaTab(character.name, 'battle', battleArenaTab); }, [character.name, battleArenaTab]);
     const [arenaTournament, setArenaTournament] = useState<ArenaTournament | null>(() => loadArenaTournament());
     const [dojoCircuitEnabled, setDojoCircuitEnabled] = useState(() => loadDojoCircuitEnabled());
     const [tournamentWinnerBusy, setTournamentWinnerBusy] = useState(false);
     const [spectatorFights, setSpectatorFights] = useState<ArenaSpectatorFight[]>(() => loadArenaActiveFights());
+    async function refreshSpectatorFights() {
+        try {
+            setSpectatorFights(await fetchArenaActiveFights());
+        } catch {
+            // Keep the last known board; the next poll or manual refresh retries.
+        }
+    }
     const [opponentClanData, setOpponentClanData] = useState<EnhancedClanData | null>(null);
 
     const combatEligiblePets = activeCarriedPets<Pet>(character);
@@ -137,12 +164,17 @@ export function Arena({
             setArenaTournament(loadArenaTournament());
             const enabled = loadDojoCircuitEnabled();
             setDojoCircuitEnabled(enabled);
-            if (!enabled) setActiveArenaTab((tab) => tab === "tournaments" ? "ranked" : tab);
-            setSpectatorFights(loadArenaActiveFights());
+            if (!enabled) setActiveArenaTab((tab) => tab === "dojoCircuit" ? "ranked" : tab);
         };
         refreshArenaState();
         return visiblePoll(refreshArenaState, 5000);
     }, []);
+
+    useEffect(() => {
+        if (lobbyMode !== "arenaDistrict" || activeArenaTab !== "spectate") return;
+        void refreshSpectatorFights();
+        return visiblePoll(() => { void refreshSpectatorFights(); }, 10_000);
+    }, [lobbyMode, activeArenaTab]);
 
     useEffect(() => {
         let active = true;
@@ -524,16 +556,18 @@ export function Arena({
         setScreen("petArena");
     };
 
-    const spectateFight = (fight: ArenaSpectatorFight) => {
+    const spectateFight = async (fight: ArenaSpectatorFight) => {
         if (!fight.battleId || !setPvpBattleId || !setPvpRole) {
-            alert(`Spectating ${fight.title}. Live replay streams will use this fight feed.`);
+            alert("Spectating is currently unavailable.");
             return;
         }
-        fetch(`/api/pvp/spectate?id=${encodeURIComponent(fight.battleId)}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: character.name, action: "join" }),
-        }).catch(() => {});
+        try {
+            await verifyPvpSpectatorBattle(fight.battleId, character.name);
+        } catch (error) {
+            alert(error instanceof Error ? error.message : "Could not open this fight. Try again.");
+            return;
+        }
+        setPvpBattleContext?.({ spectatingFromScreen: lobbyMode });
         setPvpBattleId(fight.battleId);
         setPvpRole("p1");
         setScreen("pvpBattle");
@@ -545,6 +579,7 @@ export function Arena({
             character={character}
             onVersionedCharacter={onVersionedCharacter}
             activeTab={activeArenaTab}
+            tournamentFightActive={tournamentFightActive} onTournamentFightStateChange={setTournamentFightActive}
             hasAvailablePet={combatEligiblePets.some((pet) => !isPetOnExpedition(pet))}
             availablePetCount={availablePetCount}
             opponentClanData={opponentClanData}
@@ -561,7 +596,7 @@ export function Arena({
             spectatorFights={activeSpectatorFights}
             pendingSpectatorChallenges={pendingSpectatorChallenges}
             onBack={() => setScreen("centralHub")}
-            onTabChange={(tab) => tab === 'tournaments' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
+            onTabChange={(tab) => tab === 'dojoCircuit' ? setScreen('dojoCircuit') : setActiveArenaTab(tab)}
             onChallengePlayer={(...args) => { void challengePlayer(...args); }}
             onAcceptDistrictChallenge={acceptDistrictChallenge}
             onDeclineChallenge={onDeclineChallenge}
@@ -572,7 +607,7 @@ export function Arena({
             onStartTournament={startTournament}
             onJoinRankedQueue={joinRankedQueue}
             onLeaveRankedQueue={leaveRankedQueue}
-            onRefreshFights={() => setSpectatorFights(loadArenaActiveFights())}
+            onRefreshFights={() => { void refreshSpectatorFights(); }}
             onSpectateFight={spectateFight}
             onViewPendingChallenge={() => alert("This fight has not started yet.")}
             onOpenPetLadder={(mode) => {

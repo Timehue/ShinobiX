@@ -17,6 +17,7 @@ import { markMissionCompleted, markHuntCompleted } from "./character-progress";
 import { currentMonthKey } from "./utils";
 import { notifyFieldTrailStateChanged } from "./field-trail-api";
 import { missionClaimActionScope, startActionDeadline } from "./action-deadline-store";
+import { recordServerConfirmedPlayEvent } from "./google-play-games";
 import type { Character, CurrencyRewards } from "../types/character";
 
 export type MissionType = "combat" | "field" | "hunt" | "apex" | "academy-trial" | "academy-checklist";
@@ -104,6 +105,13 @@ export async function postClaimMission(
             return { ok: false, status: r.status, reason: "malformed-response", error: "The claim response was malformed." };
         }
         const result = payload as unknown as Exclude<ClaimMissionResult, null>;
+        // Game Stats is a best-effort platform mirror. Count only mission
+        // completions the server says it actually applied; retries, stale
+        // claims, and one-off Academy/tutorial grants must not inflate it.
+        if (result.ok === true && result.applied === true
+            && (result.completion === "daily" || result.completion === "total" || result.completion === "hunt")) {
+            void recordServerConfirmedPlayEvent("mission_completed", { completion: result.completion });
+        }
         if (missionType === "field" && result?.ok === true && result.applied === true) {
             notifyFieldTrailStateChanged(playerName, missionId);
         }

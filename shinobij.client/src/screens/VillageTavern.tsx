@@ -1,4 +1,5 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import "../styles/index/40-village-social-panels.css";
 import {
     type Character,
     type TavernMessage,

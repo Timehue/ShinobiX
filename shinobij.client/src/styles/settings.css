@@ -11,11 +11,13 @@
 .settings-section input[type=range] { accent-color: #d2b56f; }
 .settings-volume-label, .settings-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .settings-actions { justify-content: flex-start; flex-wrap: wrap; }
-.settings-check { display: flex; align-items: center; gap: 10px; min-height: 44px; }
+.settings-check { display: flex; align-items: center; gap: 10px; width: 100%; box-sizing: border-box; min-height: 44px; }
 .settings-page button { min-height: 44px; white-space: normal; }
 .settings-page .change-password-card, .settings-page .recovery-code-card, .settings-page .google-link-card { margin: 16px 0; padding: 0 0 18px; }
 .settings-danger h2 { color: #f5a7a7; }
 .settings-page .hint { color: #b4bfcb; }
+.settings-controller-hint { display: none; color: #e7c879; font-size: 12px; margin: 8px 0 0; }
+html[data-gamepad-connected="true"] .settings-page .settings-controller-hint { display: block; }
 .settings-page :focus-visible { outline: 2px solid #e7c879; outline-offset: 3px; }
 
 /* Labels provide the touch target; the native checkbox stays compact. */

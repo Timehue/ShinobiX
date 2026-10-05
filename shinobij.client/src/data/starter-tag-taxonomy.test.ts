@@ -15,8 +15,8 @@ import { JUTSU_CATALOG } from '../../../api/pvp/_jutsu-catalog';
  * red test rather than a player noticing.
  *
  * Note this is NOT `bloodlineUniqueTags`, which caps a tag at one copy per
- * bloodline kit and permits starters freely (Whispering Calm's Debuff Prevent
- * is intentional).
+ * bloodline kit. The 40-AP starter utility pairs separately avoid Move and
+ * Debuff Prevent; the universal 20-AP Flicker still carries Move.
  */
 test('no built-in starter jutsu carries a reserved AP-tempo tag', () => {
     const reserved = new Set(starterForbiddenTags);
@@ -47,6 +47,21 @@ test('the generated server catalog keeps AP-tempo tags off every starter', () =>
                 !reserved.has(tag.name),
                 `${jutsu.id} (${jutsu.name}) carries starter-forbidden tag "${tag.name}"`,
             );
+        }
+    }
+});
+
+test('40-AP starter utility jutsu do not carry Move or Debuff Prevent', () => {
+    const excluded = new Set(['Move', 'Debuff Prevent']);
+    for (const [source, jutsus] of [
+        ['client', starterJutsus],
+        ['server', Object.values(JUTSU_CATALOG).filter((jutsu) => !jutsu.bloodlineRank)],
+    ] as const) {
+        for (const jutsu of jutsus) {
+            if (jutsu.ap !== 40) continue;
+            for (const tag of jutsu.tags) {
+                assert.ok(!excluded.has(tag.name), `${source}: ${jutsu.id} carries ${tag.name} at 40 AP`);
+            }
         }
     }
 });

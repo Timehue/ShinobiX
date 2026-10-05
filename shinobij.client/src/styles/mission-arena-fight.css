@@ -448,8 +448,10 @@ html[data-vp="lg"] .arena-fullscreen.mission-arena-fight .combat-layout {
 /* Short landscape has horizontal room but almost no vertical budget. Present
    the three non-duplicate resources side-by-side and keep all eight commands on
    one row so the first jutsu remains directly tappable without scrolling the
-   viewport itself. */
-@media (min-width: 480px) and (max-width: 932px) and (max-height: 500px) {
+   viewport itself. Cover the 933–1023px CSS-width band too: otherwise it falls
+   between the phone layout (max 932px) and the tablet/desktop layout (min
+   1024px), including compact 21:9 windows. */
+@media (orientation: landscape) and (min-width: 480px) and (max-width: 1023px) and (max-height: 500px) {
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout,
     html[data-vp] body > .arena-fullscreen.shinobi-combat-shell.mission-arena-fight .combat-layout.has-action-notice {
         grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;

@@ -15,21 +15,21 @@ export type ServerHuntChoice = {
 export type ServerHuntSign = { id: string; kicker: string; prose: string; choices: ServerHuntChoice[] };
 
 const SIGNS: readonly ServerHuntSign[] = [
-    { id: 'blood-trail', kicker: 'Blood sign', prose: 'Dark blood beads along the fern-tips, still tacky.', choices: [
-        { id: 'push', label: 'Push the blood trail', detail: 'Run it down before the bleeding stops.', risk: 'It knows it is being chased.', outcome: { quality: 1, advances: true, ambushChance: .35 } },
-        { id: 'downwind', label: 'Circle downwind', detail: 'Give up the pace to keep your scent off it.', risk: '', outcome: { quality: 0, advances: true, ambushChance: 0 } },
+    { id: 'blood-trail', kicker: 'Blood sign', prose: 'Dark blood beads along the fern-tips, still tacky. Whatever bled here was moving fast and not bothering to hide it.', choices: [
+        { id: 'push', label: 'Push the blood trail', detail: 'Run it down before the bleeding stops. Tire the beast before the final fight.', risk: 'It knows it is being chased; there is a 35% chance the pack springs first.', outcome: { quality: 1, advances: true, ambushChance: .35 } },
+        { id: 'downwind', label: 'Circle downwind', detail: 'Lose some pace to keep your scent off the trail. The pack will not hear you coming.', risk: '', outcome: { quality: 0, advances: true, ambushChance: 0 } },
     ] },
-    { id: 'lair', kicker: 'Lair sign', prose: 'A hollow under the root-shelf is packed flat and rank with musk.', choices: [
-        { id: 'wait', label: 'Lie in wait', detail: 'Take the hollow and hold still.', risk: '', outcome: { quality: 1, advances: true, ambushChance: 0 } },
-        { id: 'smoke', label: 'Smoke it out', detail: 'Fire the bracken and force it into the open.', risk: 'Every animal within a mile will move.', outcome: { quality: -1, advances: true, ambushChance: .2 } },
+    { id: 'lair', kicker: 'Lair sign', prose: 'A hollow under the root-shelf, packed flat and rank with musk. Something big sleeps here between kills.', choices: [
+        { id: 'wait', label: 'Lie in wait', detail: 'Take the hollow and hold still. The beast returns on ground you chose.', risk: '', outcome: { quality: 1, advances: true, ambushChance: 0 } },
+        { id: 'smoke', label: 'Smoke it out', detail: 'Seal the exits with fire and force the target into the open. A clean flush leaves it badly placed for the final fight.', risk: 'The smoke carries far: 20% chance the pack closes in, but this route can corner the target.', outcome: { quality: 2, advances: true, ambushChance: .2 } },
     ] },
-    { id: 'fork', kicker: 'The trail forks', prose: 'One track is deep and dragging; the other is light and several-fold.', choices: [
-        { id: 'heavy', label: 'Follow the dragging track', detail: 'Deep and uneven means weight and a bad leg.', risk: '', outcome: { quality: 1, advances: true, ambushChance: 0 } },
-        { id: 'light', label: 'Follow the light tracks', detail: 'Fresher, easier to read, and there are more of them.', risk: 'Several sets rarely means one animal.', outcome: { quality: -1, advances: true, ambushChance: .3 } },
+    { id: 'fork', kicker: 'The trail forks', prose: 'Two sets of tracks leave the streambed. One is deep, dragging, and favours a side. The other is light and even — and there are several of them.', choices: [
+        { id: 'heavy', label: 'Follow the dragging track', detail: 'Deep and uneven means weight and a bad leg. That is your contract.', risk: '', outcome: { quality: 1, advances: true, ambushChance: 0 } },
+        { id: 'light', label: 'Follow the light tracks', detail: 'Cut through the fresher tracks to close quickly on the target.', risk: 'Several sets rarely mean one animal: 30% chance the pack catches you in its feeding ground.', outcome: { quality: 2, advances: true, ambushChance: .3 } },
     ] },
-    { id: 'pack-sign', kicker: 'You are not alone', prose: 'Claw-scores at two heights mark pack ground.', choices: [
-        { id: 'press', label: 'Press on regardless', detail: 'Walk through them if you have to.', risk: 'They are already circling.', outcome: { quality: 1, advances: true, ambushChance: .55 } },
-        { id: 'withdraw', label: 'Withdraw and re-read', detail: 'Back out clean and pick the trail up elsewhere.', risk: 'No progress.', outcome: { quality: 0, advances: false, ambushChance: 0 } },
+    { id: 'pack-sign', kicker: 'You are not alone', prose: 'Scat, claw-scores on the bark at two different heights, and a half-eaten kill nobody bothered to bury. More than one animal works this ground.', choices: [
+        { id: 'press', label: 'Press through the pack ground', detail: 'Keep on the target’s trail and use the noise to close the gap.', risk: 'They are already circling: 55% chance the pack attacks before you reach the target.', outcome: { quality: 1, advances: true, ambushChance: .55 } },
+        { id: 'withdraw', label: 'Flank around the pack', detail: 'Give up the clean approach and keep tracking from outside their hearing.', risk: '', outcome: { quality: 0, advances: true, ambushChance: 0 } },
     ] },
 ];
 
@@ -40,6 +40,12 @@ export function huntHash(value: string): number {
         hash = Math.imul(hash, 16777619);
     }
     return hash >>> 0;
+}
+
+export function huntFormationFor(runId: string, kind: string, decisionId = ''): import('../../shared/hunt-combat.js').HuntFormation {
+    const roll = huntHash(`${runId}:${kind}:${decisionId}:formation-v1`) % 5;
+    return roll === 0 ? { version: 1, kind: 'single', count: 1 }
+        : { version: 1, kind: roll <= 2 ? 'waves' : 'pack', count: roll === 1 || roll === 3 ? 2 : 3 };
 }
 
 export function serverHuntSign(missionId: string, stage: number, hunterName: string): ServerHuntSign {

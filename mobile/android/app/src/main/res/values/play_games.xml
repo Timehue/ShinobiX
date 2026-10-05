@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Replace 0000000000 with the PGS project ID from Play Console before
+         enabling the integration in a release build. Zero deliberately keeps
+         local/debug builds graceful until the game's Play Console setup exists. -->
+    <string name="game_services_project_id" translatable="false">0000000000</string>
+
+    <!-- Replace these with IDs generated in Play Console. The website only
+         reports unlocks already confirmed by the Shinobi Journey server. -->
+    <string name="pgs_achievement_pve_first" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_training_first" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_story_chapter_1" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_pet_active" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_level_10" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_level_40" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_pvp_first" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_mission_25" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_craft_first" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_achievement_ranked_first" translatable="false">UNCONFIGURED</string>
+
+    <!-- Event labels and their property schemas are configured in the Game Stats
+         section of Play Console, then copied here. -->
+    <string name="pgs_event_mission_completed" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_event_pvp_match_completed" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_event_ai_victory" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_event_pet_match_completed" translatable="false">UNCONFIGURED</string>
+    <string name="pgs_event_story_chapter_completed" translatable="false">UNCONFIGURED</string>
+
+    <!-- Must match the products created in Play Console and shared catalog.
+         Billing only queries granted purchases; this does not open checkout. -->
+    <string name="play_reward_sku_dawn" translatable="false">sj_reward_title_dawn</string>
+    <string name="play_reward_sku_ember" translatable="false">sj_reward_title_ember</string>
+    <string name="play_reward_sku_ryo_cache_small" translatable="false">sj_reward_ryo_cache_small</string>
+</resources>

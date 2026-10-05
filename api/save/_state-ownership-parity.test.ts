@@ -64,7 +64,7 @@ const FROZEN = {
         // pre-manifest combat projection as the authored onboarding arc expands.
         'onboardingStep', 'academySectorVisited', 'academyVow',
         'academyIncidentSeen', 'academyTraceSector', 'academyFieldSeal', 'firstContract',
-        'petTutorialProgress',
+        'petTutorialProgress', 'playRewardPurchaseReceipts',
         'weeklyBossKills', 'claimedWarCrateIds',
         'unlockedAchievements', 'achievementUnlockedAt',
         'battleHistory',
@@ -80,6 +80,9 @@ const FROZEN = {
         // Relic-survey quest bookkeeping — non-combat, so stripped from the
         // sealed fighter snapshot like every other progress counter.
         'relicSurvey', 'relicSurveyCount',
+        // Reviewed relic extension: roster conversion and exact reward outcomes
+        // are private server bookkeeping, never sealed fighter inputs.
+        'relicRosterVersion', 'relicRewardLedger',
         'totalPvpKills', 'monthlyPvpKills', 'pvpKillMonth', 'elderWinDays', 'elderRankedWinReceipts',
         'dailyAiKills', 'dailyPetWins', 'dailyTilesExplored', 'dailyMissionsCompleted',
         'dailyFateSpins', 'lastDailyReset',
@@ -99,7 +102,7 @@ const FROZEN = {
         'petBreedingHatchReceipts', 'petBreedingProgressReceipts',
         'ryo', 'honorSeals', 'fateShards', 'chroniclePoints', 'boneCharms', 'auraStones', 'mythicSeals', 'auraDust', 'hollowShards',
         // Echoes of War campaign record — non-combat bookkeeping.
-        'echoesOfWar', 'echoesWitnessChoices',
+        'echoesOfWar', 'echoesWitnessChoices', 'eraJourneys',
         'rankedWins', 'rankedLosses', 'rankedSeasonSettlementReceipts', 'pvpRewardSettlementReceipts',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'aiFightRewardSettlements', 'combatMissionClaimSettlements',
@@ -141,6 +144,9 @@ const FROZEN = {
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
         'bankRyo', 'rankedRating', 'petRankedRating', 'rankedSeasonSettlementReceipts',
         'professionXp', 'professionRank', 'serverSettlementReceipts', 'pvpRewardSettlementReceipts', 'hollowGateExternalCredits', 'settledHollowGateEventIds', 'settledHollowGateCombatIds', 'hollowGatePendingOperation',
+        // Reviewed 2026-10-02 extension: paid attunement is authoritative even
+        // when the strict raw-save rollout flag is disabled.
+        'hollowGateAttunement',
         'warGroundBountyDate', 'villageWarMissionDate', 'villageWarRaidProgress',
         'petRankedSettlementStamp', 'playerRankedSettlementStamp', 'vanguardRewardSettlementStamp', 'warDeclarationFundingReceipts', 'warMercenaryHireReceipts',
         'professionRespecUsed',
@@ -192,6 +198,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'professionChosenAt', // Scroll retry fencing must survive all generic saves.
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'battleTowerRecords', // Tower settlement is the only writer.
         'accountName',
@@ -204,13 +211,15 @@ const FROZEN = {
         // Relic survey: world/explore appends the biome, quest accept resets it.
         // Mirrored so a client cannot write its own objective progress.
         'relicSurvey', 'relicSurveyCount',
+        // Only the server migration and earned-relic settlement may write these.
+        'relicRosterVersion', 'relicRewardLedger',
         'unlockedAchievements', 'achievementUnlockedAt', 'claimedAchievementRewards', 'earnedTitles',
         'endlessTowerRun', 'endlessTowerBestWave', 'totalEndlessTowerWins',
         'dailyTowerXp', 'dailyEndlessRuns', 'dailyEndlessDate', 'redeemedEndlessActions',
         // Village Stores daily cook/donate counters (api/village-stores/*).
         'rationsCookedDate', 'rationsCookedToday', 'storesDonatedDate', 'rationsDonatedToday', 'craftPointsDonatedToday',
         // Echoes of War campaign record (card-clash/ai-move echoes settle).
-        'echoesOfWar', 'echoesWitnessChoices',
+        'echoesOfWar', 'echoesWitnessChoices', 'eraJourneys',
         'riftFirstClears', 'riftQuestBossReceipt',
     ],
     PROGRESSION_ENTITLEMENT_CHARACTER_FIELDS: [
@@ -238,6 +247,8 @@ const FROZEN = {
     // redeemedTebexPurchases added 2026-08-31 for the Tebex shard webhook: it
     // holds the Tebex transaction id, written in the same committed save as the
     // shards it paid for, which is what makes a redelivered webhook a no-op.
+    // playRewardPurchaseReceipts retains Play's repeatable currency offer
+    // token hashes in the same save write as the Ryo credit.
     SERVER_ARRAY_LEDGER_CHARACTER_FIELDS: [
         'sunscarExchangeReceipts',
         'redeemedTrainingTokens', 'redeemedJutsuTrainingActions', 'redeemedAiFightRewards',
@@ -248,6 +259,7 @@ const FROZEN = {
         'claimedWarCrateIds', 'redeemedCardClashAiSessions',
         'redeemedPetRankedMatchTokens', 'chroniclePetWitnesses', 'chroniclePetArenaProgressReceipts',
         'expeditionStartReceipts', 'petExpeditionLog',
+        'playRewardPurchaseReceipts',
     ],
     BOOLEAN_LATCH_CHARACTER_FIELDS: ['academySparClaimed', 'starterPetClaimed', 'starterCardsClaimed'],
     DAILY_CLAIM_DATE_FIELDS: ['claimedVillageAgendaDate', 'claimedMapControlDate'],

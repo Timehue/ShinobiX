@@ -1,6 +1,7 @@
 import { before, beforeEach, after, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { AsyncResource } from 'node:async_hooks';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -483,6 +484,9 @@ it('shows the ladder-defense restriction in sell inventory before a player submi
 
 it('uses distinct recovery pointers for later trade phases after an expired listing lease', async () => {
     const original = kv.compareSet;
+    // A real competing HTTP request does not inherit the seller operation's
+    // AsyncLocalStorage lease ownership. Create its context before taking locks.
+    const competingRequest = new AsyncResource('exchange-competing-request');
     let id = '';
     let interleaved = false;
     kv.compareSet = async (key, expected, value, options) => {
@@ -491,7 +495,7 @@ it('uses distinct recovery pointers for later trade phases after an expired list
             id = (expected as Obj).character.sunscarExchangeReceipts[0].split(':')[0];
             // Expire the outer lease while its active-listing cleanup is waiting.
             await kv.del(`lock:sunscar-exchange:listing:${id}`);
-            const result = await buy(id);
+            const result = await competingRequest.runInAsyncScope(() => buy(id));
             assert.equal(result.status, 503); // seller save lock is still held
             assert.equal((await record('buyer')).character.ryo, 9000);
         }
@@ -500,7 +504,10 @@ it('uses distinct recovery pointers for later trade phases after an expired list
     try {
         const { createExchangeListing } = await import('./_exchange.js');
         await createExchangeListing('seller', { requestId: randomUUID(), kind: 'item', assetId: itemId, quantity: 1, price: 1000 });
-    } finally { kv.compareSet = original; }
+    } finally {
+        kv.compareSet = original;
+        competingRequest.emitDestroy();
+    }
     assert.ok(interleaved);
     assert.ok(Object.keys(await kv.hgetall('sunscar-exchange:pending') ?? {}).some(ref => ref.startsWith(`${id}:`)));
     const { recoverPendingExchangeListings } = await import('./_exchange.js');
@@ -530,4 +537,57 @@ it('lets later pending trades recover while an older return is capacity-blocked'
     assert.equal((await recoverPendingExchangeListings(1)).failures.length, 1);
     assert.equal((await recoverPendingExchangeListings(1)).recovered, 1);
     assert.equal((await record('seller')).character.ryo, 10950);
+});
+
+it('creates timed auctions, validates bids, and settles the highest bidder at expiry', async () => {
+    const invalidDuration = await list({ listingType: 'auction', durationHours: 12 });
+    assert.equal(invalidDuration.status, 400);
+
+    const created = await list({ listingType: 'auction', durationHours: 6, price: 800 });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    const listing = created.body.listing as Obj;
+    assert.equal(listing.listingType, 'auction');
+    assert.equal(listing.price, 800);
+    assert.ok(listing.auctionEndsAt > listing.createdAt);
+    assert.equal(listing.auctionEndsAt - listing.createdAt, 6 * 60 * 60 * 1000);
+
+    const id = listing.id as string;
+    assert.equal((await post({ action: 'bid', playerName: 'seller', listingId: id, expectedPrice: 900, expectedCurrency: 'ryo' })).status, 400);
+    assert.equal((await post({ action: 'bid', playerName: 'buyer', listingId: id, expectedPrice: 800, expectedCurrency: 'ryo' })).status, 400);
+    assert.equal((await post({ action: 'bid', playerName: 'buyer', listingId: id, expectedPrice: 900, expectedCurrency: 'ryo' })).status, 200);
+    assert.equal((await post({ action: 'bid', playerName: 'rival', listingId: id, expectedPrice: 950, expectedCurrency: 'ryo' })).status, 200);
+    assert.equal((await post({ action: 'bid', playerName: 'buyer', listingId: id, expectedPrice: 925, expectedCurrency: 'ryo' })).status, 400);
+    assert.equal((await record('buyer')).character.ryo, 10000, 'placing a bid does not debit the bidder');
+
+    const stored = (await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!;
+    await kv.set(`sunscar-exchange:listing:${id}`, { ...stored, auctionEndsAt: 0 });
+    const { recoverExpiredExchangeAuctions } = await import('./_exchange.js');
+    assert.deepEqual(await recoverExpiredExchangeAuctions(), { closed: 1 });
+
+    const finalListing = (await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!;
+    assert.equal(finalListing.state, 'sold');
+    assert.equal(finalListing.buyer, 'rival');
+    assert.equal(finalListing.price, 950);
+    assert.equal(finalListing.fee, 47);
+    assert.equal(finalListing.proceeds, 903);
+    assert.equal((await record('rival')).character.ryo, 9050);
+    assert.equal((await record('seller')).character.ryo, 10903);
+    assert.equal((await record('rival')).character.inventory.length, 1);
+    assert.equal((await record('buyer')).character.inventory.length, 0);
+});
+
+it('settles an expired auction before honoring a seller cancel request', async () => {
+    const created = await list({ listingType: 'auction', durationHours: 24, price: 100 });
+    const id = created.body.listing.id as string;
+    assert.equal((await post({ action: 'bid', playerName: 'buyer', listingId: id, expectedPrice: 125, expectedCurrency: 'ryo' })).status, 200);
+    const stored = (await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!;
+    await kv.set(`sunscar-exchange:listing:${id}`, { ...stored, auctionEndsAt: 0 });
+
+    const cancel = await post({ action: 'cancel', playerName: 'seller', listingId: id });
+    assert.equal(cancel.status, 409);
+    const closed = (await kv.get<Obj>(`sunscar-exchange:listing:${id}`))!;
+    assert.equal(closed.state, 'sold');
+    assert.equal(closed.buyer, 'buyer');
+    assert.equal(closed.price, 125);
+    assert.equal((await record('buyer')).character.inventory.length, 1);
 });

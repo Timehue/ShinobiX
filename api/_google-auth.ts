@@ -370,6 +370,8 @@ export const SIGNUP_TICKET_TTL_SECONDS = 30 * 60;
 export type GoogleHandoffTicket = {
     /** The resolved account, when the Google identity already maps to one. */
     name?: string;
+    /** Named handoffs are bound to the credential generation seen by the callback. */
+    sessionEpoch?: number;
     /** Set when this Google account has no shinobi yet and one must be created. */
     needsSignup?: true;
     /** Kept server-side. The email is never echoed to whoever holds the ticket. */

@@ -4,6 +4,7 @@ import { activeActor } from './_tower-session.js';
 import {
     applyAction,
     endTurn,
+    humanHasTowerAction,
     runAiUntilHuman,
     type TowerAction,
 } from './_engine.js';
@@ -205,7 +206,8 @@ export async function applyTowerPvpCommand(
             return { status: 200, applied: false, replayed: false, reason: result.reason ?? 'rejected', match, currentVersion: match.version };
         }
         resetTowerPvpAfkStrikes(match, input.slug);
-        if (action.type === 'wait' && match.combat.status === 'active') {
+        if (match.combat.status === 'active'
+            && (action.type === 'wait' || !humanHasTowerAction(match.combat, actor, 'pvp'))) {
             endTurn(match.combat, TOWER_PVP_FLOOR);
             runAiUntilHuman(match.combat, TOWER_PVP_FLOOR, rng);
         }

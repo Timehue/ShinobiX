@@ -1,0 +1,11 @@
+{
+  "mode": "built-in image_gen",
+  "prompt": "Use case: stylized-concept. Asset type: production inventory icon for a dark fantasy shinobi RPG, the Village Transfer Scroll sold in the Grand Marketplace. Create a single ornate travel authorization scroll on a genuinely transparent background. A compact ivory parchment scroll partially unfurled between two dark lacquer rods with warm antique gold endcaps, tied with a rich violet silk cord and a large gold wax seal. The seal has one crisp emblem composed of four joined petal-like shapes, subtly evoking four villages: lightning, leaf, snow crystal, crescent moon. A very restrained violet edge glow gives it a legendary service-item quality. Hand-painted premium game-item illustration, detailed materials, bold readable silhouette, realistic dimensional shading with slightly stylized forms. Three-quarter view, diagonal lower-left to upper-right, centered and fully contained, filling about 80 percent of a square 1024x1024 canvas with clean breathing room. Should read clearly at 72 pixels. Actual transparent alpha, no background scene, no checkerboard, no border, no letters or numbers, no text, no watermark, no extra objects or duplicate scrolls.",
+  "source": "village-transfer-scroll-v1.png",
+  "runtimeAsset": "../../public/items/village-transfer-scroll-v1.webp",
+  "runtimeSize": [
+    256,
+    256
+  ],
+  "alpha": true
+}

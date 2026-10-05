@@ -29,6 +29,39 @@ void main() {
       expect(PlayExperiencePolicy.launchUri(reviewDue: true).toString(),
           'https://shinobijourney.com/?playNative=1&playReview=1');
     });
+
+    test('a debug URL can target only a local web server and retains shell flags', () {
+      final uri = PlayExperiencePolicy.resolveLaunchUri(
+        reviewDue: true,
+        debugMode: true,
+        debugGameUrl: 'http://127.0.0.1:4173/?scene=stronghold&playNative=0',
+      );
+      expect(uri.scheme, 'http');
+      expect(uri.host, '127.0.0.1');
+      expect(uri.port, 4173);
+      expect(uri.path, '/');
+      expect(uri.queryParameters, {
+        'scene': 'stronghold',
+        'playNative': '1',
+        'playReview': '1',
+      });
+    });
+
+    test('release and non-loopback debug URLs always fall back to the production game', () {
+      for (final (debugMode, candidate) in [
+        (false, 'http://127.0.0.1:4173/'),
+        (true, 'http://example.com/'),
+        (true, 'https://localhost/'),
+        (true, 'http://user@localhost/'),
+      ]) {
+        final uri = PlayExperiencePolicy.resolveLaunchUri(
+          reviewDue: false,
+          debugMode: debugMode,
+          debugGameUrl: candidate,
+        );
+        expect(uri.toString(), 'https://shinobijourney.com/?playNative=1&playReview=0');
+      }
+    });
   });
 
   group('store', () {

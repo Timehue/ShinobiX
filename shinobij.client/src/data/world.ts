@@ -112,9 +112,9 @@ export const weatherEffects: Record<
 export { biomeWeatherTables } from "../../../shared/sector-weather";
 
 export function biomeLabel(biome: Biome) {
-    if (biome === "forest") return "Stormveil Coastal Waters";
+    if (biome === "forest") return "Ashen Leaf Deepwood";
     if (biome === "snow") return "Frostfang Icefields";
-    if (biome === "volcano") return "Ashen Leaf Forest";
+    if (biome === "volcano") return "Lavafront";
     if (biome === "shadow") return "Moonshadow Darklands";
-    return "Central Meadow";
+    return "Central Lands";
 }

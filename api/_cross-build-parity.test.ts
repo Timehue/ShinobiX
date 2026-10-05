@@ -274,9 +274,9 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
         assert.deepEqual(quoted(clientTypes), quoted(serverTypes));
     });
 
-    it('states the draw rules before the purchase controls', () => {
+    it('discloses equal per-card odds within the eligible pool', () => {
         assert.match(GALLERY, /Pack odds:/);
-        assert.match(GALLERY, /every playable card is equally likely/i);
+        assert.match(GALLERY, /Within each eligible pool, every card is equally likely/i);
         assert.match(GALLERY, /Elemental packs draw only matching-element Monsters/);
     });
 
@@ -292,8 +292,11 @@ describe('parity: Card Hall pack disclosure and live server pools', () => {
         assert.match(GALLERY, /Legendary is always Legendary/);
     });
 
-    it('draws uniformly from eligible playable cards', () => {
-        assert.match(PACKS, /pickIndex\(usefulPool\.length\)/);
-        assert.doesNotMatch(PACKS, /luckBonus|pityCounter|weightedPick/i);
+    it('discloses independent draws and duplicates without a pity timer', () => {
+        // Actual index-to-card coverage and replacement behavior are exercised
+        // in _pack.test.ts; source variable names cannot prove random odds.
+        assert.match(GALLERY, /There are no weighted tiers or pity timer/);
+        assert.match(GALLERY, /Each card is drawn independently from the full eligible pool/);
+        assert.match(GALLERY, /duplicates can appear within a pack or across packs regardless of owned copies/);
     });
 });

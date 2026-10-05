@@ -1,5 +1,8 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
+import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react";
@@ -65,7 +68,7 @@ import {
     type PvpGroundEffectState,
     type PvpSessionState
 } from "../App";
-import { loadArenaActiveFights, saveArenaActiveFights, unregisterLocalFight, type ArenaSpectatorFight } from "../lib/world-state";
+import { registerArenaFight, removeArenaFight, type ArenaSpectatorFight } from "../lib/world-state";
 import type { PvpWinBaseSummary } from "../lib/progression";
 import {
     beginPvpRewardCompletion,
@@ -91,12 +94,14 @@ import {
     splitPvpMoveResponse,
     type PendingPvpMove,
 } from "../lib/pvp-session-runtime";
+import { recordServerConfirmedPlayEvent } from "../lib/google-play-games";
 import { fetchPendingPvpRecovery } from "../lib/pvp-pending-fetch";
 import { earnedStatPoints } from "../lib/stats";
 import { useSocialLock } from "../lib/account-status";
 import { fetchBountyReceipt, type BountyReceipt } from "../lib/pvp-bounty";
 import { PvpBattleResultPanel, type PvpBattleOutcome } from "../components/PvpBattleResultPanel";
 import { canCancelUnstartedPvpDuel, isCancelledUnstartedPvpDuel } from "../../../shared/pvp-cancellation";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 
 // Avatar travel animation. A fighter's marker steps through each hex on the line
 // between its old and new cell (PATH_STEP_MS apart) and CSS-glides each hop, so
@@ -229,6 +234,7 @@ export function PvpBattleScreen({
     seedSession,
     isSpar = false,
     battleMode = "standard",
+    spectatorOrigin = false,
     onWin,
     onLoss,
     onCompletionConfirmed,
@@ -260,6 +266,8 @@ export function PvpBattleScreen({
     seedSession?: PvpSessionState | null;
     isSpar?: boolean;
     battleMode?: string;
+    /** The viewer deliberately opened this session from a spectator entry point. */
+    spectatorOrigin?: boolean;
     onWin?: (opponentName: string, opponent?: Character, serverRating?: { field: string; value: number; delta: number }, serverBase?: PvpWinBaseSummary, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => BountyReceipt | null | void | Promise<BountyReceipt | null | void>;
     onLoss?: (opponent?: Character, serverRating?: { field: string; value: number; delta: number }, claim?: PvpRewardClaimConfirmed, context?: PvpRewardContinuationContext) => void | Promise<void>;
     /** Adopt the claim's versioned snapshot/progression on both first response and replay. */
@@ -285,6 +293,9 @@ export function PvpBattleScreen({
         const parsed = parsePvpSessionProjection(seedSession, battleId);
         return parsed.kind === "session" ? parsed.session : null;
     });
+    const wasFighterRef = useRef(!!session && [session.p1.name, session.p2.name]
+        .some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase()));
+    const terminalFightRemovedRef = useRef(false);
     const serverPlayerRanked = session?.playerRankedAuthorityVersion === 2 || session?.ranked === true;
     // Items are live for real fighters in casual PvP (consumable authority v2:
     // the server seals the budget from the save and deducts at settlement).
@@ -303,6 +314,28 @@ export function PvpBattleScreen({
         || session?.rewardAuthority === "clan-war";
     const effectiveIsSpar = isSpar && !serverPlayerRanked && !serverProgressionMatch;
     const effectiveBattleMode = serverPlayerRanked ? "ranked" : battleMode;
+    const livePvpStatsBattleRef = useRef<string | null>(session?.status !== "done" && session ? battleId : null);
+    const pvpStatsReportedRef = useRef(new Set<string>());
+    useEffect(() => {
+        if (!session || session.status !== "done") {
+            if (session) livePvpStatsBattleRef.current = battleId;
+            return;
+        }
+        if (spectatorOrigin || effectiveIsSpar || livePvpStatsBattleRef.current !== battleId
+            || pvpStatsReportedRef.current.has(battleId)) return;
+        const result = session.winner === "draw"
+            ? "draw"
+            : session.winner === role
+                ? "win"
+                : session.winner
+                    ? "loss"
+                    : null;
+        if (!result) return;
+        pvpStatsReportedRef.current.add(battleId);
+        // This transition comes from the live server session projection. The
+        // result property makes the event useful for competitive engagement.
+        void recordServerConfirmedPlayEvent("pvp_match_completed", { result });
+    }, [session?.status, session?.winner, battleId, role, spectatorOrigin, effectiveIsSpar]);
     // Tracks the battleId we've already seeded so a later Realtime/move
     // update on the same fight doesn't get clobbered by a re-apply of the
     // (now-stale) initial seed.
@@ -332,6 +365,10 @@ export function PvpBattleScreen({
     const [pendingJutsuDirect, setPendingJutsuDirect] = useState<Jutsu | null>(null);
     const [pendingBasicAttack, setPendingBasicAttack] = useState(false);
     const [pendingWeaponId, setPendingWeaponId] = useState("");
+    const gridAppearance = useCombatGridAppearance(
+        session?.biome && terrainEffects[session.biome] ? session.biome : currentBiome,
+        Boolean(selectedActionId || pendingJutsuId || pendingJutsuDirect || pendingBasicAttack || pendingWeaponId),
+    );
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
     const [moveFeedback, setMoveFeedback] = useState("");
     // Mobile Actions|Battle Log tabs (+ unread badge on the log). Desktop shows both.
@@ -459,6 +496,11 @@ export function PvpBattleScreen({
 
     function markSessionUnavailable(message: string, isCurrent: () => boolean): void {
         if (!isCurrent()) return;
+        if (message === "This ranked battle ended as a no-contest."
+            && wasFighterRef.current && !terminalFightRemovedRef.current) {
+            terminalFightRemovedRef.current = true;
+            removeArenaFight(`pvp-${battleId}`);
+        }
         setSession(null);
         setSessionLoadFailure(message);
         setConnectionState("reconnecting");
@@ -485,6 +527,8 @@ export function PvpBattleScreen({
             return parsed;
         }
         if (parsed.kind === "session") {
+            if ([parsed.session.p1.name, parsed.session.p2.name]
+                .some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) wasFighterRef.current = true;
             setSession(current => acceptRevision(current, parsed.session));
         }
         return parsed;
@@ -531,6 +575,15 @@ export function PvpBattleScreen({
     }
 
     const exitBattle = (target: Screen) => {
+        const watching = spectatorOrigin || (!!session
+            && ![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase()));
+        if (watching) {
+            void fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action: "leave" }),
+            }).catch(() => {});
+        }
         if (onExit) onExit(target);
         else setScreen(target);
     };
@@ -1424,25 +1477,24 @@ export function PvpBattleScreen({
 
     /* ── Register ALL PvP fights on spectator board ── */
     useEffect(() => {
-        if (!session) return;
+        if (!session || session.status !== "active") return;
         if (![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) return;
         const fight: ArenaSpectatorFight = {
             id: `pvp-${battleId}`,
             title: `${session.p1.name} vs ${session.p2.name}`,
             mode: effectiveBattleMode === "ranked" ? "Ranked" : effectiveBattleMode === "clanWar1v1" ? "Clan War" : effectiveIsSpar ? "Spar" : "PvP",
-            startedAt: Date.now(),
+            startedAt: Number(session.createdAt) || Date.now(),
             fighters: [session.p1.name, session.p2.name],
             battleId,
             biome: currentBiome,
         };
-        const next = [fight, ...loadArenaActiveFights().filter(f => f.id !== fight.id)];
-        saveArenaActiveFights(next);
-        return () => {
-            unregisterLocalFight(fight.id);
-            const remaining = loadArenaActiveFights().filter(f => f.id !== fight.id);
-            saveArenaActiveFights(remaining);
-        };
-    }, [!!session, battleId]);  
+        registerArenaFight(fight);
+    }, [session?.status, battleId]);
+    useEffect(() => {
+        if (session?.status !== "done") return;
+        if (![session.p1.name, session.p2.name].some(name => name.trim().toLowerCase() === character.name.trim().toLowerCase())) return;
+        removeArenaFight(`pvp-${battleId}`);
+    }, [session?.status, battleId]);
 
     /* ── Battle chat state ── */
     type BattleChatMsg = { author: string; text: string; ts: number; role: "fighter" | "spectator" };
@@ -1555,10 +1607,9 @@ export function PvpBattleScreen({
     /* Spectator presence heartbeat. The server prunes any spectator whose last
        ping is older than 30s (STALE_MS), so without a re-ping the "Watching:"
        list silently empties mid-fight and refresh-restored spectators never
-       appear at all (the Arena board POSTs 'join' only once, on entry). Re-POST
-       'join' on mount + every 20s WHILE watching, paused while hidden so a
-       backgrounded tab doesn't keep a phantom watcher alive. Mirrors the Arena
-       join exactly; if the POST isn't authed it's a harmless swallowed no-op. */
+       appear at all. POST 'join' on mount + every 20s WHILE watching, paused
+       while hidden so a backgrounded tab doesn't keep a phantom watcher alive.
+       If the POST isn't authed it's a harmless swallowed no-op. */
     const amSpectatorLive = !!session
         && character.name.trim().toLowerCase() !== session.p1.name.trim().toLowerCase()
         && character.name.trim().toLowerCase() !== session.p2.name.trim().toLowerCase();
@@ -1576,6 +1627,18 @@ export function PvpBattleScreen({
         const iv = setInterval(beat, 20_000);
         return () => clearInterval(iv);
     }, [battleId, amSpectatorLive, character.name]);
+    // All navigation exits retire presence, including Back while the session
+    // is still loading. Keep this separate from heartbeat restarts on load.
+    useEffect(() => {
+        if (!battleId || !spectatorOrigin) return;
+        return () => {
+            void fetch(`/api/pvp/spectate?id=${encodeURIComponent(battleId)}`, {
+                method: "POST", keepalive: true,
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: character.name, action: "leave" }),
+            }).catch(() => {});
+        };
+    }, [battleId, spectatorOrigin, character.name]);
 
     // Avatar travel tween — must run unconditionally (above the early return) to
     // keep hook order stable. -1 while the session is still loading.
@@ -1645,13 +1708,14 @@ export function PvpBattleScreen({
                     <p style={{ color: sessionLoadFailure ? "#fca5a5" : "var(--text-dim)" }}>
                         {sessionLoadFailure || "Connecting to battle session..."}
                     </p>
+                    {spectatorOrigin && <button type="button" onClick={() => exitBattle(returnTarget)}>Stop watching</button>}
                     {sessionLoadFailure && (
                         <div className="menu">
                             <button type="button" onClick={() => {
                                 setSessionLoadFailure("");
                                 setSessionRetryKey(value => value + 1);
                             }}>Retry Connection</button>
-                            {sessionExitCheck === "safe" ? (
+                            {spectatorOrigin ? null : sessionExitCheck === "safe" ? (
                                 <button type="button" onClick={() => exitBattle(returnTarget)}>Return Safely</button>
                             ) : (
                                 <button type="button" disabled={sessionExitCheck === "checking"} onClick={() => void verifyPendingSessionBeforeExit()}>
@@ -2106,7 +2170,7 @@ export function PvpBattleScreen({
             a: () => { if (basicAttackAvailability.affordable) { clearPendingPvpJutsu(); setPendingWeaponId(""); setSelectedActionId(undefined); setPendingBasicAttack(v => !v); } },
             m: () => { if (moveAvailability.affordable) { clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); setSelectedActionId(v => v === "move" ? undefined : "move"); } },
             h: () => { if (healAvailability.affordable) void submitAction("basicHeal"); },
-            c: () => { if (clearAvailability.affordable) void submitAction("clear"); },
+            c: () => { if (clearAvailability.affordable && pvpDist(myPos, oppPos) <= BASIC_CLEAR_RANGE) void submitAction("clear"); },
             x: () => { if (cleanseAvailability.affordable) void submitAction("cleanse"); },
             f: () => { if (fleeAvailability.affordable) void submitAction("flee"); },
             w: () => void submitAction("wait"),
@@ -2165,7 +2229,8 @@ export function PvpBattleScreen({
                         subtitle={<>Round {session.round} | PvP Duel</>}
                     />
 
-                    <CombatEnvironmentStrip>
+                    <CombatEnvironmentStrip className="combat-grid-environment">
+                        <div className="combat-grid-environment-details">
                         <span className="twp-strip-biome">{biomeLabel(arenaBiome)}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -2182,6 +2247,8 @@ export function PvpBattleScreen({
                         {weatherNegEl && (
                             <span className="twp-buff twp-negative">↓ {weatherNegEl} -2%</span>
                         )}
+                        </div>
+                        <CombatGridAppearanceControls appearance={gridAppearance} />
                     </CombatEnvironmentStrip>
 
                     <CombatApPanel>
@@ -2224,7 +2291,7 @@ export function PvpBattleScreen({
 
                     <CombatBoardStage>
                     <div className={`hex-battlefield hex-${arenaBiome}${currentSector === 99 ? " hex-deathsgate" : ""}`}
-                        ref={battlefieldCallbackRef}>
+                        ref={battlefieldCallbackRef} {...gridAppearance.boardProps}>
                         <div style={(() => {
                             const scaledW = GRID_LAYER_W * effectiveScale;
                             const scaledH = GRID_LAYER_H * effectiveScale;
@@ -2411,6 +2478,7 @@ export function PvpBattleScreen({
                                                 onMouseLeave={() => { if (hoveredPvpTile !== null) setHoveredPvpTile(null); }}
                                                 onClick={() => handleTileClick(i)}
                                             >
+                                                <CombatGridOutline />
                                                 {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span> : null}
                                             </button>
                                         );
@@ -2477,8 +2545,9 @@ export function PvpBattleScreen({
                                     <i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{healAvailability.apCost} AP<span className="cmd-detail"> | 10 CP | CD {myCooldowns.basicHeal ?? 0}</span></small>
                                 </button>
                                 <button onClick={() => submitAction("clear")}
-                                    disabled={!isMyTurn || submitting || !clearAvailability.affordable}>
-                                    <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | CD {myCooldowns.clear ?? 0}</span></small>
+                                    disabled={!isMyTurn || submitting || !clearAvailability.affordable || pvpDist(myPos, oppPos) > BASIC_CLEAR_RANGE}
+                                    title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}>
+                                    <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{clearAvailability.apCost} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {myCooldowns.clear ?? 0}</span></small>
                                 </button>
                                 <button onClick={() => submitAction("cleanse")}
                                     disabled={!isMyTurn || submitting || !cleanseAvailability.affordable}>
@@ -2531,8 +2600,8 @@ export function PvpBattleScreen({
                                                     onCooldown ? `CD ${cooldownRemaining}` : "",
                                                 ].filter(Boolean).join(" | ");
                                                 return (
-                                                    <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}`}>
-                                                        {onCooldown && <span className="combat-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}>{cooldownRemaining}</span>}
+                                                    <div key={j.id} className={`combat-jutsu-card-wrap${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-cooling" : ""}`}>
+                                                        {onCooldown && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cooldownRemaining} turn(s) until ready`}><span className="combat-cd-prefix">CD </span>{cooldownRemaining}</span>}
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
@@ -2596,7 +2665,7 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange}`}
+                                                            title={combatItemTooltip(item, { action: "Weapon", apCost, range: wRange, cooldown: wCd })}
                                                             onClick={() => { if (onCooldown) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || submitting || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
@@ -2647,7 +2716,14 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${isArmed ? " selected-action" : ""}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Range ${wRange} | Thrown`}
+                                                            title={combatItemTooltip(item, {
+                                                                action: "Throwable",
+                                                                apCost,
+                                                                range: wRange,
+                                                                charges: chargesLeft,
+                                                                cooldown: wCd,
+                                                                unavailable: realPvpItemsDisabled ? "Disabled for this fight" : depleted ? "No uses left this battle" : undefined,
+                                                            })}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); setInspectedWeaponId(""); clearPendingPvpJutsu(); setSelectedActionId(undefined); setPendingBasicAttack(false); setPendingWeaponId(v => v === item.id ? "" : item.id); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>
@@ -2694,7 +2770,13 @@ export function PvpBattleScreen({
                                                         <button
                                                             type="button"
                                                             className={`combat-jutsu-button combat-item-button rarity-${item.rarity}${onCooldown ? " jutsu-on-cooldown" : ""}`}
-                                                            title={realPvpItemsDisabled ? "Disabled for this fight" : depleted ? `${item.name} — none left this battle` : onCooldown ? `${item.name} cooldown: ${wCd} turn(s)` : `${item.name} | ${apCost} AP | Use`}
+                                                            title={combatItemTooltip(item, {
+                                                                action: "Consumable",
+                                                                apCost,
+                                                                charges: chargesLeft,
+                                                                cooldown: wCd,
+                                                                unavailable: realPvpItemsDisabled ? "Disabled for this fight" : depleted ? "No uses left this battle" : undefined,
+                                                            })}
                                                             onClick={() => { if (onCooldown || realPvpItemsDisabled) return; setInspectedJutsuId(""); clearPendingPvpJutsu(); setPendingBasicAttack(false); setPendingWeaponId(""); submitAction("item", undefined, undefined, item); }}
                                                             disabled={!isMyTurn || realPvpItemsDisabled || submitting || depleted || !availability.affordable}>
                                                             <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(item.image)}>

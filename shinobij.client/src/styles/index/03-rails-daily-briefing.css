@@ -67,6 +67,40 @@
 .notif-bar.compact { padding: 4px; }
 .notif-bar.compact .notif-chip { justify-content: center; padding: 6px 0; }
 
+/* Compact profile-card shortcut, directly below the level. */
+.left-daily-briefing-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    align-self: center;
+    flex: 0 0 auto;
+    width: calc(100% - 12px);
+    max-width: 200px;
+    min-height: 30px;
+    margin-top: 3px;
+    padding: 6px 8px;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+    background: rgba(15, 23, 42, 0.22);
+    color: var(--slate-200);
+    font-size: 0.7rem;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+}
+@media (hover: hover) {
+    .left-daily-briefing-button:hover {
+        background: rgba(148, 163, 184, 0.1);
+        border-color: rgba(148, 163, 184, 0.55);
+    }
+}
+.left-daily-briefing-button:focus-visible {
+    outline: 2px solid var(--gold-400);
+    outline-offset: 3px;
+}
+
 /* ===== Daily Briefing modal (once-per-day notice board) ===== */
 /* The shell is a transparent sizing box only — the visible card inside is the
    one thing that scrolls. It used to be 960px wide around a 720px card (dead
@@ -344,5 +378,44 @@
     .daily-briefing-footer { padding: 8px 14px calc(10px + env(safe-area-inset-bottom, 0px)); }
     .db-dismiss { padding: 9px; font-size: 0.88rem; }
     .db-reward { padding: 8px 12px; }
+}
+
+/* The Daily Briefing owns this guidance UI; keep its styles eager with the
+   briefing while Clan Boss operation styles load only with that lazy screen. */
+.activity-spine-heading,.activity-card-topline {
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+}
+.activity-spine h3,.activity-horizon h4 { margin:0; }
+.activity-spine-returner {
+    border:1px solid #338c9d;border-radius:99px;padding:4px 8px;color:#67e8f9;font-size:.7rem;
+}
+.activity-card-progress { color:var(--cyan);font-size:12px;font-weight:650; }
+.activity-spine-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+/* The spine only ever renders inside the Daily Briefing card, which is capped
+   at 720px however wide the screen is — so its column count has to follow the
+   CARD's width, not the viewport's. */
+.activity-spine { container: activity-spine / inline-size; }
+@container activity-spine (max-width: 440px) {
+    .activity-spine-grid { grid-template-columns:1fr; }
+}
+.activity-horizon { min-width:0;border-left:2px solid #64748b;padding-left:9px; }
+.activity-horizon-now { border-color:#facc15; }
+.activity-horizon-this-week { border-color:#c084fc; }
+.activity-horizon-long-term { border-color:#34d399; }
+.activity-horizon h4 { margin-bottom:7px;font-size:.76rem;text-transform:uppercase; }
+.activity-card { padding:8px;border:1px solid #334155;border-radius:8px;display:flex;flex-direction:column;gap:6px;min-width:0;margin-bottom:8px; }
+.activity-card.is-complete { border-color:#238364; }
+.activity-card.is-blocked { border-color:#7f3540; }
+.activity-card p,.activity-card small { margin:0;color:var(--slate-300);font-size:.75rem;line-height:1.4; }
+.activity-card .activity-card-blocker { color:#fca5a5; }
+.activity-spine-loading,.activity-spine-error { min-height:72px; }
+.activity-spine-error { display:flex;flex-direction:column;align-items:flex-start;gap:7px; }
+.activity-card button,.activity-spine-error button { min-height:44px; }
+.activity-card button { align-self:flex-start; }
+@media (max-width: 559px) {
+    .activity-spine-heading { align-items:flex-start;flex-direction:column; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .activity-spine * { scroll-behavior:auto;transition:none; }
 }
 

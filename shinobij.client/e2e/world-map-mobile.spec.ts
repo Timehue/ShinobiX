@@ -3,6 +3,7 @@ import { writeFileSync } from "node:fs";
 import { installUiAuditRuntime, uiAuditSave, type UiAuditSave } from "./helpers/ui-audit-runtime";
 import { expectViewportSafe } from "./helpers/adaptive-assertions";
 import { returnToWorldAtlas } from "./helpers/sector-navigation";
+import { getWorldMapRegionForPoint } from "../src/lib/world-map-regions";
 
 const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
 // The focused source runner and the standard responsive CI use different names
@@ -10,7 +11,7 @@ const regions = ["ashen", "gate", "frost", "storm", "central", "moon"] as const;
 const phoneProjects = ["chromium-390x844", "webkit-390x844", "chromium-mobile", "webkit-mobile"];
 type Footprint = { left: number; top: number; right: number; bottom: number };
 
-async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () => Promise<void>) {
+async function bootWorldMap(page: Page, initialSave?: UiAuditSave, setup?: () => Promise<unknown>) {
     const runtimeErrors: string[] = [];
     page.on("pageerror", (error) => runtimeErrors.push(error.message));
     await installUiAuditRuntime(page, initialSave);
@@ -43,6 +44,183 @@ async function settleCamera(page: Page) {
         await Promise.all(map.getAnimations().map((animation) => animation.finished.catch(() => undefined)));
     });
 }
+
+for (const destination of [
+    { name: "Stormveil Village", region: "storm", sector: 0, heading: "Stormveil Village" },
+    { name: "Frostfang Village", region: "frost", sector: 30, heading: "Frostfang Village — Outer Territory" },
+] as const) {
+    test(`village travel waits for arrival: ${destination.name}`, async ({ page }, testInfo) => {
+        test.setTimeout(120_000);
+        const requests: number[] = [];
+        let startedAt = 0;
+        const runtimeErrors = await bootWorldMap(page, { ...uiAuditSave(), currentSector: 40 }, async () => {
+            await page.route("**/api/player/travel", async (route) => {
+                requests.push(route.request().postDataJSON().destinationSector);
+                startedAt = Date.now();
+                await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+                    arrivalAt: startedAt + 3_000, travelMs: 3_000, arrivalTile: 78,
+                }) });
+            });
+        });
+        if (testInfo.project.use.isMobile) await chooseRegion(page, destination.region);
+        await page.getByRole("button", { name: `Enter ${destination.name}`, exact: true }).click();
+        await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
+        await expect(page.getByText(destination.heading, { exact: true })).toHaveCount(0);
+        await page.screenshot({ path: testInfo.outputPath("village-travel-countdown.png") });
+        await expect(page.getByText(destination.heading, { exact: true })).toBeVisible();
+        expect(Date.now() - startedAt).toBeGreaterThanOrEqual(3_000);
+        expect(requests).toEqual([destination.sector]);
+        await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
+        expect(runtimeErrors).toEqual([]);
+    });
+}
+
+test("village travel opens the current home without another trip", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    const requests: number[] = [];
+    await bootWorldMap(page, { ...uiAuditSave(), currentSector: 0 }, async () => {
+        page.on("request", (request) => {
+            if (new URL(request.url()).pathname === "/api/player/travel") requests.push(request.postDataJSON().destinationSector);
+        });
+    });
+    if (testInfo.project.use.isMobile) await chooseRegion(page, "storm");
+    await page.getByRole("button", { name: "You are here, Stormveil Village", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Stormveil Village", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
+    expect(requests).toEqual([]);
+});
+
+test("village travel shortcut waits and navigation cannot bypass its countdown", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.use.isMobile, "The global Village shortcut is in the mobile navigation.");
+    test.setTimeout(120_000);
+    const requests: number[] = [];
+    let startedAt = 0;
+    const runtimeErrors = await bootWorldMap(page, { ...uiAuditSave(), currentSector: 40 }, async () => {
+        await page.route("**/api/player/travel", async (route) => {
+            requests.push(route.request().postDataJSON().destinationSector);
+            startedAt = Date.now();
+            await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+                arrivalAt: startedAt + 3_000, travelMs: 3_000,
+            }) });
+        });
+    });
+    const village = page.getByRole("button", { name: "Village", exact: true }).filter({ visible: true }).first();
+    await village.click();
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
+    await village.click();
+    await page.getByRole("button", { name: "Travel", exact: true }).filter({ visible: true }).first().click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    expect(Date.now() - startedAt).toBeGreaterThanOrEqual(3_000);
+    expect(requests).toEqual([0]);
+    expect(runtimeErrors).toEqual([]);
+});
+
+test("village travel shortcut handles rejection and allows a retry", async ({ page }, testInfo) => {
+    test.skip(!testInfo.project.use.isMobile, "The global Village shortcut is in the mobile navigation.");
+    test.setTimeout(120_000);
+    let requests = 0;
+    await bootWorldMap(page, { ...uiAuditSave(), currentSector: 40 }, async () => {
+        await page.route("**/api/player/travel", async (route) => {
+            requests++;
+            await route.fulfill({ status: requests === 1 ? 409 : 200, contentType: "application/json",
+                body: JSON.stringify(requests === 1 ? { error: "Travel is blocked for this check." }
+                    : { arrivalAt: Date.now() + 3_000, travelMs: 3_000 }) });
+        });
+    });
+    const village = page.getByRole("button", { name: "Village", exact: true }).filter({ visible: true }).first();
+    await village.click();
+    await expect(page.getByText("Travel is blocked for this check.", { exact: true })).toBeVisible();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "OK", exact: true }).click();
+    // The mobile bar deliberately debounces repeated taps for a short window.
+    await expect.poll(async () => {
+        if (requests < 2) await village.click();
+        return requests;
+    }).toBe(2);
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    expect(requests).toBe(2);
+});
+
+test("village travel bookmark preserves a field character's location", async ({ page }) => {
+    test.setTimeout(120_000);
+    await installUiAuditRuntime(page, { ...uiAuditSave(), currentSector: 40 });
+    await page.goto("/#/village", { waitUntil: "domcontentloaded" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap", { timeout: 45_000 });
+});
+
+test("village travel resumes its remaining countdown after a reconnect", async ({ page }) => {
+    test.setTimeout(120_000);
+    const restoredAt = Date.now();
+    // Hold the restored countdown while the cold route loads. Browser boot
+    // time must not consume the brief phase whose restoration this case checks.
+    await page.clock.install({ time: new Date(restoredAt - 1_000) });
+    await page.clock.pauseAt(new Date(restoredAt));
+    await installUiAuditRuntime(page, { ...uiAuditSave(), currentSector: 40, pendingTravel: {
+        destinationSector: 0, arrivalAt: restoredAt + 60_000, remainingMs: 3_000,
+    } });
+    await page.goto("/#/village", { waitUntil: "domcontentloaded" });
+    const travelingHeading = page.getByRole("heading", { name: "Traveling", exact: true });
+    let startupTicks = 0;
+    // React defers a resolved Suspense screen by 300ms. Pump its startup timers
+    // while waiting for network work, with a hard budget below the 3s remainder.
+    await expect.poll(async () => {
+        if (await travelingHeading.isVisible()) return true;
+        if (startupTicks < 2_000) {
+            await page.clock.runFor(100);
+            startupTicks += 100;
+        }
+        return travelingHeading.isVisible();
+    }, { timeout: 45_000, intervals: [1_000] }).toBe(true);
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toBeVisible({ timeout: 45_000 });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
+    // Cover the unchanged three-second remainder and the arrival timer's 50ms safety interval.
+    await page.clock.fastForward(3_100);
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "village");
+    await expect(page.getByRole("heading", { name: "Traveling", exact: true })).toHaveCount(0);
+});
+
+test("Central landmark opens the hub directly", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    // Region presets are spatial windows; Central's landmark lies in the top-center window.
+    const centralRegion = getWorldMapRegionForPoint(48, 40);
+    const runtimeErrors = await bootWorldMap(page);
+    if (testInfo.project.use.isMobile) await chooseRegion(page, centralRegion);
+    await expect(page.locator(".wpk-gates .world-poi-plate-name")).toHaveText("Central");
+    await page.getByRole("button", { name: "Enter Central", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    await expect(page.getByRole("button", { name: "Central Battle", exact: true })).toHaveCount(0);
+    await expect(page.locator(".central-card").first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("central-direct-entry.png") });
+
+    for (const destination of [
+        { tile: "Arena District", screen: "arenaDistrict" },
+        { tile: "Shinobi Council Hall", screen: "shinobiCouncil" },
+    ]) {
+        await page.locator(".central-card").filter({ hasText: destination.tile }).click();
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", destination.screen);
+        await page.getByRole("button", { name: "Return to Central", exact: true }).click();
+        await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    }
+
+    await page.locator(".central-card").filter({ hasText: "Pet Colosseum" }).click();
+    await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
+    await expect(page.locator(".pet-arena-return")).toContainText("Central");
+    await expect(page.locator(".pet-arena-return")).not.toContainText("The Gates");
+    await page.locator(".pet-arena-return").click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    await returnToWorldAtlas(page);
+    if (testInfo.project.use.isMobile) await chooseRegion(page, centralRegion);
+    await page.getByRole("button", { name: "Enter Central", exact: true }).click();
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "centralHub");
+    expect(runtimeErrors).toEqual([]);
+});
 
 async function chooseRegion(page: Page, region: typeof regions[number]) {
     const button = page.locator(`.wm-village-chip[data-region="${region}"]`);
@@ -921,7 +1099,7 @@ test("pinch preserves landmark targets and panning does not rewrite inherited ma
 test("animated zoom keeps intermediate landmark targets compact and tappable", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "animated mobile camera in both phone engines");
     await page.emulateMedia({ reducedMotion: "no-preference" });
-    const save = uiAuditSave();
+    const save = { ...uiAuditSave(), currentSector: 40 };
     // The lifecycle check returns to Sector 40. Use the same real-character
     // cooldown fixture as adaptive-shell/story-field-work so a roaming bandit
     // cannot open an unrelated Fight/Flee modal over the global Travel action.
@@ -1146,7 +1324,7 @@ test("integration: Academy trail focus remains visible and tappable on the small
 test("integration: active notifications fit portrait and restore after landscape atlas exit", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "exercise active global notifications in both phone engines");
     await page.setViewportSize({ width: 320, height: 568 });
-    const errors = await bootWorldMap(page, undefined, async () => {
+    const errors = await bootWorldMap(page, { ...uiAuditSave(), currentSector: 40 }, async () => {
         await page.route("**/api/game-state", (route) => route.fulfill({
             status: 200,
             contentType: "application/json",

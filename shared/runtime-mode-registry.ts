@@ -514,6 +514,17 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
         participantModel: 'solo-or-party', rewardPolicy: 'server-settled', replayKind: 'expiring-tower-run-and-log', status: 'match', migrationStatus: 'keep',
     }),
     defineMode({
+        id: 'sunscar-caravan-ambush', label: 'Sunscar Caravan Ambush', category: 'tower', authorityEngine: E.TOWER,
+        clientEntries: ['features/sunscar/CaravanRun.tsx', 'features/sunscar/CaravanBattle.tsx', 'screens/BattleTowerFight.tsx', 'lib/sunscar-caravan.ts', 'lib/towers-api.ts'],
+        routes: [
+            mountedRoute('/festival/caravan', 'festival/caravan', ['start', 'action', 'state', 'settlement']),
+            mountedRoute('/towers/action', 'towers/action', ['action']),
+            mountedRoute('/towers/state', 'towers/state', ['state']),
+            mountedRoute('/towers/my-run', 'towers/my-run', ['recovery', 'state']),
+        ],
+        participantModel: 'solo', rewardPolicy: 'parent-mode-settlement', replayKind: 'daily-caravan-run-bound-tower-session', status: 'match',
+    }),
+    defineMode({
         id: 'tower-party', label: 'Tower party', category: 'tower', authorityEngine: E.TOWER,
         clientEntries: ['lib/towers-api.ts', 'components/TowerReadyRoomPanel.tsx', 'screens/BattleTowerFight.tsx'],
         routes: [

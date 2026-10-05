@@ -157,11 +157,12 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('totalStatsTrained', 'character', 'server-ledger', 'progression', ['strict-ledger-char', 'lifetime-counter-char', 'combat-strip-char']),
     f('rankTitle', 'character', 'derived', 'progression', ['strict-ledger-char'], 'derived with level'),
     f('auraSphereLevel', 'character', 'server-owned', 'progression', ['strict-ledger-char', 'progression-entitlement-char'], 'aura/feed endpoint'),
-    f('hollowGateAttunement', 'character', 'server-owned', 'hollow-gate', ['strict-ledger-char', 'combat-strip-char'], 'attune endpoint; ranks additionally clamped to the node catalog'),
+    f('hollowGateAttunement', 'character', 'server-owned', 'hollow-gate', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'attune endpoint only; ordinary saves preserve purchased ranks under every ledger rollout setting'),
     f('rankedRating', 'character', 'server-ledger', 'pvp', ['strict-ledger-char', 'always-ledger-char'], 'pvp/claim-rewards only; increases via save rejected'),
     f('petRankedRating', 'character', 'server-ledger', 'pets', ['strict-ledger-char', 'always-ledger-char'], 'pet/battle-result only; increases via save rejected'),
     f('rankedSeasonSettlementReceipts', 'character', 'server-payout-stamp', 'pvp', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'season reset and podium payout receipt persisted atomically in the ranked rollover save write'),
     f('serverSettlementReceipts', 'character', 'server-payout-stamp', 'receipts', ['always-ledger-char'], 'idempotency receipts written in the payout write'),
+    f('playRewardPurchaseReceipts', 'character', 'server-payout-stamp', 'play-rewards', ['server-array-ledger-char', 'combat-strip-char'], 'Permanent purchase-token hashes co-written with repeatable Ryo reward credits.'),
     f('hollowGateExternalCredits', 'character', 'server-ledger', 'hollow-gate', ['always-ledger-char', 'combat-strip-char'], 'run-scoped external currency credits committed with the trusted wallet write; never accepted from a generic save'),
     f('settledHollowGateEventIds', 'character', 'server-payout-stamp', 'hollow-gate', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'applied event receipts co-written with the wallet; generic saves cannot erase or forge them'),
     f('settledHollowGateCombatIds', 'character', 'server-payout-stamp', 'hollow-gate', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'applied combat receipts co-written with the wallet; generic saves cannot erase or forge them'),
@@ -222,6 +223,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // (wandererQuestComplete → char[def.metric]) reads it with no new code path.
     // Both are server-mirrored: world/explore appends, quest accept resets, and a
     // client write is discarded — otherwise the objective could be forged outright.
+    f('relicRosterVersion', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'one-time retired relic conversion stamp'),
+    f('relicRewardLedger', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'bounded daily PvP/tower relic rolls and exact outcomes'),
     f('relicSurvey', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'biomes surveyed since accept; world/explore appends, wanderer-quest accept resets'),
     f('relicSurveyCount', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'length mirror of relicSurvey so the numeric quest completion check needs no survey-specific branch'),
     f('pendingGatherFinds', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),
@@ -382,7 +385,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('pvpKillMonth', 'character', 'server-owned', 'pvp', ['server-mirror-char', 'combat-strip-char'], 'PvP settlement owns the month paired with monthlyPvpKills; clients cannot roll old kills into a new ANBU month'),
     f('villageWarMissionDate', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned daily war-ground progress day; claim-rewards and village war-mission only'),
     f('villageWarRaidProgress', 'character', 'server-payout-stamp', 'village-war', ['strict-ledger-char', 'always-ledger-char', 'combat-strip-char'], 'server-owned war-ground progress; cannot be forged through generic save'),
-    f('professionChosenAt', 'character', 'server-owned', 'profession', ['combat-strip-char']),
+    f('professionChosenAt', 'character', 'server-owned', 'profession', ['server-mirror-char', 'combat-strip-char'], 'profession choice generation; only /api/profession/choose advances it, including scroll changes'),
     // Village Stores per-player daily counters (api/_village-stores.ts): written
     // only by the cafeteria cook + treasury donate endpoints under the save lock.
     f('rationsCookedDate', 'character', 'server-owned', 'village-stores', ['server-mirror-char', 'combat-strip-char'], 'UTC day of the cook counter'),
@@ -413,6 +416,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('hollowGateIntroSeen', 'character', 'client-preference', 'hollow-gate', ['combat-strip-char']),
 
     // ── Titles / legacy / server vaults ─────────────────────────────────────
+    f('eraJourneys', 'character', 'server-owned', 'eras', ['server-mirror-char', 'combat-strip-char'], 'Permanent campaigns and chapters; journey admission/completion and mission, Gate, Tower settlements write server proof.'),
     f('serverTitles', 'character', 'server-owned', 'titles', [], 'era grants; stored copy always wins'),
     f('legacy', 'character', 'server-owned', 'legacy', [], 'legacy endpoints only; stored copy always wins'),
     f('customTitleStyle', 'character', 'cosmetic-ref', 'titles', [], 'allowlisted when legacy live; non-first saves frozen to stored'),

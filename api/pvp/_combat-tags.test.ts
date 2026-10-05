@@ -45,6 +45,27 @@ describe('future activeRound statuses do not affect the current round', () => {
     });
 });
 
+describe('Bloodline Seal activation timing', () => {
+    it('activates on cast without making its companion Drain immediate', () => {
+        const result = applyJutsu(
+            fighter('A'),
+            fighter('B'),
+            jutsu([{ name: 'Bloodline Seal' }, { name: 'Drain' }]),
+            1,
+            'central',
+            1,
+        );
+        const seal = result.opponent.statuses.find(status => status.name === 'Bloodline Seal');
+        const drain = result.opponent.statuses.find(status => status.name === 'Drain');
+
+        assert.ok(seal, 'the seal is applied');
+        assert.equal(seal.activeRound, undefined, 'the seal is active in the cast round');
+        assert.equal(seal.rounds, 2, 'the seal keeps its two-round duration');
+        assert.ok(drain, 'Drain is still applied');
+        assert.equal(drain.activeRound, 2, 'Drain still starts next round');
+    });
+});
+
 describe('prevent tags only block at their intended timing', () => {
     it('a Debuff Prevent that activates next round does NOT block a Stun cast this round', () => {
         const pendingPrevent: PvpStatus = { name: 'Debuff Prevent', rounds: 2, activeRound: 2, kind: 'positive' };
@@ -326,6 +347,7 @@ describe('Copy / Mirror are deterministic with deferred statuses', () => {
     it('Mirror grants fresh two-round copies of every active debuff and leaves originals in place', () => {
         const self = fighter('A', 1000, [
             { name: 'Decrease Damage Given', rounds: 1, inactiveRound: 2, percent: 30, kind: 'negative' },
+            { name: 'Bloodline Seal', rounds: 2, kind: 'negative' },
             { name: 'Wound', rounds: 1, amount: 100, kind: 'negative' },
             { name: 'Ignition', rounds: 1, percent: 20, kind: 'negative' },
             { name: 'Poison', rounds: 1, percent: 6, kind: 'negative' },
@@ -333,7 +355,7 @@ describe('Copy / Mirror are deterministic with deferred statuses', () => {
             { name: 'Buff Prevent', rounds: 2, activeRound: 2, kind: 'negative' },
         ]);
         const r = applyJutsu(self, fighter('B'), jutsu([{ name: 'Mirror' }]), 1, 'central', 1);
-        const expected = ['Decrease Damage Given', 'Wound', 'Ignition', 'Poison', 'Drain'];
+        const expected = ['Decrease Damage Given', 'Bloodline Seal', 'Wound', 'Ignition', 'Poison', 'Drain'];
         assert.deepEqual(r.opponent.statuses.map(status => status.name), expected);
         for (const status of r.opponent.statuses) {
             assert.equal(status.rounds, 2, `${status.name} receives a fresh two-round duration`);

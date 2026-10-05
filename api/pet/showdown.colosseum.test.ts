@@ -86,21 +86,32 @@ test('admission rejects duplicate, missing, and busy owned pets before creating 
     assert.equal((await post({ action: 'start', format: '2v2', petIds: [ids[0], ids[0]] })).status, 400);
     assert.equal((await post({ action: 'arena', format: '1v1', petIds: ['not-owned'] })).status, 409);
     const save = (await kv.get<Record<string, any>>(`save:${player}`))!;
-    save.character.pets[0].training = { endsAt: Date.now() + 60_000 };
+    save.character.pets[0].expedition = { endsAt: Date.now() + 60_000 };
     await kv.set(`save:${player}`, save);
     assert.equal((await post({ action: 'arena', format: '1v1', petIds: [ids[0]] })).status, 409);
     assert.equal((await kv.keys(`pet:showdown:${player}:*`)).length, 0);
 });
 
-test('a paid terminal win settles once and replay cannot mint another reward or save version', async () => {
+for (const collectDuringBattle of [false, true]) test(`a paid win preserves training state and settles once: collected during battle = ${collectDuringBattle}`, async () => {
+    const training = { type: 'strength', endsAt: Date.now() + 60_000, sealedXp: 30 };
+    const initialSave = (await kv.get<Record<string, any>>(`save:${player}`))!;
+    initialSave.character.pets[0].training = training;
+    await kv.set(`save:${player}`, initialSave);
     const state = await start('arena');
     const session = (await kv.get<ShowdownSession>(key(state.sessionId)))!;
     assert.equal(session.rewardEligible, true);
+    if (collectDuringBattle) {
+        const { settleFinishedTraining } = await import('./_progress.js');
+        const current = (await kv.get<typeof initialSave>(`save:${player}`))!;
+        current.character.pets[0] = settleFinishedTraining(current.character.pets[0], training.endsAt).pet;
+        await kv.set(`save:${player}`, current);
+    }
     await kv.set(key(state.sessionId), { ...session, finished: true, outcome: 'win' });
     const first = await post({ action: 'turn', sessionId: state.sessionId, commands: [], reward: 999999 });
     assert.equal(first.status, 200, JSON.stringify(first.body));
     assert.ok(first.body.reward > 0 && first.body.reward < 999999);
     const paidSave = await kv.get(`save:${player}`);
+    assert.deepEqual((paidSave as typeof initialSave).character.pets[0].training, collectDuringBattle ? undefined : training, 'combat rewards preserve current training state instead of restoring the kickoff snapshot');
     const replay = await post({ action: 'turn', sessionId: state.sessionId, commands: [] });
     assert.equal(replay.status, 200);
     assert.equal(replay.body.reward, 0);

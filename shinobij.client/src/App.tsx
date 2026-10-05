@@ -13,10 +13,11 @@ import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState, us
 import type * as React from "react";
 import { installAuthFetch, setActivePlayer, setActiveToken, setAdminSession, SESSION_EXPIRED_EVENT } from "./authFetch";
 import { isReleaseSafeClientEvent } from "./lib/release-safe-content";
-import { canonicalNarrativeEvent, isReservedNarrativeId } from "./lib/canonical-narrative";
+import { canonicalNarrativeEvent, isReservedNarrativeId, sameNarrativeArtwork } from "./lib/canonical-narrative";
 import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } from "./components/GameAlert";
 import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
+import { PlayGameServicesLoader } from "./components/PlayGameServicesLoader";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
 // (No save-conflict banner import: that component is deleted — it warned about
@@ -55,7 +56,7 @@ import { accountKey, forgetAccountToken, loadPlayerAccounts, normalizePendingTra
 import type { HiddenChamberState, HollowGateEventModal } from "./lib/hollow-gate-tile";
 import { nextSavePayloadRevision } from "./lib/save-flight";
 
-import { beginSessionLoad, sessionLoadFetch } from "./lib/session-load-authority";
+import { beginSessionLoad, sessionLoadFetch, sessionLoadMatchesAccount } from "./lib/session-load-authority";
 import { restoreAccountFromServer } from "./lib/boot-restore";
 
 import { saveConflictAccountKey } from "./lib/save-conflict";
@@ -87,6 +88,10 @@ import {
 import { pushLiveSectorPlayers, markSectorRosterUnavailable, getLiveSectorPlayers, setLiveAvatarPrefetch, getLocalSectorTile, setLocalSectorTile, setLiveSectorContext, correctLocalSectorTile } from "./lib/presence-store";
 import { heartbeatNoticeAckFields, noteHeartbeatDelivery, withholdNoticeAck } from "./lib/notice-ack";
 import { worldSectorReconcileTarget } from "./lib/sector-reconcile";
+import { useHomeVillageTravel } from "./lib/use-home-village-travel";
+import { usePetBattleMusicLifecycle } from "./lib/use-pet-battle-music-lifecycle";
+import { usePlayerAccountNameMirror } from "./lib/use-player-account-name-mirror";
+import { villageBiomeMap } from "./data/village-biomes";
 import { mergeServerPendingWorldRewards } from "./lib/world-reward-recovery";
 import { presenceCharacter } from "./lib/presence-character";
 import { noteServerTime } from "./lib/server-clock";
@@ -194,7 +199,7 @@ const loadMissionCatalog = () => import("./data/missions");
 const mutateDungeonRunServer = (playerName: string, action: "start" | "settle" | "abandon", token = "", presentationEventId?: string) =>
     import("./lib/dungeon-api").then((api) => api.mutateDungeonRunServer(playerName, action, token, presentationEventId));
 const loadDungeonPresentation = () => retryDynamicImport(() => import('./lib/dungeon-presentation'));
-import { fetchPlayerCombatSave, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
+import { fetchPlayerCombatSave, stripDataUrlImages, stringifyPvpSessionPayload, pvpSessionEnvironment, pvpResultReturn, pvpBattleIdForPresence, leavePvpSpectator, markPvpSectorReturn, preloadPvpChallengeModules, pvpChallengeAcceptanceMessage, hasVersionedPvpClaimSnapshot } from "./lib/pvp-session";
 import { readPvpBrowserBreadcrumb, type PvpRecoveryContext } from "./lib/pvp-pending-session";
 const loadPvpSessionCreate = () => import("./lib/pvp-session-create"), loadPvpPendingFetch = () => import("./lib/pvp-pending-fetch");
 import { usePvpSessionController } from "./lib/use-pvp-session-controller";
@@ -228,15 +233,18 @@ const PvpBattleScreen = lazyWithRetry(loadPvpBattleScreen);
 const Arena = lazyWithRetry(() => import("./screens/Arena").then(m => ({ default: m.Arena })));
 import type { HollowGatePetFightRef } from "./components/HollowGatePetFight";
 import { BattleLockKeeper } from "./components/BattleLockKeeper";
-import { DEEP_LINKABLE_SCREENS, BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { BATTLE_SCREENS, isHospitalNavigationBlocked, isUnresolvedBattle, hasActiveTowerFight, restoreScreenForSave, safeFallbackScreen, screenResetsSector, isWildSector, setTowerFightRunId, setTowerPvpMatchId } from "./lib/screen-guards";
+import { readScreenPreference } from "./lib/navigation-trail";
+import { setSectorReopen } from "./lib/sector-return";
 import { useAppHistory } from "./lib/app-history";
 import { clearImgCache, imgCacheKey, IMG_CACHE_TTL, scheduleImageCategoryRetry, URL_MODE_CATEGORIES } from "./lib/shared-image-cache";
 import { overlayVnImages } from './lib/vn-shared-artwork';
 import { imageEntries, parseImageManifest } from "./lib/shared-image-manifest";
 import { visiblePoll } from "./lib/poll";
 import { useBattleNavigationGuard } from "./lib/use-battle-navigation-guard";
+import { useAiFightCloseNavigation } from './lib/use-ai-fight-close-navigation';
 import { isBattleViewScreen, shouldHideBattleChrome } from "./lib/notifications-core";
-import { isPetHomeScreen, petHomeReturnLabel } from "./lib/pet-home-navigation";
+import { usePetHomeReturn, petHomeReturnLabel } from "./lib/pet-home-navigation";
 import { mergePlayerRoster, mergeRosterSnapshot } from "./lib/roster-merge";
 import { setOwnAvatarFallback } from "./lib/own-avatar";
 import { activeCarriedPets, isPresetAvatar } from "./lib/entitlements";
@@ -354,7 +362,6 @@ import {
 
 import type { Achievement } from "./constants/achievements";
 import { createAchievementSyncGate } from "./lib/achievement-sync";
-import { runAchievementSyncPass } from "./lib/achievement-sync-pass";
 
 export type { PetArenaFrame, PetBattleFighter, PetBattleRecord } from "./types/pet-arena";
 
@@ -364,7 +371,6 @@ import {
 
 import { isPetOnExpedition, resolveAvailablePetBattlePair } from "./lib/pet";
 import { buildAcceptedArenaMatch, type ArenaMatchPayload } from "./lib/arena-challenge";
-import { stopBattleMusic } from "./lib/pet-music";
 import { setBackgroundMusicScene } from "./lib/background-music";
 
 export type { PetPartyBattleMatch, PetPartyBattleResult } from "./lib/pet-battle-sim";
@@ -753,36 +759,13 @@ export default function App() {
     const villageWarAvailability = useCapabilityViewAvailability("villageWar");
     const gameplayViewOpen = capabilityAdmissionAllowed(gameplayViewAvailability);
     const gameplayMutationsOpen = capabilityAdmissionAllowed(gameplayMutationAvailability);
-    const [petHomeReturnScreen, setPetHomeReturnScreen] = useState<Screen>("village");
-    const previousPetHomeScreenRef = useRef<Screen>("start");
-    useLayoutEffect(() => {
-        const previousScreen = previousPetHomeScreenRef.current;
-        if (isPetHomeScreen(screen) && !isPetHomeScreen(previousScreen) && previousScreen !== "start") {
-            setPetHomeReturnScreen(previousScreen);
-        }
-        previousPetHomeScreenRef.current = screen;
-    }, [screen]);
-    const leavePetHome = useCallback(() => setScreen(petHomeReturnScreen), [petHomeReturnScreen]);
     // Which durable battle record the "battleLog" screen is showing. Set by the
     // Profile battle list; the screen itself fetches from the server by id.
     const [viewedBattleId, setViewedBattleId] = useState<string | null>(null);
-    // Battle music is only ever STARTED from startBattle() (pet arena + dungeon
-    // beast duel). Catch the exit here: leaving the Pet Arena fades the loop
-    // out. Screen doesn't change mid-battle, so this never cuts music during a
-    // fight; "Fight Again" restarts it with a fresh track.
-    useEffect(() => {
-        if (screen !== "petArena" && screen !== "petShowdown" && screen !== "petColiseum" && screen !== "firstPact") stopBattleMusic();
-    }, [screen]);
+    usePetBattleMusicLifecycle(screen);
     const [worldMapKey, setWorldMapKey] = useState(0);
     const [character, setCharacter] = useState<Character | null>(null);
-    useEffect(() => {
-        if (!character?.accountName) return;
-        const accounts = loadPlayerAccounts();
-        const key = accountKey(character.name);
-        if (accounts[key]?.accountName === character.accountName) return;
-        accounts[key] = { ...accounts[key], accountName: character.accountName };
-        savePlayerAccounts(accounts);
-    }, [character?.name, character?.accountName]);
+    usePlayerAccountNameMirror(character);
     const [currentAccountName, setCurrentAccountName] = useState("");
     const [viewingUserName, setViewingUserName] = useState<string | null>(null);
 
@@ -860,35 +843,6 @@ export default function App() {
         return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
     }, []);
 
-    // ── Last-screen persistence ─────────────────────────────────────────
-    // Refresh used to dump the player back to the village every time because
-    // (1) the initial state is "start" and (2) the snapshot loader hard-codes
-    // setScreen("village") after login. Persisting the active screen to
-    // localStorage and letting the snapshot loader read it back keeps the
-    // player roughly where they left off after a refresh.
-    //
-    // Mid-encounter screens (arena, petArena, hollowGateTiles) hold ephemeral
-    // React state that can't actually resume from disk; for those we route to
-    // the safest parent (hollowGateShrine when a run is in progress; village
-    // otherwise) so the player never lands in a broken half-loaded battle.
-    const LAST_SCREEN_KEY = "lastScreen.v1";
-    useEffect(() => {
-        // Skip "start" for the same reason the hash writer below does: every
-        // page load initializes `screen` to "start", and this effect fires on
-        // mount BEFORE the async snapshot restore reads the key back. Writing
-        // "start" here clobbers the genuine last screen, so any screen that the
-        // restore resolves via this key (every screen not deep-linkable from the
-        // hash — i.e. all battle/encounter screens) falls back to "start" and is
-        // routed to the village. That was the bug that let players refresh-flee a
-        // fight. Leaving the prior value intact lets the restore read the real
-        // last screen.
-        if (screen === "start") return;
-        try { localStorage.setItem(LAST_SCREEN_KEY, screen); } catch { /* quota / SSR */ }
-    }, [screen]);
-    // Shareable URL hash (both surfaces) + the Android hardware back button
-    // (Play app only, refused mid-battle). Both write history, so they live
-    // together in lib/app-history.
-    useAppHistory(screen, setScreen, isPresenceBattleActive, () => safeFallbackScreen(isWildSector(currentSectorRef.current)));
     // ── Phase 0 load/refresh telemetry ──────────────────────────────────
     // Stamp boot milestones for the perf beacon (see
     // docs/load-and-refresh-perf-audit-2026-06-08.md). All three calls are
@@ -911,26 +865,6 @@ export default function App() {
     // 5-min TTL: a 2v2 pet battle is ≤30 rounds × ~150ms per frame = <10s
     // of animation, so anything past 5 min is stale.
     const PENDING_PET_PVP_KEY = "pendingPetPvp.v1";
-    // Strip image data URLs from anywhere in the serialized resume payload
-    // before writing to localStorage. The opponent + party objects carry full
-    // Pet records, and a 2MB data URL × N pets will blow the ~5MB quota — the
-    // try/catch around setItem swallowed the failure silently so the player
-    // had no idea their other localStorage writes were also failing. Images
-    // are recoverable from sharedImages on remount anyway.
-    function stripDataUrlImages(value: unknown): unknown {
-        if (typeof value === "string") {
-            return value.startsWith("data:image") ? "" : value;
-        }
-        if (Array.isArray(value)) return value.map(stripDataUrlImages);
-        if (value && typeof value === "object") {
-            const out: Record<string, unknown> = {};
-            for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
-                out[k] = stripDataUrlImages(v);
-            }
-            return out;
-        }
-        return value;
-    }
     const PENDING_PET_PVP_TTL_MS = 5 * 60 * 1000;
 
     // ── Tab visibility: pause all polling when the browser tab is hidden ──
@@ -970,19 +904,21 @@ export default function App() {
     // loop (dirty save → server discards → re-hydrate reverts → effect re-fires),
     // which drove /api/save into 409s then 429s and re-rendered mid-combat. The
     // gate guarantees one request per distinct divergence — see lib/achievement-sync.ts.
-    // Each pass runs in lib/achievement-sync-pass.ts, which also survives a
-    // catalog chunk that fails to load.
+    // Load the sync pass only after gameplay opens; it owns the server check
+    // and safely skips a pass if its presentation catalog is unavailable.
     const [achievementToasts, setAchievementToasts] = useState<Achievement[]>([]);
     const achievementGateRef = useRef(createAchievementSyncGate());
     useEffect(() => {
         const playerName = character?.name;
         if (!gameplayMutationsOpen || !character || !playerName) return;
         let cancelled = false;
-        void runAchievementSyncPass({
-            playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
-            characterRef, commitVersionedCharacter,
-            onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
-        });
+        void import("./lib/achievement-sync-pass").then(({ runAchievementSyncPass }) => {
+            if (!cancelled) return runAchievementSyncPass({
+                playerName, character, gate: achievementGateRef.current, isCancelled: () => cancelled,
+                characterRef, commitVersionedCharacter,
+                onToasts: (toasts) => setAchievementToasts(prev => [...prev, ...toasts]),
+            });
+        }).catch(() => {});
         return () => { cancelled = true; };
     }, [character, gameplayMutationsOpen]);
 
@@ -1277,6 +1213,7 @@ export default function App() {
         pvpBattleContext, setPvpBattleContext, pvpSeedSession, setPvpSeedSession,
         pvpCompletionConfirmed, setPvpCompletionConfirmed, installPvpRecovery, installPvpBreadcrumb, clearPvpBattleState,
     } = usePvpSessionController({ characterName: character?.name, accountSessionEpoch: saveSessionEpochRef.current, restoringSession, storageKey: PVP_SESSION_KEY });
+    const [returnToSpectateTab, setReturnToSpectateTab] = useState(false);
     const pvpContinuationResultRef = useRef(new Map<string, {
         bounty: Awaited<ReturnType<typeof claimBountyOnWin>> | undefined;
         missionCompletions: Array<{ id: string; name: string; xpReward: number }> | undefined;
@@ -1367,7 +1304,7 @@ export default function App() {
         let cancelled = false;
         void sealHollowGateFloor(playerName, token, hollowGateRun).then((result) => {
             if (cancelled) return;
-            if (result.position || result.activeCombat) {
+            if (result.position || result.activeCombat || result.detour) {
                 setHollowGateRun((previous) => {
                     if (!previous || previous.runToken !== token || previous.floor !== floor) return previous;
                     return {
@@ -1376,6 +1313,8 @@ export default function App() {
                             ? { playerX: result.position.x, playerY: result.position.y }
                             : {}),
                         ...(result.activeCombat ? { activeCombat: result.activeCombat } : {}),
+                        detourTileIndex: result.detour?.tileIndex, detourExtraSteps: result.detour?.extraSteps,
+                        riftSignalTileIndex: result.riftSignal?.tileIndex,
                     };
                 });
             }
@@ -1735,7 +1674,7 @@ export default function App() {
         const blocksBattleScreen = BATTLE_SCREENS.has(screen)
             && (!mixedPetScreen || petBattleActive || !!pendingPetBattleOpponent)
             && (screen !== "battleTowers" || hasActiveTowerFight());
-        if (blocksBattleScreen) return;
+        if (blocksBattleScreen || (screen === 'arenaDistrict' && hasActiveTowerFight())) return;
 
         const me = character.name.toLowerCase();
         for (const war of Object.values(sharedClanWarCache)) {
@@ -1759,6 +1698,7 @@ export default function App() {
     // Keeps the app-level battle lock active while a rift Chronicle ambush is
     // on screen. The server run and match id remain the actual seal authority.
     const [hollowGateTileGameActive, setHollowGateTileGameActive] = useState(false);
+    const [worldExplorePresentationActive, setWorldExplorePresentationActive] = useState(false);
 
     // liveSectorPlayers now lives in lib/presence-store (external store) so the
     // ~1s heartbeat updates only the sector view, not the whole App tree. Read it
@@ -1875,6 +1815,26 @@ export default function App() {
         try { localStorage.removeItem(PENDING_PET_PVP_KEY); } catch { /* ignore */ }
     }, [screen]);
     const isTraveling = travelingUntil > travelNow;
+    function arriveHomeFromTravel() {
+        const biome = villageBiomeMap[characterRef.current?.village ?? ""] ?? "forest";
+        setCurrentSector(0);
+        setCurrentBiome(biome);
+        setCurrentWeather(weatherForBiome(biome));
+        setPendingTravel(null);
+        setTravelingUntil(0);
+        setScreen("village");
+    }
+    const homeVillageTravel = useHomeVillageTravel({
+        name: character?.name,
+        onStart: (arrivalAt) => {
+            setPendingTravel({ destinationSector: 0, arrivalAt });
+            setTravelingUntil(arrivalAt);
+            setWorldMapKey((key) => key + 1);
+            setScreen("worldMap");
+        },
+        onArrival: arriveHomeFromTravel,
+        onError: (message) => alert(message),
+    });
 
     // Wake ONCE, when travel actually ends — not four times a second.
     //
@@ -1901,17 +1861,21 @@ export default function App() {
     // the deadline so the next heartbeat can reconcile the server's arrival.
     useEffect(() => {
         if (pendingTravel && pendingTravel.arrivalAt <= travelNow) {
+            if (pendingTravel.destinationSector === 0) {
+                arriveHomeFromTravel();
+                return;
+            }
             setPendingTravel(null);
             setTravelingUntil(0);
         }
     }, [pendingTravel, travelNow]);
 
-    function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current): boolean {
+    function isPresenceBattleActive(screenSnapshot: Screen = screenRef.current, forWorldPresence = false): boolean {
         if (storyFightOpen || sealedFightEngagedRef.current) return true;
         return isUnresolvedBattle({
             screen: screenSnapshot,
             raidBattleKind,
-            pvpBattleId,
+            pvpBattleId: forWorldPresence ? pvpBattleIdForPresence(pvpBattleId, pvpBattleContext) : pvpBattleId,
             pvpBattleResolved: pvpCompletionConfirmed,
             endlessBattleActive,
             pendingArenaStoryBattle: !!pendingArenaStoryBattle,
@@ -1949,7 +1913,7 @@ export default function App() {
             // reject double-battle requests and healers can't heal active fighters.
             // The shared guard keeps opponent-search hubs free while still lifting
             // active arena/pet flags whose state lives inside those screens.
-            const inBattleNow = isPresenceBattleActive();
+            const inBattleNow = isPresenceBattleActive(undefined, true);
             // Upload only the display fields the roster surfaces, not the full
             // character blob — see presenceCharacter(). Gameplay/PvP paths read the
             // presence row's sector/inBattle/travel flags, not this character; combat
@@ -2133,7 +2097,7 @@ export default function App() {
         return () => { retireHeartbeat(); stopHeartbeat(); };
     }, [
         gameplayMutationsOpen, character?.name, character?.guardQueued, currentSector, isTraveling, travelingUntil, pendingTravel, screen, tabVisible, socketConnected,
-        raidBattleKind, pvpBattleId, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
+        raidBattleKind, pvpBattleId, pvpBattleContext, pvpCompletionConfirmed, endlessBattleActive, pendingArenaStoryBattle,
         pendingEventEncounter, activeDungeonEvent, hollowGateTileGameActive, pendingPetBattleOpponent,
         petBattleActive,
     ]);
@@ -2143,7 +2107,7 @@ export default function App() {
         characterRef,
         currentSectorRef,
         heartbeatRef,
-        getPresenceBattleActive: isPresenceBattleActive,
+        getPresenceBattleActive: () => isPresenceBattleActive(undefined, true),
         setSocketConnected,
     });
 
@@ -2725,7 +2689,7 @@ export default function App() {
             } catch { /* corrupt or missing — ignore */ }
 
             (() => {
-                let target: Screen = "village";
+                let target = restoreScreenForSave(null, !!normalized.hollowGateRun && !normalized.hollowGateRun.completed, normalized.hospitalized, !!normalized.activeDungeonRun?.token, isWildSector(Number(snap.currentSector ?? 0)), normalizePendingTravel(snap.pendingTravel) !== null);
                 const recovery = decideBootBattleRecovery({
                     pvpSessionAliveOnServer, restoredPvpBattleId, hasPendingPetPvp: Boolean(restoredPendingPetPvp), bootLock,
                     readRecentlyResolved: () => { try { return localStorage.getItem(BATTLE_LOCK_RESOLVED_KEY) ?? ""; } catch { return ""; } },
@@ -2759,7 +2723,12 @@ export default function App() {
                         if (runId && runId.length <= 128) {
                             if (arena2v2) setTowerPvpMatchId(runId); else setTowerFightRunId(runId);
                         }
-                        setScreen(arena2v2 ? "battleArena" : "battleTowers");
+                        if (bootLock.meta?.mode === 'tournament') {
+                            try { sessionStorage.setItem('tournament-resume', '1'); } catch { /* optional recovery marker */ }
+                            // An optimistic hub preview may have opened a story before the server lease arrived.
+                            setActiveTriggeredEvent(null);
+                            setScreen('arenaDistrict');
+                        } else setScreen(arena2v2 ? "battleArena" : "battleTowers");
                         return;
                     }
                     if (recovery === "resolved") {
@@ -2925,7 +2894,7 @@ export default function App() {
                     // and the safe-screen routing below. The screen sets and
                     // recovery policy live in lib/screen-guards so they cannot drift.
                     const hashRaw = (() => { try { return window.location.hash.replace(/^#\/?/, ""); } catch { return ""; } })();
-                    const persisted = (DEEP_LINKABLE_SCREENS.has(hashRaw as Screen) ? (hashRaw as Screen) : null) ?? (localStorage.getItem(LAST_SCREEN_KEY) as Screen | null);
+                    const persisted = readScreenPreference(hashRaw, normalized.name);
                     const inHollowGateRun = Boolean(normalized.hollowGateRun && !normalized.hollowGateRun.completed);
                     const inDungeonRun = Boolean(normalized.activeDungeonRun?.token);
                     const arrivalTile = (snap as { currentTile?: unknown }).currentTile;
@@ -2938,7 +2907,7 @@ export default function App() {
                             // Storage failures must not block the Gate recovery route.
                         }
                     }
-                } catch { /* localStorage unavailable — default to village */ }
+                } catch { /* Keep the server-derived location/run fallback. */ }
                 // If we're landing back on the shrine, hydrate the local run
                 // state from the character's saved run. Otherwise the screen
                 // renders blank because the gate guard requires hollowGateRun.
@@ -3072,7 +3041,7 @@ export default function App() {
                 onFailure: revertRestoreToLogin,
                 onTimeout: () => setRestoringSession(false),
                 onSettled: () => { restoreCompleted = true; },
-                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(); },
+                onComplete: () => { setRestoringSession(false); void pullSharedAdminContent(restoreLoad); },
             });
         } else {
             // No stored account → brand-new / anonymous visitor: show the login
@@ -3288,49 +3257,52 @@ export default function App() {
     }
 
     // Returns true if the published-pet-template registry changed (caller re-normalizes).
-    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>): boolean {
+    function applySharedAdminContentSnapshot(snap: ReturnType<typeof buildPlayerSavePayload>, accountName: string, isCurrent: () => boolean): boolean {
+        if (!isCurrent()) return false;
         const sharedCreatorJutsus = ((snap.creatorJutsus as Jutsu[] | undefined) ?? []).map(normalizeJutsu);
-        const contentAdmin = isContentAdminName(character?.name);
+        const contentAdmin = isContentAdminName(accountName);
         // Bloodlines are intentionally NOT synced from admin saves — each player sees only their own bloodlines.
-        if (snap.creatorJutsus) setCreatorJutsus((prev) => mergeJutsusByRecency(prev, sharedCreatorJutsus));
-        if (snap.creatorAis) setCreatorAis((prev) => mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])));
+        if (snap.creatorJutsus) setCreatorJutsus((prev) => isCurrent() ? mergeJutsusByRecency(prev, sharedCreatorJutsus) : prev);
+        if (snap.creatorAis) setCreatorAis((prev) => isCurrent() ? mergeById(prev, balanceExistingAiProfiles(snap.creatorAis as CreatorAi[], [...starterJutsus, ...sharedCreatorJutsus])) : prev);
         if (snap.creatorEvents) {
             const incoming = contentAdmin
                 ? snap.creatorEvents as CreatorEvent[]
                 : (snap.creatorEvents as CreatorEvent[]).filter(isReleaseSafeClientEvent);
-            setCreatorEvents((prev) => mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming));
+            setCreatorEvents((prev) => isCurrent() ? mergeById(contentAdmin ? prev : prev.filter(isReleaseSafeClientEvent), incoming) : prev);
         }
         if (contentAdmin) {
-            if (snap.creatorMissions) setCreatorMissions((prev) => mergeById(prev, snap.creatorMissions as CreatorMission[]));
-            if (snap.creatorRaids) setCreatorRaids((prev) => mergeById(prev, snap.creatorRaids as CreatorRaid[]));
+            if (snap.creatorMissions) setCreatorMissions((prev) => isCurrent() ? mergeById(prev, snap.creatorMissions as CreatorMission[]) : prev);
+            if (snap.creatorRaids) setCreatorRaids((prev) => isCurrent() ? mergeById(prev, snap.creatorRaids as CreatorRaid[]) : prev);
         } else {
-            setCreatorMissions([]);
-            setCreatorRaids([]);
+            setCreatorMissions((prev) => isCurrent() ? [] : prev);
+            setCreatorRaids((prev) => isCurrent() ? [] : prev);
         }
-        if (snap.creatorCards) setCreatorCards((prev) => mergeById(prev, snap.creatorCards as TileCard[]));
-        if (snap.creatorItems) setCreatorItems((prev) => mergeById(prev, snap.creatorItems as GameItem[]));
-        if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn as CreatorEvent);
-        if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn as CreatorEvent);
+        if (snap.creatorCards) setCreatorCards((prev) => isCurrent() ? mergeById(prev, snap.creatorCards as TileCard[]) : prev);
+        if (snap.creatorItems) setCreatorItems((prev) => isCurrent() ? mergeById(prev, snap.creatorItems as GameItem[]) : prev);
+        if (snap.petEncounterVn) setPetEncounterVn((prev) => isCurrent() ? snap.petEncounterVn as CreatorEvent : prev);
+        if (snap.ancientChestVn) setAncientChestVn((prev) => isCurrent() ? snap.ancientChestVn as CreatorEvent : prev);
         // Event-gate config: recency-merged like the other shared content so
         // whichever admin edited it last wins across both admin slots.
         if (snap.hollowGateEventConfig) {
             const nextCfg = normalizeHollowGateEventConfig(snap.hollowGateEventConfig);
-            if (nextCfg) setHollowGateEventConfig(prev => (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
+            if (nextCfg) setHollowGateEventConfig(prev => isCurrent() && (!prev || (nextCfg.updatedAt ?? 0) >= (prev.updatedAt ?? 0)) ? nextCfg : prev);
         }
         // Publish admin-edited pet kits globally (normalizePet adopts authored templates).
         return snap.editablePets ? registerPublishedPetTemplates(snap.editablePets as Pet[]) : false;
     }
 
-    async function pullSharedAdminContent() {
+    async function pullSharedAdminContent(scope: ReturnType<typeof beginSessionLoad>) {
+        const isCurrent = () => sessionLoadMatchesAccount(scope, currentAccountNameRef.current);
         const snapshots = await Promise.all([
             pullSaveFromServer("Admin 1"),
             pullSaveFromServer("Admin 2"),
         ]);
+        if (!isCurrent()) return;
         const available = snapshots.filter((snap): snap is ReturnType<typeof buildPlayerSavePayload> => Boolean(snap));
         if (!available.length) return;
-        const petTemplatesChanged = available.map(applySharedAdminContentSnapshot).some(Boolean);
+        const petTemplatesChanged = available.map((snap) => applySharedAdminContentSnapshot(snap, scope.accountKey, isCurrent)).some(Boolean);
         // Re-normalize the live roster so loaded pets adopt freshly-pulled admin kits.
-        if (petTemplatesChanged) setCharacter((prev) => prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
+        if (petTemplatesChanged) setCharacter((prev) => isCurrent() && prev ? { ...prev, pets: prev.pets.map(normalizePet) } : prev);
         // Image manifests have their own short-lived cache and screen-specific
         // loader. Pulling shared metadata must not invalidate every image bucket.
         loadScreenImageCategories(screenRef.current);
@@ -3427,7 +3399,7 @@ export default function App() {
             const forcedId = forcedStoryChapterRef.current;
             const resolved = await resolveStoryContinuation(() => forcedId ? currentStoryChapterTrigger(character) : nextStoryTrigger(character, triggeredEvents, [...dismissedStoryScenesRef.current]), character.name, () => currentAccountNameRef.current || characterRef.current?.name || "", () => stale);
             const next = resolved.current ? resolved.value : null;
-            if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current) return;
+            if (!next || vnTriggerClaimRef.current || sealedFightEngagedRef.current || isBattleFlowScreen()) return;
             if (forcedId === next.eventId) forcedStoryChapterRef.current = null;
             vnTriggerClaimRef.current = true;
             // Keep current story text and branches; saved copies supply art only.
@@ -3459,16 +3431,18 @@ export default function App() {
             setTriggerPage(0); setTriggerLine(0); setActiveTriggeredEvent(event);
         },
     };
-    // When sharedImages updates while any VN is open (images loaded after trigger fired),
-    // patch the live activeTriggeredEvent so images appear without re-triggering the whole flow.
+    // Late metadata and image-store artwork hydrate the open reader without reopening it.
     useEffect(() => {
         setActiveTriggeredEvent(prev => {
             if (!prev) return prev;
-            // A discovered pet is bound by buildPetEncounterVn. Loading the
-            // template's art later must not turn that animal into its old NPC.
-            return overlayVnImages(prev, prev.id, sharedImages, { preserveCast: prev.id === 'sys-pet-encounter' });
+            const base = prev.id.startsWith('story-')
+                ? canonicalNarrativeEvent(prev, creatorEvents.find(event => event.id === prev.id))
+                : prev;
+            // The discovered animal's cast remains bound by buildPetEncounterVn.
+            const next = overlayVnImages(base, prev.id, sharedImages, { preserveCast: prev.id === 'sys-pet-encounter' });
+            return sameNarrativeArtwork(prev, next) ? prev : next;
         });
-    }, [sharedImages]);
+    }, [creatorEvents, sharedImages]);
 
     useEffect(() => {
         // Anonymous landing/account views have no vitals to regenerate.
@@ -4059,7 +4033,7 @@ export default function App() {
             console.error("[createPlayerAccount] first save failed", err);
             alert("Your character was created, but the first save to the server didn't go through. Keep this tab open — it will retry automatically. Don't refresh yet, or your new character could be lost.");
         }
-        void pullSharedAdminContent();
+        void pullSharedAdminContent(createLoad);
     }
 
     // Apply a full server snapshot. `authoritative: false` = cache paint, skips conflict classification (see rehydrate).
@@ -4201,7 +4175,7 @@ export default function App() {
             const serverSnapshot = await saveRes.json() as ReturnType<typeof buildPlayerSavePayload>;
             if (!loginLoad.isCurrent() || saveConflictAccountKey(serverSnapshot.character.name) !== loginLoad.accountKey) return "superseded";
             applyServerSnapshot(serverSnapshot);
-            void pullSharedAdminContent();
+            void pullSharedAdminContent(loginLoad);
             return "ok";
         }
         const failure = saveLoadFailure(saveRes.status);
@@ -4518,9 +4492,15 @@ export default function App() {
         try { localStorage.removeItem(arenaStoryCtxKey(name)); } catch { /* private mode */ }
     }, [character?.name]);
 
+    const petHomeReturnScreen = usePetHomeReturn(screen, character?.name, currentSector);
+    const leavePetHome = () => navigate(petHomeReturnScreen);
     const { canGoBack, goBack, inBattleRef } = useBattleNavigationGuard({
         screen, screenRef, setScreen, hospitalized: !!character?.hospitalized, fallbackScreen: () => safeFallbackScreen(isWildSector(currentSectorRef.current)),
-        raidBattleKind, pvpBattleId, pvpBattleResolved: pvpCompletionConfirmed, endlessBattleActive,
+        account: character?.name,
+        navigationBlocked: () => isTraveling || homeVillageTravel.isBusy() || storyFightOpen || sealedFightEngagedRef.current,
+        navigateBack: navigate,
+        returnOverride: screen === "pvpBattle" ? pvpResultReturn(pvpBattleContext, currentSector, !!character?.hospitalized).returnTarget : undefined,
+        raidBattleKind, pvpBattleId: pvpBattleIdForPresence(pvpBattleId, pvpBattleContext), pvpBattleResolved: pvpCompletionConfirmed, endlessBattleActive,
         pendingArenaStoryBattle: !!pendingArenaStoryBattle,
         pendingEventEncounter: !!pendingEventEncounter,
         activeDungeonEvent: !!activeDungeonEvent,
@@ -4528,13 +4508,13 @@ export default function App() {
         pendingPetBattle: !!pendingPetBattleOpponent,
         arenaBattleActive: false, petBattleActive, missionBattleActive,
     });
+    const { onClose: handleAiFightClosed, stableNavigate } = useAiFightCloseNavigation({ account: character?.name ?? '', sealedFightOpen, missionBattleActive, setMissionBattleActive, navigate });
+    useAppHistory(screen, navigate, () => isPresenceBattleActive(screenRef.current, true) || isTraveling || homeVillageTravel.isBusy() || !!character?.hospitalized,
+        () => safeFallbackScreen(isWildSector(currentSectorRef.current)), character?.name);
 
     // Stable identities for the memo'd RightMenu/MobileNav: navigate/logoutPlayer get a
     // fresh identity each render, defeating their memo. These latest-ref wrappers delegate
     // to the current fn — stable identity, no stale closure, behavior identical.
-    const navigateRef = useRef(navigate);
-    navigateRef.current = navigate;
-    const stableNavigate = useCallback((nextScreen: Screen) => navigateRef.current(nextScreen), []);
     const logoutPlayerRef = useRef(logoutPlayer);
     logoutPlayerRef.current = logoutPlayer;
     // logoutPlayer is async (it awaits the final save); the menu props take a
@@ -4544,21 +4524,26 @@ export default function App() {
         void logoutPlayerRef.current();
     }, []);
 
-    function navigate(nextScreen: Screen, authoritativeCharacter?: Character) {
+    function navigate(nextScreen: Screen, authoritativeCharacter?: Character): boolean {
         const currentVillageWarAvailability = viewAvailability("villageWar");
         if (!villageWarScreenMountAllowed(nextScreen, currentVillageWarAvailability)) {
             alert(sectorMapAdmissionMessage(currentVillageWarAvailability));
-            return;
+            return false;
         }
         // Lock: cannot leave during an active battle (any type — isUnresolvedBattle).
-        if (inBattleRef.current) {
+        if (inBattleRef.current || storyFightOpen || sealedFightEngagedRef.current) {
             alert("⚔️ You cannot leave during a battle. Finish the fight first!");
-            return;
+            return false;
         }
         // Lock: cannot leave hospital while still admitted
         if (isHospitalNavigationBlocked(!!(authoritativeCharacter ?? character)?.hospitalized, screen, nextScreen)) {
             alert("You're still admitted — pay the discharge fee to be released now, or wait for the free check-out timer.");
-            return;
+            return false;
+        }
+        if (isTraveling || homeVillageTravel.isBusy()) return false;
+        if (nextScreen === "village" && currentSectorRef.current !== 0 && character) {
+            void homeVillageTravel.start();
+            return false;
         }
         // (Hollow Gate "no retreat" lock now lives in isUnresolvedBattle.)
         // Hospital admission timer is server-authoritative (character.hospitalizedUntil,
@@ -4579,7 +4564,7 @@ export default function App() {
                 setActiveTriggerReturnScreen("battleArena");
                 setTriggerPage(0);
                 setTriggerLine(0);
-                return;
+                return false;
             }
         }
 
@@ -4590,13 +4575,24 @@ export default function App() {
             setActiveTriggerReturnScreen(nextScreen);
             setTriggerPage(0);
             setTriggerLine(0);
-            return;
+            return false;
         }
 
-        if (nextScreen === "worldMap") setWorldMapKey((k) => k + 1);
+        if (nextScreen === "worldMap") {
+            if (screen !== "worldMap" && isWildSector(currentSectorRef.current)) setSectorReopen(currentSectorRef.current);
+            setWorldMapKey((k) => k + 1);
+        }
         perfNotifyScreen(nextScreen);
         preloadScreen(nextScreen, character?.storyVillage || character?.village);
+        if (screen === "pvpBattle" && nextScreen !== "pvpBattle") {
+            leavePvpSpectator(pvpBattleId, pvpBattleContext, character?.name);
+            markPvpSectorReturn(nextScreen, pvpBattleContext, currentSector);
+            if (pvpBattleContext?.spectatingFromScreen === "arenaDistrict") setReturnToSpectateTab(true);
+            clearPvpBattleState();
+            setRaidBattleKind("none");
+        }
         setScreen(nextScreen);
+        return true;
     }
 
     async function completeTriggeredEvent(event: CreatorEvent) {
@@ -5393,6 +5389,7 @@ export default function App() {
                         characterVillage={character?.village ?? ""} storyVillage={character?.storyVillage ?? character?.village ?? ""} characterClan={character?.clan ?? ""}
                         profession={character?.profession ?? null}
                         screen={screen}
+                        currentSector={currentSector}
                     />
                     <MobileNav
                         navigate={stableNavigate} adminLoggedIn={adminLoggedIn} logoutPlayer={stableLogout}
@@ -5435,6 +5432,7 @@ export default function App() {
 
             <StoryBossFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} onSettled={handleServerStoryBossSettled} onOutcome={commitVersionedCharacter} onFightOpenChange={setStoryFightOpen} />
             {character && <Suspense fallback={null}><StoryDeliveryHost {...storyDeliveryProps} /></Suspense>}
+            {character && <PlayGameServicesLoader character={character} commitVersionedCharacter={commitVersionedCharacter} confirm={gameConfirm} toast={gameToast} />}
             {/* Sealed AI fights (hunts, guards, ambushes, raids, field missions). The host fails closed unless it receives a canonical solo-PvE session; there is no rewarding local-Arena fallback. Hooks only mirror the remaining non-world UI side effects. Both hosts are code-split (fallback null — they render nothing until a fight is requested); their chunks are fetched from App's FIRST render, i.e. before any lazy launch screen is even requested, so the request-bus listener is live long before a launch site can exist. */}
             <AiFightHost character={character} sharedImages={sharedImages} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorItems={creatorItems} hooks={{ onMissionRaidComplete: (sector, missionIds) => recordMissionRaid(sector, undefined, missionIds, character?.name ?? "") }} onSettled={(result) => {
                 if (result.character && !commitVersionedCharacter(result.character, result._saveVersion)) return;
@@ -5444,7 +5442,7 @@ export default function App() {
                         detail: { name: mission.name, xp: mission.xpReward, profession: "vanguard" },
                     }));
                 }
-            }} onFightOpenChange={setAiFightOpen} onClose={(back) => { setMissionBattleActive(false); if (back) navigate(back as Screen); }} onRecordBattle={recordBattle} />
+            }} onFightOpenChange={setAiFightOpen} onClose={handleAiFightClosed} onRecordBattle={recordBattle} />
 
             <main
                 className={`center-game screen-${screen}${hideBattleChrome ? " battle-focus" : ""}`}
@@ -5723,6 +5721,9 @@ export default function App() {
                             setCharacter((prev) => {
                                 if (!prev || prev.onboardingStep === "training") return prev;
                                 const priorStep = prev.onboardingStep;
+                                // This signed template trait is only an optimistic
+                                // placeholder; the starter endpoint replaces it
+                                // with the single authoritative random roll.
                                 const trait = pet.trait ?? "Loyal";
                                 const granted = applyPetTraitBonuses({ ...pet, trait }, trait);
                                 const already = prev.pets.some((p) => p.id === granted.id);
@@ -5809,15 +5810,7 @@ export default function App() {
                     <ProfessionPicker
                         character={character}
                         sharedImages={sharedImages}
-                        onProfessionChosen={(profession) => {
-                            setCharacter({
-                                ...character,
-                                profession,
-                                professionRank: 1,
-                                professionXp: 0,
-                                professionChosenAt: Date.now(),
-                            });
-                        }}
+                        onVersionedCharacter={commitVersionedCharacter}
                     />
                 )}
 
@@ -5832,6 +5825,7 @@ export default function App() {
                     <Suspense fallback={null}>
                     <OnboardingCoach
                         character={character}
+                        savedBloodlines={savedBloodlines}
                         screen={screen}
                         activeTraining={activeTraining}
                         currentSector={currentSector}
@@ -5869,7 +5863,7 @@ export default function App() {
 
                 {!activeTriggeredEvent && character && <Suspense fallback={null}><CircuitReturnRibbon name={character.name} screen={screen} onReturn={() => navigate('dojoCircuit')} /></Suspense>}
                 {!activeTriggeredEvent && screen === 'dojoCircuit' && character && <DojoCircuit key={character.name} character={character} setScreen={navigate} />}
-                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
+                {character?.firstContract && <Suspense fallback={null}><FirstContractHost key={character.name} character={character} screen={screen} blocked={Boolean(activeTriggeredEvent) || hideBattleChrome || introCinematicActive || worldExplorePresentationActive} navigate={navigate} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} /></Suspense>}
                 {!activeTriggeredEvent && screen === "village" && character && (<>
                     <Suspense fallback={null}>
                         <NextGoalPin character={character} navigate={navigate} />
@@ -5880,6 +5874,7 @@ export default function App() {
                     <WorldMap
                         key={worldMapKey}
                         onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
+                        onExplorePresentationActiveChange={setWorldExplorePresentationActive}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
                         character={character}
@@ -5965,7 +5960,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "storyBoss" && character && <StoryBoss character={character} updateCharacter={setCharacter} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "training" && character && <Training character={character} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
+                {!activeTriggeredEvent && screen === "training" && character && <Training character={character} savedBloodlines={savedBloodlines} onVersionedCharacter={commitVersionedCharacter} activeTraining={activeTraining} setActiveTraining={setActiveTrainingNow} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "home" && character && <Home character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => { acceptExternalSaveVersion(version, character.name); }} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "pets" && character && <PetYard key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} setScreen={navigate} onBack={leavePetHome} backLabel={petHomeReturnLabel(petHomeReturnScreen)} sharedImages={sharedImages} onImmediateSave={(char) => { void pushSaveToServer(char, currentAccountName).catch(() => {}); }} />}
                 {!activeTriggeredEvent && screen === "petArena" && character && <PetArena character={character} updateCharacter={setCharacter} allServerPlayers={allServerPlayers} setScreen={setScreen} returnScreen={petHomeReturnScreen} sharedImages={sharedImages} duelChallenges={duelChallenges} setDuelChallenges={setDuelChallenges} pendingPetBattleOpponent={pendingPetBattleOpponent} onPendingPetBattleStarted={() => setPendingPetBattleOpponent(null)} pendingArenaMatch={pendingArenaMatch} onPendingArenaMatchStarted={() => setPendingArenaMatch(null)} pendingArenaResponse={pendingArenaResponse} onArenaResponseHandled={() => { if (pendingArenaResponse) void clearChallengeOnServer(pendingArenaResponse); setPendingArenaResponse(null); }} onClanWarBattleEnd={autoReportClanWarBattleResult} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} onServerVersion={acceptExternalSaveVersion} onVersionedCharacter={(next, version, origin) => saveConflictAccountKey(next.name) === saveConflictAccountKey(origin) ? (commitVersionedCharacter(next, version) ? "accepted" : "stale") : "foreign"} />}
@@ -5974,7 +5969,7 @@ export default function App() {
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} pendingWanderer={pendingPetBattleOpponent?.wanderer ? pendingPetBattleOpponent : null} onPendingWandererStarted={() => setPendingPetBattleOpponent(null)} onVersionedCharacter={commitVersionedCharacter} />}
 
-                {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={setScreen} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
                 {/* An authored VN pet battle. The opponent is no longer scaled here:
                     the server reads the same authored row out of its own copy of the
                     event and builds the beast from it, so this passes a SELECTOR
@@ -5995,11 +5990,11 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "jutsuTraining" && character && <JutsuTrainingHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} activeJutsuTraining={activeJutsuTraining} setActiveJutsuTraining={setActiveJutsuTrainingNow} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={setScreen} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
-                {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={setScreen} />}
-                {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={(destination) => destination === "centralHub" ? navigate(destination) : setScreen(destination)} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
-                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={setScreen} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={setScreen} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
+                {!activeTriggeredEvent && screen === "missions" && character && <Missions key={character.name.trim().toLowerCase()} character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} creatorMissions={creatorMissions} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onBack={goBack} onMissionBattleStart={() => setMissionBattleActive(true)} onMissionBattleEnd={() => setMissionBattleActive(false)} sharedImages={sharedImages} creatorItems={creatorItems} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} />}
+                {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={navigate} />}
+                {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
+                {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={navigate} onBack={goBack} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
@@ -6047,7 +6042,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "cafeteria" && character && <Cafeteria character={character} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={goBack} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
-                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={setScreen} playerRoster={playerRoster} updateCharacter={setCharacter} />}
+                {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} />}
                 {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} onOpenCardPacks={() => { try { sessionStorage.setItem("cardHall.initialTab", "packs"); } catch { /* Card Hall still opens at Collection */ } setScreen("shinobiTiles"); }} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
@@ -6170,7 +6165,7 @@ export default function App() {
                     <BattleLogScreen
                         battleId={viewedBattleId}
                         playerName={character.name}
-                        onBack={() => setScreen("profile")}
+                        onBack={goBack}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "inventory" && character && (
@@ -6199,6 +6194,9 @@ export default function App() {
                         setScreen={navigate}
                         setPvpBattleId={setPvpBattleId}
                         setPvpRole={setPvpRole}
+                        setPvpBattleContext={setPvpBattleContext}
+                        returnToSpectateTab={returnToSpectateTab}
+                        onSpectateReturnConsumed={() => setReturnToSpectateTab(false)}
                         setPendingPetBattleOpponent={setPendingPetBattleOpponent}
                         onAcceptChallenge={(challenge) => { void acceptChallengeGlobal(challenge); }}
                         onDeclineChallenge={declineChallengeGlobal}
@@ -6393,11 +6391,13 @@ export default function App() {
                             seedSession={pvpSeedSession && pvpSeedSession.battleId === pvpBattleId ? pvpSeedSession : null}
                             isSpar={!pvpBattleContext?.mode || (pvpBattleContext.mode === "standard" && !pvpBattleContext.clanWarPoints && !pvpBattleContext.sectorAttack)}
                             battleMode={pvpBattleContext?.mode ?? "standard"}
+                            spectatorOrigin={pvpBattleContext?.spectatingFromScreen != null || pvpBattleContext?.spectatingFromSector != null}
                             onWin={handlePvpWin}
                             onRewardClaim={handlePvpRewardClaim}
                             onCompletionConfirmed={() => setPvpCompletionConfirmed(true)}
                             onExit={(target) => {
                                 markPvpSectorReturn(target, pvpBattleContext, currentSector);
+                                if (pvpBattleContext?.spectatingFromScreen === "arenaDistrict") setReturnToSpectateTab(true);
                                 clearPvpBattleState();
                                 setRaidBattleKind("none");
                                 setScreen(target);

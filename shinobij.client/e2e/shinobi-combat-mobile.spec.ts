@@ -49,7 +49,7 @@ function commandChips() {
         ["Attack", "40 AP", " | 10 SP | R1"],
         ["Move", "30 AP", " / tile"],
         ["Heal", "60 AP", " | 10 CP | CD 0"],
-        ["Clear", "60 AP", " | CD 0"],
+        ["Clear", "60 AP", " | R4 | CD 0"],
         ["Cleanse", "60 AP", " | CD 0"],
         ["Flee", "100 AP", " | 50%"],
         ["Wait", "End turn", ""],
@@ -90,7 +90,7 @@ async function mountCombatFixture(page: Page, mode: "solo" | "pvp", viewport: { 
                         <div><strong>Enemy AP</strong><div class="hud-bar enemy-ap-display-bar"><span style="width:60%"></span></div><small>60/100 | Waiting</small></div>
                     </div>
                     <div class="combat-board-stage"><div class="hex-battlefield hex-forest"><span>TACTICAL BOARD</span></div></div>
-                    <div class="battle-tabbar"><button class="battle-tab battle-tab-active">Actions</button><button class="battle-tab">Battle Log<span class="battle-tab-badge">7</span></button></div>
+                    <div class="battle-tabbar"><button class="battle-tab battle-tab-active">Actions</button><button class="battle-tab"><span class="battle-tab-label">Battle Log</span><span class="battle-tab-badge">7</span></button></div>
                     <div class="combat-action-tray">
                         <div class="basic-action-bar shinobi-command-bar">${commandChips()}</div>
                         <div class="jutsu-layout-card combat-jutsu-bar"><div class="combat-equipped-jutsu-grid">${actionCards()}</div></div>
@@ -123,6 +123,80 @@ async function box(page: Page, selector: string) {
     expect(value, `${selector} should be rendered`).not.toBeNull();
     return value!;
 }
+
+test("jutsu cooldown stays prominent without covering Details on a short phone", async ({ page }) => {
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 360, height: 640 }]) {
+        await mountCombatFixture(page, "pvp", viewport);
+        await page.locator(".combat-jutsu-card-wrap").first().evaluate((card) => {
+            card.classList.add("jutsu-cooling");
+            const button = card.querySelector<HTMLButtonElement>(".combat-jutsu-button")!;
+            button.classList.add("jutsu-on-cooldown");
+            button.disabled = true;
+            const badge = document.createElement("span");
+            badge.className = "combat-cd-badge combat-jutsu-cd-badge";
+            badge.innerHTML = '<span class="combat-cd-prefix">CD </span>3';
+            card.prepend(badge);
+        });
+        const card = page.locator(".combat-jutsu-card-wrap").first();
+        const badge = card.locator(".combat-jutsu-cd-badge");
+        await expect(badge).toBeVisible();
+        await expect(badge).toHaveCSS("background-color", "rgb(185, 28, 28)");
+        await expect(card).toHaveCSS("outline-style", "solid");
+        const cardBox = await card.boundingBox();
+        if (cardBox && cardBox.height <= 48) await expect(badge.locator(".combat-cd-prefix")).toBeHidden();
+        else await expect(badge.locator(".combat-cd-prefix")).toBeVisible();
+        if (viewport.width < 400) {
+            const badgeBox = await badge.boundingBox();
+            const detailsBox = await card.locator(".combat-jutsu-help").boundingBox();
+            expect(badgeBox).not.toBeNull();
+            expect(detailsBox).not.toBeNull();
+            const separated = badgeBox!.x + badgeBox!.width <= detailsBox!.x + 1
+                || detailsBox!.x + detailsBox!.width <= badgeBox!.x + 1
+                || badgeBox!.y + badgeBox!.height <= detailsBox!.y + 1
+                || detailsBox!.y + detailsBox!.height <= badgeBox!.y + 1;
+            expect(separated).toBe(true);
+        }
+    }
+});
+
+test("Battle Log unread badge never covers its label on compact or phone layouts", async ({ page }, testInfo) => {
+    for (const viewport of [
+        // The saved Android freeform capture where the red count covered the
+        // final letters of "Battle Log".
+        { width: 610, height: 457 },
+        { width: 320, height: 568 },
+        { width: 390, height: 844 },
+    ]) {
+        await mountCombatFixture(page, "pvp", viewport);
+        const geometry = await page.locator(".battle-tab").nth(1).evaluate((tab) => {
+            const label = tab.querySelector<HTMLElement>(".battle-tab-label");
+            const badge = tab.querySelector<HTMLElement>(".battle-tab-badge");
+            if (!label || !badge) return null;
+            const labelRect = label.getBoundingClientRect();
+            const count = badge.getBoundingClientRect();
+            const button = tab.getBoundingClientRect();
+            return {
+                labelLeft: labelRect.left,
+                labelRight: labelRect.right,
+                badgeLeft: count.left,
+                badgeRight: count.right,
+                buttonLeft: button.left,
+                buttonRight: button.right,
+            };
+        });
+        expect(geometry, "the Battle Log label and unread count should render").not.toBeNull();
+        expect(geometry!.labelLeft).toBeGreaterThanOrEqual(geometry!.buttonLeft);
+        expect(geometry!.labelRight).toBeLessThanOrEqual(geometry!.buttonRight);
+        expect(geometry!.badgeLeft).toBeGreaterThanOrEqual(geometry!.labelRight + 2);
+        expect(geometry!.badgeRight).toBeLessThanOrEqual(geometry!.buttonRight);
+        if (viewport.width === 610) {
+            await testInfo.attach("battle-log-tab-compact-freeform", {
+                body: await page.screenshot(),
+                contentType: "image/png",
+            });
+        }
+    }
+});
 
 const mobilePortraits = [
     { width: 320, height: 568 },

@@ -16,7 +16,7 @@ export { elementVfxKey, petStripVariant } from './pet-presentation-keys';
  */
 
 import type { Pet } from "../types/pet";
-import { petVisualId } from "../data/pet-evolutions";
+import { currentStage, petVisualId } from "../data/pet-evolutions";
 import { hasPetPose } from "./pet-pose-availability";
 import { versionPetArtUrl } from "./pet-art-revision";
 import type {
@@ -62,6 +62,16 @@ const BREEDING_MYTHIC_PORTRAITS: Readonly<Record<string, string>> = {
 const STORM_GULL_CARD_PORTRAIT = "/pet-portraits/standard-17-card-v2.webp";
 const SNOW_RABBIT_CARD_PORTRAIT = "/pet-portraits/standard-1-card-v2.webp";
 const PEBBLE_TORTOISE_CARD_PORTRAIT = "/pet-portraits/pebble-tortoise-chibi-v2.webp";
+export const PEBBLE_TORTOISE_CUTOUT = "/pet-portraits/pebble-tortoise-chibi-v2-cutout.webp";
+
+function isBasePebbleTortoise(pet: Pet): boolean {
+    if (petVisualId(pet) === "starter-earth") return true;
+    // Public presence pets and older saves can omit templateId. Their owned
+    // instance or encounter ID still identifies the starter species.
+    const templateId = typeof pet.templateId === "string" ? pet.templateId.trim() : "";
+    if (currentStage(pet) !== 0 || (templateId && templateId !== "starter-earth")) return false;
+    return pet.id.startsWith("starter-earth:") || /^starter-earth-\d{10,}$/.test(pet.id);
+}
 
 // Reviewed single-character alternatives for cards whose idle art contains
 // stacked figures or a baked checkerboard. Only the final static-card fallback
@@ -118,7 +128,7 @@ function breedingMythicPortrait(artIds: readonly string[]): string {
 // `/pet-poses/<id>-idle.webp` URLs and are cleaned/overwritten IN PLACE, so a CDN
 // or browser would otherwise keep serving the stale (dark-background) version.
 // Bump this whenever the pose art is re-cleaned or regenerated.
-export const POSE_ASSET_V = 5;
+export const POSE_ASSET_V = 7;
 const idlePoseUrl = (id: string) => versionPetArtUrl(`/pet-poses/${id}-idle.webp?v=${POSE_ASSET_V}`);
 
 /**
@@ -131,6 +141,7 @@ export function petBattleLayers(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { far: string; mid: string; near: string } | null {
+    if (isBasePebbleTortoise(pet)) return null;
     const artIds = petPoseArtIds(pet);
     const variant = petPaletteVariant(pet);
     // A depth stack is one asset: never mix forms or partial palette uploads.
@@ -155,6 +166,7 @@ export function petBattleSheet(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { src: string; frames: number } | null {
+    if (isBasePebbleTortoise(pet)) return null;
     const artIds = petPoseArtIds(pet);
     const sourceKey = variantImageKeys(PET_SHEET_PREFIX, pet, artIds).find((key) => sharedImages[key]);
     if (!sourceKey) return null;
@@ -179,6 +191,8 @@ export function petBattleSprite(
     pet: Pet,
     sharedImages: Record<string, string> = {},
 ): { mode: PetSpriteMode; src: string } {
+    // Old saves and shared uploads can still carry the original Pebble pose.
+    if (isBasePebbleTortoise(pet)) return { mode: "fullBodySprite", src: PEBBLE_TORTOISE_CUTOUT };
     const artIds = petArtIds(pet);
     const variantSprite = publishedVariantSprite(pet, sharedImages, artIds);
     if (variantSprite) return { ...variantSprite, src: versionPetArtUrl(variantSprite.src) };
@@ -217,7 +231,7 @@ export function petCardImage(
     const artIds = petArtIds(pet);
     // Replace the damaged base-stage shell art in every card/battle fallback.
     // Evolved forms keep their separately reviewed stage portraits.
-    if (petVisualId(pet) === "starter-earth") return PEBBLE_TORTOISE_CARD_PORTRAIT;
+    if (isBasePebbleTortoise(pet)) return PEBBLE_TORTOISE_CARD_PORTRAIT;
     if (artIds.includes("standard-17")) {
         const variant = petPaletteVariant(pet);
         return (variant && firstSharedImage(sharedImages, artIds.flatMap((id) => [
@@ -244,6 +258,16 @@ export function petCardImage(
     return "";
 }
 
+/** Portrait art for circular pet tokens, which should not prefer body sprites. */
+export function petPortraitImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
+    if (isBasePebbleTortoise(pet)) return PEBBLE_TORTOISE_CARD_PORTRAIT;
+    const artIds = petArtIds(pet);
+    const portrait = firstSharedImage(sharedImages, variantImageKeys(PET_IMG_PREFIX, pet, artIds))
+        || pet.image
+        || petCardImage(pet, sharedImages);
+    return versionPetArtUrl(portrait);
+}
+
 /**
  * POSE-FIRST image resolver for billboard-style renderers (the Pet Gauntlet board,
  * its placement grid, and its recruit cards). Unlike petCardImage — which prefers
@@ -253,6 +277,7 @@ export function petCardImage(
  * petCardImage only when a pet has no generated pose. Pure.
  */
 export function petPoseImage(pet: Pet, sharedImages: Record<string, string> = {}): string {
+    if (isBasePebbleTortoise(pet)) return PEBBLE_TORTOISE_CUTOUT;
     const posedId = petPoseArtIds(pet).find(hasPetPose);
     if (posedId) return idlePoseUrl(posedId);
     return petCardImage(pet, sharedImages);

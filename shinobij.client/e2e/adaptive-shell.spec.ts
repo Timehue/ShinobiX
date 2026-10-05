@@ -64,6 +64,14 @@ type SaveFixtureCommit = {
     postedState: string;
 };
 
+type SaveFixtureLoad = {
+    generation: number;
+    requestedPlayer: string;
+    characterName: unknown;
+    currentSector: unknown;
+    version: number;
+};
+
 function publicCapabilitiesExcept(...unavailableIds: PublicCapabilityId[]): PublicCapabilities {
     const unavailable = new Set(unavailableIds);
     return Object.fromEntries(PUBLIC_CAPABILITY_IDS.map((id) => [
@@ -82,6 +90,7 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
     let save: SavePayload | null = initialSave ? structuredClone(initialSave) : null;
     let saveVersion = save ? 1 : 0;
     let saveReadCount = 0;
+    let lastLoadedSave: SaveFixtureLoad | null = null;
     let acknowledgedVersion = 0;
     let lastCommit: SaveFixtureCommit | null = null;
     let battleHistoryFailure = false;
@@ -109,7 +118,16 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
             if (request.method() === "GET") {
                 saveReadCount += 1;
                 if (!save) return json(route, { error: "Not found" }, 404);
-                return json(route, { ...save, _saveVersion: saveVersion });
+                const loaded = {
+                    generation: saveReadCount,
+                    requestedPlayer: requestedSavePlayer,
+                    characterName: save.character?.name,
+                    currentSector: save.currentSector,
+                    version: saveVersion,
+                };
+                await json(route, { ...save, _saveVersion: saveVersion });
+                lastLoadedSave = loaded;
+                return;
             }
             if (request.method() === "POST") {
                 const incoming = request.postDataJSON() as SavePayload;
@@ -229,6 +247,7 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
     });
     return {
         saveReadCount: () => saveReadCount,
+        lastLoadedSave: () => lastLoadedSave,
         committedVersion: () => saveVersion,
         acknowledgedVersion: () => acknowledgedVersion,
         lastCommit: () => lastCommit,
@@ -287,11 +306,21 @@ async function expectCommittedSave(page: Page, api: AuthenticatedApiFixture) {
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
 
-async function expectLoadedSave(page: Page, api: AuthenticatedApiFixture) {
-    await expect.poll(api.saveReadCount, {
+async function expectLoadedSave(page: Page, api: AuthenticatedApiFixture, name = "AdaptiveNinja", sector = 0) {
+    await expect.poll(() => {
+        const loaded = api.lastLoadedSave();
+        return Boolean(loaded
+            && loaded.generation > 0
+            && loaded.generation === api.saveReadCount()
+            && loaded.requestedPlayer === name.toLowerCase()
+            && loaded.characterName === name
+            && loaded.currentSector === sector
+            && loaded.version === api.committedVersion());
+    }, {
         timeout: 20_000,
-        message: "the persisted adaptive save must be read before the screen is certified",
-    }).toBeGreaterThan(0);
+        message: "the latest successful load must match the seeded player, location, and save authority",
+    }).toBe(true);
+    await expect(page.locator(".left-profile-name, .mthd-name").filter({ visible: true }).first()).toHaveText(name);
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
 }
@@ -398,7 +427,9 @@ function subscriberSaveFixture(jutsuIds: string[], creatorJutsus: ReturnType<typ
             },
         },
         currentBiome: "central",
-        currentSector: 40,
+        // Town layout fixtures must already be in town. A bookmarked town
+        // screen must not teleport a field character out of their sector.
+        currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
         acceptedMissionIds: [],
@@ -461,11 +492,12 @@ async function installPersistedAdaptiveSession(page: Page, accountName = "Adapti
 }
 
 async function bootPersistedAdaptiveScreen(page: Page, api: AuthenticatedApiFixture, screen: string) {
-    api.seedSaveBeforeBoot(mobileStorageSaveFixture());
+    const fixture = mobileStorageSaveFixture();
+    api.seedSaveBeforeBoot(screen === "worldMap" ? { ...fixture, currentSector: 40 } : fixture);
     await installPersistedAdaptiveSession(page);
     await page.goto(`/#/${screen}`, { waitUntil: "networkidle" });
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", screen);
-    await expectLoadedSave(page, api);
+    await expectLoadedSave(page, api, "AdaptiveNinja", screen === "worldMap" ? 40 : 0);
 }
 
 const boundaryMatrix = [
@@ -507,9 +539,17 @@ const requiredVisualMatrix = [
     { width: 844, height: 390 },
     { width: 915, height: 412 },
     { width: 932, height: 430 },
+    // Google Play Games large-screen anchor ratios: 3:4, 10:16, and 9:21.
+    { width: 1080, height: 1440 },
+    { width: 1000, height: 1600 },
+    { width: 1080, height: 2520 },
     { width: 768, height: 1024 },
     { width: 820, height: 1180 },
     { width: 1024, height: 768 },
+    // Matching landscape anchors: 4:3, 16:10, and 21:9.
+    { width: 1440, height: 1080 },
+    { width: 1600, height: 1000 },
+    { width: 2520, height: 1080 },
     { width: 1180, height: 820 },
     { width: 1280, height: 720 },
     { width: 1366, height: 768 },
@@ -593,6 +633,17 @@ test("mobile storage notice clears fixed navigation and remains dismissible", as
     const mobileNav = page.locator(".mobile-bottom-nav");
     await expect(notice).toBeVisible();
     await expect(mobileNav).toBeVisible();
+    const navTargetSizes = await mobileNav.locator(":is(button, a)").evaluateAll((targets) =>
+        targets.map((target) => {
+            const { width, height } = target.getBoundingClientRect();
+            return { label: target.getAttribute("aria-label") || target.textContent?.trim(), width, height };
+        }),
+    );
+    expect(navTargetSizes.length).toBeGreaterThan(0);
+    for (const target of navTargetSizes) {
+        expect(target.width, `${target.label} touch target width`).toBeGreaterThanOrEqual(48);
+        expect(target.height, `${target.label} touch target height`).toBeGreaterThanOrEqual(48);
+    }
     await expectNoLargeOverlap(notice, mobileNav);
     await expectViewportSafe(page);
     await notice.getByRole("button", { name: "Got it" }).click();
@@ -676,7 +727,7 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await installPersistedAdaptiveSession(page, maximumAccountName);
     await page.goto("/?adaptive-fixture=maximum#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api, maximumAccountName);
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });
@@ -753,7 +804,7 @@ test("subscriber capacity and expanded mobile drawers reflow safely", async ({ p
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectCommittedSave(page, api);
+    await expectLoadedSave(page, api);
     await page.locator(".mobile-bottom-nav").getByRole("button", { name: "You", exact: true }).click();
     await page.getByRole("dialog", { name: "Your shinobi" }).getByTitle("View character profile").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "profile");

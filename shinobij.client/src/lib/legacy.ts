@@ -7,6 +7,7 @@
  * never expose a server-disabled surface.
  */
 import type { Wanderer } from "./wanderers";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 import type { Character } from "../types/character";
 import {
     capabilityMutationAvailability,
@@ -86,7 +87,8 @@ export type SageOfferView = {
     offers: Array<{ legacyId: string; name: string; category: string; flavor: string; title: string; villageAffinity: string | null; badge?: string | null;
         /** Rank-free preview of the signature technique this legacy grants (name,
          *  shape, effect names; NO percents/EP/rank). Unlocks at Stage 3. */
-        signature?: { name: string; shape: string; effects: string[]; unlockStage: number } | null }>;
+        signature?: { name: string; shape: string; effects: string[]; unlockStage: number } | null;
+        trialActivities?: string[] }>;
     sector: number;
     spawnedAt: number;
     expiresAt: number;
@@ -327,9 +329,9 @@ export const LEGACY_SAGE_WANDERER_ID = "legacy-sage";
 
 /** The Wandering Sage as a sector NPC — rendered by the existing
  *  <SectorWanderer> billboard (violet tell, never hostile, never cooled).
- *  Placement is fixed per sector so he doesn't jump between polls. */
+ *  Placement is stable per sector so he doesn't jump between polls. */
 export function synthSageWanderer(sector: number): Wanderer {
-    const home = 5 * 12 + ((sector * 7) % 8) + 2;   // mid-row, deterministic column
+    const home = sectorWandererHomeTile(LEGACY_SAGE_WANDERER_ID, sector);
     return {
         id: LEGACY_SAGE_WANDERER_ID,
         name: "Wandering Sage",
@@ -364,7 +366,8 @@ export const TRIAL_STAT_LABELS: Record<string, string> = {
     hollowGateClears: "Hollow Gate clears", raidsCompleted: "raids completed",
     bossContribution: "weekly-boss damage dealt", warMissions: "war missions",
     villageDonations: "ryo donated to your village", healingDone: "HP healed in battle",
-    shieldsApplied: "shields granted", damageBlocked: "damage blocked",
+    shieldsApplied: "shields granted", damageBlocked: "damage absorbed by shields",
+    comebackWins: "clutch wins at 15% HP or less", higherLevelWins: "upset wins (5+ levels higher, or 100+ ranked rating higher at level 96+)",
     sectorDefenses: "sector defenses held",
     tilesExplored: "tiles explored", sectorDiscoveries: "sector discoveries",
     hiddenFinds: "hidden places found", wandererQuests: "wanderer quests finished",

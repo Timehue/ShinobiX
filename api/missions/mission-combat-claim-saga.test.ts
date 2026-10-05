@@ -1,5 +1,6 @@
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { projectAuthoritativeCombatEvent } from '../combat-core/events.js';
 import {
     COMBAT_MISSION_CLAIM_TOKEN_TTL_MS,
     appendCombatMissionClaimSettlement,
@@ -156,8 +157,8 @@ async function seedPlayer(playerName: string, ryo = 100, profession: string | nu
     });
 }
 
-async function seedWonRun(playerName: string, suffix: string): Promise<string> {
-    const mission = missionByKey(MISSION_ID)!;
+async function seedWonRun(playerName: string, suffix: string, missionId: string = MISSION_ID): Promise<string> {
+    const mission = missionByKey(missionId)!;
     const runId = `missionsaga${suffix}`;
     const now = Date.now();
     const base = createSession({
@@ -554,6 +555,66 @@ describe('mission queue publication recovery', { concurrency: false }, () => {
 });
 
 describe('mission payout receipt recovery', { concurrency: false }, () => {
+    it('S-rank reward settlement credits IV/V fresh campaigns exactly once after a rejected payout write', async () => {
+        const priorFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            for (const [index, eraId] of ['world-boss-awakening', 'mythic-legacies'].entries()) {
+                const player = `missionsagaendgame${index}`;
+                await seedPlayer(player);
+                const saved = (await kv.get<any>(`save:${player}`))!;
+                saved.character.level = 100;
+                saved.character.eraJourneys = { [eraId]: { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 0, stageStartedAt: 1000, stageCounts: {}, completedStages: [], proofReceipts: [] } };
+                await kv.set(`save:${player}`, saved);
+                const missionId = 'combat-s-crisis';
+                const runId = await seedWonRun(player, `endgame${index}`, missionId);
+                assert.equal((await post(queueHandler, player, { missionId, runId })).statusCode, 200);
+                const claimS = () => post(claimHandler, player, { missionType: 'combat', missionId });
+                const before = await savedCharacter(player);
+                const rejected = await withSetFault((key, value) => key === `save:${player}` && hasPayoutReceipt(value), 'null-before-commit', claimS);
+                assert.equal(rejected.statusCode, 500);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, before.eraJourneys);
+                assert.equal((await claimS()).statusCode, 200);
+                const committed = await savedCharacter(player);
+                assert.equal((committed.eraJourneys as any)[eraId].stageCounts['missions-S'], 1);
+                assert.deepEqual((committed.eraJourneys as any)[eraId].proofReceipts, [`mission:${runId}`]);
+                assert.equal((await claimS()).statusCode, 200);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, committed.eraJourneys);
+                assert.equal((await savedCharacter(player)).ryo, committed.ryo);
+            }
+        } finally { if (priorFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = priorFlag; }
+    });
+    it('qualified era proof commits with combat rewards, including reservation recovery, and replays once', async () => {
+        const priorFlag = process.env.ENABLE_LEGACY;
+        process.env.ENABLE_LEGACY = '1';
+        try {
+            for (const recover of [false, true]) {
+                const suffix = recover ? 'erarecovery' : 'eraregular';
+                const player = `missionsaga${suffix}`;
+                await seedPlayer(player);
+                const saved = (await kv.get<any>(`save:${player}`))!;
+                saved.character.eraJourneys = { 'shinobi-awakening': { version: 2, routeId: 'field', startedAt: 1000, baselines: {}, stageIndex: 0, stageStartedAt: 1000, stageCounts: {}, completedStages: [], proofReceipts: [] } };
+                await kv.set(`save:${player}`, saved);
+                const runId = await seedWonRun(player, suffix);
+                assert.equal((await queue(player, runId)).statusCode, 200);
+                const before = await savedCharacter(player);
+                assert.deepEqual((before.eraJourneys as any)['shinobi-awakening'].stageCounts, {});
+                if (recover) {
+                    const rejected = await withSetFault((key, value) => key === `save:${player}` && hasPayoutReceipt(value), 'null-before-commit', () => claim(player));
+                    assert.equal(rejected.statusCode, 500);
+                    assert.deepEqual((await savedCharacter(player)).eraJourneys, before.eraJourneys);
+                }
+                assert.equal((await claim(player)).statusCode, 200);
+                const committed = await savedCharacter(player);
+                assert.equal((committed.eraJourneys as any)['shinobi-awakening'].stageCounts['missions-C'], 1);
+                assert.deepEqual((committed.eraJourneys as any)['shinobi-awakening'].proofReceipts, [`mission:${runId}`]);
+                assert.ok(Number(committed.ryo) > Number(before.ryo));
+                assert.equal((await claim(player)).statusCode, 200);
+                assert.deepEqual((await savedCharacter(player)).eraJourneys, committed.eraJourneys);
+                assert.equal((await savedCharacter(player)).ryo, committed.ryo);
+            }
+        } finally { if (priorFlag === undefined) delete process.env.ENABLE_LEGACY; else process.env.ENABLE_LEGACY = priorFlag; }
+    });
     it('fails closed when the token read throws and never clears the pending claim', async () => {
         const player = 'missionsagatokenread';
         await seedPlayer(player);
@@ -1210,6 +1271,25 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
         try {
             await seedPlayer(player);
             const runId = await seedWonRun(player, 'legacyeffect');
+            const session = (await readSession(runId))!;
+            const before = {
+                player: { ...session.player, hp: 390 }, enemy: { ...session.enemy, hp: 90 },
+                ap: session.ap, cooldowns: session.cooldowns, groundEffects: session.groundEffects,
+                itemCharges: session.itemCharges, itemsUsed: session.itemsUsed,
+            };
+            const after = structuredClone(before);
+            after.player.hp = 420; after.player.shield = 20; after.enemy.hp = 0;
+            session.player.shield = 20;
+            session.events = [{
+                kind: 'action', seq: 1, round: 1, actor: 'player', target: 'enemy', action: 'jutsu',
+                before, after, log: [], vfx: [], status: 'done', winner: 'player', outcome: 'win',
+                combat: projectAuthoritativeCombatEvent({
+                    runtime: 'solo-pve', mode: 'mission', sessionId: runId, sequence: 1,
+                    roundBefore: 1, roundAfter: 1, actor: 'player', target: 'enemy', actionType: 'jutsu',
+                    applied: true, before, after, resolution: { healing: 30 }, status: 'done', winner: 'player', outcome: 'win',
+                }),
+            }];
+            await writeSession(session);
             assert.equal((await queue(player, runId)).statusCode, 200);
             const failed = await withSetFault(
                 (key, value) => key === `save:${player}` && hasSettlementEffect(value, 'legacyAppliedAt'),
@@ -1220,12 +1300,20 @@ describe('mission payout receipt recovery', { concurrency: false }, () => {
             const afterCrash = await kv.get<Record<string, unknown>>(`legacy:stats:${player}`);
             assert.equal(afterCrash?.missionCompletions, 1);
             assert.equal(afterCrash?.pveKills, 1);
+            assert.equal(afterCrash?.taijutsuKills, 1);
+            assert.equal(afterCrash?.taijutsuDamage, 90);
+            assert.equal(afterCrash?.healingDone, 30);
+            assert.equal(afterCrash?.shieldsApplied, 1);
             assert.equal(Array.isArray(afterCrash?.combatMissionEffects), true);
 
             assert.equal((await claim(player)).statusCode, 200);
             const afterRetry = await kv.get<Record<string, unknown>>(`legacy:stats:${player}`);
             assert.equal(afterRetry?.missionCompletions, 1);
             assert.equal(afterRetry?.pveKills, 1);
+            assert.equal(afterRetry?.taijutsuKills, 1);
+            assert.equal(afterRetry?.taijutsuDamage, 90);
+            assert.equal(afterRetry?.healingDone, 30);
+            assert.equal(afterRetry?.shieldsApplied, 1);
             assert.equal(Array.isArray(afterRetry?.combatMissionEffects), true);
             assert.ok(Number((afterRetry?.combatMissionEffects as Array<Record<string, unknown>>)?.[0]?.acknowledgedAt) > 0);
             assert.equal((await claim(player)).statusCode, 200);

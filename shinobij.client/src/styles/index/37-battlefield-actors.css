@@ -1,3 +1,5 @@
+@import "../pet-summon.css";
+
 /* Grounded combat actors ---------------------------------------------------
    The battle engines still position a fixed `.avatar-orb` anchor and keep all
    hit testing on the existing hex or actor buttons. This late presentation

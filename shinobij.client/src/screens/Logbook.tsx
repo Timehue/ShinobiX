@@ -13,7 +13,6 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import { LogbookCareerRecord } from "../components/LogbookCareerRecord";
 import { DAILY_MISSION_LIMIT, FIELD_MISSION_STAT_POINTS } from "../constants/game";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement } from "../data/missions";
-import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { clampNumber, currentDateKey } from "../lib/utils";
@@ -129,7 +128,7 @@ export function Logbook({
             character.equippedJutsuIds,
         ).length,
     };
-    const objectives = buildLogbookObjectives(character, objectiveContext);
+    const objectives = buildLogbookObjectives(character, { ...objectiveContext, previewAdvancement: true });
     const currentObjective = currentLogbookObjective(character, objectiveContext);
     const academyChecklist = objectives.find((o) => o.kind === "academy") ?? null;
     const academyComplete = academyChecklist ? objectiveComplete(academyChecklist) : false;
@@ -173,7 +172,7 @@ export function Logbook({
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
-        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid one of the other three villages ${raidReq - raidProgress} more time(s).`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
@@ -202,7 +201,7 @@ export function Logbook({
                     [mission.id]: Math.min(mission.exploreCount, Math.max(0, exploreCount)),
                     [missionRaidProgressKey(mission.id)]: Math.min(raidReq, Math.max(0, raidCount)),
                 }));
-                return alert(`The Mission Hall corrected this contract to ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} raids` : ""}. Finish the remaining verified work, then claim again.`);
+                return alert(`The Mission Hall corrected this contract to ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} village raids` : ""}. Explore Sector ${mission.targetSector} if needed${raidReq > 0 ? ", then raid one of the other three villages for any remaining raid count" : ""} before claiming again.`);
             }
             return alert(claimReasonMessage(result.reason, result));
         }
@@ -232,7 +231,7 @@ export function Logbook({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its mission outpost ${raidReq} time(s)` : ""}, then claim the reward.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid a guard at any of the other three villages ${raidReq} time(s)` : ""}, then claim the reward.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -375,22 +374,23 @@ export function Logbook({
         const complete = objectiveComplete(exam);
         const prestige = exam.progressionImpact === "prestige";
         const isBlocking = !prestige && !passed && character.level >= exam.unlockLevel;
+        const upcoming = character.level < exam.unlockLevel;
         return (
             <section className="summary-box mission-board-section" key={exam.id}>
                 <h3>{exam.title} {prestige ? <small className="activity-spine-returner">Optional Prestige</small> : null} {passed ? "✓" : ""}</h3>
                 {exam.summary && <p className="hint">{exam.summary}</p>}
                 {prestige
                     ? <p className="hint"><strong>Progression impact: none.</strong> This distinction does not block leveling, stats, jutsu, or content.</p>
-                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : complete ? "Ready to pass" : "In progress"}</strong></p>}
+                    : <p className="hint">Progression hold: level {exam.unlockLevel}. Status: <strong>{passed ? "Passed" : upcoming ? "Upcoming — prepare now" : complete ? "Ready to pass" : "In progress"}</strong></p>}
                 {isBlocking && !complete && <p style={{ color: "var(--red-400)", fontWeight: "bold" }}>You cannot level past {exam.unlockLevel} until you pass this exam.</p>}
                 <div className="location-grid">{exam.requirements.map(renderRequirement)}</div>
                 {!passed && <div className="menu">
-                    <button disabled={!complete} onClick={() => {
+                    <button disabled={upcoming || !complete} onClick={() => {
                         void passRankExamServer(character.name, exam.examKey).then((next) => {
                             updateCharacter(next);
                             setCeremony({ title: exam.title, prestige });
                         }).catch((error) => alert(error instanceof Error ? error.message : "Rank exam could not be verified."));
-                    }}>{complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
+                    }}>{upcoming ? `Opens at level ${exam.unlockLevel}` : complete ? prestige ? "Claim Distinction" : `Pass ${exam.title}` : "Requirements Incomplete"}</button>
                 </div>}
             </section>
         );
@@ -500,6 +500,7 @@ export function Logbook({
                         const raidReq = missionRaidRequirement(mission);
                         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
                         const complete = progress >= mission.exploreCount && raidProgress >= raidReq;
+                        const nextAction = fieldMissionNextAction(mission, progress, raidProgress, currentSector);
                         const progressPercent = Math.min(100, ((Math.min(mission.exploreCount, progress) + Math.min(raidReq, raidProgress)) / Math.max(1, mission.exploreCount + raidReq)) * 100);
                         const boostedRyo = boostAmount(mission.ryoReward, missionRewardBonus);
                         const boostedStamina = boostAmount(mission.staminaReward, missionRewardBonus);
@@ -511,8 +512,9 @@ export function Logbook({
                                 <small>Lvl {mission.levelReq} | +{FIELD_MISSION_STAT_POINTS} Stat Pts / {rewardSummary(boostedRyo, boostedStamina, mission.currencyRewards, character)}</small>
                                 <p>{mission.description}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
+                                {accepted && !complete && <p><strong>Next:</strong> {nextAction.instruction}</p>}
                                 <div className="menu">
-                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => setScreen("worldMap")}>Go To Sector {mission.targetSector}</button>}
+                                    {!accepted ? <button disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void acceptMission(mission); }}>Accept</button> : complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : null}
                                 </div>
                             </div>
                         );
@@ -579,12 +581,7 @@ export function Logbook({
                                 <p><strong>Next:</strong> {nextAction.instruction}</p>
                                 <div className="mission-progress"><span style={{ width: `${progressPercent}%` }}></span></div>
                                 <div className="menu">
-                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : <button onClick={() => {
-                                        writeFieldMissionNavigationIntent(character.name, {
-                                            missionId: mission.id,
-                                            targetSector: mission.targetSector,
-                                            objective: nextAction.objective,
-                                        });
+                                    {complete ? <button disabled={claimingFieldMissionId !== null || claimCooldownMs > 0} onClick={() => { void claimMission(mission); }}>{claimingFieldMissionId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button> : nextAction.objective === "explore" ? null : <button onClick={() => {
                                         setScreen("worldMap");
                                     }}>{nextAction.label}</button>}
                                     <button className="danger-button" disabled={fieldTrailPending !== null || claimingFieldMissionId !== null} onClick={() => { void abandonMission(mission.id); }}>Abandon</button>

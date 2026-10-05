@@ -111,16 +111,16 @@
          ones: they route the tap to a tile the player did not touch.
 
      The a11y intent is kept where it can be met - the two clickable figures get
-     a transparent 44px hit area below, so the finger target stays full size
+     a transparent 48px hit area below, so the finger target stays full size
      while the art stays map-sized. */
   .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile),
   body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile) {
-    min-inline-size: 44px !important;
-    min-block-size: 44px !important;
+    min-inline-size: 48px !important;
+    min-block-size: 48px !important;
   }
 
   /* The touch target the exemption above gives back: a transparent box centred
-     on the figure, at least 44px square, that never grows the painted marker.
+     on the figure, at least 48px square, that never grows the painted marker.
      Clicks land on it and bubble to .sector-wanderer-figure, which owns the
      handler. Only the clickable AI figures get one - the player's own marker
      and live peers are not interactive, so an invisible pad over them would
@@ -130,8 +130,8 @@
     position: absolute;
     inset-inline-start: 50%;
     inset-block-start: 50%;
-    inline-size: max(44px, 100%);
-    block-size: max(44px, 100%);
+    inline-size: max(48px, 100%);
+    block-size: max(48px, 100%);
     transform: translate(-50%, -50%);
     border-radius: 50%;
     pointer-events: auto;
@@ -284,7 +284,7 @@
     flex: 0 0 auto;
     inline-size: auto !important;
     width: auto !important;
-    min-block-size: 44px;
+    min-block-size: 48px;
     padding-inline: 14px;
     scroll-snap-align: start;
     white-space: nowrap;
@@ -336,7 +336,7 @@
     flex: 0 0 auto !important;
     inline-size: auto !important;
     min-inline-size: 104px !important;
-    min-block-size: 46px !important;
+    min-block-size: 48px !important;
     white-space: nowrap;
   }
 
@@ -348,27 +348,27 @@
 
   .app-shell[data-ui-mode="noncombat"].screen-inventory .inventory-page .inventory-tabs > button,
   .app-shell[data-ui-mode="noncombat"].screen-inventory .inventory-page .inventory-search-row input[type="search"] {
-    min-inline-size: 44px !important;
-    min-block-size: 44px !important;
+    min-inline-size: 48px !important;
+    min-block-size: 48px !important;
     height: auto !important;
   }
 
   html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-topbar > .village-back-button,
   html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-zoom-btn,
   html.wm-zoom .app-shell[data-ui-mode="noncombat"].screen-worldMap .wm-village-chip {
-    min-inline-size: 44px !important;
-    min-block-size: 44px !important;
-    height: 44px !important;
+    min-inline-size: 48px !important;
+    min-block-size: 48px !important;
+    height: 48px !important;
   }
 
   /* The overview keeps compact painted pins; the button pseudo-hit ring is the
-     44px target so increasing the visible marker cannot collapse dense routes. */
+     48px target so increasing the visible marker cannot collapse dense routes. */
   .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-sector::after {
-    inset: -9px;
+    inset: -11px;
   }
 
   .app-shell[data-ui-mode="noncombat"].screen-worldMap .world-map-scroll .atlas-hollowGate::after {
-    inset: -10px;
+    inset: -12px;
   }
 
   .app-shell[data-ui-mode="noncombat"] .center-game :where(.clan-request-card, .clan-guard-row, .notice-post, .war-record-card) {
@@ -605,7 +605,7 @@
     inline-size: auto !important;
     width: auto !important;
     min-inline-size: 92px;
-    min-block-size: 44px;
+    min-block-size: 48px;
     margin: 0 !important;
     padding: 9px 14px !important;
     border-radius: 8px !important;
@@ -639,7 +639,7 @@
   }
 
   body:not(.in-battle) .coach-guide-actions button {
-    min-block-size: 44px;
+    min-block-size: 48px;
     inline-size: 100%;
   }
 
@@ -658,8 +658,8 @@
   }
 
   body:not(.in-battle) .coach-guide-pet {
-    inline-size: 72px;
-    block-size: 88px;
+    inline-size: 88px;
+    block-size: 104px;
   }
 }
 
@@ -668,6 +668,19 @@
   .app-shell[data-ui-mode="noncombat"] .mobile-nav-btn[aria-current="page"] .mnb-icon {
     transition: none;
     transform: none;
+  }
+}
+
+/* Large touchscreen ratios use the desktop composition, but still need finger
+   targets. Keep this outside the phone-width layout rules so a 4:3 tablet or
+   wide Android display gets the same hit floor without inheriting phone chrome.
+   Combat remains owned by its separate command/HUD system. */
+@media (pointer: coarse) and (min-width: 980px) {
+  .app-shell[data-ui-mode="noncombat"] .center-game :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile),
+  .app-shell[data-ui-mode="noncombat"] .right-menu-panel :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile),
+  body:not(.in-battle) :where(.ui-modal-card, .mobile-menu-overlay, .mobile-profile-sheet) :where(button, [role="button"], input:not([type="hidden"]), select, textarea):not(.sector-avatar-figure, .scene-tile) {
+    min-inline-size: 48px !important;
+    min-block-size: 48px !important;
   }
 }
 
@@ -1010,7 +1023,7 @@
   body:not(.in-battle):not(:has(> .combat-instance)) .screen-hint-banner.screen-hint-collapsed > .screen-hint-battle-trigger {
     display: inline-flex !important;
     min-inline-size: 44px;
-    min-block-size: 44px;
+    min-block-size: 48px;
     pointer-events: auto !important;
   }
 }

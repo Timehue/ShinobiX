@@ -69,13 +69,14 @@ export function usePvpSessionController(options: {
 
     const clearPvpBattleState = useCallback(() => {
         clearPvpSessionCreateIntent();
+        try { localStorage.removeItem(options.storageKey); } catch { /* private mode */ }
         setStateOwnerKey(ownerScopeKey);
         setBattleId(null);
         setPvpRole(null);
         setPvpBattleContext(null);
         setPvpSeedSession(null);
         setPvpCompletionConfirmed(false);
-    }, [ownerScopeKey]);
+    }, [ownerScopeKey, options.storageKey]);
 
     const installPvpRecovery = useCallback((pending: PendingPvpRecovery, scope?: { ownerName: string; accountSessionEpoch: number }) => {
         const targetScope = scope

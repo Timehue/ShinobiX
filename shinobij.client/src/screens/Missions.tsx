@@ -19,11 +19,11 @@ import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { rewardSummary, statPointNote } from "../lib/currency";
 import { ClaimImpactNotice } from "../components/ClaimImpactNotice";
+import { GrowthRewardGuide } from "../components/GrowthRewardGuide";
 import { boostAmount, getMissionRewardBonus } from "../lib/village-upgrades";
 import { dailyMissionsCompleted, hasDailyMissionSlot } from "../lib/character-progress";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { builtinFetchMissions, fieldMissionNextAction, mergeBuiltinMissions, missionRaidProgressKey, missionRaidRequirement, sortFieldMissions } from "../data/missions";
-import { writeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { COMBAT_MISSIONS, type CombatMission } from "../data/combat-missions";
 
 import { postClaimMission, applyServerMissionReward, claimReasonMessage, claimHttpFailureMessage } from "../lib/claim-mission";
@@ -304,7 +304,7 @@ export function Missions({
             return alert(claimReasonMessage(result.reason));
         }
         if (!applySuccessfulMissionClaim(result)) return;
-        setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
+        setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}${result.reward.statPoints === 0 ? ". No stat points from this mission claim; train stats or claim field/hunt dailies to grow" : ""}` });
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
     // reward that teaches the do→return→claim loop. Sets academyTrialClaimed, which
@@ -344,7 +344,7 @@ export function Missions({
             }
             if (!result.state) return alert("The Mission Hall did not issue an active run. Reopen the board before attempting this contract.");
             const raidReq = missionRaidRequirement(mission);
-            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid its Mission Outpost ${raidReq} time(s)` : ""}. Claim the reward at the Mission Hall.`);
+            alert(`${mission.name} accepted. Explore Sector ${mission.targetSector} ${mission.exploreCount} times${raidReq > 0 ? ` and raid a guard at any of the other three villages ${raidReq} time(s)` : ""}. Claim the reward at the Mission Hall.`);
         } finally {
             setFieldTrailPending(null);
         }
@@ -373,7 +373,7 @@ export function Missions({
         const raidReq = missionRaidRequirement(mission);
         const raidProgress = missionProgress[missionRaidProgressKey(mission.id)] ?? 0;
         if (progress < mission.exploreCount) return alert(`Explore Sector ${mission.targetSector} ${mission.exploreCount - progress} more time(s).`);
-        if (raidProgress < raidReq) return alert(`Raid from Sector ${mission.targetSector} ${raidReq - raidProgress} more time(s).`);
+        if (raidProgress < raidReq) return alert(`Raid one of the other three villages ${raidReq - raidProgress} more time(s).`);
         if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         const result = await postClaimMission(character.name, "field", mission.id);
         if (result === null) return alert("Could not reach the server. Try again.");
@@ -415,7 +415,7 @@ export function Missions({
                 const exploresLeft = Math.max(0, mission.exploreCount - exploreCount);
                 const raidsLeft = Math.max(0, raidReq - raidCount);
                 return alert(
-                    `The Mission Hall only logged ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} raids` : ""} for this contract, so it can't be paid yet. Your board has been corrected — explore Sector ${mission.targetSector} ${exploresLeft} more time(s)${raidsLeft > 0 ? ` and raid ${raidsLeft} more time(s)` : ""} to finish it.`,
+                    `The Mission Hall only logged ${exploreCount}/${mission.exploreCount} sweeps${raidReq > 0 ? ` and ${raidCount}/${raidReq} village raids` : ""} for this contract, so it can't be paid yet. Your board has been corrected — explore Sector ${mission.targetSector} ${exploresLeft} more time(s)${raidsLeft > 0 ? ` and raid one of the other three villages ${raidsLeft} more time(s)` : ""} to finish it.`,
                 );
             }
             return alert(claimReasonMessage(result.reason, result));
@@ -572,6 +572,8 @@ export function Missions({
             <section className="mh-section">
                 <h3 className="mh-section-title">Combat Missions</h3>
                 <p className="hint">Defeat the assigned enemy, then return here to claim your reward. New shinobi should start with the E-Rank Drill.</p>
+                <p className="hint">Mission claims pay ryo for gear and jutsu lessons. For stat points and levels, use training and field/hunt dailies.</p>
+                <GrowthRewardGuide />
                 {pendingCombatClaims > 0 && (
                     <p className="mh-claim-banner" role="status">
                         {pendingCombatClaims === 1 ? "1 mission is" : `${pendingCombatClaims} missions are`} cleared and waiting — tap the highlighted card{pendingCombatClaims === 1 ? "" : "s"} below to collect the reward.
@@ -667,7 +669,7 @@ export function Missions({
                             return (
                                 <article
                                     key={mission.id}
-                                    className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
+                                    className={`mh-field-card${accepted ? " mh-field-accepted" : ""}${accepted && nextAction.objective === "explore" ? " mh-field-explore" : ""}${complete && accepted ? " mh-fetch-complete" : ""}${recommended ? " mh-recommended-card" : ""}${locked ? " mh-field-locked" : ""}`}
                                     style={{ "--mission-rank-color": accent } as CSSProperties}
                                 >
                                     <div className="mh-field-art">
@@ -689,7 +691,7 @@ export function Missions({
                                         </div>
                                         {recommended && <span className="mh-recommended-badge">Recommended First Field Mission</span>}
                                         <p className="mh-field-description">{mission.description}</p>
-                                        {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Raid Mission Outpost there. Claim the reward at the Mission Hall.</p>}
+                                        {recommended && <p className="mh-field-next-step">Explore Sector 18 three times. Then travel to one of the other three villages and raid its guard from the outskirts. Claim your reward here.</p>}
                                         <div className="mh-field-objectives" aria-label="Mission objectives">
                                             <span><small>Sweep</small><strong>×{mission.exploreCount}</strong></span>
                                             {raidReq > 0 && <span><small>Raid</small><strong>×{raidReq}</strong></span>}
@@ -728,12 +730,9 @@ export function Missions({
                                                             glyph carries the difference between "collect" and "go". */}
                                                         <span className="mh-field-primary-arrow" aria-hidden="true">✓</span>
                                                     </button>
+                                                    : nextAction.objective === "explore"
+                                                    ? null
                                                     : <button className="mh-field-primary-action" onClick={() => {
-                                                        writeFieldMissionNavigationIntent(character.name, {
-                                                            missionId: mission.id,
-                                                            targetSector: mission.targetSector,
-                                                            objective: nextAction.objective,
-                                                        });
                                                         setScreen("worldMap");
                                                     }}>
                                                         <span className="mh-field-primary-label">{nextAction.label}</span>

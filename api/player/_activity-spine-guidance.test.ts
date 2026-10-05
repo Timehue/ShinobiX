@@ -10,7 +10,7 @@ import { STORY_TOWER_MIN_LEVEL } from '../towers/_story-eligibility.js';
 import { FLOOR_CATALOG } from '../towers/_floor-catalog.js';
 import { RANKED_MIN_LEVEL } from '../../shared/ranked-eligibility.js';
 import { LEGACY_MIN_LEVEL } from '../_legacy-defs.js';
-import { PROFESSION_CHANGE_LEVEL } from '../../shared/profession-change.js';
+import { PROFESSION_UNLOCK_LEVEL } from '../../shared/profession-change.js';
 import { applyForge } from '../craft/_forge.js';
 import { showdownBusyIssue } from '../pet/_showdown-readiness.js';
 import { makePlayerRankedAdmission, PET_RANKED_SEASON_GATE_KEY, PET_RANKED_SEASON_GATE_VERSION } from '../pet/_ranked-preparation.js';
@@ -99,9 +99,10 @@ test('an Endless Tower run resumes its own mode without turning the separate Tow
 
 test('Showdown readiness uses carried pets and the exact entry busy rule, without inventing defense locks', () => {
     const away = { expedition: { endsAt: now + 10_000 } };
-    for (const pets of [[], [pet('one', away)], [pet('one', away), pet('two', { training: { endsAt: now + 5000 } })]]) {
+    for (const pets of [[], [pet('one', away)], [pet('one', away), pet('two', away)]]) {
         assert.equal(first(input('companions', { pets })).screen, 'pets');
     }
+    assert.equal(first(input('companions', { pets: [pet('one', away), pet('two', { training: { endsAt: now + 5000 } })] })).screen, 'petShowdown');
     const breeding = { petBreeding: { state: 'breeding', readyAt: now + 1000, parentIds: ['one'] } };
     assert.equal(first(input('companions', breeding)).screen, 'pets');
     assert.ok(showdownBusyIssue({ ...character, ...breeding }, [pet('one')], now));
@@ -173,7 +174,7 @@ test('supplies are craftable only when the real immutable forge decision accepts
 });
 
 test('Legacy and profession preparation honor canonical floors and completion stays a review', () => {
-    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_CHANGE_LEVEL], ['ranked-pvp', RANKED_MIN_LEVEL]] as const) {
+    for (const [focus, minimum] of [['legacy', LEGACY_MIN_LEVEL], ['profession', PROFESSION_UNLOCK_LEVEL], ['ranked-pvp', RANKED_MIN_LEVEL]] as const) {
         for (const level of [minimum - 1, minimum, minimum + 1]) {
             assert.equal(first(input(focus, { level, profession: '' })).screen === 'training', level < minimum);
         }

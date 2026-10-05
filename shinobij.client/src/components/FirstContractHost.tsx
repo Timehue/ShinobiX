@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { readFirstContract, firstContractReturnedLater, type FirstContractRoute } from '../../../shared/first-contract';
+import { readFirstContract, firstContractReturnedLater, completedFirstContractRoutes, nextFirstContractRoute, type FirstContractRoute } from '../../../shared/first-contract';
 import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { Screen } from '../types/core';
 import type { ActiveTraining } from '../types/combat';
@@ -12,6 +12,7 @@ import { captureProductEvent } from '../lib/analytics';
 import { useBodyScrollLock } from '../lib/useBodyScrollLock';
 import { useSharedNow } from '../lib/use-shared-now';
 import { FirstContractRoutes } from './FirstContractRoutes';
+import { firstContractNextGoal } from '../lib/first-contract-next-goal';
 import './first-contract.css';
 
 const SAFE_SCREENS: Screen[] = ['village', 'centralHub', 'logbook', 'missions', 'pets', 'profile', 'inventory', 'jutsuTraining', 'training', 'hospital', 'cafeteria'];
@@ -21,9 +22,12 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
     onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null;
 }) {
     const state = readFirstContract(character.firstContract);
+    const completedRoutes = state ? completedFirstContractRoutes(state) : [];
+    const nextRoute = state ? nextFirstContractRoute(state) : null;
     const now = useSharedNow();
     const [open, setOpen] = useState(false);
     const [choosing, setChoosing] = useState(false);
+    const [dismissedCompletionKey, setDismissedCompletionKey] = useState<string | null>(null);
     const [basics, setBasics] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
@@ -47,7 +51,9 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         show();
         return () => window.removeEventListener(FIRST_CONTRACT_OPEN, show);
     }, [allowed, eligible, navigate]);
-    const modal = open && allowed;
+    const completionPromptKey = state?.completedAt && nextRoute ? `${state.completedAt}:${nextRoute}` : null;
+    const completionPrompt = Boolean(completionPromptKey && dismissedCompletionKey !== completionPromptKey);
+    const modal = (open || completionPrompt) && allowed;
     useBodyScrollLock(modal);
     useEffect(() => {
         if (!modal) return;
@@ -64,13 +70,15 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         captureProductEvent('first_hour_milestone', { source: 'first-contract', stateCategory: milestone, mode: state.route ?? 'undecided' });
     }, [allowed, state]);
     if (!allowed || !state) return null;
-    const laterDay = firstContractReturnedLater(state, now) && !state.returnedAt;
+    const allRoutesComplete = completedRoutes.length === 3;
+    const laterDay = allRoutesComplete && firstContractReturnedLater(state, now) && !state.returnedAt;
     if (state.acknowledgedAt && !laterDay && !open && screen !== 'logbook') return null;
     const route = state.route;
     const copy = route ? FIRST_CONTRACT_COPY[route] : null;
     const complete = Boolean(state.completedAt);
+    const nextGoal = firstContractNextGoal(character, Boolean(activeTraining && activeTraining.endsAt > now));
     const preparation = route ? firstContractPreparation(character, route) : null;
-    const journalTitle = laterDay ? 'Welcome back to the road.' : complete ? 'Your first assignment, recorded.' : route && !choosing ? copy!.title : 'Your legend starts here.';
+    const journalTitle = laterDay ? 'Welcome back to the road.' : complete && !allRoutesComplete ? 'The next assignment is ready.' : complete ? 'Your field path is complete.' : route && !choosing ? copy!.title : 'Your legend starts here.';
     const execute = async (action: AcademyNarrativeAction, destination?: Screen, activity?: FirstContractRoute) => {
         if (actionLock.current) return;
         actionLock.current = true; setBusy(true); setError('');
@@ -86,6 +94,7 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         } finally { actionLock.current = false; if (mounted.current) setBusy(false); }
     };
     const choose = (next: FirstContractRoute) => { void execute(next, undefined, next); };
+    const closeJournal = () => { setOpen(false); if (completionPromptKey) setDismissedCompletionKey(completionPromptKey); };
     const go = () => {
         captureProductEvent('first_hour_milestone', { source: 'first-contract', stateCategory: 'activity-opened', mode: route ?? 'undecided' });
         setOpen(false); openFirstContractActivity(character, route!, navigate);
@@ -105,21 +114,27 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
         <div className="fc-journal-body">
             {laterDay ? <>
                 <p>Your first assignment is behind you. Decide what you want to improve today.</p><p className="fc-note">{trainingNote}</p>
-                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-return', 'training'); }}>Check your training</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-return', 'missions'); }}>Take a mission</button></div>
+                <p><strong>Next goal: {nextGoal.title}</strong><br />{nextGoal.detail}</p>
+                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-return', nextGoal.screen, nextGoal.screen === 'missions' ? 'combat' : undefined); }}>{nextGoal.action}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-return', nextGoal.screen === 'training' ? 'missions' : 'training', nextGoal.screen === 'training' ? 'combat' : undefined); }}>{nextGoal.screen === 'training' ? 'Take a mission' : 'Check your training'}</button></div>
+            </> : complete && !allRoutesComplete ? <>
+                <p className="fc-success"><span aria-hidden="true">✓</span> Step {completedRoutes.length} of 3 complete: {copy?.title}.</p>
+                <p>That assignment is recorded. The next step is unlocked; finish it to continue the path.</p>
+                <FirstContractRoutes onChoose={choose} busy={busy} hasCompanion={character.pets.length > 0} completedRoutes={completedRoutes} />
             </> : complete ? <>
                 <p className="fc-success"><span aria-hidden="true">✓</span> {copy?.success}</p>
                 {state.evidence?.sector && <p>Field record: Sector {state.evidence.sector}.</p>}
                 {character.academyVow && <blockquote>“{academyVowDefinition(character.academyVow).quote}”<cite>Your answer to Shiranui</cite></blockquote>}
                 <p className="fc-note">{trainingNote}</p>
-                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-acknowledge', undefined, route ?? 'combat'); }}>{copy?.next ?? 'Take another assignment'}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-acknowledge', 'logbook'); }}>Choose your next goal</button></div>
+                <p><strong>Next goal: {nextGoal.title}</strong><br />{nextGoal.detail}</p>
+                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={() => { void execute('contract-acknowledge', nextGoal.screen, nextGoal.screen === 'missions' ? 'combat' : undefined); }}>{nextGoal.action}</button><button className="fc-secondary" disabled={busy} onClick={() => { void execute('contract-acknowledge', undefined, route ?? 'combat'); }}>{copy?.next ?? 'Take another assignment'}</button></div>
             </> : !route || choosing ? <>
-                <p className="fc-intro">{state.source === 'skip' ? 'Three paths beyond the Academy. Choose your first assignment; the refresher is here whenever you need it.' : 'The Academy opened the gate. Now take your first assignment into the world.'}</p>
-                <FirstContractRoutes onChoose={choose} busy={busy} hasCompanion={character.pets.length > 0} selected={route} />
-                <p className="fc-footnote">Your path. Your pace. You can change direction; each activity keeps its usual rewards.</p>
+                <p className="fc-intro">{state.source === 'skip' ? 'Start the three-step field path. Complete each assignment to unlock the next; the refresher is here whenever you need it.' : 'Start with the first field assignment. Complete it to unlock the next step.'}</p>
+                <FirstContractRoutes onChoose={choose} busy={busy} hasCompanion={character.pets.length > 0} selected={route} completedRoutes={completedRoutes} />
+                <p className="fc-footnote">Each step shows where to go and what to do. Your Logbook keeps the full path visible.</p>
             </> : <>
                 <p>{copy!.line}</p><p className="fc-note">{preparation?.detail ?? copy!.why}</p>
                 {route === 'combat' && <p className="fc-footnote">Mission Hall → Combat → E-Rank Drill. After winning, return to claim the reward.</p>}
-                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={go}>{preparation?.label ?? copy!.action}</button><button className="fc-secondary" disabled={busy} onClick={() => setChoosing(true)}>Choose another route</button></div>
+                <div className="fc-actions"><button className="fc-primary" disabled={busy} onClick={go}>{preparation?.label ?? copy!.action}</button></div>
             </>}
             {<div className="fc-basics"><button type="button" className="fc-text-button" aria-expanded={basics} onClick={() => { setBasics(!basics); if (!basics) captureProductEvent('first_hour_milestone', { source: 'first-contract', stateCategory: 'basics-opened' }); }}>Two-minute refresher <span aria-hidden="true">{basics ? '−' : '+'}</span></button>
                 {basics && <ol><li><strong>Prepare.</strong> Equip learned jutsu in Profile and starter gear in Inventory. Spend unused stat points in Profile.</li><li><strong>Fight.</strong> Move into range, spend AP on attacks or jutsu, and Wait to pass the turn. Watch chakra and cooldowns.</li><li><strong>Collect.</strong> A mission win may leave a reward to claim in Mission Hall. Recover at the Noodle Den; a knockout sends you to the Hospital.</li><li><strong>Grow.</strong> Start stat training before logging out. Your Logbook points to the next goal.</li></ol>}
@@ -133,12 +148,12 @@ export function FirstContractHost({ character, screen, blocked, navigate, onVers
             <button type="button" onClick={(event) => { event.currentTarget.focus(); setOpen(true); }}>{laterDay ? 'Continue' : complete ? 'Read your entry' : route ? 'View assignment' : 'Choose a route'} <span aria-hidden="true">↗</span></button>
         </section>}
         {modal && createPortal(<div className="fc-backdrop"><section className="fc-journal" ref={dialogRef} role="dialog" aria-modal="true" aria-label="First Contract field journal" tabIndex={-1} onKeyDown={(event) => {
-            if (event.key === 'Escape') { event.stopPropagation(); setOpen(false); }
+            if (event.key === 'Escape') { event.stopPropagation(); closeJournal(); }
             if (event.key !== 'Tab') return;
             const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), [href], [tabindex="0"]'));
             const first = controls[0], last = controls.at(-1);
             if (event.shiftKey && (document.activeElement === first || document.activeElement === event.currentTarget)) { event.preventDefault(); last?.focus(); }
             else if (!event.shiftKey && (document.activeElement === last || document.activeElement === event.currentTarget)) { event.preventDefault(); first?.focus(); }
-        }}><button className="fc-close" type="button" aria-label="Close field journal" onClick={() => setOpen(false)}>×</button><div className="fc-journal-scroll">{content}</div></section></div>, document.body)}
+        }}><button className="fc-close" type="button" aria-label="Close field journal" onClick={closeJournal}>×</button><div className="fc-journal-scroll">{content}</div></section></div>, document.body)}
     </>;
 }

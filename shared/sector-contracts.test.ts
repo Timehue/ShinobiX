@@ -56,7 +56,7 @@ test("targets and payouts stay inside their authored bands", () => {
 });
 
 test("chasing every posted contract cannot consume a player's daily explore ceiling", () => {
-    const DAILY_SECTOR_EXPLORE_LIMIT = 150;   // api/world/explore.ts
+    const DAILY_SECTOR_EXPLORE_LIMIT = 100;   // api/world/_explore.ts
     for (const day of DAYS) {
         const cost = contractSectorsForDay(day)
             .reduce((sum, sector) => sum + sectorContractFor(sector, day)!.target, 0);

@@ -720,6 +720,43 @@ test('active Clear Prevent keeps the target shield intact', async () => {
     assert.equal(storedSession('clear-prevent-shield').p2.shield, 700);
 });
 
+test('Clear reaches four hexes and rejects five without consuming a turn', async () => {
+    for (const [pos, expected] of [[4, true], [5, false]] as const) {
+        const battleId = `clear-range-${pos}`;
+        seed(session(battleId, { p2: fighter('bob', pos, { shield: 700 }) }));
+        const out = await postMove('alice', {
+            battleId, role: 'p1', action: 'clear', moveToken: `${battleId}-token`,
+        });
+        assert.equal(out.statusCode, 200);
+        const after = storedSession(battleId);
+        assert.equal(after.p2.shield, expected ? 0 : 700);
+        assert.equal(after.ap.p1, expected ? 40 : 100);
+        assert.equal(after.cooldowns.p1.clear ?? 0, expected ? 10 : 0);
+    }
+});
+
+test('jutsu shield expires after two rounds', async () => {
+    const battleId = 'shield-two-rounds';
+    seed(session(battleId, { p1: withExtraJutsu(fighter('alice', 0), supportJutsu) }));
+    const move = async (player: 'alice' | 'bob', role: 'p1' | 'p2', action: 'jutsu' | 'wait', turn: string) => {
+        const out = await postMove(player, {
+            battleId, role, action, ...(action === 'jutsu' ? { jutsuId: supportJutsu.id } : {}), moveToken: turn,
+        });
+        assert.equal(out.statusCode, 200);
+    };
+    await move('alice', 'p1', 'jutsu', 'shield-cast');
+    assert.ok(storedSession(battleId).p1.shield > 0);
+    assert.equal(storedSession(battleId).p1.shieldExpiresAtRound, 3);
+    await move('alice', 'p1', 'wait', 'shield-r1-opener');
+    await move('bob', 'p2', 'wait', 'shield-r1-closer');
+    assert.equal(storedSession(battleId).round, 2);
+    assert.ok(storedSession(battleId).p1.shield > 0);
+    await move('alice', 'p1', 'wait', 'shield-r2-opener');
+    await move('bob', 'p2', 'wait', 'shield-r2-closer');
+    assert.equal(storedSession(battleId).round, 3);
+    assert.equal(storedSession(battleId).p1.shield, 0);
+});
+
 test('Copy and Mirror persist their deferred contracts through the authoritative move handler', async () => {
     const copyJutsu = {
         ...blast,

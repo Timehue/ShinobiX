@@ -14,6 +14,45 @@ let sequence = 0;
 let player: string;
 const requestId = 'dungeonrecoveryprobe01';
 
+test('verified dungeon clear repairs interrupted Legacy delivery without repeating rewards', async () => {
+    process.env.ENABLE_LEGACY = '1';
+    const token = 'legacydungeonclearproof';
+    const now = Date.now();
+    await seed({ activeDungeonRun: {
+        token, entry: 'key', startedAt: now - 60_000,
+        combatAuthorityVersion: 1, wardenDefeated: true, wardenProofId: 'wardenproof123',
+        cardAuthorityVersion: 1, cardDefeated: true, cardLastOutcome: 'player', cardSettledAt: now,
+        cardDefeatedAt: now, cardProofId: 'cardproof123', cardLastProofId: 'cardproof123',
+        petAuthorityVersion: 1, petDefeated: true, petLastOutcome: 'win', petSettledAt: now,
+        petDefeatedAt: now, petProofId: 'petproof123', petLastProofId: 'petproof123', petLastPetIds: ['pet-one'],
+    } });
+    await kv.set(`legacy:stats:${player}`, { bootstrappedAt: now });
+    const invoke = async () => {
+        const output = { status: 200, body: {} as Json };
+        const res = { setHeader: () => res, status: (status: number) => { output.status = status; return res; },
+            json: (body: Json) => { output.body = body; return res; }, end: () => res };
+        await handler({ method: 'POST', body: { action: 'settle', playerName: player, token },
+            headers: { 'x-player-token': issuePlayerToken(player) }, socket: { remoteAddress: '203.0.113.121' } } as never, res as never);
+        return output;
+    };
+    const original = kv.set;
+    let fail = true;
+    kv.set = async (key, value, options) => {
+        if (fail && key === `legacy:stats:${player}`) { fail = false; return null; }
+        return original(key, value, options);
+    };
+    try {
+        assert.equal((await invoke()).status, 503);
+        const rewarded = await storedCharacter();
+        assert.equal(rewarded.auraStones, 5);
+        kv.set = original;
+        assert.equal((await invoke()).status, 200);
+        assert.equal((await invoke()).status, 200);
+        assert.equal((await storedCharacter()).auraStones, 5);
+        assert.equal((await kv.get<Json>(`legacy:stats:${player}`))?.dungeonClears, 1);
+    } finally { kv.set = original; delete process.env.ENABLE_LEGACY; }
+});
+
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
@@ -87,15 +126,15 @@ test('sector mismatch is distinct from transient presence startup', async () => 
 test('daily cap explains its reset and still permits recovery of an existing receipt', async () => {
     const at = Date.now();
     const day = new Date(at).toISOString().slice(0, 10);
-    const capped = { serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 150,
-        serverExploreDate: day, serverExploresToday: 150 };
+    const capped = { serverFreeDungeonProbeDate: day, serverFreeDungeonProbesToday: 100,
+        serverExploreDate: day, serverExploresToday: 100 };
     await seed(capped);
     bePresent();
     const refused = await probe();
     assert.equal(refused.status, 409);
     assert.equal(refused.body.reason, 'daily-limit');
     assert.match(String(refused.body.error), /midnight UTC/);
-    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 150);
+    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 100);
     await seed({ ...capped, serverFreeDungeonProbeReceipts: [{ requestId, day, sector: 27, found: false, token: '', at }] });
     onlineStore.remove(player);
     const replay = await probe();
@@ -103,7 +142,7 @@ test('daily cap explains its reset and still permits recovery of an existing rec
     assert.equal(replay.body.requestId, requestId);
     assert.equal(replay.body.sector, 27);
     assert.equal(replay.body.found, false);
-    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 150);
+    assert.equal((await storedCharacter()).serverFreeDungeonProbesToday, 100);
 });
 
 test('an unearned probe explains prior exploration without claiming a daily cap', async () => {

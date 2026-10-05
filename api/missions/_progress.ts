@@ -251,6 +251,17 @@ export async function loadOrIssueDailyMissions(
     now = new Date(),
     loadedCharacter: Record<string, unknown> | null | undefined = undefined,
 ): Promise<DailyMissionsState | null> {
+    return withKvLock(dailyKey(playerName), () =>
+        loadOrIssueDailyMissionsUnderLock(playerName, profession, now, loadedCharacter), { failClosed: true });
+}
+
+// Issuance, eligibility repairs and progress must share one daily-key lease.
+async function loadOrIssueDailyMissionsUnderLock(
+    playerName: string,
+    profession: Profession,
+    now: Date,
+    loadedCharacter: Record<string, unknown> | null | undefined,
+): Promise<DailyMissionsState | null> {
     const today = utcDateKey(now);
     // Look up current rank to determine daily mission slot count.
     const char = loadedCharacter === undefined
@@ -314,7 +325,7 @@ export async function reportMissionEvent(opts: {
     // both increment to N+1, and the second write clobber the first.
     const dKey = dailyKey(playerName);
     const result = await withKvLock(dKey, async () => {
-        const state = await loadOrIssueDailyMissions(playerName, profession, now, char);
+        const state = await loadOrIssueDailyMissionsUnderLock(playerName, profession, now, char);
         if (!state) return { xpAwarded: 0, missionsCompleted: [] as CompletedMissionInfo[] };
 
         const receiptId = typeof opts.receiptId === 'string' ? opts.receiptId.trim().slice(0, 160) : '';
@@ -479,6 +490,11 @@ export async function loadOrIssueNewbieDailies(
     playerName: string,
     now = new Date(),
 ): Promise<NewbieDailyState> {
+    return withKvLock(newbieDailyKey(playerName), () =>
+        loadOrIssueNewbieDailiesUnderLock(playerName, now), { failClosed: true });
+}
+
+async function loadOrIssueNewbieDailiesUnderLock(playerName: string, now: Date): Promise<NewbieDailyState> {
     const today = utcDateKey(now);
     const existing = await kv.get<NewbieDailyState>(newbieDailyKey(playerName));
     if (existing && existing.date === today) return existing;
@@ -534,7 +550,7 @@ export async function reportNewbieEvent(opts: {
 
     const dKey = newbieDailyKey(playerName);
     const result = await withKvLock(dKey, async () => {
-        const state = await loadOrIssueNewbieDailies(playerName, now);
+        const state = await loadOrIssueNewbieDailiesUnderLock(playerName, now);
         let ryoAwarded = 0;
         const completed: NewbieCompletedInfo[] = [];
         let changed = false;
@@ -581,7 +597,7 @@ export async function reportNewbieCombatRunOnce(opts: {
         const targetDate = beforeIssue && beforeIssue.date > eventDateKey
             ? new Date(`${beforeIssue.date}T00:00:00.000Z`)
             : eventDate;
-        await loadOrIssueNewbieDailies(opts.playerName, targetDate);
+        await loadOrIssueNewbieDailiesUnderLock(opts.playerName, targetDate);
         const expected = await kv.get<NewbieDailyState>(dKey);
         if (!expected || expected.date !== utcDateKey(targetDate)) {
             throw new Error('newbie-combat-effect-daily-state-unavailable');

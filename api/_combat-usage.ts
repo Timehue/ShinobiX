@@ -21,6 +21,8 @@
  */
 import { kv } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
+import { runBackgroundWork } from './_background-work.js';
 import { safeLogValue } from './_safe-log.js';
 import type { PvpSession } from './pvp/session.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
@@ -121,11 +123,21 @@ function sanitizeAggregate(raw: unknown, mode: CombatUsageMode, now: number): Co
 
 type UsageStore = Pick<typeof kv, 'get' | 'set' | 'del'>;
 
-export async function recordCombatUsage(
+export function recordCombatUsage(
     mode: CombatUsageMode,
     fighters: FighterUsage[],
     store: UsageStore = kv,
     now: number = Date.now(),
+): Promise<void> {
+    return withoutKvLeaseContext(() => runBackgroundWork(() => recordCombatUsageCore(mode, fighters, store, now)))
+        .then(() => undefined);
+}
+
+async function recordCombatUsageCore(
+    mode: CombatUsageMode,
+    fighters: FighterUsage[],
+    store: UsageStore,
+    now: number,
 ): Promise<void> {
     if (!fighters.length) return;
     const key = usageKey(mode);
@@ -216,7 +228,7 @@ export function recordPvpCombatUsage(session: PvpSession): void {
 export function soloPveCombatUsage(session: SoloPveSession): FighterUsage[] | null {
     if (session.status !== 'done' || !session.outcome) return null;
     const player = (session.player?.character ?? {}) as Record<string, unknown>;
-    const usedJutsu = (session.events ?? [])
+    const usedJutsu = session.huntCombat?.usedJutsuIds ?? (session.events ?? [])
         .filter((e) => e.actor === 'player' && e.action === 'jutsu' && typeof e.actionId === 'string')
         .map((e) => e.actionId as string);
     const playerOutcome = session.outcome;
@@ -255,26 +267,26 @@ export function towerCombatUsage(session: TowerLike): FighterUsage[] | null {
 
 /** Fire-and-forget: count a finished tower or Clan Boss run once per run. */
 export function recordTowerCombatUsage(session: TowerLike, mode: 'tower' | 'clan-boss'): void {
-    void (async () => {
+    void withoutKvLeaseContext(() => runBackgroundWork(async () => {
         const fighters = towerCombatUsage(session);
         if (!fighters) return;
         const first = await kv.set(`telemetry:combat-usage:tower-gate:${session.runId}`, '1', { nx: true, ex: PVE_GATE_TTL_SECONDS });
         if (!first) return;
-        await recordCombatUsage(mode, fighters);
-    })().catch((err) => {
+        await recordCombatUsageCore(mode, fighters, kv, Date.now());
+    })).catch((err) => {
         console.warn('[combat-usage] tower record failed:', safeLogValue(err));
     });
 }
 
 /** Fire-and-forget: count a Solo PvE fight once per session. */
 export function recordSoloPveCombatUsage(session: SoloPveSession): void {
-    void (async () => {
+    void withoutKvLeaseContext(() => runBackgroundWork(async () => {
         const fighters = soloPveCombatUsage(session);
         if (!fighters) return;
         const first = await kv.set(`telemetry:combat-usage:pve-gate:${session.sessionId}`, '1', { nx: true, ex: PVE_GATE_TTL_SECONDS });
         if (!first) return;
-        await recordCombatUsage('pve', fighters);
-    })().catch((err) => {
+        await recordCombatUsageCore('pve', fighters, kv, Date.now());
+    })).catch((err) => {
         console.warn('[combat-usage] pve record failed:', safeLogValue(err));
     });
 }

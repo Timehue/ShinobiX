@@ -28,11 +28,11 @@ export const builtinHuntMissions: CreatorMission[] = [
 ];
 
 export const builtinFetchMissions: CreatorMission[] = [
-    { id: "fetch-d-supply-trail", name: "D Rank Supply Trail Sweep", rank: "D Rank", description: "Walk the Sector 18 supply trail, mark three routes a loaded cart can survive, and recover the crate taken to the nearest outpost. Bring back the quartermaster's cord from the handle.", type: "fetchExplore", targetSector: 18, exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
-    { id: "fetch-c-border-scout", name: "C Rank Border Scout Run", rank: "C Rank", description: "Map the patrol changes in Sector 32 without using the main road. The guard post holds two field reports we need; take both before the next shift learns your face.", type: "fetchExplore", targetSector: 32, exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
-    { id: "fetch-b-enemy-cache", name: "B Rank Enemy Cache Search", rank: "B Rank", description: "Courier chalk in Sector 47 points to a hidden supply chain. Find the caches, then hit the defenses hard enough that their runners abandon the marked route.", type: "fetchExplore", targetSector: 47, exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
-    { id: "fetch-a-black-route", name: "A Rank Black Route Operation", rank: "A Rank", description: "Someone is moving sealed orders through Sector 58 after lantern-out. Trace the handoff marks, raid each post in the chain, and return with one seal intact for comparison.", type: "fetchExplore", targetSector: 58, exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
-    { id: "fetch-s-shadow-front", name: "S Rank Shadow Front Incursion", rank: "S Rank", description: "Cross Sector 60 beyond friendly signal range, chart the full approach to the enemy front, and break five command posts. Return with the sealed orders before either village can deny issuing them.", type: "fetchExplore", targetSector: 60, exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
+    { id: "fetch-d-supply-trail", name: "D Rank Supply Trail Sweep", rank: "D Rank", description: "Walk the Sector 18 supply trail and mark three routes a loaded cart can survive. Then travel to an enemy village and raid its guard from the outskirts to recover the stolen supply crate.", type: "fetchExplore", targetSector: 18, exploreCount: 3, raidCount: 1, levelReq: 1, xpReward: 90, ryoReward: 75, staminaReward: 8 },
+    { id: "fetch-c-border-scout", name: "C Rank Border Scout Run", rank: "C Rank", description: "Map five patrol changes in Sector 32 without using the main road. Then raid enemy village guards twice from their outskirts to recover the missing field reports.", type: "fetchExplore", targetSector: 32, exploreCount: 5, raidCount: 2, levelReq: 15, xpReward: 240, ryoReward: 190, staminaReward: 14 },
+    { id: "fetch-b-enemy-cache", name: "B Rank Enemy Cache Search", rank: "B Rank", description: "Follow seven courier chalk marks in Sector 47 to uncover a hidden supply chain. Then raid enemy village guards three times from their outskirts to break the route.", type: "fetchExplore", targetSector: 47, exploreCount: 7, raidCount: 3, levelReq: 30, xpReward: 520, ryoReward: 420, staminaReward: 22, currencyRewards: { boneCharms: 1 } },
+    { id: "fetch-a-black-route", name: "A Rank Black Route Operation", rank: "A Rank", description: "Trace nine handoff marks in Sector 58 after lantern-out. Then raid enemy village guards four times from their outskirts and recover a sealed order for comparison.", type: "fetchExplore", targetSector: 58, exploreCount: 9, raidCount: 4, levelReq: 50, xpReward: 1100, ryoReward: 900, staminaReward: 32, currencyRewards: { boneCharms: 2, auraDust: 20 } },
+    { id: "fetch-s-shadow-front", name: "S Rank Shadow Front Incursion", rank: "S Rank", description: "Chart twelve approaches through Sector 60 beyond friendly signal range. Then raid enemy village guards five times from their outskirts and return with the sealed orders.", type: "fetchExplore", targetSector: 60, exploreCount: 12, raidCount: 5, levelReq: 70, xpReward: 2400, ryoReward: 2100, staminaReward: 45, currencyRewards: { boneCharms: 3, auraDust: 45, fateShards: 1 } },
 ];
 
 export function missionRaidProgressKey(missionId: string) {
@@ -64,20 +64,20 @@ export function fieldMissionNextAction(
     mission: CreatorMission,
     exploreProgress: number,
     raidProgress: number,
-    currentSector: number,
+    _currentSector: number,
 ): { objective: FieldMissionObjective; instruction: string; label: string } {
     const objective = nextFieldMissionObjective(mission, exploreProgress, raidProgress);
     if (objective === "claim") return { objective, instruction: "All objectives complete. Claim your reward.", label: "Claim Reward" };
     if (objective === "explore") return {
         objective,
-        instruction: mission.id === "fetch-d-supply-trail"
-            ? "Explore the supply trail in Sector 18."
-            : `Explore the trail in Sector ${mission.targetSector}.`,
+        instruction: `World Map → Sector ${mission.targetSector} → Explore.`,
         label: `Explore Sector ${mission.targetSector}`,
     };
-    return currentSector === mission.targetSector
-        ? { objective, instruction: "Raid Mission Outpost.", label: "Raid Mission Outpost" }
-        : { objective, instruction: `Go to Mission Outpost in Sector ${mission.targetSector}.`, label: "Go to Mission Outpost" };
+    return {
+        objective,
+        instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.",
+        label: "Go to an Enemy Village",
+    };
 }
 
 export function mergeBuiltinMissions(customMissions: CreatorMission[]) {

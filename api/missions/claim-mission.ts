@@ -5,6 +5,7 @@ import { kv } from '../_storage.js';
 import { safeName, mergePreservingImages, cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
+import { recordEraCampaignEvidence } from '../_era-campaign.js';
 import { withKvLock } from '../_lock.js';
 import { applyDerivedLevel } from '../_xp-engine.js';
 import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progression.js';
@@ -76,6 +77,7 @@ import {
 } from './_authoritative-combat-session.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { extractSoloPveLegacyDeltas, pveStyleDeltas } from '../_legacy-pve.js';
 import {
     appendCombatMissionClaimSettlement,
     combatMissionClaimPaymentMatches,
@@ -152,9 +154,13 @@ export function legacyMissionProgressSpec(
         const claimed = Array.isArray(character.claimedServerMissions)
             ? character.claimedServerMissions.map(String)
             : [];
-        if (!claimed.includes(missionReceipt)) return null;
+        // New field and hunt claims append their server run nonce to the
+        // durable marker. Keep accepting the original exact marker for saves
+        // written before that rollout, while reconciling current claims too.
+        const claimedMarker = [...claimed].reverse().find((entry) => entry === missionReceipt || entry.startsWith(`${missionReceipt}:`));
+        if (!claimedMarker) return null;
         return {
-            receiptId: `mission:${missionReceipt}`,
+            receiptId: `mission:${claimedMarker}`,
             deltas: missionType === 'hunt' ? { huntCompletions: 1 } : { missionCompletions: 1 },
             durableReceipt: false,
         };
@@ -441,10 +447,12 @@ async function completeCombatMissionPostEffects(params: {
             totalAiKills: Math.max(0, Number(current.character.totalAiKills ?? 0) - 1),
             totalMissionsCompleted: Math.max(0, Number(current.character.totalMissionsCompleted ?? 0) - 1),
         };
+        const combatSession = await readSoloPveSession(params.runId);
+        const combatDeltas = combatSession ? extractSoloPveLegacyDeltas(combatSession) : pveStyleDeltas(current.character.specialty, 1);
         await bumpLegacyStatsForCombatRunOnce(
             params.playerName,
             params.runId,
-            { missionCompletions: 1, pveKills: 1 },
+            { missionCompletions: 1, pveKills: 1, ...combatDeltas },
             legacyBootstrapCharacter,
         );
         const receipt = await mutateCombatClaimSettlement({
@@ -724,6 +732,7 @@ async function applyReservedCombatMissionPayout(params: {
     }).character as SaveChar;
     next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
     next = appendCombatMissionClaimSettlement(next, settlement);
+    next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${settlement.runId}`, missionId: settlement.missionId, at: params.reservation.wonAt });
 
     next = creditElderWinDeltas((params.record.character ?? {}) as Record<string, unknown>, next);
     const updated = bumpSaveVersion<Record<string, unknown>>({
@@ -765,9 +774,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'claim-mission', 5, 10_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'claim-mission-preauth', 100, 10_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
@@ -784,6 +791,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only claim your own missions.' });
         }
+        if (!enforceRateLimit(req, res, 'claim-mission', 5, 10_000, identity.admin ? playerName : identity.name)) return;
 
         const saveKey = `save:${playerName}`;
         const todayKey = utcDateKey();
@@ -966,11 +974,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                 }
             }
-            const missionReceipt = `${todayKey}:${missionType}:${missionId}`;
+            let missionReceipt = `${todayKey}:${missionType}:${missionId}`;
             const claimedServerMissions = Array.isArray(char.claimedServerMissions)
                 ? (char.claimedServerMissions as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-99)
                 : [];
-            if ((missionType === 'field' || missionType === 'hunt') && claimedServerMissions.includes(missionReceipt)) {
+            if (missionType === 'hunt' && claimedServerMissions.includes(missionReceipt)) {
                 return { applied: false, reason: 'already-claimed-today' };
             }
 
@@ -1051,6 +1059,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!acceptedIds.includes(missionId)) return { applied: false, reason: 'not-accepted' };
                 const fieldRun = serverFieldMissionRun(char, missionId);
                 if (!fieldRun) return { applied: false, reason: 'field-run-required' };
+                // Each accepted run is a distinct daily claim. Keep retries of
+                // the same run idempotent without limiting a field mission to
+                // one completion per day; hasDailyMissionSlot below enforces
+                // the shared 20-claim daily limit.
+                missionReceipt = `${todayKey}:field:${missionId}:${fieldRun.runId}`;
+                if (claimedServerMissions.includes(missionReceipt)) {
+                    return { applied: false, reason: 'already-claimed-today' };
+                }
                 const eligibility = canPlayerClaimMission(char, def);
                 if (!eligibility.ok) return eligibilityFailure(eligibility);
                 if (!hasDailyMissionSlot(char, todayKey)) return { applied: false, reason: 'daily-cap' };
@@ -1097,6 +1113,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (!trail || trail.targetDefeated !== true
                     || typeof trail.targetProofId !== 'string' || !trail.targetProofId) {
                     return { applied: false, reason: 'missing-hunt-kill-receipt' };
+                }
+                // A hunt contract can be repeated during the daily pool. Use
+                // this server-issued kill proof as the claim identity so retries
+                // remain idempotent without treating the mission id itself as a
+                // once-per-day lock. The legacy unsuffixed marker check above
+                // still protects claims written before repeatable hunts shipped.
+                missionReceipt = `${todayKey}:hunt:${missionId}:${trail.targetProofId}`;
+                if (claimedServerMissions.includes(missionReceipt)) {
+                    return { applied: false, reason: 'already-claimed-today' };
                 }
                 progressReceiptKeyToClear = progressKey;
                 baseRyo = def.ryoReward; baseStamina = def.staminaReward;
@@ -1254,6 +1279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             let combatSettlement: CombatMissionClaimSettlement | null = null;
             if (combat && combatToken) {
+                next = recordEraCampaignEvidence(next, { kind: 'mission', receiptId: `mission:${combatToken.runId}`, missionId: combatToken.missionId, at: combatToken.wonAt });
                 next = recordFirstContractActivity(next, 'combat', { kind: 'combat-claim' });
                 const result: CombatMissionClaimResult = { reward, combat, completion: 'daily' };
                 combatSettlement = {

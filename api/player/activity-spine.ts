@@ -21,10 +21,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const playerName = safeName(String(req.query.player ?? ''));
         if (!playerName) return res.status(400).json({ error: 'Missing player.' });
-        if (!enforceRateLimit(req, res, 'activity-spine', 45, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'activity-spine-preauth', (45) * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only view your own activity spine.' });
+        if (!enforceRateLimit(req, res, 'activity-spine', 45, 60_000, identity.admin ? playerName : identity.name)) return;
         const record = await kv.get<Record<string, unknown>>(`save:${playerName}`);
         const character = record?.character as Record<string, unknown> | undefined;
         if (!character) return res.status(404).json({ error: 'Character not found.' });

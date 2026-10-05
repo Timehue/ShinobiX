@@ -84,6 +84,37 @@ function frontline(squadChar = STRONG, enemyChar = WEAK): TowerActor[] {
 }
 
 describe('Battle Towers engine (P1.A2)', () => {
+    it('expires starting shields after two rounds', () => {
+        const shielded = makeActor('sq-1', 'squad', 0, { shield: 300 });
+        const session = makeSession([shielded, makeActor('en-1', 'enemy', 63)]);
+        assert.equal(shielded.shieldExpiresAtRound, 3);
+        startRound(session);
+        session.round = 2;
+        startRound(session);
+        assert.equal(shielded.shield, 300);
+        session.round = 3;
+        startRound(session);
+        assert.equal(shielded.shield, 0);
+    });
+
+    it('stamps shield jutsu through the Tower combat adapter', () => {
+        const shieldJutsu = {
+            id: 'test-shield', name: 'Test Shield', type: 'Ninjutsu', target: 'SELF',
+            range: 0, ap: 40, effectPower: 0, isUtility: true, tags: [{ name: 'Shield' }],
+        };
+        const actor = makeActor('sq-1', 'squad', 0, {
+            character: { ...STRONG, jutsu: [shieldJutsu] },
+        });
+        const session = makeSession([actor, makeActor('en-1', 'enemy', 63)]);
+        startRound(session);
+        const result = applyAction(session, makeFloor('defeat-all'), {
+            actorId: actor.id, type: 'jutsu', jutsuId: shieldJutsu.id, targetId: actor.id,
+        }, makeRng(1));
+        assert.equal(result.applied, true);
+        assert.ok(actor.shield > 0);
+        assert.equal(actor.shieldExpiresAtRound, 3);
+    });
+
     it('runs a full floor deterministically (same seed/inputs → byte-identical)', () => {
         const a = runTowerFloor(makeSession(frontline()), makeFloor('defeat-all'), makeRng(999));
         const b = runTowerFloor(makeSession(frontline()), makeFloor('defeat-all'), makeRng(999));
@@ -1647,6 +1678,23 @@ describe('Battle Towers basic actions', () => {
         assert.equal(protectedEnemy.shield, 400, 'active Clear Prevent preserves the shield');
     });
 
+    it('Clear reaches four hexes and refuses a fifth without spending AP', () => {
+        const floor = makeFloor('defeat-all');
+        for (const [pos, expected] of [[4, true], [5, false]] as const) {
+            const target = makeActor('en-1', 'enemy', pos, { shield: 400, character: WEAK });
+            const s = makeSession([makeActor('sq-1', 'squad', 0, { character: STRONG }), target]);
+            startRound(s);
+            const ap = s.activeAp;
+            const result = applyAction(s, floor, { actorId: 'sq-1', type: 'clear', targetId: target.id }, makeRng(1));
+            assert.equal(result.applied, expected);
+            assert.equal(target.shield, expected ? 0 : 400);
+            if (!expected) {
+                assert.equal(result.reason, 'out-of-range');
+                assert.equal(s.activeAp, ap);
+            }
+        }
+    });
+
     it('an adds-gated boss rejects Clear without spending AP or stripping its barrier buffs', () => {
         const buff = { name: 'Reflect', rounds: 2, kind: 'positive' as const };
         const boss = makeActor('boss', 'enemy', 1, { statuses: [buff], character: WEAK });
@@ -1732,6 +1780,32 @@ describe('Battle Towers basic actions', () => {
     describe('PvE-only relic power stops at the PvP boundary', () => {
         const floor = makeFloor('defeat-all');
         const RELIC_CHAR = { ...STRONG, pveDamagePct: 50 };
+
+        it('matches school and element for tower weapons, with no boost in human matches', () => {
+            const damage = (bonus: Partial<Record<string, number>>, human = false, towerId = 'celestial') => {
+                const weapon = { id: 'test-elemental-blade', slot: 'hand', weaponEp: 50, weaponElement: 'Fire', apCost: 40, weaponRange: 2 };
+                const s = makeSession([
+                    makeActor('sq-1', 'squad', 0, { ai: false, ownerSlug: 'alice', character: {
+                        level: 100, specialty: 'Bukijutsu', stats: { bukijutsuOffense: 1500 },
+                        pveSpecialistBonuses: bonus, pvpItems: [weapon], equipment: { hand: weapon.id },
+                    } }),
+                    makeActor('en-1', 'enemy', 1, { hp: 100000, maxHp: 100000, ai: !human, ownerSlug: human ? 'bob' : null, character: WEAK }),
+                ], { towerId });
+                startRound(s);
+                const result = applyAction(s, floor, { actorId: 'sq-1', type: 'weapon', targetId: 'en-1', itemId: weapon.id }, makeRng(3));
+                assert.equal(result.applied, true);
+                return 100000 - getActor(s, 'en-1')!.hp;
+            };
+            const base = damage({});
+            assert.ok(base > 0);
+            for (const bonus of [{ pveBukijutsuDamagePercent: 10 }, { pveFireDamagePercent: 6 }]) {
+                assert.ok(damage(bonus) > base);
+                assert.equal(damage(bonus, true), damage({}, true));
+                assert.equal(damage(bonus, false, TOWER_PVP_TOWER_ID), damage({}, false, TOWER_PVP_TOWER_ID));
+            }
+            assert.equal(damage({ pveWaterDamagePercent: 6 }), base);
+            assert.equal(damage({ pveTaijutsuDamagePercent: 8 }), base);
+        });
 
         const hit = (defender: Partial<TowerActor>) => {
             const s = makeSession([

@@ -52,6 +52,37 @@ test("AI deck is a legal 40-card Chronicle deck at every difficulty band", () =>
     2,
   );
 });
+
+test("AI resumes after a player's Smoke Bomb without retrying its stopped attacker", () => {
+  const session = createAiMatch("smoke-ai-continuation", "Tester", [...CHRONICLE_FIXED_FALLBACK_DECK], "hard", 1_000, () => 0);
+  const state = session.state;
+  state.activePlayer = "p2";
+  state.turnNumber = 3;
+  state.phase = "battle";
+  state.p2.hand = [];
+  const vanilla = CHRONICLE_CARD_CATALOG.find(card => card.cardClass === "monster" && card.monsterType === "normal");
+  assert.ok(vanilla?.cardClass === "monster");
+  for (let index = 0; index < 2; index++) {
+    state.p2.monsterZones[index] = {
+      instanceId: `ai-attacker-${index}`, cardId: vanilla.id, owner: "p2", zoneIndex: index,
+      position: "attack", faceUp: true, summonedOnTurn: 1, lastPositionChangeTurn: 1,
+      lastAttackTurn: 0, temporaryAttack: 0, temporaryDefense: 0,
+    };
+  }
+  state.p1.magicTrapZones[0] = { instanceId: "human-smoke", cardId: "chronicle-smoke-bomb", owner: "p1", zoneIndex: 0, faceUp: false, setOnTurn: 1 };
+  advanceAi(session, 2_000);
+  assert.equal(session.state.responseWindow?.responder, "p1");
+  const stoppedZone = session.state.responseWindow!.pendingAction.attackerZoneIndex;
+  const steps: ChronicleProjection[] = [];
+  assert.equal(applyPlayerAction(session, { action: "activate-trap", zoneIndex: 0 }, 2_100, step => captureAiStep(steps, step)).ok, true);
+  assert.equal(session.state.activePlayer, "p1");
+  assert.equal(session.state.phase, "main1");
+  assert.equal(session.state.p1.lifePoints, state.p1.lifePoints - vanilla.attack, "Only the other monster's direct attack deals damage");
+  const attacks = session.state.events?.filter(event => event.kind === "attack-declared" && event.turnNumber === 3) ?? [];
+  assert.equal(attacks.length, 2);
+  assert.equal(attacks.filter(event => event.sourceZoneIndex === stoppedZone).length, 1);
+  assert.ok(steps[0].p1.graveyard.includes("chronicle-smoke-bomb"), "Replay first shows the player's committed Snare");
+});
 test("ending the turn plays the AI turn and returns the human to Main Phase 1", () => {
   const session = createAiMatch(
     "match-ai",

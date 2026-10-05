@@ -1,4 +1,6 @@
 import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
+import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
+import { PROFESSION_CHANGE_APPROVAL_ID, PROFESSION_CHANGE_APPROVAL_NAME } from "../../../shared/profession-change";
 import type { GameItem } from "../types/combat";
 import { isCombatConsumable, isGloveItem, normalizeEquipmentSlot } from "./equipment";
 
@@ -10,6 +12,12 @@ export type ItemPresentation = {
 };
 
 export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentation {
+    if (item.id === PROFESSION_CHANGE_APPROVAL_ID) {
+        return { category: PROFESSION_CHANGE_APPROVAL_NAME, use: "Choose a new profession in the Grand Marketplace", showPlayerSlot: false, effectLabel: "Change profession" };
+    }
+    if (item.id === VILLAGE_TRANSFER_SCROLL_ID) {
+        return { category: "Village Transfer Scroll", use: "Choose a new village in the Grand Marketplace", showPlayerSlot: false, effectLabel: "Transfer" };
+    }
     const slot = normalizeEquipmentSlot(item.slot);
     const searchable = `${item.id} ${item.name} ${item.description}`.toLowerCase();
     const weapon = slot === "hand" && !isGloveItem(item);

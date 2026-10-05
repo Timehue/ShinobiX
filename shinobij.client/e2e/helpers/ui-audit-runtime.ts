@@ -82,7 +82,11 @@ export function uiAuditSave(): UiAuditSave {
             messages: [],
         },
         currentBiome: "central",
-        currentSector: 40,
+        // Start in Central's safe zone. Hub-screen restore correctly refuses
+        // to teleport a field character home; audit cases may request any hub
+        // directly, so the shared fixture must begin somewhere that can reach
+        // those screens without violating the travel rule.
+        currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
         acceptedMissionIds: [],
@@ -133,6 +137,11 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
 
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
         if (path === "/api/img") return route.fulfill({ status: 200, contentType: "image/png", body: IMAGE_PLACEHOLDER });
+        // Match the image endpoint's manifest contract. The generic fallback is
+        // invalid here and makes the app retry background requests during reload.
+        if (path === "/api/images") return json(route, url.searchParams.get("ids") === "1"
+            ? (url.searchParams.get("ver") === "1" ? { version: "1", ids: [] } : [])
+            : {});
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
         if (normalizedPath === "/api/save/auditninja") {
             if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
@@ -158,6 +167,7 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
         }
 
         if (path === "/api/battle-lock" || path === "/api/battle/lock") return json(route, { lock: null });
+        if (path === "/api/pvp/session" && url.searchParams.get("pending") === "1") return route.fulfill({ status: 204 });
         if (path === "/api/player/capabilities") {
             return json(route, {
                 ok: true,

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
-import { adminEditableNarrativeEvents, canonicalNarrativeEvent, isReservedNarrativeId } from './canonical-narrative';
+import { adminEditableNarrativeEvents, canonicalNarrativeEvent, isReservedNarrativeId, sameNarrativeArtwork } from './canonical-narrative';
+import { overlayVnImages, vnActorImageKey } from './vn-shared-artwork';
 import { storylines } from '../data/storylines';
 import { defaultPetEncounterVn } from '../data/default-vn-events';
 import type { CreatorEvent } from '../types/vn';
@@ -107,4 +108,216 @@ test('reserved scenes cannot be redelivered through generic saved-event triggers
     const world = readFileSync(new URL('../screens/WorldMap.tsx', import.meta.url), 'utf8');
     assert.match(world, /canonicalNarrativeEvent\(defaultPetEncounterVn, petEncounterVn/);
     assert.match(world, /canonicalNarrativeEvent\(defaultAncientChestVn, ancientChestVn/);
+});
+
+test('equal-valued restored cinematic art preserves the entire canonical event reference', () => {
+    const base = structuredClone(frostfang());
+    base.cinematic = { mode: 'cinematic', backgroundPosition: '50% 40%', titleCard: false };
+    const page = base.vnPages![1];
+    page.cinematic = { backgroundImage: '/canonical-intake.webp', titleCard: false };
+    page.lines = page.dialogue.map(text => ({ speaker: page.speaker, text }));
+    page.choices![0].battle = { encounterType: 'ai', bossHp: 400, backgroundImage: '/canonical-arena.webp' };
+    const saved = structuredClone(base);
+    const baseSnapshot = structuredClone(base);
+    const savedSnapshot = structuredClone(saved);
+    assert.notEqual(saved.cinematic, base.cinematic);
+    assert.notEqual(saved.vnPages![1].cinematic, page.cinematic);
+    const result = canonicalNarrativeEvent(base, saved);
+    assert.equal(result, base);
+    assert.equal(result.cinematic, base.cinematic);
+    assert.equal(result.vnPages, base.vnPages);
+    assert.equal(result.vnPages![1], page);
+    assert.equal(result.vnPages![1].cinematic, page.cinematic);
+    assert.equal(result.vnPages![1].dialogue, page.dialogue);
+    assert.equal(result.vnPages![1].lines, page.lines);
+    assert.equal(result.vnPages![1].choices, page.choices);
+    assert.equal(result.vnPages![1].choices![0], page.choices![0]);
+    assert.equal(result.vnPages![1].choices![0].battle, page.choices![0].battle);
+    assert.deepEqual(base, baseSnapshot);
+    assert.deepEqual(saved, savedSnapshot);
+});
+
+test('one event or page image changes only the necessary canonical references', () => {
+    const base = structuredClone(frostfang());
+    const eventArt = structuredClone(base);
+    eventArt.image = '/late-event.webp';
+    const baseSnapshot = structuredClone(base);
+    const eventSnapshot = structuredClone(eventArt);
+    const eventResult = canonicalNarrativeEvent(base, eventArt);
+    assert.notEqual(eventResult, base);
+    assert.equal(eventResult.image, eventArt.image);
+    assert.equal(eventResult.vnPages, base.vnPages);
+    assert.equal(eventResult.dialogue, base.dialogue);
+    assert.equal(canonicalNarrativeEvent(eventResult, structuredClone(eventArt)), eventResult);
+    const pageArt = structuredClone(base);
+    pageArt.vnPages![1].image = '/late-intake.webp';
+    const pageSnapshot = structuredClone(pageArt);
+    const result = canonicalNarrativeEvent(base, pageArt);
+    assert.notEqual(result, base);
+    assert.notEqual(result.vnPages, base.vnPages);
+    for (const [index, page] of result.vnPages!.entries()) {
+        if (index !== 1) assert.equal(page, base.vnPages![index]);
+    }
+    const page = result.vnPages![1];
+    assert.notEqual(page, base.vnPages![1]);
+    assert.equal(page.image, '/late-intake.webp');
+    assert.equal(page.id, base.vnPages![1].id);
+    assert.equal(page.title, base.vnPages![1].title);
+    assert.equal(page.speaker, base.vnPages![1].speaker);
+    assert.equal(page.dialogue, base.vnPages![1].dialogue);
+    assert.equal(page.lines, base.vnPages![1].lines);
+    assert.equal(page.choices, base.vnPages![1].choices);
+    assert.equal(canonicalNarrativeEvent(result, structuredClone(pageArt)), result);
+    assert.deepEqual(base, baseSnapshot);
+    assert.deepEqual(eventArt, eventSnapshot);
+    assert.deepEqual(pageArt, pageSnapshot);
+});
+
+test('late art matches exact event and stable page identity, with strict legacy title fallback', () => {
+    const base = structuredClone(frostfang());
+    base.vnPages = base.vnPages!.map((page, index) => ({ ...page, id: `canonical-page-${index}` }));
+    const saved = structuredClone(base);
+    saved.vnPages!.reverse();
+    const intake = saved.vnPages!.find(page => page.id === base.vnPages![1].id)!;
+    intake.title = 'An obsolete title on the same stable page';
+    intake.image = '/matched-stable-intake.webp';
+    intake.dialogue = ['Obsolete narration'];
+    const baseSnapshot = structuredClone(base);
+    const savedSnapshot = structuredClone(saved);
+    const result = canonicalNarrativeEvent(base, saved);
+    assert.equal(result.vnPages![1].image, intake.image);
+    assert.equal(result.vnPages![1].id, base.vnPages![1].id);
+    assert.equal(result.vnPages![1].title, base.vnPages![1].title);
+    assert.equal(result.vnPages![1].dialogue, base.vnPages![1].dialogue);
+    const wrongEvent = { ...saved, id: 'story-unrelated-village-4-0' };
+    assert.equal(canonicalNarrativeEvent(base, wrongEvent), base);
+    const wrongPage = structuredClone(base);
+    wrongPage.vnPages![1].id = 'unrelated-page';
+    wrongPage.vnPages![1].image = '/wrong-stable-page.webp';
+    assert.equal(canonicalNarrativeEvent(base, wrongPage), base);
+    const legacyBase = structuredClone(frostfang());
+    for (const page of legacyBase.vnPages!) delete page.id;
+    const wrongTitle = structuredClone(legacyBase);
+    wrongTitle.vnPages![1].title = 'A different old Intake';
+    wrongTitle.vnPages![1].image = '/wrong-title.webp';
+    assert.equal(canonicalNarrativeEvent(legacyBase, wrongTitle), legacyBase);
+    const exactTitle = structuredClone(legacyBase);
+    exactTitle.vnPages![1].image = '/matched-title.webp';
+    assert.equal(canonicalNarrativeEvent(legacyBase, exactTitle).vnPages![1].image, '/matched-title.webp');
+    assert.deepEqual(base, baseSnapshot);
+    assert.deepEqual(saved, savedSnapshot);
+});
+
+test('late choice background preserves the canonical branch, gates, receipt identity and battle rules', () => {
+    const base = structuredClone(frostfang());
+    const choice = base.vnPages![1].choices![0];
+    choice.id = 'canonical-battle-choice';
+    choice.requireTrait = 'canonical-required';
+    choice.forbidTrait = 'canonical-forbidden';
+    choice.battle = {
+        encounterType: 'ai', difficulty: 'hard', bossName: 'Canonical Guard', bossHp: 400,
+        bossDamage: 7, aiProfileId: 'canonical-guard', backgroundImage: '/canonical-arena.webp',
+        ryoReward: 12,
+    };
+    const saved = structuredClone(base);
+    const old = saved.vnPages![1].choices![0];
+    old.text = 'Obsolete branch';
+    old.nextPage = 999;
+    old.trait = 'obsolete-trait';
+    old.requireTrait = 'obsolete-gate';
+    old.battle = { bossName: 'Wrong Guard', bossHp: 1, ryoReward: 9999, backgroundImage: '/late-arena.webp' };
+    const baseSnapshot = structuredClone(base);
+    const savedSnapshot = structuredClone(saved);
+    const result = canonicalNarrativeEvent(base, saved);
+    const changed = result.vnPages![1].choices![0];
+    assert.notEqual(changed, choice);
+    assert.notEqual(changed.battle, choice.battle);
+    assert.deepEqual(changed, { ...choice, battle: { ...choice.battle, backgroundImage: '/late-arena.webp' } });
+    assert.equal(result.vnPages![1].dialogue, base.vnPages![1].dialogue);
+    for (const [index, other] of result.vnPages![1].choices!.entries()) {
+        if (index !== 0) assert.equal(other, base.vnPages![1].choices![index]);
+    }
+    assert.equal(canonicalNarrativeEvent(result, structuredClone(saved)), result);
+    const legacyBase = structuredClone(base);
+    delete legacyBase.vnPages![1].choices![0].id;
+    const wrongLegacyChoice = structuredClone(legacyBase);
+    wrongLegacyChoice.vnPages![1].choices![0].text = 'Different un-IDed choice';
+    wrongLegacyChoice.vnPages![1].choices![0].battle!.backgroundImage = '/wrong-branch.webp';
+    assert.equal(canonicalNarrativeEvent(legacyBase, wrongLegacyChoice), legacyBase);
+    wrongLegacyChoice.vnPages![1].choices![0].text = legacyBase.vnPages![1].choices![0].text;
+    wrongLegacyChoice.vnPages![1].choices![0].nextPage = 999;
+    assert.equal(canonicalNarrativeEvent(legacyBase, wrongLegacyChoice), legacyBase);
+    assert.deepEqual(base, baseSnapshot);
+    assert.deepEqual(saved, savedSnapshot);
+});
+
+test('settled manifest precedence keeps the reader event reference after art-only composition', () => {
+    const base = structuredClone(frostfang());
+    base.cinematic = { titleCard: false };
+    base.vnPages![1].cinematic = { backgroundPosition: '50% 40%' };
+    const saved = structuredClone(base);
+    saved.vnPages![1].image = '/saved-intake.webp';
+    saved.vnPages![1].dialogue = ['Obsolete saved words'];
+    const images = { [`vn:${base.id}:page:1`]: '/manifest-intake.webp' };
+    const current = overlayVnImages(base, base.id, images);
+    const currentSnapshot = structuredClone(current);
+    const savedSnapshot = structuredClone(saved);
+    const candidate = overlayVnImages(canonicalNarrativeEvent(current, saved), current.id, images);
+    assert.equal(candidate.vnPages![1].image, '/manifest-intake.webp');
+    assert.equal(candidate.id, current.id);
+    assert.equal(candidate.dialogue, current.dialogue);
+    assert.equal(candidate.cinematic, current.cinematic);
+    for (const [index, page] of candidate.vnPages!.entries()) {
+        const prior = current.vnPages![index];
+        assert.equal(page.id, prior.id);
+        assert.equal(page.title, prior.title);
+        assert.equal(page.speaker, prior.speaker);
+        assert.equal(page.dialogue, prior.dialogue);
+        assert.equal(page.lines, prior.lines);
+        assert.equal(page.choices, prior.choices);
+        assert.equal(page.cinematic, prior.cinematic);
+    }
+    // This predicate follows already verified art-only transforms, never a raw saved graph.
+    assert.equal(sameNarrativeArtwork(current, candidate), true);
+    const settled = sameNarrativeArtwork(current, candidate) ? current : candidate;
+    assert.equal(settled, current);
+    assert.equal(settled.vnPages, current.vnPages);
+    assert.equal(settled.vnPages![1].choices, current.vnPages![1].choices);
+    assert.deepEqual(current, currentSnapshot);
+    assert.deepEqual(saved, savedSnapshot);
+});
+
+test('art-only hydration preserves cast cleanup and becomes a no-op without resurrecting a portrait', () => {
+    const base = structuredClone(frostfang());
+    const saved = structuredClone(base);
+    const portrait = '/legacy-sova.webp';
+    assert.equal(base.vnPages![1].leftName, 'Elder Sova');
+    saved.vnPages![1].leftName = base.vnPages![1].leftName;
+    saved.vnPages![1].leftImage = portrait;
+    const current = canonicalNarrativeEvent(base, saved);
+    assert.equal(current.vnPages![1].leftImage, portrait);
+    const images = {
+        [`vn:${base.id}:page:1:left`]: portrait,
+        [vnActorImageKey(base.id, 1, 'Retired Elder')]: '/retired-elder.webp',
+    };
+    const currentSnapshot = structuredClone(current);
+    const savedSnapshot = structuredClone(saved);
+    const candidate = overlayVnImages(canonicalNarrativeEvent(current, saved), current.id, images);
+    assert.equal(candidate.vnPages![1].leftImage, undefined);
+    assert.equal(Object.hasOwn(candidate.vnPages![1], 'leftImage'), false);
+    assert.equal(candidate.vnPages![1].dialogue, current.vnPages![1].dialogue);
+    assert.equal(candidate.vnPages![1].lines, current.vnPages![1].lines);
+    assert.equal(candidate.vnPages![1].speaker, current.vnPages![1].speaker);
+    assert.equal(candidate.vnPages![1].choices, current.vnPages![1].choices);
+    assert.equal(sameNarrativeArtwork(current, candidate), false, 'defined portrait deletion is a real visual change');
+    const repeated = overlayVnImages(canonicalNarrativeEvent(candidate, saved), candidate.id, images);
+    assert.equal(repeated.vnPages![1].leftImage, undefined);
+    assert.equal(Object.hasOwn(repeated.vnPages![1], 'leftImage'), false);
+    assert.equal(repeated.vnPages![1].dialogue, candidate.vnPages![1].dialogue);
+    assert.equal(repeated.vnPages![1].choices, candidate.vnPages![1].choices);
+    assert.equal(sameNarrativeArtwork(candidate, repeated), true);
+    const settled = sameNarrativeArtwork(candidate, repeated) ? candidate : repeated;
+    assert.equal(settled, candidate);
+    assert.deepEqual(current, currentSnapshot);
+    assert.deepEqual(saved, savedSnapshot);
 });

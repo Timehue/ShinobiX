@@ -255,7 +255,7 @@ export function stripForgedItems(list: unknown): unknown[] {
 }
 
 /**
- * Re-attach server-forged items the incoming save omits.
+ * Keep existing server-forged item definitions authoritative across client saves.
  *
  * `creatorItems` is normally replaced wholesale by the client's copy, which is
  * fine for the admin-content mirror that makes up the rest of the array. It is
@@ -266,10 +266,11 @@ export function stripForgedItems(list: unknown): unknown[] {
  * from every fight. The `_baseSaveVersion` guard rejects most such writes; this
  * closes the rest.
  *
- * Deliberately narrow: only ids matching the server-minted pattern are revived,
- * and only when absent from the incoming array. Everything else keeps
- * replace-semantics, so an admin-deleted item still disappears normally and the
- * array cannot grow without bound.
+ * Deliberately narrow: only ids matching the server-minted pattern are retained
+ * from stored state. A same-ID incoming edit uses the stored definition, and an
+ * omitted forged item is reattached. Everything else keeps replace-semantics,
+ * so an admin-deleted item still disappears normally and the array cannot grow
+ * without bound.
  */
 export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: number): unknown {
     return projectedPreserveForgedItems(sanitized, stored, cap);
@@ -467,11 +468,8 @@ async function validateClanAndVillageIdentity(
     const exChar = (existing?.character as Record<string, unknown> | undefined) ?? {};
     const out: Record<string, unknown> = { ...inChar };
 
-    // Village: locked. Set at registration; no relocation flow exists today.
-    // If the client tries to change village post-registration, revert to the
-    // server-side value. (If a relocate endpoint is ever added, it should
-    // mutate the save server-side and this check will still pass because
-    // exChar.village will already reflect the new value.)
+    // Village transfers write through /api/village/transfer. Generic saves
+    // always retain the stored membership, including after a paid transfer.
     if (exChar.village && out.village !== exChar.village) {
         out.village = exChar.village;
     }

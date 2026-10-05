@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createOwnedPet, type SecureInt } from './_owned-pet.js';
+import { applyOwnedPetTrait, createOwnedPet, rollOwnedPetTrait, type SecureInt } from './_owned-pet.js';
 
 const STARTER_DIGESTS: Record<string, string> = {
     'starter-fire': 'ebe6d88ae39f1d603161d9c4d41769dd5530e7f0a6f9ed6d5a3fc42b6d99e9af',
@@ -9,15 +9,6 @@ const STARTER_DIGESTS: Record<string, string> = {
     'starter-earth': 'e103378d666fc5073f43d27cfde8733dfece745578d4fc45dc7d10a8ff23380c',
 };
 
-function withTraitBonus(pet: Record<string, unknown>) {
-    const n = (key: string) => Number(pet[key]) || 0;
-    if (pet.trait === 'Aggressive') return { ...pet, attack: Math.round(n('attack') * 1.15) };
-    if (pet.trait === 'Battleborn') return { ...pet, attack: Math.round(n('attack') * 1.1), hp: Math.round(n('hp') * 1.1), defense: Math.round(n('defense') * 1.1), speed: Math.round(n('speed') * 1.1) };
-    if (pet.trait === 'Guardian') return { ...pet, hp: Math.round(n('hp') * 1.2), defense: Math.round(n('defense') * 1.2) };
-    if (pet.trait === 'Swift') return { ...pet, speed: Math.round(n('speed') * 1.2) };
-    return pet;
-}
-
 export function validateStarterPet(raw: unknown): Record<string, unknown> | null {
     if (!raw || typeof raw !== 'object') return null;
     const pet = raw as Record<string, unknown>;
@@ -25,7 +16,7 @@ export function validateStarterPet(raw: unknown): Record<string, unknown> | null
     const expected = STARTER_DIGESTS[id];
     if (!expected) return null;
     const digest = createHash('sha256').update(JSON.stringify(pet)).digest('hex');
-    return digest === expected ? withTraitBonus(structuredClone(pet)) : null;
+    return digest === expected ? structuredClone(pet) : null;
 }
 
 export function chooseStarterPet(character: Record<string, unknown>, rawPet: unknown, secureInt?: SecureInt) {
@@ -40,15 +31,17 @@ export function chooseStarterPet(character: Record<string, unknown>, rawPet: unk
     }
     const validated = validateStarterPet(rawPet);
     if (!validated) return { ok: false as const, reason: 'invalid-starter' as const };
-    // Digest validation happens before any owned-instance decoration. The
-    // validated object already carries its canonical trait bonus, so the shared
-    // factory preserves that result and adds only server-owned metadata.
+    // The client submits the signed, unchanged starter template. Roll the
+    // actual trait here so a selected starter gets an independent trait, and
+    // apply its stat bonus once to the canonical base stats.
+    const trait = rollOwnedPetTrait('standard', secureInt);
+    const traitApplied = applyOwnedPetTrait({ ...validated, trait }, trait);
     const pet = createOwnedPet(String(validated.id), {
         origin: 'starter',
         instanceId: String(validated.id),
         existingIds: pets.map((entry) => String((entry as Record<string, unknown>)?.id ?? '')),
-        basePet: validated,
-        trait: String(validated.trait ?? ''),
+        basePet: traitApplied,
+        trait,
         traitAlreadyApplied: true,
         secureInt,
     });

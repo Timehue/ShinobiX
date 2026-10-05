@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 import { sectorExitById, travelArrivalTile, SECTOR_TILE_COUNT, type SectorExit } from '../../shared/sector-links.js';
 import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
+import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
+import { kv } from '../_storage.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -102,8 +104,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         mode === 'edge' ? WORLD_TRAVEL_EDGE_LIMIT_PER_MINUTE : WORLD_TRAVEL_MAP_LIMIT_PER_MINUTE,
         60_000, identity.name)) return;
     if (!parsed.ok) return res.status(400).json({ error: parsed.error });
-    const destinationSector = Number(body.destinationSector);
-    if (!isPlayableWorldSector(destinationSector) || destinationSector === 0) {
+    const destinationSector = typeof body.destinationSector === 'number' ? body.destinationSector : NaN;
+    if (!isPlayableWorldSector(destinationSector)) {
         return res.status(400).json({ error: 'Invalid travel destination.' });
     }
 
@@ -164,6 +166,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (player.inBattle || (player.travelingUntil !== undefined && player.travelingUntil > now)) {
         return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
     }
+    if (destinationSector === 0) {
+        // Keep the same incoming-raid protection as ordinary town admission.
+        // A queued attack or reserving duel can precede the live inBattle flag.
+        try {
+            if (await engagedInWorldDuel(kv, identity.name, player, now)) {
+                return res.status(409).json({ error: 'You cannot travel while moving or fighting.' });
+            }
+        } catch {
+            return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
+        }
+    }
     const lease: TravelLease = {
         originSector,
         destinationSector,
@@ -186,7 +199,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         console.error('[player-travel] could not persist travel lease:', (err as Error).message);
         return res.status(503).json({ error: 'Travel could not be secured. Please try again.' });
     }
-    const started = onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
+    const pendingHomeAttack = destinationSector === 0 && onlineStore.get(identity.name)?.pendingAttacker;
+    const started = pendingHomeAttack ? null : onlineStore.startTravel(identity.name, destinationSector, arrivalAt, edgeOriginSector, arrivalTile);
     if (!started) {
         // Lost a race with another admission between the check and the start.
         // Compare-and-delete: only THIS journey's lease is removed, never the

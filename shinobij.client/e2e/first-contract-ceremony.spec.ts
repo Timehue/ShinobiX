@@ -19,6 +19,9 @@ test('illustrated first-contract cards remain usable in the Academy return cerem
     const ceremony = page.getByRole('dialog', { name: 'Your next step is yours.' });
     await expect(ceremony).toBeVisible();
     await expect(ceremony.locator('.fc-route-art')).toHaveCount(3);
+    await expect(ceremony.getByRole('button', { name: /Combat Prove your technique/ })).toBeEnabled();
+    await expect(ceremony.getByRole('button', { name: /Discovery Beyond the village gate/ })).toBeDisabled();
+    await expect(ceremony.getByRole('button', { name: /A moment for your companion/ })).toBeDisabled();
     await expect.poll(() => ceremony.locator('.fc-route-art').evaluateAll((images) =>
         images.every((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
     const panel = ceremony.locator('.asm-ceremony');

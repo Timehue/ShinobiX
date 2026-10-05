@@ -147,6 +147,31 @@ test('owner reads recover an in-flight loading mask from the server lease only',
     assert.equal((await kv.get<Json>(SAVE))?.currentSector, 12);
 });
 
+test('village travel survives a reconnect and commits home only at the server deadline', async () => {
+    presence.onlineStore.upsert({ name: PLAYER, sector: 12, tile: 17, character: { level: 20 } });
+    const handler = (await import('./travel.js')).default as unknown as Handler;
+    const started = await request(handler, 'POST', { destinationSector: 0 });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal(started.body?.travelMs, 3_000);
+    const restored = await request(saveHandler, 'GET');
+    assert.equal(restored.body?.currentSector, 12);
+    const pending = restored.body?.pendingTravel as Json;
+    assert.equal(pending.destinationSector, 0);
+    assert.equal(pending.arrivalAt, started.body?.arrivalAt);
+    assert.ok(Number(pending.remainingMs) > 0 && Number(pending.remainingMs) <= 3_000);
+    presence.onlineStore.remove(PLAYER);
+    const early = await request(heartbeat, 'POST', { name: PLAYER, sector: 0, enterTown: true });
+    assert.equal(early.body?.sector, 12, 'town navigation cannot shorten a restored trip');
+    assert.equal(early.body?.traveling, true);
+    await delay(Math.max(0, Number(started.body?.arrivalAt) - Date.now()) + 20);
+    const arrived = await request(heartbeat, 'POST', { name: PLAYER, sector: 12, enterTown: false });
+    assert.equal(arrived.body?.sector, 0, 'a stale departure heartbeat cannot undo home arrival');
+    assert.equal(arrived.body?.traveling, false);
+    const saved = await request(saveHandler, 'GET');
+    assert.equal(saved.body?.currentSector, 0);
+    assert.equal(saved.body?.pendingTravel, null);
+});
+
 test('a journey that matures during an owner read returns its arrival, not a maskless town origin', async (t) => {
     let now = Date.now();
     t.mock.method(Date, 'now', () => now);

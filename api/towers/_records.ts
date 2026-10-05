@@ -8,6 +8,7 @@ import { kv as realKv } from '../_storage.js';
 import { withKvLock } from '../_lock.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
 import { mergePreservingImages } from '../_utils.js';
+import { recordEraCampaignEvidence } from '../_era-campaign.js';
 
 export function towerRecordsForClear(previous: TowerRecords | undefined, session: TowerSession): TowerRecords {
     const result: TowerRecords = { bests: { ...(previous?.bests ?? {}) }, honors: { ...(previous?.honors ?? {}) } };
@@ -55,8 +56,13 @@ export async function settleTowerRecords(session: TowerSession, slug: string, de
             const sealed = await kv.set(receiptKey, comparison, { nx: true, ex: 8 * 24 * 60 * 60 });
             if (sealed === null) throw new Error('Tower comparison was not committed; retry settlement.');
         }
-        if (JSON.stringify(previous) === JSON.stringify(records)) return comparison;
-        const next = bumpSaveVersion({ ...record, character: { ...character, battleTowerRecords: records } }, { previousCharacter: character });
+        const campaignCharacter = recordEraCampaignEvidence(character, { kind: 'tower', receiptId: `tower:${session.runId}`, at: Date.now(), startedAt: session.createdAt,
+            floor: isSpireRun(session) ? session.ascensionTier! : session.floor, story: isPublicTowerRun(session), spire: isSpireRun(session),
+            humanMembers: new Set(session.actors.filter(actor => actor.side === 'squad' && actor.ai === false && actor.ownerSlug).map(actor => actor.ownerSlug)).size,
+            clean: comparison.clean, withinPar: session.round <= floorForSession(session)!.roundBudget,
+            disrupted: (session.towerTactics?.disruptedPylons.length ?? 0) > 0, avoided: (session.towerTactics?.avoidedStrikes ?? 0) > 0, baited: (session.towerTactics?.chargeBaits ?? 0) > 0 });
+        if (JSON.stringify(previous) === JSON.stringify(records) && campaignCharacter === character) return comparison;
+        const next = bumpSaveVersion({ ...record, character: { ...campaignCharacter, battleTowerRecords: records } }, { previousCharacter: character });
         const written = await kv.set(`save:${slug}`, mergePreservingImages(next, record));
         if (written === null) throw new Error('Tower records were not committed; retry settlement.');
         return comparison;

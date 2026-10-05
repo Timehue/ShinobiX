@@ -32,6 +32,8 @@
 
 import { randomUUID } from 'node:crypto';
 import { kv, type KvLike } from './_storage.js';
+import { alreadyHoldsKvLock, withKvLeaseContext } from './_kv-lock-context.js';
+export { LockOwnershipLostError } from './_kv-lock-context.js';
 
 export type LockOptions = {
     /** TTL (seconds) for the lock key. Default 5. */
@@ -88,13 +90,11 @@ export async function withLockCore<T>(
     primitives: LockPrimitives,
     opts: LockOptions = {},
 ): Promise<T> {
-    // Default 5s (raised from 2s): currency RMW critical sections route save:
-    // keys to the remote cPanel disk proxy over HTTP (several round-trips), which
-    // a 2s TTL could occasionally outlive — the lock would expire mid-operation,
-    // a second writer could slip in, and the slow holder would then delete the
-    // NEW holder's lock on release. 5s comfortably covers a normal op; a crashed
-    // holder still auto-releases (just 5s later), and failClosed waiters that
-    // can't acquire within the retry budget throw + retry rather than race.
+    // The lease bounds crash recovery, not callback duration. Supported shared
+    // adapters check its exact owner and database expiry in the same transaction
+    // as each KV operation. An overrun aborts further protected storage work;
+    // it cannot resume writing after another holder takes over. Release removes
+    // only this owner's token. The whole callback remains a multi-step workflow.
     const ttlSec = opts.ttlSec ?? 5;
     const maxAttempts = opts.maxAttempts ?? 5;
     const base = opts.baseBackoffMs ?? 25;
@@ -126,7 +126,7 @@ export async function withLockCore<T>(
     }
 
     try {
-        return await fn();
+        return await (ownerToken ? withKvLeaseContext(lockKey, ownerToken, fn) : fn());
     } finally {
         if (ownerToken) {
             await primitives.release(lockKey, ownerToken).catch(() => undefined);
@@ -173,5 +173,6 @@ export async function withKvLock<T>(
     fn: () => Promise<T>,
     opts: LockOptions = {},
 ): Promise<T> {
+    if (alreadyHoldsKvLock(target)) return fn();
     return withLockCore(target, fn, kvLockPrimitives, opts);
 }

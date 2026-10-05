@@ -1,10 +1,11 @@
 import type { Character } from '../types/character';
 import type { SoloPveSession } from './solo-pve-api';
+import type { TowerSession } from './towers-api';
 import type { CaravanContract, CaravanProgress, CaravanWeather } from '../../../shared/sunscar/caravan-types';
 
 export type CaravanResponse = {
     ok: true; progress: CaravanProgress; daily: { seed: number; weather: CaravanWeather; contracts: CaravanContract[]; baseRewards?: Record<string, number> };
-    serverNow: number; character: Character; _saveVersion: number; session?: SoloPveSession;
+    serverNow: number; character: Character; _saveVersion: number; session?: SoloPveSession | TowerSession;
 };
 export async function requestCaravan(playerName: string, action?: Record<string, unknown>, signal?: AbortSignal): Promise<CaravanResponse> {
     const response = await fetch(action ? '/api/festival/caravan' : `/api/festival/caravan?playerName=${encodeURIComponent(playerName)}`, {

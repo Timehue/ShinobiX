@@ -12,7 +12,7 @@ test("Pet Home treats its care and combat routes as one destination", () => {
 });
 
 test("Pet Home return copy names Central and the Hollow Gate precisely", () => {
-    assert.equal(petHomeReturnLabel("centralHub"), "Central · The Gates");
+    assert.equal(petHomeReturnLabel("centralHub"), "Central");
     assert.equal(petHomeReturnLabel("hollowGateShrine"), "Hollow Gate Shrine");
     assert.equal(petHomeReturnLabel("village"), "Village");
 });

@@ -234,7 +234,7 @@ test('supporters can open the avatar picker from the profile button', async ({ p
     expect((await picker).isMultiple()).toBe(false);
 });
 
-for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }]) {
+for (const viewport of [{ width: 286, height: 821 }, { width: 360, height: 640 }, { width: 844, height: 390 }]) {
     test(`creator password controls stay within their fields at ${viewport.width}x${viewport.height}`, async ({ page }) => {
         await page.setViewportSize(viewport);
         await page.addInitScript(() => localStorage.setItem('shinobix:storage-notice-ack', '1'));
@@ -255,6 +255,8 @@ for (const viewport of [{ width: 360, height: 640 }, { width: 844, height: 390 }
             await expect(field).toHaveAttribute('type', 'password');
             const inputBox = (await field.boundingBox())!;
             const buttonBox = (await toggle.boundingBox())!;
+            const paddingRight = await field.evaluate((input) => Number.parseFloat(getComputedStyle(input).paddingRight));
+            expect(paddingRight).toBeGreaterThanOrEqual(buttonBox.width + 12);
             // Firefox reports an exact 44px box as 43.999969px at some offsets.
             expect(Math.round(buttonBox.width)).toBeGreaterThanOrEqual(44);
             expect(Math.round(buttonBox.height)).toBeGreaterThanOrEqual(44);

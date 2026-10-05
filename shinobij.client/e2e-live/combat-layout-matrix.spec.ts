@@ -46,10 +46,13 @@ const SCREENSHOT_ROOT = process.env.COMBAT_LAYOUT_ARTIFACT_ROOT
 
 const VIEWPORTS = [
     [320, 568], [360, 800], [375, 667], [390, 844], [412, 915], [430, 932],
-    [667, 375], [800, 360], [844, 390], [932, 430],
-    [768, 1024], [820, 1180], [1024, 768], [1180, 820],
+    // Narrow tall freeform pane representative of Android's one-third window
+    // configuration; the game remains a supported resizable activity there.
+    [286, 821],
+    [480, 320], [540, 360], [667, 375], [800, 360], [844, 390], [932, 430],
+    [360, 840], [640, 1024], [768, 1024], [820, 1180], [1024, 768], [1180, 820],
     [1280, 720], [1366, 768], [1440, 900], [1536, 864], [1600, 900],
-    [1920, 1080], [2560, 1440], [3440, 1440],
+    [1680, 720], [1920, 1080], [2560, 1440], [3440, 1440],
 ] as const;
 const VIEWPORT_FILTER = process.env.COMBAT_LAYOUT_VIEWPORT;
 const ACTIVE_VIEWPORTS = VIEWPORT_FILTER
@@ -855,6 +858,7 @@ type LayoutMeasurement = {
     dossierFlow: Array<{ dossier: number; display: string; columns: string; children: Array<{ className: string; gridColumn: string; gridRow: string; rect: Rect | null }> }>;
     gridTemplateColumns: string;
     gridTemplateRows: string;
+    layoutHasActionNotice: boolean;
     mainGridRowCount: number;
     mainGridTemplateColumns: string;
     mainGridTemplateRows: string;
@@ -1005,7 +1009,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
          * off :disabled. Matching only `:not(:disabled)` made a layout assertion
          * depend on TURN STATE, and that dependency cannot be waited out: PvP
          * turns lapse on a 75s server timer (api/pvp/session.ts auto-waits a
-         * lapsed turn), the matrix walks 22 viewports plus the zoom
+         * lapsed turn), the matrix walks 25 viewports plus the zoom
          * equivalents, and on webkit that outlives the timer. The turn then
          * passes to an opponent with no client attached, so every card stays
          * disabled for a whole turn cycle and the probe reported rect=null at
@@ -1085,6 +1089,7 @@ async function measure(page: Page, rootSelector: string): Promise<LayoutMeasurem
             dossierFlow,
             gridTemplateColumns: style?.gridTemplateColumns ?? '',
             gridTemplateRows: style?.gridTemplateRows ?? '',
+            layoutHasActionNotice: layoutNode?.classList.contains('has-action-notice') === true,
             mainGridRowCount: countGridTracks(trackStyle?.gridTemplateRows ?? ''),
             mainGridTemplateColumns: mainStyle?.gridTemplateColumns ?? '',
             mainGridTemplateRows: trackStyle?.gridTemplateRows ?? '',
@@ -1590,6 +1595,28 @@ async function assertJutsuSelectionGeometryStable(
         expectCombatBoardUsable(armed, `${label} armed`, isTower);
         expectGeometryNear(armed, before, `${label} after arming a jutsu`);
 
+        // Google Play's current large-screen guidance requires live combat to
+        // survive orientation changes without losing its action state or
+        // touch alignment. Browser viewport rotation cannot verify Android's
+        // native configuration callbacks, but it can catch a web shell that
+        // unmounts combat state or leaves its controls off-target during the
+        // same portrait/landscape reflow.
+        if (!isTower && viewport.width === 390 && viewport.height === 844) {
+            await page.setViewportSize({ width: 844, height: 390 });
+            await settleBoardGeometry(page, rootSelector);
+            await expect(firstJutsu, `${label} armed action must survive portrait-to-landscape resize`)
+                .toHaveClass(/selected-action/);
+            const landscapeArmed = await selectionGeometry(page, rootSelector);
+            expectCombatBoardUsable(landscapeArmed, `${label} landscape after resize`, false);
+
+            await page.setViewportSize(viewport);
+            await settleBoardGeometry(page, rootSelector);
+            await expect(firstJutsu, `${label} armed action must survive landscape-to-portrait resize`)
+                .toHaveClass(/selected-action/);
+            const portraitArmed = await selectionGeometry(page, rootSelector);
+            expectCombatBoardUsable(portraitArmed, `${label} portrait after resize`, false);
+        }
+
         await startTransitionTrace(page, rootSelector);
         if (canToggleOff) await clickVisibleControlCenter(page, firstJutsu, `${rootSelector} ${viewport.width}x${viewport.height} selected jutsu`);
         else await page.keyboard.press('Escape');
@@ -1838,12 +1865,22 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
         const wideDesktopCommandCenter = current.viewport.width >= 1280
             && current.viewport.height >= 700
             && intermediateDesktopDossiers;
-        const expectedMainRows = wideDesktopCommandCenter
+        const browserZoomLandscapeTier = current.viewport.width >= 800
+            && current.viewport.width <= 979
+            && current.viewport.height >= 501
+            && current.viewport.height <= 740;
+        const expectedMainRows = browserZoomLandscapeTier
+            ? (current.layoutHasActionNotice ? 7 : 6)
+            : wideDesktopCommandCenter
             ? 6
             : intermediateDesktopDossiers
                 ? 8
                 : mode === 'solo'
-                    ? (current.viewport.width >= 1024 ? 6 : current.viewport.height <= 500 ? 4 : 7)
+                    ? (current.viewport.width >= 1024
+                        ? 6
+                        : current.viewport.height <= 500
+                            ? 4
+                            : current.layoutHasActionNotice ? 7 : 6)
                     : current.viewport.width < 980
                         ? (current.viewport.height <= 500 ? 4 : 6)
                         : 7;
@@ -1852,8 +1889,15 @@ async function captureMatrix(page: Page, mode: 'solo' | 'pvp', rootSelector: str
             // Solo intentionally renders the battlefield directly, without an
             // aspect-locking CombatBoardStage. Its row height changes by viewport;
             // width, tile containment, hit testing, and the 90px floor are the
-            // live usability contracts rather than one stale aspect ratio.
-            expect(current.board?.width ?? 0, `${label} board width`).toBeGreaterThanOrEqual(Math.min(280, current.viewport.width - 12));
+            // live usability contracts rather than one stale aspect ratio. In
+            // sub-500px landscape, the board shares the available width with a
+            // persistent 44px command column, so its authored width floor is 232px;
+            // hit-testing still verifies every tile center at the resulting size.
+            const boardWidthFloor = current.viewport.height <= 500 && current.viewport.width >= 480 ? 232 : 280;
+            expect(
+                current.board?.width ?? 0,
+                `${label} board width; root=${JSON.stringify(current.root)} layout=${JSON.stringify(current.layout)} main=${JSON.stringify(current.main)} board=${JSON.stringify(current.board)}`,
+            ).toBeGreaterThanOrEqual(Math.min(boardWidthFloor, current.viewport.width - 12));
             if (wideDesktopCommandCenter) {
                 expect(
                     (current.board?.height ?? 0) / Math.max(1, current.main?.height ?? 0),
@@ -2105,6 +2149,18 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
     expect(activeRole, 'PvP session must declare the coin-flip winner').toMatch(/^p[12]$/);
     const activeAccount = activeRole === 'p2' ? p2 : p1;
     const savePreview = await fetchAuthoritativeSave(request, activeAccount);
+    // The viewport sweep can outlast the real PvP turn. Freeze browser time
+    // before mounting the combat screen so CombatRoundTimer never schedules an
+    // auto-wait from the live 45-second deadline. Pin heartbeat samples to the
+    // same authoritative turn instant; battle state and actions still come
+    // from Express.
+    const clockResponse = await request.get(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
+        headers: { 'x-player-name': activeAccount.name, 'x-player-token': activeAccount.token },
+    });
+    expect(clockResponse.status()).toBe(200);
+    const clockSession = await clockResponse.json() as { turnStartedAt?: number };
+    expect(clockSession.turnStartedAt).toBeGreaterThan(0);
+    const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
     await installSession(page, activeAccount.name, activeAccount.token, {
         acknowledgeEstablishedNotices: true,
         savePreview,
@@ -2113,6 +2169,13 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         localStorage.setItem('pvpSession.v1', JSON.stringify({ owner, pvpBattleId: id, pvpRole: role, pvpBattleContext: { mode: 'standard' }, savedAt: Date.now() }));
         localStorage.setItem('lastScreen.v1', 'pvpBattle');
     }, { id: battleId, owner: accountKey(activeAccount.name), role: activeRole! });
+    await page.route('**/api/player/heartbeat', async (route) => {
+        // Shares the same pooled sockets as `request`.
+        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
+        if (!response.ok()) { await route.fulfill({ response }); return; }
+        await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
+    });
+    await page.clock.setFixedTime(geometryTime);
     // Mount the authenticated fighter who won the real server coin flip. That
     // keeps the arming test deterministic without forging client turn state.
     await page.goto('/#/pvpBattle', { waitUntil: 'domcontentloaded' });
@@ -2140,25 +2203,6 @@ test('PvP combat layout viewport matrix', async ({ page, request }, testInfo) =>
         enemyMarkers: 1,
         minimumEnemySprites: 0,
     });
-    // This geometry sweep holds one real turn longer than its 45-second clock.
-    // DISABLE_PVP_TURN_DEADLINE holds the server, but the browser still sends an
-    // auto-wait when its countdown expires. Pin Date without freezing animation
-    // frames, and keep heartbeat clock samples on that same fixture time. All
-    // battle state and actions still come from Express; no turn state is forged.
-    const clockResponse = await request.get(`/api/pvp/session?id=${encodeURIComponent(battleId)}`, {
-        headers: { 'x-player-name': activeAccount.name, 'x-player-token': activeAccount.token },
-    });
-    expect(clockResponse.status()).toBe(200);
-    const clockSession = await clockResponse.json() as { turnStartedAt?: number };
-    expect(clockSession.turnStartedAt).toBeGreaterThan(0);
-    const geometryTime = Number(clockSession.turnStartedAt) + 1_000;
-    await page.route('**/api/player/heartbeat', async (route) => {
-        // Shares the same pooled sockets as `request`.
-        const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
-        if (!response.ok()) { await route.fulfill({ response }); return; }
-        await route.fulfill({ response, json: { ...await response.json(), serverNow: geometryTime } });
-    });
-    await page.clock.setFixedTime(geometryTime);
     await assertJutsuSelectionGeometryStable(page, '.pvp-battle-layout', false);
     await captureMatrix(page, 'pvp', '.pvp-battle-layout', testInfo);
 

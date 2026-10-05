@@ -22,9 +22,10 @@ export function Settings({ character, onVersionedCharacter, onDelete }: {
         <section className="settings-section" aria-labelledby="presentation-heading">
             <h2 id="presentation-heading">Story presentation</h2>
             <label htmlFor="settings-reader">Visual novel reader</label>
-            <select id="settings-reader" value={reader} onChange={e => { const mode = e.target.value as ReaderMode; setReader(mode); setReaderMode(mode); }}>
+            <select id="settings-reader" data-gamepad-horizontal-select="true" value={reader} onChange={e => { const mode = e.target.value as ReaderMode; setReader(mode); setReaderMode(mode); }}>
                 <option value="cinematic">Cinematic (recommended)</option><option value="classic">Classic — simple reader</option>
             </select>
+            <p className="settings-controller-hint" aria-hidden="true">Controller: D-pad up/down moves between settings; left/right changes choices or volume; A activates a toggle.</p>
             <p className="hint">Cinematic brings scenes to life. Classic uses a compact layout. Your story progress and choices stay the same.</p>
         </section>
         <section className="settings-section" aria-labelledby="audio-heading">

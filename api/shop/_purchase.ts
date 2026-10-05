@@ -1,5 +1,7 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
+import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
+import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
 
 type Character = Record<string, unknown>;
 
@@ -26,6 +28,13 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const item = ITEM_CATALOG[id];
     const baseCost = whole(item?.cost);
     if (!item || baseCost <= 0) return { ok: false as const, reason: 'item-not-for-sale' as const };
+    if (id === PROFESSION_CHANGE_APPROVAL_ID) {
+        const error = professionChangeUnlockError(character);
+        if (error) return { ok: false as const, reason: error };
+    }
+    if (id === VILLAGE_TRANSFER_SCROLL_ID && villageTransferUnlockError(character)) {
+        return { ok: false as const, reason: villageTransferUnlockError(character)! };
+    }
     if (whole(character.level) < whole(item.levelReq ?? 1)) return { ok: false as const, reason: 'level-required' as const };
     const premium = item.rarity === 'legendary' || item.rarity === 'mythic';
     const currency = premium ? 'fateShards' : 'ryo';
@@ -38,7 +47,8 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     else if (itemCount(character, id) > 0) return { ok: false as const, reason: 'already-owned' as const };
     if (qty <= 0) return { ok: false as const, reason: 'hold-cap' as const };
     const percent = purchaseDiscount(character, premium);
-    const unitCost = Math.max(1, Math.floor(baseCost * Math.max(0, 1 - percent / 100)));
+    const unitCost = id === VILLAGE_TRANSFER_SCROLL_ID ? VILLAGE_TRANSFER_COST
+        : Math.max(1, Math.floor(baseCost * Math.max(0, 1 - percent / 100)));
     const totalCost = unitCost * qty;
     const balance = whole(character[currency]);
     if (balance < totalCost) return { ok: false as const, reason: 'insufficient-funds' as const };

@@ -349,7 +349,7 @@ html.wm-zoom .world-map-scroll .atlas-sector-deaths-gate {
 html.wm-zoom .world-map-scroll .atlas-sector::after {
     content: "";
     position: absolute;
-    inset: -6px;
+    inset: -8px;
     border-radius: 999px;
 }
 /* Keep village name-plates from ballooning at overview scale. */
@@ -372,7 +372,7 @@ html.wm-zoom .world-map-scroll .atlas-hollowGate {
 html.wm-zoom .world-map-scroll .atlas-hollowGate::after {
     content: "";
     position: absolute;
-    inset: -6px;
+    inset: -12px;
     border-radius: 999px;
 }
 

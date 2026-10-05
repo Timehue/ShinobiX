@@ -1,0 +1,84 @@
+.ui-modal-backdrop.bl-ritual-backdrop {
+    padding: 0;
+    background: #03060cf2;
+    backdrop-filter: blur(10px);
+}
+.ui-modal-card.bl-ritual-dialog {
+    width: 100%;
+    max-width: 1200px;
+    height: min(800px, 100dvh);
+    max-height: 100dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #050910;
+    box-shadow: none;
+    animation: none;
+}
+.bl-ritual-dialog .ui-modal-body { padding: 0; overflow: hidden; scrollbar-gutter: auto; }
+.bl-ritual {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    isolation: isolate;
+    color: #eee9da;
+    font-family: Inter, sans-serif;
+    animation: bl-ritual-enter 450ms ease-out both;
+}
+.bl-ritual-art, .bl-ritual-shade { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.bl-ritual-art { object-fit: cover; object-position: center 43%; animation: bl-relic-rise 3500ms cubic-bezier(.18,.65,.25,1) both; }
+.bl-ritual-shade {
+    background: linear-gradient(180deg, #030711c9, transparent 33%, #03071152 54%, #030711f5 88%),
+        radial-gradient(ellipse at 50% 42%, transparent 15%, #03071199 85%);
+}
+.bl-ritual-heading { position: absolute; top: max(32px, env(safe-area-inset-top)); left: 20px; right: 20px; display: grid; gap: 10px; text-align: center; }
+.bl-ritual-heading > span { color: rgb(var(--ritual-rgb)); font: 700 12px/1.3 var(--font-display, serif); letter-spacing: .25em; text-transform: uppercase; }
+.bl-ritual-heading small { color: #b5b9bd; font-size: 10px; letter-spacing: .12em; }
+.bl-ritual-seal {
+    position: absolute; left: 50%; top: 44%; width: clamp(160px, 30vw, 300px); aspect-ratio: 1;
+    transform: translate(-50%, -50%); opacity: .35; transition: opacity 700ms ease;
+}
+.bl-ritual-seal > i { position: absolute; inset: 0; border: 1px solid rgba(var(--ritual-rgb), .7); border-radius: 50%; box-shadow: 0 0 28px rgba(var(--ritual-rgb), .2), inset 0 0 22px rgba(var(--ritual-rgb), .15); animation: bl-seal-turn 14s linear infinite; }
+.bl-ritual-seal > i:nth-child(2) { inset: -16px; border-style: dashed; border-width: 2px; animation-direction: reverse; }
+.bl-ritual-seal > i:nth-child(3) { inset: 12px; border-width: 3px; border-color: transparent rgba(var(--ritual-rgb), .65); animation-duration: 8s; }
+.bl-ritual-seal > span { position: absolute; inset: 0; display: grid; place-items: center; font: 700 clamp(54px, 10vw, 88px)/1 var(--font-display, serif); color: #f5eee0; text-shadow: 0 0 35px rgb(var(--ritual-rgb)), 0 2px 14px #000; opacity: 0; transform: scale(.8); transition: opacity 700ms, transform 900ms; }
+.bl-ritual[data-phase="surge"] .bl-ritual-seal, .bl-ritual[data-phase="revealed"] .bl-ritual-seal { opacity: 1; }
+.bl-ritual[data-phase="revealed"] .bl-ritual-seal > span { opacity: 1; transform: scale(1); }
+.bl-ritual-motes { position: absolute; inset: 0; pointer-events: none; }
+.bl-ritual-motes > i { position: absolute; left: 50%; top: 44%; width: 3px; height: 3px; border-radius: 50%; background: rgb(var(--ritual-rgb)); box-shadow: 0 0 10px rgb(var(--ritual-rgb)); opacity: 0; animation: bl-mote-flow 1900ms calc(650ms + var(--mote-delay)) ease-out both; }
+.bl-ritual-copy { position: absolute; left: 20px; right: 20px; bottom: max(100px, calc(env(safe-area-inset-bottom) + 80px)); text-align: center; }
+.bl-ritual-stage { color: rgb(var(--ritual-rgb)); font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
+.bl-ritual-copy h2 { margin: 14px 0 8px; color: #fff0d1; font: 700 clamp(28px, 5vw, 48px)/1.15 var(--font-display, serif); text-shadow: 0 2px 20px #000; }
+.bl-ritual-copy p { margin: 0; color: #c4c6cd; font-size: 13px; line-height: 1.5; }
+.bl-ritual-progress { margin: 22px auto 0; width: min(180px, 60%); height: 2px; background: rgba(var(--ritual-rgb), .14); overflow: hidden; }
+.bl-ritual-progress > i { display: block; height: 100%; background: rgb(var(--ritual-rgb)); transform-origin: left; animation: bl-ritual-fill 3500ms linear both; }
+.bl-ritual-skip { position: absolute; bottom: max(24px, env(safe-area-inset-bottom)); right: 24px; display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 48px; padding: 10px 18px; border: 1px solid rgba(var(--ritual-rgb), .35); border-radius: 7px; background: #050a14b3; color: #e0e4e9; font: 600 12px/1.4 Inter, sans-serif; cursor: pointer; }
+.bl-ritual-skip:focus-visible { outline: 2px solid rgb(var(--ritual-rgb)); outline-offset: 4px; }
+.bl-ritual-skip:disabled { opacity: .5; cursor: default; }
+.bl-ritual[data-phase="leaving"] { animation: bl-ritual-leave 360ms ease-in both; }
+@keyframes bl-ritual-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bl-ritual-leave { to { opacity: 0; transform: scale(1.025); } }
+@keyframes bl-relic-rise { from { transform: scale(1.12); filter: brightness(.45); } to { transform: scale(1); filter: brightness(1); } }
+@keyframes bl-seal-turn { to { transform: rotate(360deg); } }
+@keyframes bl-ritual-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes bl-mote-flow { 0% { opacity: 0; transform: rotate(var(--mote-angle)) translateX(190px) scale(.5); } 25% { opacity: .8; } 100% { opacity: 0; transform: rotate(calc(var(--mote-angle) + 45deg)) translateX(30px) scale(1.5); } }
+@media (max-width: 600px) {
+    .bl-ritual-art { object-position: center 40%; }
+    .bl-ritual-seal { top: 42%; width: min(52vw, 230px); }
+    .bl-ritual-motes > i { top: 42%; }
+    .bl-ritual-skip { right: 50%; transform: translateX(50%); white-space: nowrap; }
+}
+@media (max-height: 500px) {
+    .bl-ritual-heading { top: 16px; gap: 5px; }
+    .bl-ritual-seal { top: 42%; width: 140px; }
+    .bl-ritual-copy { bottom: 65px; }
+    .bl-ritual-copy h2 { font-size: 26px; margin: 8px 0 4px; }
+    .bl-ritual-progress { margin-top: 12px; }
+    .bl-ritual-skip { bottom: 8px; right: 12px; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .bl-ritual, .bl-ritual-art, .bl-ritual-seal > i, .bl-ritual-motes > i, .bl-ritual-progress > i { animation: none; }
+    .bl-ritual-seal, .bl-ritual-seal > span { transition: none; }
+}

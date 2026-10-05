@@ -355,6 +355,11 @@ export function IntroCinematic({
     return createPortal(
         <div
             className={`icx-root is-beat-${openingBeat} ${companionMode ? "is-companion" : ""} ${revealing ? "is-revealing" : ""} ${rumbling && !reduced ? "is-rumbling" : ""}`}
+            role="dialog"
+            tabIndex={-1}
+            aria-modal="true"
+            aria-label={companionMode ? "Companion introduction" : "Shinobi Journey opening cinematic"}
+            data-gamepad-mode="visual-novel"
             style={{
                 "--icx-bg-landscape": `url(${shrineFallsLandscape})`,
                 "--icx-bg-portrait": `url(${shrineFallsPortrait})`,
@@ -596,7 +601,7 @@ export function IntroCinematic({
                                         <MiniStatBar label="DEF" value={o.pet.defense} max={STAT_MAX.defense} />
                                         <MiniStatBar label="SPD" value={o.pet.speed} max={STAT_MAX.speed} />
                                     </span>
-                                    <p className="icx-pet-trait">★ {o.traitEffect}</p>
+                                    <p className="icx-pet-trait">★ Random trait assigned when chosen</p>
                                 </button>
                             );
                         })}

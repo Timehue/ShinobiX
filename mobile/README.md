@@ -53,6 +53,32 @@ Before moving to a newer Flutter, note that the build warns that
 which a future Flutter release will reject. Check that both plugins have moved to
 Built-in Kotlin first.
 
+## Test a local web client inside Android WebView
+
+The debug shell accepts `SJ_DEBUG_GAME_URL` only for loopback addresses. This
+lets device-size checks load the current checkout without deploying it or
+opening the live game. The debug manifest alone permits cleartext traffic; the
+release manifest remains HTTPS-only, and release builds ignore this override.
+
+Start the client server from the repository root:
+
+```powershell
+cd shinobij.client
+npm run dev -- --host 127.0.0.1 --port 4173 --strictPort
+```
+
+In another PowerShell window, forward emulator loopback and run the debug shell:
+
+```powershell
+adb reverse tcp:4173 tcp:4173
+cd mobile
+flutter run --dart-define=SJ_DEBUG_GAME_URL=http://127.0.0.1:4173/
+```
+
+The normal canonical game URL is used when the define is empty, the build is not
+debug, or the supplied host is not explicitly local. Do not use a game account
+with test data unless that account is intended for development.
+
 ## Build a release
 
 1. Raise the number after the `+` in `pubspec.yaml`'s `version`. It is the Play
@@ -100,7 +126,7 @@ WebView) and the app version (Settings → Apps → Shinobi).
 | 9 | Open two screens from the hub and press Back twice. Then log out and press Back. | Back goes screen by screen. After logout, Back never shows your game as if you were still signed in. | |
 | 10 | Force-stop the app, open it signed out, and press Back on the start screen. | The app closes. | |
 | 11 | During character creation (row 6's new account), tap Terms of Service and close the tab. Tap Community ↗ or Discord. | The terms open over the game and the half-made character is still there. Discord opens in its app or the browser. | |
-| 12 | On row 6's new account, change the avatar: cancel the picker once, then pick an image from the gallery. If the picker offers Camera, take a photo. | Cancel keeps the old avatar and the gallery image is accepted. The app never asks for camera, microphone or location permission. Record what Camera does. | |
+| 12 | On row 6's new account, change the avatar: cancel the picker once, then pick an image from the gallery. If the picker offers Camera, take a photo. | Cancel keeps the old avatar; both the gallery image and camera photo are accepted. The app never asks for camera, microphone or location permission. | |
 | 13 | Open tavern chat, tap the message box, type and send. | The keyboard never covers the box, and the message sends. | |
 | 14 | On row 6's new account: Settings → Generate a recovery code → Copy, then paste into another app. | The code pastes. (A native confirm dialog appears only on the error screen's Reset Local Save; if you meet one, Cancel must change nothing.) | |
 | 15 | With music playing, press Home for 10 seconds and come back. Lock the screen and unlock it. | Music is silent while the app is hidden and plays again when it is back. | |
@@ -157,4 +183,6 @@ On this PC, run it through a `subst` drive as `tools\build-release.ps1` does
 
 `node mobile/tools/gen-android-assets.mjs` rebuilds the launcher icons and splash
 art from `shinobij.client/public/icon-512.png` and `icon-maskable-512.png`, at the
-sizes the TWA shipped.
+sizes the TWA shipped. The Android system splash and matching Flutter hand-off
+use high-quality WebP with full alpha; launcher and legacy launch assets remain
+PNG. Re-run this generator after changing either source icon.

@@ -1,7 +1,10 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import pg from 'pg';
+import { createHash } from 'node:crypto';
 import { matchesStoredSaveVersion } from './save/_save-version.js';
+import { buildRecoveryCodeRecord, recoveryCodeMatches, type RecoveryCodeRecord } from './_recovery-code.js';
+import { claimPlayGamesReward, PlayRewardClaimError, type PlayRewardReceipt } from './play/_rewards-core.js';
 
 process.env.DATABASE_URL = 'postgresql://cache-test:cache-test@127.0.0.1/cache-test';
 process.env.FORCE_PG_KV = '1';
@@ -35,12 +38,12 @@ before(async () => {
                 rowCount: database.has(key) ? 1 : 0,
             };
         }
-        if (text.startsWith('SELECT key, value FROM public.kv_store')) {
+        if (text.startsWith('SELECT key, value, expires_at FROM public.kv_store')) {
             const keys = (params?.[0] as string[] | undefined) ?? [];
             for (const item of keys) selectCount.set(item, (selectCount.get(item) ?? 0) + 1);
             const rows = keys
                 .filter((item) => database.has(item))
-                .map((item) => ({ key: item, value: structuredClone(database.get(item)) }));
+                .map((item) => ({ key: item, value: structuredClone(database.get(item)), expires_at: null }));
             return { rows, rowCount: rows.length };
         }
         if (text.startsWith('INSERT INTO public.kv_store')) {
@@ -407,4 +410,99 @@ test('mentor records, discovery pointers and student markers are read from share
         assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteWrite,
             `${key} must re-read Postgres instead of serving a process-local snapshot`);
     }
+});
+
+test('shared economy, reservation and recovery authority cannot reuse another worker\'s old state', async () => {
+    const authorityKeys = [
+        'game:village-state:cache-race-village',
+        'clan-seal-pool:cache-race-clan',
+        'world:sector-pool:cache-race-sector:day',
+        'world:shrine:cache-race-shrine',
+        'economy-tx:cache-race-transaction',
+        'economy-settlement:cache-race-transfer',
+        'economy-settlement-pending:cache-race-transfer',
+        'weekly-boss-active:cache-race-generation:player',
+        'weekly-boss-run:cache-race-run',
+    ];
+    for (const key of authorityKeys) {
+        // A miss cached before another worker creates the resource must not
+        // hide a reservation, receipt, or recovery journal.
+        assert.equal(await workerA._pgKvForTest.get(key), null);
+        settleInOtherProcess(key, { revision: 1, receipts: ['other-worker-credit'] });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1, receipts: ['other-worker-credit'] },
+            `${key} must observe a row created after its earlier miss`);
+
+        await workerA._pgKvForTest.set(key, { revision: 2, receipts: ['local-credit'] });
+        assert.deepEqual(await workerA._pgKvForTest.hgetall(key), { revision: 2, receipts: ['local-credit'] });
+        settleInOtherProcess(key, { revision: 3, receipts: ['local-credit', 'remote-credit'] });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 3, receipts: ['local-credit', 'remote-credit'] },
+            `${key} must read the latest lock-protected resource and retain remote receipts`);
+        assert.deepEqual(await workerA._pgKvForTest.mget(key), [{ revision: 3, receipts: ['local-credit', 'remote-credit'] }],
+            `${key} batched authority must be fresh too`);
+    }
+});
+
+for (const key of [
+    'auth-recovery:cache-race-authority',
+    'guest-resume:cache-race-authority',
+    'auth-google:cache-race-subject',
+    'auth-google-ticket:cache-race-ticket',
+    'play:reward:purchase:cache-race-authority',
+]) {
+    test(`${key} sees another worker's creation, rotation and revocation`, async () => {
+        assert.equal(await workerA._pgKvForTest.get(key), null);
+        settleInOtherProcess(key, { owner: 'first-owner', version: 1 });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { owner: 'first-owner', version: 1 },
+            'a cached miss must not hide new credentials, identity or purchase ownership');
+        settleInOtherProcess(key, { owner: 'replacement-owner', version: 2 });
+        assert.deepEqual(await workerA._pgKvForTest.mget(key), [{ owner: 'replacement-owner', version: 2 }]);
+        database.delete(key);
+        assert.equal(await workerA._pgKvForTest.hgetall(key), null,
+            'a revoked credential or consumed handoff must not remain readable from cache');
+    });
+}
+
+test('recovery cannot accept an obsolete code after another worker replaces its hash', async () => {
+    const key = 'auth-recovery:cache-race-rotated-code';
+    const oldCode = '11111-22222-33333-44444';
+    const newCode = '55555-66666-77777-88888';
+    await workerA._pgKvForTest.set(key, buildRecoveryCodeRecord(oldCode));
+    assert.equal(recoveryCodeMatches(await workerA._pgKvForTest.get<RecoveryCodeRecord>(key), oldCode), true);
+    settleInOtherProcess(key, buildRecoveryCodeRecord(newCode));
+    const current = await workerA._pgKvForTest.get<RecoveryCodeRecord>(key);
+    assert.equal(recoveryCodeMatches(current, oldCode), false, 'the old spare key must stop working after replacement');
+    assert.equal(recoveryCodeMatches(current, newCode), true);
+});
+
+test('Play reward ownership survives another worker claiming a previously cached missing receipt', async () => {
+    const purchaseToken = 'cache-race-local-test-purchase-token';
+    const productId = 'sj_reward_title_dawn';
+    const receiptKey = `play:reward:purchase:${createHash('sha256').update(purchaseToken).digest('hex')}`;
+    assert.equal(await workerA._pgKvForTest.get(receiptKey), null);
+    const committed: PlayRewardReceipt = {
+        version: 1, playerName: 'first-owner', productId, rewardLabel: 'Dawn-Sealed Shinobi', state: 'acknowledged',
+    };
+    settleInOtherProcess(receiptKey, committed);
+    let verifyCalls = 0;
+    let consumeCalls = 0;
+    let grantCalls = 0;
+    await assert.rejects(
+        claimPlayGamesReward({ playerName: 'second-owner', productId, purchaseToken }, {
+            getReceipt: (key) => workerA._pgKvForTest.get<PlayRewardReceipt>(key),
+            setReceipt: (key, value) => workerA._pgKvForTest.set(key, value),
+            // This request follows the first owner's completed request; lock
+            // contention is absent, as it would be on a deployment handoff.
+            withLock: async (_key, action) => action(),
+            verifyPurchase: async () => { verifyCalls++; return { purchaseState: 0, acknowledged: true, consumed: false }; },
+            acknowledgePurchase: async () => undefined,
+            consumePurchase: async () => { consumeCalls++; },
+            grantTitle: async () => { grantCalls++; return { ok: true }; },
+            grantRyo: async () => { grantCalls++; return { ok: true }; },
+        }),
+        (error: unknown) => error instanceof PlayRewardClaimError && error.status === 409,
+    );
+    assert.equal(verifyCalls, 0, 'receipt ownership should refuse the claim before any publisher request');
+    assert.equal(consumeCalls, 0, 'a refused owner must not consume the purchase');
+    assert.equal(grantCalls, 0, 'a second account must receive no reward');
+    assert.deepEqual(database.get(receiptKey), committed, 'the first account must retain its receipt');
 });

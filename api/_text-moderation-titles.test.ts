@@ -3,6 +3,18 @@ import assert from 'node:assert/strict';
 import { hasReservedTitleTerm, isAllowedCustomTitle } from './_text-moderation.js';
 import { KNOWN_EARNED_TITLES, ACHIEVEMENT_TITLES, isKnownEarnedTitle, isServerCreditedTitle, isLegacyOnlyTitle, normalizeTitleKey } from './_titles-registry.js';
 import { LEGACY_DEFS } from './_legacy-defs.js';
+import { PLAY_GAMES_REWARD_PRODUCTS } from '../shared/play-games-rewards.js';
+import { ownsKnownProfileTitle } from './player/_profile-title-ownership.js';
+import { ERA_CHAPTERS } from '../shared/era-chapters.js';
+
+test('era chapter titles require server ownership rather than a forged earned list', () => {
+    for (const chapter of ERA_CHAPTERS) {
+        assert.equal(isKnownEarnedTitle(chapter.rewardTitle), true);
+        assert.equal(isServerCreditedTitle(chapter.rewardTitle), true);
+        assert.equal(ownsKnownProfileTitle({ earnedTitles: [chapter.rewardTitle] }, chapter.rewardTitle), false);
+        assert.equal(ownsKnownProfileTitle({ serverTitles: [chapter.rewardTitle] }, chapter.rewardTitle), true);
+    }
+});
 
 test('reserved terms catch authority/impersonation, leet + homoglyph + zero-width included', () => {
     for (const bad of [
@@ -66,4 +78,19 @@ test('titles registry covers every legacy + achievement title and flags them', (
     // Registry sanity: base legacy(100) + achievements(22) + era titles at
     // minimum (prestige variants push it past 320 — asserted below).
     assert.ok(KNOWN_EARNED_TITLES.size >= 120, 'legacy(100) + achievements(22) + era titles');
+});
+
+test('Play reward titles are registered as strict server-credited titles', () => {
+    for (const reward of PLAY_GAMES_REWARD_PRODUCTS.filter((product) => product.kind === 'title')) {
+        assert.equal(isKnownEarnedTitle(reward.title), true, `${reward.title} must pass the earned-title registry`);
+        assert.equal(isServerCreditedTitle(reward.title), true, `${reward.title} must never trust client-earnedTitles`);
+    }
+});
+
+test('Play reward titles cannot be equipped through forged client-earnedTitles', () => {
+    const title = PLAY_GAMES_REWARD_PRODUCTS[0]!.title;
+    assert.equal(ownsKnownProfileTitle({ earnedTitles: [title] }, title), false);
+    assert.equal(ownsKnownProfileTitle({ serverTitles: [title] }, title), true);
+    assert.equal(ownsKnownProfileTitle({ earnedTitles: ['Season Champion'] }, 'Season Champion'), true);
+    assert.equal(ownsKnownProfileTitle({ earnedTitles: ['Season Champion'] }, title), false);
 });

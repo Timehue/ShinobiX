@@ -8,6 +8,7 @@ import "../styles/tower-tactical.css";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import {
     submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS, withTowerRequestDeadline,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput, type TowerActionResponse,
@@ -61,6 +62,8 @@ import { GameArtIcon } from "../components/GameArtIcon";
 import towerWardenFallback from "../assets/towers/enemies/warden.webp";
 import roleDefenderFallback from "../assets/roles/role-defender.webp";
 import { TOWER_ENVIRONMENT_PROP_SCALE } from "../../../shared/tower-environment";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
+import { presentEmbeddedTowerLog } from "../../../shared/tower-encounter-log";
 import { towerFeatureTerrain, towerFeatureProp, towerObstacleProp } from "../lib/tower-terrain";
 import { battlefieldFacingTowardNearest } from "../lib/battlefield-sprite";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
@@ -351,6 +354,7 @@ type ItemLike = {
     image?: string;
     rarity?: string;
     slot?: string;
+    description?: string;
     weaponEp?: number;
     weaponElement?: string;
     weaponEffect?: string;
@@ -439,6 +443,8 @@ export function BattleTowerFight({
     stateFn = fetchTowerState,
     storyTheme,
     variant = "tower",
+    pvpContextLabel = 'Team Arena',
+    enemyAvatarOverride,
 }: {
     character: Character;
     onVersionedCharacter?: VersionedCharacterCommit;
@@ -472,10 +478,17 @@ export function BattleTowerFight({
     // chapter backdrop art, a chapter label, and boss "barks" spoken at fight
     // start and as the boss's HP falls. See lib/story-fight-theme.ts.
     storyTheme?: StoryFightTheme;
-    variant?: "tower" | "team-pvp";
+    variant?: "tower" | "team-pvp" | "hunt" | "caravan-ambush";
+    pvpContextLabel?: string;
+    enemyAvatarOverride?: string;
 }) {
     const isTeamPvp = variant === "team-pvp";
+    const isHunt = variant === "hunt";
+    const isCaravanAmbush = variant === "caravan-ambush";
     const [session, setSession] = useState<TowerSession>(initialSession);
+    const displayLog = isHunt || isCaravanAmbush
+        ? presentEmbeddedTowerLog(session.log, session.floor, isHunt ? 'hunt' : 'caravan')
+        : session.log;
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");
@@ -1160,7 +1173,7 @@ export function BattleTowerFight({
         onRecordBattle(makeBattleEntry({
             id: `tower-${runId}`,
             ts: Date.now(),
-            mode: "Tower",
+            mode: isCaravanAmbush ? "Caravan ambush" : isHunt ? "World Encounter" : "Tower",
             opponent: boss?.name ?? enemyNames[0] ?? "Tower enemies",
             outcome,
             rounds: session.round ?? 1,
@@ -1241,8 +1254,8 @@ export function BattleTowerFight({
     const enemiesInRange = useMemo(() => {
         if (!myActor) return new Set<string>();
         const out = new Set<string>();
-        // Clear has no range (strips buffs from any foe); jutsu/weapon use their reach; else melee.
-        const range = mode === "clear" ? Infinity : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
+        // Clear and jutsu/weapon use their reach; other attacks are melee.
+        const range = mode === "clear" ? BASIC_CLEAR_RANGE : mode === "jutsu" ? Math.max(1, Number(selJutsu?.range ?? 1)) : mode === "weapon" ? weaponRange : 1;
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== "enemy") continue;
             if (a.id === lockedBossId) continue;
@@ -1351,7 +1364,7 @@ export function BattleTowerFight({
         if (action.type === "clear") return "clear enemy buffs";
         if (action.type === "cleanse") return "Cleanse";
         if (action.type === "summon") return "summon pet";
-        if (action.type === "forfeit") return "forfeit match";
+        if (action.type === "forfeit") return isHunt ? "retreat" : "forfeit match";
         if (action.type === "attack") return "Attack";
         if (action.type === "move") return "Move";
         if (action.type === "dash") return "Dash";
@@ -1499,6 +1512,7 @@ export function BattleTowerFight({
     }
 
     function avatarFor(a: TowerActor): string | null {
+        if (isHunt && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // PvP rivals are live players, so prefer their server-sealed avatar before
         // interpreting an enemy-side actor as a Tower NPC sprite.
@@ -1516,6 +1530,7 @@ export function BattleTowerFight({
         return resolveTowerCombatantArt(visual, sharedImages).src;
     }
     function isUnknownCombatant(a: TowerActor): boolean {
+        if (isHunt && enemyAvatarOverride) return false;
         if (a.side !== "enemy") return false;
         if (isTeamPvp && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
@@ -1568,7 +1583,7 @@ export function BattleTowerFight({
     const encounterArt = !isTeamPvp && sealedStoryFloor?.artKey
         ? resolveTowerStoryArt(sealedStoryFloor.artKey)
         : null;
-    const storyEncounterTitle = sealedStoryFloor?.name
+    const storyEncounterTitle = isCaravanAmbush ? (combatFloor?.name ?? 'Caravan Ambush') : isHunt ? (sealedStoryFloor?.name ?? 'Hunt encounter') : sealedStoryFloor?.name
         ? `Floor ${session.floor} · ${sealedStoryFloor.name}`
         : `Floor ${session.floor} · ${objective.replace(/-/g, " ")}`;
     // The squad rail also lists protect-target npcs (allies) so the player can watch
@@ -1719,7 +1734,10 @@ export function BattleTowerFight({
         if (!target) {
             return { title: armedActionName, target: "Hover or select an enemy", metrics, detail: "Reachable targets are outlined on the battlefield." };
         }
-        const inRange = enemiesInRange.has(target.id);
+        // Self-target jutsu are legal at distance zero; the shared enemy range
+        // set intentionally contains only opposing actors.
+        const selfTarget = mode === "jutsu" && isSelfCastJutsu(selJutsu) && target.id === myActor.id;
+        const inRange = selfTarget || enemiesInRange.has(target.id);
         const effectPower = mode === "attack" ? 10
             : mode === "weapon" ? Number(armedWeapon?.item.weaponEp ?? 15)
                 : Number(selJutsu?.effectPower ?? 0);
@@ -1836,7 +1854,7 @@ export function BattleTowerFight({
                     <header className="tower-fight-header tower-fight-statusbar" style={{
                             ...(encounterArt ? { ["--tower-encounter-art" as string]: `url("${encounterArt.src}")` } : {}),
                         }} data-has-encounter-art={encounterArt ? "true" : undefined} data-art-kind={encounterArt?.kind}>
-                        <h1 className="tower-fight-title">{isTeamPvp ? "2v2 Team Arena · eliminate the rival team" : storyEncounterTitle}</h1>
+                        <h1 className="tower-fight-title">{isTeamPvp ? `${session.actors.filter(a => a.side === 'squad').length}v${session.actors.filter(a => a.side === 'enemy').length} ${pvpContextLabel} · eliminate the rival team` : isCaravanAmbush ? `${storyEncounterTitle} · ${session.actors.filter(a => a.side === 'enemy').length} attackers` : storyEncounterTitle}</h1>
                         <span className="tower-objective-progress" role="status" aria-label={`Objective progress: ${objectiveProgress}`}>{objectiveDirective} · {objectiveProgress}</span>
                         <span className="tower-round-readout" title={roundPresentation.hudTitle} aria-label={roundPresentation.hudTitle} style={{
                             color: roundPresentation.hardLimit && session.round >= roundPresentation.hardLimit - 2 ? "var(--red-400)"
@@ -1871,17 +1889,21 @@ export function BattleTowerFight({
                             <button
                                 type="button"
                                 className="tower-fight-leave"
-                                disabled={isTeamPvp && busy}
-                                aria-label={isTeamPvp ? "Forfeit" : "Leave view"}
+                                disabled={(isTeamPvp || isHunt) && busy}
+                                aria-label={isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isCaravanAmbush ? "Leave battle view" : "Leave view"}
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
-                                    if (isTeamPvp) {
-                                        if (await gameConfirm("Forfeit your fighter from this 2v2 match? This is immediate and your teammate may have to continue alone.")) void send({ type: "forfeit" });
+                                    if (isCaravanAmbush) {
+                                        if (await gameConfirm('Leave the fight view? The ambush stays active, and you can resume it from the caravan.')) (onLeaveActive ?? onExit)();
+                                    } else if (isHunt) {
+                                        if (await gameConfirm('Retreat from this encounter? You lose 10% of maximum HP and keep the hunt contract for later.')) void send({ type: 'forfeit' });
+                                    } else if (isTeamPvp) {
+                                        if (await gameConfirm(`Forfeit your fighter from this 2v2 match? This is immediate.${session.actors.filter(a => a.side === 'squad').length > 1 ? ' Your teammate may have to continue alone.' : ''}`)) void send({ type: "forfeit" });
                                     } else if (await gameConfirm("Leave the battle view? The server run will continue and may auto-pass your turns. Reopen Battle Towers to recover it.")) {
                                         (onLeaveActive ?? onExit)();
                                     }
                                 }}
-                            >{isTeamPvp ? "Forfeit" : "Leave"}</button>
+                            >{isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : "Leave"}</button>
                         )}
                     </header>
 
@@ -2142,6 +2164,7 @@ export function BattleTowerFight({
                                                 side={a.side === "enemy" ? "enemy" : "player"}
                                                 actorId={a.id}
                                                 label={a.name}
+                                                summon={a.side !== "enemy" && (a.character as Record<string, unknown> | undefined)?.companion === true}
                                                 portrait={img}
                                                 sprite={battleSprite}
                                                 facing={spriteFacing}
@@ -2198,7 +2221,7 @@ export function BattleTowerFight({
                     {/* Action bar — command bar + painted jutsu/weapon/item cards (the main combat UI) */}
                     <div className="tower-action-dock">
                         <div id="tower-action-guidance" className="tower-sr-only" role={actionFeedback.phase === "error" ? "alert" : "status"} aria-live="polite" aria-atomic="true" aria-busy={busy}>
-                            {actionFeedback.phase === "submitting" ? "Submitting " + actionFeedback.label + ". Waiting for the Tower result."
+                            {actionFeedback.phase === "submitting" ? "Submitting " + actionFeedback.label + ". Waiting for the battle result."
                                 : actionFeedback.phase === "error" ? actionFeedback.label + " was rejected. " + (reject ?? "Try another action.")
                                 : armedActionName ? armedActionName + " armed. " + (actionForecast?.detail ?? "Select a highlighted target.")
                                 : !myTurn && session.status === "active" ? (turnLabel || "Waiting for the active fighter") + ". " + (activeActor?.name ?? "Another fighter") + " is acting."
@@ -2229,7 +2252,7 @@ export function BattleTowerFight({
                             <button className={mode === "clear" ? "selected-action" : ""}
                                 aria-pressed={mode === "clear"} onClick={() => toggleMode("clear")}
                                 disabled={!myTurn || busy || clearCd > 0 || session.activeAp < utilityAp}>
-                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP{clearCd > 0 ? ` · CD${clearCd}` : " · Ready"}</small>
+                                <i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP · R{BASIC_CLEAR_RANGE}{clearCd > 0 ? ` · CD${clearCd}` : ""}</small>
                             </button>
                             <button className={mode === "cleanse" ? "selected-action" : ""}
                                 aria-pressed={mode === "cleanse"} onClick={() => toggleMode("cleanse")}
@@ -2266,8 +2289,8 @@ export function BattleTowerFight({
                                         const afford = session.activeAp >= effectiveAp && myChakra >= ck && myStamina >= st && cd <= 0 && !sealed;
                                         const art = jutsuArt(j);
                                         return (
-                                            <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}`}>
-                                                {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
+                                            <div key={j.id} className={`combat-jutsu-card-wrap${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-cooling" : ""}`}>
+                                                {cd > 0 && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
                                                 <button type="button"
                                                     className={`combat-jutsu-button${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
                                                     title={`${j.name ?? j.id} | ${effectiveAp} AP | R${j.range ?? 1}${ck ? ` | ${ck} CP` : ""}${st ? ` | ${st} SP` : ""}${sealed ? " | Elementally sealed" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
@@ -2307,7 +2330,14 @@ export function BattleTowerFight({
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
                                                 <button type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${wp.rarity ?? "common"}${armed ? " selected-action" : ""}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
-                                                    title={`${wp.name ?? "Weapon"} | ${ap} AP | R${range}${thrown ? " | Thrown" : ""}${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    title={combatItemTooltip(wp, {
+                                                        action: thrown ? "Throwable" : "Weapon",
+                                                        apCost: ap,
+                                                        range,
+                                                        charges: thrown ? left : undefined,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     aria-pressed={armed} onClick={() => armWeaponCard(wp.id ?? "")}
                                                     disabled={!myTurn || busy || out || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="attack" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
@@ -2335,7 +2365,7 @@ export function BattleTowerFight({
                                             <div key={cs.id} className="combat-jutsu-card-wrap combat-item-card-wrap combat-consumable-card">
                                                 {cd > 0 && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
                                                 <button type="button" className={`combat-jutsu-button combat-item-button rarity-${cs.rarity ?? "common"}${cd > 0 ? " jutsu-on-cooldown" : ""}`}
-                                                    title={`${cs.name ?? "Item"} | ${ap} AP | Use${cd > 0 ? ` | CD ${cd}` : ""}`}
+                                                    title={combatItemTooltip(cs, { action: "Consumable", apCost: ap, charges: left, cooldown: cd })}
                                                     onClick={() => void send({ type: "item", itemId: cs.id })}
                                                     disabled={!myTurn || busy || left <= 0 || cd > 0 || session.activeAp < ap}>
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}><strong className="combat-jutsu-fallback-icon" aria-hidden="true"><GameArtIcon kind="vitality" size={25} /></strong>{art ? <img src={art} alt="" draggable={false} /> : null}</span>
@@ -2354,7 +2384,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>Sealed Tower loadout</small></div>
+                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>{isCaravanAmbush ? 'Caravan loadout' : isHunt ? 'Hunt loadout' : 'Sealed Tower loadout'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2379,7 +2409,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>Sealed Tower equipment</small></div>
+                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>{isCaravanAmbush ? 'Caravan equipment' : isHunt ? 'Hunt equipment' : 'Sealed Tower equipment'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2398,7 +2428,7 @@ export function BattleTowerFight({
 
                     <PlainCombatBattleLog
                         className="tower-mobile-battle-log"
-                        lines={session.log}
+                        lines={displayLog}
                         turnLabel={turnLabel || "Battle resolved"}
                         selfName={character.name}
                         oppName={bossActor?.name ?? enemies[0]?.name ?? "Enemy"}
@@ -2416,7 +2446,7 @@ export function BattleTowerFight({
                     </div>
                     <PlainCombatBattleLog
                         className="tower-rail-battle-log"
-                        lines={session.log}
+                        lines={displayLog}
                         turnLabel={turnLabel || "Battle resolved"}
                         selfName={character.name}
                         oppName={bossActor?.name ?? enemies[0]?.name ?? "Enemy"}
@@ -2489,16 +2519,17 @@ export function BattleTowerFight({
                 <div className="tower-completion-overlay">
                     <div ref={resultDialogRef} className={`tower-completion-card ${session.winner === "squad" ? "win" : "loss"}`} role="dialog" aria-modal="true" aria-labelledby="tower-story-result-title" tabIndex={-1}>
                         <TowerResultHeader titleId="tower-story-result-title"
-                            title={isTeamPvp
+                            title={isCaravanAmbush ? (session.winner === 'squad' ? 'The road is open' : 'The escort has ended') : isHunt ? (session.winner === 'squad' ? 'Hunt encounter cleared' : 'Hunt encounter ended') : isTeamPvp
                                 ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
                                 : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
-                            chapter={isTeamPvp ? "Team Arena" : sealedStoryFloor?.chapterTitle || "Battle Towers"}
-                            encounter={!isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
+                            chapter={isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Hunter Guild' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
+                            encounter={isCaravanAmbush ? combatFloor?.name : !isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
                             art={storyTheme?.backdropImage} />
                         <div className="tower-completion-body">
                         <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
                         {isTeamPvp && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
-                        {!isTeamPvp && session.winner === "squad" && (
+                        {(isHunt || isCaravanAmbush) && <p className="hint">{settlement.phase === 'settled' ? isCaravanAmbush ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Hunt progress saved. Return to the map to continue or turn in your contract.' : isCaravanAmbush ? 'Saving the convoy report…' : 'Saving hunt progress…'}</p>}
+                        {!isTeamPvp && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
                                 ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
                                 : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
@@ -2515,7 +2546,7 @@ export function BattleTowerFight({
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}
                             title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
-                            {isTeamPvp ? "Return to Team Arena" : "Return to the Tower"}
+                            {isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"}
                         </button>
                         </div>
                         </div>

@@ -76,7 +76,8 @@ test("Arena keeps controller ordering for pet acceptance, spectating, and ladder
 
     const spectate = sliceBetween(arenaSource, "const spectateFight", "<ArenaDistrictLobby");
     assertOrdered(spectate, [
-        "fetch(`/api/pvp/spectate",
+        "await verifyPvpSpectatorBattle(fight.battleId, character.name)",
+        "setPvpBattleContext?.({ spectatingFromScreen: lobbyMode })",
         "setPvpBattleId(fight.battleId)",
         "setPvpRole(\"p1\")",
         "setScreen(\"pvpBattle\")",

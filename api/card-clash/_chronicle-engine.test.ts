@@ -2591,7 +2591,7 @@ test("Smoke Bomb is hidden, cannot activate on its set turn, then negates one at
       "smoke-protected-pet",
       "Smoke Bomb cancels the attack before it can damage or destroy the defending pet",
     );
-    assert.equal(activated.state[attackerSide].monsterZones[0]?.lastAttackTurn, 0);
+    assert.equal(activated.state[attackerSide].monsterZones[0]?.lastAttackTurn, activated.state.turnNumber);
     assert.equal(activated.state.responseWindow, null);
     assert.equal(
       activated.state[defenderSide].graveyard.includes("chronicle-smoke-bomb"),
@@ -2599,6 +2599,53 @@ test("Smoke Bomb is hidden, cannot activate on its set turn, then negates one at
     );
   }
 });
+
+for (const attackerSide of ["p1", "p2"] as const) {
+  for (const targetZoneIndex of [null, 0] as const) {
+    test(`Smoke Bomb spends ${attackerSide}'s ${targetZoneIndex === null ? "direct" : "monster"} attack until its next turn`, () => {
+      const state = match();
+      const defenderSide = attackerSide === "p1" ? "p2" : "p1";
+      state.activePlayer = attackerSide;
+      state.turnNumber = 3;
+      state.phase = "battle";
+      placeMonster(state, attackerSide, 0, "tc-21");
+      placeMonster(state, attackerSide, 1, "tc-21");
+      if (targetZoneIndex !== null) placeMonster(state, defenderSide, 0, "tc-01");
+      state[defenderSide].magicTrapZones[0] = {
+        instanceId: "smoke-response", cardId: "chronicle-smoke-bomb",
+        owner: defenderSide, zoneIndex: 0, faceUp: false, setOnTurn: 1,
+      };
+      const intent = { action: "attack", attackerZoneIndex: 0, targetZoneIndex };
+      const declared = declareAttack(state, attackerSide, intent);
+      assert.equal(declared.ok, true);
+      if (!declared.ok) return;
+      const stopped = activateTrap(declared.state, defenderSide, 0);
+      assert.equal(stopped.ok, true);
+      if (!stopped.ok) return;
+      assert.equal(stopped.state[defenderSide].lifePoints, STARTING_LIFE_POINTS);
+      assert.deepEqual(stopped.state[defenderSide].monsterZones, state[defenderSide].monsterZones);
+      const projection = projectMatchForViewer(stopped.state, attackerSide);
+      assert.equal(projection[attackerSide].monsterZones[0]?.canAttack, false);
+      assert.equal(projection[attackerSide].monsterZones[1]?.canAttack, true);
+      const retry = declareAttack(stopped.state, attackerSide, intent);
+      assert.equal(retry.ok, false);
+      if (!retry.ok) assert.match(retry.error, /already attacked this turn/);
+      assert.equal(declareAttack(stopped.state, attackerSide, { ...intent, attackerZoneIndex: 1 }).ok, true);
+
+      const main2 = enterMain2(stopped.state, attackerSide);
+      assert.equal(main2.ok, true);
+      if (!main2.ok) return;
+      const opponentTurn = applyAction(main2.state, attackerSide, { action: "enter-end-phase" });
+      assert.equal(opponentTurn.ok, true);
+      if (!opponentTurn.ok) return;
+      const nextTurn = applyAction(opponentTurn.state, defenderSide, { action: "enter-end-phase" });
+      assert.equal(nextTurn.ok, true);
+      if (!nextTurn.ok) return;
+      nextTurn.state.phase = "battle";
+      assert.equal(declareAttack(nextTurn.state, attackerSide, intent).ok, true);
+    });
+  }
+}
 
 test("period battle Traps reinforce DEF, weaken attackers, draw, and change position", () => {
   const setup = (
@@ -2778,6 +2825,7 @@ test("supplied Trap guidelines add reinforcement, delayed retribution, formation
     instanceId: "second-attacker",
   });
   state[attacker].monsterZones[0]!.lastAttackTurn = state.turnNumber;
+  state.attacksDeclaredThisTurn = 1;
   placeMonster(state, defender, 0, "tc-05", {
     position: "defense",
     instanceId: "water-formation",

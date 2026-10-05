@@ -12,7 +12,7 @@ export type ExchangeSnapshot = {
     inventory: ExchangeOwnedAsset[]; character: Character; _saveVersion: unknown;
     creatorItems: GameItem[]; recoveryErrors: string[];
 };
-export type ExchangeRequest = { action: 'browse' | 'list' | 'buy' | 'cancel'; [key: string]: unknown };
+export type ExchangeRequest = { action: 'browse' | 'list' | 'buy' | 'cancel' | 'bid'; [key: string]: unknown };
 export class ExchangeRequestError extends Error {
     readonly uncertain: boolean;
     constructor(message: string, uncertain: boolean) { super(message); this.uncertain = uncertain; }
@@ -57,7 +57,7 @@ const pendingKey = (player: string) => `sunscar-exchange:pending:${player.trim()
 export function pendingExchangeRequest(player: string): ExchangeRequest | null {
     try {
         const raw = JSON.parse(sessionStorage.getItem(pendingKey(player)) || 'null');
-        return raw && ['list', 'buy', 'cancel'].includes(raw.action) ? raw as ExchangeRequest : null;
+        return raw && ['list', 'buy', 'cancel', 'bid'].includes(raw.action) ? raw as ExchangeRequest : null;
     } catch { return null; }
 }
 export function savePendingExchangeRequest(player: string, request: ExchangeRequest | null): void {

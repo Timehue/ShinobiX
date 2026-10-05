@@ -206,6 +206,11 @@ async function installArenaApi(page: Page, options: {
                 saveVersion += 1;
                 save = {
                     ...incoming,
+                    // Arena tests begin from the safe home zone. A field
+                    // sector correctly hides the Village's Arena entry, so
+                    // preserving the new-account spawn here makes the fixture
+                    // match the route the test is about to exercise.
+                    currentSector: 0,
                     creatorEvents: [],
                     triggeredEvents: [],
                     character: {
@@ -592,4 +597,72 @@ test("mobile Battle Arena exposes the same sealed board, commands, and battle lo
         opponentLevel: 8,
         battleKind: "practice",
     });
+
+    // Google asks games to preserve active gameplay through split-window and
+    // orientation changes. Resize this live, server-backed fight across its
+    // mobile/desktop navigation breakpoints, then act again without restarting.
+    const combat = combatSurface(page);
+    const shell = page.locator(".app-shell");
+    const activeRoute = await shell.getAttribute("data-screen");
+    const log = combat.getByRole("log", { name: "Battle log" });
+    const attack = combat.getByRole("button", { name: /^Attack/ });
+    const actionsTab = combat.getByRole("tab", { name: "Actions" });
+    await attack.click();
+    await expect.poll(() => api.actionPayloads().length).toBe(1);
+    const battleLogTab = combat.getByRole("tab", { name: /^Battle Log/ });
+    await battleLogTab.click();
+    await expect(log).toContainText("the sealed server advances the round");
+
+    for (const viewport of [
+        // Reproduce the compact Android freeform capture that previously let
+        // the floating help chip overlap the opponent title. This size also
+        // executes the title/chip geometry assertion below.
+        { width: 610, height: 457 },
+        { width: 640, height: 1080 },
+        { width: 960, height: 1080 },
+        { width: 1280, height: 1080 },
+        { width: 390, height: 844 },
+    ]) {
+        await page.setViewportSize(viewport);
+        await page.evaluate(() => new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }));
+        await expect(shell).toHaveAttribute("data-screen", activeRoute ?? "");
+        await expect(combat).toBeVisible();
+        await expect(combat.locator(".hex-battlefield")).toBeVisible();
+        await expect(combat.locator(".hex-tile")).toHaveCount(120);
+        if (viewport.width <= 979) {
+            await battleLogTab.click();
+        }
+        await expect(log).toContainText("the sealed server advances the round");
+        if (viewport.width <= 979) {
+            await actionsTab.click();
+        }
+        await expect(combat.getByRole("button", { name: /^Attack/ })).toBeEnabled();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+            `live combat overflowed at ${viewport.width}x${viewport.height}`).toBe(true);
+        if (viewport.width <= 640 && viewport.height <= 500) {
+            const hintClearsEnemyName = await page.evaluate(() => {
+                const title = document.querySelector(".combat-layout > .combat-side-hud:last-child .combat-hud-header h3");
+                const hint = document.querySelector(".screen-hint-battle-trigger");
+                if (!title || !hint) return false;
+                const text = document.createRange();
+                text.selectNodeContents(title);
+                const name = text.getBoundingClientRect();
+                const tip = hint.getBoundingClientRect();
+                const overlaps = name.left < tip.right && name.right > tip.left
+                    && name.top < tip.bottom && name.bottom > tip.top;
+                return !overlaps;
+            });
+            expect(hintClearsEnemyName,
+                "the compact Battle Arena tip must not cover the opponent name at freeform-sized landscape bounds")
+                .toBe(true);
+        }
+    }
+
+    await actionsTab.click();
+    await combat.getByRole("button", { name: /^Attack/ }).click();
+    await expect.poll(() => api.actionPayloads().length).toBe(2);
+    expect(api.actionPayloads()[1].expectedVersion).toBe(2);
+    expect(api.practiceStartCount()).toBe(1);
 });

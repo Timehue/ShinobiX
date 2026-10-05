@@ -12,6 +12,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import * as THREE from "three";
+import { setPetEffectTexture } from "../lib/pet-effect-texture";
 import { Canvas, useFrame, useLoader, useThree } from "@react-three/fiber";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
@@ -29,6 +30,9 @@ import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetMo
 import { PetModelBoundary } from "./PetModelBoundary";
 import { PetBattleRenderBoundary } from "./PetBattleRenderBoundary";
 import { RendererRetirement } from "./RendererRetirement";
+import { PetSummon3D } from "./PetSummon3D";
+import { warfrontPetModelConfig } from "../lib/pet-warfront-model-lod";
+import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import gauntletHero from "../assets/coliseum/gauntlet-hero.webp";
 import gauntletBoard from "../assets/coliseum/gauntlet-board.webp";
 import "./PetBoardArena.css";
@@ -67,11 +71,8 @@ const subjectHeightFor = (pet: Pet) => BASE_SUBJECT_H * (RARITY_SCALE[pet.rarity
 const boardModelHeight = (pet: Pet) => subjectHeightFor(pet) * 1.08;
 
 type BoardSprite = { texture: THREE.Texture; bounds: SpriteBounds; aspect: number };
-const _spriteCache = new Map<string, BoardSprite>();
 /** Load a pose image, scan its alpha bbox (for sizing/grounding), build a texture. */
 function loadBoardSprite(url: string): Promise<BoardSprite> {
-    const cached = _spriteCache.get(url);
-    if (cached) return Promise.resolve(cached);
     return new Promise((resolve) => {
         const img = new Image();
         img.crossOrigin = "anonymous";
@@ -90,7 +91,6 @@ function loadBoardSprite(url: string): Promise<BoardSprite> {
             const texture = new THREE.Texture(img);
             texture.colorSpace = THREE.SRGBColorSpace; texture.anisotropy = 4; texture.needsUpdate = true;
             const out: BoardSprite = { texture, bounds, aspect: w / Math.max(1, h) };
-            _spriteCache.set(url, out);
             resolve(out);
         };
         img.onerror = () => resolve({ texture: new THREE.Texture(), bounds: DEFAULT_SPRITE_BOUNDS, aspect: 1 });
@@ -142,8 +142,8 @@ function BoardProjectile({ from, to, element, onArrive }: { from: Vec3; to: Vec3
         if (g) g.position.set(from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t + Math.sin(t * Math.PI) * 0.7, from[2] + (to[2] - from[2]) * t);
         if (core.current) {
             core.current.scale.setScalar(0.82 + Math.sin(state.clock.elapsedTime * 28) * 0.16);
-            core.current.rotation.x += 0.08;
-            core.current.rotation.y += fx.shape === "lightning" ? 0.22 : 0.12;
+            core.current.rotation.x = t * 0.26 * 4.8;
+            core.current.rotation.y = t * 0.26 * (fx.shape === "lightning" ? 13.2 : 7.2);
         }
         if (t >= 1 && !fired.current) { fired.current = true; onArrive(); }
     });
@@ -179,15 +179,14 @@ function BoardBurst({ pos, frames, element, onDone }: { pos: Vec3; frames: strin
         if (t >= 1) { onDone(); return; }
         const m = mat.current;
         if (m && texes.length) {
-            m.map = texes[Math.min(texes.length - 1, Math.floor(t * texes.length))];
+            setPetEffectTexture(m, texes[Math.min(texes.length - 1, Math.floor(t * texes.length))]);
             m.opacity = 1 - t * t;
-            m.needsUpdate = true;
         }
         if (ring.current) ring.current.scale.setScalar(0.3 + t * 1.75);
         if (ringMat.current) ringMat.current.opacity = (1 - t) * 0.78;
         if (fragments.current) {
             fragments.current.scale.setScalar(0.25 + t * 1.9);
-            fragments.current.rotation.y += 0.08;
+            fragments.current.rotation.y = t * 0.48 * 4.8;
         }
     });
     return (
@@ -301,9 +300,21 @@ function Standee({ x, z, sprite, pet, team, hp, maxHp, alive, element, star, pul
     );
 }
 
-function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star, pulse, attackPulse, supportPulse, onModelFail }: {
+// A Suspense sibling only commits once its model/atlas has resolved. Allow a
+// rendered frame for GPU upload before uncovering the board and starting time.
+function BoardAssetReady({ onReady }: { onReady: () => void }) {
+    const frames = useRef(0);
+    useFrame((state) => {
+        if (++frames.current === 1) state.invalidate();
+        if (frames.current === 2) onReady();
+    });
+    return null;
+}
+
+function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star, pulse, attackPulse, supportPulse, onModelFail, onReady, onSummoned, playing }: {
     x: number; z: number; pet: Pet; team: "player" | "enemy"; config: PetCombatModelConfig; quality: PetVisualQualityConfig;
     hp: number; maxHp: number; alive: boolean; star?: number; pulse: number; attackPulse: number; supportPulse: number; onModelFail: () => void;
+    onReady: () => void; onSummoned: () => void; playing: boolean;
 }) {
     const body = useRef<THREE.Group>(null);
     const aura = useRef<THREE.MeshBasicMaterial>(null);
@@ -391,25 +402,19 @@ function ModelFighter({ x, z, pet, team, config, quality, hp, maxHp, alive, star
                 <meshBasicMaterial ref={supportMat} color="#8fffd2" transparent opacity={0} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
             </mesh>
             <group ref={body} scale={modelScale}>
-                <PetModelBoundary onFail={onModelFail} fallback={(
-                    <mesh position={[0, config.targetHeight * 0.45, 0]}>
-                        <capsuleGeometry args={[config.targetHeight * 0.2, config.targetHeight * 0.52, 4, 10]} />
-                        <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={0.34} roughness={0.56} />
-                    </mesh>
-                )}>
-                    <Suspense fallback={(
-                        <mesh position={[0, config.targetHeight * 0.45, 0]}>
-                            <capsuleGeometry args={[config.targetHeight * 0.2, config.targetHeight * 0.52, 4, 10]} />
-                            <meshStandardMaterial color={glow} emissive={glow} emissiveIntensity={0.34} roughness={0.56} />
-                        </mesh>
-                    )}>
-                        <PetModel3D
-                            config={config}
-                            frame={frame}
-                            element={pet.element}
-                            showIdentity={quality.id !== "low"}
-                            surfaceTreatment={petModelVariantSurface(pet)}
-                        />
+                <PetModelBoundary onFail={onModelFail} fallback={null}>
+                    <Suspense fallback={null}>
+                        {!playing && <BoardAssetReady onReady={onReady} />}
+                        <PetSummon3D enabled={team === "player"} playing={playing} onComplete={onSummoned}>
+                            <PetModel3D
+                                config={config}
+                                quality={quality}
+                                frame={frame}
+                                element={pet.element}
+                                showIdentity={quality.id !== "low"}
+                                surfaceTreatment={petModelVariantSurface(pet)}
+                            />
+                        </PetSummon3D>
                     </Suspense>
                 </PetModelBoundary>
             </group>
@@ -424,7 +429,7 @@ function ArenaBrazier({ x, z, quality }: { x: number; z: number; quality: PetVis
         if (!flame.current) return;
         const pulse = 0.88 + Math.sin(state.clock.elapsedTime * 6 + x) * 0.12;
         flame.current.scale.set(0.9 + pulse * 0.16, pulse, 0.9 + pulse * 0.16);
-        flame.current.rotation.y += 0.025;
+        flame.current.rotation.y = state.clock.elapsedTime * 1.5;
     });
     return (
         <group position={[x, 0, z]}>
@@ -561,13 +566,16 @@ function BoardPostFx({ quality }: { quality: PetVisualQualityConfig }) {
     );
 }
 
-function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: {
+function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars, playing, onAssetReady, onSummoned }: {
     result: BoardResult;
     round: number;
     spriteMap: Map<string, BoardSprite>;
     modelConfigs: Map<string, PetCombatModelConfig>;
     quality: PetVisualQualityConfig;
     stars?: Record<string, number>;
+    playing: boolean;
+    onAssetReady: (id: string) => void;
+    onSummoned: (id: string) => void;
 }) {
     const idRef = useRef(0);
     const [shots, setShots] = useState<Array<{ id: number; from: Vec3; to: Vec3; targetId: string; element?: string | null; dmg: number; crit: boolean }>>([]);
@@ -621,6 +629,7 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
     // drain all land together. Presentation only: HP comes straight from sim events,
     // and the per-round snapshot is the authoritative seed, so it can't drift.
     useEffect(() => {
+        if (!playing) return;
         const start = result.snapshots[Math.max(0, round - 1)];
         const seed: Record<string, number> = {};
         for (const u of start?.units ?? []) seed[u.id] = u.hp;
@@ -647,7 +656,7 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
         });
         return () => timers.forEach((t) => window.clearTimeout(t));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [round, result]);
+    }, [round, result, playing]);
     return (
         <>
             <fog attach="fog" args={["#070914", 18, 46]} />
@@ -658,6 +667,7 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
             <pointLight position={[0, 4.5, 4]} intensity={2.4} color="#3b82f6" distance={13} decay={2} />
             <Suspense fallback={null}>
                 <ArenaFloor quality={quality} />
+                {!playing && <BoardAssetReady onReady={() => onAssetReady("floor")} />}
             </Suspense>
             <Sparkles count={quality.ambientParticles} scale={[12, 3.2, 11]} position={[0, 1.4, 0]} size={1.25} speed={0.22} opacity={0.32} color="#f8d68a" />
             {result.roster.map((u) => {
@@ -684,18 +694,27 @@ function BoardScene({ result, round, spriteMap, modelConfigs, quality, stars }: 
                             {...common}
                             config={config}
                             quality={quality}
+                            playing={playing}
+                            onReady={() => onAssetReady(u.id)}
+                            onSummoned={() => onSummoned(u.id)}
                             supportPulse={supportPulses[u.id] ?? 0}
-                            onModelFail={() => setFailedModels((current) => {
-                                if (current.has(u.id)) return current;
-                                const next = new Set(current);
-                                next.add(u.id);
-                                return next;
-                            })}
+                            onModelFail={() => {
+                                onSummoned(u.id);
+                                setFailedModels((current) => {
+                                    if (current.has(u.id)) return current;
+                                    const next = new Set(current);
+                                    next.add(u.id);
+                                    return next;
+                                });
+                            }}
                         />
                     );
                 }
                 return (
-                    <Standee key={u.id} {...common} sprite={spriteMap.get(u.id)} />
+                    <group key={u.id}>
+                        <Standee {...common} sprite={spriteMap.get(u.id)} />
+                        {!playing && spriteMap.has(u.id) && <BoardAssetReady onReady={() => onAssetReady(u.id)} />}
+                    </group>
                 );
             })}
             {shots.map((s) => (
@@ -734,7 +753,7 @@ function BoardRenderRecovery() {
     return (
         <div className="gauntlet-board-recovery" role="status" aria-live="polite">
             <strong>Battle resolved safely</strong>
-            <span>The 3D arena was released to protect this device. Your Gauntlet run and result are intact.</span>
+            <span>The arena could not finish loading or rendering. Your Gauntlet run and result are intact.</span>
         </div>
     );
 }
@@ -743,7 +762,18 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const total = result.snapshots.length;
     const [round, setRound] = useState(0);
     const [arenaFailed, setArenaFailed] = useState(false);
-    const done = round >= total - 1;
+    const [readyAssets, setReadyAssets] = useState<ReadonlySet<string>>(() => new Set());
+    const [summoned, setSummoned] = useState<ReadonlySet<string>>(() => new Set());
+    const onSummoned = useCallback((id: string) => setSummoned((current) => {
+        if (current.has(id)) return current;
+        return new Set(current).add(id);
+    }), []);
+    const onAssetReady = useCallback((id: string) => setReadyAssets((current) => {
+        if (current.has(id)) return current;
+        return new Set(current).add(id);
+    }), []);
+    const done = arenaFailed || round >= total - 1;
+    const frameloop = useBattleFrameloop(done);
     const quality = useMemo(() => {
         const requested = petVisualQuality();
         if (typeof window === "undefined") return requested;
@@ -757,11 +787,21 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const modelConfigs = useMemo(() => {
         const configs = new Map<string, PetCombatModelConfig>();
         for (const unit of result.roster) {
-            const config = petCombatModel(unit.pet);
+            const config = warfrontPetModelConfig(petCombatModel(unit.pet));
             if (config) configs.set(unit.id, config);
         }
         return configs;
     }, [result]);
+    const ready = readyAssets.has("floor") && [...modelConfigs.keys()].every((id) => readyAssets.has(id));
+    const entrancesDone = result.roster.every((unit) => unit.team !== "player" || !modelConfigs.has(unit.id) || summoned.has(unit.id));
+
+    // A stalled CDN must never strand a completed, deterministic fight. Release
+    // the canvas and offer its result after a bounded wait; clean up on exit.
+    useEffect(() => {
+        if (ready || arenaFailed || frameloop === "demand") return;
+        const timer = window.setTimeout(handleArenaFailure, 20000);
+        return () => window.clearTimeout(timer);
+    }, [ready, arenaFailed, frameloop, handleArenaFailure]);
 
     // The portal is the only pet-combat takeover mounted by the Gauntlet, so it
     // owns scroll locking while present without disturbing a class another mode
@@ -772,11 +812,10 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
         return () => { if (!hadClass) document.body.classList.remove("pet-combat-active"); };
     }, []);
 
-    // Start GLB + atlas warm-up immediately. Suspense shows a readable elemental
-    // proxy during a cold load, and unsupported identities use pose-art below.
+    // Reuse the setup screen's GLB/atlas cache, including its exact LOD URLs.
     useEffect(() => {
-        void import("../lib/pet-model-preload")
-            .then((module) => module.preloadPetColiseumModels(result.roster.map((unit) => unit.pet)))
+        void import("../lib/pet-gauntlet-preload")
+            .then((module) => module.preloadGauntletPets(result.roster.map((unit) => unit.pet)))
             .catch(() => undefined);
     }, [result]);
 
@@ -789,11 +828,11 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     }, [result, total]);
 
     useEffect(() => {
-        if (done) return;
-        const dwell = Math.min(2000, 520 + (impactsByRound[round] ?? 0) * 180);   // adaptive, slower-paced
+        if (done || !ready || !entrancesDone || frameloop === "demand") return;
+        const dwell = Math.min(2000, 520 + (impactsByRound[round] ?? 0) * 180);
         const t = window.setTimeout(() => setRound((r) => Math.min(total - 1, r + 1)), dwell);
         return () => window.clearTimeout(t);
-    }, [round, total, done, impactsByRound]);
+    }, [round, total, done, ready, entrancesDone, frameloop, impactsByRound]);
 
     // Preload the lightweight pose for every unit. Approved GLBs still render by
     // default; this is the immediate, identity-correct fallback if one model
@@ -801,12 +840,20 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
     const [spriteMap, setSpriteMap] = useState<Map<string, BoardSprite>>(new Map());
     useEffect(() => {
         let live = true;
+        // Per-arena ownership avoids retaining custom portraits forever and
+        // deduplicates repeated species before their image decode completes.
+        const loads = new Map<string, Promise<BoardSprite>>();
         for (const u of result.roster) {
             const url = petPoseImage(u.pet, sharedImages);
             if (!url) continue;
-            void loadBoardSprite(url).then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
+            let load = loads.get(url);
+            if (!load) { load = loadBoardSprite(url); loads.set(url, load); }
+            void load.then((s) => { if (live) setSpriteMap((prev) => new Map(prev).set(u.id, s)); });
         }
-        return () => { live = false; };
+        return () => {
+            live = false;
+            for (const load of loads.values()) void load.then((sprite) => sprite.texture.dispose());
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [result, modelConfigs]);
 
@@ -828,26 +875,36 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
             data-testid="pet-gauntlet-3d-arena"
             data-arena-map="stone-lava"
             data-model-count={modelConfigs.size}
+            data-loading={!ready && !arenaFailed}
+            data-summoning={ready && !entrancesDone}
             style={{ backgroundImage: `linear-gradient(rgba(6,8,17,0.48), rgba(5,7,16,0.88)), url(${gauntletHero})` }}
         >
             <PetBattleRenderBoundary fallback={<BoardRenderRecovery />} onFail={handleArenaFailure}>
                 {arenaFailed ? <BoardRenderRecovery /> : (
                     <Canvas
+                        frameloop={ready ? frameloop : "demand"}
+                        style={{ isolation: "isolate" }}
                         aria-hidden="true"
                         dpr={quality.dpr}
                         shadows={quality.modelShadows ? "percentage" : false}
                         gl={{ alpha: true, antialias: quality.id !== "low", powerPreference: "high-performance" }}
                         camera={{ position: [0, 16.2, 11.35], fov: 39, near: 0.35, far: 80 }}
-                        onCreated={({ camera }) => camera.lookAt(0, 0, 0.6)}
+                        onCreated={({ camera, gl }) => { camera.lookAt(0, 0, 0.6); gl.debug.checkShaderErrors = import.meta.env.DEV; }}
                     >
                         <RendererRetirement />
                         <BoardContextGuard onLost={handleArenaFailure} />
-                        <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} />
+                        <BoardScene result={result} round={round} spriteMap={spriteMap} modelConfigs={modelConfigs} quality={quality} stars={stars} playing={ready} onAssetReady={onAssetReady} onSummoned={onSummoned} />
                     </Canvas>
                 )}
             </PetBattleRenderBoundary>
 
             <div className="gauntlet-board-vignette" aria-hidden="true" />
+            {!ready && !arenaFailed && (
+                <div className="gauntlet-board-loading" role="status" aria-live="polite">
+                    <strong>Summoning your formation…</strong>
+                    <span>Preparing the arena and pets. The battle will begin when they are ready.</span>
+                </div>
+            )}
             <header className="gauntlet-board-hud" aria-label="Gauntlet battle status">
                 <div className="gauntlet-board-team gauntlet-board-team--player">
                     <span className="gauntlet-board-team__eyebrow">Your formation</span>
@@ -880,7 +937,7 @@ export function PetBoardArena({ result, sharedImages = {}, stars, onDone }: { re
                         <span className="gauntlet-board-result__kicker">Formation resolved</span>
                         <div className="gauntlet-board-result__crest" aria-hidden="true">{result.result === "win" ? "✦" : result.result === "loss" ? "✕" : "◇"}</div>
                         <h2 id="gauntlet-result-title">{resultLabel}</h2>
-                        <p>{result.result === "win" ? "Your squad holds the arena." : result.result === "loss" ? "The enemy line breaks through." : "Neither formation yields."}</p>
+                        <p>{arenaFailed ? "The arena could not finish loading or rendering. Your battle result is saved—continue your run below." : result.result === "win" ? "Your squad holds the arena." : result.result === "loss" ? "The enemy line breaks through." : "Neither formation yields."}</p>
                         <button type="button" onClick={onDone}>Continue the run <span aria-hidden="true">→</span></button>
                     </div>
                 </div>

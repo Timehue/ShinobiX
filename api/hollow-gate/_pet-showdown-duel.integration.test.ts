@@ -184,21 +184,21 @@ for (const size of [1, 2, 3] as const) {
 }
 
 test('the draw is capped by the pets that can take the field, as the road draw is', async () => {
-    // Two partners are busy: the lead and one partner can field at most a 2v2.
+    // Training continues during battle; only the expedition partner is away.
     const training = { training: { endsAt: Date.now() + 60_000 } };
     await seed([LEAD, PARTNERS[0], { ...PARTNERS[1], ...training }, { ...PARTNERS[2], expedition: { endsAt: Date.now() + 60_000 } }]);
     const maxima: number[] = [];
     setFieldSizeRoll((maximum) => { maxima.push(maximum); return 3; });
     const pair = await openDuel((await sendPet()).runId);
     assert.equal(pair.status, 200, JSON.stringify(pair.body));
-    assert.deepEqual(maxima, [2]);
-    assert.equal(pair.body.state.format, '2v2');
-    assert.deepEqual(pair.body.petIds, [LEAD.id, PARTNERS[0].id]);
+    assert.deepEqual(maxima, [3]);
+    assert.equal(pair.body.state.format, '3v3');
+    assert.deepEqual(new Set(pair.body.petIds), new Set([LEAD.id, PARTNERS[0].id, PARTNERS[1].id]));
 
     // A lone ready pet always fights a 1v1.
     await kv.del(...await kv.keys('*'));
     resetRateLimits();
-    await seed([LEAD, { ...PARTNERS[0], ...training }]);
+    await seed([{ ...LEAD, ...training }, { ...PARTNERS[0], expedition: { endsAt: Date.now() + 60_000 } }]);
     maxima.length = 0;
     const lone = await openDuel((await sendPet()).runId);
     assert.equal(lone.status, 200, JSON.stringify(lone.body));
@@ -435,7 +435,7 @@ test('the duel takes only its run selector, and the arena door stays shut to the
 });
 
 test('an active pet that cannot fight, or a pre-cutover cinematic proof, is refused with the encounter untouched', async () => {
-    await seed([{ ...LEAD, training: { endsAt: Date.now() + 60_000 } }, ...PARTNERS]);
+    await seed([{ ...LEAD, expedition: { endsAt: Date.now() + 60_000 } }, ...PARTNERS]);
     const busy = await sendPet();
     assert.equal((await openDuel(busy.runId)).status, 409);
     assert.deepEqual(await kv.get(hollowGateCombatBindingKey(busy.runId)), busy.binding);

@@ -172,11 +172,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             ? body.petReceipt
             : '';
         if (!playerName || !token || !runId) return res.status(400).json({ error: 'Missing Hollow Gate combat identity.' });
-        if (!enforceRateLimit(req, res, 'hollow-gate-combat-settle', 30, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'hollow-gate-combat-settle-preauth', (30) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!enforceRateLimit(req, res, 'hollow-gate-combat-settle', 30, 60_000, identity.admin ? playerName : identity.name)) return;
 
         const bindingKey = hollowGateCombatBindingKey(runId);
         const initialBinding = await kv.get<HollowGateCombatBinding>(bindingKey);

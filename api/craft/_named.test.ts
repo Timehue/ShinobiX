@@ -6,29 +6,25 @@ import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_WEAPON_EP
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
+import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH } from '../../shared/named-forge-roll.js';
 
 describe('named forge authority', () => {
-    it('debits exactly 1000 points with the canonical shared currency values', () => {
-        assert.deepEqual(NAMED_FORGE_CURRENCY_POINTS, {
-            boneCharms: 2,
-            fateShards: 5,
-            auraStones: 15,
-            mythicSeals: 75,
-        });
-        assert.equal(debitNamedForge({ boneCharms: 499 }), null);
-        assert.equal(debitNamedForge({ boneCharms: 500 })?.boneCharms, 0);
-
-        const wallet = { boneCharms: 5, auraStones: 67 };
-        const mixed = debitNamedForge(wallet)!;
-        assert.equal(namedForgePointTotal(wallet) - namedForgePointTotal(mixed), 1000);
-        assert.equal(mixed.boneCharms, 0);
-        assert.equal(mixed.auraStones, 1, 'the solver preserves the 15-point remainder instead of overcharging');
+    it('debits exactly 200 Fate Shards and preserves all other currencies', () => {
+        assert.deepEqual(NAMED_FORGE_CURRENCY_POINTS, { fateShards: 5 });
+        const wallet = { fateShards: 206, boneCharms: 32, auraStones: 17, mythicSeals: 1000 };
+        const paid = debitNamedForge(wallet)!;
+        assert.deepEqual(paid, { ...wallet, fateShards: 6 });
+        assert.deepEqual(wallet, { fateShards: 206, boneCharms: 32, auraStones: 17, mythicSeals: 1000 });
+        assert.equal(namedForgePointTotal(wallet) - namedForgePointTotal(paid), 1000);
     });
 
-    it('rejects a wallet that cannot form an exact whole-material payment', () => {
-        assert.equal(namedForgePointTotal({ auraStones: 67 }), 1005);
-        assert.equal(debitNamedForge({ auraStones: 67 }), null);
-        assert.equal(debitNamedForge({ mythicSeals: 14 }), null);
+    it('never substitutes other materials for missing Fate Shards', () => {
+        for (const wallet of [{ boneCharms: 5000 }, { auraStones: 5000 }, { mythicSeals: 5000 }, { fateShards: 199, boneCharms: 5000, auraStones: 5000, mythicSeals: 5000 }]) {
+            assert.equal(debitNamedForge(wallet), null);
+            assert.equal(namedForgePointTotal(wallet), (wallet.fateShards ?? 0) * 5);
+        }
+        assert.deepEqual(debitNamedForge({ fateShards: 200 }), { fateShards: 0 });
+        for (const fateShards of [NaN, Infinity, -1, 'bad', 199.99]) assert.equal(debitNamedForge({ fateShards }), null);
     });
     it('builds combat fields only from the sealed roll', () => {
         const item = buildNamedItem({ kind: 'weapon', ep: 31, range: 4, offenseVal: 170, tags: [{ name: 'Wound', percent: 36 }] }, 'Blade', 'Lore');
@@ -102,10 +98,25 @@ describe('named forge tag fairness', () => {
     // materially more often than others — silently, and dependent on V8's sort.
     it('draws every weapon tag with even probability', () => {
         const counts = new Map<string, number>();
+        const epCounts = new Map<number, number>();
+        const rangeCounts = new Map<number, number>();
+        const offenseCounts = new Map<number, number>();
+        const tagCountCounts = new Map<number, number>();
+        const count = <T>(table: Map<T, number>, value: T) => table.set(value, (table.get(value) ?? 0) + 1);
         const DRAWS = 24_000;
         for (let i = 0; i < DRAWS; i += 1) {
             const roll = rollNamedForge('weapon');
             if (roll.kind !== 'weapon') continue;
+            count(epCounts, roll.ep);
+            count(rangeCounts, roll.range);
+            count(offenseCounts, roll.offenseVal);
+            count(tagCountCounts, roll.tags.length);
+            assert.equal(new Set(roll.tags.map(tag => tag.name)).size, roll.tags.length, 'dual tags are distinct');
+            const strength = roll.tags.length === 1 ? NAMED_WEAPON_TAG_STRENGTH.single : NAMED_WEAPON_TAG_STRENGTH.dual;
+            for (const tag of roll.tags) {
+                if (tag.name === 'Poison') assert.equal(tag.percent, 12);
+                else assert.ok(Number.isInteger(tag.percent) && tag.percent >= strength.min && tag.percent <= strength.max);
+            }
             for (const tag of roll.tags) counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1);
         }
         assert.equal(counts.size, 12, 'every tag should be reachable');
@@ -113,10 +124,47 @@ describe('named forge tag fairness', () => {
         // Each draw yields 1 tag half the time and 2 the other half, so the
         // expected count per tag is DRAWS * 1.5 / 12. A uniform shuffle lands
         // well inside 15%; the old comparator shuffle did not.
-        const expected = (DRAWS * 1.5) / 12;
+        assert.equal(NAMED_WEAPON_TAG_APPEARANCE_PERCENT, 12.5);
+        const expected = DRAWS * NAMED_WEAPON_TAG_APPEARANCE_PERCENT / 100;
         for (const [name, seen] of counts) {
             const drift = Math.abs(seen - expected) / expected;
             assert.ok(drift < 0.15, `${name} drew ${seen} vs ~${Math.round(expected)} expected (${(drift * 100).toFixed(1)}% off)`);
+        }
+        for (const [table, outcomes] of [[epCounts, 4], [rangeCounts, NAMED_WEAPON_RANGES.length], [offenseCounts, NAMED_WEAPON_OFFENSE.max - NAMED_WEAPON_OFFENSE.min + 1], [tagCountCounts, 2]] as const) {
+            assert.equal(table.size, outcomes);
+            for (const seen of table.values()) assert.ok(Math.abs(seen - DRAWS / outcomes) < DRAWS / outcomes * 0.15);
+        }
+    });
+
+    it('matches armor grade, stats, and special odds for every supported slot', () => {
+        const counts = new Map<string, number>();
+        const count = (field: string, value: string | number) => {
+            const key = `${field}:${value}`;
+            counts.set(key, (counts.get(key) ?? 0) + 1);
+        };
+        const draws = 24_000;
+        for (let i = 0; i < draws; i += 1) {
+            const slot = NAMED_ARMOR_SLOTS[i % NAMED_ARMOR_SLOTS.length];
+            const roll = rollNamedForge('armor', slot);
+            assert.equal(roll.kind, 'armor');
+            if (roll.kind !== 'armor') continue;
+            assert.equal(roll.slot, slot);
+            count('grade', roll.armorQuality);
+            count('offense', roll.offenseVal);
+            count('defense', roll.defenseVal);
+            count('special', roll.special.kind);
+            const spec = NAMED_ARMOR_SPECIALS.find(row => row.kind === roll.special.kind)!;
+            assert.equal(roll.special.bonusKey, spec.bonusKey);
+            assert.ok(roll.special.value >= spec.min && roll.special.value <= spec.max);
+            if (spec.decimals === 0) assert.ok(Number.isInteger(roll.special.value));
+            const item = buildNamedItem(roll, '', '') as { armorQuality?: string; bonuses: Record<string, number> };
+            assert.equal(item.bonuses[spec.bonusKey], roll.special.value);
+            assert.equal(item.armorQuality, slot === 'hand' ? undefined : roll.armorQuality);
+        }
+        const statValues = Array.from({ length: NAMED_ARMOR_STATS.max - NAMED_ARMOR_STATS.min + 1 }, (_, i) => NAMED_ARMOR_STATS.min + i);
+        for (const [field, values] of [['grade', NAMED_ARMOR_QUALITIES], ['special', NAMED_ARMOR_SPECIALS.map(row => row.kind)], ['offense', statValues], ['defense', statValues]] as const) {
+            const expected = draws / values.length;
+            for (const value of values) assert.ok(Math.abs((counts.get(`${field}:${value}`) ?? 0) - expected) < expected * 0.15, `${field}:${value} should be uniform`);
         }
     });
 

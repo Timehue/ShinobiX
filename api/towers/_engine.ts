@@ -1,3 +1,4 @@
+import { pveSpecialistDamagePercent } from '../../shared/relics.js';
 import { primeTowerSignature, resolveTowerSignature, recordTowerKnockouts, cancelInvalidTowerSignature } from './_combat-tactics.js';
 import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-progression.js';
 /*
@@ -19,6 +20,7 @@ import { TOWER_DISRUPT_AP, towerSignaturePattern } from '../../shared/tower-prog
  */
 import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
+import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
 import { reconcileGroundStatuses } from '../pvp/move.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
@@ -59,6 +61,7 @@ import { pveMeaningfulBuffCount } from '../_pve-ai-tactics.js';
 import { activeCombatStatuses, isCombatStatusActive, removeActiveCombatStatusesByKind } from '../combat-core/statuses.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
+import { expireShield, shieldExpiryForGrant } from '../combat-core/shields.js';
 import { resolveCastFlavor } from '../combat-core/cast-flavor.js';
 import { MAX_COMBAT_VFX_TILES, canonicalJutsuMethod, canonicalJutsuTagNames, semanticJutsuVfx } from '../combat-core/jutsu-vfx.js';
 import type { PvpFighter, PvpGroundEffect, PvpStatus } from '../pvp/session.js';
@@ -129,6 +132,8 @@ type JutsuLike = {
     suppressBloodline?: boolean;
     /** Internal server stamp for equipped-weapon tag scaling. */
     weaponSwing?: boolean;
+    /** Equipped weapon element, used only by the PvE relic bonus channel. */
+    pveWeaponElement?: string;
     /** deterministic Tower-AI authoring hints; ignored by the shared resolver */
     aiPriority?: number;
     aiHpBelowPct?: number;
@@ -715,6 +720,7 @@ function applyBossAegis(session: TowerSession, boss: TowerActor): number {
     const grant = Math.min(Math.floor((boss.maxHp * pct) / 100), Math.max(0, ceiling - boss.shield));
     if (grant <= 0) return 0;
     boss.shield += grant;
+    if (grant > 0) boss.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
     session.log.push(`${boss.name} raises an aegis — a shield of ${grant} forms around it!`);
     return grant;
 }
@@ -982,6 +988,7 @@ function actorToFighter(a: TowerActor): PvpFighter {
     return {
         name: a.name, hp: a.hp, maxHp: a.maxHp, chakra: a.chakra, maxChakra: a.maxChakra,
         stamina: a.stamina, maxStamina: a.maxStamina, shield: a.shield,
+        shieldExpiresAtRound: a.shieldExpiresAtRound,
         statuses: a.statuses.map(s => ({ ...s })), character: a.character, pos: a.pos,
     };
 }
@@ -990,6 +997,7 @@ function writeBackFighter(a: TowerActor, f: PvpFighter): void {
     a.chakra = Math.max(0, Math.floor(f.chakra));
     a.stamina = Math.max(0, Math.floor(f.stamina));
     a.shield = Math.max(0, Math.floor(f.shield));
+    a.shieldExpiresAtRound = f.shieldExpiresAtRound;
     a.statuses = f.statuses;
     // pos is intentionally NOT written back: applyJutsu's Push/Pull/Barrier operate on the PvP
     // grid, whose coordinates are meaningless on the tower board. Push/Pull are re-applied on the
@@ -1522,8 +1530,11 @@ function isAiCombatant(actor: TowerActor): boolean {
 }
 
 /** PvE-only relic multipliers, sealed by hydrateCharacterFromSave (already clamped). */
-function pveRelicDealtMult(actor: TowerActor): number {
-    return 1 + Math.max(0, Number(actor.character?.pveDamagePct) || 0) / 100;
+function pveRelicDealtMult(actor: TowerActor, attack: JutsuLike): number {
+    const specialist = pveSpecialistDamagePercent(actor.character?.pveSpecialistBonuses, {
+        type: attack.type, element: attack.weaponSwing ? attack.pveWeaponElement : attack.element,
+    });
+    return 1 + (Math.max(0, Number(actor.character?.pveDamagePct) || 0) + specialist) / 100;
 }
 function pveRelicTakenMult(target: TowerActor): number {
     return Math.max(0.25, 1 - Math.max(0, Number(target.character?.pveDamageTakenPct) || 0) / 100);
@@ -1559,7 +1570,7 @@ function resolveHit(
     //   • per-target — inside a PvE session, the counterparty must still be a real
     //     AI, so an async/AFK human ally or opponent never feeds it.
     const pveSession = session.towerId !== TOWER_PVP_TOWER_ID;
-    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor) : 1;
+    const relicDealtMult = (pveSession && !selfCast && isAiCombatant(target)) ? pveRelicDealtMult(actor, jutsu) : 1;
     const relicTakenMult = (pveSession && !selfCast && isAiCombatant(actor)) ? pveRelicTakenMult(target) : 1;
     const wMult = selfCast ? 1 : (
         pylonAttackMult(session, actor, jutsu) * wardDefendMult(session, target) * formationDefendMult(session, target)
@@ -1695,7 +1706,10 @@ function reinforcementEntryTile(session: TowerSession, preferred: number, forbid
 function deployPendingEnemyWaves(session: TowerSession): void {
     const waves = session.pendingEnemyWaves;
     if (!waves?.length) return;
-    const due = waves.filter(wave => wave.round <= session.round).sort((a, b) => a.round - b.round);
+    const nextClearWave = !isSideAlive(session, 'enemy')
+        ? waves.find(wave => wave.afterClear && wave.round <= session.round) : undefined;
+    const due = waves.filter(wave => wave.afterClear ? wave === nextClearWave : wave.round <= session.round)
+        .sort((a, b) => a.round - b.round);
     if (!due.length) return;
     const forbidden = reinforcementForbiddenTiles(session);
     let deployed = 0;
@@ -1716,11 +1730,11 @@ function deployPendingEnemyWaves(session: TowerSession): void {
             forbidden.add(tile);
             deployed++;
         }
-        if (waiting.length > 0) retained.push({ round: wave.round, actors: waiting });
+        if (waiting.length > 0) retained.push({ ...wave, actors: waiting });
     }
     session.pendingEnemyWaves = [
         ...retained,
-        ...waves.filter(wave => wave.round > session.round),
+        ...waves.filter(wave => !due.includes(wave)),
     ].sort((a, b) => a.round - b.round);
     if (session.pendingEnemyWaves.length === 0) delete session.pendingEnemyWaves;
     if (deployed > 0) session.log.push(`${deployed} reinforcement${deployed === 1 ? '' : 's'} enter the battlefield.`);
@@ -1801,6 +1815,69 @@ function isElementallySealed(session: TowerSession, actor: TowerActor, jutsu: Ju
     return BASIC_JUTSU_ELEMENTS.has(String(jutsu.element ?? ''))
         && activeCombatStatuses(actor.statuses, session.round)
             .some(status => canonicalTagName(status.name) === 'Elemental Seal');
+}
+
+/** Keep a human turn open while an available command can still be used. */
+export function humanHasTowerAction(session: TowerSession, actor: TowerActor, mode: 'pve' | 'pvp' = 'pve'): boolean {
+    if (session.status !== 'active' || activeActor(session)?.id !== actor.id || actor.hp <= 0) return false;
+    const { width: w, height: h } = session.map;
+    const openNeighbor = towerNeighbors(actor.pos, w, h).some(tile => !isTileBlocked(session, tile));
+    if (mode === 'pve' && session.pendingCompanion
+        && !session.actors.some(a => a.id === COMPANION_ACTOR_ID) && openNeighbor) return true;
+    if (session.actionsThisTurn >= MAX_ACTIONS) return false;
+
+    const hostiles = session.actors.filter(target => target.hp > 0
+        && hostileSidesFor(actor.side).includes(target.side)
+        && !(actor.side === 'squad' && objectiveBossDamageLocked(session, target)));
+    const inRange = (range: number) => hostiles.some(target => hexDistance(actor.pos, target.pos, w) <= range);
+    if (canAct(session, MOVE_AP, actor) && openNeighbor) return true;
+    if (canAct(session, DASH_AP, actor) && filledDiskTiles(actor.pos, DASH_RANGE, w, h)
+        .some(tile => tile !== actor.pos && !isTileBlocked(session, tile))) return true;
+    if (canAct(session, BASIC_ATTACK_AP, actor) && inRange(1)) return true;
+    if (canAct(session, HEAL_AP, actor) && actor.chakra >= HEAL_CHAKRA && (actor.cooldowns.basicHeal ?? 0) <= 0) return true;
+    if (canAct(session, CLEANSE_AP, actor) && (actor.cooldowns.cleanse ?? 0) <= 0) return true;
+    if (canAct(session, CLEAR_AP, actor) && (actor.cooldowns.clear ?? 0) <= 0 && inRange(BASIC_CLEAR_RANGE)) return true;
+    if (mode === 'pve' && session.towerTactics && canAct(session, TOWER_DISRUPT_AP, actor)
+        && session.map.features?.some(feature => feature.kind === 'pylon' && feature.tiles[0] != null
+            && !session.towerTactics!.disruptedPylons.includes(feature.tiles[0])
+            && hexDistance(actor.pos, feature.tiles[0], w) <= 1)) return true;
+
+    const jutsus = Array.isArray(actor.character.jutsu) ? actor.character.jutsu as JutsuLike[] : [];
+    for (const jutsu of jutsus) {
+        if (!jutsu?.id || isElementallySealed(session, actor, jutsu)
+            || (actor.cooldowns[jutsu.id] ?? 0) > 0
+            || actor.chakra < Math.max(0, Number(jutsu.chakraCost ?? 0))
+            || actor.stamina < Math.max(0, Number(jutsu.staminaCost ?? 0))) continue;
+        const moves = jutsuHasTag(jutsu, 'Move');
+        if (!canAct(session, Number(jutsu.ap ?? (moves ? 20 : 40)), actor)) continue;
+        if (towerJutsuTargetsSelf(jutsu)) return true;
+        const range = Math.max(1, Number(jutsu.range ?? (moves ? 5 : 1)));
+        if (moves && filledDiskTiles(actor.pos, range, w, h)
+            .some(tile => tile !== actor.pos && !isTileBlocked(session, tile))) return true;
+        if (!moves && jutsu.target === 'EMPTY_GROUND' && filledDiskTiles(actor.pos, range, w, h)
+            .some(tile => !session.map.blockedTiles.includes(tile) && !towerBarrierTiles(session).has(tile)
+                && !session.actors.some(target => target.hp > 0 && target.pos === tile
+                    && hostileSidesFor(actor.side).includes(target.side)
+                    && actor.side === 'squad' && objectiveBossDamageLocked(session, target)))) return true;
+        if (!moves && jutsu.target !== 'EMPTY_GROUND' && inRange(range)) return true;
+    }
+
+    const items = Array.isArray(actor.character.pvpItems) ? actor.character.pvpItems as PvpItemLike[] : [];
+    const equipment = actor.character.equipment && typeof actor.character.equipment === 'object'
+        ? actor.character.equipment as Record<string, string | undefined> : {};
+    const equippedIds = new Set(Object.values(equipment));
+    for (const item of items) {
+        if (!item?.id || !equippedIds.has(item.id)) continue;
+        const slot = normalizeSlot(item.slot);
+        const weapon = slot === 'hand' || slot === 'thrown';
+        if (mode === 'pvp' && slot !== 'hand') continue;
+        const cost = Math.max(0, Number(item.apCost ?? (weapon ? BASIC_ATTACK_AP : 35)));
+        const cdKey = `${weapon ? 'weapon' : 'item'}:${item.id}`;
+        if (!canAct(session, cost, actor) || (actor.cooldowns[cdKey] ?? 0) > 0) continue;
+        if ((slot === 'thrown' || !weapon) && (actor.itemCharges?.[item.id] ?? 0) <= 0) continue;
+        if (!weapon || inRange(Math.max(1, Number(item.weaponRange ?? (slot === 'thrown' ? 4 : 1))))) return true;
+    }
+    return false;
 }
 function rejectElementallySealed(session: TowerSession, actor: TowerActor, jutsu: JutsuLike): boolean {
     if (!isElementallySealed(session, actor, jutsu)) return false;
@@ -1885,6 +1962,16 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
+    // Keep round boundaries in the same log consumed by combat history. This
+    // lets Tower and embedded encounters (including hunts) retain real rounds.
+    session.log.push(`--- Round ${session.round} ---`);
+    for (const actor of session.actors) {
+        const aged = expireShield(actor, session.round);
+        if (aged !== actor) {
+            Object.assign(actor, aged);
+            session.log.push(`${actor.name}'s shield expires.`);
+        }
+    }
     recordTowerKnockouts(session);
     expireCompanions(session);
     deployPendingEnemyWaves(session);
@@ -2268,6 +2355,11 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         if (spot === undefined) return { applied: false, reason: 'no-space' };
         session.actors.push(companionActor(seal, spot));
         session.pendingCompanion = undefined;
+        session.companionUsage = {
+            petId: seal.petId,
+            ...(seal.pveGearId ? { pveGearId: seal.pveGearId } : {}),
+            ...(seal.consumableId ? { consumableId: seal.consumableId } : {}),
+        };
         session.turnQueue.splice(session.activeIndex + 1, 0, COMPANION_ACTOR_ID);
         session.log.push(`${actor.name} summons ${seal.name}!`);
         // PVE-gear perk: some collars heal the summoner as the pet lands.
@@ -2331,6 +2423,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             const cut = healcutPct(session);
             if (cut > 0) healAmt = Math.max(0, Math.floor(healAmt * (1 - cut / 100)));
         }
+        healAmt = Math.min(Math.max(0, actor.maxHp - actor.hp), healAmt);
         actor.hp = Math.min(actor.maxHp, actor.hp + healAmt);
         actor.chakra = Math.max(0, actor.chakra - HEAL_CHAKRA);
         actor.cooldowns['basicHeal'] = HEAL_CD;
@@ -2365,6 +2458,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const cTarget = getActor(session, action.targetId);
         if (!cTarget || cTarget.hp <= 0) return { applied: false, reason: 'no-target' };
         if (!hostileSidesFor(actor.side).includes(cTarget.side)) return { applied: false, reason: 'friendly-fire' };
+        if (hexDistance(actor.pos, cTarget.pos, session.map.width) > BASIC_CLEAR_RANGE) return { applied: false, reason: 'out-of-range' };
         if (actor.side === 'squad' && rejectObjectiveLockedBoss(session, actor, cTarget)) {
             return { applied: false, reason: 'objective-locked' };
         }
@@ -2416,6 +2510,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         }
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
+            pveWeaponElement: item.weaponElement,
             isUtility: false, weaponSwing: true, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
             // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
             // bloodline damage multiplier only when the weapon's element is one the
@@ -3189,6 +3284,7 @@ export function pickAiAction(session: TowerSession, actor: TowerActor, rng: () =
         const comp = pveAiCompetence(band.enemyLevel);
         if (Number.isFinite(comp.clearBuffThreshold)
             && canAct(session, CLEAR_AP, actor) && (actor.cooldowns['clear'] ?? 0) <= 0
+            && hexDistance(actor.pos, target.pos, session.map.width) <= BASIC_CLEAR_RANGE
             && pveMeaningfulBuffCount(activeCombatStatuses(target.statuses, session.round)) >= comp.clearBuffThreshold) {
             return { actorId: actor.id, type: 'clear', targetId: target.id };
         }
@@ -3451,6 +3547,7 @@ function companionCast(
         case 'shield': case 'barrier': {
             const amt = Math.max(1, Math.floor(actor.maxHp * 0.2));
             actor.shield = Math.max(0, Number(actor.shield ?? 0)) + amt;
+            actor.shieldExpiresAtRound = shieldExpiryForGrant(session.round);
             session.log.push(`${actor.name}${label} and raises a ${amt} HP shield.`);
             return;
         }

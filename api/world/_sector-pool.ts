@@ -6,7 +6,7 @@ import { withKvLock } from '../_lock.js';
  *
  * Explore (`api/world/explore.ts`) and Ancient Chest opening
  * (`api/world/open-chest.ts`) used to be PRIVATE faucets: each player had a
- * daily ceiling (150 explores / 23 chests) but nothing in the sector itself ever
+ * daily ceiling (100 explores / 23 chests) but nothing in the sector itself ever
  * ran dry, so two hundred players could each drain the same tile in parallel.
  * This pool is the contested half: one counter per sector per UTC day, shared
  * by everyone standing there, ADDITIVE to the per-player limits (which stay
@@ -20,13 +20,13 @@ import { withKvLock } from '../_lock.js';
  * the clan that took it.
  *
  * ── Sizing (raised 2026-08-22; the first pass at 500/75 was far too tight) ──
- * The per-player explore ceiling (DAILY_SECTOR_EXPLORE_LIMIT, 150/day) is
- * GLOBAL, not per-sector, so one maxed player can spend all 150 on one tile.
- *   • 1,500 / 150 = 10 maxed players to drain a non-owner sector (was 3⅓).
- *   • 2,250 / 150 = 15 for a village standing on ground it owns.
+ * The per-player explore ceiling (DAILY_SECTOR_EXPLORE_LIMIT, 100/day) is
+ * GLOBAL, not per-sector, so one maxed player can spend all 100 on one tile.
+ *   • 1,500 / 100 = 15 maxed players to drain a non-owner sector (was 3⅓).
+ *   • 2,250 / 100 = 22.5, so 23 maxed players to drain an owner sector.
  *   • World capacity 66 wild sectors × 1,500 = 99,000 explore slots against a
- *     200-player ceiling × 150 = 30,000 explores of demand — 30% utilization,
- *     i.e. 3.3× headroom for clustering (500 left only 9%).
+ *     200-player ceiling × 100 = 20,000 explores of demand — 20% utilization,
+ *     i.e. 4.95× headroom for clustering (500 left only 9%).
  * The chest pool tracks the explore pool at exactly the authored chest rate
  * (SECTOR_EXPLORE_CHEST_CHANCE, 0.15): 1,500 × 0.15 = 225 expected discoveries
  * against a 225 chest cap, so chests are never the tighter constraint in
