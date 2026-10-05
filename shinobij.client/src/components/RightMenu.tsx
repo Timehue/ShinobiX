@@ -105,12 +105,6 @@ export const RightMenu = memo(function RightMenu({
             {menuOpen && (
                 <>
                     <h3>Main Menu</h3>
-                    {currentSector !== 0 && (
-                        <div className="right-menu-realm-actions" aria-label="Field navigation">
-                            <button type="button" onClick={() => guardedNavigate("worldMap")} title="Open the world overview">World Map</button>
-                            <button type="button" onClick={() => guardedNavigate("village")} title={`Travel to ${characterVillage || "your village"}`}>Return to Village</button>
-                        </div>
-                    )}
 
                     {/* onPointerDown warms the destination screen's lazy chunk on
                         press (before onClick's guardedNavigate fires) — see
