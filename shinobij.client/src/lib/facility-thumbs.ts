@@ -12,7 +12,8 @@
 import type { FacilityId } from "./facility-presentation";
 
 // eager: resolve URLs at build time; import the default (the asset URL string).
-const modules = import.meta.glob("../assets/facilities/thumbs/*/*.webp", {
+const modules = import.meta.glob("./*/*.webp", {
+    base: "../assets/facilities/thumbs",
     eager: true,
     import: "default",
 }) as Record<string, string>;
@@ -34,7 +35,7 @@ const FALLBACK_VILLAGE: VillageThumbKey = "frostfang";
 const byVillage: Record<string, Record<string, string>> = (() => {
     const out: Record<string, Record<string, string>> = {};
     for (const [path, url] of Object.entries(modules)) {
-        const m = /\/thumbs\/([^/]+)\/([^/]+)\.webp$/.exec(path);
+        const m = /^\.\/([^/]+)\/([^/]+)\.webp$/.exec(path);
         if (!m) continue;
         (out[m[1]] ||= {})[m[2]] = url;
     }

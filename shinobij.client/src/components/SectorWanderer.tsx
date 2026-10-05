@@ -311,7 +311,7 @@ export function SectorWanderer({
                 ref={figRef}
                 role="button"
                 tabIndex={-1}
-                title={`${wanderer.name} · Lv ${wanderer.level} · Wandering shinobi`}
+                title={`${wanderer.name} · Lv ${wanderer.level} · ${wanderer.verb === "petDuel" ? "Wild beast" : "Wandering shinobi"}`}
                 onClick={handleClick}
                 style={{ ["--marker-ring"]: SECTOR_RING_AI } as CSSProperties}
             >

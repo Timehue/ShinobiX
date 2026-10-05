@@ -116,8 +116,10 @@ unanimous: a compounding/percentage interest faucet is the worst-behaved faucet
 there is. The 10M principal cap helps but 12.5%/day is still enormous.
 
 **Sinks (good, keep):** 10% trade burn (`_trade-core.ts`), black-market gamble
-(50k/pull, 10/day, ~45% EV — net sink), hospital skip (2,500), jutsu training
-costs, shop items, treats. **(Retracted "mispricing":** an earlier draft flagged
+(50k/pull, 10/day, ~45% EV — net sink), level-scaled hospital skip (25 ryo per
+character level, capped at 2,500 before existing discounts), jutsu training costs,
+shop items, treats. The skip remains optional; free checkout opens after 60 seconds.
+**(Retracted "mispricing":** an earlier draft flagged
 the Golden Apple as "20 ryo → 2,000 pet XP, underpriced 60×." That was WRONG — it's
 a `legendary` item, and `Shop.tsx` only lists legendary/mythic in the **Grand
 Marketplace at Fate Shards**, so its `cost: 20` is 20 *Fate Shards*, not ryo. It was
@@ -132,7 +134,7 @@ real faucet yet). (`_mission-catalog.ts:30`, `_economy.ts` draft type.)
 ### 1.6 Drops & RNG (current)
 - **Wild pets:** 1% per explore, split Standard 0.50 / Rare 0.30 / Legendary
   0.18 / Mythic 0.02; yard cap 5; starters/evos not wild-spawnable
-  (`lib/pet-balance.ts:871`). At 150 explores/day ≈ **1.5 pet rolls/day**.
+  (`lib/pet-balance.ts:871`). At 100 explores/day ≈ **1 pet roll/day**.
 - **Fate shards:** expeditions 5–10% (`FATE_RATE` scout/forage .05, ruins .10) ·
   L70 hunts guaranteed +1 · black-market trinket(22%)=1–3 / jackpot(1%)=25 ·
   wanderer gift 25%=1 · login streak 5/7d · map-control.
@@ -576,6 +578,11 @@ casual-retention data demands it.
   pair it with the wealth-scaling vanity sink, not just flat fees.
 
 ### 8.3 Targeted fixes
+- **Hospital skip fee (implemented):** `min(2,500, 25 × character level)` before
+  current village/clan discounts. Examples: L1=25, L3=75, L50=1,250, L100=2,500.
+  Keep the 60-second free checkout and free Healer discharge. The amount is a
+  convenience price, not a required recovery cost; revisit it when per-admission
+  and paid-discharge telemetry is available.
 - **Golden Apple: NOT a ryo issue (retracted).** It's a `legendary` Grand
   Marketplace item priced in **Fate Shards** (`Shop.tsx` lists legendary/mythic at
   `currency="fateShards"`), so its `cost: 20` is 20 Fate Shards — never a ryo

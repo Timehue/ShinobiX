@@ -110,25 +110,6 @@ test('solo matches publish once, keep tournament recovery leases, and advance on
     assert.equal((await request({ action: 'settle', eventId: event.id, matchId: match.id }, auth('akira'))).status, 200);
     assert.equal((await store.readTournament())!.id, replacement.id);
 });
-test('hospitalization prevents tournament readiness and closes the ready-to-publication race', async context => {
-    const event = await create(); await join(event, 'akira'); await join(event, 'ren');
-    const live = await start(context, event), match = live.matches[0]!;
-    const save = await kv.get<any>('save:akira');
-    await kv.set('save:akira', { ...save, character: { ...save.character, hp: 0, hospitalized: true,
-        hospitalizedAt: Date.now(), hospitalizedUntil: Date.now() + 60_000 } });
-    assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'))).status, 409);
-    assert.equal(await kv.get(`tower-pvp:match:${match.battleId}`), null);
-
-    await kv.set('save:akira', { ...save, character: { ...save.character, hp: 1000 } });
-    assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'))).status, 200);
-    const readySave = await kv.get<any>('save:akira');
-    await kv.set('save:akira', { ...readySave, character: { ...readySave.character, hp: 0, hospitalized: true,
-        hospitalizedAt: Date.now(), hospitalizedUntil: Date.now() + 60_000 } });
-    assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('ren'))).status, 200);
-    assert.equal(await kv.get(`tower-pvp:match:${match.battleId}`), null, 'publication must recheck every fighter');
-    assert.deepEqual((await store.readTournament())!.matches[0]!.ready, ['ren']);
-    assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'))).status, 409);
-});
 test('fixed 2v2 pairs enter four-human combat with no team reshuffle', async context => {
     const event = await create('2v2'); await join(event, 'akira', { partner: 'ren' }); await join(event, 'sora', { partner: 'yuki' });
     for (const id of ['ren', 'yuki']) assert.equal((await request({ action: 'accept', eventId: event.id }, auth(id))).status, 200);
@@ -218,3 +199,38 @@ test('every bracket size through 64 eliminates to exactly one champion with fair
         assert.ok(event.matches.every(m => m.endsAt <= event.endsAt));
     }
 });
+
+
+test('hospitalized entrants cannot ready a human tournament fight', async context => {
+    const event = await create(); await join(event, 'akira'); await join(event, 'ren');
+    const live = await start(context, event), match = live.matches[0]!;
+    const save = (await kv.get<any>('save:akira'))!;
+    await kv.set('save:akira', { ...save, character: { ...save.character, hospitalized: true } });
+    const result = await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'));
+    assert.equal(result.status, 409);
+    assert.match(result.body.error, /hospital/);
+    assert.ok(!(await store.readTournament())!.matches[0]!.ready.includes('akira'));
+    assert.equal(await kv.get('tower-pvp:match:' + match.battleId), null);
+    assert.equal(await kv.get('battle-lock:akira'), null);
+});
+
+for (const condition of ['admitted', 'timed', 'zero-hp', 'missing-save'] as const) {
+    test('match publication rechecks a previously ready entrant: ' + condition, async context => {
+        const event = await create(); await join(event, 'akira'); await join(event, 'ren');
+        const live = await start(context, event), match = live.matches[0]!;
+        assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'))).status, 200);
+        const save = (await kv.get<any>('save:akira'))!;
+        if (condition === 'missing-save') await kv.del('save:akira');
+        else await kv.set('save:akira', { ...save, character: { ...save.character,
+            ...(condition === 'admitted' ? { hospitalized: true } : condition === 'timed' ? { hospitalizedUntil: Date.now() + 60_000 } : { hp: 0 }) } });
+        assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('ren'))).status, 200);
+        const waiting = (await store.readTournament())!.matches[0]!;
+        assert.equal(waiting.status, 'waiting');
+        assert.deepEqual(waiting.ready, ['ren']);
+        assert.equal(await kv.get('tower-pvp:match:' + match.battleId), null);
+        for (const id of ['akira', 'ren']) assert.equal(await kv.get('battle-lock:' + id), null);
+        await kv.set('save:akira', save);
+        assert.equal((await request({ action: 'ready', eventId: event.id, matchId: match.id }, auth('akira'))).status, 200);
+        assert.equal((await store.readTournament())!.matches[0]!.status, 'active');
+    });
+}

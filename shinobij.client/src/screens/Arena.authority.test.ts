@@ -44,7 +44,7 @@ test("practice admission reaches AiFightHost and MissionArenaFight only through 
     assert.doesNotMatch(launch, /fetch\(|setScreen\(|setBattleStarted/);
 
     assert.match(aiHost, /onAiFightRequest\(/);
-    assert.match(aiHost, /<MissionArenaFight/);
+    assert.match(aiHost, /<AiFightScreen/);
     assert.match(aiHost, /runId=\{currentFight\.sessionId\}/);
     assert.match(aiHost, /initialSession=\{soloPveSessionForArena\(currentFight\.session\)\}/);
 });
@@ -78,6 +78,8 @@ test("PvP acceptance delegates to App and routes with the server battle id", () 
         "setPvpRole(\"p1\")",
         "setScreen(\"pvpBattle\")",
     ], "spectator routing");
+    assert.doesNotMatch(spectate, /\/api\/pvp\/spectate/,
+        "the battle screen owns spectator joins after it loads the live session");
 });
 
 test("the retired pending PvP opponent compatibility sink stays absent", () => {

@@ -115,7 +115,7 @@ WebView) and the app version (Settings → Apps → Shinobi).
 
 | # | Do this | Pass if | Result |
 | --- | --- | --- | --- |
-| 1 | Open the start screen, the village hub and the world map in portrait. | Each fills the width exactly: no blank strip at the right or bottom, nothing looks zoomed out, and pinching does not zoom. | |
+| 1 | Open the start screen, the village hub and the world map in portrait. | Each fills the width exactly: no blank strip at the right or bottom, nothing looks zoomed out, and pinching does not zoom. The bottom menu sits directly on Android's navigation bar and the top bar directly under the status bar, with no empty band between them. | |
 | 2 | Start any battle. | Every jutsu card's cost line (like `40 AP · R4 · CD 7`) ends with its cooldown number, not `…`. The action-bar captions and the HP, chakra and stamina labels stay inside their boxes. | |
 | 3 | Open a card duel, then a Pet Warfront placement board. | Card element badges, zone labels and pile counts stay inside their boxes. The board's route labels (left edge) and depth labels (top) do not overlap the grid. | |
 | 4 | Open the Fate Shard shop. | It says "Fate Shard purchases are not available in this version of the app yet." Tebex never appears. | |

@@ -504,7 +504,8 @@ function DeployPanel({ band, enemyBand, enemyPlan, sharedImages, onBegin, onExit
  * DOM. Putting these in React state would re-render the whole match tree 30+
  * times a second, which is the mistake that cost the lane war its frame pacing.
  */
-function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, audioArmed, audioDispatches, onArmAudio }: {
+function ClashHud({ active, clash, blueBand, redBand, clockRef, sharedImages, rounds, audioArmed, audioDispatches, onArmAudio }: {
+    active: boolean;
     clash: RiteClash;
     blueBand: Pet[];
     redBand: Pet[];
@@ -568,11 +569,11 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
             // invisible because everything it drives is painted imperatively.
             if (clockOut.current) clockOut.current.dataset.tick = t.toFixed(2);
             if (audioProbe.current) audioProbe.current.dataset.riteAudioEvents = String(audioDispatches.current);
-            raf = requestAnimationFrame(paint);
+            if (active) raf = requestAnimationFrame(paint);
         };
         raf = requestAnimationFrame(paint);
         return () => cancelAnimationFrame(raf);
-    }, [audioDispatches, clash, clockRef, poseSlots]);
+    }, [active, audioDispatches, clash, clockRef, poseSlots]);
 
     const row = (side: RiteCombatant[], band: Pet[], team: "player" | "enemy", label: string) => (
         <ul className={`wfr-roster is-${team === "player" ? "blue" : "red"}`} aria-label={label}>
@@ -581,7 +582,7 @@ function ClashHud({ clash, blueBand, redBand, clockRef, sharedImages, rounds, au
                 if (!pet) return null;
                 const position = deploymentLabel(c.node);
                 return (
-                    <li key={`${team}-${c.lane}`} ref={(node) => { rosterRows.current[`${team}-${c.lane}`] = node; }} data-fallen="false" title={`Deployed ${position}`}>
+                    <li key={`${team}-${c.lane}`} ref={(node) => { rosterRows.current[`${team}-${c.lane}`] = node; }} data-actor-id={`${team}-${c.lane}`} data-fallen="false" title={`Deployed ${position}`}>
                         <span className="wfr-roster-job" aria-label={position}>{position.slice(0, 1)}</span>
                         <PetPortrait pet={pet} sharedImages={sharedImages} size={34} />
                         <span className="wfr-roster-meta">
@@ -1128,22 +1129,22 @@ function WarfrontRiteMatch({
                 && audioPlan[audioCursorRef.current].tick <= clockRef.current) {
                 const cue = audioPlan[audioCursorRef.current++];
                 if (audioArmed) {
-                    playPetSfx(cue.sfx, {
+                    try { playPetSfx(cue.sfx, {
                         gain: cue.gain,
                         playbackRate: cue.playbackRate,
                         pan: cue.pan,
                         channel: "warfront-combat",
                         priority: cue.priority,
-                    });
+                    }); } catch { /* Audio device failure must not stop the battle clock. */ }
                     audioDispatchesRef.current++;
                 }
             }
             if (clockRef.current >= total) {
                 winnerRefs.current.player = clash.winner === "blue";
                 winnerRefs.current.enemy = clash.winner === "red";
-                playPetSfx(clash.winner === "blue" ? "victory" : "hit");
                 setPhase("interlude");
                 stopPulses();
+                try { playPetSfx(clash.winner === "blue" ? "victory" : "hit"); } catch { /* The result must remain reachable without audio. */ }
             }
         };
         const scheduler = {
@@ -1247,7 +1248,7 @@ function WarfrontRiteMatch({
         if (spectator || phase !== "result" || !result || resultCueRef.current) return;
         resultCueRef.current = true;
         stopBattleMusic?.();
-        playPetSfx(result.winner === "blue" ? "victory" : "crowd");
+        try { playPetSfx(result.winner === "blue" ? "victory" : "crowd"); } catch { /* Results remain usable if the audio device fails. */ }
     }, [phase, result, spectator]);
 
     useEffect(() => () => { stopBattleMusic?.(); }, []);
@@ -1330,6 +1331,7 @@ function WarfrontRiteMatch({
             <div className="wfr-stage">
                 <PetWarfrontRiteStage
                     sceneKey={clash.index}
+                    paused={phase !== "clash"}
                     result={clash.result}
                     fighters={fighters}
                     clockRef={clockRef}
@@ -1344,6 +1346,7 @@ function WarfrontRiteMatch({
             </div>
 
             <ClashHud
+                active={phase === "clash"}
                 key={`hud-${clash.index}`}
                 clash={clash}
                 blueBand={blueBand}

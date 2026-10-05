@@ -7,8 +7,8 @@ import { SectorSkyForecast } from './SectorSkyForecast';
 import { SectorRoutes } from './SectorRoutes';
 
 /** One complete roster, bounded by the space beneath the sector controls. */
-export function SectorNearby({ sector, biome, weather, players, present, rosterState, action, onAction }:
-    Pick<WorldSectorCommandPanelProps, 'sector' | 'biome' | 'weather' | 'players' | 'present'> & {
+export function SectorNearby({ sector, biome, players, present, rosterState, action, onAction }:
+    Pick<WorldSectorCommandPanelProps, 'sector' | 'biome' | 'players' | 'present'> & {
         rosterState: SectorRosterState; action: SectorPlayerActionState;
         onAction: (key: string, sector: number, intent: SectorPlayerIntent) => void;
     }) {
@@ -24,7 +24,7 @@ export function SectorNearby({ sector, biome, weather, players, present, rosterS
             </p>}
             {action.error && !hasRowError && <p className="sector-row-feedback" role="status">{action.error.message}</p>}
             {showPlayers ? <SectorPlayerList players={players} action={action} sector={sector} onAction={onAction} /> : <div className="sector-nearby-conditions">
-                <SectorSkyForecast sector={sector} biome={biome} fallback={weather} variant="effect" />
+                <SectorSkyForecast sector={sector} biome={biome} variant="effect" />
                 <SectorRoutes sector={sector} />
             </div>}
         </div>

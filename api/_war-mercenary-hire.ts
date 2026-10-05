@@ -3,7 +3,7 @@ import { isDeepStrictEqual } from 'node:util';
 import type { KvLike } from './_storage.js';
 import { syncCurrencyLedger } from './_currency-ledger.js';
 import { mergePreservingImages } from './_utils.js';
-import { versionedPlayerRecord } from './save/_mutate-player-save.js';
+import { carriedRegenCursor, settleIdleRecovery, versionedPlayerRecord } from './save/_mutate-player-save.js';
 
 type MercenaryHireStore = Pick<KvLike, 'get' | 'set' | 'compareSet'>;
 
@@ -295,17 +295,23 @@ function warHasReceiptEntry(row: Record<string, unknown>, hireId: string): boole
     return Object.prototype.hasOwnProperty.call(recordMap(row, WAR_MERCENARY_RECEIPTS_FIELD), hireId);
 }
 
+/**
+ * Every write to the hiring player's save settles the idle recovery they
+ * earned since their last save and carries the cursor, as mutatePlayerSave
+ * does. `recovery` is that save with the recovery settled (settleIdleRecovery).
+ */
 function projectSourceEntry(
     current: Record<string, unknown>,
     marker: WarMercenaryFundingMarker,
     entry: WarMercenarySourceEntry,
+    recovery: Awaited<ReturnType<typeof settleIdleRecovery>>,
     balance?: number,
 ): Record<string, unknown> {
     const character = current.character;
     if (!character || typeof character !== 'object' || Array.isArray(character)) {
         throw new Error('war-mercenary-account-invalid');
     }
-    const holder = character as Record<string, unknown>;
+    const holder = recovery.character;
     if (recordMapIsMalformed(holder, PLAYER_WAR_MERCENARY_RECEIPTS_FIELD)) {
         throw new Error('war-mercenary-source-receipts-invalid');
     }
@@ -329,7 +335,9 @@ function projectSourceEntry(
             [marker.fingerprint]: entry,
         },
     };
-    const versioned = versionedPlayerRecord(current, nextCharacter);
+    const versioned = versionedPlayerRecord(current, nextCharacter, {}, {
+        regenAt: carriedRegenCursor(recovery.character, nextCharacter, recovery.regen),
+    });
     return mergePreservingImages(versioned.record, current) as Record<string, unknown>;
 }
 
@@ -510,7 +518,7 @@ async function ensureSourceIntent(
             ownerId: marker.ownerId,
             reservedAt: now,
         };
-        const desired = projectSourceEntry(current, marker, pending);
+        const desired = projectSourceEntry(current, marker, pending, await settleIdleRecovery(store, marker.player, current));
         try {
             if (await store.compareSet(marker.sourceKey, current, desired)) return { status: 'ready', row: desired };
         } catch (error) {
@@ -566,7 +574,7 @@ async function debitSource(
             balanceAfter: balance - marker.costSeals,
             debitedAt: now,
         };
-        const desired = projectSourceEntry(intent.row, marker, receipt, receipt.balanceAfter);
+        const desired = projectSourceEntry(intent.row, marker, receipt, await settleIdleRecovery(store, marker.player, intent.row), receipt.balanceAfter);
         try {
             if (await store.compareSet(marker.sourceKey, intent.row, desired)) {
                 await syncCurrencyLedger(marker.player, desired, { kv: store });
@@ -616,7 +624,7 @@ async function abortFunding(
                 reservedAt: entry?.reservedAt ?? now,
                 abortedAt: now,
             };
-            const desiredSource = projectSourceEntry(source, marker, aborted);
+            const desiredSource = projectSourceEntry(source, marker, aborted, await settleIdleRecovery(store, marker.player, source));
             try {
                 if (!(await store.compareSet(marker.sourceKey, source, desiredSource))) continue;
             } catch (error) {

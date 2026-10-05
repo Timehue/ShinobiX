@@ -5,6 +5,13 @@ import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers
 
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
+// Keep the real ceremony and timers, but use the supported lightweight scenery
+// setting so software-rendered CI browsers do not spend the interaction window
+// drawing unrelated hub WebGL effects. Phase timing is covered in bloodline-ritual.
+test.beforeEach(async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem("liteFx.v1", "1"));
+});
+
 const ranks = [
     { rank: "B Rank", material: "boneCharms", count: 4, budget: 7 },
     { rank: "A Rank", material: "auraStones", count: 5, budget: 10 },
@@ -50,15 +57,15 @@ for (const tier of ranks) {
         await expect(ritual).toBeVisible();
         await expect(page.locator('.app-shell[data-screen="centralHub"]')).toBeVisible();
         await expect(page.getByRole("dialog", { name: "Awakening Stone" })).toHaveCount(0);
-        expect(requests).toBe(1);
-        expect(runtimeErrors).toEqual([]);
-        expect(missingRitualAssets).toEqual([]);
-        expect(debit).toBe(100);
         await expect.poll(() => ritual.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(768);
         if (tier.rank === "B Rank") await ritual.getByRole("button", { name: "Skip to builder" }).click();
         else if (tier.rank === "A Rank") await page.keyboard.press("Escape");
         await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
         await expect(ritual).toHaveCount(0);
+        expect(requests).toBe(1);
+        expect(runtimeErrors).toEqual([]);
+        expect(missingRitualAssets).toEqual([]);
+        expect(debit).toBe(100);
         const summary = page.getByLabel("Awakening summary");
         await expect(summary).toContainText(tier.rank);
         await expect(summary).toContainText("Water");

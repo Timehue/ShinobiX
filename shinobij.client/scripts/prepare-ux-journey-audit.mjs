@@ -4,13 +4,22 @@ import { resolve } from 'node:path';
 // Instrument the existing persisted Academy journey without editing its test.
 const root = resolve(import.meta.dirname, '..');
 const work = resolve(root, 'test-results/ux-journey-work');
-mkdirSync(work, { recursive: true });
 let source = readFileSync(resolve(root, 'e2e-live/first-session-onboarding-express.spec.ts'), 'utf8');
+
+// Every edit names text the spec must still contain. A missing one is noted
+// rather than thrown at once, so a renamed screen or a moved import is reported
+// with any others, before anything is written to the work folder.
+const missing = [];
+function edit(needle, replacement, label = needle) {
+    if (source.includes(needle)) source = source.replace(needle, replacement);
+    else missing.push(label);
+}
+
 // The instrumented copy lives one directory deeper than the source spec.
-source = source.replace("from '../e2e/helpers/landing-navigation';", "from '../../e2e/helpers/landing-navigation';");
-source = source.replace('for (const grantDelayMs of [0, 500])', 'for (const grantDelayMs of [0])');
-source = source.replace('test.setTimeout(240_000)', 'test.setTimeout(420_000)');
-source = source.replace("import { expect, test, type Page } from '@playwright/test';", `import { expect, test, type Page } from '@playwright/test';
+edit("from '../e2e/helpers/landing-navigation';", "from '../../e2e/helpers/landing-navigation';");
+edit("from './helpers/player-names';", "from '../../e2e-live/helpers/player-names';");
+edit('for (const grantDelayMs of [0, 500])', 'for (const grantDelayMs of [0])');
+edit("import { expect, test, type Page } from '@playwright/test';", `import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 async function captureJourney(page: Page, name: string) {
@@ -39,16 +48,18 @@ const captures = [
     ["await expect(itemDialog).toBeVisible();", '07-item-details'],
     ["await expect(page.locator('.mission-arena-fight')).toBeVisible();", '08-first-combat'],
     ["await expect(sparResult).toContainText(/stat points/);", '09-first-win'],
-    ["await expect(page.getByRole('heading', { name: 'Cafeteria' })).toBeVisible();", '10-cafeteria'],
+    ["await expect(page.getByRole('heading', { name: 'Noodle Den' })).toBeVisible();", '10-noodle-den'],
     ["await expect(page.getByRole('heading', { name: 'Mission Hall' })).toBeVisible();", '11-first-mission'],
     ["await expect(page.getByRole('heading', { name: 'Logbook' })).toBeVisible();", '12-logbook'],
     ["await page.getByRole('button', { name: 'Stormveil', exact: true }).click();", '13-world-sector'],
     ["await expect(nextStep).toBeVisible();", '14-progression-handoff'],
 ];
-for (const [needle, name] of captures) {
-    if (!source.includes(needle)) throw new Error('Missing checkpoint: ' + name);
-    source = source.replace(needle, needle + `\n    await captureJourney(page, '${name}');`);
+for (const [needle, name] of captures) edit(needle, needle + `\n    await captureJourney(page, '${name}');`, `checkpoint ${name}`);
+if (missing.length) {
+    throw new Error(`The Academy spec no longer contains what this audit instruments:\n  ${missing.join('\n  ')}`);
 }
+
+mkdirSync(work, { recursive: true });
 writeFileSync(resolve(work, 'academy.spec.ts'), source);
 writeFileSync(resolve(work, 'surfaces.spec.ts'), "import '../../e2e/player-journey-ux.spec';\n");
 writeFileSync(resolve(work, 'later.spec.ts'), "import '../../e2e/first-contract.spec';\nimport '../../e2e/first-contract-handoffs.spec';\n");

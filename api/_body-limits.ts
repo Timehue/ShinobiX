@@ -9,13 +9,12 @@
 
 // Large-body routes:
 //   • images / img / generate-image — image upload + generation blobs.
-//   • kv-proxy — the cPanel KV proxy relay (multi-MB image/save blobs).
 //   • admin/bloodline-review — the ONE admin surface that receives data:image
 //     content; item-review + save-snapshot are included for content-review /
 //     restore parity. Every OTHER /admin/* route takes a small body and no
 //     longer gets the 50 MB parser (closes the pre-auth 50 MB parse surface).
 export const BIG_BODY_RE =
-    /(?:^|\/)(?:images|img|generate-image|kv-proxy)(?:\/|$)|\/admin\/(?:bloodline-review|item-review|save-snapshot)(?:\/|$)/;
+    /(?:^|\/)(?:images|img|generate-image)(?:\/|$)|\/admin\/(?:bloodline-review|item-review|save-snapshot)(?:\/|$)/;
 
 // Player-save routes (bare and /api-prefixed). `save-snapshot` is deliberately
 // NOT matched (it ends in `-snapshot`, not `save/…`), and it is already handled

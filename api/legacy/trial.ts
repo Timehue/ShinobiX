@@ -2,11 +2,12 @@ import { randomUUID } from 'node:crypto';
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { getLegacyStats, appendLegacyEvent, legacyEnabled } from '../_legacy-track.js';
 import { LEGACY_JUTSU_CATALOG } from '../pvp/_legacy-jutsu-catalog.js';
 import { LEGACY_BY_ID } from '../_legacy-defs.js';
@@ -554,80 +555,81 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         character: Record<string, unknown>;
                         receipt: LegacyTrialCompletionReceipt;
                     };
-                const saveOut = await withKvLock<SaveCompletion>(`save:${playerName}`, async () => {
-                    const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                    const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                    const legacy = (char?.legacy ?? null) as CharacterLegacy | null;
-                    if (!rec || !char || !legacy || legacy.legacyId !== trial.legacyId) return { status: 'missing' };
-                    const prior = legacy.trialCompletionReceipts?.find((item) => item.id === receiptId);
-                    if (prior) return { status: 'ok', record: rec, character: char, receipt: prior };
+                type Decided = { status: 'missing' } | { status: 'stale' } | { status: 'ok'; receipt: LegacyTrialCompletionReceipt };
+                // The completion receipt commits with the stage, so re-running the
+                // whole completion after a lost compare-and-set advances it once.
+                const saveOut = await retryOnSaveVersionConflict(async (): Promise<SaveCompletion> => {
+                    const out = await mutatePlayerSave<Decided>(playerName, ({ character: char }) => {
+                        const unwritten = (value: Decided) => ({ ok: true as const, write: false, character: char, value });
+                        const legacy = (char.legacy ?? null) as CharacterLegacy | null;
+                        if (!legacy || legacy.legacyId !== trial.legacyId) return unwritten({ status: 'missing' });
+                        const prior = legacy.trialCompletionReceipts?.find((item) => item.id === receiptId);
+                        if (prior) return unwritten({ status: 'ok', receipt: prior });
 
-                    const next: CharacterLegacy = { ...legacy };
-                    let targetStage: 2 | 3 | 4 | 5;
-                    let reachedAt = now;
-                    if (trial.kind === 'awaken') {
-                        targetStage = 2;
-                        if (legacy.stage === 1) next.awakenedAt = now;
-                        else if (legacy.stage === 2 && legacy.awakenedAt) reachedAt = legacy.awakenedAt;
-                        else return { status: 'stale' };
-                    } else if (trial.kind === 'bind') {
-                        targetStage = 3;
-                        if (legacy.stage === 2) next.boundAt = now;
-                        else if (legacy.stage === 3 && legacy.boundAt) reachedAt = legacy.boundAt;
-                        else return { status: 'stale' };
-                    } else if (trial.kind === 'prove') {
-                        targetStage = 4;
-                        if (legacy.stage === 3) next.provenAt = now;
-                        else if (legacy.stage === 4 && legacy.provenAt) reachedAt = legacy.provenAt;
-                        else return { status: 'stale' };
-                    } else {
-                        targetStage = 5;
-                        if (legacy.stage === 4) next.mythicAt = now;
-                        else if (legacy.stage === 5 && legacy.mythicAt) reachedAt = legacy.mythicAt;
-                        else return { status: 'stale' };
-                    }
-                    next.stage = targetStage;
-                    if (grantedTitle) next.titles = [...new Set([...(legacy.titles ?? []), grantedTitle])];
-                    const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
-                    const updated = {
-                        ...char,
-                        legacy: next,
-                        earnedTitles: grantedTitle ? [...new Set([...earned, grantedTitle])] : earned,
-                    };
-                    const legacyCardId = trial.kind === 'awaken' ? legacyProgressionCardId(trial.legacyId) : null;
-                    const chronicle = char.starterCardsClaimed === true && legacyCardId
-                        ? grantChronicleProgressionCards(updated, [legacyCardId])
-                        : { character: updated, granted: [] as string[] };
-                    const receipt: LegacyTrialCompletionReceipt = {
-                        id: receiptId,
-                        legacyId: trial.legacyId,
-                        kind: trial.kind,
-                        trialStartedAt: trial.startedAt,
-                        attempt: trial.attempt,
-                        completedAt: reachedAt,
-                        stage: targetStage,
-                        title: grantedTitle,
-                        completion,
-                        chronicleCards: chronicle.granted,
-                        ...(signatureName && def.specialtyJutsuId
-                            ? { signatureJutsu: { id: def.specialtyJutsuId, name: signatureName } }
-                            : {}),
-                    };
-                    const withReceipt: CharacterLegacy = {
-                        ...next,
-                        trialCompletionReceipts: [
-                            receipt,
-                            ...(legacy.trialCompletionReceipts ?? []).filter((item) => item.id !== receipt.id),
-                        ].slice(0, 4),
-                    };
-                    const character = { ...chronicle.character, legacy: withReceipt };
-                    const written = mergePreservingImages(
-                        bumpSaveVersion({ ...rec, character }),
-                        rec,
-                    ) as Record<string, unknown>;
-                    await kv.set(`save:${playerName}`, written);
-                    return { status: 'ok', record: written, character, receipt };
-                }, { failClosed: true });
+                        const next: CharacterLegacy = { ...legacy };
+                        let targetStage: 2 | 3 | 4 | 5;
+                        let reachedAt = now;
+                        if (trial.kind === 'awaken') {
+                            targetStage = 2;
+                            if (legacy.stage === 1) next.awakenedAt = now;
+                            else if (legacy.stage === 2 && legacy.awakenedAt) reachedAt = legacy.awakenedAt;
+                            else return unwritten({ status: 'stale' });
+                        } else if (trial.kind === 'bind') {
+                            targetStage = 3;
+                            if (legacy.stage === 2) next.boundAt = now;
+                            else if (legacy.stage === 3 && legacy.boundAt) reachedAt = legacy.boundAt;
+                            else return unwritten({ status: 'stale' });
+                        } else if (trial.kind === 'prove') {
+                            targetStage = 4;
+                            if (legacy.stage === 3) next.provenAt = now;
+                            else if (legacy.stage === 4 && legacy.provenAt) reachedAt = legacy.provenAt;
+                            else return unwritten({ status: 'stale' });
+                        } else {
+                            targetStage = 5;
+                            if (legacy.stage === 4) next.mythicAt = now;
+                            else if (legacy.stage === 5 && legacy.mythicAt) reachedAt = legacy.mythicAt;
+                            else return unwritten({ status: 'stale' });
+                        }
+                        next.stage = targetStage;
+                        if (grantedTitle) next.titles = [...new Set([...(legacy.titles ?? []), grantedTitle])];
+                        const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
+                        const updated = {
+                            ...char,
+                            legacy: next,
+                            earnedTitles: grantedTitle ? [...new Set([...earned, grantedTitle])] : earned,
+                        };
+                        const legacyCardId = trial.kind === 'awaken' ? legacyProgressionCardId(trial.legacyId) : null;
+                        const chronicle = char.starterCardsClaimed === true && legacyCardId
+                            ? grantChronicleProgressionCards(updated, [legacyCardId])
+                            : { character: updated, granted: [] as string[] };
+                        const receipt: LegacyTrialCompletionReceipt = {
+                            id: receiptId,
+                            legacyId: trial.legacyId,
+                            kind: trial.kind,
+                            trialStartedAt: trial.startedAt,
+                            attempt: trial.attempt,
+                            completedAt: reachedAt,
+                            stage: targetStage,
+                            title: grantedTitle,
+                            completion,
+                            chronicleCards: chronicle.granted,
+                            ...(signatureName && def.specialtyJutsuId
+                                ? { signatureJutsu: { id: def.specialtyJutsuId, name: signatureName } }
+                                : {}),
+                        };
+                        const withReceipt: CharacterLegacy = {
+                            ...next,
+                            trialCompletionReceipts: [
+                                receipt,
+                                ...(legacy.trialCompletionReceipts ?? []).filter((item) => item.id !== receipt.id),
+                            ].slice(0, 4),
+                        };
+                        return { ok: true, character: { ...chronicle.character, legacy: withReceipt }, value: { status: 'ok', receipt } };
+                    });
+                    if (!out.ok) return { status: 'missing' };
+                    if (out.value.status !== 'ok') return out.value;
+                    return { status: 'ok', record: out.record, character: out.character, receipt: out.value.receipt };
+                });
 
                 if (saveOut.status === 'missing') {
                     return { status: 404, body: { error: 'Save not found.' } };
@@ -654,7 +656,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Trial busy — please retry.' });
         }
         console.error('[legacy/trial]', safeLogValue(err));

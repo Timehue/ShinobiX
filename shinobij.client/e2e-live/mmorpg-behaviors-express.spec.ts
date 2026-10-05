@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
+import { uniqueNameStamp } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 import { weeklyBossRoamState } from '../src/lib/weekly-boss-roam';
@@ -91,7 +92,7 @@ async function skipScenes(page: Page, until: ReturnType<Page['locator']>) {
 
 test('an online shinobi knocked out in the field is on their village ward, and a Healer can treat them', async ({ page, request }, info) => {
     test.setTimeout(150_000);
-    const tag = `${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const tag = uniqueNameStamp((stamp) => [`wardheal${stamp}`, `wardhurt${stamp}`], { head: info.project.name.includes('mobile') ? 'm' : 'd' });
     const healer = await seedShinobi(request, `wardheal${tag}`, { sector: 0, tile: 60 }, {
         profession: 'healer', professionRank: 1, professionXp: 0, chakra: 3000, maxChakra: 3000,
     });
@@ -167,7 +168,7 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
     }
     const sector = roam!.currentSector;
 
-    const tag = `${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const tag = uniqueNameStamp((stamp) => [`bosshunt${stamp}`], { head: info.project.name.includes('mobile') ? 'm' : 'd' });
     const hunter = await seedShinobi(request, `bosshunt${tag}`, { sector, tile: 78 });
     expect(hunter.canonical.currentSector, 'the hunter stands in the boss sector').toBe(sector);
     const beat = await request.post('/api/player/heartbeat', {
@@ -239,7 +240,7 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
 
 test('leaving a live Card Hall showdown forfeits it, and the loss is on the record', async ({ page, request }, info) => {
     test.setTimeout(150_000);
-    const tag = `${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+    const tag = uniqueNameStamp((stamp) => [`cardleave${stamp}`], { head: info.project.name.includes('mobile') ? 'm' : 'd' });
     // The save clamps the tutorial marker to the current rules version, so 999
     // reads as "seen" whatever that version is.
     const duelist = await seedShinobi(request, `cardleave${tag}`, { sector: 0, tile: 60 }, {

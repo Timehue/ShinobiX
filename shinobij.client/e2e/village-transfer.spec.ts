@@ -3,18 +3,13 @@ import { expect, test, type Page } from '@playwright/test';
 async function setup(page: Page, query = '', failFirstTransfer = false) {
     const purchases: Record<string, unknown>[] = [];
     const transfers: Record<string, unknown>[] = [];
-    // Only gameplay endpoints belong to the purchase/transfer receipts. The
-    // cold-start beacon may flush without JSON during reload in WebKit.
-    await page.route('**/api/perf-beacon', route => route.fulfill({ status: 204 }));
-    await page.route('**/api/shop/purchase', async route => {
+    await page.route('**/api/**', async route => {
         const body = route.request().postDataJSON();
         const current = JSON.parse((await page.getByTestId('transfer-state').textContent())!);
-        purchases.push(body);
-        return route.fulfill({ json: { character: { ...current, fateShards: current.fateShards - 250, inventory: [...current.inventory, 'village-transfer-scroll'] }, _saveVersion: 2 } });
-    });
-    await page.route('**/api/village/transfer', async route => {
-        const body = route.request().postDataJSON();
-        const current = JSON.parse((await page.getByTestId('transfer-state').textContent())!);
+        if (route.request().url().endsWith('/shop/purchase')) {
+            purchases.push(body);
+            return route.fulfill({ json: { character: { ...current, fateShards: current.fateShards - 250, inventory: [...current.inventory, 'village-transfer-scroll'] }, _saveVersion: 2 } });
+        }
         transfers.push(body);
         if (failFirstTransfer && transfers.length === 1) return route.fulfill({ status: 503, json: { error: 'Temporary connection failure. Retry transfer.' } });
         return route.fulfill({ json: { character: { ...current, village: body.village, inventory: [], storyVillage: current.village }, _saveVersion: 3 } });
@@ -37,7 +32,7 @@ test('buy, cancel without consumption, reopen, and confirm a new home', async ({
     const artwork = page.getByRole('img', { name: 'Village Transfer Scroll', exact: true });
     await expect(artwork).toHaveAttribute('src', '/items/village-transfer-scroll-v1.webp');
     await expect.poll(() => artwork.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBe(256);
-    await page.screenshot({ path: info.outputPath('marketplace.png') });
+    await page.getByRole('region', { name: 'Village Transfer Scroll' }).screenshot({ path: info.outputPath('marketplace.png') });
     await page.getByRole('button', { name: 'Buy scroll · 250 Fate Shards' }).click();
     const dialog = page.getByRole('dialog', { name: 'Choose your new village' });
     await expect(dialog).toBeVisible();
@@ -100,7 +95,11 @@ test('backpack scroll opens the marketplace with the correct art and use action'
     await page.screenshot({ path: info.outputPath('backpack-scroll.png') });
     await use.click();
     await expect(page.getByRole('heading', { name: 'Grand Marketplace', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Use scroll · Choose village' }).click();
+    // The scroll cards sit below every item group; the hand-off must land on this
+    // card. Checked before any click, because a Playwright click scrolls by itself.
+    const useScroll = page.getByRole('button', { name: 'Use scroll · Choose village' });
+    await expect(useScroll).toBeInViewport();
+    await useScroll.click();
     await expect(page.getByRole('dialog', { name: 'Choose your new village' })).toBeVisible();
     expect(purchases).toHaveLength(0);
     expect(transfers).toHaveLength(0);

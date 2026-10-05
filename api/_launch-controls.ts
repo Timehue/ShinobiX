@@ -53,8 +53,7 @@ function actionFrom(body: unknown): string | null {
 function isOperatorRecoveryPath(path: string): boolean {
     return path === '/admin-auth'
         || path.startsWith('/admin/')
-        || path === '/cron/snapshot-saves'
-        || path.startsWith('/kv/');
+        || path === '/cron/snapshot-saves';
 }
 
 function isPublicStatusPath(path: string, method: string): boolean {

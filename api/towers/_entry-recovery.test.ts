@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { describe, it } from 'node:test';
-import { _makeMemoryKv } from '../_storage.js';
+import { beforeEach, describe, it } from 'node:test';
+import { kv as globalKv } from '../_storage.js';
 import { compensateConfirmedMissingTowerEntry } from './_entry-recovery.js';
 import { reserveTowerDirectEntry } from './_party-entry.js';
 import {
@@ -13,7 +13,18 @@ import {
 } from './_battle-lease.js';
 import type { TowerKv, TowerLock } from './_tower-store.js';
 
+// The refund commits through mutatePlayerSave on the GLOBAL kv, so the leases
+// and the save live on its in-memory backend together, as they do in
+// production (chosen on first use, in time despite the hoisted imports).
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
+
+const kv = globalKv as unknown as TowerKv;
 const lock: TowerLock = async (_key, fn) => fn();
+
+beforeEach(async () => {
+    for (const key of await globalKv.keys('*')) await globalKv.del(key);
+});
 
 function character() {
     return {
@@ -25,7 +36,7 @@ function character() {
     };
 }
 
-async function seedDirectReservation(kv: TowerKv, runId: string) {
+async function seedDirectReservation(runId: string) {
     const initial = character();
     const reserved = reserveTowerDirectEntry({
         character: initial,
@@ -40,11 +51,10 @@ async function seedDirectReservation(kv: TowerKv, runId: string) {
     return { initial, reserved };
 }
 
-describe('Tower confirmed-missing entry compensation', () => {
+describe('Tower confirmed-missing entry compensation', { concurrency: false }, () => {
     it('restores a direct Story debit exactly once before deleting its crash lease', async () => {
         let now = 1_000;
-        const kv = _makeMemoryKv() as unknown as TowerKv;
-        const { initial } = await seedDirectReservation(kv, 'tower-direct-missing');
+        const { initial } = await seedDirectReservation('tower-direct-missing');
         await claimTowerBattleLeases({ runId: 'tower-direct-missing', members: ['host'] }, { kv, lock, now: () => now });
         now += TOWER_BATTLE_PUBLICATION_GRACE_MS + 1;
         const recovery = await recoverConfirmedMissingTowerBattleLease('tower-direct-missing', 'host', {
@@ -52,7 +62,7 @@ describe('Tower confirmed-missing entry compensation', () => {
             lock,
             now: () => now,
             beforeConfirmedMissingRelease: async () => {
-                await compensateConfirmedMissingTowerEntry({ hostSlug: 'host', runId: 'tower-direct-missing' }, { kv, lock, now: () => now });
+                await compensateConfirmedMissingTowerEntry({ hostSlug: 'host', runId: 'tower-direct-missing' }, { now: () => now });
             },
         });
         assert.deepEqual(recovery, { released: true, pending: false });
@@ -63,13 +73,12 @@ describe('Tower confirmed-missing entry compensation', () => {
         const version = save?._saveVersion;
         assert.deepEqual(await compensateConfirmedMissingTowerEntry({
             hostSlug: 'host', runId: 'tower-direct-missing',
-        }, { kv, lock, now: () => now }), { found: true, changed: false });
+        }, { now: () => now }), { found: true, changed: false });
         assert.equal((await kv.get<{ _saveVersion: number }>('save:host'))?._saveVersion, version);
     });
 
     it('preserves the exact lease when compensation is uncertain', async () => {
         let now = 1_000;
-        const kv = _makeMemoryKv() as unknown as TowerKv;
         await claimTowerBattleLeases({ runId: 'tower-compensation-error', members: ['host'] }, { kv, lock, now: () => now });
         now += TOWER_BATTLE_PUBLICATION_GRACE_MS + 1;
         await assert.rejects(() => recoverConfirmedMissingTowerBattleLease('tower-compensation-error', 'host', {
@@ -81,8 +90,24 @@ describe('Tower confirmed-missing entry compensation', () => {
         assert.equal((await kv.get<{ battleId: string }>(battleLockKey('host')))?.battleId, 'tower-compensation-error');
     });
 
+    it('a missing save or a refused write throws, leaving the lease for a later retry', async () => {
+        await assert.rejects(() => compensateConfirmedMissingTowerEntry({ hostSlug: 'host', runId: 'tower-no-save' }),
+            /save is unavailable/);
+        await seedDirectReservation('tower-refused');
+        const original = globalKv.compareSet;
+        globalKv.compareSet = (async (...args: Parameters<typeof original>) =>
+            args[0] === 'save:host' ? false : original.call(globalKv, ...args)) as typeof original;
+        try {
+            await assert.rejects(() => compensateConfirmedMissingTowerEntry({ hostSlug: 'host', runId: 'tower-refused' }),
+                /write was rejected/);
+        } finally {
+            globalKv.compareSet = original;
+        }
+        assert.equal((await kv.get<{ character: ReturnType<typeof character> }>('save:host'))?.character.ryo, 3_500,
+            'nothing was refunded by the refused write');
+    });
+
     it('recovers a commit-then-throw reservation through its durable receipt', async () => {
-        const kv = _makeMemoryKv() as unknown as TowerKv;
         const initial = character();
         await kv.set('save:host', { _saveVersion: 1, character: initial });
         const reserved = reserveTowerDirectEntry({
@@ -90,14 +115,13 @@ describe('Tower confirmed-missing entry compensation', () => {
         });
         assert.equal(reserved.ok, true);
         if (!reserved.ok) return;
-        const baseSet = kv.set.bind(kv);
         await assert.rejects(async () => {
-            await baseSet('save:host', { _saveVersion: 2, character: reserved.character });
+            await kv.set('save:host', { _saveVersion: 2, character: reserved.character });
             throw new Error('acknowledgement lost');
         }, /acknowledgement lost/);
         assert.deepEqual(await compensateConfirmedMissingTowerEntry({
             hostSlug: 'host', runId: 'tower-forwarded-entry',
-        }, { kv, lock, now: () => 2_000 }), { found: true, changed: true });
+        }, { now: () => 2_000 }), { found: true, changed: true });
         const save = await kv.get<{ character: ReturnType<typeof character> }>('save:host');
         assert.equal(save?.character.ryo, initial.ryo);
         assert.equal(save?.character.dailyBattleFloors, initial.dailyBattleFloors);
@@ -108,7 +132,9 @@ describe('Tower confirmed-missing entry compensation', () => {
         const start = source('api/towers/start.ts');
         const attempted = start.indexOf('reservationWriteAttempted = true');
         const write = start.indexOf('await writeSaveProjected', attempted);
-        const uncertain = start.indexOf('if (reservationWriteAttempted) publicationInconclusive = true', write);
+        // A lost compare-and-set race PROVES nothing was written, so only that
+        // case is excluded; every other failure after the attempt stays uncertain.
+        const uncertain = start.indexOf('if (reservationWriteAttempted && !isPlayerSaveVersionConflict(error)) publicationInconclusive = true', write);
         const cleanup = start.indexOf('!publicationInconclusive', uncertain);
         assert.ok(attempted > 0 && write > attempted && uncertain > write && cleanup > uncertain);
         for (const file of ['api/towers/state.ts', 'api/towers/my-run.ts']) {

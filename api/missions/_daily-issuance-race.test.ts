@@ -7,10 +7,11 @@ let kv: typeof import('../_storage.js').kv;
 let loadOrIssueDailyMissions: typeof import('./_progress.js').loadOrIssueDailyMissions;
 let loadOrIssueNewbieDailies: typeof import('./_progress.js').loadOrIssueNewbieDailies;
 let reportMissionEvent: typeof import('./_progress.js').reportMissionEvent;
+let settlePendingMissionXpGrants: typeof import('./_progress.js').settlePendingMissionXpGrants;
 let reportNewbieEvent: typeof import('./_progress.js').reportNewbieEvent;
 before(async () => {
     ({ kv } = await import('../_storage.js'));
-    ({ loadOrIssueDailyMissions, loadOrIssueNewbieDailies, reportMissionEvent, reportNewbieEvent } = await import('./_progress.js'));
+    ({ loadOrIssueDailyMissions, loadOrIssueNewbieDailies, reportMissionEvent, reportNewbieEvent, settlePendingMissionXpGrants } = await import('./_progress.js'));
 });
 
 // Hold a real panel read before its issuance write while a completion arrives.
@@ -110,4 +111,38 @@ test('newbie daily issuance preserves concurrent completion and its ryo', async 
     assert.ok(saved?.missions.some(mission => mission.completedAt));
     const save = await kv.get<{ character: { ryo: number } }>(`save:${playerName}`);
     assert.ok(save && save.character.ryo > 0);
+});
+
+test('a panel repair preserves a newly owed XP grant until its save credit succeeds exactly once', async () => {
+    const playerName = 'dailyowedgrantrace';
+    const now = new Date('2026-10-04T15:00:00Z');
+    const key = `missions:daily:${playerName}`;
+    const character = { level: 30, profession: 'healer', professionRank: 1, professionXp: 0, village: 'Leaf' };
+    await kv.set(`save:${playerName}`, { character });
+    const state = await loadOrIssueDailyMissions(playerName, 'healer', now, character);
+    assert.ok(state);
+    const mission = state.missions[0];
+    state.missions[0] = { ...mission, progress: mission.target - 1,
+        ...(mission.uniqueTargets ? { uniqueTargets: Array.from({ length: mission.target - 1 }, (_, i) => `patient${i}`) } : {}) };
+    state.missions[1] = { ...state.missions[1], templateId: 'unavailable-test-mission',
+        eligibility: { requiredProfession: 'healer', minLevel: 100 } };
+    await kv.set(key, state);
+    const saveLock = `lock:save:${playerName}`;
+    assert.ok(await kv.set(saveLock, 'held-by-a-slow-autosave', { nx: true, ex: 60 }));
+    try {
+        await duringPanelRead(key, () => loadOrIssueDailyMissions(playerName, 'healer', now, character), () =>
+            reportMissionEvent({ playerName, profession: 'healer', kind: mission.kind, targetName: 'finalpatient', now }));
+        const saved = await kv.get<import('./_progress.js').DailyMissionsState>(key);
+        assert.ok(saved?.missions.find(entry => entry.id === mission.id)?.completedAt);
+        assert.equal(saved?.pendingXpGrants?.length, 1, 'the race cannot erase the completion reward it still owes');
+        assert.equal(saved.pendingXpGrants[0].xp, mission.xpReward);
+    } finally {
+        await kv.del(saveLock);
+    }
+    await settlePendingMissionXpGrants(playerName);
+    await settlePendingMissionXpGrants(playerName);
+    const save = await kv.get<{ character: { professionXp: number } }>(`save:${playerName}`);
+    assert.equal(save?.character.professionXp, mission.xpReward, 'the preserved grant is paid exactly once');
+    const saved = await kv.get<import('./_progress.js').DailyMissionsState>(key);
+    assert.equal(saved?.pendingXpGrants?.length ?? 0, 0);
 });

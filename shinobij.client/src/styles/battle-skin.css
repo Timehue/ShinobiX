@@ -3920,8 +3920,10 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     color: #e8d496;
     font: 700 12px/1.2 Inter, system-ui, sans-serif;
 }
-.battle-log-screen .durable-round-log .timeline-round-header:hover {
-    background: rgba(196, 162, 90, 0.14);
+@media (hover: hover) {
+    .battle-log-screen .durable-round-log .timeline-round-header:hover {
+        background: rgba(196, 162, 90, 0.14);
+    }
 }
 .battle-log-screen .durable-round-log .timeline-round-count {
     color: #9eacbd;

@@ -17,6 +17,7 @@ import { type CreatorMission, type CreatorRaid } from "../types/missions";
 import { mergeMissingBuiltInPets, petPool } from "./pet-roster";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import type { PlayerSavePayload, PlayerSaveSnapshot } from './player-save-types';
+import { withSharedAdminItems } from './shared-admin-items';
 
 export function isContentAdminName(raw: unknown): boolean {
     const name = String(raw ?? "").trim().toLowerCase();
@@ -59,6 +60,22 @@ export function usePlayerSaveState() {
     function buildPlayerSavePayload(characterToSave: Character, overrides: Partial<{
         savedBloodlines: SavedBloodline[];
     }> = {}) {
+        // Shared admin content (jutsu / AIs / events / cards / pet kits) is only
+        // authored on the admin slots. For an ordinary player the server never
+        // takes it from the save body — the ledger keeps the stored copy and the
+        // admin slots are the source (api/save/_slim-player-save.ts) — so sending
+        // it re-uploaded ~250 KB of dead weight on every autosave. In-memory state
+        // still holds it (admin pull + device cache). creatorItems stays: it
+        // carries the player's own forged gear.
+        const sharedContent: Partial<{
+            creatorJutsus: Jutsu[];
+            creatorAis: CreatorAi[];
+            creatorEvents: CreatorEvent[];
+            creatorCards: TileCard[];
+            editablePets: Pet[];
+        }> = isContentAdminName(characterToSave.name)
+            ? { creatorJutsus, creatorAis, creatorEvents, creatorCards, editablePets }
+            : {};
         return {
             // Compact stackables into itemStacks before the server cap (save-side migration).
             character: normalizeInventory(characterToSave),
@@ -71,16 +88,12 @@ export function usePlayerSaveState() {
             currentSector,
             pendingTravel,
             savedBloodlines,
-            creatorJutsus,
-            creatorAis,
-            creatorEvents,
+            ...sharedContent,
             creatorMissions,
             creatorRaids,
-            creatorCards,
             creatorItems,
             petEncounterVn,
             ancientChestVn,
-            editablePets,
             hollowGateEventConfig,
             ...overrides,
         };
@@ -112,7 +125,10 @@ export function usePlayerSaveState() {
         setCreatorMissions(contentAdmin ? (snap.creatorMissions ?? []) : []);
         setCreatorRaids(contentAdmin ? (snap.creatorRaids ?? []) : []);
         if (snap.creatorCards) setCreatorCards(snap.creatorCards);
-        if (snap.creatorItems) setCreatorItems(snap.creatorItems);
+        // A slimmed save carries only the player's own items; keep the admin item
+        // definitions already pulled this page so a mid-session refetch (409,
+        // force reload) does not drop them until the next login.
+        if (snap.creatorItems) setCreatorItems(contentAdmin ? snap.creatorItems : withSharedAdminItems(snap.creatorItems));
         if (snap.petEncounterVn) setPetEncounterVn(snap.petEncounterVn);
         if (snap.ancientChestVn) setAncientChestVn(snap.ancientChestVn);
         if (snap.editablePets) setEditablePets(mergeMissingBuiltInPets(snap.editablePets));

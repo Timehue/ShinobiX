@@ -4,14 +4,10 @@ import pg from 'pg';
 import { createHash } from 'node:crypto';
 import { matchesStoredSaveVersion } from './save/_save-version.js';
 import { buildRecoveryCodeRecord, recoveryCodeMatches, type RecoveryCodeRecord } from './_recovery-code.js';
-import { claimPlayGamesReward, PlayRewardClaimError, type PlayRewardReceipt } from './play/_rewards-core.js';
 
 process.env.DATABASE_URL = 'postgresql://cache-test:cache-test@127.0.0.1/cache-test';
 process.env.FORCE_PG_KV = '1';
 delete process.env.VERCEL;
-delete process.env.DISK_KV_DIR;
-delete process.env.KV_PROXY_URL;
-delete process.env.KV_PROXY_TOKEN;
 
 type StorageModule = typeof import('./_storage.js');
 type SaveRecord = { _saveVersion: number; character: Record<string, unknown> };
@@ -130,34 +126,16 @@ test('batched pgKv save reads are authoritative across processes too', async () 
     );
 });
 
-test('player deletion generations are base-primary and authoritative across workers', async () => {
+test('player deletion generations are authoritative across workers', async () => {
     const key = 'save-delete-version:cache-race';
-    const diskCalls: string[] = [];
-    const disk = new Proxy(workerA._pgKvForTest, {
-        get(target, property, receiver) {
-            if (property === 'get' || property === 'set') {
-                return (...args: unknown[]) => {
-                    diskCalls.push(`${String(property)}:${String(args[0])}`);
-                    return Reflect.apply(
-                        Reflect.get(target, property, receiver) as (...values: unknown[]) => unknown,
-                        target,
-                        args,
-                    );
-                };
-            }
-            const value = Reflect.get(target, property, receiver) as unknown;
-            return typeof value === 'function' ? value.bind(target) : value;
-        },
-    });
-    const routed = workerA._makeRoutedKv(workerA._pgKvForTest, disk);
 
-    await routed.set(key, 8);
-    assert.equal(await routed.get(key), 8, 'worker A primes the durable floor at generation 8');
+    await workerA._pgKvForTest.set(key, 8);
+    assert.equal(await workerA._pgKvForTest.get(key), 8, 'worker A primes the durable floor at generation 8');
     const readsBeforeRemoteDelete = selectCount.get(key) ?? 0;
     settleInOtherProcess(key, 9);
 
     assert.equal(
-        await routed.get(key),
+        await workerA._pgKvForTest.get(key),
         9,
         'worker A must observe the later deletion generation written by another worker',
     );
@@ -165,7 +143,6 @@ test('player deletion generations are base-primary and authoritative across work
         (selectCount.get(key) ?? 0) > readsBeforeRemoteDelete,
         'deletion-floor reads must bypass the process-local pgKv cache',
     );
-    assert.deepEqual(diskCalls, [], 'deletion generations must remain base-primary metadata');
 });
 
 test('Chronicle settlement and all Legacy RMW keys bypass independent process caches', async () => {
@@ -395,6 +372,28 @@ test('Standing Court archived receipts cannot reuse a missing pgKv snapshot from
         'local set/readback must not repopulate the authority cache either');
 });
 
+test('player trade markers, pending pointers and journals are read from shared storage on every worker', async () => {
+    // A retry, the admin reconcile and the recovery sweep each finish a trade
+    // from these under both save locks (api/player/_trade-settlement.ts). A
+    // worker-local pending marker that another worker has since released, or a
+    // journal it has since completed, would make this one finish it again.
+    for (const key of [
+        'trade:nonce:cache-race-sender:ryo-1-abc',
+        'trade:pending:player-trade:0123456789abcdef',
+        'economy-tx:player-trade:0123456789abcdef',
+    ]) {
+        await workerA._pgKvForTest.set(key, { revision: 1 });
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 1 });
+        const readsBeforeRemoteWrite = selectCount.get(key) ?? 0;
+        settleInOtherProcess(key, { revision: 2 });
+
+        assert.deepEqual(await workerA._pgKvForTest.get(key), { revision: 2 },
+            `${key} must observe the other worker's committed trade state`);
+        assert.ok((selectCount.get(key) ?? 0) > readsBeforeRemoteWrite,
+            `${key} must re-read Postgres instead of serving a process-local snapshot`);
+    }
+});
+
 test('mentor records, discovery pointers and student markers are read from shared storage on every worker', async () => {
     // Pending mentor settlements live in `clan-mentor:<sensei>` and are only
     // replaced by exact CAS; a worker-local snapshot would hide another
@@ -472,37 +471,4 @@ test('recovery cannot accept an obsolete code after another worker replaces its 
     const current = await workerA._pgKvForTest.get<RecoveryCodeRecord>(key);
     assert.equal(recoveryCodeMatches(current, oldCode), false, 'the old spare key must stop working after replacement');
     assert.equal(recoveryCodeMatches(current, newCode), true);
-});
-
-test('Play reward ownership survives another worker claiming a previously cached missing receipt', async () => {
-    const purchaseToken = 'cache-race-local-test-purchase-token';
-    const productId = 'sj_reward_title_dawn';
-    const receiptKey = `play:reward:purchase:${createHash('sha256').update(purchaseToken).digest('hex')}`;
-    assert.equal(await workerA._pgKvForTest.get(receiptKey), null);
-    const committed: PlayRewardReceipt = {
-        version: 1, playerName: 'first-owner', productId, rewardLabel: 'Dawn-Sealed Shinobi', state: 'acknowledged',
-    };
-    settleInOtherProcess(receiptKey, committed);
-    let verifyCalls = 0;
-    let consumeCalls = 0;
-    let grantCalls = 0;
-    await assert.rejects(
-        claimPlayGamesReward({ playerName: 'second-owner', productId, purchaseToken }, {
-            getReceipt: (key) => workerA._pgKvForTest.get<PlayRewardReceipt>(key),
-            setReceipt: (key, value) => workerA._pgKvForTest.set(key, value),
-            // This request follows the first owner's completed request; lock
-            // contention is absent, as it would be on a deployment handoff.
-            withLock: async (_key, action) => action(),
-            verifyPurchase: async () => { verifyCalls++; return { purchaseState: 0, acknowledged: true, consumed: false }; },
-            acknowledgePurchase: async () => undefined,
-            consumePurchase: async () => { consumeCalls++; },
-            grantTitle: async () => { grantCalls++; return { ok: true }; },
-            grantRyo: async () => { grantCalls++; return { ok: true }; },
-        }),
-        (error: unknown) => error instanceof PlayRewardClaimError && error.status === 409,
-    );
-    assert.equal(verifyCalls, 0, 'receipt ownership should refuse the claim before any publisher request');
-    assert.equal(consumeCalls, 0, 'a refused owner must not consume the purchase');
-    assert.equal(grantCalls, 0, 'a second account must receive no reward');
-    assert.deepEqual(database.get(receiptKey), committed, 'the first account must retain its receipt');
 });

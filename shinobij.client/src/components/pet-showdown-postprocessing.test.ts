@@ -17,6 +17,6 @@ test("Showdown avoids the postprocessing 6.39 MSAA depth-resolve failure", () =>
     assert.doesNotMatch(source, /from ["'](?:@react-three\/postprocessing|postprocessing)["']/);
 });
 
-test("Showdown keeps canvas antialiasing outside the low-fill-rate quality tier", () => {
-    assert.match(source, /gl=\{\{ antialias: renderQuality\.id !== 'low',/);
+test("Showdown retains canvas antialiasing above the constrained low-quality preset", () => {
+    assert.match(source, /gl=\{\{ antialias: renderQuality\.id !== ['"]low['"],/);
 });

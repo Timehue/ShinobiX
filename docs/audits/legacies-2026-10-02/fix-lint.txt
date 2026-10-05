@@ -1,0 +1,2 @@
+There was a problem loading formatter: C:\Users\Tyler R\source\repos\NinjaK\shinobij.client\node_modules\eslint\lib\cli-engine\formatters\stylish.js
+Error: Cannot find module 'C:\Users\Tyler R\source\repos\NinjaK\shinobij.client\node_modules\eslint\lib\cli-engine\formatters\stylish.js' imported from C:\Users\Tyler R\source\repos\NinjaK\shinobij.client\node_modules\eslint\lib\eslint\eslint.js

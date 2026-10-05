@@ -125,6 +125,8 @@ export type ActionResult = { applied: boolean; reason?: string };
 type JutsuLike = {
     id?: string; name?: string; effectPower?: number; type?: string; ap?: number;
     range?: number; element?: string; chakraCost?: number; staminaCost?: number;
+    /** Bloodline weather affinity; the weather term reads it before `element`. */
+    weatherElement?: string;
     cooldown?: number; isUtility?: boolean; method?: string; target?: string; tags?: unknown[];
     bloodlineRank?: string;
     // Weapon synth sets this when the wielder lacks the weapon's element → the swing
@@ -1510,13 +1512,17 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
 // arg), then deducts AP/actions and advances boss phases + the win-check. Resource
 // (chakra/stamina) + cooldown bookkeeping is the caller's job (it differs per action).
-// Sealed-weather term (combat missions): +5% matching-element / −2% opposed-element
-// on the attacker's OUTGOING jutsu, mirroring the Arena's weather rule. session.weather
-// is absent for every other tower/spire/clan-boss run → ×1, byte-identical.
+// Sealed-weather term: +5% matching-element / −2% opposed-element on the attacker's
+// OUTGOING jutsu, mirroring the Arena's weather rule. Hunt encounters copy their Solo
+// session's sealed weather onto the battle (api/solo-pve/_hunt-combat.ts); every
+// other tower/spire/clan-boss run leaves session.weather absent → ×1, byte-identical.
+// A bloodline technique's explicit weatherElement (a base element, or "None" to opt
+// out) outranks its cosmetic element, exactly as in PvP (api/pvp/move.ts), Solo PvE
+// (api/solo-pve/_engine.ts) and the client's weatherElementOf (lib/elements.ts).
 function weatherMult(session: TowerSession, jutsu: JutsuLike): number {
     const w = session.weather;
     if (!w) return 1;
-    return weatherMultiplier(String(jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
+    return weatherMultiplier(String(jutsu.weatherElement ?? jutsu.element ?? ''), String(w.positiveElement ?? ''), String(w.negativeElement ?? ''));
 }
 
 /**
@@ -1962,9 +1968,15 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
-    // Keep round boundaries in the same log consumed by combat history. This
-    // lets Tower and embedded encounters (including hunts) retain real rounds.
-    session.log.push(`--- Round ${session.round} ---`);
+    if (session.towerId === 'hunt') {
+        const marker = `--- Round ${session.round} ---`;
+        if (!session.log.includes(marker)) {
+            // The initial marker belongs before the hunt label; later markers
+            // follow the preceding round's effects in the shared combat HUD.
+            if (session.round <= 1) session.log.unshift(marker);
+            else session.log.push(marker);
+        }
+    }
     for (const actor of session.actors) {
         const aged = expireShield(actor, session.round);
         if (aged !== actor) {
@@ -2148,7 +2160,7 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (squadWinsByObjective(session, floor)) {
         session.status = 'done'; session.winner = 'squad';
         session.objectiveState.completed = true;
-        session.log.push(`Floor ${floor.id} cleared!`);
+        session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!' : `Floor ${floor.id} cleared!`);
     }
 }
 

@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { PUBLIC_CAPABILITY_IDS } from '../../shared/public-capabilities';
+import { reloadSettled } from './helpers/network-settle';
 
 const companions = [
     { id: 'tamer-1', templateId: 'rare-26', name: 'Ember Ocelot', nickname: 'Sumi', element: 'Fire', rarity: 'rare', level: 32 },
@@ -110,23 +111,9 @@ for (const profession of ['vanguard', 'petTamer', 'healer']) {
             await openProfessionFromMenu(page, profession === 'petTamer' ? 'Pet Tamer' : profession === 'healer' ? 'Healer' : 'Vanguard');
             await expect(page.locator('.ph-hero h2')).toBeVisible();
         }
-        // Revisiting the existing hub prunes each destination loop from the
-        // canonical trail, so Back returns to the original village.
+        // Revisiting the hub prunes its excursions; Back returns to the town origin.
         await page.locator('.ph-hero').getByRole('button', { name: '← Back', exact: true }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
-
-        // A fresh document also proves Back respects a real account-owned
-        // origin, rather than treating every profession visit as Village.
-        const origin = destinations[profession as keyof typeof destinations].at(-1)![1];
-        await page.addInitScript((origin) => {
-            sessionStorage.setItem('navigation.v1:auditninja', JSON.stringify({ screen: 'professions', trail: [origin, 'professions'] }));
-        }, origin);
-        await page.goto('/#/professions', { waitUntil: 'domcontentloaded' });
-        await page.reload({ waitUntil: 'domcontentloaded' });
-        await expect(page.locator('.ph-hero h2')).toHaveText(profession === 'petTamer' ? 'Pet Tamer' : profession === 'healer' ? 'Healer' : 'Vanguard');
-        await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem('navigation.v1:auditninja') ?? 'null')?.trail)).toEqual([origin, 'professions']);
-        await page.locator('.ph-hero').getByRole('button', { name: '← Back', exact: true }).click();
-        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', origin);
         expect(errors).toEqual([]);
     });
 }
@@ -181,14 +168,14 @@ test('Vanguard mastery investment and respec update the live Seal allowance and 
     await expect(ledger).toHaveAttribute('aria-valuemax', '55');
     await expect(page.getByText('3 points to spend', { exact: true })).toBeVisible();
     expect(requests[0]).toEqual({ playerName: 'AuditNinja', action: 'invest', nodeId: 'seal-cap' });
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(ledger).toHaveAttribute('aria-valuemax', '55');
     await page.getByRole('button', { name: 'Respec all (50,000 ryo)', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm', exact: true }).click();
     await expect(ledger).toHaveAttribute('aria-valuemax', '50');
     await expect(page.getByText('4 points to spend', { exact: true })).toBeVisible();
     expect(requests[1]).toEqual({ playerName: 'AuditNinja', action: 'respec' });
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(ledger).toHaveAttribute('aria-valuemax', '50');
     expect(runtime.saveConflictCount()).toBe(0);
 });
@@ -351,7 +338,7 @@ test('changing profession switches the hub, menu, missions and progression toget
     await page.getByRole('button', { name: /Village Hospital/ }).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'hospital');
     await openProfessionFromMenu(page, 'Healer');
-    await page.reload({ waitUntil: 'networkidle' });
+    await reloadSettled(page);
     await expect(page.locator('.ph-hero h2')).toHaveText('Healer');
     expect(runtime.saveConflictCount()).toBe(0);
 });

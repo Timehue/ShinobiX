@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 // Real handler responses span save, market, pet and receipt schemas in this
@@ -38,7 +39,7 @@ function character(name: string, inventory: string[], pets: Json[]) {
 }
 
 async function seedAccount(request: APIRequestContext, info: TestInfo, tag: string, seededCharacter: Json) {
-    const name = `exchange${tag}${info.workerIndex}${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `exchange${tag}${info.workerIndex}${stamp}`);
     seededCharacter.name = name;
     const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password: PASSWORD } });
     expect(registered.status(), await registered.text()).toBe(200);

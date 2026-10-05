@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createFirstPactProgress, normalizeFirstPactProgress } from "../../../shared/first-pact-contract.js";
 import {
+    firstPactPresentPetIds,
     firstPactAftermathForNpc,
     firstPactAftermathScene,
     firstPactCompanionCourtLines,
@@ -12,7 +13,6 @@ import {
 } from "./first-pact-aftermath.js";
 import { activeCarriedPetIds } from "./entitlements.js";
 import { activeClientBreedingParentIds } from "./pet-breeding.js";
-import { isPetAvailableForColosseum } from "./pet.js";
 import type { Character } from "../types/game.js";
 import type { Pet } from "../types/pet.js";
 
@@ -86,9 +86,7 @@ test("busy and non-carried companions remain archival without physical actions",
     } as unknown as Character;
     const breeding = activeClientBreedingParentIds(character);
     const carried = new Set(activeCarriedPetIds(character));
-    const colosseumAvailable = owned
-        .filter((pet) => carried.has(pet.id) && isPetAvailableForColosseum(pet, breeding));
-    const present = firstPactPresentPetIds(colosseumAvailable, Date.now());
+    const present = firstPactPresentPetIds(owned, carried, breeding);
     // A is away, B is training, C is breeding, and D falls beyond the carried
     // projection. All remain in the historical record without acting on screen.
     const resolved = resolveFirstPactCompanions(progress(), owned, present);

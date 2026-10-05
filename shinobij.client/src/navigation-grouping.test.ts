@@ -56,10 +56,7 @@ test("controlled destinations stay out of the global menu and remain wired to th
     assert.match(townHall, /> Sector Map<\/button>/);
 
     assert.match(centralHub, /purchaseBloodlineForge\(character\.name, rank, resumeOnly\)/);
-    // The paid result now passes through the awakening ceremony before the
-    // controlled editor opens. Pin both ends of that handoff, not the retired
-    // immediate callback that would skip the ceremony.
-    assert.match(centralHub, /setBloodlineCinematic\(\{ rank, element: getCharacterElements\(result\.character\)\[0\] \?\? ""/);
+    assert.match(centralHub, /setBloodlineCinematic\(\{ rank, element: getCharacterElements\(result\.character\)\[0\] \?\? "", resumed: Boolean\(result\.resumed\) \}\)/);
     assert.match(centralHub, /const \{ rank, element \} = bloodlineCinematic;[\s\S]*?onOpenBloodlineMaker\(rank, element\)/);
     assert.match(app, /onOpenBloodlineMaker=\{\(rank, element\) => bloodlineMaker\.open\(/);
     assert.match(bloodlineFlow, /setScreen\("bloodlineMaker"\)/);

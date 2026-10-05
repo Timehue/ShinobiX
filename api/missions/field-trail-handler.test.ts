@@ -201,6 +201,25 @@ describe('authoritative field mission lifecycle', () => {
         assert.equal((recovered.body?.missionProgress as Record<string, unknown>)[`${MISSION_ID}:raids`], 0);
     });
 
+    it('allows field mission acceptance through 19 daily claims and blocks new work at 20', async () => {
+        const today = new Date().toISOString().slice(0, 10);
+        const player = 'fieldtraildailycap';
+        await seedPlayer(player, { lastDailyReset: today, dailyMissionsCompleted: 19 });
+        const accepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        assert.equal(accepted.statusCode, 200, 'the twentieth daily mission may be started');
+
+        await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
+        const save = await kv.get<Record<string, unknown>>(`save:${player}`);
+        const character = save?.character as Record<string, unknown>;
+        await kv.set(`save:${player}`, {
+            ...save,
+            character: { ...character, dailyMissionsCompleted: 20 },
+        });
+        const capped = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
+        assert.equal(capped.statusCode, 409);
+        assert.equal(capped.body?.reason, 'daily-cap');
+    });
+
     it('binds explore evidence to the exact run and replays the final ACK', async () => {
         const player = 'fieldtrailproof';
         await seedPlayer(player);
@@ -263,7 +282,7 @@ describe('authoritative field mission lifecycle', () => {
         assert.equal(launched.body?.source, 'field-raid');
         assert.equal(launched.body?.opponentId, 'story-ai-ashen-leaf-village-4');
         const sealed = await kv.get<Record<string, unknown>>(`raid-token:${player}:${launched.body?.token}`);
-        assert.equal(sealed?.sector, 13, 'the raid is sealed to Ashen Leaf Village outskirts');
+        assert.equal(sealed?.sector, 13);
         const victory = await settleRaidProgression({
             playerName: player,
             proofId: 'sealed-field-raid-proof-01',
@@ -293,9 +312,45 @@ describe('authoritative field mission lifecycle', () => {
 
         const reaccepted = await post(trailHandler, player, { missionId: MISSION_ID, action: 'accept' });
         assert.equal(reaccepted.statusCode, 200);
-        const secondRun = stateFrom(reaccepted);
-        assert.notEqual(secondRun.runId, firstRun.runId, 'field acceptance is not blocked after one daily claim');
+        assert.equal(reaccepted.body?.state && stateFrom(reaccepted).runId !== firstRun.runId, true, 'a field mission can start another distinct run on the same UTC day');
         assert.equal((reaccepted.body?.acceptedMissionIds as string[]).includes(MISSION_ID), true);
+
+        const secondRun = stateFrom(reaccepted);
+        for (const [index, id] of ['fieldclaimexplore04', 'fieldclaimexplore05', 'fieldclaimexplore06'].entries()) {
+            await addExploreReceipt(player, id, secondRun.acceptedAt + index + 1);
+            const recorded = await post(progressHandler, player, {
+                missionId: MISSION_ID,
+                kind: 'field-explore',
+                runId: secondRun.runId,
+                worldExploreRequestId: id,
+            });
+            assert.equal(recorded.body?.recorded, true);
+        }
+        // The live 30-second launch throttle is independent from the daily
+        // mission allowance; expire it here to model the player returning later.
+        const { __resetRateLimitsForTest } = await import('../_ratelimit.js');
+        __resetRateLimitsForTest();
+        const secondLaunched = await post(raidStartHandler, player, {
+            requestId: 'fieldtrailclaimraidstart02', sector: 13,
+        });
+        assert.equal(secondLaunched.statusCode, 200);
+        assert.equal(secondLaunched.body?.source, 'field-raid');
+        const secondVictory = await settleRaidProgression({
+            playerName: player,
+            proofId: 'sealed-field-raid-proof-02',
+            proofAt: secondRun.acceptedAt + 10,
+            sector: 13,
+        });
+        assert.deepEqual(secondVictory.settlement.fetchMissionsCredited, [MISSION_ID]);
+        const secondClaim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
+        assert.equal(secondClaim.statusCode, 200);
+        assert.equal(secondClaim.body?.applied, true);
+        assert.equal((secondClaim.body?.character as Record<string, unknown>).ryo, 200);
+        assert.equal((secondClaim.body?.character as Record<string, unknown>).dailyMissionsCompleted, 2);
+
+        const replaySecond = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
+        assert.equal(replaySecond.body?.applied, false, 'retries of one run remain idempotent');
+        assert.match(String(replaySecond.body?.reason), /already-claimed|not-accepted/);
 
         const secondProofIds = ['fieldclaimsecond01', 'fieldclaimsecond02', 'fieldclaimsecond03'];
         for (const [index, id] of secondProofIds.entries()) {

@@ -148,17 +148,19 @@ test('insufficient funds and a failed save write do not debit or discharge', { c
     assert.deepEqual(await kv.get(SAVE_KEY), poor);
 
     await kv.set(SAVE_KEY, save);
-    const originalSet = kv.set;
-    kv.set = (async (key: string, ...args: unknown[]) => {
+    // The discharge commits with an exact compare-and-set; this one fails
+    // without committing (its read-back finds the save unchanged).
+    const originalCompareSet = kv.compareSet;
+    kv.compareSet = (async (key: string, ...args: unknown[]) => {
         if (key === SAVE_KEY) throw new Error('injected recovery write failure');
-        return (originalSet as Function).call(kv, key, ...args);
-    }) as typeof kv.set;
+        return (originalCompareSet as Function).call(kv, key, ...args);
+    }) as typeof kv.compareSet;
     try {
         const failed = response();
         await handler(request(), failed.res);
         assert.equal(failed.out.statusCode, 500);
         assert.deepEqual(await kv.get(SAVE_KEY), save);
-    } finally { kv.set = originalSet; }
+    } finally { kv.compareSet = originalCompareSet; }
     const retry = response();
     await handler(request(), retry.res);
     assert.equal(retry.out.body?.chargedRyo, 2500);
@@ -317,4 +319,112 @@ test('cross-player heal request is receipt-backed and idempotent', { concurrency
     assert.equal(target?.character.serverSettlementReceipts.length, 1);
     const storedHealer = await kv.get<{ _saveVersion: number }>(`save:${HEALER}`);
     assert.equal(replay.out.body?._saveVersion, storedHealer?._saveVersion);
+});
+
+/** A hospitalized patient missing 80 HP: a rank-1 heal costs 20 chakra and pays 120 XP. */
+async function seedPatient(): Promise<void> {
+    await kv.del(`heal:lastHealedAt:${TARGET}`); // the per-target cooldown an earlier heal left
+    await kv.set(`save:${TARGET}`, {
+        _saveVersion: 1,
+        character: {
+            name: TARGET, profession: 'vanguard', village: 'Ember Village',
+            hp: 20, maxHp: 100, chakra: 5, maxChakra: 80, stamina: 5, maxStamina: 70,
+            hospitalized: true, hospitalizedAt: Date.now(), hospitalizedUntil: Date.now() + 60_000,
+        },
+    });
+}
+
+function crossHealRequest(requestId: string) {
+    return {
+        method: 'POST',
+        body: { healerName: HEALER, targetName: TARGET, requestId },
+        headers: { 'content-type': 'application/json', 'x-player-token': healerToken },
+        socket: { remoteAddress: '127.0.0.1' },
+    } as never;
+}
+
+test('a cross-player heal keeps the healer\'s idle recovery and pays from the recovered chakra', { concurrency: false }, async () => {
+    // The raw healer write fenced the regeneration cursor: every point of HP,
+    // chakra and stamina the healer had recovered since their last save was
+    // gone the moment they healed someone.
+    const at = Date.now() - 30_000;
+    await kv.set(`save:${HEALER}`, {
+        _saveVersion: 1, _saveAt: at, _regenAt: at,
+        character: {
+            name: HEALER, profession: 'healer', professionXp: 0, professionRank: 1, village: 'Ember Village',
+            hp: 10, maxHp: 100, chakra: 40, maxChakra: 100, stamina: 0, maxStamina: 100,
+        },
+    });
+    await seedPatient();
+    const out = response();
+    await handler(crossHealRequest('heal_regen_test_0000001'), out.res);
+    assert.equal(out.out.statusCode, 200, JSON.stringify(out.out.body));
+    const healer = (await kv.get<{ character: Record<string, number> }>(`save:${HEALER}`))!.character;
+    assert.ok(healer.hp >= 40, `hp ${healer.hp} lost the idle recovery`);
+    assert.ok(healer.stamina >= 30, `stamina ${healer.stamina} lost the idle recovery`);
+    assert.ok(healer.chakra >= 50, `chakra ${healer.chakra}: the 20-chakra cost comes out of the recovered pool`);
+    assert.equal(healer.professionXp, 120);
+});
+
+test('a target outside the hospital who recovered to full by settlement costs the healer nothing', { concurrency: false }, async () => {
+    // A rank-10 Healer may heal an injured player anywhere. The stored save
+    // still says 70/100, but 30 s of idle recovery has filled it: the heal
+    // would cost chakra and mend nothing.
+    await kv.set(`save:${HEALER}`, {
+        _saveVersion: 1,
+        character: { name: HEALER, profession: 'healer', professionXp: 10_000_000, village: 'Ember Village', chakra: 100, maxChakra: 100 },
+    });
+    await kv.del(`heal:lastHealedAt:${TARGET}`);
+    const at = Date.now() - 30_000;
+    await kv.set(`save:${TARGET}`, {
+        _saveVersion: 1, _saveAt: at, _regenAt: at,
+        character: { name: TARGET, profession: 'vanguard', village: 'Ember Village', hp: 70, maxHp: 100, chakra: 5, maxChakra: 80, stamina: 5, maxStamina: 70 },
+    });
+    const out = response();
+    await handler(crossHealRequest('heal_full_target_000001'), out.res);
+    assert.equal(out.out.statusCode, 409, JSON.stringify(out.out.body));
+    assert.match(String(out.out.body?.error), /Target state changed/);
+    assert.equal((await kv.get<{ character: { chakra: number } }>(`save:${HEALER}`))?.character.chakra, 100, 'no chakra was spent');
+});
+
+test('a heal whose target write fails after the healer paid resumes on retry without charging twice', { concurrency: false }, async () => {
+    await kv.set(`save:${HEALER}`, {
+        _saveVersion: 1,
+        character: { name: HEALER, profession: 'healer', professionXp: 0, professionRank: 1, village: 'Ember Village', chakra: 100 },
+    });
+    await seedPatient();
+    const requestId = 'heal_partial_test_000001';
+    // Saves commit through mutatePlayerSaves' compare-and-set; the healer
+    // commits first, then the patient's write fails once.
+    const original = kv.compareSet;
+    let failPatientOnce = true;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (failPatientOnce && key === `save:${TARGET}`) { failPatientOnce = false; throw new Error('patient-write-down'); }
+        return original.call(kv, key, expected, value, options);
+    };
+    const failed = response();
+    try {
+        await handler(crossHealRequest(requestId), failed.res);
+    } finally {
+        kv.compareSet = original;
+    }
+    assert.equal(failed.out.statusCode, 500, JSON.stringify(failed.out.body));
+    const { crossHealTransaction } = await import('./_cross-heal-settlement.js');
+    const { getDurableSettlement } = await import('../_durable-settlement.js');
+    const { transactionId } = crossHealTransaction(requestId, HEALER, TARGET);
+    assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'reconciliation-required');
+    assert.equal((await kv.get<{ character: { chakra: number } }>(`save:${HEALER}`))?.character.chakra, 80, 'the healer paid');
+    assert.equal((await kv.get<{ character: { hospitalized: boolean } }>(`save:${TARGET}`))?.character.hospitalized, true);
+
+    const resumed = response();
+    await handler(crossHealRequest(requestId), resumed.res);
+    assert.equal(resumed.out.statusCode, 200, JSON.stringify(resumed.out.body));
+    assert.equal(resumed.out.body?.replayed, true);
+    const healer = await kv.get<{ character: { chakra: number; professionXp: number } }>(`save:${HEALER}`);
+    const target = await kv.get<{ character: { hp: number; hospitalized: boolean } }>(`save:${TARGET}`);
+    assert.equal(healer?.character.chakra, 80, 'charged once');
+    assert.equal(healer?.character.professionXp, 120, 'XP paid once');
+    assert.equal(target?.character.hp, 100);
+    assert.equal(target?.character.hospitalized, false);
+    assert.equal((await getDurableSettlement(transactionId, { kv }))?.state, 'completed');
 });

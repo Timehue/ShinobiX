@@ -12,25 +12,17 @@
  * stale name is a plate that contradicts itself: "Clear Skies · Rainstorm in 0m".
  *
  * So the name, the combat effect and the countdown all come from ONE reading
- * taken on this component's own tick. They cannot disagree, because there is
- * nothing for them to disagree with.
+ * on the shared app clock. They cannot drift between the profile and sector HUD.
  *
- * The tick lives here rather than in the screen deliberately. WorldMap could
- * re-derive the sky for its whole subtree in one line, but that means
- * re-rendering the entire world map on a timer, and this screen's render cost is
- * already a known sore spot. A leaf that repaints a span a minute is not.
- *
- * `fallback` is the sky the caller already had (the plate's own prop): rendered
- * for the single frame before the mount effect runs, so first paint is exactly
- * what it was before this component existed — no flash, no layout shift.
+ * Each consumer is a small leaf, so the shared clock does not repaint the whole map.
  *
  * $0: pure computation, no assets, no network, no storage.
  */
-import { useEffect, useState } from "react";
-import { FORECAST_REFRESH_MS, sectorSkyLine, type SectorSkyLine } from "../lib/sector-forecast";
+import { sectorSkyLine, type SectorSkyLine } from "../lib/sector-forecast";
 import { weatherEffects } from "../data/world";
-import type { Biome, WeatherType } from "../types/core";
-import { serverNow } from "../lib/server-clock";
+import type { Biome } from "../types/core";
+import { useSharedNow } from "../lib/use-shared-now";
+import { serverClockOffsetMs } from "../lib/server-clock";
 import { isWorldNight } from "../../../shared/world-phase";
 
 /**
@@ -43,61 +35,36 @@ type Variant = "kicker" | "name" | "effect";
 export function SectorSkyForecast({
     sector,
     biome,
-    fallback,
     variant = "kicker",
 }: {
     sector: number;
     biome: Biome;
-    fallback?: WeatherType;
     variant?: Variant;
 }) {
-    // Never read the clock during render (react-hooks purity): the mount effect
-    // fills this in on its first pass, one frame later. The reading is stamped
-    // with the place it was taken, so walking into a new sector falls back to
-    // this render's own `fallback` prop rather than naming the sector just left
-    // for the frame before the effect re-runs.
-    const [reading, setReading] = useState<{ place: string; line: SectorSkyLine; night: boolean } | null>(null);
-    const place = `${sector}:${biome}`;
-
-    useEffect(() => {
-        const here = `${sector}:${biome}`;
-        let timer = 0;
-        // `night` is the server's night gate (shared/world-phase), the same one
-        // that lets night-only wild pets and night ninjas out.
-        const apply = () => setReading({ place: here, line: sectorSkyLine(sector, biome), night: isWorldNight(serverNow()) });
-        apply();
-        const start = () => { if (!timer) timer = window.setInterval(apply, FORECAST_REFRESH_MS); };
-        const stop = () => { if (timer) { window.clearInterval(timer); timer = 0; } };
-        start();
-        // A backgrounded tab must not hold a timer, and must not come back showing
-        // the sky it left on — re-read before repainting.
-        const onVis = () => { if (document.hidden) stop(); else { apply(); start(); } };
-        document.addEventListener("visibilitychange", onVis);
-        return () => { stop(); document.removeEventListener("visibilitychange", onVis); };
-    }, [sector, biome]);
-
-    const line = reading && reading.place === place ? reading.line : null;
-    const weather: WeatherType | undefined = line ? line.now : fallback;
-    const entry = weather ? weatherEffects[weather] : undefined;
+    // Every weather plate subscribes to the same clock store. The profile rail,
+    // mobile sheet and sector HUD therefore derive the same window on the same
+    // render tick, including a clock correction from the server.
+    const now = useSharedNow() + serverClockOffsetMs();
+    const line = sectorSkyLine(sector, biome, now);
+    const entry = weatherEffects[line.now];
+    const night = isWorldNight(now);
 
     if (variant === "effect") {
-        const night = reading && reading.place === place && reading.night;
         return <p>{entry?.effect ?? ""}{night ? `${entry?.effect ? " " : ""}Night: some wild pets only come out now, and night ninjas prowl the roads.` : ""}</p>;
     }
-    if (variant === "name") return <>{entry?.name ?? ""}</>;
+    if (variant === "name") return <>{entry?.name ?? "Weather unavailable"}</>;
 
     return (
         <>
-            {entry?.name ?? ""}
-            {line && <SkyChange line={line} />}
+            <span className="sector-sky-current">{entry?.name ?? "Weather unavailable"}</span>
+            <SkyChange line={line} />
         </>
     );
 }
 
 /**
  * The "…turning to Thunderstorm in 18m" clause. Split out so the sky's own name
- * renders on the very first frame from `fallback` while the clause waits for a
- * real reading — a countdown is the one thing that must never be guessed.
+ * renders from the same shared reading as the name above.
  */
 function SkyChange({ line }: { line: SectorSkyLine }) {
     // A clan holding the sector stamps the sky and it holds until they change it

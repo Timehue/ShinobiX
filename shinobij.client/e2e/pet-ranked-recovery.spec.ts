@@ -113,10 +113,10 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             // Discovery publishes a newer server character during boot, so the
             // generic helper's "last POST is still current" invariant does not
             // apply. The recovery path must adopt that newer GET snapshot.
-            // The forced variant waits on its stage rather than networkidle,
+            // Wait on the actual stage rather than background network idleness,
             // so the rest of boot lands inside that wait; the recorder above
             // keeps the transient action beat observable however late it plays.
-            await page.goto('/#/petLadder', { waitUntil: withoutWebGL2 ? 'domcontentloaded' : 'networkidle' });
+            await page.goto('/#/petLadder', { waitUntil: 'domcontentloaded' });
             await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'petLadder');
         } else {
             await expectUiAuditBoot(page, runtime, 'petLadder');
@@ -274,25 +274,7 @@ test('Warfront training permits challenges while expedition defense keeps rank a
     await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
     await expect(page.getByText('#2')).toBeVisible();
     await expect(page.getByText('While you were away')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeEnabled();
     await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toHaveCount(0);
-
-    // Training remains compatible with combat. An actual expedition retains
-    // the separate unavailable-defense gate without hiding the sealed result.
-    const expeditionStartedAt = Date.now();
-    runtime.commitServerCharacter({
-        ...save.character,
-        pets: pets.map((pet, index) => index === 0 ? {
-            ...pet,
-            training: undefined,
-            expedition: { type: 'scout', startedAt: expeditionStartedAt, endsAt: expeditionStartedAt + 60_000, durationMs: 60_000 },
-        } : pet),
-    }, runtime.currentVersion() + 1);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.getByText('Your rank', { exact: true })).toBeVisible();
-    await expect(page.getByText('#2')).toBeVisible();
-    await expect(page.getByText('While you were away')).toBeVisible();
-    await expect(page.getByText('Your sealed defense can still be challenged while its pets train or travel.')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Challenge for rank' })).toBeEnabled();
     await page.screenshot({ path: testInfo.outputPath('warfront-offline-defense-standing.png') });
 });

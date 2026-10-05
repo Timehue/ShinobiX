@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { travelMaskMs, TRAVEL_MASK_MS, TRAVEL_MASK_MAX_MS } from './travel-mask.js';
+import { travelMaskMs, travelMaskStartedAt, TRAVEL_MASK_MS, TRAVEL_MASK_MAX_MS } from './travel-mask.js';
 import { WORLD_TRAVEL_MS } from '../../../api/player/travel.js';
 
 test('the mask fallback matches the server travel duration', () => {
@@ -33,4 +33,18 @@ test('a skewed server clock cannot inflate the mask', () => {
     const arrivalAt = serverNow + WORLD_TRAVEL_MS;   // what the response carries
     assert.equal(arrivalAt - Date.now() > 180_000, true); // the old math: 183s
     assert.equal(travelMaskMs(WORLD_TRAVEL_MS), 3_000);   // the new math: 3s
+});
+
+// A refresh mid-trip mounts the mask in the loading fallback, then again in
+// WorldMap once its chunk lands. The second mount must continue the bar.
+test('a second mask for the same trip keeps the first one\'s start', () => {
+    const arrivalAt = 1_000_000_000_000;
+    assert.equal(travelMaskStartedAt(arrivalAt, 500), 500);
+    assert.equal(travelMaskStartedAt(arrivalAt, 2_100), 500);
+});
+
+test('a new trip starts its own bar', () => {
+    assert.equal(travelMaskStartedAt(2_000_000_000_000, 100), 100);
+    assert.equal(travelMaskStartedAt(2_000_000_003_000, 3_200), 3_200);
+    assert.equal(travelMaskStartedAt(2_000_000_003_000, 4_000), 3_200);
 });

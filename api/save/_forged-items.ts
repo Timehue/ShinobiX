@@ -41,18 +41,16 @@ export function preserveForgedItems(sanitized: unknown, stored: unknown, cap: nu
     for (const item of stored as Array<Record<string, unknown>>) {
         if (!item || typeof item !== 'object') continue;
         const id = String(item.id ?? '');
-        if (FORGED_ITEM_ID.test(id)) storedForged.set(id, item);
+        if (FORGED_ITEM_ID.test(id)) storedForged.set(id.toLowerCase(), item);
     }
     const present = new Set<string>();
     const canonicalized = (sanitized as Array<Record<string, unknown>>).map((item) => {
         if (!item || typeof item !== 'object') return item;
         const id = String(item.id ?? '');
         if (!id) return item;
-        present.add(id);
-        // Existing named-item definitions are server-authoritative. Preserve
-        // legitimate edits to unrelated creator content, while preventing a
-        // stale or edited same-ID row from changing combat bonuses on save.
-        return storedForged.get(id) ?? item;
+        const canonicalId = id.toLowerCase();
+        present.add(canonicalId);
+        return storedForged.get(canonicalId) ?? item;
     });
     const missingForged = [...storedForged.entries()]
         .filter(([id]) => !present.has(id))

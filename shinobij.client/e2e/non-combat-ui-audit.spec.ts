@@ -742,7 +742,7 @@ test("the Play app hardware-back stack returns across eligible routes", async ({
     await expectUiAuditBoot(page, runtime, "village");
 
     const nav = page.getByRole("navigation", { name: "Primary game navigation" });
-    await nav.getByRole("button", { name: "Travel", exact: true }).click();
+    await nav.getByRole("button", { name: /^(?:Travel|World Map)$/ }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
     await expect.poll(() => page.evaluate(() => window.location.hash)).toBe("#/worldMap");
 

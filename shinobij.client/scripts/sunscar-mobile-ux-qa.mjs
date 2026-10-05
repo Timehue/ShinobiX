@@ -54,8 +54,8 @@ for (const [browserName, type] of [['chromium', chromium], ['webkit', webkit]]) 
         await page.getByRole('button',{name:'Pause race'}).waitFor();
         await page.waitForFunction(()=>!document.querySelector('.rally-pause')?.disabled);
         await measure(page,label+'-race-running');
-        await page.getByRole('button',{name:'Steer left, A or Left Arrow'}).tap();
-        await page.getByRole('button',{name:'Jump, Space'}).tap();
+        await page.getByRole('button',{name:'Steer left, left stick, A or Left Arrow'}).tap();
+        await page.getByRole('button',{name:'Jump, right trigger or Space'}).tap();
         await page.getByRole('button',{name:'Pause race'}).tap();
         await measure(page,label+'-race-paused');
         await page.getByRole('button',{name:'Continue race'}).focus();

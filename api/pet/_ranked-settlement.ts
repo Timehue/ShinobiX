@@ -7,6 +7,7 @@ import {
 import type { KvLike } from '../_storage.js';
 import { mergePreservingImages, safeName } from '../_utils.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import {
     isPetRankedMatchId,
     PET_RANKED_ENGINE_VERSION,
@@ -295,8 +296,12 @@ async function settlePetRankedSideOnce(
 
     const saveKey = `save:${playerName}`;
     const record = await store.get<Record<string, unknown>>(saveKey);
-    const character = (record?.character ?? null) as Record<string, unknown> | null;
-    if (!record || !character) return { status: 'missing-save' };
+    if (!record?.character) return { status: 'missing-save' };
+    // The idle recovery earned since the regeneration cursor settles into
+    // this write. The opponent is usually offline when it runs, and a bare
+    // version bump fenced their cursor and discarded every point.
+    const settled = await settleIdleRecovery(store, playerName, record);
+    const character = settled.character;
 
     const fingerprint = `pet-rating-${input.role}`;
     const stampInspection = inspectPetRankedStamp(character, settlementId, fingerprint);
@@ -366,7 +371,10 @@ async function settlePetRankedSideOnce(
         },
     );
     const nextRecord = mergePreservingImages(
-        bumpSaveVersion({ ...record, character: credited }),
+        bumpSaveVersion(
+            { ...record, character: credited },
+            { regenAt: carriedRegenCursor(character, credited, settled.regen) },
+        ),
         record,
     ) as Record<string, unknown>;
     try {

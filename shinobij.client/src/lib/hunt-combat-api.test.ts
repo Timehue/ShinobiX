@@ -7,9 +7,7 @@ const realFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = realFetch; });
 function session(status: 'active' | 'done' = 'active') {
     return { status, version: 7, huntCombat: { formation: { version: 1, kind: 'pack', count: 3 },
-        battle: { runId: 'hunt-session', status, floor: 9501,
-            log: ['--- Round 1 ---', 'Floor 9501 cleared!'],
-            actors: [{ id: 'player' }, { id: 'hunt-enemy-2' }] } } } as unknown as SoloPveSession;
+        battle: { runId: 'hunt-session', status, actors: [{ id: 'player' }, { id: 'hunt-enemy-2' }] } } } as unknown as SoloPveSession;
 }
 const response = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
@@ -36,11 +34,6 @@ test('retreat uses the existing authoritative abandon transition', async () => {
         return response({ applied: true, session: session('done') });
     }) as typeof fetch;
     assert.equal((await submitHuntCombatAction('hunt-session', 'Hunter', { type: 'forfeit' }, 6)).session.status, 'done');
-});
-
-test('hunt projection keeps round markers and replaces the internal floor result', () => {
-    const projected = huntSessionForTower(session('done'));
-    assert.deepEqual(projected.log, ['--- Round 1 ---', 'Hunt encounter cleared!']);
 });
 
 test('expired hunts recover terminal state, while unauthorized state is rejected', async () => {

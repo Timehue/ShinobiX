@@ -3,7 +3,7 @@ import {isDeepStrictEqual} from 'node:util';
 import {kv} from '../../_storage.js';
 import {withKvLock} from '../../_lock.js';
 import {clanBareSlug, clanRecordKey} from '../../_utils.js';
-import {writeVersionedPlayerSave} from '../../save/_mutate-player-save.js';
+import {carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave} from '../../save/_mutate-player-save.js';
 import {beginDurableSettlement, completeDurableSettlement, getDurableSettlement, settlementFingerprint, settlementTransactionId} from '../../_durable-settlement.js';
 import {buyClanExchangeItem, type ClanExchangeItemDef, type ClanExchangePurchaseSuccess} from '../_exchange.js';
 import {clanExchangeIntentTime, CLAN_EXCHANGE_RECOVERY_MS, CLAN_EXCHANGE_RECEIPT_RETENTION_MS} from '../../../shared/clan-exchange-intent.js';
@@ -85,12 +85,16 @@ export async function settleClanExchangeTreasury(args: {playerName: string; clan
             if (transaction?.state === 'completed') throw new Error('Completed Exchange transaction is missing its debit proof.');
             if (applied) throw new Error('Exchange treasury evidence is missing its debit proof.');
             if (clanBareSlug(String(character.clan ?? '')) !== clanSlug) return failure(403, 'You are not a member of this clan.');
+            // The debit settles the idle recovery the buyer earned since their
+            // last save into its write and carries the cursor, as
+            // mutatePlayerSave does. The purchase builds on the settled character.
+            const settled = await settleIdleRecovery(kv, args.playerName, player);
             const quotedItem = transaction?.meta?.item as ClanExchangeItemDef | undefined;
             // Until the debit commits, there is no purchase allowance to retain.
             // Revalidate against today's period so an interrupted reservation
             // cannot strand the player's action on a now-full historical week.
             const at = Date.now();
-            let purchase = buyClanExchangeItem({character, clanData: clan, itemId: args.itemId, now: new Date(at), definition: quotedItem});
+            let purchase = buyClanExchangeItem({character: settled.character, clanData: clan, itemId: args.itemId, now: new Date(at), definition: quotedItem});
             if (!purchase.ok) return failure(purchase.code === 'wrong-clan' || purchase.code === 'not-in-clan' ? 403 : 409, purchase.error);
             if (purchase.item.reward.kind !== 'treasury') throw new Error('Exchange treasury settlement received a different reward type.');
             const begun = await beginDurableSettlement({transactionId, idempotencyKey: `${args.playerName}:${id}`, operationType: 'clan-exchange',
@@ -100,7 +104,7 @@ export async function settleClanExchangeTreasury(args: {playerName: string; clan
             transaction = begun.record;
             const {proofToken} = validateJournal();
             if (begun.status === 'existing') {
-                purchase = buyClanExchangeItem({character, clanData: clan, itemId: args.itemId,
+                purchase = buyClanExchangeItem({character: settled.character, clanData: clan, itemId: args.itemId,
                     now: new Date(at), definition: transaction.meta?.item as ClanExchangeItemDef});
                 if (!purchase.ok) return failure(409, purchase.error);
                 if (purchase.item.reward.kind !== 'treasury') throw new Error('Invalid sealed treasury purchase.');
@@ -108,7 +112,9 @@ export async function settleClanExchangeTreasury(args: {playerName: string; clan
             debit = {requestId: id, transactionId, fingerprint, proofToken, clanSlug, createdAt: Date.now(), item: purchase.item, purchaseCount: purchase.purchaseCount, remaining: purchase.remaining};
             const nextCharacter = {...purchase.character, [FIELD]: [debit, ...retain(debits, Date.now())]};
             try {
-                player = (await writeVersionedPlayerSave(playerKey, player, nextCharacter)).record;
+                player = (await writeVersionedPlayerSave(playerKey, player, nextCharacter, {}, {
+                    regenAt: carriedRegenCursor(settled.character, nextCharacter, settled.regen),
+                })).record;
             } catch (error) {
                 const saved = await kv.get<Record<string, unknown>>(playerKey).catch(() => null);
                 const savedCharacter = saved?.character as Record<string, unknown> | undefined;

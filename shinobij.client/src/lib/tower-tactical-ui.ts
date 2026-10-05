@@ -6,6 +6,17 @@ export const TOWER_ZOOM_MIN = 1;
 export const TOWER_ZOOM_MAX = 2.5;
 export const TOWER_ZOOM_STEP = 0.25;
 
+/** Self-cast previews target the player, which is intentionally absent from
+ * the enemy-only set used to paint attackable opponents. */
+export function towerPreviewTargetInRange(
+    targetId: string,
+    selfId: string,
+    enemyRangeIds: ReadonlySet<string>,
+    isSelfCast: boolean,
+): boolean {
+    return (isSelfCast && targetId === selfId) || enemyRangeIds.has(targetId);
+}
+
 export type TowerProjectedGrade = "S" | "A" | "B" | "C";
 
 export type TowerScoreProjection = {

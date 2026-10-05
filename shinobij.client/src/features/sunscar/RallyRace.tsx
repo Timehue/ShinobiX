@@ -111,7 +111,7 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
         setEconomy(next);
         try { localStorage.setItem(RALLY_RENDER_KEY, value); } catch { /* private mode */ }
     }
-    const graphicsControl = <label className="rally-graphics-control">Graphics<select aria-label="Race graphics" value={renderPreference} onChange={event => chooseGraphics(event.target.value as RallyRenderPreference)}>
+    const graphicsControl = <label className="rally-graphics-control">Graphics<select data-gamepad-horizontal-select="true" aria-label="Race graphics" value={renderPreference} onChange={event => chooseGraphics(event.target.value as RallyRenderPreference)}>
         <option value="auto">Automatic</option><option value="3d">3D</option><option value="economy">Battery saver (2D)</option>
     </select><small>{economy ? 'Battery saver active' : '3D active'}</small></label>;
     const input = useCallback((kind: RallyAction['kind']) => {
@@ -251,21 +251,16 @@ export function RallyRace({ initial, difficulty, official, title, onBegin, onChe
             <div className={`rally-progress${hud.finalStretch ? ' is-final-stretch' : ''}`}><span>{hud.finalStretch ? 'Final stretch' : track.name} · {hud.remaining} m</span><progress aria-label="Race progress" value={hud.progress} max={1} /><small>{(hud.raceTime / RALLY_HZ).toFixed(1)}s {saving ? '· Saving' : official ? '· Official' : '· Practice'}{hud.terrain === 'deep-sand' && !hud.finished ? ' · Deep sand slows' : ''}</small></div>
             <button className="rally-pause" aria-label={paused ? 'Resume race' : 'Pause race'} onClick={() => { running.current = false; queued.current = ['burst-off']; setPaused(p => !p); }} disabled={!started || hud.finished}>{paused ? 'Resume' : 'Pause'}</button>
         </div>
-        <div className={`rally-stage${!started && countdown === null ? ' has-rally-intro' : ''}`} aria-label="Race course">
+        <div className="rally-stage" aria-label="Race course">
             <PetModelBoundary key={`${economy ? 'economy' : '3d'}:${renderGeneration}`} onFail={onFail}><Suspense fallback={<div className="sunscar-loading" role="status">Preparing the course…</div>}>
                 {economy ? <RallyEconomyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} reducedMotion={reducedMotion}
                     frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />
                     : <RallyCanvas state={state} onReady={onReady} onPresentationFrame={onPresentationFrame} onFail={onFail} onEconomy={onEconomy} allowEconomy={renderPreference !== '3d'} reducedMotion={reducedMotion} moving={running}
                         frameloop={paused || finishSettled || modelError || !!error || !started && countdown === null && ready.length >= 4 ? 'demand' : 'always'} />}
             </Suspense></PetModelBoundary>
-            {!started && countdown === null && <div className="rally-intro-overlay">
-                <div className="rally-intro-copy">
-                    <p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p>
-                    <p className="rally-learn">Amber arrows: jump low barriers (+4 Burst). Coral crosses: steer around tall loads. Green arrows: Burst + jump into a shortcut (+7 Burst). Hold Shift for +28% pace. E uses {RALLY_TECHNIQUES[initial.racers[0].pet.element].name} once per race.</p>
-                    <p className="rally-learn">Q fires a shot every 8 seconds. {RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} Look for the aiming ring. Firing slows you 10% for 0.45 seconds. Jump or steer to dodge.</p>
-                </div>
-                {modelError ? <p className="rally-intro-status" role="alert">The race graphics could not load. Choose another graphics mode or return to the race desk and retry; your entry is safe.</p> : <p className="rally-intro-status" role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}<small className="rally-intro-scroll-cue"> · Scroll above for race tips</small></p>}
-                {graphicsControl}{graphicsNotice && <p className="rally-intro-status" role="status">{graphicsNotice}</p>}
+            {!started && countdown === null && <div className="rally-intro-overlay"><p className="sunscar-eyebrow">{title}</p><h2>{track.name}</h2><p>{track.description}</p><p className="rally-learn">Amber arrows: jump low barriers (+4 Burst). Coral crosses: steer around tall loads. Green arrows: Burst + jump into a shortcut (+7 Burst). Hold Shift for +28% pace. E uses {RALLY_TECHNIQUES[initial.racers[0].pet.element].name} once per race.</p><p className="rally-learn">Q fires a shot every 8 seconds. {RALLY_SHOT_PROFILES[initial.racers[0].pet.element].description} Look for the aiming ring. Firing slows you 10% for 0.45 seconds. Jump or steer to dodge.</p>
+                {modelError ? <p role="alert">The race graphics could not load. Choose another graphics mode or return to the race desk and retry; your entry is safe.</p> : <p role="status">{ready.length < 4 ? `Preparing companions · ${ready.length}/4` : 'All companions ready'}</p>}
+                {graphicsControl}{graphicsNotice && <p role="status">{graphicsNotice}</p>}
                 <div className="sunscar-button-row"><button onClick={() => void begin()} disabled={ready.length < 4 || modelError || saving}>{saving ? 'Starting…' : initial.tick > 0 ? 'Resume from checkpoint' : 'Ready to race'}</button><button className="sunscar-secondary" onClick={onExit}>Race desk</button></div>
             </div>}
             {countdown !== null && <div className="rally-countdown" role="status" aria-live="assertive">{countdown || 'GO'}</div>}

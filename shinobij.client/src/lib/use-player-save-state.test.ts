@@ -110,7 +110,18 @@ test("payload creation compacts inventory, preserves property order and override
             assert.deepEqual(payload.character.inventory, ["iron-sword-test"]);
             assert.deepEqual(payload.character.itemStacks, [{ itemId: "thrown-shuriken", count: 2 }]);
             assert.equal(input.inventory.length, 3);
-            assert.deepEqual(Object.keys(payload), ["character", "currentBiome", "activeTraining", "activeJutsuTraining", "acceptedMissionIds", "missionProgress", "triggeredEvents", "currentSector", "pendingTravel", "savedBloodlines", "creatorJutsus", "creatorAis", "creatorEvents", "creatorMissions", "creatorRaids", "creatorCards", "creatorItems", "petEncounterVn", "ancientChestVn", "editablePets", "hollowGateEventConfig"]);
+            // An ordinary player never uploads shared admin content (the server
+            // keeps the stored copy and the admin slots are the source).
+            assert.deepEqual(Object.keys(payload), ["character", "currentBiome", "activeTraining", "activeJutsuTraining", "acceptedMissionIds", "missionProgress", "triggeredEvents", "currentSector", "pendingTravel", "savedBloodlines", "creatorMissions", "creatorRaids", "creatorItems", "petEncounterVn", "ancientChestVn", "hollowGateEventConfig"]);
+        },
+    );
+});
+
+test("an admin content slot still uploads the shared content it authors", () => {
+    transitions(
+        state => {
+            const payload = state.buildPlayerSavePayload(character("Admin 1"));
+            assert.deepEqual(Object.keys(payload), ["character", "currentBiome", "activeTraining", "activeJutsuTraining", "acceptedMissionIds", "missionProgress", "triggeredEvents", "currentSector", "pendingTravel", "savedBloodlines", "creatorJutsus", "creatorAis", "creatorEvents", "creatorCards", "editablePets", "creatorMissions", "creatorRaids", "creatorItems", "petEncounterVn", "ancientChestVn", "hollowGateEventConfig"]);
         },
     );
 });

@@ -12,6 +12,7 @@ import { ACADEMY_LEVEL_FLOORS, grantAcademyLevelFloor } from '../_tutorial-progr
 import { combinedStatBoost } from '../_stat-growth.js';
 import { boostMultiplier } from '../_boost-event.js';
 import { bumpSaveVersion } from '../save/_save-version.js';
+import { carriedRegenCursor, settleIdleRecovery } from '../save/_mutate-player-save.js';
 import {
     acknowledgeNewbieCombatRun,
     reportNewbieCombatRunOnce,
@@ -36,7 +37,7 @@ import {
 } from './_mission-progress-receipt.js';
 import { COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON } from '../_release-flags.js';
 import { canPlayerClaimMission, missionEligibilityFailureBody, type MissionEligibilityResult } from './_eligibility.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY, writeSaveProjected } from '../save/_projected-write.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { recordPetBreedingProgress } from '../pet/_breeding-requirements.js';
 import {
@@ -160,6 +161,9 @@ export function legacyMissionProgressSpec(
         const claimedMarker = [...claimed].reverse().find((entry) => entry === missionReceipt || entry.startsWith(`${missionReceipt}:`));
         if (!claimedMarker) return null;
         return {
+            // Repeated field runs have distinct claim markers, so their legacy
+            // aggregate receipts must also be distinct or only the first run
+            // increments missionCompletions.
             receiptId: `mission:${claimedMarker}`,
             deltas: missionType === 'hunt' ? { huntCompletions: 1 } : { missionCompletions: 1 },
             durableReceipt: false,
@@ -243,6 +247,7 @@ type ClaimOutcome =
     }
     | {
         applied: true;
+        missionReceipt?: string;
         saveVersion: number;
         reward: {
             xpBoosted: number;        // base after town-hall boost; client passes to gainXp
@@ -354,8 +359,13 @@ async function mutateCombatClaimSettlement(params: {
             params.missionId,
             params.rewardFingerprint,
         );
+        // The idle recovery since the last save settles into this write and the
+        // cursor carries, as mutatePlayerSave does. A recovered claim can run
+        // these effects long after its payout.
+        const settled = await settleIdleRecovery(kv, params.playerName, current.record);
+        const settledCharacter = settled.character as SaveChar;
         const previousCharacter = { ...current.character };
-        const mutation = params.mutate(current.character, current.settlement);
+        const mutation = params.mutate(settledCharacter, current.settlement);
         if (!mutation) return current.settlement;
         const nextCharacter = replaceCombatMissionClaimSettlement(
             mutation.character,
@@ -364,7 +374,10 @@ async function mutateCombatClaimSettlement(params: {
         const nextRecord = mergePreservingImages(bumpSaveVersion<Record<string, unknown>>({
             ...current.record,
             character: nextCharacter,
-        }, { previousCharacter }), current.record) as Record<string, unknown>;
+        }, {
+            previousCharacter,
+            regenAt: carriedRegenCursor(settledCharacter, nextCharacter, settled.regen),
+        }), current.record) as Record<string, unknown>;
         const mergedCharacter = nextRecord.character as SaveChar;
         nextRecord.character = {
             ...mergedCharacter,
@@ -622,7 +635,9 @@ async function applyReservedCombatMissionPayout(params: {
     saveKey: string;
     playerName: string;
     record: Record<string, unknown>;
+    /** The stored character with its idle recovery settled (settleIdleRecovery). */
     character: SaveChar;
+    regen: { excluded: boolean; cursor: number };
     reservation: CombatMissionClaimPaymentReservation;
 }): Promise<Extract<ClaimOutcome, { applied: true }>> {
     const settlement = params.reservation.settlement;
@@ -738,7 +753,10 @@ async function applyReservedCombatMissionPayout(params: {
     const updated = bumpSaveVersion<Record<string, unknown>>({
         ...params.record,
         character: next,
-    }, { previousCharacter: params.character });
+    }, {
+        previousCharacter: params.character,
+        regenAt: carriedRegenCursor(params.character, next, params.regen),
+    });
     const intended = mergePreservingImages(updated, params.record) as Record<string, unknown>;
     const intendedCharacter = intended.character as SaveChar;
     intended.character = {
@@ -803,10 +821,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Currency path: persist under the SAME lock the save endpoint uses so a
         // concurrent auto-save can't clobber the credit, and so two rapid claims
         // can't both slip past the one-time / daily-cap / pending checks.
-        const outcome = await withKvLock<ClaimOutcome>(saveKey, async () => {
+        //
+        // A lost commit race (writeSaveProjected) re-runs the whole block once:
+        // it re-reads the save, and every receipt is deleted only after the
+        // write, so the re-run claims exactly once.
+        const outcome = await retryOnSaveVersionConflict(() => withKvLock<ClaimOutcome>(saveKey, async () => {
             const record = await kv.get<Record<string, unknown>>(saveKey);
-            const char = record?.character as SaveChar | undefined;
-            if (!record || !char) return { applied: false, reason: 'no-save' };
+            if (!record?.character) return { applied: false, reason: 'no-save' };
+            // The idle recovery earned since the last save settles here, as
+            // mutatePlayerSave does: every write below builds on it and carries
+            // the cursor instead of fencing that recovery away.
+            const settled = await settleIdleRecovery(kv, playerName, record);
+            const char = settled.character as SaveChar;
             const combatDef = missionType === 'combat' ? combatMissionByKey(missionId) : null;
             if (missionType === 'combat' && !combatDef) return { applied: false, reason: 'unknown-mission' };
             const combatRewardFingerprint = combatDef ? missionCombatRewardFingerprint(combatDef) : '';
@@ -1017,6 +1043,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         playerName,
                         record,
                         character: char,
+                        regen: settled.regen,
                         reservation: combatPaymentReservation,
                     });
                 }
@@ -1035,7 +1062,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // token. The client mirrors this + shows a re-fight message.
                     const heal = clearStalePendingCombatClaim(char, combatDef.key);
                     if (heal.cleared) {
-                        const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char });
+                        const healed = bumpSaveVersion<Record<string, unknown>>({ ...record, character: heal.char }, {
+                            regenAt: carriedRegenCursor(char, heal.char, settled.regen),
+                        });
                         const intended = mergePreservingImages(healed, record) as Record<string, unknown>;
                         await compareSetExactKvRow(kv, saveKey, record, intended);
                     }
@@ -1318,7 +1347,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const updated = bumpSaveVersion<Record<string, unknown>>({
                 ...applyClaimedMissionState(record, missionType, missionId),
                 character: next,
-            }, { previousCharacter: char });
+            }, {
+                previousCharacter: char,
+                // A stamina reward touches a vital, which fences the cursor; the
+                // recovery settled above is still in `next`.
+                regenAt: carriedRegenCursor(char, next, settled.regen),
+            });
             let persisted: Record<string, unknown> = updated;
             if (combatSettlement) {
                 const intended = mergePreservingImages(updated, record) as Record<string, unknown>;
@@ -1352,6 +1386,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return {
                 applied: true,
+                missionReceipt,
                 saveVersion: Number(persisted._saveVersion ?? updated._saveVersion ?? 0),
                 reward: {
                     xpBoosted: 0, // retired — kept in the shape for old clients
@@ -1369,7 +1404,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(academyTrialClaimed ? { academyTrialClaimed: true } : {}),
                 ...(academyChecklistClaimed ? { academyChecklistClaimed: true } : {}),
             };
-        }, { failClosed: true });
+        }, { failClosed: true }));
 
         // New-shinobi dailies: a successful mission claim is the main activity
         // signal for pre-profession players. reportNewbieEvent no-ops for anyone
@@ -1413,9 +1448,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Economy telemetry — log the server-computed faucet deltas (ryo +
             // any premium currency) so created-vs-destroyed is measurable.
             const r = outcome.reward;
-            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${todayKey}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
+            const economyReceipt = outcome.missionReceipt ?? `${todayKey}:${missionType}:${missionId}`;
+            if (r.ryo) await recordEconomyTxn({ txnId: `mission:${economyReceipt}`, player: playerName, currency: 'ryo', delta: r.ryo, source: 'mission.claim' });
             for (const [cur, amt] of Object.entries(r.currency ?? {})) {
-                if (amt) await recordEconomyTxn({ txnId: `mission:${missionType}:${missionId}:${cur}:${todayKey}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
+                if (amt) await recordEconomyTxn({ txnId: `mission:${economyReceipt}:${cur}`, player: playerName, currency: cur, delta: Number(amt), source: 'mission.claim' });
             }
             const metricRecord = await kv.get<Record<string, unknown>>(saveKey).catch(() => null);
             const finalChar = (metricRecord?.character ?? null) as Record<string, unknown> | null;
@@ -1454,6 +1490,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (outcome.applied) {
             const {
                 saveVersion,
+                missionReceipt: _missionReceipt,
                 replayed: _replayed,
                 combatSettlementFingerprint: _combatSettlementFingerprint,
                 ...body
@@ -1488,6 +1525,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             _saveVersion: Number(recoveryRecord?._saveVersion ?? 0),
         });
     } catch (err) {
+        // Nothing was written and no receipt was spent, so a retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[missions/claim-mission]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

@@ -41,7 +41,7 @@ async function next(page: Page) {
 }
 async function leaveVillage(page: Page) {
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'village');
-    await page.getByRole('button', { name: 'Travel', exact: true }).filter({ visible: true }).first().click();
+    await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
 }
 
 test('the live stored Frostfang chapter copy never replaces the current chapter', async ({ page }, info) => {

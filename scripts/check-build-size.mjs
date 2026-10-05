@@ -757,23 +757,39 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 8,958,487 B (8,958,832 B reproduced locally with the same production-length
 // VITE_* values). Keep about 41 KB of headroom at a 9.0 MB total cap; startup,
 // per-chunk, CSS and gzip gates remain unchanged.
-// 2026-10-01: current CI-equivalent candidate measured 9,033,081 B with the
-// documented VITE_SENTRY_DSN / RELEASE / 40-character BUILD_COMMIT values.
-// The progression, tournament, and native-platform integration work since the
-// 09-28 baseline is intentional lazy-screen code. Set 9.08 MB to retain 46,919
-// B of product headroom; entry, per-chunk, CSS, startup raw, and artifact gates
-// remain unchanged.
+// 2026-09-30 LIVE MAIN REBASE: Production Image measured 9,050,157 B on
+// 8214b288a, 157 B above the 9.05 MB ceiling. The connected onboarding fixes
+// add 2,993 B in the local production build; with the production image's
+// instrumentation delta, the candidate is expected near 9,053,150 B. Allow
+// 16,850 B of measured headroom at 9.07 MB. Startup, per-chunk, CSS, and gzip
+// gates remain unchanged.
+// 2026-10-01 RELEASE AUDIT (PR #232): live main 69e9ed520 already measures
+// 9,069,723 B in its production image, 277 B under 9.07 MB, so any growth trips
+// it. Slim player saves add their lazily loaded admin-content device cache plus
+// compare-and-set and unload-save handling: the production image measured
+// 9,073,270 B at 0231a74c9 (+3,547 B over main), and the follow-up adds 279 B
+// locally (~9,073,549 B expected). The Hollow Gate reload rebuild moved OFF the
+// initial graph in the same PR (local initial gzip 393,919 -> 392,943 B).
+// Allow 9.08 MB, leaving ~6.4 KB of measured headroom. Startup, per-chunk, CSS
+// and gzip gates remain unchanged.
 // 2026-10-02 BLOODLINE AWAKENING: rank artwork framing, the ancestral ritual
 // presentation and shared purchase guards add about 9.8 KB of product JS/CSS.
 // With Production Image's public VITE_* settings, the candidate measures
 // 9,083,365 B. Allow 9.09 MB, retaining ~6.6 KB of measured headroom. Entry,
 // initial-graph, per-chunk, CSS and gzip limits remain unchanged.
-// 2026-10-02 STARTUP RUNTIME DRAIN: the readable public boot watchdog and
-// offline worker are now minified only in the production dist (9,672 B saved
-// combined; behavior contracts run against the minified copies too). The
-// CI-equivalent candidate measures 9,085,583 B, leaving 4,417 B under this
-// unchanged cap; initial graph is 1,438,276 B raw / 394,509 B gzip.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_090_000;
+// 2026-10-02 NAMED FORGE AND ERA CAMPAIGNS: Production Image run
+// 36967312053 measures 9,108,286 B with production-length VITE_* settings.
+// Independent card draws, named-roll presentation and sequential era campaigns
+// add intentional product code after Awakening. Allow 9.13 MB for about 21 KB
+// of measured headroom. Entry, startup raw/gzip, CSS and chunk gates stay put.
+// 2026-10-04 SECTOR CHAT (PR #286): Production Image run 37245130198 measures
+// 9,134,232 B, versus 9,115,892 B on live main 09fb708df (run 37239963536), so
+// the chat panel, its folded sheet, client API and styles add 18,340 B to the
+// lazily loaded world-map graph. Startup moves +35 B raw / +48 B gzip
+// (1,437,608 B / 394,491 B) and passes its own gate unchanged. Allow 9.15 MB,
+// leaving 15,768 B of measured headroom. Entry, startup raw/gzip, CSS and
+// chunk gates stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_150_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -890,11 +906,15 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // 2026-09-28: The active-bloodline loadout checks measure 389,162 B on the
 // production-equivalent build; main was already at 388,979 B, only 21 B below
 // this gate. Re-baseline to 393,000 B for ~3.8 KB of variance, as on 2026-09-06.
-// 2026-10-01: the current CI-equivalent candidate measures 394,670 B gzip
-// across the initial 19 files. Set 398,000 B to retain 3,330 B of variance,
-// consistent with the prior measured margin. Initial raw, entry, per-chunk,
-// CSS, and product gates are independent and remain unchanged.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 398_000;
+// The independent initial raw, entry, per-chunk, CSS, and product gates stay put.
+// 2026-09-30: Main had drifted to ~392,4xx B locally (CI reads ~0.5 KB higher), so
+// only ~600 B of headroom was left. Letting hunts reach the grid fight screen makes
+// the bundler split two small shared modules into the entry graph (two extra
+// chunks, +~700 B gzip) even though the host's own code is unchanged; it measures
+// 393,076 B locally / ~393,6xx B on CI. Re-baselined, with the owner's approval,
+// to 394,500 B for ~0.9 KB of variance. The next startup addition should trim its
+// own code first instead of moving this again.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 394_500;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one

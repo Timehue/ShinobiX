@@ -390,14 +390,23 @@ export function settleSaveRecord<T extends SaveRecord>(
 export async function battleLockedFor(name: string): Promise<boolean> {
     const slug = safeName(name);
     if (!slug) return false;
-    return Boolean(await kv.get(`${BATTLE_LOCK_PREFIX}${slug}`));
+    return Boolean(await kv.get(battleLockKey(slug)));
+}
+
+/**
+ * The key whose presence excludes a player from idle recovery. For a writer
+ * that reads through its own injected store instead of `kv`, which
+ * battleLockedFor uses.
+ */
+export function battleLockKey(slug: string): string {
+    return `${BATTLE_LOCK_PREFIX}${slug}`;
 }
 
 export async function battleLockFlagsForPlayers(names: string[]): Promise<Map<string, boolean>> {
     const slugs = [...new Set(names.map((name) => safeName(name)).filter(Boolean))];
     const flags = new Map<string, boolean>();
     if (!slugs.length) return flags;
-    const locks = await kv.mget(...slugs.map((slug) => `${BATTLE_LOCK_PREFIX}${slug}`));
+    const locks = await kv.mget(...slugs.map(battleLockKey));
     slugs.forEach((slug, index) => flags.set(slug, Boolean(locks[index])));
     return flags;
 }
@@ -524,7 +533,14 @@ export async function settleSaveRecordForRead<T extends SaveRecord>(
         const settled = durable
             ? bumpSaveVersion(next.record, { regenAt: regenCursorOf(next.record) || undefined })
             : unversionedSettledRecord(next.record);
-        await kv.set(saveKey, mergePreservingImages(settled, fresh));
+        // Commit only over the exact row read above. This lock is not failClosed
+        // (contention falls through to an unlocked run) and its TTL is not renewed,
+        // while the reads above can stall on the pool — so another writer (a
+        // reward, a claim, an autosave) can commit in between. A plain set would
+        // revert that commit. Losing the race costs nothing: every owner read
+        // re-derives this settle, so return the unpersisted projection instead.
+        const committed = await kv.compareSet(saveKey, fresh, mergePreservingImages(settled, fresh));
+        if (!committed) return projected;
         return { ...next, record: settled };
     });
     return persisted;

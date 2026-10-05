@@ -207,7 +207,6 @@ export function PetDuelLiveHost({ myPets, ref, onError, onOutcome, autoAcceptFro
                     enemyPet={bound.start.enemy[0]}
                     playerReservePet={bound.start.player[1]}
                     enemyReservePet={bound.start.enemy[1]}
-                    seed={bound.start.seed}
                     live={bound.duel}
                     onProgress={(tick) => bound.reportProgress(tick)}
                     onOutcome={finish}

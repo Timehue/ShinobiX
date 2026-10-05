@@ -333,6 +333,7 @@ export function Missions({
         }
         if (character.level < mission.levelReq) return alert(`Requires level ${mission.levelReq}.`);
         if (fieldTrailPending || acceptedMissionIds.includes(mission.id)) return;
+        if (!hasDailyMissionSlot(character)) return alert(`Daily mission limit reached (${DAILY_MISSION_LIMIT}/${DAILY_MISSION_LIMIT}). Resets at midnight UTC.`);
         setFieldTrailPending(mission.id);
         try {
             const result = await postFieldTrail({ playerName: character.name, missionId: mission.id, action: "accept" });
@@ -714,8 +715,8 @@ export function Missions({
                                         {accepted && <p className="mh-field-next-step mh-field-next-step-desktop"><strong>Next:</strong> {nextAction.instruction}</p>}
                                         <div className="mh-fetch-actions">
                                             {!accepted
-                                                ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked} onClick={() => { void acceptFetchMission(mission); }}>
-                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : "Accept Mission"}</span>
+                                                ? <button className="mh-field-primary-action" disabled={fieldTrailPending !== null || locked || !hasDailyMissionSlot(character)} onClick={() => { void acceptFetchMission(mission); }}>
+                                                    <span className="mh-field-primary-label">{locked ? `Level ${mission.levelReq} required` : !hasDailyMissionSlot(character) ? "Daily Limit Reached" : "Accept Mission"}</span>
                                                     <span className="mh-field-primary-arrow" aria-hidden="true">›</span>
                                                 </button>
                                                 : complete

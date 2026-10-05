@@ -1,21 +1,17 @@
 import { SHOWDOWN_DAILY_WIN_CAP } from '../../shared/pet-showdown-contract.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { storedValueEquals } from '../_stored-value.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
 import { creditRankedOutcome } from '../_ranked-rating.js';
 import { resolveRankedPetDuel } from './_ranked-duel.js';
 import { replayCasualPetDuel, parseDuelInputLog } from './_duel-replay.js';
 import type { SealedDuelParams } from './_duel-replay.js';
 import type { Pet } from '../_pet-sim/pet-types.js';
-import {
-    type WfBuyPolicy,
-    type WfDoctrine,
-    type WfStance,
-} from '../_pet-sim/pet-warfront-sim.js';
+import type { WfBuyPolicy, WfDoctrine, WfStance } from '../_pet-sim/pet-warfront-contract.js';
 import {
     RITE_BAND_SIZE,
     isValidRitePlan,
@@ -23,7 +19,8 @@ import {
     type RitePlan,
 } from '../_pet-sim/pet-warfront-rite.js';
 import type { WfTheme } from '../_pet-sim/pet-warfront-map.js';
-import { writeSaveProjected } from '../save/_projected-write.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict, SAVE_VERSION_CONFLICT_REPLY } from '../save/_projected-write.js';
+import { mutatePlayerSave, mutatePlayerSaves, type PlayerSavesSide } from '../save/_mutate-player-save.js';
 import { buildPublicPlayerIndexEntry, isPublicPlayerIndexKey, REGISTRY_KEY } from '../player/_public-index.js';
 import { bumpLegacyStats, legacyBootstrapBeforeCounterIncrement } from '../_legacy-track.js';
 import { petWitnessReceiptForSettlement, recordPetArenaVictory } from '../card-clash/_pet-witness.js';
@@ -584,8 +581,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 hollowGate?: { runId?: string };
                 dungeon?: unknown;
                 settlementPolicy?: unknown;
-                wanderer?: { id?: unknown; sector?: unknown; verb?: unknown };
-                wandererParticipatingPets?: Pet[];
+                wanderer?: unknown;
                 pvpChallengeId?: string;
                 pvpParticipatingPets?: Pet[];
             }>(tokenKey);
@@ -683,6 +679,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (tokenData.reportKey !== reportKey) {
                 return res.status(403).json({ error: 'Pet battle token does not match this battle report.' });
             }
+            // Road beasts are fought and settled inside their Colosseum session
+            // (api/pet/_wanderer-showdown.ts). A wanderer token can only be a
+            // leftover of the retired battle-start duel: retire it and release
+            // its battle lock, rather than settle it as an ordinary casual fight.
+            if (tokenData.wanderer !== undefined) {
+                await kv.del(tokenKey).catch(() => undefined);
+                await kv.delIfEqual(`pet:battle-active:${playerName}`, battleToken).catch(() => undefined);
+                return res.status(410).json({ error: 'That road duel has been retired. Approach the beast again from the World Map.' });
+            }
             const settlementPolicy = tokenData.settlementPolicy;
             if (settlementPolicy !== undefined
                 && settlementPolicy !== 'casual-no-progression'
@@ -741,27 +746,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             casualPvePlayerPets = casualPveSeal?.playerPets ?? null;
             const tokenPlayerPetIds = Array.isArray(tokenData.playerPetIds) ? tokenData.playerPetIds : [];
-            if (tokenData.wanderer !== undefined) {
-                if (tokenData.settlementPolicy !== 'casual-no-progression'
-                    || tokenData.mode !== '1v1'
-                    || typeof tokenData.wanderer.id !== 'string'
-                    || !/^w-\d+-\d+-[01]$/.test(tokenData.wanderer.id)
-                    || !Number.isSafeInteger(Number(tokenData.wanderer.sector))
-                    || tokenData.wanderer.verb !== 'petDuel'
-                    || tokenData.casualPveSeal !== undefined
-                    || tokenData.hollowGate !== undefined
-                    || tokenData.dungeon !== undefined) {
-                    return res.status(409).json({ error: 'Natural wanderer token carries conflicting battle authority.' });
-                }
-                // Showdown resolves with consumables stripped. Preserve that
-                // immutable no-item snapshot so settlement cannot clear whatever
-                // happens to be equipped by the time the replay finishes.
-                casualPvePlayerPets = parseSealedPetSnapshots(tokenData.wandererParticipatingPets, tokenPlayerPetIds);
-                if (!casualPvePlayerPets
-                    || casualPvePlayerPets.some((pet) => Boolean(pet.loadout?.consumable))) {
-                    return res.status(409).json({ error: 'Natural wanderer token carries an invalid participating-pet snapshot.' });
-                }
-            }
             if (tokenData.mode === 'warfront') {
                 const baselineSettleAfter = Number(tokenData.settleAfter);
                 const baselineDurationMs = Number(tokenData.matchDurationMs);
@@ -791,7 +775,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const rivalIds = Array.isArray(tokenData.redPets)
                     ? tokenData.redPets.map((pet) => String(pet?.id ?? ''))
                     : [];
-                const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds);
+                // The server cycles three AI templates into four slots. Their ids
+                // may repeat; ordered sealed slots still bind the exact replay.
+                const rivalPets = parseSealedPetSnapshots(tokenData.redPets, rivalIds, { allowRepeatedOpponentIds: true });
                 const rawPlan = (body as Record<string, unknown>).warfrontPlan;
                 const plan = parseWarfrontRitePlan(rawPlan);
                 if (rawPlan !== undefined && !plan) {
@@ -893,7 +879,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     || casualPveSeal.playerPets.length !== 1
                     || casualPveSeal.opponentPets.length !== 1
                     || casualPveSeal.opponentPets[0]?.id !== DUNGEON_RARE_BEAST_ID
-                    || JSON.stringify(casualPveSeal.opponentPets[0]) !== JSON.stringify(fixedOpponent)) {
+                    // The token is read back from jsonb, which reorders object
+                    // keys, so compare values rather than JSON text.
+                    || !storedValueEquals(casualPveSeal.opponentPets[0], fixedOpponent)) {
                     return res.status(409).json({ error: 'Dungeon pet token lacks its fixed authoritative combat snapshot.' });
                 }
             } else if (!Number.isSafeInteger(tokenReward) || tokenReward < 20 || tokenReward > 250) {
@@ -960,32 +948,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // short battle token is retired, so a lost response can replay safely.
         if (dungeonPetBinding && casualBattleTokenKey) {
             try {
-                const dungeonResult = await withKvLock(saveKey, async () => {
-                    const record = await kv.get<Record<string, unknown>>(saveKey);
-                    if (!record) return { ok: false as const, status: 404, error: 'Your save is unavailable.' };
-                    const character = characterFromSave(record);
-                    if (!character) return { ok: false as const, status: 404, error: 'Your character is unavailable.' };
-                    const terminal = applyDungeonPetTerminal({
-                        character,
-                        dungeonRunToken: dungeonPetBinding!.runToken,
-                        proofId: battleToken,
-                        outcome: outcome!,
-                        petIds: casualPetIds,
-                    });
-                    if (!terminal.ok) return { ok: false as const, status: 409, error: terminal.error };
-
-                    let finalRecord = record;
-                    let finalCharacter = terminal.character;
-                    if (!terminal.alreadyApplied) {
-                        finalCharacter = spendSealedCasualConsumables(
-                            terminal.character,
-                            casualPetIds,
-                            casualPvePlayerPets,
-                        );
-                        finalRecord = bumpSaveVersion({ ...record, character: finalCharacter });
-                        await writeSaveProjected(saveKey, finalRecord, record);
-                    }
-
+                // Sealed under the save lock, after the terminal write when there
+                // is one, so a lost response can replay from it.
+                const sealDungeonReceipt = async (): Promise<void> => {
                     const receipt: DungeonPetResultReceipt = {
                         ...dungeonPetBinding!,
                         playerName,
@@ -1008,14 +973,38 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         || JSON.stringify(durable.playerPetIds) !== JSON.stringify(casualPetIds)) {
                         throw new Error('Dungeon pet result receipt did not become durable.');
                     }
+                };
+                // mutatePlayerSave settles the idle recovery earned since the last
+                // save into the terminal write, which a raw write discarded.
+                const dungeonResult = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(playerName, async ({ character }) => {
+                    const terminal = applyDungeonPetTerminal({
+                        character,
+                        dungeonRunToken: dungeonPetBinding!.runToken,
+                        proofId: battleToken,
+                        outcome: outcome!,
+                        petIds: casualPetIds,
+                    });
+                    if (!terminal.ok) return { ok: false, status: 409, error: terminal.error };
+                    if (terminal.alreadyApplied) {
+                        await sealDungeonReceipt();
+                        return { ok: true, value: null, character: terminal.character, write: false };
+                    }
                     return {
-                        ok: true as const,
-                        character: finalCharacter,
-                        _saveVersion: Number(finalRecord._saveVersion ?? record._saveVersion ?? 0),
+                        ok: true,
+                        value: null,
+                        character: spendSealedCasualConsumables(
+                            terminal.character,
+                            casualPetIds,
+                            casualPvePlayerPets,
+                        ),
+                        afterCommit: sealDungeonReceipt,
                     };
-                }, { failClosed: true });
+                }));
                 if (!dungeonResult.ok) {
-                    return res.status(dungeonResult.status).json({ error: dungeonResult.error });
+                    const error = dungeonResult.code === 'save-not-found' ? 'Your save is unavailable.'
+                        : dungeonResult.code === 'character-not-found' ? 'Your character is unavailable.'
+                            : dungeonResult.error;
+                    return res.status(dungeonResult.status).json({ error });
                 }
                 await releaseCasualBattle();
                 return res.status(200).json({
@@ -1286,18 +1275,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // any token resolved by the current engine. It stays because a draw
             // is still representable in the receipt shape.
             if (simulatedWinner === null) {
-                const settleDrawPet = async (
-                    slug: string,
-                    record: Record<string, unknown>,
-                ) => {
-                    const sk = `save:${slug}`;
-                    const char = characterFromSave(record);
-                    if (!char) throw new Error(`Ranked participant save is missing a character: ${slug}`);
+                // Each side's receipt rides in its own save write, so a side
+                // that already settled is left as it is.
+                const settleDrawSide = (slug: string, char: Record<string, unknown>): PlayerSavesSide => {
                     const receipts = readRankedPetSaveReceipts(char)
                         .slice(-(RANKED_SAVE_RECEIPT_CAP - 1));
-                    if (receipts.some((entry) => rankedPetSaveReceiptToken(entry) === matchToken)) return;
-                    const updated = bumpSaveVersion({
-                        ...record,
+                    if (receipts.some((entry) => rankedPetSaveReceiptToken(entry) === matchToken)) return { write: false, character: char };
+                    return {
                         character: {
                             ...char,
                             redeemedPetRankedMatchTokens: [
@@ -1305,22 +1289,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 makeRankedPetSaveReceipt(matchToken, tok, null, slug),
                             ],
                         },
-                    });
-                    await kv.set(sk, mergePreservingImages(updated, record));
+                    };
                 };
                 try {
-                    const [k1, k2] = [`save:${tok.a}`, `save:${tok.b}`].sort();
-                     await withKvLock(k1, () => withKvLock(k2, async () => {
-                         const [aRecord, bRecord] = await Promise.all([
-                             kv.get<Record<string, unknown>>(`save:${tok.a}`),
-                             kv.get<Record<string, unknown>>(`save:${tok.b}`),
-                         ]);
-                         if (!characterFromSave(aRecord) || !characterFromSave(bRecord)) {
-                             throw new Error('Both ranked participant saves must exist before settlement.');
-                         }
-                         await settleDrawPet(tok.a, aRecord!);
-                         await settleDrawPet(tok.b, bRecord!);
-                     }, { failClosed: true }), { failClosed: true });
+                    // Both saves are locked, and both must exist, before either
+                    // is written; a retry replays a side from its receipt.
+                    const drawn = await retryOnSaveVersionConflict(() => mutatePlayerSaves<null>([tok.a, tok.b], (sides) => ({
+                        ok: true,
+                        value: null,
+                        sides: {
+                            [tok.a]: settleDrawSide(tok.a, sides[tok.a]!.character),
+                            [tok.b]: settleDrawSide(tok.b, sides[tok.b]!.character),
+                        },
+                    })));
+                    if (!drawn.ok) throw new Error('Both ranked participant saves must exist before settlement.');
                      await writeRankedSettlementReceipt(matchToken, tok, null);
                      const finalSave = await kv.get<Record<string, unknown>>(`save:${playerName}`);
                      if (!characterFromSave(finalSave)) throw new Error('Ranked draw settled, but the authoritative save could not be reloaded.');
@@ -1344,14 +1326,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // Settle one side once. The receipt lives in the same save write as
             // rating + witness progress, so a failed write cannot
             // strand an external NX marker and a failed response can be replayed.
-            const settlePet = async (
+            const settlePet = (
                 slug: string,
                 role: 'winner' | 'loser',
-                record: Record<string, unknown>,
+                char: Record<string, unknown>,
             ) => {
-                const sk = `save:${slug}`;
-                const char = characterFromSave(record);
-                if (!char) throw new Error(`Ranked participant save is missing a character: ${slug}`);
                 const r = creditRankedOutcome(char, { role, winnerRating, loserRating, kind: 'pet' });
                 const receipts = readRankedPetSaveReceipts(char)
                     .slice(-(RANKED_SAVE_RECEIPT_CAP - 1));
@@ -1361,13 +1340,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         ? petWitnessReceiptForSettlement(char, `pet-ranked:${matchToken}`)
                         : { granted: [] as string[], witnessed: [], livingWitnessProgress: [] };
                     return {
-                        field: 'petRankedRating',
-                        value: Number.isFinite(currentRating) ? currentRating : r.newRating,
-                        delta: 0,
-                        replayed: true,
-                        chronicleCards: replayReceipt.granted,
-                        witnessedPets: replayReceipt.witnessed,
-                        livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                        side: { write: false, character: char } satisfies PlayerSavesSide,
+                        rating: {
+                            field: 'petRankedRating',
+                            value: Number.isFinite(currentRating) ? currentRating : r.newRating,
+                            delta: 0,
+                            replayed: true,
+                            chronicleCards: replayReceipt.granted,
+                            witnessedPets: replayReceipt.witnessed,
+                            livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                        },
                     };
                 }
                 const combatPetId = String((slug === tok.a ? tok.aPet : tok.bPet)?.id ?? '');
@@ -1382,33 +1364,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const witness = role === 'winner'
                     ? recordPetArenaVictory(rankedCharacter, [combatPetId], Date.now(), `pet-ranked:${matchToken}`)
                     : { character: rankedCharacter, granted: [] as string[], witnessed: [], livingWitnessProgress: [] };
-                const updated = bumpSaveVersion({ ...record, character: witness.character });
-                await kv.set(sk, mergePreservingImages(updated, record));
                 return {
-                    field: 'petRankedRating',
-                    value: r.newRating,
-                    delta: r.delta,
-                    chronicleCards: witness.granted,
-                    witnessedPets: witness.witnessed,
-                    livingWitnessProgress: witness.livingWitnessProgress,
+                    side: { character: witness.character } satisfies PlayerSavesSide,
+                    rating: {
+                        field: 'petRankedRating',
+                        value: r.newRating,
+                        delta: r.delta,
+                        chronicleCards: witness.granted,
+                        witnessedPets: witness.witnessed,
+                        livingWitnessProgress: witness.livingWitnessProgress,
+                    } as { field: string; value: number; delta: number; replayed?: boolean; chronicleCards: string[]; witnessedPets: unknown[]; livingWitnessProgress: unknown[] },
                 };
             };
 
             try {
-                // Lock both saves in deterministic key order (deadlock-free).
-                const [k1, k2] = [`save:${winnerName}`, `save:${loserName}`].sort();
-                const out = await withKvLock(k1, () => withKvLock(k2, async () => {
-                    const [winnerRecord, loserRecord] = await Promise.all([
-                        kv.get<Record<string, unknown>>(`save:${winnerName}`),
-                        kv.get<Record<string, unknown>>(`save:${loserName}`),
-                    ]);
-                    if (!characterFromSave(winnerRecord) || !characterFromSave(loserRecord)) {
-                        throw new Error('Both ranked participant saves must exist before settlement.');
-                    }
-                    const w = await settlePet(winnerName, 'winner', winnerRecord!);
-                    const l = await settlePet(loserName, 'loser', loserRecord!);
-                     return { rating: playerName === winnerName ? w : l };
-                 }, { failClosed: true }), { failClosed: true });
+                // Both saves are locked (one sorted order, deadlock-free) and
+                // must exist before either is written. Each side's receipt is in
+                // its own write, so a retry replays a side that already settled.
+                const settled = await retryOnSaveVersionConflict(() => mutatePlayerSaves([winnerName, loserName], (sides) => {
+                    const w = settlePet(winnerName, 'winner', sides[winnerName]!.character);
+                    const l = settlePet(loserName, 'loser', sides[loserName]!.character);
+                    return {
+                        ok: true,
+                        value: playerName === winnerName ? w.rating : l.rating,
+                        sides: { [winnerName]: w.side, [loserName]: l.side },
+                    };
+                }));
+                if (!settled.ok) throw new Error('Both ranked participant saves must exist before settlement.');
+                const out = { rating: settled.value };
                  // The public Pet Elo board reads this index, not full saves.
                  // Project both durable ratings before publishing completion;
                  // a retry re-reads the latest saves if projection fails.
@@ -1470,13 +1453,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
          }
 
-        // Apply under a per-player lock so simultaneous result POSTs (e.g.
-        // double-clicked Confirm) can't both award ryo + increment counters.
-        const result = await withKvLock(saveKey, async () => {
-            const record = await kv.get<Record<string, unknown>>(saveKey);
-            if (!record) return { error: 'no-save' as const };
-            const char = record.character as Record<string, unknown> | undefined;
-            if (!char) return { error: 'no-character' as const };
+        // mutatePlayerSave applies this under the player's save lock, so
+        // simultaneous result POSTs (e.g. double-clicked Confirm) can't both
+        // award ryo + increment counters, and settles the idle recovery earned
+        // since the last save into the write, which a raw write discarded. A
+        // lost commit race re-runs the whole block once: it re-reads the save,
+        // and the token receipt keeps the re-run from paying twice. Each branch
+        // decides its reply; the committed version and character join it below.
+        const settled = await retryOnSaveVersionConflict(() => mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character: char }) => {
+            let receiptChar: Record<string, unknown> = char;
             if (casualBattleTokenKey) {
                 const receipts = Array.isArray(char.redeemedPetBattleTokens)
                     ? (char.redeemedPetBattleTokens as unknown[]).filter((entry): entry is string => typeof entry === 'string').slice(-(RECEIPT_HISTORY - 1))
@@ -1496,22 +1481,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const replayReceipt = petWitnessReceiptForSettlement(char, `pet-casual:${casualBattleReceipt}`);
                     return {
                         ok: true,
-                        reward: 0,
-                        reason: 'invalid-or-spent-pet-battle-token',
-                        totalPetWins: Number(char.totalPetWins ?? 0),
-                        dailyPetWins: Number(char.dailyPetWins ?? 0),
-                        balances: { ryo: Number(char.ryo ?? 0) },
-                        chronicleCards: replayReceipt.granted,
-                        witnessedPets: replayReceipt.witnessed,
-                        livingWitnessProgress: replayReceipt.livingWitnessProgress,
-                        progressionEligible: paidMarker?.legacyApplied !== true && Boolean(paidMarker),
-                        _saveVersion: Number(record._saveVersion ?? 0),
+                        value: {
+                            ok: true,
+                            reward: 0,
+                            reason: 'invalid-or-spent-pet-battle-token',
+                            totalPetWins: Number(char.totalPetWins ?? 0),
+                            dailyPetWins: Number(char.dailyPetWins ?? 0),
+                            balances: { ryo: Number(char.ryo ?? 0) },
+                            chronicleCards: replayReceipt.granted,
+                            witnessedPets: replayReceipt.witnessed,
+                            livingWitnessProgress: replayReceipt.livingWitnessProgress,
+                            progressionEligible: paidMarker?.legacyApplied !== true && Boolean(paidMarker),
+                        },
                         character: char,
+                        write: false,
                     };
                 }
-                char.redeemedPetBattleTokens = [...receipts, casualBattleReceipt];
+                receiptChar = { ...char, redeemedPetBattleTokens: [...receipts, casualBattleReceipt] };
             }
-            const spentChar = spendSealedCasualConsumables(char, casualPetIds, casualPvePlayerPets);
+            const spentChar = spendSealedCasualConsumables(receiptChar, casualPetIds, casualPvePlayerPets);
 
             const today = utcDateKey();
             const lastReset = String(char.lastDailyReset ?? '');
@@ -1522,18 +1510,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // currently store losses anywhere — return ok so the client UI
             // can show "recorded" instead of silently no-op'ing.
             if (outcome === 'loss' || outcome === 'draw') {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome,
-                    reward: 0,
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins,
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome,
+                        reward: 0,
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins,
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1542,22 +1530,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // but cannot touch ryo, the daily/lifetime counters, Living Witness,
             // achievements/quests, or Legacy pet-duel progression.
             if (!paidProgressionEligible) {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome: 'win' as const,
-                    reward: 0,
-                    reason: 'casual-sparring',
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins: Number(char.dailyPetWins ?? 0),
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    chronicleCards: [],
-                    witnessedPets: [],
-                    livingWitnessProgress: [],
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome: 'win' as const,
+                        reward: 0,
+                        reason: 'casual-sparring',
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins: Number(char.dailyPetWins ?? 0),
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                        chronicleCards: [],
+                        witnessedPets: [],
+                        livingWitnessProgress: [],
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1565,22 +1553,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // currency. A capped win cannot farm leaderboard/achievement/quest
             // counters, Living Witness, Chronicle cards, or Legacy receipts.
             if (dailyPetWins >= DAILY_ARENA_WIN_CAP) {
-                const spentRecord = bumpSaveVersion({ ...record, character: spentChar });
-                await writeSaveProjected(saveKey, spentRecord, record);
-                await releaseCasualBattle();
                 return {
                     ok: true,
-                    outcome: 'win' as const,
-                    reward: 0,
-                    capped: true,
-                    totalPetWins: Number(char.totalPetWins ?? 0),
-                    dailyPetWins,
-                    balances: { ryo: Number(char.ryo ?? 0) },
-                    chronicleCards: [],
-                    witnessedPets: [],
-                    livingWitnessProgress: [],
-                    _saveVersion: Number((spentRecord as Record<string, unknown>)._saveVersion ?? 0),
+                    value: {
+                        ok: true,
+                        outcome: 'win' as const,
+                        reward: 0,
+                        capped: true,
+                        totalPetWins: Number(char.totalPetWins ?? 0),
+                        dailyPetWins,
+                        balances: { ryo: Number(char.ryo ?? 0) },
+                        chronicleCards: [],
+                        witnessedPets: [],
+                        livingWitnessProgress: [],
+                    },
                     character: spentChar,
+                    afterCommit: releaseCasualBattle,
                 };
             }
 
@@ -1603,46 +1591,55 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 casualPvePlayerPets ?? undefined,
             );
             const updatedChar = witness.character;
-            const updated = bumpSaveVersion({ ...record, character: updatedChar }, { previousCharacter: char });
-            await writeSaveProjected(saveKey, updated, record);
-            if (casualBattleTokenKey) {
-                // AFTER the paying write, never before: a failed key write must
-                // not be able to swallow a reward the player earned. Until it
-                // lands the array receipt is still covering, and it is covering
-                // for a full day of wins. Only the paying branch needs it — the
-                // loss/draw and capped branches move no currency.
-                //
-                // It is also written BEFORE the token is released: while the
-                // token still exists a re-report is possible, and the durable
-                // receipt is what refuses it.
-                await kv.set(
-                    paidReceiptKey(playerName, casualBattleReceipt),
-                    { at: Date.now(), legacyApplied: false },
-                    { nx: true, ex: PAID_RECEIPT_TTL_SECONDS },
-                )
-                    .catch(() => undefined);
-            }
-            await releaseCasualBattle();
             return {
                 ok: true,
-                outcome: 'win' as const,
-                reward,
-                progressionEligible: true,
-                totalPetWins: updatedChar.totalPetWins,
-                dailyPetWins: updatedChar.dailyPetWins,
-                balances: { ryo: Number(updatedChar.ryo) },
-                chronicleCards: witness.granted,
-                witnessedPets: witness.witnessed,
-                livingWitnessProgress: witness.livingWitnessProgress,
-                _saveVersion: Number((updated as Record<string, unknown>)._saveVersion ?? 0),
+                value: {
+                    ok: true,
+                    outcome: 'win' as const,
+                    reward,
+                    progressionEligible: true,
+                    totalPetWins: updatedChar.totalPetWins,
+                    dailyPetWins: updatedChar.dailyPetWins,
+                    balances: { ryo: Number(updatedChar.ryo) },
+                    chronicleCards: witness.granted,
+                    witnessedPets: witness.witnessed,
+                    livingWitnessProgress: witness.livingWitnessProgress,
+                },
                 character: updatedChar,
+                afterCommit: async () => {
+                    if (casualBattleTokenKey) {
+                        // AFTER the paying write, never before: a failed key write must
+                        // not be able to swallow a reward the player earned. Until it
+                        // lands the array receipt is still covering, and it is covering
+                        // for a full day of wins. Only the paying branch needs it — the
+                        // loss/draw and capped branches move no currency.
+                        //
+                        // It is also written BEFORE the token is released: while the
+                        // token still exists a re-report is possible, and the durable
+                        // receipt is what refuses it.
+                        await kv.set(
+                            paidReceiptKey(playerName, casualBattleReceipt),
+                            { at: Date.now(), legacyApplied: false },
+                            { nx: true, ex: PAID_RECEIPT_TTL_SECONDS },
+                        )
+                            .catch(() => undefined);
+                    }
+                    await releaseCasualBattle();
+                },
             };
-        }, { failClosed: true });
+        }));
 
-        if ('error' in result) {
-            const code = result.error === 'no-save' || result.error === 'no-character' ? 404 : 500;
-            return res.status(code).json({ error: result.error });
+        if (!settled.ok) {
+            const code = settled.code === 'save-not-found' ? 'no-save'
+                : settled.code === 'character-not-found' ? 'no-character'
+                    : settled.error;
+            return res.status(settled.status === 404 ? 404 : 500).json({ error: code });
         }
+        const result: Record<string, unknown> = {
+            ...settled.value,
+            _saveVersion: settled._saveVersion,
+            character: settled.character,
+        };
         if (outcome === 'win' && battleToken && result.progressionEligible === true) {
             const legacyDelivered = await bumpLegacyStats(
                 playerName,
@@ -1670,6 +1667,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return res.status(200).json(result);
     } catch (err) {
+        // Nothing was written; the battle token is still unspent, so retry is exact.
+        if (isPlayerSaveVersionConflict(err)) return res.status(409).json(SAVE_VERSION_CONFLICT_REPLY);
         console.error('[pet/battle-result]', err);
         return res.status(500).json({ error: 'Internal server error.' });
     }

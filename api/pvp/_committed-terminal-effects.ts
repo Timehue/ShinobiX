@@ -195,9 +195,7 @@ async function runCommittedPvpTerminalEffects(
     // trapped winners on the victory screen in 2026-09. Each fighter carries
     // its own durable receipt, so this replays safely; a transient storage
     // failure propagates and the next terminal reader retries it.
-    await settlePvpTerminalVitals(kv, session, {
-        lock: (saveKey, action) => withKvLock(saveKey, action, { failClosed: true }),
-    });
+    await settlePvpTerminalVitals(kv, session, {});
 
     // Receipt and history writers are battle-id idempotent. Indexing is retried
     // even when the receipt writer reports "already exists", which repairs a

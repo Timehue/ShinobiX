@@ -1,11 +1,12 @@
 import { safeLogValue } from '../_safe-log.js';
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
-import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { LockContendedError } from '../_lock.js';
+import { mutatePlayerSave, type PlayerSaveMutationResult } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict } from '../save/_projected-write.js';
 import {
     RIFT_QUESTS, RIFT_DAILY_CAP, RIFT_COOLDOWN_MS,
     isRiftQuestId, riftQuestRyo, riftTargetSector,
@@ -32,6 +33,26 @@ const utcDateKey = () => new Date().toISOString().slice(0, 10);
 
 type Sealed = RiftQuestSeal;
 
+/** A rift reply; `echo` acknowledges the save version, `withCharacter` hands back the character. */
+type Reply = { body: Record<string, unknown>; echo?: boolean; withCharacter?: boolean };
+
+function replyFor(committed: PlayerSaveMutationResult<Reply>): { status: number; body: Record<string, unknown> } {
+    if (!committed.ok) {
+        return committed.status === 404
+            ? { status: 404, body: { error: 'Your save was not found.' } }
+            : { status: committed.status, body: { error: committed.error } };
+    }
+    const { body, echo, withCharacter } = committed.value;
+    return {
+        status: 200,
+        body: {
+            ...body,
+            ...(withCharacter ? { character: committed.character } : {}),
+            ...(echo ? { _saveVersion: committed._saveVersion } : {}),
+        },
+    };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
     if (req.method === 'OPTIONS') return res.status(200).end();
@@ -56,40 +77,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         // ── ACCEPT: gate-check the real save, seal the foe-kill baseline ──────
         if (action === 'accept' && def) {
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                const answer = (reply: Record<string, unknown>) => ({ ok: true as const, write: false, character: char, value: { body: reply } });
                 // Busy if a seal exists in EITHER store — the durable one still marks
                 // an active rift after the KV seal's 7d TTL lapses (or a migration).
                 if (parseRiftQuestSeal(rec.activeRiftQuestSeal) ?? parseRiftQuestSeal(await kv.get(questKey))) {
-                    return { status: 200, body: { ok: false, reason: 'busy' } };
+                    return answer({ ok: false, reason: 'busy' });
                 }
-                if (num(char.level) < def.levelReq) return { status: 200, body: { ok: false, reason: 'level' } };
-                if (Date.now() < num(char.riftCooldownUntil)) return { status: 200, body: { ok: false, reason: 'cooldown' } };
+                if (num(char.level) < def.levelReq) return answer({ ok: false, reason: 'level' });
+                if (Date.now() < num(char.riftCooldownUntil)) return answer({ ok: false, reason: 'cooldown' });
 
                 const targetSector = riftTargetSector(playerName, def.id);
                 const baseline = num(char.hollowGateWardenKills);
                 const sealed: Sealed = { id: def.id, targetSector, baseline, at: Date.now(), geoV: WORLD_GEO_VERSION };
-                await kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS });
                 const activeRiftQuest = { id: def.id, targetSector, stage: 'travel' as const, baseline, bossName: def.bossName };
-                const updated = { ...char, activeRiftQuest, riftQuestBossReceipt: null };
-                // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
-                // so an in-flight rift survives the KV TTL and the Postgres cutover.
-                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed, character: updated });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                return { status: 200, body: { ok: true, activeRiftQuest, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, activeRiftQuest, riftQuestBossReceipt: null },
+                    // Durable seal on the save record (server-owned; SERVER_LEDGER_TOPLEVEL_FIELDS)
+                    // so an in-flight rift survives the KV TTL and the Postgres cutover.
+                    recordPatch: { activeRiftQuestSeal: sealed },
+                    value: { body: { ok: true, activeRiftQuest }, echo: true },
+                    // The KV copy follows the durable seal, best-effort. Written
+                    // first, a failed save write left a phantom seal answering
+                    // "busy" to every new rift until it expired a week later.
+                    afterCommit: () => kv.set(questKey, sealed, { ex: QUEST_TTL_SECONDS }).then(() => undefined, () => undefined),
+                };
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── COMPLETE: verify the boss kill, pay, stamp cooldown ──────────────
         if (action === 'complete' && def) {
             const today = utcDateKey();
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Your save was not found.' } };
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
+                const answer = (reply: Record<string, unknown>) => ({ ok: true as const, write: false, character: char, value: { body: reply } });
                 // Durable seal first, KV fallback — a legit rift accepted before the KV
                 // TTL lapsed (or before the cutover) still pays out from the durable seal.
                 const durable = parseRiftQuestSeal(rec.activeRiftQuestSeal);
@@ -103,31 +126,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // can offer a fresh rift.
                     await kv.del(questKey).catch(() => undefined);
                     if (char.activeRiftQuest || rec.activeRiftQuestSeal !== undefined) {
-                        const updated = { ...char, activeRiftQuest: null, riftQuestBossReceipt: null };
-                        const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
-                        await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                        return { status: 200, body: { ok: false, reason: 'none', activeRiftQuest: null, character: updated, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                        return {
+                            ok: true,
+                            character: { ...char, activeRiftQuest: null, riftQuestBossReceipt: null },
+                            recordPatch: { activeRiftQuestSeal: null },
+                            value: { body: { ok: false, reason: 'none', activeRiftQuest: null }, echo: true, withCharacter: true },
+                        };
                     }
-                    return { status: 200, body: { ok: false, reason: 'none' } };
+                    return answer({ ok: false, reason: 'none' });
                 }
-                if (sealed.id !== def.id) return { status: 200, body: { ok: false, reason: 'wrong-rift' } };
+                if (sealed.id !== def.id) return answer({ ok: false, reason: 'wrong-rift' });
 
                 const bossReceipt = parseRiftQuestBossReceipt(char.riftQuestBossReceipt);
                 if (!riftBossReceiptMatches(sealed, bossReceipt)) {
+                    const reason = !sealed.runToken ? 'proof-missing-retry' : 'incomplete';
+                    if (durable) return answer({ ok: false, reason });
                     // Migrate a KV-only legacy seal onto the durable save so it survives
                     // the TTL / a future cutover if the boss is cleared later.
-                    let saveVersion: number | undefined;
-                    if (!durable) {
-                        const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: sealed });
-                        await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                        saveVersion = Number(nextRecord._saveVersion ?? 0);
-                    }
-                    const reason = !sealed.runToken ? 'proof-missing-retry' : 'incomplete';
-                    return { status: 200, body: { ok: false, reason, ...(saveVersion !== undefined ? { _saveVersion: saveVersion } : {}) } };
+                    return { ok: true, character: char, recordPatch: { activeRiftQuestSeal: sealed }, value: { body: { ok: false, reason }, echo: true } };
                 }
                 const countKey = `rift-quest-count:${playerName}:${today}`;
                 if (num(await kv.get<number>(countKey)) >= RIFT_DAILY_CAP) {
-                    return { status: 200, body: { ok: false, reason: 'daily-cap' } };
+                    return answer({ ok: false, reason: 'daily-cap' });
                 }
                 // Burn the single-use seal only now that it is verified, before payout.
                 // The KV del is the single-use guard ONLY when the KV seal is the source
@@ -135,8 +155,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // the success write below (under this same save lock) is the guard, so a
                 // KV seal that already lapsed (consumed<=0) must NOT block the payout.
                 const consumed = await kv.del(questKey);
-                if (!durable && consumed <= 0) return { status: 200, body: { ok: false, reason: 'none' } };
-                await kv.incr(countKey, { ex: 25 * 60 * 60 });
+                if (!durable && consumed <= 0) return answer({ ok: false, reason: 'none' });
+                const countAfter = await kv.incr(countKey, { ex: 25 * 60 * 60 });
 
                 const ryo = riftQuestRyo(num(char.level) || 1, def.weight);
                 const totalRyo = num(char.ryo) + ryo;
@@ -166,48 +186,61 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     riftQuestBossReceipt: null,
                     riftFirstClears,
                 };
-                const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated }, { previousCharacter: char });
-                await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
                 return {
-                    status: 200,
-                    body: {
-                        ok: true, ryo, totalRyo,
-                        fateShards: def.fateShards, totalFateShards,
-                        boneCharms: def.boneCharms, totalBoneCharms,
-                        cooldownUntil,
-                        firstClear,
-                        firstClearAt,
-                        completedRiftId: def.id,
-                        _saveVersion: Number(nextRecord._saveVersion ?? 0),
+                    ok: true,
+                    character: updated,
+                    recordPatch: { activeRiftQuestSeal: null },
+                    value: {
+                        body: {
+                            ok: true, ryo, totalRyo,
+                            fateShards: def.fateShards, totalFateShards,
+                            boneCharms: def.boneCharms, totalBoneCharms,
+                            cooldownUntil,
+                            firstClear,
+                            firstClearAt,
+                            completedRiftId: def.id,
+                        },
+                        echo: true,
+                    },
+                    // A payout that loses its compare-and-set paid nothing. Put back
+                    // what it spent ahead of the write: the KV seal (for a KV-only
+                    // rift it is the only proof of the run) and the daily slot. Only
+                    // this path writes either key, always under this save lock.
+                    onConflict: async () => {
+                        if (consumed > 0 && !(await kv.get(questKey))) {
+                            const remaining = QUEST_TTL_SECONDS - Math.floor((Date.now() - num(sealed.at)) / 1000);
+                            if (remaining > 0) await kv.set(questKey, sealed, { ex: remaining });
+                        }
+                        if (await kv.get<number>(countKey) === countAfter) await kv.set(countKey, countAfter - 1, { ex: 25 * 60 * 60 });
                     },
                 };
-            }, { failClosed: true });
+            });
+            const out = replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         // ── ABANDON: clear the sealed rift ───────────────────────────────────
         if (action === 'abandon') {
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${playerName}`, async () => {
+            const committed = await mutatePlayerSave<Reply>(playerName, async ({ record: rec, character: char }) => {
                 await kv.del(questKey).catch(() => undefined);
-                const rec = await kv.get<Record<string, unknown>>(`save:${playerName}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (rec && char) {
-                    const updated = { ...char, activeRiftQuest: null, riftQuestBossReceipt: null };
-                    if (!char.activeRiftQuest && rec.activeRiftQuestSeal == null) {
-                        return { status: 200, body: { ok: true, _saveVersion: Number(rec._saveVersion ?? 0) } };
-                    }
-                    const nextRecord = bumpSaveVersion({ ...rec, activeRiftQuestSeal: null, character: updated });
-                    await kv.set(`save:${playerName}`, mergePreservingImages(nextRecord, rec));
-                    return { status: 200, body: { ok: true, _saveVersion: Number(nextRecord._saveVersion ?? 0) } };
+                if (!char.activeRiftQuest && rec.activeRiftQuestSeal == null) {
+                    return { ok: true, write: false, character: char, value: { body: { ok: true }, echo: true } };
                 }
-                return { status: 200, body: { ok: true } };
-            }, { failClosed: true });
+                return {
+                    ok: true,
+                    character: { ...char, activeRiftQuest: null, riftQuestBossReceipt: null },
+                    recordPatch: { activeRiftQuestSeal: null },
+                    value: { body: { ok: true }, echo: true },
+                };
+            });
+            // Abandoning with no save at all has nothing to clear.
+            const out = !committed.ok && committed.status === 404 ? { status: 200, body: { ok: true } } : replyFor(committed);
             return res.status(out.status).json(out.body);
         }
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Could not update the rift — please retry.' });
         }
         console.error('[sector/rift-quest]', safeLogValue(err));

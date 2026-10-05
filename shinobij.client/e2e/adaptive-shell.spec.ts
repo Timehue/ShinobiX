@@ -427,8 +427,6 @@ function subscriberSaveFixture(jutsuIds: string[], creatorJutsus: ReturnType<typ
             },
         },
         currentBiome: "central",
-        // Town layout fixtures must already be in town. A bookmarked town
-        // screen must not teleport a field character out of their sector.
         currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
@@ -618,6 +616,60 @@ test("village shell remains usable across the required visual matrix", async ({ 
     }
 });
 
+test("village frame fills tall portrait screens, and tablets lay facilities out like desktop", async ({ page }, testInfo) => {
+    test.setTimeout(120_000);
+    test.skip(testInfo.project.name !== "chromium-desktop", "one engine covers the exact dynamic viewport contract; cross-engine smoke runs separately");
+    const api = await installAuthenticatedApi(page);
+    await bootPersistedAdaptiveScreen(page, api, "village");
+
+    // 384x751 is a 1080x2340 phone's Play-app WebView between its system bars.
+    // The facility panel used to stop at a fixed 480px there, leaving a 125px
+    // empty band above the menu (and 454px on a portrait tablet).
+    const gapAboveMenu = async () => {
+        const frame = await page.locator(".stormveil-village-screen").boundingBox();
+        const nav = await page.locator(".mobile-bottom-nav").boundingBox();
+        return frame && nav ? Math.round(nav.y - (frame.y + frame.height)) : Number.NaN;
+    };
+    for (const viewport of [{ width: 384, height: 751 }, { width: 390, height: 844 }, { width: 412, height: 915 }, { width: 768, height: 1024 }]) {
+        await test.step(`${viewport.width}x${viewport.height} leaves no empty band`, async () => {
+            await page.setViewportSize(viewport);
+            await expect.poll(gapAboveMenu).toBeLessThanOrEqual(24);
+            // ...without running under the menu either.
+            expect(await gapAboveMenu()).toBeGreaterThanOrEqual(0);
+        });
+    }
+
+    // Portrait tablets place each facility at its desktop spot on the painting.
+    for (const viewport of [{ width: 600, height: 800 }, { width: 768, height: 1024 }, { width: 979, height: 1300 }]) {
+        await test.step(`${viewport.width}x${viewport.height} scatters the facilities without overlap`, async () => {
+            await page.setViewportSize(viewport);
+            await expect(page.locator(".stormveil-map .facility-tile").first()).toHaveCSS("position", "absolute");
+            const overlaps = await page.evaluate(() => {
+                const frame = document.querySelector(".stormveil-village-screen")!.getBoundingClientRect();
+                const parts = [...document.querySelectorAll(".stormveil-map .facility-tile")].flatMap((tile, index) =>
+                    [".stormveil-map-icon-frame", ".stormveil-map-label"].map((part) => ({ index, rect: tile.querySelector(part)!.getBoundingClientRect() })));
+                const found: string[] = [];
+                for (const a of parts) {
+                    if (a.rect.left < frame.left || a.rect.right > frame.right || a.rect.top < frame.top || a.rect.bottom > frame.bottom) found.push(`tile ${a.index} leaves the frame`);
+                    for (const b of parts) {
+                        if (b.index <= a.index) continue;
+                        const width = Math.min(a.rect.right, b.rect.right) - Math.max(a.rect.left, b.rect.left);
+                        const height = Math.min(a.rect.bottom, b.rect.bottom) - Math.max(a.rect.top, b.rect.top);
+                        if (width > 0 && height > 0) found.push(`tiles ${a.index} and ${b.index}`);
+                    }
+                }
+                return found;
+            });
+            expect(overlaps).toEqual([]);
+        });
+    }
+
+    await test.step("a short screen keeps the panel's 480px floor", async () => {
+        await page.setViewportSize({ width: 844, height: 390 });
+        await expect.poll(async () => Math.round((await page.locator(".stormveil-map").boundingBox())?.height ?? 0)).toBeGreaterThanOrEqual(480);
+    });
+});
+
 test("mobile storage notice clears fixed navigation and remains dismissible", async ({ page }, testInfo) => {
     test.setTimeout(60_000);
     test.skip(testInfo.project.name !== "chromium-mobile", "one touch/mobile engine exercises the notice contract");
@@ -649,7 +701,7 @@ test("mobile storage notice clears fixed navigation and remains dismissible", as
     await notice.getByRole("button", { name: "Got it" }).click();
     await expect(notice).toBeHidden();
     await expectFinalActionableClearsFixedNavigation(page, page.locator(".center-game"), mobileNav);
-    await mobileNav.getByRole("button", { name: "Travel" }).click();
+    await mobileNav.getByRole("button", { name: /^(?:Travel|World Map)$/ }).click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldMap");
 });
 
@@ -727,7 +779,7 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await installPersistedAdaptiveSession(page, maximumAccountName);
     await page.goto("/?adaptive-fixture=maximum#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectLoadedSave(page, api, maximumAccountName);
+    await expectLoadedSave(page, api);
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });

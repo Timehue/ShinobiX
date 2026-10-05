@@ -1,5 +1,11 @@
 import assert from 'node:assert/strict';
-import { before, beforeEach, test } from 'node:test';
+import { before, beforeEach, test as nodeTest, type TestContext } from 'node:test';
+
+// Every test in this file clears and reseeds the same in-memory KV store.
+// Keep sibling cases serial even when the repository runner enables file-level
+// concurrency, or one case can erase another case's fixture mid-request.
+const test = (name: string, fn: (context: TestContext) => void | Promise<void>) =>
+    nodeTest(name, { concurrency: false }, fn);
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -101,7 +107,8 @@ test('appointments grant orders and war weight; clearing and stale writes cannot
 });
 
 test('all seven earned seats have real ANBU powers and rotate at UTC month rollover', async t => {
-    t.mock.method(Date, 'now', () => Date.UTC(2026, 8, 30, 23, 59));
+    let clock = Date.UTC(2026, 8, 30, 23, 59);
+    t.mock.method(Date, 'now', () => clock);
     for (let i = 0; i < 9; i++) await seed(`fighter${i}`, { monthlyPvpKills: 9 - i, pvpKillMonth: '2026-09' });
     await request(anbu, 'kage', { action: 'appoint', seat: 0, appointee: 'fighter0' });
     assert.deepEqual((await roster(village)).earned, ['fighter1', 'fighter2', 'fighter3', 'fighter4', 'fighter5', 'fighter6', 'fighter7']);
@@ -109,7 +116,7 @@ test('all seven earned seats have real ANBU powers and rotate at UTC month rollo
     assert.equal((await request(orders, 'fighter1', { action: 'post', id: 'patrol-gate', type: 'general', title: 'Patrol', body: 'Patrol the gate.' })).status, 200);
     const { loadAnbuAppointees } = await import('../_anbu-infiltration-store.js');
     assert.deepEqual(await loadAnbuAppointees(village), (await roster(village)).members, 'garrisons and infiltration share the complete roster');
-    t.mock.method(Date, 'now', () => Date.UTC(2026, 9, 1, 0, 1));
+    clock = Date.UTC(2026, 9, 1, 0, 1);
     assert.deepEqual((await roster(village)).members, ['fighter0'], 'appointed seats survive monthly rollover');
     assert.deepEqual(await roles.sectorWarRoleOf('fighter1', village), roles.ROLE_VILLAGER);
 });

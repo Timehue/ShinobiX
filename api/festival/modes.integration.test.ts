@@ -133,7 +133,6 @@ test('Caravan opens a resumable 3–5 enemy Tower ambush with current vitals and
     assert.equal((await call(caravan, { action: 'combat-result', runId })).status, 409);
     assert.equal((await call(caravan, { action: 'retire', runId, version: opened.progress.current.version, requestId: randomUUID() })).status, 409);
     session.status = 'done'; session.winner = 'enemy'; shinobi.hp = 0; session.lastActionAt = now;
-    session.log.push('Squad wiped — floor failed.');
     const { writeSession } = await import('../towers/_tower-store.js');
     await writeSession(session);
     const restored = ok(await call(caravan, {}, { method: 'GET', query: { playerName: player } }));
@@ -195,8 +194,6 @@ test('a real combat victory resumes the route and charges a summoned companion o
     assert.equal(session.actors.find((actor: Obj) => actor.id === playerActor.id)!.itemsUsed?.['potion-rejuvenation'], 1);
     session = ok(await call(towerAction, { runId: session.runId, type: 'attack', targetId: target.id, expectedVersion: towerActionVersion(session), moveToken: randomUUID() })).session;
     assert.equal(session.status, 'done');
-    assert.ok(session.log.includes('--- Round 1 ---'));
-    assert.ok(session.log.includes('Floor 9101 cleared!'), 'the engine keeps its canonical floor outcome for internal logic');
     const finished = ok(await call(caravan, { action: 'combat-result', runId: opened.progress.current.id }));
     assert.equal(finished.progress.current.status, 'travel');
     assert.equal(finished.progress.current.enemiesDefeated, 1);

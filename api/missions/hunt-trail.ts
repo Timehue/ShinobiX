@@ -25,7 +25,6 @@ import { cleanWorldAiActivePointer, cleanWorldAiPendingChain, worldAiActiveKey, 
 import { abandonSoloPveSession } from '../solo-pve/_abandon.js';
 import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
-import { utcDateKey } from './_progress.js';
 
 const HUNT_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
@@ -103,33 +102,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const missionProgress = progressMap(record.missionProgress);
             const trails = trailMap(character);
             const existing = trails[missionId] ?? null;
-            const claimedServerMissions = Array.isArray(character.claimedServerMissions)
-                ? character.claimedServerMissions.map(String)
-                : [];
-            const dailyClaimPrefix = `${utcDateKey()}:hunt:${missionId}`;
-            const claimedToday = claimedServerMissions.some((receipt) =>
-                receipt === dailyClaimPrefix || receipt.startsWith(`${dailyClaimPrefix}:`));
-            if (claimedToday) {
-                delete trails[missionId];
-                const nextAccepted = acceptedIds.filter((id) => id !== missionId);
-                const nextProgress = { ...missionProgress, [missionId]: 0 };
-                const changed = acceptedIds.includes(missionId) || existing !== null || missionProgress[missionId] !== 0;
-                return {
-                    ok: true as const,
-                    character: { ...character, serverHuntTrails: trails },
-                    recordPatch: { acceptedMissionIds: nextAccepted, missionProgress: nextProgress },
-                    value: {
-                        state: null,
-                        acceptedMissionIds: nextAccepted,
-                        missionProgress: nextProgress,
-                        claimedToday: true,
-                        resetReceipt: true,
-                        replayed: true,
-                    },
-                    write: changed,
-                };
-            }
-
             if (action === 'state') {
                 // Rollout recovery: old accepted hunts predate serverHuntTrails.
                 // Preserve the accepted contract, but never import its historical
@@ -349,11 +321,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             console.error('[missions/hunt-trail receipt]', safeLogValue(error));
             return res.status(503).json({ ok: false, retryable: true, error: 'The Guild ledger is still syncing. Retry the same action.' });
         }
-        const claimedToday = (out.value as { claimedToday?: boolean }).claimedToday === true;
         return res.status(200).json({
             ok: true,
             ...out.value,
-            ...(claimedToday ? { reason: 'already-claimed-today' } : {}),
             character: responseCharacter,
             _saveVersion: responseSaveVersion,
         });

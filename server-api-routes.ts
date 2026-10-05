@@ -64,9 +64,6 @@ import villageWarDebuffHandler from './api/village/war-debuff.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
 import itemReviewHandler   from './api/admin/item-review.js';
 import bloodlinesListHandler from './api/bloodlines/list.js';
-import kvProxyHandler     from './api/kv-proxy.js';
-import migrateKvHandler   from './api/admin/migrate-kv.js';
-import migrateToBaseHandler from './api/admin/migrate-to-base.js';
 import migrateImagesToR2Handler from './api/admin/migrate-images-to-r2.js';
 import raidStartHandler   from './api/missions/raid-start.js';
 import towersFloorsHandler from './api/towers/floors.js';
@@ -264,6 +261,7 @@ import sectorTracesHandler            from './api/sector/traces.js';
 import sectorTrailSignHandler         from './api/sector/trail-sign.js';
 import sectorShrineOfferHandler       from './api/sector/shrine-offer.js';
 import sectorContractHandler          from './api/sector/contract.js';
+import sectorChatHandler              from './api/sector/chat.js';
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 import storyInterludeHandler          from './api/story/interlude.js';
 import storyRoadEventHandler          from './api/story/road-event.js';
@@ -332,6 +330,8 @@ import adminAuditLogHandler from './api/admin/audit-log.js';
 import adminEconomyHandler from './api/admin/economy.js';
 import adminEconomyReconcileHandler from './api/admin/economy-reconcile.js';
 import adminEconomySettlementsHandler from './api/admin/economy-settlements.js';
+// Admin: verify (dry run) then apply the slim-player-save migration
+import adminSlimPlayerSavesHandler from './api/admin/slim-player-saves.js';
 import adminBetaMetricsHandler from './api/admin/beta-metrics.js';
 import adminClanBossOperationsHandler from './api/admin/clan-boss-operations.js';
 
@@ -457,16 +457,9 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/bloodline-review', bloodlineReviewHandler);
     route('/admin/item-review',      itemReviewHandler);
 
-    // Internal KV proxy — a remote server (e.g. Railway) forwards disk-routed keys
-    // to the cPanel disk overlay here. Mounted with a trailing :op param so
-    // /api/kv/get etc. all hit one handler.
-    route('/kv/:op', kvProxyHandler);
-
-    // Admin: migrate disk-routed keys from Supabase → disk overlay.
-    route('/admin/migrate-kv', migrateKvHandler);
-    // Admin: REVERSE copy disk overlay → Supabase base, to retire the overlay/cPanel
-    // (Option B, docs/RETIRE_CPANEL_RUNBOOK.md). Copy-only — never deletes the overlay.
-    route('/admin/migrate-to-base', migrateToBaseHandler);
+    // The cPanel KV proxy (/kv/:op) and the two overlay migration routes
+    // (/admin/migrate-kv, /admin/migrate-to-base) were removed with the overlay
+    // on 2026-10-02; docs/RETIRE_CPANEL_RUNBOOK.md records the cutover they ran.
     route('/admin/migrate-images-to-r2', migrateImagesToR2Handler);
 
     // Missions — AI raid token mint (PvP raids cross-validate via PvpSession;
@@ -733,6 +726,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/sector/trail-sign',         sectorTrailSignHandler);
     route('/sector/shrine-offer',       sectorShrineOfferHandler);
     route('/sector/contract',           sectorContractHandler);
+    // Sector chat — everyone standing in the same wild sector hears it
+    route('/sector/chat',               sectorChatHandler);
 
     // ─── Story (server-authoritative interlude + road-event record) ────────────────
     route('/story/interlude',           storyInterludeHandler);
@@ -824,6 +819,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/admin/economy', adminEconomyHandler);
     route('/admin/economy-reconcile', adminEconomyReconcileHandler);
     route('/admin/economy-settlements', adminEconomySettlementsHandler);
+    route('/admin/slim-player-saves', adminSlimPlayerSavesHandler);
     route('/admin/beta-metrics', adminBetaMetricsHandler);
     route('/admin/clan-boss-operations', adminClanBossOperationsHandler);
 

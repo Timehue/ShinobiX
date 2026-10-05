@@ -364,6 +364,20 @@ test('the existing day and night vista leaves HUD text unchanged',async({page})=
     expect(colors[0]).toEqual(colors[1]);
 });
 
+// Every wild sector paints a floor, and the wash used to ride only the retired
+// vista branch, so the sector view players actually stand on showed noon at
+// every hour of the world's day.
+for(const [hour,opacity] of [[12,'0'],[21,'0.44']] as const) {
+    test(`the painted sector floor carries the world's ${hour===12?'noon':'night'} sky under the tiles`,async({page})=>{
+        await page.addInitScript(value=>{localStorage.setItem('dayCycle.hour',String(value));},hour);
+        await boot(page);
+        await expect(page.locator('.sector-image-map .sector-map-backdrop')).toHaveCount(1);
+        await expect(page.locator('.sector-image-map .day-night-tint')).toHaveCSS('opacity',opacity);
+        // The floor's own slot, under the tile grid, so road exits stay crisp.
+        await expect(page.locator('.sector-image-map .day-night-sky')).toHaveCSS('z-index','-1');
+    });
+}
+
 test('ten sector and menu cycles release listeners and renderers',async({page,browserName})=>{
     test.skip(browserName!=='chromium');
     await page.goto('/e2e/fixtures/sector-hud.html');
@@ -456,9 +470,9 @@ for (const width of [390,1366]) test(`Spectate opens live fight and chat and ret
     await boot(page,25,async()=>{
         // Exercise the existing live-poll fallback deterministically.
         await page.addInitScript(()=>Object.defineProperty(window,'EventSource',{value:undefined,configurable:true}));
-        await page.route('**/api/game-state',route=>{
+        await page.route('**/api/game-state*',route=>{
             if(route.request().method()==='POST') mutations.push('game-state');
-            return route.fulfill({json:{villageStates:{},arenaActiveFights:[{id:'fixture',battleId,title:'Shinobi002 vs RivalNinja',fighters:['Shinobi002','RivalNinja'],mode:'PvP',startedAt:Date.now()}]}});
+            return route.fulfill({json:{villageStates:{},arenaActiveFights:[{id:'fixture',battleId,title:'Shinobi002 vs RivalNinja',fighters:['Shinobi002','RivalNinja'],mode:'Ranked',startedAt:Date.now()}]}});
         });
         await page.route('**/api/pvp/session?**',route=>route.fulfill({json:session}));
         await page.route('**/api/pvp/spectate?**',route=>route.fulfill({json:[{name:'AuditNinja',joinedAt:Date.now()}]}));
@@ -478,8 +492,11 @@ for (const width of [390,1366]) test(`Spectate opens live fight and chat and ret
     await page.getByRole('button',{name:'Spectate Shinobi002'}).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','pvpBattle');
     await expect(page.getByRole('button',{name:'Stop watching'})).toBeVisible();
-    if(await page.getByRole('button',{name:'Show battle chat'}).isVisible()) await page.getByRole('button',{name:'Show battle chat'}).click();
-    await expect(page.getByText('Fixture battle chat is live.',{exact:true})).toBeVisible();
+    const showChat=page.getByRole('button',{name:'Show battle chat'});
+    const liveChat=page.getByText('Fixture battle chat is live.',{exact:true});
+    await expect.poll(async()=>await showChat.isVisible() || await liveChat.isVisible()).toBe(true);
+    if(await showChat.isVisible()) await showChat.click();
+    await expect(liveChat).toBeVisible();
     const compose=page.getByPlaceholder('Chat as spectator…');
     await expect(compose).toBeEnabled();
     await compose.fill('Local spectator test message');
@@ -529,7 +546,7 @@ test('a late spectator lookup cannot navigate after its target leaves',async({pa
     const fighter=(name:string,pos:number)=>({name,pos,hp:500,maxHp:500,chakra:500,maxChakra:500,stamina:500,maxStamina:500,shield:0,statuses:[],character:{name}});
     const session={battleId:'late-fixture',stateRevision:1,status:'active',p1:fighter('Shinobi002',10),p2:fighter('Rival',30),round:1,activePlayer:'p1',ap:{p1:100,p2:100},actionsThisTurn:0,cooldowns:{p1:{},p2:{}},log:[],winner:null};
     await boot(page,8,async()=>{
-        await page.route('**/api/game-state',route=>route.fulfill({json:{arenaActiveFights:[{battleId:'late-fixture',fighters:['Shinobi002','Rival'],startedAt:Date.now()}]}}));
+        await page.route('**/api/game-state*',route=>route.fulfill({json:{arenaActiveFights:[{battleId:'late-fixture',fighters:['Shinobi002','Rival'],startedAt:Date.now()}]}}));
         await page.route('**/api/pvp/session?**',async route=>{await gate;await route.fulfill({json:session});});
     });
     await page.getByRole('button',{name:'Spectate Shinobi002'}).click();
@@ -557,6 +574,144 @@ test('a hidden sector HUD retires its pending spectator navigation even after re
     await expect.poll(()=>page.evaluate(()=>window.sectorFixture.events.at(-1))).toBe('spectator-cancelled');
 });
 
+
+type ChatLine = {id:string;name:string;text:string;ts:number;village?:string;level?:number};
+async function chatServer(page: Page, options: {refuseFirstPost?: boolean} = {}) {
+    const messages: ChatLine[] = [
+        {id:'c1',name:'Shinobi001',village:'Stormveil Village',level:41,text:'Anyone hunting near the cove?',ts:Date.now()-5*60_000},
+        {id:'c2',name:'Shinobi002',village:'Moonshadow Village',level:42,text:'Heading to the north gate now.',ts:Date.now()-60_000},
+    ];
+    const posts: unknown[] = [];
+    let refuse = options.refuseFirstPost ?? false;
+    await page.route('**/api/sector/chat**', route => {
+        const request = route.request();
+        if (request.method() !== 'POST') return route.fulfill({json:{messages,now:Date.now()}});
+        const body = request.postDataJSON() as {sector:number;text:string};
+        posts.push(body);
+        if (refuse) { refuse = false; return route.fulfill({status:429,json:{error:'Slow down.',code:'RATE_LIMITED',retryAfterMs:4000}}); }
+        const message = {id:`p${posts.length}`,name:'AuditNinja',village:'Ashen Leaf Village',level:40,text:body.text,ts:Date.now()};
+        messages.push(message);
+        return route.fulfill({json:{ok:true,message}});
+    });
+    return {posts,messages};
+}
+// The chat decides open-or-folded once the HUD has measured its column, which
+// can land between a read of aria-expanded and the click that follows (seen on
+// WebKit). Retry the whole read-then-click rather than trusting one read.
+async function openChat(page: Page) {
+    const toggle = page.getByRole('button', {name: /^Sector chat/});
+    await expect(toggle).toBeVisible();
+    await expect(async () => {
+        if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true', {timeout: 1_000});
+    }).toPass({timeout: 15_000});
+}
+
+for (const [width,height] of [[1366,768],[390,844]]) test(`sector chat listens and speaks from the foot of the roster at ${width}x${height}`,async({page})=>{
+    await page.setViewportSize({width,height});
+    let server!: Awaited<ReturnType<typeof chatServer>>;
+    await boot(page,3,async()=>{ server = await chatServer(page); });
+    const chat = page.locator('.sector-nearby > .sector-chat');
+    await expect(chat).toBeVisible();
+    // It sits under everything else in the column, inside the HUD's own budget.
+    expect((await chat.boundingBox())!.y).toBeGreaterThan((await page.locator('.sector-nearby-heading').boundingBox())!.y);
+    await openChat(page);
+    await expect(page.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.fill('  Holding the east torii.  ');
+    await box.press('Enter');
+    await expect(page.getByText('Holding the east torii.', {exact:true})).toBeVisible();
+    await expect(box).toHaveValue('');
+    expect(server.posts).toEqual([{sector:22,text:'Holding the east torii.'}]);
+    await expect(page.locator('.sector-chat-line.is-own')).toHaveCount(1);
+    const hud = await page.locator('.sector-hud').boundingBox();
+    const nav = await page.locator('.mobile-bottom-nav').boundingBox();
+    expect(hud!.y + hud!.height).toBeLessThanOrEqual((nav?.height ? nav.y : height) + 1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    const log = page.locator('.sector-chat-log');
+    expect(await log.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+});
+
+test('on a phone the chat opens as a sheet over the board and shares the slot with Sector Info',async({page})=>{
+    await page.setViewportSize({width:390,height:844});
+    await boot(page,3,async()=>{ await chatServer(page); });
+    await expect(page.locator('.sector-chat')).toHaveAttribute('data-layout', /compact|tight/);
+    await openChat(page);
+    const sheet = page.getByRole('dialog', {name:'Sector chat', exact:true});
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    // The whole composer is on screen and actually takes the tap.
+    const box = sheet.getByRole('textbox', {name: /Message everyone in/});
+    const hit = await box.evaluate(element => { const r = element.getBoundingClientRect();
+        return document.elementFromPoint(r.x + 20, r.y + r.height / 2) === element && r.bottom <= innerHeight; });
+    expect(hit).toBe(true);
+    const bounds = await sheet.boundingBox();
+    const hud = await page.locator('.sector-hud').boundingBox();
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(hud!.y);
+    // Sector Info takes the slot; the two never stack.
+    await page.getByRole('button', {name:'Sector Info'}).click();
+    await expect(page.getByRole('dialog', {name:'Sector Info', exact:true})).toBeVisible();
+    await expect(sheet).toHaveCount(0);
+    await page.getByRole('button',{name:'Close Sector Info'}).click();
+    // Dismissing the sheet with a board tap consumes that tap: the player stays put.
+    await openChat(page);
+    const tile = page.locator('.sector-player-tile');
+    const original = await tile.getAttribute('aria-label');
+    await page.getByRole('button',{name:'Move to tile row 1 column 2',exact:true}).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(tile).toHaveAttribute('aria-label', original!);
+});
+
+test('a refused line keeps its draft, and the retry lands',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    let server!: Awaited<ReturnType<typeof chatServer>>;
+    await boot(page,1,async()=>{ server = await chatServer(page,{refuseFirstPost:true}); });
+    await openChat(page);
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.fill('Too fast?');
+    await page.getByRole('button',{name:'Send message'}).click();
+    await expect(page.getByText(/speaking too fast/)).toBeVisible();
+    await expect(box).toHaveValue('Too fast?');
+    await page.getByRole('button',{name:'Send message'}).click();
+    await expect(page.locator('.sector-chat-text').getByText('Too fast?',{exact:true})).toBeVisible();
+    await expect(box).toHaveValue('');
+    expect(server.posts).toHaveLength(2);
+});
+
+test('a server without sector chat shows none',async({page})=>{
+    await boot(page,1,async()=>{
+        await page.route('**/api/sector/chat**',route=>route.fulfill({status:404,json:{error:'Sector chat is unavailable.',disabled:true}}));
+    });
+    await expect(page.locator('.sector-nearby-heading')).toBeVisible();
+    await expect(page.locator('.sector-chat')).toHaveCount(0);
+});
+
+test('typing in sector chat never walks, explores or crosses',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    let explores=0;
+    await boot(page,1,async()=>{
+        await chatServer(page);
+        await page.route('**/api/world/explore',route=>{explores++;return route.fulfill({json:{ok:true}});});
+    });
+    await openChat(page);
+    const tile = page.locator('.sector-player-tile');
+    const original = await tile.getAttribute('aria-label');
+    const box = page.getByRole('textbox', {name: /Message everyone in/});
+    await box.click();
+    await page.keyboard.type('wasd e wwww dddd');
+    await expect(box).toHaveValue('wasd e wwww dddd');
+    await expect(tile).toHaveAttribute('aria-label', original!);
+    expect(explores).toBe(0);
+});
+
+test('sector chat accessibility',async({page})=>{
+    await page.setViewportSize({width:1366,height:768});
+    await boot(page,2,async()=>{ await chatServer(page); });
+    await openChat(page);
+    await expect(page.getByText('Heading to the north gate now.', {exact:true})).toBeVisible();
+    expect((await new AxeBuilder({page}).include('.sector-chat').analyze()).violations).toEqual([]);
+});
 
 test('a sleeper waking during a click never changes Strike Down into Attack',async({page})=>{
     await page.goto('/e2e/fixtures/sector-hud.html');

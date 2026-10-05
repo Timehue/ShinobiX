@@ -270,6 +270,35 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
     line-height: 1.55;
   }
 
+  /* The village frame fills the space that padding leaves between the top HUD
+     and the bottom menu, so a tall phone shows no empty band under it. The
+     facility panel grows inside the frame rather than taking the height itself,
+     so the Dojo Circuit notice above it still fits without scrolling. The
+     panel's 480px floor (23-mobile-shell.css) still holds on short screens.
+     The spare height goes between the facility rows on a phone, and around
+     them on a wider screen, where spreading three rows apart left them
+     stranded. Neither adds height, so neither can make the page scroll. */
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-village .stormveil-village-screen {
+    display: flex;
+    flex-direction: column;
+    min-block-size: calc(
+      100dvh
+      - var(--mobile-aaa-hud-height) - env(safe-area-inset-top, 0px) - var(--sp-3)
+      - var(--mobile-aaa-nav-height) - env(safe-area-inset-bottom, 0px) - var(--sp-5)
+    ) !important;
+  }
+
+  .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-village .stormveil-map {
+    flex: 1 0 auto;
+    align-content: center !important;
+  }
+
+  @media (max-width: 559px) {
+    .app-shell[data-shell="adaptive"][data-ui-mode="noncombat"].screen-village .stormveil-map {
+      align-content: space-evenly !important;
+    }
+  }
+
   html.wm-zoom .app-shell[data-shell="adaptive"].screen-worldMap > .center-game:has(> .world-atlas-card) {
     padding-inline-start: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-left, 0px));
     padding-inline-end: max(var(--mobile-aaa-gutter, 12px), env(safe-area-inset-right, 0px));
@@ -357,9 +386,8 @@ html body.coach-banner-open .onboarding-coach-banner.coach-trail-chip {
   }
 }
 
-/* Start/landing screens hide the mobile navigation. Keep the storage notice at
-   the real safe-area edge there instead of leaving an empty navigation-height
-   gap beneath it, which can cover the primary entry action in short windows. */
+/* Start and creator screens hide the mobile navigation. Keep the notice at
+   the real safe-area edge so the reserved navigation gap cannot cover actions. */
 @supports selector(body:has(.app-shell.screen-start)) {
   @media (max-width: 979px) {
     body:has(.app-shell.screen-start) .storage-notice {

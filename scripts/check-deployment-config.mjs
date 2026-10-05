@@ -10,10 +10,43 @@ export const REQUIRED_RAILWAY_DEPLOYMENT = Object.freeze({
   minDrainingSeconds: 60,
 });
 
+// The JSON type Railway's schema (https://railway.com/railway.schema.json)
+// gives each deploy setting. Railway does not coerce: one setting of the wrong
+// type makes it refuse the whole service config, before it builds anything.
+// A quoted "60" for drainingSeconds failed every deploy from 2026-10-03 with
+// "deploy.drainingSeconds: Invalid input: expected number, received string".
+export const RAILWAY_DEPLOY_TYPES = Object.freeze({
+  numReplicas: 'integer',
+  preDeployTimeoutSeconds: 'integer',
+  healthcheckTimeout: 'number',
+  restartPolicyMaxRetries: 'number',
+  overlapSeconds: 'number',
+  drainingSeconds: 'number',
+  sleepApplication: 'boolean',
+  ipv6EgressEnabled: 'boolean',
+  startCommand: 'string',
+  healthcheckPath: 'string',
+  runtime: 'string',
+  cronSchedule: 'string',
+  region: 'string',
+  requiredMountPath: 'string',
+});
+
+function hasJsonType(value, type) {
+  return type === 'integer' ? Number.isInteger(value) : typeof value === type;
+}
+
 export function deploymentConfigErrors(config) {
   const errors = [];
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     return ['railway.json must contain an object'];
+  }
+  for (const [key, type] of Object.entries(RAILWAY_DEPLOY_TYPES)) {
+    const value = config.deploy?.[key];
+    // Railway's schema allows null, or the setting left out, for every one.
+    if (value !== undefined && value !== null && !hasJsonType(value, type)) {
+      errors.push(`deploy.${key} must be a JSON ${type}, not ${JSON.stringify(value)}: Railway refuses the whole config otherwise`);
+    }
   }
   if (config.deploy?.numReplicas !== REQUIRED_RAILWAY_DEPLOYMENT.numReplicas) {
     errors.push(`deploy.numReplicas must be exactly ${REQUIRED_RAILWAY_DEPLOYMENT.numReplicas}`);
@@ -24,9 +57,7 @@ export function deploymentConfigErrors(config) {
   if (config.deploy?.healthcheckPath !== REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath) {
     errors.push(`deploy.healthcheckPath must be exactly "${REQUIRED_RAILWAY_DEPLOYMENT.healthcheckPath}"`);
   }
-  const configuredGrace = config.deploy?.drainingSeconds;
-  const drainingSeconds = typeof configuredGrace === 'string' || typeof configuredGrace === 'number'
-    ? Number(configuredGrace) : NaN;
+  const drainingSeconds = config.deploy?.drainingSeconds;
   if (!Number.isSafeInteger(drainingSeconds) || drainingSeconds < REQUIRED_RAILWAY_DEPLOYMENT.minDrainingSeconds) {
     errors.push(`deploy.drainingSeconds must allow at least ${REQUIRED_RAILWAY_DEPLOYMENT.minDrainingSeconds} seconds for graceful shutdown`);
   }

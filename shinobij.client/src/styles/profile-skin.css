@@ -942,6 +942,41 @@
 .profile-page-card .profile-dossier-row strong svg {
     vertical-align: -2px;
 }
+/* Supporter bloodline picker: the row stacks (label, dropdown, detail) at every
+   width so the dropdown gets the whole row instead of a cramped value cell. */
+.profile-page-card .profile-dossier-row.profile-dossier-row--stacked {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+        "label"
+        "value"
+        "detail";
+    gap: 5px;
+}
+.profile-page-card .profile-dossier-row .profile-dossier-bloodline-select {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 5px 8px;
+    border: 1px solid rgba(216,180,254,0.35);
+    border-radius: 5px;
+    color: #d8b4fe !important;
+    font: inherit;
+    cursor: pointer;
+}
+.profile-page-card .profile-dossier-row .profile-dossier-bloodline-select option {
+    color: #f8fafc;
+    background: #0b1020;
+}
+.profile-page-card .profile-dossier-row .profile-dossier-bloodline-select:disabled {
+    cursor: progress;
+    opacity: 0.7;
+}
+@media (max-width: 979px) {
+    .profile-page-card .profile-dossier-row .profile-dossier-bloodline-select {
+        min-height: 44px;
+    }
+}
 .profile-page-card .profile-lineage-preview {
     overflow: hidden;
     border-radius: 5px;

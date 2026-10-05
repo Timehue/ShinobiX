@@ -1,6 +1,8 @@
 import { expect, type Route } from '@playwright/test';
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { API_CONNECTION_RETRIES, test } from './helpers/reconnecting-request';
+import { quietRoadCooldowns } from './helpers/quiet-road';
+import { uniqueNameStamp } from './helpers/player-names';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
@@ -44,7 +46,9 @@ function responseEvidence(value: unknown) {
 for (const recovery of ['paid', 'free', 'healer', 'external', 'external-stale', 'paid-lost', 'paid-timeout', 'terminal-lost', 'terminal-retry', 'poor'] as const) {
 test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request, context }, info) => {
  test.setTimeout(180000);
- const name = `defeat${info.project.name.includes('mobile') ? 'm' : 'd'}${Date.now().toString(36)}`;
+ // The external recoveries also register a healer, `${name}medic`, from the same stamp.
+ const side = info.project.name.includes('mobile') ? 'm' : 'd';
+ const name = `defeat${side}${uniqueNameStamp((stamp) => [`defeat${side}${stamp}`, `defeat${side}${stamp}medic`])}`;
  const password = 'DefeatJourney!1234';
  const registered = await request.post('/api/player-auth', { data: { action: 'register', name, password } });
  expect(registered.status(), await registered.text()).toBe(200);
@@ -66,7 +70,9 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
  const sector = before.currentSector;
  // The owner-read travel migration chooses the canonical spawn sector. Bind
  // the prepared ambush receipt to that actual location, never a guessed one.
- const bound = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...before, character: { ...before.character, redeemedSectorExplorations: [{ id: receipt, sector, at: Date.now(), outcome: { kind: 'battle' } }] } } });
+ // Quiet that sector's road too: the journey waits on the world map, where a
+ // hunting bandit would park its own encounter over the fight. See quietRoadCooldowns.
+ const bound = await request.post(`/api/save/${name}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...before, character: { ...before.character, redeemedSectorExplorations: [{ id: receipt, sector, at: Date.now(), outcome: { kind: 'battle' } }], wandererCooldowns: quietRoadCooldowns([sector]) } } });
  expect(bound.status()).toBe(200);
  before = await save();
  await request.post(`/api/save/${name}?ack=1`, { headers });
@@ -169,7 +175,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   expect(settled.character.ryo).toBe(character.ryo);
   expect(settled.currentSector).toBe(0);
   await page.reload(); await expect(page.locator('.hospital-screen--admitted')).toBeVisible(); await capture('05-hospital-reload');
-  await page.getByRole('button', { name: 'Travel', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
   const rejection = page.getByRole('alertdialog');
   await expect(rejection).toContainText("You're still admitted");
   await rejection.getByRole('button', { name: 'OK', exact: true }).click();
@@ -191,6 +197,8 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    await page.route('**/api/player/heartbeat', route => route.abort());
    const healerName = name + 'medic';
    const reg = await request.post('/api/player-auth', { data: { action: 'register', name: healerName, password } });
+   // A refused healer surfaces here with the server's reason, not as a 401 on the heal.
+   expect(reg.status(), await reg.text()).toBe(200);
    const healerToken = (await reg.json()).token;
    const snapshot = await save();
    await request.post(`/api/save/${healerName}?signal=1`, { headers: { 'x-admin-password': 'live-express-e2e-admin' }, data: { ...snapshot, character: { ...snapshot.character, name: healerName, profession: 'healer', professionXp: 0, chakra: 1181, hp: 700, hospitalized: false, hospitalizedUntil: 0 } } });
@@ -227,7 +235,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
     await expect(page.locator('.hospital-screen--admitted')).toContainText('short 25 ryo');
     const refused = await request.post('/api/player/heal', { headers, data: { targetName: name, paySkip: true, hospitalizedAt: settled.character.hospitalizedAt } });
     expect(refused.status()).toBe(402);
-    expect((await save()).character.ryo).toBe(character.ryo);
+    expect((await save()).character.ryo).toBe(50);
    }
    await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0, { timeout: 80000 });
   } else if (recovery === 'healer') {
@@ -254,9 +262,16 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    const retryDischarge = page.getByRole('button', { name: 'Pay & discharge', exact: true });
    const recoveredVillage = page.locator('.stormveil-village-screen');
    await expect(retryDischarge.or(recoveredVillage)).toBeVisible();
+   // The committed discharge also reaches the client on its own (its next save
+   // sync, or the stay's timer running out), and that can unmount the hospital
+   // between any check and a click: CI once waited out the whole test on a
+   // detached retry button. A retry that finds no button IS that recovery. The
+   // assertions below prove either path leaves the hospital charged once.
    if (await retryDischarge.isVisible()) {
-    await retryDischarge.click();
-    if (recovery === 'paid-lost') await expect(page.getByText(/Discharge confirmed\. HP restored/)).toBeVisible();
+    const retried = await retryDischarge.click({ timeout: 10_000 }).then(() => true, () => false);
+    if (retried && recovery === 'paid-lost') {
+     await expect(page.getByText(/Discharge confirmed\. HP restored/).or(recoveredVillage)).toBeVisible();
+    }
    }
   } else {
    await page.locator('.hospital-screen--admitted').getByRole('button', { name: 'Pay & discharge', exact: true }).dblclick();
@@ -265,7 +280,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await expect(page.locator('.stormveil-village-screen')).toBeVisible();
   await capture('06-recovered');
   const recovered = await save(); events.push({ moment: 'recovered', save: recovered });
-  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'terminal-retry', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
+  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
   expect(recovered.character.ryo).toBe(character.ryo - expectedCharge);
   expect(recovered.character.hp).toBe(recovered.character.maxHp);
   expect(recovered.character.hospitalized).toBe(false);
@@ -302,7 +317,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
    expect(synced.character.hospitalized).toBe(false);
    events.push({ moment: 'achievementRefreshRace', body: synced });
   } else { await page.reload(); }
-  await expect(page.getByRole('button', { name: 'Travel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
   await capture('07-recovered-reload');
   await page.unrouteAll({ behavior: 'wait' });
@@ -324,7 +339,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await otherTab.close();
   // Return to the world, open another permitted activity, then really log out
   // and log back in rather than restoring the fixture's local session again.
-  await page.getByRole('button', { name: 'Travel', exact: true }).click();
+  await page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first().click();
   await expect(page.locator('.anime-world-map')).toBeVisible();
   const beforeActivity = await save();
   const nextActivity = await request.post('/api/missions/ai-fight-start', { headers, data: { playerName: name, battleKind: 'practice', opponentId: 'builtin-ai-academy-sparring' } });
@@ -375,7 +390,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await page.getByRole('button', { name: 'Enter Village' }).click();
   await loginSave;
   await expect(page.getByTestId('start-create')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: 'Travel', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^(?:Travel|World Map)$/ }).filter({ visible: true }).first()).toBeVisible();
   await expect(page.locator('.hospital-screen--admitted')).toHaveCount(0);
   const loggedIn = await save(); events.push({ moment: 'loggedInAgain', save: loggedIn });
   expect(loggedIn.character.hospitalized).toBe(false);

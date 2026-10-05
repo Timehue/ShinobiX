@@ -1,3 +1,4 @@
+import { buildWarfrontActionTimeline, warfrontActionProgress } from "../lib/pet-warfront-action-vfx";
 /* eslint-disable react-hooks/immutability --
  * READ THIS BEFORE REMOVING.
  *
@@ -67,7 +68,6 @@ import {
     sampleActor,
     sampleActorByIdInto,
     sampleActorInto,
-    sampleProjectilesInto,
     squadFocusAt,
 } from "../lib/pet-warfront-rite-presentation";
 import type { PetVisualQualityConfig } from "../lib/pet-visual-quality";
@@ -631,8 +631,10 @@ function RendererContextGuard({ onLost, onRestored }: { onLost: () => void; onRe
             }, 0);
         };
     }, [resources]);
+    const qaFrames = useMemo(() => new URLSearchParams(window.location.search).get("riteqa") === "1", []);
     const restoredFrames = useRef(-1);
     useFrame(() => {
+        if (qaFrames) gl.domElement.dataset.riteRenderFrame = String(gl.info.render.frame);
         // Capture after allocations change, not on every frame. The previous
         // render has compiled built-in uniforms by the time this runs.
         if (lastTextureCount.current !== gl.info.memory.textures || lastGeometryCount.current !== gl.info.memory.geometries) {
@@ -1326,26 +1328,9 @@ function FighterReadabilityLayer({ result, fighters, cues, clockRef }: {
         canvas.dataset.riteGroundingIdleRings = "0";
         canvas.dataset.riteGroundingDeadRings = "0";
         return () => {
-            delete canvas.dataset.riteGroundingPermanentPads;
-            delete canvas.dataset.riteGroundingWideAuras;
-            delete canvas.dataset.riteGroundingShadowMode;
-            delete canvas.dataset.riteGroundingActiveRings;
-            delete canvas.dataset.riteGroundingMaxActiveRings;
-            delete canvas.dataset.riteGroundingIdleActors;
-            delete canvas.dataset.riteGroundingDeadActors;
-            delete canvas.dataset.riteGroundingIdleRings;
-            delete canvas.dataset.riteGroundingDeadRings;
-            delete canvas.dataset.riteGroundingSubmittedAoCount;
-            delete canvas.dataset.riteGroundingSubmittedAoMaxAlpha;
-            delete canvas.dataset.riteGroundingSubmittedAoMaxRadiusWorld;
-            delete canvas.dataset.riteGroundingSubmittedAoMaxRadiusPx;
-            delete canvas.dataset.riteGroundingSubmittedAoMaxRadiusRatio;
-            delete canvas.dataset.riteGroundingSubmittedRimCount;
-            delete canvas.dataset.riteGroundingSubmittedRimMaxAlpha;
-            delete canvas.dataset.riteGroundingSubmittedRimMaxRadiusWorld;
-            delete canvas.dataset.riteGroundingSubmittedPlanarImpactCount;
-            delete canvas.dataset.riteGroundingAuthoritativeActor;
-            delete canvas.dataset.riteGroundingFootprints;
+            for (const key of "GroundingPermanentPads GroundingWideAuras GroundingShadowMode GroundingActiveRings GroundingMaxActiveRings GroundingIdleActors GroundingDeadActors GroundingIdleRings GroundingDeadRings GroundingSubmittedAoCount GroundingSubmittedAoMaxAlpha GroundingSubmittedAoMaxRadiusWorld GroundingSubmittedAoMaxRadiusPx GroundingSubmittedAoMaxRadiusRatio GroundingSubmittedRimCount GroundingSubmittedRimMaxAlpha GroundingSubmittedRimMaxRadiusWorld GroundingSubmittedPlanarImpactCount GroundingAuthoritativeActor GroundingFootprints".split(" ")) {
+                delete canvas.dataset[`rite${key}`];
+            }
             shadowAlphaMap.dispose();
         };
     }, [canvas, shadowAlphaMap]);
@@ -1869,104 +1854,9 @@ function AttackCausalityLayer({ result, cues, clockRef, heroImpactAssetReady }: 
         canvas.dataset.riteHeroDamageHoldTicks = String(WARFRONT_HERO_DAMAGE_HOLD_TICKS);
         canvas.dataset.riteHeroDamageText = heroDamageText;
         return () => {
-            delete canvas.dataset.riteAttackCues;
-            delete canvas.dataset.riteAttackStreakMs;
-            delete canvas.dataset.riteContactHoldFrames;
-            delete canvas.dataset.riteAttackCausalityActive;
-            delete canvas.dataset.riteAttackContactsActive;
-            delete canvas.dataset.riteAttackCausalityMaxActive;
-            delete canvas.dataset.riteAttackLongestDistance;
-            delete canvas.dataset.riteAttackLongestEndpoints;
-            delete canvas.dataset.riteSpectacleGrammar;
-            delete canvas.dataset.riteSpectacleOverlapCap;
-            delete canvas.dataset.riteSpectacleTellActive;
-            delete canvas.dataset.riteSpectacleContactActive;
-            delete canvas.dataset.riteSpectacleResultActive;
-            delete canvas.dataset.riteSpectacleParticlesActive;
-            delete canvas.dataset.riteSpectacleParticlesMax;
-            delete canvas.dataset.riteSpectacleElementsSeen;
-            delete canvas.dataset.riteHeroElement;
-            delete canvas.dataset.riteHeroActor;
-            delete canvas.dataset.riteHeroTarget;
-            delete canvas.dataset.riteHeroTellTick;
-            delete canvas.dataset.riteHeroContactTick;
-            delete canvas.dataset.riteHeroVfxGrammar;
-            delete canvas.dataset.riteHeroShape;
-            delete canvas.dataset.riteHeroStage;
-            delete canvas.dataset.riteHeroOriginAnchor;
-            delete canvas.dataset.riteHeroTargetAnchor;
-            delete canvas.dataset.riteHeroCorridorLength;
-            delete canvas.dataset.riteHeroHpDelta;
-            delete canvas.dataset.riteHeroLocalHpVisible;
-            delete canvas.dataset.riteHeroTargetRecoil;
-            delete canvas.dataset.riteHeroFlareMinPx;
-            delete canvas.dataset.riteHeroTravelCorePx;
-            delete canvas.dataset.riteHeroTravelPlumePx;
-            delete canvas.dataset.riteHeroTravelMinSpanFraction;
-            delete canvas.dataset.riteHeroTravelSpanFraction;
-            delete canvas.dataset.riteHeroTravelAxis;
-            delete canvas.dataset.riteHeroAxisTailPx;
-            delete canvas.dataset.riteHeroAxisTailVisible;
-            delete canvas.dataset.riteHeroAxisTailStrength;
-            delete canvas.dataset.riteHeroAxisTailAxis;
-            delete canvas.dataset.riteActorsPresent;
-            delete canvas.dataset.riteHeroActorPresent;
-            delete canvas.dataset.riteHeroTargetPresent;
-            delete canvas.dataset.riteHeroBurstPx;
-            delete canvas.dataset.riteHeroBurstHoldTicks;
-            delete canvas.dataset.riteHeroImpactMinPx;
-            delete canvas.dataset.riteHeroImpactHoldTicks;
-            delete canvas.dataset.riteHeroContactRenderer;
-            delete canvas.dataset.riteHeroContactLayer;
-            delete canvas.dataset.riteHeroContactLayerCount;
-            delete canvas.dataset.riteHeroContactLayers;
-            delete canvas.dataset.riteHeroContactTargetWidths;
-            delete canvas.dataset.riteHeroContactFrontHoldTicks;
-            delete canvas.dataset.riteHeroContactFrontActive;
-            delete canvas.dataset.riteHeroImpactSpriteUrl;
-            delete canvas.dataset.riteHeroImpactSpriteLoaded;
-            delete canvas.dataset.riteHeroImpactSpriteSourceWidth;
-            delete canvas.dataset.riteHeroImpactSpriteSourceHeight;
-            delete canvas.dataset.riteHeroImpactSpriteAnchor;
-            delete canvas.dataset.riteHeroImpactSpriteAsymmetry;
-            delete canvas.dataset.riteHeroImpactSpriteLeftRightReachRatio;
-            delete canvas.dataset.riteHeroImpactSpriteVisible;
-            delete canvas.dataset.riteHeroImpactSpriteDraws;
-            delete canvas.dataset.riteHeroImpactSpriteRotationRad;
-            delete canvas.dataset.riteHeroImpactSpriteAxis;
-            delete canvas.dataset.riteHeroImpactSpriteFootprintPx;
-            delete canvas.dataset.riteHeroImpactSpriteTargetWidthRatio;
-            delete canvas.dataset.riteHeroImpactSpritePrewarmed;
-            delete canvas.dataset.riteHeroImpactLegacyPrimitiveDraws;
-            delete canvas.dataset.riteHeroContactTargetRenderOrder;
-            delete canvas.dataset.riteHeroContactDepthOffsetWorld;
-            delete canvas.dataset.riteHeroResidueLayer;
-            delete canvas.dataset.riteHeroResidueTicks;
-            delete canvas.dataset.riteHeroResidueLayerCount;
-            delete canvas.dataset.riteHeroResidueLayers;
-            delete canvas.dataset.riteHeroResidueRenderOrder;
-            delete canvas.dataset.riteHeroResidueDepthTest;
-            delete canvas.dataset.riteHeroResidueSmokeRenderOrder;
-            delete canvas.dataset.riteHeroResidueSmokeDepthTest;
-            delete canvas.dataset.riteHeroResidueVisible;
-            delete canvas.dataset.riteHeroResidueSpanPx;
-            delete canvas.dataset.riteHeroResidueMaterialStrength;
-            delete canvas.dataset.riteHeroContactTargetWidthPx;
-            delete canvas.dataset.riteHeroContactSpanPx;
-            delete canvas.dataset.riteHeroContactTargetWidthRatio;
-            delete canvas.dataset.riteHeroDamageFontPx;
-            delete canvas.dataset.riteHeroDamageOutlinePx;
-            delete canvas.dataset.riteHeroDamageRenderOrder;
-            delete canvas.dataset.riteHeroDamageHoldTicks;
-            delete canvas.dataset.riteHeroDamageText;
-            delete canvas.dataset.riteHeroDamageVisible;
-            delete canvas.dataset.riteHeroFlareVisiblePx;
-            delete canvas.dataset.riteHeroTravelCoreVisiblePx;
-            delete canvas.dataset.riteHeroTravelPlumeVisiblePx;
-            delete canvas.dataset.riteHeroBurstVisiblePx;
-            delete canvas.dataset.riteHeroBurstHoldActive;
-            delete canvas.dataset.riteHeroImpactVisiblePx;
-            delete canvas.dataset.riteHeroImpactHoldActive;
+            for (const key of "AttackCues AttackStreakMs ContactHoldFrames AttackCausalityActive AttackContactsActive AttackCausalityMaxActive AttackLongestDistance AttackLongestEndpoints SpectacleGrammar SpectacleOverlapCap SpectacleTellActive SpectacleContactActive SpectacleResultActive SpectacleParticlesActive SpectacleParticlesMax SpectacleElementsSeen HeroElement HeroActor HeroTarget HeroTellTick HeroContactTick HeroVfxGrammar HeroShape HeroStage HeroOriginAnchor HeroTargetAnchor HeroCorridorLength HeroHpDelta HeroLocalHpVisible HeroTargetRecoil HeroFlareMinPx HeroTravelCorePx HeroTravelPlumePx HeroTravelMinSpanFraction HeroTravelSpanFraction HeroTravelAxis HeroAxisTailPx HeroAxisTailVisible HeroAxisTailStrength HeroAxisTailAxis ActorsPresent HeroActorPresent HeroTargetPresent HeroBurstPx HeroBurstHoldTicks HeroImpactMinPx HeroImpactHoldTicks HeroContactRenderer HeroContactLayer HeroContactLayerCount HeroContactLayers HeroContactTargetWidths HeroContactFrontHoldTicks HeroContactFrontActive HeroImpactSpriteUrl HeroImpactSpriteLoaded HeroImpactSpriteSourceWidth HeroImpactSpriteSourceHeight HeroImpactSpriteAnchor HeroImpactSpriteAsymmetry HeroImpactSpriteLeftRightReachRatio HeroImpactSpriteVisible HeroImpactSpriteDraws HeroImpactSpriteRotationRad HeroImpactSpriteAxis HeroImpactSpriteFootprintPx HeroImpactSpriteTargetWidthRatio HeroImpactSpritePrewarmed HeroImpactLegacyPrimitiveDraws HeroContactTargetRenderOrder HeroContactDepthOffsetWorld HeroResidueLayer HeroResidueTicks HeroResidueLayerCount HeroResidueLayers HeroResidueRenderOrder HeroResidueDepthTest HeroResidueSmokeRenderOrder HeroResidueSmokeDepthTest HeroResidueVisible HeroResidueSpanPx HeroResidueMaterialStrength HeroContactTargetWidthPx HeroContactSpanPx HeroContactTargetWidthRatio HeroDamageFontPx HeroDamageOutlinePx HeroDamageRenderOrder HeroDamageHoldTicks HeroDamageText HeroDamageVisible HeroFlareVisiblePx HeroTravelCoreVisiblePx HeroTravelPlumeVisiblePx HeroBurstVisiblePx HeroBurstHoldActive HeroImpactVisiblePx HeroImpactHoldActive".split(" ")) {
+                delete canvas.dataset[`rite${key}`];
+            }
         };
     }, [canvas, cues.length, heroCue, heroDamageText, heroImpactAssetReady, heroImpactTexture, qaEnabled]);
 
@@ -2908,8 +2798,8 @@ const PROJECTILE_GLYPH_INDEX: Readonly<Record<(typeof PROJECTILE_GLYPHS)[number]
 };
 
 /** Each element has a readable silhouette at phone scale. The flat shapes face
- *  the elevated arena camera and point down local -Y, which becomes forward
- *  (+Z) after rotation onto the court. Detached fragments share one draw call. */
+ *  the arena camera and point down local -Y; the pool rotates that direction
+ *  toward each target on screen. Detached fragments share one draw call. */
 function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THREE.ShapeGeometry {
     const head = new THREE.Shape();
     const fragments: THREE.Shape[] = [];
@@ -2963,111 +2853,82 @@ function projectileGlyphGeometry(shape: (typeof PROJECTILE_GLYPHS)[number]): THR
         head.lineTo(0, -0.48);
     }
     const geometry = new THREE.ShapeGeometry([head, ...fragments], 8);
-    geometry.rotateX(-Math.PI / 2);
     return geometry;
 }
 
-/** Snapshot-native projectiles use one fixed instanced pool per silhouette.
- *  The simulation still decides position and element; no per-frame meshes or
- *  particles are created as several ranged attacks overlap. */
-function ProjectileLayer({ result, clockRef, quality }: {
+/** Every pet action gets an element silhouette. Fixed pools and a tick index
+ * keep work bounded by eight actors, with no post-hit duplicate projectiles. */
+function ProjectileLayer({ result, fighters, clockRef }: {
     result: DuelResult;
+    fighters: StageFighter[];
     clockRef: MutableRefObject<number>;
-    quality: PetVisualQualityConfig;
 }) {
-    const capacity = quality.setPieceParticles <= 28 ? 10 : 18;
+    const camera = useThree((state) => state.camera);
+    const viewport = useThree((state) => state.size);
+    const canvas = useThree((state) => state.gl.domElement);
+    const capacity = fighters.length;
     const meshes = useRef<Array<THREE.InstancedMesh | null>>(Array(PROJECTILE_GLYPHS.length).fill(null));
     const geometries = useMemo(() => PROJECTILE_GLYPHS.map(projectileGlyphGeometry), []);
     const transform = useMemo(() => new THREE.Object3D(), []);
-    const projectilePool = useMemo(
-        () => Array.from({ length: capacity }, () => ({ id: -1, x: 0, y: 0, team: "player" as const, kind: "damage" as const, element: null })),
-        [capacity],
-    );
-    const previousIds = useMemo(() => new Int32Array(capacity).fill(-1), [capacity]);
-    const previousX = useMemo(() => new Float32Array(capacity), [capacity]);
-    const previousZ = useMemo(() => new Float32Array(capacity), [capacity]);
-    const nextIds = useMemo(() => new Int32Array(capacity).fill(-1), [capacity]);
-    const nextX = useMemo(() => new Float32Array(capacity), [capacity]);
-    const nextZ = useMemo(() => new Float32Array(capacity), [capacity]);
-
-    // These geometries enter InstancedMesh through args rather than as R3F
-    // children, so R3F cannot dispose them when sceneKey starts a new clash.
+    const projectedOrigin = useMemo(() => new THREE.Vector3(), []);
+    const projectedTarget = useMemo(() => new THREE.Vector3(), []);
+    const cameraSpace = useMemo(() => new THREE.Vector3(), []);
+    const timeline = useMemo(() => buildWarfrontActionTimeline(result, new Map(fighters.map((fighter) =>
+        [`${fighter.team}-${fighter.lane}`, fighter.pet.element]))), [result, fighters]);
+    const seenActors = useRef(new Set<string>());
+    const qaEnabled = useMemo(() => new URLSearchParams(window.location.search).get("ritemotionqa") === "1", []);
     useEffect(() => () => { for (const geometry of geometries) geometry.dispose(); }, [geometries]);
-
     useLayoutEffect(() => {
-        for (const mesh of meshes.current) {
-            if (!mesh) continue;
+        for (const mesh of meshes.current) if (mesh) {
             mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
             mesh.count = 0;
         }
     }, [capacity]);
-
     useFrame(() => {
-        const glyphMeshes = meshes.current;
-        for (const mesh of glyphMeshes) {
-            if (!mesh) return;
-            mesh.count = 0;
-        }
-        const count = sampleProjectilesInto(result, clockRef.current, projectilePool, capacity);
-        nextIds.fill(-1);
-        for (let i = 0; i < count; i++) {
-            const projectile = projectilePool[i];
-            const x = projectile.x * WORLD_SCALE;
-            const z = projectile.y * WORLD_SCALE;
-            let oldIndex = -1;
-            for (let candidate = 0; candidate < capacity; candidate++) {
-                if (previousIds[candidate] === projectile.id) { oldIndex = candidate; break; }
-            }
-            let yaw = projectile.team === "player" ? Math.PI / 2 : -Math.PI / 2;
-            if (oldIndex >= 0) {
-                const dx = x - previousX[oldIndex];
-                const dz = z - previousZ[oldIndex];
-                if (Math.hypot(dx, dz) > 0.0001) yaw = Math.atan2(dx, dz);
-            }
-            nextIds[i] = projectile.id;
-            nextX[i] = x;
-            nextZ[i] = z;
-            transform.position.set(x, 0.82, z);
-            transform.rotation.set(0, yaw, 0);
-            transform.scale.setScalar(1);
+        for (const mesh of meshes.current) if (mesh) mesh.count = 0;
+        const tick = clockRef.current;
+        const actions = timeline[Math.floor(tick)] ?? [];
+        for (const action of actions) {
+            const progress = warfrontActionProgress(action, tick);
+            const x = (action.ox + (action.tx - action.ox) * progress) * WORLD_SCALE;
+            const z = (action.oz + (action.tz - action.oz) * progress) * WORLD_SCALE;
+            transform.position.set(x, 0.95, z);
+            projectedOrigin.set(action.ox * WORLD_SCALE, 0.95, action.oz * WORLD_SCALE).project(camera);
+            projectedTarget.set(action.tx * WORLD_SCALE, 0.95, action.tz * WORLD_SCALE).project(camera);
+            const angle = Math.atan2((projectedTarget.y - projectedOrigin.y) * viewport.height,
+                (projectedTarget.x - projectedOrigin.x) * viewport.width);
+            transform.quaternion.copy(camera.quaternion);
+            transform.rotateZ(angle + Math.PI / 2);
+            const worldPerPixel = worldUnitsPerScreenPixel(camera, transform.position, viewport.height, cameraSpace);
+            const fade = tick <= action.contact ? 1 : Math.max(0, 1 - (tick - action.contact) / 3);
+            const size = Math.max(0.55, worldPerPixel * (action.kind === "support" ? 20 : 26)) * fade;
+            transform.scale.setScalar(size);
             transform.updateMatrix();
-            const glyph = warfrontElementSignature(projectile.element).shape;
-            const mesh = glyphMeshes[PROJECTILE_GLYPH_INDEX[glyph]]!;
-            mesh.setMatrixAt(mesh.count++, transform.matrix);
+            const glyph = warfrontElementSignature(action.element).shape;
+            const mesh = meshes.current[PROJECTILE_GLYPH_INDEX[glyph]];
+            if (mesh && mesh.count < capacity) mesh.setMatrixAt(mesh.count++, transform.matrix);
+            if (qaEnabled) seenActors.current.add(action.actorId);
         }
-        previousIds.set(nextIds);
-        previousX.set(nextX);
-        previousZ.set(nextZ);
-        for (const mesh of glyphMeshes) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
+        for (const mesh of meshes.current) if (mesh && mesh.count > 0) mesh.instanceMatrix.needsUpdate = true;
+        if (qaEnabled) {
+            canvas.dataset.riteElementalActorsSeen = [...seenActors.current].join(",");
+            canvas.dataset.riteElementalActionsActive = String(actions.length);
+                canvas.dataset.riteElementalActorsActive = actions.map((action) => action.actorId).join(",");
+        }
     });
-
-    return (
-        <group name="wfr-batched-projectile-layer">
-            {PROJECTILE_GLYPHS.map((glyph, index) => (
-                <instancedMesh
-                    key={glyph}
-                    name={`wfr-projectile-${glyph}`}
-                    ref={(mesh) => { meshes.current[index] = mesh; }}
-                    args={[geometries[index], undefined, capacity]}
-                    frustumCulled={false}
-                >
-                    <meshBasicMaterial
-                        color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
-                        side={THREE.DoubleSide}
-                        transparent
-                        opacity={0.94}
-                        depthWrite={false}
-                        blending={THREE.AdditiveBlending}
-                    />
-                </instancedMesh>
-            ))}
-        </group>
-    );
+    return <group name="wfr-batched-projectile-layer">
+        {PROJECTILE_GLYPHS.map((glyph, index) => (
+            <instancedMesh key={glyph} name={`wfr-projectile-${glyph}`}
+                ref={(mesh) => { meshes.current[index] = mesh; }}
+                args={[geometries[index], undefined, capacity]} frustumCulled={false} renderOrder={12}>
+                <meshBasicMaterial color={warfrontElementSignature(PROJECTILE_GLYPH_ELEMENTS[index]).primary}
+                    side={THREE.DoubleSide} transparent opacity={0.95} toneMapped={false}
+                    depthWrite={false} depthTest={false} />
+            </instancedMesh>
+        ))}
+    </group>;
 }
 
-// ── Camera ──────────────────────────────────────────────────────────────────
-
-/** Fit the complete board below the HUD, preserving blue-left/red-right. */
 function ClashCamera() {
     const camera = useThree((state) => state.camera);
     const viewport = useThree((state) => state.size);
@@ -3553,20 +3414,9 @@ function BodyReactionProbe({ result, beatsByActor, clockRef }: {
         canvas.dataset.riteBodyReactionMaxActive = "0";
         canvas.dataset.riteBodyReactionMaxOffset = "0";
         return () => {
-            delete canvas.dataset.riteBodyReactionEvents;
-            delete canvas.dataset.riteBodyLethalEvents;
-            delete canvas.dataset.riteBodyRootMode;
-            delete canvas.dataset.riteBodyLungeActive;
-            delete canvas.dataset.riteBodyLethalLungeActive;
-            delete canvas.dataset.riteBodyRecoilActive;
-            delete canvas.dataset.riteBodyKoExitActive;
-            delete canvas.dataset.riteBodyLungeSeen;
-            delete canvas.dataset.riteBodyRecoilSeen;
-            delete canvas.dataset.riteBodyKoExitSeen;
-            delete canvas.dataset.riteBodyReactionMaxActive;
-            delete canvas.dataset.riteBodyReactionMaxOffset;
-            delete canvas.dataset.riteBodyReactionLast;
-            delete canvas.dataset.riteBodyLethalLast;
+            for (const key of "BodyReactionEvents BodyLethalEvents BodyRootMode BodyLungeActive BodyLethalLungeActive BodyRecoilActive BodyKoExitActive BodyLungeSeen BodyRecoilSeen BodyKoExitSeen BodyReactionMaxActive BodyReactionMaxOffset BodyReactionLast BodyLethalLast".split(" ")) {
+                delete canvas.dataset[`rite${key}`];
+            }
         };
     }, [canvas, enabled, slots]);
     useFrame(({ clock }) => {
@@ -4001,7 +3851,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
             ) : null) : null}
             {hydrationPhase >= 3 ? (
                 <>
-                    <ProjectileLayer result={result} clockRef={routedClockRef} quality={quality} />
+                    <ProjectileLayer result={result} fighters={fighters} clockRef={routedClockRef} />
                     <ImpactLayer result={result} clockRef={routedClockRef} quality={quality} batched={batchedBattle} />
                 </>
             ) : null}
@@ -4018,6 +3868,7 @@ function Scene({ result, fighters, clockRef, quality, winnerRef, reducedMotion, 
 export type PetWarfrontRiteStage3DProps = {
     /** Remount combat-owned scene resources without replacing the WebGL context. */
     sceneKey: number;
+    paused?: boolean;
     result: DuelResult;
     /** Every active rig on the field — four a side. */
     fighters: StageFighter[];
@@ -4122,7 +3973,7 @@ export function PetWarfrontRiteStage3D(props: PetWarfrontRiteStage3DProps) {
                 <Canvas
                     key={canvasGeneration}
                     className="wfr-canvas"
-                    frameloop={pageVisible ? "always" : "never"}
+                    frameloop={!pageVisible ? "never" : props.paused ? "demand" : "always"}
                     dpr={renderQuality.dpr}
                     shadows={renderQuality.modelShadows ? "percentage" : false}
                     camera={{ fov: 44, position: [0, 9, 13], near: 0.1, far: 100 }}

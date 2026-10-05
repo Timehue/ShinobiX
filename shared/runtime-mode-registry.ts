@@ -711,13 +711,10 @@ export const RUNTIME_MODE_REGISTRY: readonly RuntimeMode[] = Object.freeze([
     }),
     defineMode({
         id: 'pet-wanderer-showdown', label: 'Natural sector pet wanderer', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,
-        clientEntries: ['screens/WorldMap.tsx', 'screens/PetArena.tsx', 'data/pet-arena-opponents.ts'],
-        routes: [
-            mountedRoute('/pet/battle-start', 'pet/battle-start', ['start', 'recovery']),
-            mountedRoute('/pet/battle-result', 'pet/battle-result', ['settlement']),
-        ],
-        participantModel: 'solo', rewardPolicy: 'none', replayKind: 'immutable-returned-showdown-script', status: 'match',
-        statusDetail: 'The server reconstructs the exact current natural roster slot and presence, seals one NX Showdown script/outcome, then commits the wanderer cooldown. Settlement retires the proof without Coliseum progression.',
+        clientEntries: ['screens/WorldMap.tsx', 'lib/road-beast.ts', 'screens/PetShowdown.tsx', 'lib/pet-showdown-api.ts'],
+        routes: [mountedRoute('/pet/showdown', 'pet/showdown', ['start', 'action', 'state'])],
+        participantModel: 'solo', rewardPolicy: 'none', replayKind: 'expiring-showdown-turn-script', status: 'match',
+        statusDetail: 'The server reconstructs the exact current natural roster slot and presence, leads with the ready pet the beast picked out, and fields the species the World Map showed (shared/wanderer-beast.ts) in an unpaid Colosseum fight, committing the wanderer cooldown. battle-start refuses a wanderer and battle-result retires a leftover wanderer token.',
     }),
     defineMode({
         id: 'pet-coliseum', label: 'Pet Coliseum', category: 'pet-showdown', authorityEngine: E.PET_SHOWDOWN,

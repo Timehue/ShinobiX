@@ -1143,10 +1143,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { failClosed: true });
         } catch (err) {
             // A guarded write can poison the current lock context. In that case
-            // even the compensating read above is rejected. Once that context
-            // has ended, use a fresh fenced lock to repair only the unchanged
-            // guest row's epoch. This keeps the reusable guest resume door
-            // working while the failed password write still revokes old tokens.
+            // even the compensating read above is rejected. After the context
+            // ends, use a fresh fenced lock to repair only the unchanged guest
+            // row's epoch. The failed password write still revokes old tokens.
             if (failedGuestCredentialRecord) {
                 try {
                     await withoutKvLeaseContext(() => withKvLock(key, async () => {
@@ -1157,11 +1156,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             await kv.set(key, {
                                 ...current,
                                 sessionEpoch: currentEpoch,
-                                // A legacy guest has no stored digest to prove a
-                                // resume key after epoch 0. This marker is added
-                                // only after an unchanged guest row is freshly
-                                // verified under the lock following a failed
-                                // first-password write.
                                 ...(current.guestResumeHash === undefined && current.guestResumeExpiresAt === undefined
                                     ? { legacyGuestResumeEpoch: currentEpoch }
                                     : {}),

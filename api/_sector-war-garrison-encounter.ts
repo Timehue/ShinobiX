@@ -29,6 +29,7 @@ import {
     type SoloPveSession,
 } from './solo-pve/_session.js';
 import { biomeForTerrain } from './_anbu-infiltration-encounter.js';
+import type { SealedSectorWeather } from './_sector-weather-seal.js';
 
 export const GARRISON_MAP = { width: 12, height: 10 } as const;
 export const GARRISON_ROUND_BUDGET = 25;
@@ -80,6 +81,9 @@ export interface BuildGarrisonParams {
     contestId: string;
     attackerVillage: string;
     defenderVillage: string;
+    /** The sector's sky, sealed by the caller (api/_sector-weather-seal.ts) —
+     *  the same sky the human sector-war duel this fight stands in for seals. */
+    weather?: SealedSectorWeather;
 }
 
 export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSession {
@@ -110,7 +114,7 @@ export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSess
         player,
         enemy,
         now: params.now,
-        environment: { biome, blockedTiles: [] },
+        environment: { biome, blockedTiles: [], ...params.weather },
         itemCharges: params.attacker.itemCharges,
         activeTtlSeconds: 45 * 60,
     });

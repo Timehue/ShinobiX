@@ -128,7 +128,7 @@ export const SERVER_OWNED_CHARACTER_FIELDS: ReadonlySet<string> = new Set([
     'mentorRewardReceipts',
     // Inventory, jutsu, pets, titles, legacy
     'professionChosenAt', 'jutsu', 'jutsuMastery', 'pets', 'tileCards', 'lastHollowGateStart',
-    'serverTitles', 'legacy', 'masterySpec', 'examsPassed',
+    'serverTitles', 'legacy', 'masterySpec', 'examsPassed', 'eraJourneys',
     // Forbidden at character scope (deleted from the character on every save)
     'creatorJutsus', 'creatorItems', 'creatorAis', 'creatorMissions', 'creatorEvents',
     'creatorCards', 'creatorRaids',

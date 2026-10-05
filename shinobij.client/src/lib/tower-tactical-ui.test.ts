@@ -8,7 +8,15 @@ import {
     clampTowerZoom,
     estimateTowerActionDamage,
     projectTowerClearScore,
+    towerPreviewTargetInRange,
 } from "./tower-tactical-ui";
+
+test("self-cast previews accept the actor at zero distance while enemy casts use the enemy range set", () => {
+    const enemyRangeIds = new Set(["near-enemy"]);
+    assert.equal(towerPreviewTargetInRange("hunter", "hunter", enemyRangeIds, true), true);
+    assert.equal(towerPreviewTargetInRange("far-enemy", "hunter", enemyRangeIds, false), false);
+    assert.equal(towerPreviewTargetInRange("near-enemy", "hunter", enemyRangeIds, false), true);
+});
 
 test("story Tower milestone receipts are progression records, never wearable titles", () => {
     const receipt = buildTowerMilestoneReceipt("tower-floor-5");

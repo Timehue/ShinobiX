@@ -12,6 +12,21 @@ export type FirstPactCompanionView = {
     available: boolean;
 };
 
+/** Companions away on training, expeditions, or breeding stay in the historical
+ * record, but should not be narrated as taking physical actions in a scene. This
+ * is intentionally separate from combat eligibility: training no longer blocks
+ * a pet from fighting. */
+export function firstPactPresentPetIds(
+    pets: readonly Pet[],
+    carriedPetIds: ReadonlySet<string>,
+    breedingPetIds: ReadonlySet<string>,
+): Set<string> {
+    return new Set(pets.filter((pet) => carriedPetIds.has(pet.id)
+        && !breedingPetIds.has(pet.id)
+        && !pet.training
+        && !pet.expedition).map((pet) => pet.id));
+}
+
 const cleanName = (value: unknown) => String(value ?? "").trim().slice(0, 48);
 const PET_ROLES = new Set(["defender", "tracker", "assassin", "sage"]);
 const AFTERMATH_FINDINGS = new Set<FirstPactAftermathId>([

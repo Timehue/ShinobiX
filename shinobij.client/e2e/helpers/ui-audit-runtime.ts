@@ -82,10 +82,7 @@ export function uiAuditSave(): UiAuditSave {
             messages: [],
         },
         currentBiome: "central",
-        // Start in Central's safe zone. Hub-screen restore correctly refuses
-        // to teleport a field character home; audit cases may request any hub
-        // directly, so the shared fixture must begin somewhere that can reach
-        // those screens without violating the travel rule.
+        // Town UI fixtures must be in town; field tests set their own sector.
         currentSector: 0,
         activeTraining: null,
         activeJutsuTraining: null,
@@ -161,7 +158,16 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             save = JSON.parse(postedState) as UiAuditSave;
             saveVersion += 1;
             lastCommit = { baseVersion, version: saveVersion, postedState };
-            await json(route, { ok: true, _saveVersion: saveVersion });
+            // Production acknowledges an explicit bloodline equip with what it
+            // actually stored (api/save/[name].ts); the client refuses the swap
+            // without it.
+            const retained = Array.isArray(save.savedBloodlines) ? save.savedBloodlines as Array<{ id: string; rank: string }> : [];
+            await json(route, { ok: true, _saveVersion: saveVersion,
+                ...(request.headers()["x-bloodline-equip-intent"] ? {
+                    savedBloodlineIds: retained.map((bloodline) => bloodline.id),
+                    savedBloodlineRanks: Object.fromEntries(retained.map((bloodline) => [bloodline.id, bloodline.rank])),
+                    equippedBloodlineId: save.character?.equippedBloodlineId ?? null,
+                } : {}) });
             acknowledgedVersion = saveVersion;
             return;
         }

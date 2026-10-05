@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { before, beforeEach, test } from 'node:test';
+import { before, beforeEach, test, type TestContext } from 'node:test';
 import { creditElderWins, elderTermScore, ELDER_TERM_MS } from '../../shared/elder-elections.js';
 
 process.env.NODE_ENV = 'test';
@@ -14,6 +14,16 @@ const START = Date.UTC(2026, 8, 1);
 const village = 'Frostfang Village';
 const key = 'village:elder-council:frostfangvillage';
 const stateKey = 'game:village-state:frostfangvillage';
+
+// Mock Date.now ONCE per test and move the clock by assignment. Calling
+// t.mock.method(Date, 'now', ...) a second time in the same test wraps the first
+// mock, and restoring them leaves the FIRST mock installed for every later test
+// in this file — a frozen clock that silently disagrees with `new Date()`.
+function mockClock(t: TestContext, start: number) {
+    let now = start;
+    t.mock.method(Date, 'now', () => now);
+    return { set(next: number) { now = next; } };
+}
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
@@ -103,11 +113,11 @@ test('an offline village catches up using only the latest completed term, with n
 });
 
 test('concurrent readers run a single election and cannot erase a new Kage appointment', async t => {
-    t.mock.method(Date, 'now', () => START);
+    const clock = mockClock(t, START);
     await read(village);
     await player('pvp', 9, 0);
     await player('pve', 0, 8);
-    t.mock.method(Date, 'now', () => START + ELDER_TERM_MS);
+    clock.set(START + ELDER_TERM_MS);
     const [elected, appointed, concurrent] = await Promise.all([
         read(village), request('kage', { action: 'appoint', appointee: 'first' }), read(village),
     ]);
@@ -120,28 +130,28 @@ test('concurrent readers run a single election and cannot erase a new Kage appoi
 });
 
 test('Kage cannot appoint or clear earned seats, duplicate an elected player or extend the term', async t => {
-    t.mock.method(Date, 'now', () => START);
+    const clock = mockClock(t, START);
     await read(village);
     await player('pvp', 3, 0);
     await player('pve', 0, 2);
-    t.mock.method(Date, 'now', () => START + ELDER_TERM_MS);
+    clock.set(START + ELDER_TERM_MS);
     await read(village);
     for (const focus of ['trade', 'training']) for (const action of ['appoint', 'clear']) {
         assert.equal((await request('kage', { action, focus, appointee: 'idle' })).status, 403);
     }
     assert.equal((await request('kage', { action: 'appoint', appointee: 'pvp' })).status, 409);
     assert.equal((await request('idle', { action: 'appoint', appointee: 'idle' })).status, 403);
-    t.mock.method(Date, 'now', () => START + ELDER_TERM_MS + 3 * 86400000);
+    clock.set(START + ELDER_TERM_MS + 3 * 86400000);
     assert.equal((await request('kage', { action: 'appoint', appointee: 'idle' })).status, 200);
     assert.equal((await read(village)).nextSelectionAt, START + 2 * ELDER_TERM_MS);
 });
 
 test('election results drive orders, exams, war roles and focus without trusting old village blobs', async t => {
-    t.mock.method(Date, 'now', () => START);
+    const clock = mockClock(t, START);
     await read(village);
     await player('pvp', 3, 0);
     await player('pve', 0, 2);
-    t.mock.method(Date, 'now', () => START + ELDER_TERM_MS);
+    clock.set(START + ELDER_TERM_MS);
     const roles = await import('../_war-role.js');
     const exam = (await import('../exams/pass.js')).default as unknown as typeof handler;
     const order = { action: 'post', id: 'elected-order', type: 'general', title: 'Rally', body: 'Defend the gate.' };
@@ -233,4 +243,26 @@ test('a ranked settlement recovered after rollover counts once in its crediting 
     assert.deepEqual(elderTermScore(days, village, START, rollover), { pvp: 0, pve: 0 });
     assert.deepEqual(elderTermScore(days, village, rollover, rollover + ELDER_TERM_MS), { pvp: 1, pve: 0 });
     assert.deepEqual((await read(village, undefined, rollover + 86400000)).seats, elected.seats);
+});
+
+test('a ranked elder win keeps the idle recovery the winner earned since their last save', async () => {
+    // The credit lands from the ranked settlement, often after the winner
+    // closed the game. A version bump that fenced the regeneration cursor to
+    // now discarded every point recovered since their last save.
+    const { creditRankedElderWin } = await import('./_elder-ranked-win.js');
+    const at = Date.now() - 30_000;
+    const record = await kv.get<any>('save:pvp');
+    await kv.set('save:pvp', { ...record, _saveAt: at, _regenAt: at, character: { ...record.character,
+        hp: 10, maxHp: 100, chakra: 20, maxChakra: 100, stamina: 0, maxStamina: 100 } });
+    const lock = async <T>(_key: string, run: () => Promise<T>) => run();
+    const now = Date.now();
+    await creditRankedElderWin(kv, lock, 'pvp', 'tired-ranked-match', now - 1000, now);
+    const saved = await kv.get<any>('save:pvp');
+    assert.deepEqual(saved.character.elderRankedWinReceipts.map((entry: { id: string }) => entry.id), ['tired-ranked-match']);
+    assert.ok(saved.character.hp >= 40, `hp ${saved.character.hp} lost the idle recovery`);
+    assert.ok(saved.character.chakra >= 50, `chakra ${saved.character.chakra} lost the idle recovery`);
+    assert.ok(saved.character.stamina >= 30, `stamina ${saved.character.stamina} lost the idle recovery`);
+    // The credit moves no vital, so the write carries the settled cursor.
+    assert.ok(Number(saved._regenAt) >= at + 30_000 - 1_000, `cursor ${saved._regenAt} fell behind the recovery`);
+    assert.equal((Number(saved._regenAt) - at) % 1_000, 0, `cursor ${saved._regenAt} was fenced to the write, not carried`);
 });

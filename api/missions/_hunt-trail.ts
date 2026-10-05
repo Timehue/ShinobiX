@@ -99,3 +99,13 @@ export function deterministicHuntAmbush(
 export function clampHuntQuality(value: unknown): number {
     return Math.max(HUNT_QUALITY_MIN, Math.min(HUNT_QUALITY_MAX, Math.floor(Number(value) || 0)));
 }
+
+/**
+ * The contract target is always one creature. A pack ambush is always three
+ * creatures, the same number of fights the old three-stage chain asked for,
+ * either arriving one after another (waves) or all at once (pack).
+ */
+export function huntFormationFor(runId: string, kind: string, decisionId = ''): import('../../shared/hunt-combat.js').HuntFormation {
+    if (kind !== 'hunt-pack') return { version: 1, kind: 'single', count: 1 };
+    return { version: 1, kind: ((huntHash(`${runId}:${kind}:${decisionId}:formation-v2`) >>> 16) & 1) === 0 ? 'waves' : 'pack', count: 3 };
+}

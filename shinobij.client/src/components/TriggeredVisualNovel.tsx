@@ -27,7 +27,7 @@ type VnChoice = NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choice
 
 import { getReaderMode } from "../lib/reader-preference";
 
-export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean }) {
+export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex, lineIndex, setPageIndex, setLineIndex, onCancel, onComplete, onBattle, onChoice, onProgress, sharedImages, surface = "immersive", readOnlyReplay = false, cancelLabel = "Skip" }: { event: CreatorEvent; character: Character; pageIndex: number; lineIndex: number; setPageIndex: (index: number | ((index: number) => number)) => void; setLineIndex: (index: number | ((index: number) => number)) => void; onCancel: () => void; onComplete: () => void; onBattle: (event: CreatorEvent, battle?: NonNullable<NonNullable<CreatorEvent["vnPages"]>[number]["choices"]>[number]["battle"]) => void; onChoice?: (choice: VnChoice, receipt: StoryChoiceReceipt) => void; onProgress?: (cursor: StoryCursor, history: StoryCursor[]) => void; sharedImages?: Record<string, string>; surface?: "immersive" | "preview" | "classic"; /** Story Hall playback: presentation only, with every mutation/battle affordance removed by the caller. */ readOnlyReplay?: boolean; cancelLabel?: string }) {
     const event = useVnArtwork(sourceEvent);
     // The local character object can drift out of sync with the freshly-
     // uploaded avatar (server saves strip images and re-hydrate from the
@@ -618,7 +618,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                     </div>
                     <div className="vn-header-actions">
                         <div className="vn-progress">Page {pageIndex + 1}/{pages.length} | Line {lineIndex + 1}/{Math.max(1, pageDialogue.length)}</div>
-                        <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label="Skip visual novel scene">Skip</button>
+                        <button type="button" className="vn-skip-button" onClick={cancelScene} aria-label={cancelLabel === "Later this session" ? "Defer scene until next session" : "Skip visual novel scene"} title={cancelLabel === "Later this session" ? "This scene can appear again next session." : undefined}>{cancelLabel}</button>
                     </div>
                 </div>
                 <div className={"vn-stage vn-biome-" + event.biome + (presentation.backgroundImage ? " vn-has-image" : "")} style={stageStyle}>

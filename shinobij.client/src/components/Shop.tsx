@@ -7,7 +7,7 @@ import "../styles/index/17-shop-inventory-loadout.css";
  * Prop-driven, extracted verbatim from App.tsx with no behavior change
  * (prices/discount formulas unchanged).
  */
-import { useCallback, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { wildBindingSeal } from "../../../shared/wild-binding";
 import { getAllItems } from "../lib/items";
@@ -28,6 +28,7 @@ import { VillageTransfer } from "./VillageTransfer";
 import { ProfessionChange } from "./ProfessionChange";
 import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
 import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
+import { takeMarketplaceScrollHint } from "../lib/marketplace-scroll-navigation";
 
 function shopArtworkIcon(item: GameItem): GameIconName {
     switch (normalizeEquipmentSlot(item.slot)) {
@@ -89,6 +90,17 @@ function ShopBase({
     const [buyQty, setBuyQty] = useState(1);
     const [purchaseBusy, setPurchaseBusy] = useState(false);
     const purchaseBusyRef = useRef(false);
+    const scrollsRef = useRef<HTMLDivElement>(null);
+
+    // The scroll cards sit below every item group, so when the backpack's
+    // "Use scroll" sent the player here, bring that scroll's card into view.
+    useEffect(() => {
+        if (currency !== "fateShards") return;
+        const card = takeMarketplaceScrollHint();
+        if (!card) return;
+        scrollsRef.current?.querySelector(card === "village" ? "#village-transfer-title" : "#profession-change-title")
+            ?.closest("section")?.scrollIntoView({ block: "start", behavior: "instant" });
+    }, [currency]);
 
     /*
      * Not gated on purchaseBusyRef: an escape hatch a busy flag can disable is no hatch at
@@ -314,6 +326,11 @@ function ShopBase({
                     </div>
                 );
             })}
+
+            {currency === "fateShards" && <div className="marketplace-scrolls" ref={scrollsRef}>
+                <VillageTransfer key={`village-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
+                <ProfessionChange key={`profession-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
+            </div>}
 
             {selectedItem && (
                 <Modal open onClose={closeItem} ariaLabel={`${selectedItem.name} item details`} size="lg" bare className="item-popup-card" disableBackdropClose={purchaseBusy}>

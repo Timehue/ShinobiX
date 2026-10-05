@@ -1,9 +1,10 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
 import { kv } from '../_storage.js';
-import { cors, safeName, mergePreservingImages } from '../_utils.js';
+import { cors, safeName } from '../_utils.js';
 import { isFullAdmin } from '../_auth.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { bumpSaveVersion } from '../save/_save-version.js';
+import { mutatePlayerSave } from '../save/_mutate-player-save.js';
+import { isPlayerSaveVersionConflict, retryOnSaveVersionConflict } from '../save/_projected-write.js';
 import { getLegacyStats, legacyStatsKey, legacyEventsKey, appendLegacyEvent, legacyEnabled, LEGACY_SUSPECTS_KEY, type LegacyEvent, type LegacyStats } from '../_legacy-track.js';
 import { evaluateAllLegacies, getLegacyOverlay, LEGACY_OVERLAY_KEY, type LegacyOverlay } from '../_legacy-score.js';
 import { LEGACY_BY_ID, LEGACY_DEFS } from '../_legacy-defs.js';
@@ -107,25 +108,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // Stamp the world era, matching the player-accept path (sage.ts) so an
                 // admin-corrected legacy isn't left with a blank era-of-origin.
                 const eraBorn = legacyId === null ? undefined : await currentEraNumber();
-                const saveOk = await withKvLock<boolean>(`save:${player}`, async () => {
-                    const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
-                    const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                    if (!rec || !char) return false;
+                // The correction sets a value rather than adding to one, so
+                // re-running it after a lost compare-and-set lands it once.
+                const saved = await retryOnSaveVersionConflict(() => mutatePlayerSave<null>(player, ({ character: char }) => {
                     const now = Date.now();
                     const legacy: CharacterLegacy | null = legacyId === null ? null : {
                         legacyId, stage: 1, acceptedAt: now, eraBorn, titles: [],
                     };
-                    const updated: Record<string, unknown> = { ...char, legacy };
-                    await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                    // Marker + trial reset written in the SAME save lock as the save
-                    // write, so a mid-op crash can't leave the accepted-marker and the
-                    // save pointing at different legacies (self-consistent either way).
-                    if (legacyId === null) await kv.del(legacyAcceptedKey(player));
-                    else await kv.set(legacyAcceptedKey(player), { legacyId, ts: now, adminSet: true });
-                    await kv.del(legacyTrialKey(player));
-                    return true;
-                }, { failClosed: true });
-                if (!saveOk) return { status: 404, body: { error: 'Save not found.' } };
+                    return {
+                        ok: true,
+                        character: { ...char, legacy },
+                        value: null,
+                        // Marker + trial reset written in the SAME save lock, right
+                        // after the save commits, so a mid-op crash can't leave the
+                        // accepted-marker and the save pointing at different
+                        // legacies (self-consistent either way).
+                        afterCommit: async () => {
+                            if (legacyId === null) await kv.del(legacyAcceptedKey(player));
+                            else await kv.set(legacyAcceptedKey(player), { legacyId, ts: now, adminSet: true });
+                            await kv.del(legacyTrialKey(player));
+                        },
+                    };
+                }));
+                if (!saved.ok) return { status: 404, body: { error: 'Save not found.' } };
                 await appendLegacyEvent(player, { type: 'admin-correction', key: legacyId ?? 'cleared', meta: { reason } });
                 await recordAudit({
                     actor: 'admin', domain: 'legacy', action: 'legacy.emergency-change',
@@ -225,20 +230,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const refund = body.refund !== false; // default: refund the 10 shards
             if (!player) return res.status(400).json({ error: 'Missing player.' });
             if (!reason) return res.status(400).json({ error: 'A reason is required to revoke a title.' });
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${player}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Save not found.' } };
+            // The cleared title is the receipt (a repeat finds 'no-title'), so
+            // re-running the whole revoke after a lost compare-and-set refunds once.
+            const revoked = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ status: number; body: unknown }>(player, ({ character: char }) => {
                 const previous = String(char.customTitle ?? '');
-                if (!previous) return { status: 200, body: { ok: false, reason: 'no-title' } };
+                if (!previous) return { ok: true, write: false, character: char, value: { status: 200, body: { ok: false, reason: 'no-title' } } };
                 const updated = {
                     ...char,
                     customTitle: '',
                     ...(refund ? { fateShards: Math.max(0, Number(char.fateShards ?? 0)) + 10 } : {}),
                 };
-                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }, { previousCharacter: char }), rec));
-                return { status: 200, body: { ok: true, previous, refunded: refund ? 10 : 0 } };
-            }, { failClosed: true });
+                return { ok: true, character: updated, value: { status: 200, body: { ok: true, previous, refunded: refund ? 10 : 0 } } };
+            }));
+            const out = revoked.ok ? revoked.value : { status: 404, body: { error: 'Save not found.' } };
             if (out.status === 200 && (out.body as { ok?: boolean }).ok) {
                 await recordAudit({
                     actor: 'admin', domain: 'legacy', action: 'title.revoke',
@@ -261,21 +265,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!player || !title) return res.status(400).json({ error: 'Missing player or title.' });
             if (!reason) return res.status(400).json({ error: 'A reason is required to grant a title.' });
             if (!isKnownEarnedTitle(title)) return res.status(400).json({ error: 'Unknown title — only registered earned titles can be granted.' });
-            const out = await withKvLock<{ status: number; body: unknown }>(`save:${player}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${player}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return { status: 404, body: { error: 'Save not found.' } };
+            // The title itself is the receipt, so re-running the whole grant after a
+            // lost compare-and-set grants it once.
+            const granted = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ status: number; body: unknown }>(player, ({ character: char }) => {
                 const earned = Array.isArray(char.earnedTitles) ? (char.earnedTitles as string[]) : [];
                 const server = Array.isArray(char.serverTitles) ? (char.serverTitles as string[]) : [];
-                if (server.includes(title)) return { status: 200, body: { ok: false, reason: 'already-granted' } };
+                if (server.includes(title)) return { ok: true, write: false, character: char, value: { status: 200, body: { ok: false, reason: 'already-granted' } } };
                 const updated = {
                     ...char,
                     serverTitles: [...server, title],
                     earnedTitles: earned.includes(title) ? earned : [...earned, title],
                 };
-                await kv.set(`save:${player}`, mergePreservingImages(bumpSaveVersion({ ...rec, character: updated }), rec));
-                return { status: 200, body: { ok: true } };
-            }, { failClosed: true });
+                return { ok: true, character: updated, value: { status: 200, body: { ok: true } } };
+            }));
+            const out = granted.ok ? granted.value : { status: 404, body: { error: 'Save not found.' } };
             if (out.status === 200 && (out.body as { ok?: boolean }).ok) {
                 await recordAudit({ actor: 'admin', domain: 'legacy', action: 'title.grant', entityType: 'player', entityId: player, after: title, reason });
             }
@@ -383,7 +386,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         return res.status(400).json({ error: 'Unknown action.' });
     } catch (err) {
-        if (err instanceof LockContendedError) {
+        if (err instanceof LockContendedError || isPlayerSaveVersionConflict(err)) {
             return res.status(503).json({ error: 'Contended — please retry.' });
         }
         console.error('[admin/legacy]', err);

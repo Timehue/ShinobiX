@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util';
 import { MAX_WILD_SECTOR } from '../shared/sector-geo.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
+import { storedValueEquals } from './_stored-value.js';
 import { cors, safeName, clanBareSlug, clanRecordKey, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
@@ -487,8 +488,10 @@ async function commitSectorTerritoryExact(
     try {
         if (await kv.compareSet(key, expected, candidate)) return candidate;
     } catch (error) {
+        // A capture clears its owner and lifecycle fields to explicit undefined;
+        // the read-back is the JSON form without them.
         const recovered = await kv.get<unknown>(key).catch(() => null);
-        if (isDeepStrictEqual(recovered, candidate)) return candidate;
+        if (storedValueEquals(recovered, candidate)) return candidate;
         throw error;
     }
     throw new Error('sector-territory-publication-conflict');
@@ -2018,8 +2021,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             territoryConflict = true;
                         }
                     } catch (error) {
+                        // Carried-over owner and weather fields can be explicitly
+                        // undefined; the read-back is the JSON form without them.
                         const recovered = await kv.get<unknown>(key).catch(() => null);
-                        if (!isDeepStrictEqual(recovered, committedTerritory)) throw error;
+                        if (!storedValueEquals(recovered, committedTerritory)) throw error;
                     }
                 }, { failClosed: true });
                 if (territoryConflict) {

@@ -23,7 +23,9 @@ import { join } from 'node:path';
 const read = (rel: string) => readFileSync(join(process.cwd(), ...rel.split('/')), 'utf8');
 
 const INSTRUMENTED: { file: string; sources: string[] }[] = [
-    { file: 'api/player/trade.ts', sources: ['trade.burn'] },
+    // A trade's burn is recorded by the shared helper, which both the route and
+    // the admin reconcile reach (pinned below), so it is recorded exactly once.
+    { file: 'api/player/_trade-settlement.ts', sources: ['trade.burn'] },
     { file: 'api/village/treasury/transfer.ts', sources: ['village.gift.burn'] },
     { file: 'api/clan/treasury/transfer.ts', sources: ['clan.gift.burn'] },
     { file: 'api/village/upgrade.ts', sources: ['village.upgrade'] },
@@ -53,7 +55,7 @@ describe('economy telemetry coverage', () => {
     it('every burn is logged as a NEGATIVE delta', () => {
         // A burn recorded as a positive delta would count destroyed currency as
         // created, inverting the one number the ledger exists to report.
-        for (const file of ['api/player/trade.ts', 'api/village/treasury/transfer.ts', 'api/clan/treasury/transfer.ts']) {
+        for (const file of ['api/player/_trade-settlement.ts', 'api/village/treasury/transfer.ts', 'api/clan/treasury/transfer.ts']) {
             const src = read(file);
             const burnCalls = src.split('recordEconomyTxn(').slice(1)
                 .filter(chunk => /source: '[a-z.]*burn'/.test(chunk.slice(0, 400)));
@@ -62,6 +64,13 @@ describe('economy telemetry coverage', () => {
                 assert.match(call.slice(0, 400), /delta: -/, `${file} logs a burn as a positive delta`);
             }
         }
+    });
+
+    it('both doors that complete a player trade record it through the shared helper', () => {
+        assert.match(read('api/player/trade.ts'), /recordTradeCompletion\(/, 'the trade route must record the trades it completes');
+        const helper = read('api/player/_trade-settlement.ts');
+        assert.match(helper.slice(helper.indexOf('export async function reconcilePlayerTrade')), /recordTradeCompletion\(/,
+            'the admin reconcile must record the trades it completes');
     });
 
     it('the treasury gift burn is attributed to the taxed currency, not hardcoded ryo', () => {

@@ -808,15 +808,6 @@
     },
     {
       "system": "shop",
-      "id": "chakra-ring",
-      "currency": "ryo",
-      "amount": 600,
-      "cadence": "per unit",
-      "authority": "api/pvp/_item-catalog.ts",
-      "notes": "rare relic"
-    },
-    {
-      "system": "shop",
       "id": "cloth-hood",
       "currency": "ryo",
       "amount": 120,
@@ -1807,6 +1798,15 @@
     },
     {
       "system": "shop",
+      "id": "village-transfer-scroll",
+      "currency": "fateShards",
+      "amount": 250,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary item"
+    },
+    {
+      "system": "shop",
       "id": "void-leech-nodachi",
       "currency": "fateShards",
       "amount": 100,
@@ -1934,10 +1934,10 @@
     {
       "system": "craft",
       "id": "named-forge",
-      "currency": "ryo",
-      "amount": 1000,
+      "currency": "fateShards",
+      "amount": 200,
       "cadence": "per forge",
-      "authority": "api/craft/_named.ts",
+      "authority": "shared/named-forge-economy.ts",
       "notes": ""
     },
     {
@@ -2174,15 +2174,6 @@
       "slot": "waist",
       "levelReq": 20,
       "baseCost": 320,
-      "currency": "ryo"
-    },
-    {
-      "id": "chakra-ring",
-      "name": "Chakra Ring",
-      "rarity": "rare",
-      "slot": "relic",
-      "levelReq": 1,
-      "baseCost": 600,
       "currency": "ryo"
     },
     {
@@ -2799,10 +2790,10 @@
     },
     {
       "id": "profession-change-approval",
-      "name": "Profession change approval",
+      "name": "Profession Change Scroll",
       "rarity": "legendary",
       "slot": "item",
-      "levelReq": 13,
+      "levelReq": 20,
       "baseCost": 200,
       "currency": "fateShards"
     },
@@ -3174,6 +3165,15 @@
       "levelReq": 1,
       "baseCost": 240,
       "currency": "ryo"
+    },
+    {
+      "id": "village-transfer-scroll",
+      "name": "Village Transfer Scroll",
+      "rarity": "legendary",
+      "slot": "item",
+      "levelReq": 100,
+      "baseCost": 250,
+      "currency": "fateShards"
     },
     {
       "id": "void-leech-nodachi",

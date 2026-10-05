@@ -1,0 +1,83 @@
+name: Install Playwright browsers
+description: >-
+  Run `playwright install --with-deps` with the Ubuntu packages it needs served
+  from the Actions cache instead of the apt mirror.
+
+# Why the OS packages and not the browsers: on run 36917343473 (2026-10-01) the
+# e2e-responsive shards spent 0.8 to 19.1 minutes on this step on identical
+# code. The browsers themselves always downloaded in about 23 seconds. The rest
+# was apt fetching 181 packages (125 MB) from a mirror that ran at 140 kB/s,
+# which pushed one shard past its 35-minute limit. apt-get skips downloading
+# any package whose exact .deb is already in /var/cache/apt/archives, so seeding
+# that directory from the cache removes the mirror from the critical path while
+# the install command itself stays unchanged.
+
+inputs:
+  browsers:
+    description: Space-separated Playwright browser names, e.g. "chromium firefox webkit".
+    required: true
+  log:
+    description: Evidence file that receives the install output.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - id: key
+      shell: bash
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+      run: |
+        # Playwright's version decides which packages --with-deps installs; the
+        # month bounds how far cached .debs can drift behind security updates.
+        playwright_version="$(node -p "require('./shinobij.client/node_modules/@playwright/test/package.json').version")"
+        prefix="playwright-os-debs-v1-${ImageOS:-unknown-image}-${RUNNER_ARCH}"
+        echo "prefix=${prefix}-" >> "$GITHUB_OUTPUT"
+        echo "key=${prefix}-pw${playwright_version}-${BROWSERS// /-}-$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+    - id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ~/.cache/playwright-os-debs
+        key: ${{ steps.key.outputs.key }}
+        # An older month's or browser set's packages are still mostly current;
+        # apt downloads only the ones that changed.
+        restore-keys: ${{ steps.key.outputs.prefix }}
+
+    - name: Seed apt with cached packages
+      shell: bash
+      run: |
+        if compgen -G "$HOME/.cache/playwright-os-debs/*.deb" > /dev/null; then
+          sudo cp "$HOME"/.cache/playwright-os-debs/*.deb /var/cache/apt/archives/
+          echo "Seeded $(compgen -G "$HOME/.cache/playwright-os-debs/*.deb" | wc -l) cached OS packages."
+        else
+          echo "No cached OS packages; apt downloads everything this run."
+        fi
+
+    - name: Install browsers and OS dependencies
+      shell: bash
+      env:
+        BROWSERS: ${{ inputs.browsers }}
+        INSTALL_LOG: ${{ inputs.log }}
+      # $BROWSERS is unquoted on purpose: it is a word list.
+      run: npx --prefix shinobij.client playwright install --with-deps $BROWSERS 2>&1 | tee "$INSTALL_LOG"
+
+    - name: Collect OS packages for the cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        # autoclean drops .debs that can no longer be downloaded (superseded
+        # versions seeded from an older cache), so the entry does not grow forever.
+        sudo apt-get autoclean -qq
+        mkdir -p "$HOME/.cache/playwright-os-debs"
+        if compgen -G "/var/cache/apt/archives/*.deb" > /dev/null; then
+          cp /var/cache/apt/archives/*.deb "$HOME/.cache/playwright-os-debs/"
+        fi
+        echo "Caching $(compgen -G "$HOME/.cache/playwright-os-debs/*.deb" | wc -l) OS packages."
+
+    - name: Save OS packages
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ~/.cache/playwright-os-debs
+        key: ${{ steps.key.outputs.key }}

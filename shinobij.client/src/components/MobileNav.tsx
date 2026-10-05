@@ -13,7 +13,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { levelProgress } from "../lib/character-progress";
 import { useBodyScrollLock } from "../lib/useBodyScrollLock";
 import type { Character } from "../types/character";
-import type { Screen } from "../types/core";
+import type { Biome, Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
 import { isProtectedAdminName } from "../constants/game";
 import { PROFESSION_LABEL } from "../data/professions";
@@ -43,6 +43,8 @@ export const MobileNav = memo(function MobileNav({
     activeTraining,
     activeJutsuTraining,
     screen,
+    currentBiome,
+    openWorldMapOverview,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -53,6 +55,8 @@ export const MobileNav = memo(function MobileNav({
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
     screen: Screen;
+    currentBiome: Biome;
+    openWorldMapOverview: () => void;
 }) {
     const [open, setOpen] = useState(false);
     // The "You" sheet — the desktop left-rail profile card, surfaced on mobile.
@@ -102,7 +106,8 @@ export const MobileNav = memo(function MobileNav({
         if (now < navLockUntilRef.current && lastNavTargetRef.current === screen) return;
         navLockUntilRef.current = now + 300;
         lastNavTargetRef.current = screen;
-        navigate(screen);
+        if (screen === "worldMap") openWorldMapOverview();
+        else navigate(screen);
         setOpen(false);
     }
 
@@ -124,7 +129,7 @@ export const MobileNav = memo(function MobileNav({
                 </button>
                 <button className="mobile-nav-btn" data-tabletop-command="travel" aria-current={screen === "worldMap" ? "page" : undefined} onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
-                    Travel
+                    World Map
                 </button>
                 <button className="mobile-nav-btn" data-tabletop-command="village" aria-current={screen === "village" ? "page" : undefined} onClick={() => go("village")} onPointerDown={() => preloadScreen("village", character.storyVillage || character.village)}>
                     <span className="mnb-icon"><GiPagoda size={24} /></span>
@@ -147,6 +152,7 @@ export const MobileNav = memo(function MobileNav({
                 character={character}
                 updateCharacter={updateCharacter}
                 currentSector={currentSector}
+                currentBiome={currentBiome}
                 setScreen={go}
                 activeTraining={activeTraining}
                 activeJutsuTraining={activeJutsuTraining}

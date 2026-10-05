@@ -3,7 +3,7 @@ import { isKnownEarnedTitle, isServerCreditedTitle, normalizeTitleKey } from '..
 /**
  * Profile title ownership must match the trust source that grants the title.
  * Achievement titles retain the historical earnedTitles source, while server
- * honors (including Play reward titles) require the server-owned vault.
+ * honors (including era campaign titles) require the server-owned vault.
  */
 export function ownsKnownProfileTitle(character: Record<string, unknown>, title: string): boolean {
     if (!isKnownEarnedTitle(title)) return false;

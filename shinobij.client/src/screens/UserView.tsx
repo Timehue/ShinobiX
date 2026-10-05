@@ -27,7 +27,6 @@ import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailabil
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { petCardImage } from "../lib/pet-battle-anim";
-import { achievementBadgeSrc } from "../lib/achievement-badge";
 import { GameArtIcon } from "../components/GameArtIcon";
 
 const ELEMENT_COLORS: Record<string, string> = {

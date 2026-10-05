@@ -4515,9 +4515,10 @@ export function FirstPact({
     const availablePets = useMemo(() => (character.pets ?? []).filter((pet) => (
         carried.has(pet.id) && isPetAvailableForColosseum(pet, breedingParents)
     )), [breedingParents, carried, character.pets]);
-    // Training does not lock a companion out of Colosseum combat, but a pet
-    // training at the yard is not physically present in the First Pact scene.
-    const pactPresentPetIds = useMemo(() => firstPactPresentPetIds(availablePets), [availablePets]);
+    const storyPresentPetIds = useMemo(
+        () => firstPactPresentPetIds(character.pets ?? [], carried, breedingParents),
+        [breedingParents, carried, character.pets],
+    );
     const activePet = useMemo(() => (
         availablePets.find((pet) => pet.id === character.activePetId) ?? availablePets[0] ?? null
     ), [availablePets, character.activePetId]);
@@ -4525,8 +4526,8 @@ export function FirstPact({
         .map((id) => character.pets.find((pet) => pet.id === id))
         .filter(Boolean) as Pet[], [character.pets, selectedPets]);
     const pactCompanions = useMemo(
-        () => resolveFirstPactCompanions(progress, character.pets ?? [], pactPresentPetIds),
-        [character.pets, pactPresentPetIds, progress],
+        () => resolveFirstPactCompanions(progress, character.pets ?? [], storyPresentPetIds),
+        [character.pets, progress, storyPresentPetIds],
     );
 
     const worldPixels = { width: FIRST_PACT_WORLD_WIDTH * FIRST_PACT_TILE_SIZE, height: FIRST_PACT_WORLD_HEIGHT * FIRST_PACT_TILE_SIZE };
@@ -5913,7 +5914,7 @@ export function FirstPact({
 
     return (
         <main className={`first-pact-screen${battle ? " is-battling" : ""}`} style={{ "--fp-key-art": `url(${sunkenCourtKeyArt})` } as CSSProperties}>
-            <div className="fp-world" ref={viewportRef} data-gamepad-mode={entered ? "sector" : undefined} onPointerDown={handleWorldPointer}>
+            <div className="fp-world" ref={viewportRef} onPointerDown={handleWorldPointer}>
                 <canvas ref={canvasRef} className="fp-world-canvas" role="img" aria-label="Connected tile-based exterior city of the living Sunken Court" />
 
                 {/* Actors live in WORLD coordinates; the camera pans this one

@@ -1,5 +1,6 @@
 import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
+import { wandererBeastName, wandererBeastRival, wandererBeastSpecies } from '../../shared/wanderer-beast.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -13,6 +14,8 @@ let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
 let resolveNaturalWorldWanderer: typeof import('../missions/_world-ai-fight.js').resolveNaturalWorldWanderer;
 let wandererDayBucketFromMs: typeof import('../sector/_wanderer-encounter.js').wandererDayBucketFromMs;
 let wandererShowdownFormat: typeof import('./_wanderer-showdown.js').wandererShowdownFormat;
+let activeCarriedPets: typeof import('../_entitlements.js').activeCarriedPets;
+let PET_CATALOG: typeof import('./_catalog.js').PET_CATALOG;
 let WANDERER_SECTOR_COUNT: number;
 
 function findBeast(character: Record<string, unknown>) {
@@ -49,6 +52,8 @@ before(async () => {
     ({ resolveNaturalWorldWanderer } = await import('../missions/_world-ai-fight.js'));
     ({ wandererDayBucketFromMs, WANDERER_SECTOR_COUNT } = await import('../sector/_wanderer-encounter.js'));
     ({ wandererShowdownFormat } = await import('./_wanderer-showdown.js'));
+    ({ activeCarriedPets } = await import('../_entitlements.js'));
+    ({ PET_CATALOG } = await import('./_catalog.js'));
     handler = (await import('./showdown.js')).default as unknown as Handler;
 });
 
@@ -91,6 +96,14 @@ test('road challenge enters one interactive, unpaid Colosseum session and resume
     assert.equal(first.body.petIds.length, size);
     assert.equal(new Set(first.body.petIds).size, size);
     assert.ok(first.body.petIds.every((id: string) => pets.some((pet) => pet.id === id)));
+    // The fight is the beast the map showed: it leads with the rival it locked
+    // onto, fields the shared species in its own slot 0, and wears that name.
+    const rival = wandererBeastRival(wanderer.id, activeCarriedPets<typeof pets[number]>(character))!;
+    const species = wandererBeastSpecies(wanderer.id, rival.rarity, Object.values(PET_CATALOG))!;
+    const challenger = resolveNaturalWorldWanderer(wanderer.id, character, wanderer.sector, Date.now())!;
+    assert.equal(first.body.petIds[0], rival.id, 'the beast challenges its rival first');
+    assert.equal(state.enemy[0].templateId, species.id, 'the beast fields the species the map named');
+    assert.equal(state.enemyTeamName, wandererBeastName(challenger.name, String(species.name)));
     const session = await kv.get<Record<string, any>>(`pet:showdown:${playerName}:${state.sessionId}`);
     assert.equal(session?.rewardEligible, false);
     assert.equal(session?.finished, false);
