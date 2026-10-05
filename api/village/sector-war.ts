@@ -74,6 +74,7 @@ import {
     type GarrisonSessionBinding,
 } from '../_sector-war-garrison-encounter.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import { hydrateCharacterFromSave, sealItemCharges } from '../pvp/session.js';
 import { loadAdminCombatContent } from '../_admin-content.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
@@ -1065,6 +1066,8 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
             anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
             terrain, sector, contestId: contest.id,
             attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
+            // The sector's sky, as the human sector-war duel this stands in for seals it.
+            weather: await sealedSectorWeather(sector, now),
         });
         const run: GarrisonRun = {
             runId, attackerName: playerName, attackerVillage: contest.attackerVillage,

@@ -19,6 +19,7 @@ import {
     buildInfiltrationEncounter,
     infiltrationSessionMatches,
 } from '../_anbu-infiltration-encounter.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import {
     readInfilRun,
     writeInfilRun,
@@ -246,6 +247,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
             raider: { slug: playerName, name: String(char.name ?? playerName), character: raiderCharacter, itemCharges: sealItemCharges(raiderCharacter, char) },
             anbu: { slug: snapshot.slug, name: maskedAnbuName, character: snapshot.character },
             terrain, sector, targetVillage,
+            weather: await sealedSectorWeather(sector, now),
         });
         const run: InfilRun = {
             runId, raiderSlug: playerName, sector, targetVillage,

@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import { STRONGHOLD_INTEL_TILE, STRONGHOLD_SPAWN, type StrongholdVisit } from '../../shared/sector-stronghold.js';
+import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
+import { sectorBiomeOf } from '../../shared/sector-geo.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -244,6 +246,25 @@ test('25 steps seal one patrol; retries resume it, victory settles once and resu
     assert.equal((result.body.character as { hp: number }).hp, 8000);
     const replay = await action(name, 'stronghold-patrol-report', { sector, runId });
     assert.equal(replay.body._saveVersion, result.body._saveVersion);
+});
+
+test('a patrol fights under the sector sky, the same one the vault fight in this stronghold seals', async () => {
+    const name = 'shpatrolsky'; await seed(name);
+    let visit = visitOf(await action(name, 'stronghold-enter', { sector }));
+    const skyAt = (ms: number) => sectorWeatherElements(resolveSectorWeather(sectorBiomeOf(sector), sector, ms));
+    let before = skyAt(Date.now());
+    for (let count = 1; count <= 25; count++) {
+        if (count === 25) before = skyAt(Date.now());
+        visit = visitOf(await action(name, 'stronghold-step', { sector, version: visit.version, tile: STRONGHOLD_SPAWN + count % 2 }));
+    }
+    const afterwards = skyAt(Date.now());
+    const env = (await solo.readSoloPveSession(visit.patrolId!))!.environment;
+    // A sealed clear sky is still a string; undefined would mean nothing was sealed.
+    assert.equal(typeof env.weatherPositiveElement, 'string');
+    assert.ok(
+        [before, afterwards].some((sky) => sky.positiveElement === env.weatherPositiveElement && sky.negativeElement === env.weatherNegativeElement),
+        `sealed ${JSON.stringify(env)} is not the sector's scheduled sky ${JSON.stringify([before, afterwards])}`,
+    );
 });
 
 test('an engaged player cannot leave or move through a pending PvP attack', async () => {

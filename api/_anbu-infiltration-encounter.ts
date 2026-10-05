@@ -8,6 +8,7 @@ import {
     createSoloPveSession,
     type SoloPveSession,
 } from './solo-pve/_session.js';
+import type { SealedSectorWeather } from './_sector-weather-seal.js';
 
 export const INFILTRATION_MAP = { width: 12, height: 10 } as const;
 export const INFILTRATION_ROUND_BUDGET = 25;
@@ -64,6 +65,8 @@ export interface BuildInfiltrationParams {
     terrain: unknown;
     sector: number;
     targetVillage: string;
+    /** The sector's sky, sealed by the caller (api/_sector-weather-seal.ts). */
+    weather?: SealedSectorWeather;
 }
 
 export function buildInfiltrationEncounter(params: BuildInfiltrationParams): SoloPveSession {
@@ -92,7 +95,7 @@ export function buildInfiltrationEncounter(params: BuildInfiltrationParams): Sol
         player,
         enemy,
         now: params.now,
-        environment: { biome, blockedTiles: [] },
+        environment: { biome, blockedTiles: [], ...params.weather },
         itemCharges: params.raider.itemCharges,
         activeTtlSeconds: 45 * 60,
     });
