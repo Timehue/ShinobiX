@@ -260,6 +260,7 @@ import sectorTracesHandler            from './api/sector/traces.js';
 import sectorTrailSignHandler         from './api/sector/trail-sign.js';
 import sectorShrineOfferHandler       from './api/sector/shrine-offer.js';
 import sectorContractHandler          from './api/sector/contract.js';
+import sectorChatHandler              from './api/sector/chat.js';
 // Story — server-authoritative interlude + road-event record (rebuild foundation)
 import storyInterludeHandler          from './api/story/interlude.js';
 import storyRoadEventHandler          from './api/story/road-event.js';
@@ -724,6 +725,8 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/sector/trail-sign',         sectorTrailSignHandler);
     route('/sector/shrine-offer',       sectorShrineOfferHandler);
     route('/sector/contract',           sectorContractHandler);
+    // Sector chat — everyone standing in the same wild sector hears it
+    route('/sector/chat',               sectorChatHandler);
 
     // ─── Story (server-authoritative interlude + road-event record) ────────────────
     route('/story/interlude',           storyInterludeHandler);

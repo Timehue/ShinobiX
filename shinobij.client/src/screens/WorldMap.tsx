@@ -4463,7 +4463,7 @@ function WorldMapContent({
                         traces={sectorTraces}
                         sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
                         sectorGarrisonReady={sectorContestGarrisonReady(sectorWarContest, Date.now())} onFightSectorGarrison={() => handleOpenSectorContest(true)}
-                        rosterState={rosterState} playerAction={playerAction} onPlayerAction={playerAction.run}
+                        rosterState={rosterState} playerAction={playerAction} onPlayerAction={playerAction.run} chatName={character.name}
                         players={commandPlayers}
                         hunt={commandHunt}
                         onRaidEnemyVillage={handleSelectedSectorVillageWarRaid}

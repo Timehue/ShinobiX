@@ -782,7 +782,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // Independent card draws, named-roll presentation and sequential era campaigns
 // add intentional product code after Awakening. Allow 9.13 MB for about 21 KB
 // of measured headroom. Entry, startup raw/gzip, CSS and chunk gates stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_130_000;
+// 2026-10-04 SECTOR CHAT (PR #286): Production Image run 37245130198 measures
+// 9,134,232 B, versus 9,115,892 B on live main 09fb708df (run 37239963536), so
+// the chat panel, its folded sheet, client API and styles add 18,340 B to the
+// lazily loaded world-map graph. Startup moves +35 B raw / +48 B gzip
+// (1,437,608 B / 394,491 B) and passes its own gate unchanged. Allow 9.15 MB,
+// leaving 15,768 B of measured headroom. Entry, startup raw/gzip, CSS and
+// chunk gates stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_150_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

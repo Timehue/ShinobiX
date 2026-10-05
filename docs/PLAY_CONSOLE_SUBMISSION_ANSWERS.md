@@ -29,7 +29,7 @@ declaration that no longer matches the app is the failure mode to avoid.
 | Password hash + salt | `api/player-auth.ts` | Password accounts only | Hashed, never stored or transmitted in plaintext |
 | IP address | `api/_player-ips.ts` | Everyone | Abuse/multi-account detection |
 | Browser fingerprint | `shinobij.client/src/fingerprint.ts`, `x-client-fp` header | Everyone | Anti-cheat. A persistent-ish device signal — declare it |
-| Chat and direct messages | `api/village/chat.ts`, `api/clan/chat.ts`, `api/messages.ts` | Users who chat | Retained; visible to recipients |
+| Chat and direct messages | `api/village/chat.ts`, `api/clan/chat.ts`, `api/sector/chat.ts`, `api/messages.ts` | Users who chat | Retained; visible to recipients. Sector chat lines expire after one hour, and a reported line is copied into the report for staff review |
 | Player-uploaded avatars | `api/save/[name].ts` avatar path | Users who upload | Image content |
 | Gameplay state | `save:` records | Everyone | Progress, inventory, currency, clan |
 | Crash and error diagnostics | `shinobij.client/src/lib/sentry-runtime.ts` | Everyone | Sentry |
@@ -91,7 +91,7 @@ later, which is worse than a higher rating.
 | Horror or fear themes | **Mild at most** | |
 | Real-money gambling | **No** | |
 | ⚠ Simulated gambling | **Check before answering** | See the note below |
-| Users can interact | **Yes** | Village chat, clan chat, direct messages, clans, trading |
+| Users can interact | **Yes** | Village chat, clan chat, sector chat (players in the same wild sector), direct messages, clans, trading |
 | Users can share content | **Yes** | Chat, custom avatars, profile text, custom item and bloodline names |
 | Shares user location | **No** | |
 | Digital purchases | **Currently No** | Patreon was removed 2026-08-28 and Play Billing is not live yet. **Change this the moment Billing ships** |
