@@ -1422,6 +1422,13 @@ export default defineConfig({
                         '/src/lib/battle-log-format.ts',
                         '/src/lib/hollow-gate-visibility.ts',
                         '/src/lib/hollow-gate-atlas.ts',
+                        // A dependency-free supporter-perk helper imported by App
+                        // and ~26 lazy screens. Left to automatic placement it
+                        // flips between being folded into another chunk and
+                        // becoming its own startup file whenever an unrelated
+                        // screen's imports change (2026-10-04: +1 file, +121 B
+                        // gzip on a startup graph with ~20 B of headroom).
+                        '/src/lib/entitlements.ts',
                     ].some((modulePath) => normalizedId.endsWith(modulePath))) {
                         return 'world-authority';
                     }
