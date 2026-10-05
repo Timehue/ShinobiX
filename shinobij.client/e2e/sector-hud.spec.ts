@@ -352,6 +352,20 @@ test('the existing day and night vista leaves HUD text unchanged',async({page})=
     expect(colors[0]).toEqual(colors[1]);
 });
 
+// Every wild sector paints a floor, and the wash used to ride only the retired
+// vista branch, so the sector view players actually stand on showed noon at
+// every hour of the world's day.
+for(const [hour,opacity] of [[12,'0'],[21,'0.44']] as const) {
+    test(`the painted sector floor carries the world's ${hour===12?'noon':'night'} sky under the tiles`,async({page})=>{
+        await page.addInitScript(value=>{localStorage.setItem('dayCycle.hour',String(value));},hour);
+        await boot(page);
+        await expect(page.locator('.sector-image-map .sector-map-backdrop')).toHaveCount(1);
+        await expect(page.locator('.sector-image-map .day-night-tint')).toHaveCSS('opacity',opacity);
+        // The floor's own slot, under the tile grid, so road exits stay crisp.
+        await expect(page.locator('.sector-image-map .day-night-sky')).toHaveCSS('z-index','-1');
+    });
+}
+
 test('ten sector and menu cycles release listeners and renderers',async({page,browserName})=>{
     test.skip(browserName!=='chromium');
     await page.goto('/e2e/fixtures/sector-hud.html');

@@ -106,7 +106,16 @@ export function WorldSectorCanvas({
                     />
                 )}
                 {mapMode ? (
-                    <SectorMap image={mapImage} />
+                    <>
+                        <SectorMap image={mapImage} />
+                        {/* The world's time of day, washed over the painted floor
+                            and under the tile grid, so road exits and peer markers
+                            stay readable after dark. It used to live only in the
+                            vista branch below, which no sector reaches since the
+                            floors became unconditional (2026-07-29), so the sector
+                            view showed noon at every hour. */}
+                        <DayNightSky className="on-floor" />
+                    </>
                 ) : (
                     <>
                         <SectorScene image={sceneImage} biome={ambienceBiome} focus={playerTile} />
