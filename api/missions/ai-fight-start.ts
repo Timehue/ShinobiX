@@ -18,6 +18,7 @@ import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../s
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
+import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
 import {
     EXPLORE_BATTLE_MARKER_TTL_SECONDS,
@@ -220,15 +221,21 @@ async function sealAiFightEncounter(
             battleKind: body.battleKind,
             playerLevel: (save.character as Record<string, unknown> | undefined)?.level,
         });
+        const now = Date.now();
+        // A world encounter's sector is its validated context; an exploration or
+        // raid fight's is the one its receipt / token proved. Practice, dungeon
+        // and the sectorless Apex hunt have none and stay weatherless.
+        const sky = await sealedSectorWeather(worldSpec ? worldSpec.context.sector : genericAuthority?.sector, now);
         const session = buildSoloPveAiEncounter({
             playerName,
             save,
             profile,
             sessionId,
-            now: Date.now(),
+            now,
             ...(scaling ? { scaling } : {}),
+            // Generic fights keep their central board, and only the sky is added.
+            environment: worldSpec ? { ...worldSpec.environment, ...sky } : { biome: 'central', ...sky },
             ...(worldSpec ? {
-                environment: worldSpec.environment,
                 encounter: {
                     kind: 'world-ai',
                     id: worldSpec.context.kind,

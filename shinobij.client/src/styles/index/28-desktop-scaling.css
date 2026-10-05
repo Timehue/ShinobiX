@@ -88,11 +88,13 @@
 }
 
 /* ═══ Day/night sky (DayNightSky.tsx) ════════════════════════════════════════
-   A translucent colour-veil + vignette washed to the player's real local time.
-   Sits at z-index 2 by default (over the painted backdrop + depth layers, under
-   the hero avatar/particles/markers); `.amb-under` keeps it below the z-4
-   village/world map markers. The slow 2s transitions ride the 60s clock tick so
-   the hour change is imperceptible, never a jump. */
+   A translucent colour-veil + vignette washed to the shared in-world clock
+   (shared/world-clock). Sits at z-index 2 by default (over the painted backdrop
+   + depth layers, under the hero avatar/particles/markers); `.amb-under` keeps it
+   below the z-4 village/world map markers; `.on-floor` drops it to the painted
+   sector floor's own slot (.sector-map-backdrop, z -1) so it washes the ground
+   but not the tile grid. The 2s transitions span each SKY_REFRESH_MS step, so
+   the hour change glides rather than jumps. */
 .day-night-sky {
     position: absolute;
     inset: 0;
@@ -102,6 +104,7 @@
     border-radius: inherit;
 }
 .day-night-sky.amb-under { z-index: 2; }
+.day-night-sky.on-floor { z-index: -1; }
 .day-night-sky * { pointer-events: none !important; }
 .day-night-tint {
     position: absolute;

@@ -100,6 +100,19 @@ test('builder is deterministic for the same authoritative inputs', () => {
     assert.deepEqual(build(), build());
 });
 
+test('the sealed sector sky rides along while the Kage-set terrain stays the board', () => {
+    const session = buildInfiltrationEncounter({
+        runId: 'infil-sky', now: NOW,
+        raider: fighter('raider', 'Raider', 9_000), anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000),
+        terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
+        weather: { weatherPositiveElement: 'Water', weatherNegativeElement: 'Fire' },
+    });
+    assert.equal(session.environment.biome, 'forest');
+    assert.equal(session.environment.weatherPositiveElement, 'Water');
+    assert.equal(session.environment.weatherNegativeElement, 'Fire');
+    assert.equal(build().environment.weatherPositiveElement, undefined, 'no sky passed, none sealed');
+});
+
 test('infiltrationSessionMatches rejects every hostile binding substitution', () => {
     const session = build();
     const run = {
