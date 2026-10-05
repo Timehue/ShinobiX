@@ -13,7 +13,7 @@ import {
     splitPvpMoveResponse,
 } from "./pvp-session-runtime";
 import { bindPvpSessionCreateIntent, clearPvpSessionCreateIntent } from "./pvp-session-intent";
-import { markPvpSectorReturn, pvpResultReturn } from "./pvp-session";
+import { markPvpSectorReturn, pvpBattleIdForPresence, pvpResultReturn } from "./pvp-session";
 import { clearSectorReopen, peekSectorReopen, takeSectorReopen } from "./sector-return";
 
 function fighter(name: string, pos: number) {
@@ -433,4 +433,28 @@ it("spectators return to their sector without acquiring raid context", () => {
     clearSectorReopen();
     markPvpSectorReturn("worldMap", context, 1);
     assert.equal(takeSectorReopen(), 22);
+});
+
+it("arena spectators return to the screen where they opened the fight", () => {
+    assert.deepEqual(pvpResultReturn({ spectatingFromScreen: "arenaDistrict" }, 40), {
+        returnTarget: "arenaDistrict", returnLabel: "Return to Spectator Board",
+    });
+    assert.deepEqual(pvpResultReturn({ spectatingFromScreen: "battleArena" }, 40), {
+        returnTarget: "battleArena", returnLabel: "Return to Arena",
+    });
+    assert.deepEqual(pvpResultReturn({ spectatingFromScreen: "arenaDistrict" }, 40, true), {
+        returnTarget: "arenaDistrict", returnLabel: "Return to Spectator Board",
+    });
+});
+
+it("spectators do not appear as active fighters in world presence", () => {
+    assert.equal(pvpBattleIdForPresence("ranked-id", { spectatingFromScreen: "arenaDistrict" }), null);
+    assert.equal(pvpBattleIdForPresence("ranked-id", { spectatingFromSector: 22 }), null);
+    assert.equal(pvpBattleIdForPresence("ranked-id", { mode: "ranked" }), "ranked-id");
+});
+
+it('ranked and Kage results return to the activities that own them', () => {
+    assert.deepEqual(pvpResultReturn({ mode: 'ranked' }, 0), { returnTarget: 'arenaDistrict', returnLabel: 'Return to Ranked Arena' });
+    assert.deepEqual(pvpResultReturn({ kageChallengeId: 'challenge', sectorAttack: true }, 0), { returnTarget: 'townHall', returnLabel: 'Return to Town Hall' });
+    assert.equal(pvpResultReturn({ kageChallengeId: 'challenge' }, 0, true).returnTarget, 'hospital');
 });

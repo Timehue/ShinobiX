@@ -18,6 +18,7 @@ import type { TowerFeature, TowerBoardObject, TowerFieldRule } from './_floor-ca
 import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 import type { ClanBossContribution } from '../../shared/clan-boss-operation.js';
+import { timeStartingShield } from '../combat-core/shields.js';
 
 export type TowerActorId = string;
 export type TowerSide = 'squad' | 'enemy' | 'npc';
@@ -37,6 +38,8 @@ export type TowerActor = {
     stamina: number;
     maxStamina: number;
     shield: number;
+    /** Round at whose start the remaining shield disappears. */
+    shieldExpiresAtRound?: number;
     statuses: PvpStatus[];
     cooldowns: Record<string, number>;
     /** hex tile index on the floor's map */
@@ -231,6 +234,9 @@ export type TowerSession = {
         sourceId: string;
     };
 
+    /** Server-minted Sunscar encounter binding. Settlement and lease repair are owned by Caravan. */
+    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
+
     /**
      * Sealed weather for the encounter (combat missions). Adds the Arena's
      * weather term (+5% matching-element / −2% opposed-element outgoing damage)
@@ -249,6 +255,8 @@ export type TowerSession = {
      * cycle costs nothing.)
      */
     pendingCompanion?: import('./_companion.js').CompanionSeal;
+    /** Sealed companion loadout cost recorded when the pet is summoned. */
+    companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
 
     /**
      * Standard-PvE difficulty guard (generic AI fights — see api/_pve-difficulty.ts
@@ -317,6 +325,8 @@ export type TowerSession = {
  */
 export type TowerEnemyWave = {
     round: number;
+    /** Deploy this wave only after all deployed enemies are defeated. */
+    afterClear?: boolean;
     actors: TowerActor[];
 };
 
@@ -368,6 +378,7 @@ export type CreateTowerSessionParams = {
 };
 
 export function createTowerSession(p: CreateTowerSessionParams): TowerSession {
+    for (const actor of p.actors) Object.assign(actor, timeStartingShield(actor));
     const hasNpc = p.actors.some(a => a.side === 'npc');
     // Wave 3: a sealed 'extraPhase' modifier injects a DESPERATION gate into the boss's
     // HP-phase ladder. Merge it into the authored phases (deduped) so tickBossPhases fires it

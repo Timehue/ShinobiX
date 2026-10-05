@@ -46,11 +46,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Invalid Hollow Gate encounter.' });
         }
         if (!nodeId.startsWith(`floor:${floor}:`)) return res.status(400).json({ error: 'Encounter node/floor mismatch.' });
-        if (!enforceRateLimit(req, res, 'hollow-gate-combat-start', 20, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'hollow-gate-combat-start-preauth', (20) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Not your run.' });
+        if (!enforceRateLimit(req, res, 'hollow-gate-combat-start', 20, 60_000, identity.admin ? playerName : identity.name)) return;
         if (!identity.admin && combatMode === 'solo-pve' && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }

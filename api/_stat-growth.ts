@@ -1,11 +1,9 @@
 /*
- * Combat-use stat growth (Stage 4, two-axis progression; see
- * docs/leveling-training-redesign-plan.md). Winning a fight grants a SMALL number
- * of stat points: a share auto-distributed into the stats the player has invested
- * in (a server-computable proxy for "how they fight"), the remainder into the
- * unspent-points pool. Bounded by a hard per-day cap so combat stays ~20% of the
- * training faucet and can't break the long-term level anchors. PvE and eligible
- * player PvP wins share the same hard daily budget.
+ * Combat stat growth (Stage 4, two-axis progression; see
+ * docs/leveling-training-redesign-plan.md). Winning a fight grants stat points
+ * directly to the character's unspent pool so the player can choose where they
+ * go. Bounded by a hard per-day cap. PvE and eligible player PvP wins share the
+ * same hard daily budget.
  *
  * Pure so it unit-tests cleanly and is shared by the AI-fight and PvP-win
  * reward endpoints. Rank cap lookup comes from combat-core so
@@ -13,6 +11,8 @@
  */
 
 import { statCapForLevel } from './combat-core/formulas.js';
+import { PVP_STAT_POINTS_PER_WIN } from '../shared/combat-growth-rules.js';
+export { PVP_STAT_POINTS_PER_WIN, AI_PVE_STAT_POINTS_PER_WIN, DAILY_COMBAT_STAT_CAP } from '../shared/combat-growth-rules.js';
 
 export { statCapForLevel };
 
@@ -23,16 +23,13 @@ export const STAT_GROWTH_KEYS = [
 ] as const;
 export type StatKey = typeof STAT_GROWTH_KEYS[number];
 
-// Small per-win rewards; PvE and PvP stat wins share the actual 18-point cap.
-export const PVP_STAT_POINTS_PER_WIN = 6;
-export const AI_PVE_STAT_POINTS_PER_WIN = 3;
-// Shared PvP/PvE daily stat-growth cap (three PvP wins or six PvE wins).
+// Per-win awards and the shared daily cap live in shared/combat-growth-rules.
 // Combat-win stat rewards do not receive trait, encounter, or era multipliers.
-export const DAILY_COMBAT_STAT_CAP = 18;
 // Compatibility for older imports; new callers use the generic PvP name.
 export const PVP_CASUAL_STAT_POINTS_PER_WIN = PVP_STAT_POINTS_PER_WIN;
-// 60% auto-grows the stats you use; 40% drops into the pool to hand-allocate.
-export const COMBAT_USED_STAT_RATIO = 0.6;
+// Retained for compatibility with older imports. Combat growth is now entirely
+// unspent so players choose how to allocate every point.
+export const COMBAT_USED_STAT_RATIO = 0;
 
 // ── Growth boosts (docs/leveling-without-xp-map.md §4.1) ────────────────────
 // Retired XP boosts apply to training and other eligible non-combat grants.
@@ -60,67 +57,23 @@ export function combinedStatBoost(bonusPct: number): number {
     return combinedStatMultiplier(1 + Math.max(0, bonusPct) / 100);
 }
 
-const STAT_BASE = 10;
-
-// Weight each stat by how far it's invested above base — a proxy for "how the
-// player fights." Returns the keys sorted by descending investment (stable: ties
-// keep canonical STAT order).
-function statsByInvestment(stats: Record<string, number>): StatKey[] {
-    return [...STAT_GROWTH_KEYS].sort((a, b) => {
-        const wb = Math.max(0, (Number(stats[b]) || STAT_BASE) - STAT_BASE);
-        const wa = Math.max(0, (Number(stats[a]) || STAT_BASE) - STAT_BASE);
-        return wb - wa;
-    });
-}
-
 export interface CombatStatGrowth {
-    allocated: Partial<Record<StatKey, number>>; // per-stat auto-growth
+    allocated: Partial<Record<StatKey, number>>; // retained; combat grants leave this empty
     unspentGain: number;                          // free-pool points
     spent: number;                                // total granted (for the daily counter) = earned
 }
 
 /**
- * Compute the stat growth for one won fight.
- *   stats          — the winner's current 12 stats (from the sealed save)
- *   level          — winner level (for the per-rank cap)
- *   perWin         — base points for this fight type (AI_/PVP_ constants)
- *   remainingDaily — points left under the daily combat-stat cap
- * usedShare auto-grows the most-invested stats (skipping any already at their rank
- * cap — those points roll into the pool so nothing is wasted); freeShare → pool.
+ * Compute the stat growth for one won fight. All awarded points go to the
+ * unspent pool; stats and level remain unchanged until the player allocates them.
+ * The first two arguments remain for compatibility with existing callers.
  */
 export function computeCombatStatGrowth(
-    stats: Record<string, number>,
-    level: number,
+    _stats: Record<string, number>,
+    _level: number,
     perWin: number,
     remainingDaily: number,
 ): CombatStatGrowth {
     const earned = Math.max(0, Math.min(Math.floor(perWin), Math.floor(remainingDaily)));
-    if (earned <= 0) return { allocated: {}, unspentGain: 0, spent: 0 };
-    const usedShare = Math.round(earned * COMBAT_USED_STAT_RATIO);
-    let freeShare = earned - usedShare;
-    const cap = statCapForLevel(level);
-    const order = statsByInvestment(stats);
-    // Distribute across the INVESTED stats (proxy for "the stats you used"); if the
-    // player has no build yet, fall back to the canonical order.
-    const invested = order.filter((k) => (Number(stats[k]) || STAT_BASE) - STAT_BASE > 0);
-    const targets = invested.length > 0 ? invested : order;
-    const allocated: Partial<Record<StatKey, number>> = {};
-    let usedLeft = usedShare;
-    // Round-robin +1 across the targets (skipping any at their rank cap) so growth
-    // spreads across the stats you build, not just the single top one. Terminates
-    // when a full pass makes no progress (everything at cap) → remainder to pool.
-    let progressed = true;
-    while (usedLeft > 0 && progressed) {
-        progressed = false;
-        for (const k of targets) {
-            if (usedLeft <= 0) break;
-            if ((Number(stats[k]) || STAT_BASE) + (allocated[k] ?? 0) < cap) {
-                allocated[k] = (allocated[k] ?? 0) + 1;
-                usedLeft -= 1;
-                progressed = true;
-            }
-        }
-    }
-    freeShare += usedLeft; // unusable used-points (all at cap) → pool (never wasted)
-    return { allocated, unspentGain: freeShare, spent: earned };
+    return { allocated: {}, unspentGain: earned, spent: earned };
 }

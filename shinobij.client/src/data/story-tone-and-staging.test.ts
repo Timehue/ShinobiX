@@ -31,6 +31,7 @@ import {
     buildPostGiftLines,
 } from "../features/intro-cinematic/introCinematicScript";
 import { ERA_DEFS } from "../../../api/_era-defs";
+import { ERA_CHAPTERS } from "../../../shared/era-chapters";
 import { HOLLOW_GATE_DEPTH } from "../../../shared/hollow-gate-contract";
 import { SECTOR_PLACES } from "../../../shared/sector-geo";
 import { SHRINE_DEFS } from "../../../shared/shrines";
@@ -46,6 +47,8 @@ type PageLike = {
     rightImage?: string;
     choices?: Array<{ text?: string; conclusion?: string }>;
 };
+
+const eraChapterCopy = ERA_CHAPTERS.flatMap(chapter => [chapter.name, chapter.speaker, chapter.introduction, chapter.sealedIntroduction ?? '', chapter.rewardTitle, ...chapter.routes.flatMap(route => [route.name, route.briefing, route.conclusion, ...(route.stages ?? []).flatMap(stage => [stage.name, stage.briefing, stage.conclusion])])]);
 
 const gatheringVariants = (Object.keys(FIND_SCENES) as Array<keyof typeof FIND_SCENES>).flatMap((biome) =>
     [false, true].flatMap((rareTrace) => [false, true].map((repeat) => ({
@@ -269,6 +272,7 @@ test("story and event copy uses shinobi-world language instead of generic fantas
 
 test("all live visual-novel copy follows the zero-dash punctuation rule", () => {
     const adjacentNarrative = [
+        ...eraChapterCopy,
         ...introCopy,
         ...sageCopy,
         ...emissaryCopy,
@@ -291,6 +295,7 @@ test("all live visual-novel copy follows the zero-dash punctuation rule", () => 
 
 test("authored narrative avoids stock AI-mysticism and retired village labels", () => {
     const adjacentCopy = [
+        ...eraChapterCopy,
         ...introCopy,
         ...sageCopy,
         ...emissaryCopy,
@@ -344,6 +349,7 @@ test("adjacent world lore, wanderers, shrines, and era events expose no pilgrim 
         era.unlockTitle,
         era.unlockMessage,
     ]);
+    eraCopy.push(...eraChapterCopy);
     const worldCopy = [
         ...SHRINE_DEFS.flatMap((shrine) => [shrine.name, shrine.region, shrine.lore, shrine.blessing]),
         ...SECTOR_PLACES.map((sector) => sector.name),

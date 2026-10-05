@@ -27,7 +27,7 @@ import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // without loading a second icon library.
 import {
     GiAdmin, GiDiscord, GiExitDoor, GiHamburgerMenu,
-    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiSettings, GiShop, GiTreasureMap,
+    GiHealthNormal, GiKnapsack, GiNinjaHeroicStance, GiOpenBook, GiPagoda, GiPremiumShop, GiSettings, GiTreasureMap,
 } from "./icons/LightweightGameIcons";
 
 // Memo'd — the bottom nav depends on immutable character snapshots, the
@@ -118,23 +118,23 @@ export const MobileNav = memo(function MobileNav({
             )}
 
             <nav className="mobile-bottom-nav" aria-label="Primary game navigation">
-                <button className="mobile-nav-btn" aria-expanded={youOpen} onClick={() => setYouOpen(true)}>
+                <button className="mobile-nav-btn" data-tabletop-command="you" aria-expanded={youOpen} onClick={() => setYouOpen(true)}>
                     <span className="mnb-icon"><GiHealthNormal size={24} /></span>
                     You
                 </button>
-                <button className="mobile-nav-btn" aria-current={screen === "worldMap" ? "page" : undefined} onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
+                <button className="mobile-nav-btn" data-tabletop-command="travel" aria-current={screen === "worldMap" ? "page" : undefined} onClick={() => go("worldMap")} onPointerDown={() => preloadScreen("worldMap")}>
                     <span className="mnb-icon"><GiTreasureMap size={24} /></span>
                     Travel
                 </button>
-                <button className="mobile-nav-btn" aria-current={screen === "village" ? "page" : undefined} onClick={() => go("village")} onPointerDown={() => preloadScreen("village", character.storyVillage || character.village)}>
+                <button className="mobile-nav-btn" data-tabletop-command="village" aria-current={screen === "village" ? "page" : undefined} onClick={() => go("village")} onPointerDown={() => preloadScreen("village", character.storyVillage || character.village)}>
                     <span className="mnb-icon"><GiPagoda size={24} /></span>
                     Village
                 </button>
-                <button className="mobile-nav-btn" aria-current={screen === "inventory" ? "page" : undefined} onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
+                <button className="mobile-nav-btn" data-tabletop-command="items" aria-current={screen === "inventory" ? "page" : undefined} onClick={() => go("inventory")} onPointerDown={() => preloadScreen("inventory")}>
                     <span className="mnb-icon"><GiKnapsack size={24} /></span>
                     Items
                 </button>
-                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" aria-expanded={open} aria-controls="mobile-shinobi-menu" onClick={() => setOpen(true)}>
+                <button ref={menuTriggerRef} className="mobile-nav-btn menu-btn" data-tabletop-command="menu" aria-expanded={open} aria-controls="mobile-shinobi-menu" onClick={() => setOpen(true)}>
                     <span className="mnb-icon"><GiHamburgerMenu size={24} /></span>
                     Menu
                     <MailUnreadDot />
@@ -201,7 +201,7 @@ export const MobileNav = memo(function MobileNav({
                             <div className="mobile-menu-grid">
                                 <button className="mobile-menu-btn" aria-current={screen === "guides" ? "page" : undefined} onClick={() => go("guides")} onPointerDown={() => preloadScreen("guides")}><GiOpenBook size={20} />Guides</button>
                                 <button className="mobile-menu-btn" onClick={() => { window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer"); setOpen(false); }}><GiDiscord size={20} />Discord</button>
-                                <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiShop size={20} />Premium Shop</button>
+                                <button className="mobile-menu-btn" aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => go("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")}><GiPremiumShop size={20} />Premium Shop</button>
                             </div>
                         </section>
                         <section className="mobile-menu-section" aria-labelledby="mobile-menu-system">

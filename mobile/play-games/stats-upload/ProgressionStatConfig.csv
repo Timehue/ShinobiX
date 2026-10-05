@@ -1,0 +1,2 @@
+Stat Id,Event Property Name,Stat Display Name,Stat Description,Icon File Name,Good value direction,Unit
+shinobi_level,currentProgress,Shinobi Level,Your shinobi's current level,level.png,INCREASING,UNITLESS

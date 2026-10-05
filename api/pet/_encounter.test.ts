@@ -1,10 +1,38 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { grantWildPet, rollWildPet } from './_encounter.js';
+import { grantWildPet, rollWildPet, rollWildPetLevel } from './_encounter.js';
 import { PET_CATALOG } from './_catalog.js';
 import { NIGHT_ONLY_WILD_PET_IDS } from '../../shared/night-pets.js';
 
 describe('wild pet encounter authority', () => {
+    it('rolls every level in the inclusive companion-minus-20 range uniformly', () => {
+        for (const level of [1, 10, 20, 21, 50, 100]) {
+            const min = Math.max(1, level - 20);
+            const count = level - min + 1;
+            assert.equal(rollWildPetLevel(level, () => 0), min);
+            assert.equal(rollWildPetLevel(level, () => 0.999999999), level);
+            for (let index = 0; index < count; index += 1) {
+                assert.equal(rollWildPetLevel(level, () => (index + 0.5) / count), min + index);
+            }
+        }
+        for (const level of [undefined, NaN, Infinity, -10, 0]) {
+            assert.equal(rollWildPetLevel(level, () => 0.5), 1);
+        }
+    });
+
+    it('resets a captured pet to level 1 with base stats and its trait applied once', () => {
+        const template = PET_CATALOG['standard-0'];
+        const result = grantWildPet({ pets: [] }, { ...template, level: 80, trait: 'Battleborn' }, () => 0);
+        assert.equal(result.ok, true);
+        if (!result.ok) return;
+        assert.equal(result.pet.level, 1);
+        assert.equal(result.pet.xp, 0);
+        assert.equal(result.pet.growthPoints, 0);
+        for (const stat of ['hp', 'attack', 'defense', 'speed']) {
+            assert.equal(result.pet[stat], Math.round(Number(template[stat]) * 1.1));
+        }
+    });
+
     it('uses the canonical rarity thresholds and catalog', () => {
         assert.equal(rollWildPet(() => 0.5), null);
         const values = [0.001, 0]; let i = 0;

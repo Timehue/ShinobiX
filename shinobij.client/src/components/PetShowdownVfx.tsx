@@ -20,6 +20,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { Billboard } from "@react-three/drei";
 import * as THREE from "three";
+import { setPetEffectTexture } from "../lib/pet-effect-texture";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
 import { projectileVisual } from "../lib/pet-projectile-vfx";
 import { createShowdownLightShaftMaterial } from "../lib/showdown-light-shafts";
@@ -176,8 +177,7 @@ function FlipbookOnce({ spawn }: { spawn: VfxSpawn }) {
         mesh.current.visible = true;
         const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
         if (mat.current.map !== frame) {
-            mat.current.map = frame;
-            mat.current.needsUpdate = true;
+            setPetEffectTexture(mat.current, frame);
         }
         // Ease in fast, linger, fade at the tail.
         mat.current.opacity = t < 0.12 ? t / 0.12 : t > 0.78 ? (1 - t) / 0.22 : 1;
@@ -399,12 +399,10 @@ function SetPieceLayerMesh({ spawn, layer }: { spawn: SetPieceSpawn; layer: SetP
         if (textures) {
             const frame = textures[Math.min(textures.length - 1, Math.floor(t * textures.length))];
             if (mat.current.map !== frame) {
-                mat.current.map = frame;
-                mat.current.needsUpdate = true;
+                setPetEffectTexture(mat.current, frame);
             }
         } else if (sprite && mat.current.map !== sprite) {
-            mat.current.map = sprite;
-            mat.current.needsUpdate = true;
+            setPetEffectTexture(mat.current, sprite);
         }
         // Ease-out travel: the wave arrives fast and breaks slow. Stationary
         // layers park on the victim, or at their `lane` fraction of the
@@ -473,8 +471,7 @@ function FloorTakeoverMesh({ spawn, floor, presence }: { spawn: SetPieceSpawn; f
         }
         mesh.current.visible = true;
         if (mat.current.map !== sprite) {
-            mat.current.map = sprite;
-            mat.current.needsUpdate = true;
+            setPetEffectTexture(mat.current, sprite);
         }
         const ease = 1 - (1 - t) * (1 - t);
         const s = floor.scale * (1 + (floor.grow - 1) * ease) * presence;
@@ -586,8 +583,7 @@ function StatusAuraLoop({ aura, phase }: { aura: { frames: string; scale: number
         const t = ((performance.now() / LOOP_MS + phase) % 1);
         const frame = textures[Math.floor(t * textures.length) % textures.length];
         if (mat.current.map !== frame) {
-            mat.current.map = frame;
-            mat.current.needsUpdate = true;
+            setPetEffectTexture(mat.current, frame);
         }
     });
     if (!textures) return null;

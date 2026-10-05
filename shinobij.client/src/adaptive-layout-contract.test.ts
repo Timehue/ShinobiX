@@ -278,3 +278,22 @@ test('the re-auth prompt outranks every gameplay overlay and escapes the app she
         `these sit at or above the re-auth layer, so an expired session would render behind them: ${offenders.join(', ')}`,
     );
 });
+
+test('the live screen matrix retains all six Google Play Level Up anchor ratios', () => {
+    const matrixSource = readFileSync(
+        join(process.cwd(), 'shinobij.client', 'e2e-live', 'combat-layout-matrix.spec.ts'),
+        'utf8',
+    );
+    const viewportBody = /const VIEWPORTS = \[([\s\S]*?)\] as const;/.exec(matrixSource)?.[1];
+    assert.ok(viewportBody, 'the live layout matrix must keep an explicit viewport list');
+
+    const configured = new Set(
+        [...viewportBody.matchAll(/\[(\d+),\s*(\d+)\]/g)].map(([, width, height]) => `${width}x${height}`),
+    );
+    // Google's required large-screen anchors: portrait 3:4, 10:16, 9:21;
+    // landscape 4:3, 16:10, 21:9. The live matrix runs gameplay geometry at
+    // these exact CSS viewport dimensions, alongside phone and resize cases.
+    const required = ['768x1024', '640x1024', '360x840', '1024x768', '1440x900', '1680x720'];
+    const missing = required.filter((viewport) => !configured.has(viewport));
+    assert.deepEqual(missing, [], `Level Up anchor viewports were removed from live layout coverage: ${missing.join(', ')}`);
+});

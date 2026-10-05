@@ -15,7 +15,7 @@ import {
     withWandererUseState,
 } from './_wanderer-encounter.js';
 import { bumpLegacyStats } from '../_legacy-track.js';
-import { bumpEraContributionOnce } from '../_era.js';
+import { bumpEraDiscoveryContribution } from '../_era.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 
 /*
@@ -139,14 +139,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (legacyWandererId) {
             const receiptId = `wanderer-discovery:${legacyWandererId}`;
             const delivered = await bumpLegacyStats(playerName, { sectorDiscoveries: 1 }, { receiptId });
-            if (!delivered) {
+            if (!delivered || !(await bumpEraDiscoveryContribution(playerName, receiptId))) {
                 return res.status(503).json({
                     error: 'The encounter is safe, but its Legacy record is still being sealed. Retry the same wanderer.',
                     code: 'legacy-delivery-pending',
                     retryable: true,
                 });
             }
-            await bumpEraContributionOnce('discoveries', receiptId);
         }
         return res.status(out.status).json(out.body);
     } catch (err) {

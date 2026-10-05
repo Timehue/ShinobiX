@@ -101,6 +101,80 @@ test('responsive browser discovery installs runtime and direct QA build dependen
     for (const tool of ['tsx', 'esbuild']) assert.ok(rootPackage.devDependencies[tool], `${tool} must be a direct QA dependency`);
 });
 
+test('named forge and Chronicle packs run every dedicated project in required CI', () => {
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    for (const [label, config, shard, log] of [
+        ['Named forge purchase and recovery', 'playwright.named-forge.config.ts', 2, 'named-forge.log'],
+        ['Chronicle pack purchase and recovery', 'playwright.chronicle-packs.config.ts', 3, 'chronicle-packs.log'],
+        ['Rally renderer recovery', 'playwright.rally-recovery.config.ts', 2, 'rally-recovery.log'],
+    ]) {
+        const step = responsive?.split('      - name: ').find(value => value.startsWith(`${label}\n`));
+        assert.ok(step, `${label} must run in the required responsive job`);
+        assert.ok(step.includes(`matrix.shard == ${shard}`));
+        assert.ok(step.includes(`--config ${config} --retries=0 --forbid-only`));
+        assert.ok(step.includes(log), 'retain the dedicated suite output');
+        assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
+    }
+});
+
+test('Pet Gauntlet renderer regression runs as a dedicated source fixture in CI', () => {
+    const playwrightConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+    assert.match(playwrightConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*pet-gauntlet-board\.spec\.ts/,
+        'the immutable production-preview suite must leave the Vite source fixture to its dedicated config');
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    const step = responsive?.split('      - name: ').find((value) => value.startsWith('Pet Gauntlet playback and renderer recovery\n'));
+    assert.ok(step, 'the required responsive job must execute the renderer recovery check');
+    assert.match(step, /if: \$\{\{ matrix\.shard == 1 \}\}/, 'the expensive source fixture must run once');
+    assert.match(step, /xvfb-run -a npm run test:e2e:gauntlet-render --prefix shinobij\.client/,
+        'the headful WebGL regression needs a virtual display on the Linux CI runner');
+    assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/gauntlet-render\.log/,
+        'the result must be retained in responsive CI evidence');
+});
+
+test('village transfer preserves every responsive project through its source fixture gate', () => {
+    const productionConfig = readFileSync(new URL('../shinobij.client/playwright.config.ts', import.meta.url), 'utf8');
+    const transferConfig = readFileSync(new URL('../shinobij.client/playwright.village-transfer.config.ts', import.meta.url), 'utf8');
+    const clientPackage = JSON.parse(readFileSync(new URL('../shinobij.client/package.json', import.meta.url), 'utf8'));
+    assert.match(productionConfig, /SOURCE_FIXTURE_SPECS\s*=\s*\[[^\]]*village-transfer\.spec\.ts/);
+    assert.match(transferConfig, /projects:\s*responsiveConfig\.projects\?\.map\(\(\{ name, use \}\) => \(\{ name, use \}\)\)/,
+        'the source runner must preserve all responsive browser/viewport projects without production exclusions');
+    assert.match(transferConfig, /vite\.village-transfer-qa\.config\.mjs/);
+    assert.equal(clientPackage.scripts['test:e2e:village-transfer'], 'playwright test -c playwright.village-transfer.config.ts');
+    const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
+    const step = responsive?.split('      - name: ').find(value => value.startsWith('Village transfer across responsive browsers\n'));
+    assert.ok(step, 'the required responsive job must execute the source fixture');
+    assert.match(step, /if: \$\{\{ matrix\.shard == 3 \}\}/);
+    assert.match(step, /npm run test:e2e:village-transfer --prefix shinobij\.client/);
+    assert.match(step, /2>&1 \| tee \.ci-evidence\/e2e-responsive-.*\/village-transfer\.log/);
+    assert.match(step, /--retries=0 --forbid-only --reporter=line,json,html/);
+    assert.match(step, /PLAYWRIGHT_JSON_OUTPUT_NAME: .*village-transfer\.json/);
+    assert.match(step, /PLAYWRIGHT_HTML_OUTPUT_DIR: .*village-transfer-html/);
+    assert.doesNotMatch(step, /continue-on-error|--project|--grep|--shard/);
+});
+
+test('real-handler recovery projects use fresh invocations within the registration budget', () => {
+    const liveConfig = readFileSync(new URL('../shinobij.client/playwright.live.config.ts', import.meta.url), 'utf8');
+    assert.match(liveConfig, /reuseExistingServer:\s*false/);
+    const stores = workflow.split('  e2e_village_stores:\n')[1]?.split('\n  test_build:\n')[0];
+    assert.ok(stores, 'the required live-server job must exist');
+    for (const project of ['desktop', 'mobile']) {
+        const step = stores.split('      - name: ').find(value => value.startsWith(`Live Express defeat, landing and daily recovery on ${project}\n`));
+        assert.ok(step, `${project} recovery must have its own fresh server invocation`);
+        for (const spec of ['first-defeat-recovery-express.spec.ts', 'landing-style-routing.spec.ts', 'daily-login-recovery-express.spec.ts']) {
+            readFileSync(new URL(`../shinobij.client/e2e-live/${spec}`, import.meta.url), 'utf8');
+            assert.ok(step.includes(spec), `${project} recovery is missing ${spec}`);
+        }
+        assert.match(step, new RegExp(`--project=chromium-${project}-live`));
+        assert.equal((step.match(/--project=/g) ?? []).length, 1);
+        assert.match(step, /--workers=1 --retries=0 --forbid-only/);
+        assert.ok(step.includes(`defeat-recovery-${project}.json`));
+        assert.ok(step.includes(`defeat-recovery-${project}-html`));
+        assert.ok(step.includes(`defeat-recovery-ci-${project}`));
+        assert.ok(step.includes(`defeat-recovery-${project}.log`));
+        assert.doesNotMatch(step, /continue-on-error|--grep|RATE_LIMIT|FORWARDED/);
+    }
+});
+
 test('built CSP and every Stronghold audit feed the required responsive gate with retained evidence', () => {
     const responsive = workflow.split('  e2e_responsive_matrix:\n')[1]?.split('\n  e2e_responsive:\n')[0];
     // GitHub's implicit Bash shell does not enable pipefail. All these gates
@@ -204,20 +278,22 @@ test('current Warfront coverage keeps low-cost interactions and real renderer au
 
 test('required live Express CI runs defeat recovery on desktop and mobile without replacing earlier evidence', () => {
     const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
-    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('first-defeat-recovery-express.spec.ts'));
-    assert.ok(command, 'the required live Express job must actually execute the defeat/recovery browser spec');
-    assert.ok(command.includes('--project=chromium-desktop-live'), 'desktop recovery must be covered');
-    assert.ok(command.includes('--project=chromium-mobile-live'), 'mobile Play recovery must be covered');
-    assert.ok(command.includes('--output=test-results/defeat-recovery-ci'), 'the second Playwright invocation must retain the earlier journey evidence');
-    assert.ok(command.includes('.ci-evidence/e2e-village-stores/defeat-recovery.log'));
-    assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
+    const commands = job.split('\n').filter(line => line.trim().startsWith('run:') && line.includes('first-defeat-recovery-express.spec.ts'));
+    assert.equal(commands.length, 2, 'both complete recovery projects must execute');
+    for (const project of ['desktop', 'mobile']) {
+        const command = commands.find(line => line.includes(`--project=chromium-${project}-live`));
+        assert.ok(command, `${project} recovery must be covered`);
+        assert.ok(command.includes(`--output=test-results/defeat-recovery-ci-${project}`), 'each invocation must retain earlier journey evidence');
+        assert.ok(command.includes(`.ci-evidence/e2e-village-stores/defeat-recovery-${project}.log`));
+        assert.doesNotMatch(command, /--grep/, 'all recovery paths must run');
+    }
 });
 
 test('required live Express CI runs the hospital ward and roaming Weekly Boss journeys on a server of their own', () => {
     // Neither had browser coverage — which is how the roaming boss's "Stand &
     // Fight" shipped as a loop that never started a fight. Its own step means its
-    // own server: the recovery matrix alone registers 18 of the 25 accounts per
-    // IP that registration allows in 15 minutes.
+    // own server: recovery fixtures and these journeys must each respect the
+    // 25 accounts per IP that registration allows in 15 minutes.
     const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
     const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('mmorpg-behaviors-express.spec.ts'));
     assert.ok(command, 'the required live Express job must execute the MMO behaviour spec');

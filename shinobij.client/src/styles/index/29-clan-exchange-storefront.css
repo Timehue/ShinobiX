@@ -927,7 +927,6 @@
 .clan-exchange-locked-copy p,.clan-exchange-lock-label { margin: 0; color: #8294a6; }
 
 .clan-exchange-modal { position: relative; display: grid; gap: 12px; width: min(420px,calc(100vw - 28px)); padding: 22px; background: #0b2031; }
-.modal-close { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; min-height: 0; padding: 0; border-radius: 50%; }
 
 /* Superseded responsive detail pass.
 @media (hover:hover) { .clan-exchange-card.is-ready:hover { transform: translateY(-3px); border-color: #5edbaa; } }

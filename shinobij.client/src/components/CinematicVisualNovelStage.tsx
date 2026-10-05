@@ -410,6 +410,7 @@ export function CinematicVisualNovelStage({
             tabIndex={-1}
             aria-modal={immersive ? "true" : undefined}
             aria-label={`${pageTitle} visual novel scene`}
+            data-gamepad-mode={immersive ? "visual-novel" : undefined}
             onPointerDown={(event) => {
                 rootRef.current?.focus({ preventScroll: true });
                 const target = event.target as HTMLElement;

@@ -31,6 +31,10 @@ export type ExchangeListing = {
     asset: ExchangeAsset;
     quantity: number;
     price: number;
+    listingType?: 'fixed' | 'auction';
+    auctionEndsAt?: number;
+    highestBid?: { player: string; playerName: string; amount: number };
+    bidCount?: number;
     /** Listings created before currency selection are priced in ryo. */
     currency?: ExchangeCurrency;
     fee: number;

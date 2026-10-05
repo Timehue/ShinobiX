@@ -757,7 +757,23 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 8,958,487 B (8,958,832 B reproduced locally with the same production-length
 // VITE_* values). Keep about 41 KB of headroom at a 9.0 MB total cap; startup,
 // per-chunk, CSS and gzip gates remain unchanged.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_000_000;
+// 2026-10-01: current CI-equivalent candidate measured 9,033,081 B with the
+// documented VITE_SENTRY_DSN / RELEASE / 40-character BUILD_COMMIT values.
+// The progression, tournament, and native-platform integration work since the
+// 09-28 baseline is intentional lazy-screen code. Set 9.08 MB to retain 46,919
+// B of product headroom; entry, per-chunk, CSS, startup raw, and artifact gates
+// remain unchanged.
+// 2026-10-02 BLOODLINE AWAKENING: rank artwork framing, the ancestral ritual
+// presentation and shared purchase guards add about 9.8 KB of product JS/CSS.
+// With Production Image's public VITE_* settings, the candidate measures
+// 9,083,365 B. Allow 9.09 MB, retaining ~6.6 KB of measured headroom. Entry,
+// initial-graph, per-chunk, CSS and gzip limits remain unchanged.
+// 2026-10-02 STARTUP RUNTIME DRAIN: the readable public boot watchdog and
+// offline worker are now minified only in the production dist (9,672 B saved
+// combined; behavior contracts run against the minified copies too). The
+// CI-equivalent candidate measures 9,085,583 B, leaving 4,417 B under this
+// unchanged cap; initial graph is 1,438,276 B raw / 394,509 B gzip.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_090_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
@@ -874,8 +890,11 @@ const INITIAL_GRAPH_FAIL_BYTES = 1_500_000;
 // 2026-09-28: The active-bloodline loadout checks measure 389,162 B on the
 // production-equivalent build; main was already at 388,979 B, only 21 B below
 // this gate. Re-baseline to 393,000 B for ~3.8 KB of variance, as on 2026-09-06.
-// The independent initial raw, entry, per-chunk, CSS, and product gates stay put.
-const INITIAL_GRAPH_GZIP_FAIL_BYTES = 393_000;
+// 2026-10-01: the current CI-equivalent candidate measures 394,670 B gzip
+// across the initial 19 files. Set 398,000 B to retain 3,330 B of variance,
+// consistent with the prior measured margin. Initial raw, entry, per-chunk,
+// CSS, and product gates are independent and remain unchanged.
+const INITIAL_GRAPH_GZIP_FAIL_BYTES = 398_000;
 const SENTRY_VENDOR_FAIL_BYTES = 100_000;
 const SENTRY_VENDOR_RE = /^assets\/sentry-vendor-[^/]+\.js$/;
 // Three.js, React Three Fiber, Drei, and postprocessing are intentionally one

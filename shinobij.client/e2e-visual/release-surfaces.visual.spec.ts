@@ -172,6 +172,57 @@ test('landing hero - mobile', async ({ page }) => {
     await screenshot(page, 'landing-mobile.png');
 });
 
+test('landing hero keeps both entry actions and signup note in narrow landscape', async ({ page }, testInfo) => {
+    await page.goto('/', { waitUntil: 'networkidle' });
+    for (const viewport of [
+        { width: 480, height: 320 },
+        { width: 540, height: 360 },
+    ]) {
+        await page.setViewportSize(viewport);
+        await expect(page.getByTestId('start-create')).toBeInViewport();
+        await expect(page.getByRole('button', { name: /Explore Gameplay/ })).toBeInViewport();
+        await expect(page.locator('.landing-hero .landing-cta-note')).toBeInViewport();
+        await expect(page.locator('.landing-logo--hero')).toBeInViewport();
+        await expect(page.locator('.landing-menu-toggle')).toBeVisible();
+        await expectNoHorizontalOverflow(page);
+
+        const geometry = await page.evaluate(() => {
+            const selectors = ['.landing-menu-toggle', '.landing-nav-play', '.landing-logo--hero', '.landing-hero-actions .landing-cta', '.landing-hero .landing-cta-note'];
+            const elements = selectors.flatMap(selector => Array.from(document.querySelectorAll<HTMLElement>(selector)));
+            return elements.map(element => {
+                const rect = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                return {
+                    selector: element.className,
+                    left: rect.left,
+                    right: rect.right,
+                    width: rect.width,
+                    top: rect.top,
+                    bottom: rect.bottom,
+                    height: rect.height,
+                    minHeight: parseFloat(style.minHeight),
+                };
+            });
+        });
+        expect(geometry.length).toBeGreaterThanOrEqual(6);
+        for (const element of geometry) {
+            expect(element.left, `${element.selector} left edge at ${viewport.width}x${viewport.height}`).toBeGreaterThanOrEqual(-1);
+            expect(element.right, `${element.selector} right edge at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(viewport.width + 1);
+            expect(element.top, `${element.selector} top edge at ${viewport.width}x${viewport.height}`).toBeGreaterThanOrEqual(-1);
+            expect(element.bottom, `${element.selector} bottom edge at ${viewport.width}x${viewport.height}`).toBeLessThanOrEqual(viewport.height + 1);
+        }
+        const menuToggle = geometry.find(element => element.selector.includes('landing-menu-toggle'))!;
+        expect(menuToggle.width).toBeGreaterThanOrEqual(44);
+        expect(menuToggle.height).toBeGreaterThanOrEqual(44);
+        expect(menuToggle.minHeight).toBeGreaterThanOrEqual(44);
+        for (const action of geometry.filter(element => element.selector.includes('landing-hero-actions'))) {
+            expect(action.height, `${action.selector} touch height at ${viewport.width}x${viewport.height}`).toBeGreaterThanOrEqual(44);
+        }
+        await settleVisualState(page);
+        await page.screenshot({ path: testInfo.outputPath(`landing-short-landscape-${viewport.width}x${viewport.height}.png`) });
+    }
+});
+
 test('landing wide monitors preserve the shinobi and fox artwork', async ({ page }, testInfo) => {
     await page.goto('/', { waitUntil: 'networkidle' });
     await settleVisualState(page);
@@ -186,7 +237,7 @@ test('landing wide monitors preserve the shinobi and fox artwork', async ({ page
         const composition = await page.locator('.landing-hero').evaluate(async (hero) => {
             const scene = getComputedStyle(hero, '::before');
             const image = new Image();
-            image.src = '/landing/hero-shinobi.webp';
+            image.src = '/landing/hero-shinobi.webp?v=20261001-1440-q84';
             await image.decode();
             const width = parseFloat(scene.width), height = parseFloat(scene.height);
             const scale = Math.max(width / image.naturalWidth, height / image.naturalHeight);
@@ -435,7 +486,7 @@ test('landing assets and social previews load without page errors', async ({ pag
     const backgroundAssets = await page.locator('#landing-home, #landing-home *').evaluateAll(elements => elements.flatMap(el => Array.from(getComputedStyle(el).backgroundImage.matchAll(/url\(["']?([^"')]+)["']?\)/g), match => match[1])));
     backgroundAssets.forEach(src => assets.add(src));
     const shareImage = await page.locator('meta[property="og:image"]').getAttribute('content');
-    expect(shareImage).toBe('https://shinobijourney.com/landing/hero-shinobi.webp');
+    expect(shareImage).toBe('https://shinobijourney.com/landing/hero-shinobi.webp?v=20261001-1440-q84');
     await expect(page.locator('meta[name="twitter:image"]')).toHaveAttribute('content', shareImage!);
     assets.add(new URL(shareImage!).pathname);
     for (const src of assets) {

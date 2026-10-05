@@ -79,7 +79,7 @@ test("App tracks both hosts and the VN auto-triggers consult them", () => {
     const guards = app.match(/if \(isBattleFlowScreen\(screen, sealedFightOpen\)\) return;/g) ?? [];
     assert.equal(guards.length, 3, "all three VN auto-trigger effects must gate on the sealed fight");
     // The story beat resolves behind a lazy import, so re-check after the await too.
-    assert.match(app, /vnTriggerClaimRef\.current \|\| sealedFightEngagedRef\.current\) return;/);
+    assert.match(app, /vnTriggerClaimRef\.current \|\| sealedFightEngagedRef\.current \|\| isBattleFlowScreen\(\)\) return;/);
 });
 
 test("a declined chapter launch keeps the scene open instead of falling through to a practice bout", () => {

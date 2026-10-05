@@ -57,6 +57,8 @@ import { storesItemSignpost } from "../lib/village-stores-signposts";
 import { handleHorizontalTabKeyDown } from "../lib/tab-keyboard";
 import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
+import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
+import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
 
 const ITEM_CATEGORY_ART: Record<ItemCategory, GameArtIconKind> = {
     gear: "attack", consumable: "potion", pet: "petTamer", material: "boneCharm", event: "reward",
@@ -265,6 +267,11 @@ export function Inventory({
             rarityWeight(b.item?.rarity) - rarityWeight(a.item?.rarity)
             || (a.item?.name ?? a.entry).localeCompare(b.item?.name ?? b.entry));
 
+    const academyAutoScrollStackKey = academyInventoryStep
+        ? visibleBackpackStacks.find(({ item }) => item
+            && ACADEMY_STARTER_GEAR_IDS.some((id) => id === item.id))?.stackKey
+        : undefined;
+
     const backpackEmptyMessage = normalizedSearch
         ? `No items match "${itemSearch.trim()}".`
         : slotFilter
@@ -452,7 +459,9 @@ export function Inventory({
                 const honorGain = Math.max(0, Number(result.rewards.honorSeals) || 0);
                 const charmGain = Math.max(0, Number(result.rewards.boneCharms) || 0);
                 const honorMsg = honorGain > 0 ? `, +${honorGain} Honor Seals` : `, +${charmGain} Bone Charm`;
-                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}.`);
+                const bonusRelic = result.rewards.equippableRelicId ? getItemById(allItems, result.rewards.equippableRelicId)?.name : undefined;
+                const bonusMsg = bonusRelic ? `, +1 ${bonusRelic}` : result.rewards.fateShards ? `, +${result.rewards.fateShards} Fate Shards (duplicate relic)` : "";
+                alert(`War crate opened. +1 Warforged Relic, +500 ryo${honorMsg}${result.rewards.dungeonKey ? ", +1 Dungeon Key" : ""}${bonusMsg}.`);
             } catch (error) {
                 alert(error instanceof Error ? error.message : "War crate could not be opened.");
             } finally {
@@ -588,6 +597,7 @@ export function Inventory({
     );
     const selectedPetFoodXp = petFeedXpForItem(selectedGameItem?.id);
     const selectedPresentation = selectedGameItem ? presentItem(selectedGameItem, selectedPetFoodXp) : null;
+    const selectedMarketplaceScroll = selectedGameItem?.id === VILLAGE_TRANSFER_SCROLL_ID || selectedGameItem?.id === PROFESSION_CHANGE_APPROVAL_ID;
     const selectedSellValue = selectedGameItem && isSellableGear(selectedGameItem) ? sellValueForItem(selectedGameItem) : 0;
     const selectedActionCost = selectedGameItem
         ? (selectedGameItem.apCost ?? (selectedGameItem.weaponEp ? 40 : 0))
@@ -876,7 +886,7 @@ export function Inventory({
                                             type="button"
                                             className={`backpack-item ${item ? `rarity-${item.rarity}` : "rarity-common"}${academyStarterTarget ? " academy-click-target" : ""}`}
                                             data-academy-hint={academyStarterTarget ? "Next · select gear" : undefined}
-                                            data-academy-autoscroll={academyStarterTarget ? "true" : undefined}
+                                            data-academy-autoscroll={academyStarterTarget && stackKey === academyAutoScrollStackKey ? "true" : undefined}
                                             key={stackKey}
                                             onClick={() => {
                                                 setSelectedInventoryItem({
@@ -1084,7 +1094,9 @@ export function Inventory({
                                             {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} rounds</p>}
                                             {selectedGameItem.restoreChakra != null && <p><strong>Restores:</strong> {selectedGameItem.restoreChakra} chakra</p>}
                                             {selectedGameItem.restoreStamina != null && <p><strong>Restores:</strong> {selectedGameItem.restoreStamina} stamina</p>}
-                                            {selectedGameItem.cost > 0 && <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>}
+                                            {selectedGameItem.cost > 0 && (selectedMarketplaceScroll
+                                                ? <p><strong>Marketplace price:</strong> {selectedGameItem.cost} Fate Shards</p>
+                                                : <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>)}
                                             {selectedSellValue > 0 && <p><strong>Sell Value:</strong> {selectedSellValue} ryo</p>}
                                             {selectedGameItem.weaponEffect && (
                                                 <p>
@@ -1150,6 +1162,12 @@ export function Inventory({
                                 {saleNotice}
 
                                 <div className="item-popup-actions">
+                                    {selectedMarketplaceScroll && setScreen && selected.source === "backpack" && (
+                                        <button type="button" className="item-action-primary"
+                                            onClick={() => { setSelectedInventoryItem(null); setScreen("grandMarketplace"); }}>
+                                            Use scroll at Grand Marketplace
+                                        </button>
+                                    )}
                                     {selectedStoresSignpost && setScreen && selected.source === "backpack" && (
                                         <button
                                             type="button"

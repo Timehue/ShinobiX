@@ -44,7 +44,7 @@ test("every sealed AI or story fight counts as an unresolved battle for back, re
     // the fight and zero the player's sector: a free teleport home from a wild
     // sector. It also let idle regen and autosaves run during those fights.
     assert.match(app, /function isPresenceBattleActive\([^)]*\): boolean \{\s*if \(storyFightOpen \|\| sealedFightEngagedRef\.current\) return true;/);
-    assert.match(app, /useAppHistory\(screen, setScreen, isPresenceBattleActive, \(\) => safeFallbackScreen\(isWildSector\(currentSectorRef\.current\)\)\);/,
+    assert.match(app, /useAppHistory\(screen, navigate, \(\) => isPresenceBattleActive\(screenRef\.current, true\)/,
         "Back reads the same predicate, and falls back to where the player IS");
 });
 

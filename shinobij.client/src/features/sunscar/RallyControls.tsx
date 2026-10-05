@@ -19,22 +19,22 @@ export function RallyControls({ input, disabled, technique, techniqueUsed, techn
         window.addEventListener('keydown', down); window.addEventListener('keyup', up); window.addEventListener('blur', release);
         return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', release); };
     }, [disabled, input, techniqueUsed]);
-    return <div className="rally-controls" aria-label="Race controls">
+    return <div className="rally-controls" aria-label="Race controls" data-gamepad-mode="rally">
         <div className="rally-steering">
-            <button type="button" aria-label="Steer left, A or Left Arrow" disabled={disabled} onPointerDown={e => { e.preventDefault(); input('left'); }} onClick={e => { if (e.detail === 0) input('left'); }}>←<small>A / ←</small></button>
-            <button type="button" aria-label="Steer right, D or Right Arrow" disabled={disabled} onPointerDown={e => { e.preventDefault(); input('right'); }} onClick={e => { if (e.detail === 0) input('right'); }}>→<small>D / →</small></button>
+            <button type="button" aria-label="Steer left, left stick, A or Left Arrow" disabled={disabled} onPointerDown={e => { e.preventDefault(); input('left'); }} onClick={e => { if (e.detail === 0) input('left'); }}>←<small>Stick / A / ←</small></button>
+            <button type="button" aria-label="Steer right, left stick, D or Right Arrow" disabled={disabled} onPointerDown={e => { e.preventDefault(); input('right'); }} onClick={e => { if (e.detail === 0) input('right'); }}>→<small>Stick / D / →</small></button>
         </div>
         <div className="rally-actions">
-            <button type="button" className={`rally-technique${techniqueUsed ? ' is-used' : ''}`} disabled={disabled || techniqueUsed} aria-label={`${technique}, ${techniqueUsed ? 'used this race' : 'E'}`}
-                title={techniqueUsed ? 'Used this race. Available again next race.' : 'Once per race'} onClick={() => input('technique')}>{technique}<small>{techniqueUsed ? techniqueActive ? 'Used · active' : 'Used this race' : 'E · once per race'}</small></button>
+            <button type="button" className={`rally-technique${techniqueUsed ? ' is-used' : ''}`} disabled={disabled || techniqueUsed} aria-label={`${technique}, ${techniqueUsed ? 'used this race' : 'Y or E'}`}
+                title={techniqueUsed ? 'Used this race. Available again next race.' : 'Y / E · once per race'} onClick={() => input('technique')}>{technique}<small>{techniqueUsed ? techniqueActive ? 'Used · active' : 'Used this race' : 'Y / E · once per race'}</small></button>
             <button type="button" className={`rally-attack${charge >= 100 && !attackBlocked ? ' is-ready' : ''}`} style={{ '--rally-charge': `${charge}%` } as CSSProperties}
-                disabled={disabled || charge < 100 || attackBlocked} aria-label={`${attack}, Q, ${attackBlocked ? 'recovering' : charge >= 100 ? 'ready' : 'charging'}`}
+                disabled={disabled || charge < 100 || attackBlocked} aria-label={`${attack}, X or Q, ${attackBlocked ? 'recovering' : charge >= 100 ? 'ready' : 'charging'}`}
                 title={`${attackDescription} Fires down your lane. Firing costs 10% speed for 0.45 seconds. Jump or steer to dodge incoming shots.`}
-                onClick={() => input('attack')}>{attack}<small>{charge >= 100 ? attackBlocked ? 'Recovering' : 'Q · Fire' : `${((100 - charge) / 100 * RALLY_ATTACK.chargeTicks / RALLY_HZ).toFixed(1)}s · charging`}</small></button>
-            <button type="button" disabled={disabled} aria-label="Jump, Space" onPointerDown={e => { e.preventDefault(); input('jump'); }} onClick={e => { if (e.detail === 0) input('jump'); }}>Jump<small>Space</small></button>
-            <button type="button" className={`rally-burst${bursting ? ' is-active' : ''}`} disabled={disabled} aria-pressed={bursting} aria-label="Hold Burst, Shift" title="28% faster while held. Uses stamina; release to recover."
+                onClick={() => input('attack')}>{attack}<small>{charge >= 100 ? attackBlocked ? 'Recovering' : 'X / Q · Fire' : `${((100 - charge) / 100 * RALLY_ATTACK.chargeTicks / RALLY_HZ).toFixed(1)}s · charging`}</small></button>
+            <button type="button" disabled={disabled} aria-label="Jump, right trigger or Space" onPointerDown={e => { e.preventDefault(); input('jump'); }} onClick={e => { if (e.detail === 0) input('jump'); }}>Jump<small>RT / Space</small></button>
+            <button type="button" className={`rally-burst${bursting ? ' is-active' : ''}`} disabled={disabled} aria-pressed={bursting} aria-label="Hold Burst, left trigger or Shift" title="Hold LT / Shift. 28% faster while held. Uses stamina; release to recover."
                 onPointerDown={e => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); input('burst-on'); }} onPointerUp={() => input('burst-off')} onPointerCancel={() => input('burst-off')} onLostPointerCapture={() => input('burst-off')}
-                onBlur={() => input('burst-off')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input('burst-on'); } }} onKeyUp={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input('burst-off'); } }}>Burst<small>{bursting ? '+28% pace' : stamina < 1 ? 'Recovering' : 'Hold Shift'}</small></button>
+                onBlur={() => input('burst-off')} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input('burst-on'); } }} onKeyUp={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input('burst-off'); } }}>Burst<small>{bursting ? '+28% pace' : stamina < 1 ? 'Recovering' : 'Hold LT / Shift'}</small></button>
         </div>
     </div>;
 }

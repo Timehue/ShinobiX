@@ -10,6 +10,8 @@ import {
   CHRONICLE_STARTER_CORE_IDS,
   TURN_TIMEOUT_MS,
   createMatch,
+  type ChronicleMatch,
+  type ChronicleProjection,
 } from "../../shared/chronicle-duel.js";
 
 process.env.ADMIN_PASSWORD = "cc-match-test-admin";
@@ -102,6 +104,58 @@ async function call(body: unknown, authenticated = true) {
 const MATCH_ID = "11111111-1111-4111-8111-111111111111";
 const SESSION_KEY = `cc-freeplay:${MATCH_ID}`;
 const PAIR_KEY = `cc-pair:${MATCH_ID}`;
+
+test("Free-Play persists stopped attacks and attack counts through responses, polls, and rejected retries", async () => {
+  store.clear();
+  const now = Date.now();
+  const state = createMatch("alpha", CHRONICLE_AI_DECKS.hard, "bravo", CHRONICLE_AI_DECKS.medium, () => 0, now);
+  state.activePlayer = "p1";
+  state.turnNumber = 3;
+  state.phase = "battle";
+  const water = CHRONICLE_CARD_CATALOG.find(card => card.cardClass === "monster" && card.element === "Water" && card.monsterType === "normal");
+  assert.ok(water);
+  for (const owner of ["p1", "p2"] as const) {
+    for (let index = 0; index < 2; index++) {
+      state[owner].monsterZones[index] = {
+        instanceId: `${owner}-${index}`, cardId: water.id, owner, zoneIndex: index,
+        position: owner === "p1" ? "attack" : "defense", faceUp: true,
+        summonedOnTurn: 1, lastPositionChangeTurn: 1, lastAttackTurn: 0,
+        temporaryAttack: 0, temporaryDefense: 0,
+      };
+    }
+  }
+  for (const [index, cardId] of ["chronicle-smoke-bomb", "chronicle-floodgate-mist"].entries()) {
+    state.p2.magicTrapZones[index] = { instanceId: `snare-${index}`, cardId, owner: "p2", zoneIndex: index, faceUp: false, setOnTurn: 1 };
+  }
+  store.set(SESSION_KEY, {
+    matchId: MATCH_ID, rulesVersion: CHRONICLE_RULES_VERSION,
+    p1Name: "alpha", p2Name: "bravo", state, status: "active",
+    createdAt: now, updatedAt: now,
+  });
+  const attack = { action: "attack", matchId: MATCH_ID, playerName: "alpha", attackerZoneIndex: 0, targetZoneIndex: 0 };
+  assert.equal((await call(attack)).statusCode, 200);
+  const answer = await call({ action: "activate-trap", matchId: MATCH_ID, playerName: "bravo", zoneIndex: 0 });
+  assert.equal(answer.statusCode, 200);
+  const poll = await call({ action: "state", matchId: MATCH_ID, playerName: "alpha" });
+  assert.equal(poll.statusCode, 200);
+  const projected = (poll.body as { session: ChronicleProjection }).session;
+  assert.equal(projected.p1.monsterZones[0]?.canAttack, false);
+  assert.equal(projected.p1.monsterZones[1]?.canAttack, true);
+  assert.equal(projected.p2.lifePoints, state.p2.lifePoints);
+  const saved = structuredClone(store.get(SESSION_KEY));
+  const retry = await call(attack);
+  assert.equal(retry.statusCode, 400);
+  assert.match((retry.body as { error: string }).error, /already attacked/);
+  assert.deepEqual(store.get(SESSION_KEY), saved);
+  assert.equal((saved as { state: ChronicleMatch }).state.attacksDeclaredThisTurn, 1);
+  assert.equal((await call({ ...attack, attackerZoneIndex: 1 })).statusCode, 200);
+  const defenderPoll = await call({ action: "state", matchId: MATCH_ID, playerName: "bravo" });
+  assert.deepEqual((defenderPoll.body as { session: ChronicleProjection }).session.responseWindow?.eligibleZoneIndexes, [1]);
+  const ended = await call({ action: "activate-trap", matchId: MATCH_ID, playerName: "bravo", zoneIndex: 1 });
+  assert.equal(ended.statusCode, 200);
+  assert.equal((ended.body as { session: ChronicleProjection }).session.phase, "main2");
+  assert.equal((store.get(SESSION_KEY) as { state: ChronicleMatch }).state.attacksDeclaredThisTurn, 2);
+});
 
 function installPlayer(name: string, savedDeck: readonly string[]) {
   store.set(`save:${name}`, {
@@ -420,14 +474,14 @@ test("qualifying sealed play grants one exact-once Legacy Card Clash win", async
     repeatKills?: Record<string, number>;
   };
   assert.equal(granted.cardClashWins, 1);
-  assert.equal(granted.repeatKills?.bravo, 1, "the opponent account drives anti-farm decay");
+  assert.equal(granted.repeatKills?.[`${new Date().toISOString().slice(0, 10)}:bravo`], 1, "the opponent account drives daily anti-farm decay");
   assert.equal((store.get(SESSION_KEY) as { legacyCredit: { status: string } }).legacyCredit.status, "done");
 
   await call({ action: "state", matchId: MATCH_ID, playerName: "alpha" });
   assert.equal((store.get("legacy:stats:alpha") as { cardClashWins?: number }).cardClashWins, 1);
 });
 
-test("same-account repeat wins decay to zero after four credited legs", async () => {
+test("same-account repeat wins decay to zero after four credited legs in one UTC day", async () => {
   store.clear();
   const matchIds = [
     "31111111-1111-4111-8111-111111111111",
@@ -445,7 +499,7 @@ test("same-account repeat wins decay to zero after four credited legs", async ()
     repeatKills?: Record<string, number>;
   };
   assert.equal(stats.cardClashWins, 2.75, "weights are 1, 1, .5, .25, then 0");
-  assert.equal(stats.repeatKills?.bravo, 5);
+  assert.equal(stats.repeatKills?.[`${new Date().toISOString().slice(0, 10)}:bravo`], 5);
 });
 
 test("a reciprocal repeat is progression-neutral", async () => {

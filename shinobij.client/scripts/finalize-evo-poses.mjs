@@ -1,25 +1,29 @@
 // Non-destructive finalize for the evolved-starter pose frames.
 //
 // Downscales asset-gen-out/pet-poses-all/<id>-<cat>.webp → public/pet-poses/ at
-// 384px AND MERGES those ids into src/assets/coliseum/pet-poses-manifest.ts
-// (POSED_PET_IDS / POSED_RUN_IDS) WITHOUT regenerating the manifest from
-// scratch. Unlike finalize-pet-poses.mjs — which rebuilds the manifest purely
-// from the (often-empty) staging dir and would therefore DROP the ~148 already-
-// shipped pets — this one unions the new ids onto whatever the manifest already
-// lists. Safe to run with only the 10 evolution forms staged.
+// 384px, then certifies all three memberships from the complete public pose
+// inventory. Existing combat, run, and move frames remain represented even
+// when only the 10 evolution forms are staged.
 //
 //   node scripts/finalize-evo-poses.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
+import { syncPetPoseManifest } from './pet-pose-manifest.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT = path.resolve(HERE, '..');
 const STAGE = path.join(CLIENT, 'asset-gen-out', 'pet-poses-all');
 const PUB = path.join(CLIENT, 'public', 'pet-poses');
-const MANIFEST = path.join(CLIENT, 'src', 'assets', 'coliseum', 'pet-poses-manifest.ts');
 const SIZE = 384;
+
+// Certify compact metadata before any staging read or artwork conversion.
+if (process.argv.includes('--manifest-only')) {
+    const memberships = syncPetPoseManifest(CLIENT, { checkOnly: process.argv.includes('--check') });
+    console.log(`[pose-manifest] ${process.argv.includes('--check') ? 'checked' : 'generated'} all three memberships: ${Object.values(memberships).map(ids => ids.length).join('/')}`);
+    process.exit(0);
+}
 
 fs.mkdirSync(PUB, { recursive: true });
 const files = fs.readdirSync(STAGE).filter((f) => /-(idle|attack|hurt|cast|run-a|run-b)\.webp$/.test(f));
@@ -38,18 +42,5 @@ for (const f of files) {
 const newCombat = [...ids];
 const newRun = [...runFrames.entries()].filter(([, s]) => s.has('run-a') && s.has('run-b')).map(([id]) => id);
 
-function mergeSet(src, varName, add) {
-    const re = new RegExp(`(${varName}: ReadonlySet<string> = new Set\\()(\\[[^\\]]*\\])(\\))`);
-    if (!re.test(src)) throw new Error(`could not find ${varName} in manifest`);
-    return src.replace(re, (_m, p1, arr, p3) => {
-        const set = new Set(JSON.parse(arr));
-        add.forEach((x) => set.add(x));
-        return p1 + JSON.stringify([...set].sort()) + p3;
-    });
-}
-
-let src = fs.readFileSync(MANIFEST, 'utf8');
-src = mergeSet(src, 'POSED_PET_IDS', newCombat);
-src = mergeSet(src, 'POSED_RUN_IDS', newRun);
-fs.writeFileSync(MANIFEST, src);
-console.log(`merged ${newCombat.length} combat + ${newRun.length} run ids; copied ${n} frames @ ${SIZE}px → public/pet-poses`);
+const memberships = syncPetPoseManifest(CLIENT);
+console.log(`merged ${newCombat.length} combat + ${newRun.length} run ids; copied ${n} frames @ ${SIZE}px → public/pet-poses; complete memberships ${Object.values(memberships).map(ids => ids.length).join('/')}`);

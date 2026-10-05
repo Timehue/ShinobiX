@@ -29,9 +29,22 @@ const PARTS_DIR = join(HERE, "index");
 const ROUTE_OWNERS: Record<string, string[]> = {
     "17-shop-inventory-loadout.css": ["components/Shop.tsx", "screens/Inventory.tsx"],
     "19-town-hall.css": ["screens/TownHall.tsx", "screens/Cafeteria.tsx", "screens/AdminPanel.tsx"],
+    "15-world-map-territory.css": ["screens/WorldMap.tsx"],
     "25-mobile-profile-tabs.css": ["screens/Profile.tsx", "screens/UserView.tsx"],
+    "29-clan-exchange-storefront.css": [
+        "screens/ClanHall.tsx",
+        "screens/WorldMap.tsx",
+        "screens/TownHall.tsx",
+        "features/hollowGate/HollowGateShrineView.tsx",
+    ],
     "33-hollow-gate-cinematic.css": ["features/hollowGate/HollowGateShrineView.tsx"],
+    "36-clan-boss-operation.css": ["screens/ClanBoss.tsx"],
     "39-civic-facilities.css": ["components/FacilityHero.tsx"],
+    "40-village-social-panels.css": [
+        "screens/ShinobiCouncilHall.tsx",
+        "screens/HallOfLegends.tsx",
+        "screens/VillageTavern.tsx",
+    ],
 };
 
 function selectorProperties(file: string): Set<string> {

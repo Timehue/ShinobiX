@@ -717,12 +717,14 @@ test("the deployment panel stays usable at phone width", async ({ page }, testIn
 
 test("the live clash fits a Galaxy S25+ without shrinking the battle into the HUD", async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== "galaxy-s25-plus", "device-specific release check");
+    test.setTimeout(180_000);
     await openRite(page);
     await page.getByRole("button", { name: "Lock formation" }).click();
 
     const root = page.locator(".wfr-root");
     const hud = page.locator(".wfr-hud");
     await expect(hud).toBeVisible({ timeout: 30_000 });
+    await expect(hud.locator(".wfr-standing")).toHaveText(/^[0-4] vs [0-4] standing$/);
     await expect(page.getByRole("list", { name: "Your band" }).getByRole("listitem")).toHaveCount(4);
     await expect(page.getByRole("list", { name: "Their band" }).getByRole("listitem")).toHaveCount(4);
 
@@ -746,6 +748,10 @@ test("the live clash fits a Galaxy S25+ without shrinking the battle into the HU
     // WebGL gets the full scene; a device without WebGL gets an intentional
     // reduced battle view instead of a blank screen.
     await expect(page.locator(".wfr-canvas canvas, .wfr-canvas-fallback").first()).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByTestId("wfr-stage-curtain")).toHaveAttribute("data-stage-ready", "true", { timeout: 120_000 });
+    await expect.poll(async () => Number(await page.getByTestId("wfr-clock").getAttribute("data-tick")), { timeout: 30_000 })
+        .toBeGreaterThan(5);
+    await page.screenshot({ path: testInfo.outputPath("live-clash-hud.png") });
 });
 
 test("combat broadcast keeps the live action readable without camera jitter", async ({ page }, testInfo) => {

@@ -86,7 +86,7 @@
            unable to receive touch input. */
         position: relative;
         z-index: 31;
-        min-height: 44px !important;
+        min-height: 48px !important;
         margin: 0 0 8px !important;
         gap: 8px;
     }
@@ -95,8 +95,8 @@
         box-sizing: border-box;
         width: auto !important;
         max-width: 100% !important;
-        min-width: 44px !important;
-        min-height: 44px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
         height: auto !important;
         margin: 0 !important;
         padding: 8px 12px !important;
@@ -176,7 +176,7 @@
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame > .wm-village-bar {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        grid-template-rows: repeat(2, minmax(44px, auto));
+        grid-template-rows: repeat(2, minmax(48px, auto));
         grid-auto-flow: row;
         align-items: stretch;
         align-content: stretch;
@@ -185,7 +185,7 @@
         min-width: 0;
         width: 100%;
         height: auto;
-        min-height: 94px;
+        min-height: 102px;
         max-height: none !important;
         margin: 0 !important;
         padding: 0 !important;
@@ -199,11 +199,11 @@
         gap: 5px;
         box-sizing: border-box;
         width: 100% !important;
-        min-width: 44px !important;
-        min-inline-size: 44px !important;
+        min-width: 48px !important;
+        min-inline-size: 48px !important;
         max-width: 100% !important;
-        min-height: 44px !important;
-        min-block-size: 44px !important;
+        min-height: 48px !important;
+        min-block-size: 48px !important;
         height: auto !important;
         margin: 0 !important;
         padding: 7px 5px !important;
@@ -219,7 +219,7 @@
         overflow-wrap: anywhere;
         touch-action: manipulation;
         -webkit-tap-highlight-color: transparent;
-        /* The global hover lift must not move a region's 44px hit box. Keep
+        /* The global hover lift must not move a region's 48px hit box. Keep
            its existing brightness, border and shadow feedback instead. */
         transform: none;
         transition: filter .12s ease, border-color .12s ease, box-shadow .12s ease;
@@ -244,8 +244,8 @@
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-atlas-frame[data-wm-layout="wide"] > .wm-village-bar {
         align-self: end;
-        grid-template-rows: repeat(2, minmax(44px, 1fr));
-        min-height: 100px;
+        grid-template-rows: repeat(2, minmax(48px, 1fr));
+        min-height: 102px;
     }
 
     /* Short landscape screens use the same right-hand column for back/help and
@@ -259,7 +259,7 @@
     }
 
     /* The camera counter-scales markers across regions. A transparent ring
-       keeps the hit area above 44px despite fractional browser scaling. */
+       keeps the hit area at 48px despite fractional browser scaling. */
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector {
         box-sizing: border-box;
         width: 32px !important;
@@ -271,23 +271,23 @@
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector::after {
-        inset: -7px !important;
+        inset: -8px !important;
     }
 
     /* Academy targets deliberately hide the normal hit ring, so keep their
        highlighted button itself large enough to tap. */
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll .atlas-sector.academy-click-target {
-        width: 46px !important;
-        height: 46px !important;
+        width: 48px !important;
+        height: 48px !important;
     }
 
     html.wm-zoom .app-shell.screen-worldMap .world-atlas-card .world-map-scroll button.atlas-landmark[data-landmark-art="true"] {
         /* Leave room for fractional camera counter-scaling at touch widths. */
-        width: 46px !important;
-        height: 46px !important;
-        min-width: 46px !important;
-        min-height: 46px !important;
-        max-width: 46px !important;
+        width: 48px !important;
+        height: 48px !important;
+        min-width: 48px !important;
+        min-height: 48px !important;
+        max-width: 48px !important;
         padding: 0 !important;
     }
 

@@ -42,10 +42,10 @@ describe("pet battle mode eligibility", () => {
         const breeding = pet("breeding");
         const breedingPetIds = new Set([breeding.id]);
 
-        assert.equal(warfrontPetBusyReason(training, breedingPetIds), "training");
+        assert.equal(warfrontPetBusyReason(training, breedingPetIds), null);
         assert.equal(warfrontPetBusyReason(expedition, breedingPetIds), "expedition");
         assert.equal(warfrontPetBusyReason(breeding, breedingPetIds), "breeding");
-        assert.equal(isPetAvailableForWarfront(training, breedingPetIds), false);
+        assert.equal(isPetAvailableForWarfront(training, breedingPetIds), true);
         assert.equal(isPetAvailableForWarfront(expedition, breedingPetIds), false);
         assert.equal(isPetAvailableForWarfront(breeding, breedingPetIds), false);
     });
@@ -66,7 +66,7 @@ describe("pet battle mode eligibility", () => {
         assert.equal(colosseumPetBusyReason(bredOffspring, breedingPetIds, now), null);
         assert.equal(isPetAvailableForColosseum(bredOffspring, breedingPetIds, now), true);
         assert.equal(colosseumPetBusyReason(activeParent, breedingPetIds, now), "breeding");
-        assert.equal(colosseumPetBusyReason(training, breedingPetIds, now), "training");
+        assert.equal(colosseumPetBusyReason(training, breedingPetIds, now), null);
         assert.equal(colosseumPetBusyReason(expedition, breedingPetIds, now), "expedition");
         assert.equal(colosseumPetBusyReason(completedTraining, breedingPetIds, now), null);
         assert.equal(colosseumPetBusyReason(completedExpedition, breedingPetIds, now), null);
@@ -86,7 +86,7 @@ describe("pet battle mode eligibility", () => {
         const roster = [...ready, training, expedition, breeding];
         const breedingPetIds = new Set([breeding.id]);
 
-        assert.equal(availableWarfrontPetCount(roster, breedingPetIds), 4);
+        assert.equal(availableWarfrontPetCount(roster, breedingPetIds), 5);
         assert.equal(canEnterTacticalArena(roster, breedingPetIds), true);
         assert.deepEqual(
             pickArenaTeam(roster, 4, "ready-low", breedingPetIds).map((entry) => entry.id),

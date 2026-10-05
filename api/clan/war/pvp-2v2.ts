@@ -36,13 +36,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName || !challengeId) {
             return res.status(400).json({ error: 'Valid player and challenge are required.' });
         }
-        if (!enforceRateLimit(req, res, 'clan-war-2v2', 40, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'clan-war-2v2-preauth', (40) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only act as your own shinobi.' });
         }
+        if (!enforceRateLimit(req, res, 'clan-war-2v2', 40, 60_000, identity.admin ? playerName : identity.name)) return;
         const slug = identity.admin ? playerName : identity.name;
         res.setHeader('Cache-Control', 'private, no-store');
 

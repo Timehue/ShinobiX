@@ -114,13 +114,37 @@ try {
         });
         await page.addInitScript(() => {
             const w = window as any;
-            w.__lab = { lcp: 0, cls: 0, longTasks: [], interactions: [] };
+            w.__lab = { lcp: 0, lcpElement: null, cls: 0, longTasks: [], interactions: [] };
             for (const type of ['largest-contentful-paint', 'layout-shift', 'longtask', 'event']) {
                 try { new PerformanceObserver(list => {
                     for (const e of list.getEntries() as any) {
-                        if (type === 'largest-contentful-paint') w.__lab.lcp = e.startTime;
+                        if (type === 'largest-contentful-paint') {
+                            w.__lab.lcp = e.startTime;
+                            w.__lab.lcpElement = {
+                                startTime: e.startTime,
+                                renderTime: e.renderTime,
+                                loadTime: e.loadTime,
+                                size: e.size,
+                                url: e.url ?? '',
+                                tagName: e.element?.tagName ?? '',
+                                id: e.element?.id ?? '',
+                                className: typeof e.element?.className === 'string' ? e.element.className : '',
+                            };
+                        }
                         if (type === 'layout-shift' && !e.hadRecentInput) w.__lab.cls += e.value;
-                        if (type === 'longtask' && w.__lab.longTasks.length < 1000) w.__lab.longTasks.push(e.duration);
+                        if (type === 'longtask' && w.__lab.longTasks.length < 1000) {
+                            w.__lab.longTasks.push({
+                                startTime: e.startTime,
+                                duration: e.duration,
+                                attribution: Array.from(e.attribution ?? [], (a: any) => ({
+                                    name: a.name,
+                                    containerType: a.containerType,
+                                    containerName: a.containerName,
+                                    containerId: a.containerId,
+                                    containerSrc: a.containerSrc,
+                                })),
+                            });
+                        }
                         if (type === 'event' && e.interactionId && w.__lab.interactions.length < 1000) w.__lab.interactions.push(e.duration);
                     }
                 }).observe({ type, buffered: true, ...(type === 'event' ? { durationThreshold: 16 } : {}) }); } catch { /* browser support */ }

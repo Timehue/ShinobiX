@@ -29,6 +29,8 @@ import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { sectorPlace } from '../../shared/sector-geo.js';
+import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 
 /** Start or recover a sealed, server-resolved combat mission. Body: { playerName, missionId }. */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -40,11 +42,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const missionId = String(body.missionId ?? '').slice(0, 80);
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!enforceRateLimit(req, res, 'mission-combat-start', 12, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'mission-combat-start-preauth', (12) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only start your own mission.' });
+        if (!enforceRateLimit(req, res, 'mission-combat-start', 12, 60_000, identity.admin ? playerName : identity.name)) return;
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
@@ -88,12 +91,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!identity.admin && isIncapacitated(char)) {
                 return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
             }
-            const runId = `mission-${randomUUID().replace(/-/g, '')}`;
-            const now = Date.now();
-            const env = missionEnvironment(mission.key);
-            const enemy = missionEnemyTemplate(mission);
             const authoritativeSave = save;
             if (!authoritativeSave) throw new Error('Player save vanished before mission combat could be sealed.');
+            const runId = `mission-${randomUUID().replace(/-/g, '')}`;
+            const now = Date.now();
+            let env = missionEnvironment(mission.key);
+            const sector = Math.floor(Number(authoritativeSave.currentSector));
+            const sectorPlaceForFight = sector > 0 ? sectorPlace(sector) : undefined;
+            if (sectorPlaceForFight) {
+                let territory: Record<string, unknown> | null = null;
+                try { territory = await kv.get<Record<string, unknown>>(`world:territory:${sector}`); }
+                catch { /* A missing territory read keeps the scheduled sector weather. */ }
+                const weather = resolveSectorWeather(sectorPlaceForFight.biome, sector, now, territory);
+                env = { biome: sectorPlaceForFight.biome, weather: sectorWeatherElements(weather) };
+            }
+            const enemy = missionEnemyTemplate(mission);
             const session = buildSoloPveAiEncounter({
                 sessionId: runId,
                 playerName,

@@ -59,7 +59,6 @@ export type WorldSectorCommandHunt = Readonly<{
     requiredTracks: number;
     ready: boolean;
 }>;
-export type WorldSectorMissionOutpost = Readonly<{ missionId: string; missionName: string }>;
 export type WorldSectorCommandPanelProps = Readonly<{
     sector: number;
     /** False while scouting; command controls become read-only. */
@@ -87,9 +86,6 @@ export type WorldSectorCommandPanelProps = Readonly<{
     sectorGarrisonReady: boolean;
     players: readonly WorldSectorCommandPlayer[];
     hunt: WorldSectorCommandHunt | null;
-    missionOutpost?: WorldSectorMissionOutpost | null;
-    missionRaidCooldownMs?: number;
-    onStartMissionRaid?: () => void;
     onRaidEnemyVillage: () => void;
     onRaidControlledSector: () => void;
     onOpenSigns: () => void;

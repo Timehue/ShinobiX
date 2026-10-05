@@ -607,7 +607,7 @@
           },
           {
             "type": "p",
-            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 1,000 Forge Points. Bone Charms count for 2 points, Fate Shards 5, Aura Stones 15, and Mythic Seals 75. Because the forge uses whole materials, your inventory must be able to form an exact 1,000-point payment."
+            "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 200 Fate Shards, paid when you forge the revealed roll. Named gear accepts Fate Shards only. Inspect the stats in the roll pop-out, then continue to name and forge your item."
           },
           {
             "type": "callout",
@@ -903,7 +903,7 @@
             "type": "callout",
             "tone": "warn",
             "label": "Availability matters",
-            "text": "A companion that is breeding, training, or away on an expedition cannot join a combat squad. Confirm status before building a Warfront formation."
+            "text": "Companions can join combat squads while training; their training continues. A companion that is breeding or away on an expedition is unavailable. Collect expedition rewards before building a Warfront formation."
           }
         ]
       },
@@ -1136,7 +1136,7 @@
           },
           {
             "type": "p",
-            "text": "Professions unlock at level 13 and advance through ten ranks. After rank 10, further profession XP earns Mastery points. Changing later requires a Profession change approval from the Grand Marketplace and resets profession rank, XP, and Mastery."
+            "text": "Professions unlock at level 13 and advance through ten ranks. After rank 10, further profession XP earns Mastery points. After choosing a profession, changes unlock at character level 20. Buy a Profession Change Scroll beside the Village Transfer Scroll in the Grand Marketplace, then choose either other profession. Each change starts at Rank 1 with 0 profession XP and no Mastery; previous profession progress does not carry over."
           }
         ]
       },

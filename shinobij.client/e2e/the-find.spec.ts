@@ -63,6 +63,7 @@ test('first find uses the VN renderer and skipping leaves an explicit unclaimed 
 
 test('Explore Tile reaches The Find after discovery probes and a lost claim reply retries safely',async({page})=>{
     const save=uiAuditSave();
+    save.currentSector=40;
     let character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[]} as Record<string,unknown>;
     save.character=character;
     const runtime=await installUiAuditRuntime(page,save);

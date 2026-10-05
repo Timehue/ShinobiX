@@ -462,7 +462,25 @@
 }
 
 .mission-hall .rookie-orders-actions button {
-    flex: 1 1 150px;
+    box-sizing: border-box;
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    width: auto !important;
+    min-width: 0;
+    min-height: 40px;
+    height: 40px;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    font: 750 11px/1.2 Inter, sans-serif !important;
+    letter-spacing: 0.06em !important;
+    text-align: center;
+}
+
+.mission-hall .rookie-orders-actions .start-primary-btn::before,
+.mission-hall .rookie-orders-actions .start-primary-btn::after {
+    display: none;
 }
 
 .mission-hall .mh-tag,
@@ -1107,6 +1125,13 @@
 }
 
 @media (max-width: 700px) {
+    /* At 640px, two 230px cards still fit the grid but leave only ~160px for
+       mission details. Long descriptions then stretch each row to 230px.
+       Keep the action-card rhythm compact by switching to a full-width row. */
+    .mission-hall .mh-combat-grid {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+
     .mission-hall .mh-header {
         min-height: 210px;
         align-items: flex-end;
@@ -1326,6 +1351,9 @@
         border-radius: 9px;
         transform: none;
     }
+    .mission-hall .mh-field-card.mh-field-explore {
+        grid-template-columns: 48px 68px minmax(0, 1fr);
+    }
     .mission-hall .mh-field-card:hover { transform: none; }
     .mission-hall .mh-field-art { display: contents; }
     .mission-hall .mh-field-art::after { content: none; }
@@ -1364,6 +1392,10 @@
         min-width: 0;
         padding: 8px 53px 8px 9px;
         gap: 2px;
+    }
+    .mission-hall .mh-field-card.mh-field-explore .mh-field-body {
+        grid-column: 3;
+        padding-right: 9px;
     }
     .mission-hall .mh-field-mobile-sector {
         display: block;
@@ -1492,6 +1524,9 @@
         width: 64px;
         min-height: 44px;
         flex: none;
+    }
+    .mission-hall .mh-field-card.mh-field-explore .mh-fetch-actions .mh-field-secondary-action {
+        right: 8px;
     }
     .mission-hall .mh-field-card .mh-field-next-step-desktop { display: none; }
     .mission-hall .mh-field-card .mh-field-next-step-mobile {

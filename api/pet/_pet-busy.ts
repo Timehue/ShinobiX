@@ -13,7 +13,7 @@ export type PetBusyCode =
     | 'pet-is-assigned';
 
 export type PetCombatBusyCode = Extract<PetBusyCode,
-    'pet-is-breeding' | 'pet-is-training' | 'pet-is-on-expedition'>;
+    'pet-is-breeding' | 'pet-is-on-expedition'>;
 
 export type PetEligibilityResult = { ok: true; templateId: string; element: string }
     | { ok: false; code: string; message: string };
@@ -37,7 +37,6 @@ export function petCombatBusyReason(
 ): PetCombatBusyCode | null {
     const id = String(pet.id ?? '');
     if (activeBreedingParentIds(character, now).has(id)) return 'pet-is-breeding';
-    if (pet.training) return 'pet-is-training';
     if (pet.expedition) return 'pet-is-on-expedition';
     return null;
 }
@@ -51,6 +50,8 @@ export function petBusyReason(
     const id = String(pet.id ?? '');
     const combatBusy = petCombatBusyReason(character, pet, now);
     if (combatBusy) return combatBusy;
+    // Training can continue during combat, but still locks roster/breeding changes.
+    if (pet.training) return 'pet-is-training';
     if (festivalAssignedPetIds(character).has(id)) return 'pet-is-at-festival';
     if (options.includeActive !== false && String(character.activePetId ?? '') === id) return 'pet-is-active';
     if (options.includeReserve !== false && String(character.activePetId2v2 ?? '') === id) return 'pet-is-reserve';

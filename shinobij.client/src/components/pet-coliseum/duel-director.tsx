@@ -83,15 +83,18 @@ export function DuelDirector({ duel, clock, advanceClock, onEnd, canEnd = true, 
     // but launching their long-lived VFX independently produces an unreadable
     // stack. The lane serializes only presentation; combat truth is untouched.
     const majorVfxUntilWall = useRef(0);
-    const majorVfxTimers = useRef<number[]>([]);
+    const majorVfxTimers = useRef(new Set<number>());
     useEffect(() => () => majorVfxTimers.current.forEach((timer) => window.clearTimeout(timer)), []);
     const majorVfxBusy = () => performance.now() / 1000 < majorVfxUntilWall.current;
     const occupyMajorVfxLane = (durationSec: number) => {
         majorVfxUntilWall.current = Math.max(majorVfxUntilWall.current, performance.now() / 1000 + durationSec);
     };
     const scheduleDirectorCue = (run: () => void, delayMs: number) => {
-        const timer = window.setTimeout(run, delayMs);
-        majorVfxTimers.current.push(timer);
+        const timer = window.setTimeout(() => {
+            majorVfxTimers.current.delete(timer);
+            run();
+        }, delayMs);
+        majorVfxTimers.current.add(timer);
     };
     // ── Cinematic camera (render-only): a live look target eased toward the fighters'
     // midpoint, briefly OVERRIDDEN by cuts (attacker on wind-up / defender on impact /

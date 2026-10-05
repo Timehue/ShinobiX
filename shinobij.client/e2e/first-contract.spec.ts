@@ -2,7 +2,9 @@ import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
-function contractSave(firstContract: Record<string, unknown>) {
+function contractSave(firstContract: Record<string, unknown>): ReturnType<typeof uiAuditSave> & {
+    character: Record<string, unknown> & { firstContract: Record<string, unknown> };
+} {
     const save = uiAuditSave();
     return { ...save, currentSector: 0, character: { ...save.character, level: 2, rankTitle: 'Academy Student', firstContract, academyVow: 'unbound' } };
 }
@@ -35,6 +37,7 @@ test('first contract is optional, accessible, responsive and survives a failed r
     await expect(journal.getByRole('heading', { name: 'Your legend starts here.' })).toBeVisible();
     await expect(journal.locator('.fc-route-art')).toHaveCount(3);
     await expect.poll(() => journal.locator('.fc-route-art').evaluateAll((images) => images.every((image) => image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0))).toBe(true);
+    await expect(journal.getByRole('button', { name: /Discovery Beyond the village gate/ })).toBeDisabled();
     await expect(journal.getByRole('button', { name: /Companion needed/ })).toBeDisabled();
     await expect(journal.getByRole('button', { name: /Companion needed/ })).toHaveCSS('opacity', '1');
     const viewport = page.viewportSize();
@@ -79,7 +82,68 @@ test('first contract is optional, accessible, responsive and survives a failed r
     await expect(page.locator('.fc-ribbon')).toContainText('Prove your technique');
     await page.locator('.fc-ribbon').getByRole('button').click();
     await expect(journal.getByRole('button', { name: 'Open Mission Hall' })).toBeVisible();
-    await expect(journal.getByRole('button', { name: 'Choose another route' })).toBeVisible();
+    await expect(journal.locator('.fc-routes')).toHaveCount(0);
+});
+
+test('a saved first-step completion reopens the guide with step one grayed out and step two unlocked', async ({ page }) => {
+    test.setTimeout(90_000);
+    const save = contractSave({
+        ...offered(), route: 'combat', completedRoutes: ['combat'],
+        selectedAt: Date.now() - 60_000, completedAt: Date.now(), evidence: { kind: 'combat-claim' },
+    });
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/player/academy-narrative', async (request) => {
+        expect(request.request().postDataJSON().action).toBe('discovery');
+        const character = {
+            ...save.character,
+            firstContract: { ...save.character.firstContract, route: 'discovery', selectedAt: Date.now(), completedAt: undefined, evidence: undefined },
+        };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(character, version);
+        await request.fulfill({ json: { character, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'village');
+    const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
+    await expect(journal).toBeVisible();
+    await expect(journal).toContainText('Step 1 of 3 complete');
+    await expect(journal.getByRole('button', { name: /Combat Prove your technique/ })).toBeDisabled();
+    await expect(journal.getByRole('button', { name: /Discovery Beyond the village gate/ })).toBeEnabled();
+    await journal.getByRole('button', { name: /Discovery Beyond the village gate/ }).click();
+    await expect(journal).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
+});
+
+test('a saved second-step completion grays out steps one and two and unlocks the companion assignment', async ({ page }) => {
+    test.setTimeout(90_000);
+    const save = contractSave({
+        ...offered(), route: 'discovery', completedRoutes: ['combat', 'discovery'],
+        selectedAt: Date.now() - 60_000, completedAt: Date.now(), evidence: { kind: 'field-explore', sector: 4 },
+    });
+    save.character.pets = [{
+        id: 'step-companion', name: 'Rill', rarity: 'standard', level: 1, xp: 0, maxLevel: 100,
+        hp: 100, attack: 20, defense: 20, speed: 20, jutsus: [], unlockedForPve: true,
+    }];
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/player/academy-narrative', async (route) => {
+        expect(route.request().postDataJSON().action).toBe('companion');
+        const character = {
+            ...save.character,
+            firstContract: { ...save.character.firstContract, route: 'companion', selectedAt: Date.now(), completedAt: undefined, evidence: undefined },
+        };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(character, version);
+        await route.fulfill({ json: { character, _saveVersion: version } });
+    });
+    await expectUiAuditBoot(page, runtime, 'village');
+    const journal = page.getByRole('dialog', { name: 'First Contract field journal' });
+    await expect(journal).toBeVisible();
+    await expect(journal).toContainText('Step 2 of 3 complete');
+    await expect(journal.getByRole('button', { name: /Combat Prove your technique/ })).toBeDisabled();
+    await expect(journal.getByRole('button', { name: /Discovery Beyond the village gate/ })).toBeDisabled();
+    await expect(journal.getByRole('button', { name: /A moment for your companion/ })).toBeEnabled();
+    await journal.getByRole('button', { name: /A moment for your companion/ }).click();
+    await expect(journal).toHaveCount(0);
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'pets');
 });
 
 test('a saved completion shows a factual recap and the player’s vow, never a new payout', async ({ page }, testInfo) => {
@@ -106,7 +170,14 @@ test('return handoff appears on a later UTC day and stays off the Arena gateway'
     await page.getByRole('button', { name: 'Close field journal' }).click();
     // Arena lobbies are restorable, but deliberately not hash-deep-linkable.
     // Restore through the real last-screen contract on a fresh document.
-    await page.addInitScript(() => localStorage.setItem('lastScreen.v1', 'battleArena'));
+    await page.addInitScript(() => {
+        sessionStorage.setItem('navigation.v1:auditninja', JSON.stringify({
+            screen: 'battleArena', trail: ['village', 'battleArena'],
+        }));
+        localStorage.setItem('navigation.v1:auditninja:screen', 'battleArena');
+        localStorage.setItem('lastScreen.v1', 'battleArena');
+        localStorage.setItem('lastScreen.owner.v1', 'auditninja');
+    });
     await page.goto('/?first-contract-arena-check=1#/battleArena', { waitUntil: 'domcontentloaded' });
     await page.locator('.app-shell[data-screen="battleArena"]').waitFor({ state: 'visible' });
     await expect(page.locator('.fc-ribbon')).toHaveCount(0);

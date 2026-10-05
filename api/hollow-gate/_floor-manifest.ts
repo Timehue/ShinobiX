@@ -1,3 +1,5 @@
+import { RIFT_WEEKLY_DISTORTIONS } from '../sector/_rift-quest.js';
+
 export type HollowGateFloorManifest = {
     floor: number;
     width: number;
@@ -5,7 +7,30 @@ export type HollowGateFloorManifest = {
     spawn: { x: number; y: number };
     walkable: string;
     nodes: Record<string, string>;
+    /** A naturally off-route chest selected from this immutable board. */
+    detour?: { tileIndex: number; extraSteps: number; condition: 'echo-cache' };
+    /** One existing point of interest surfaced by this week's Rift rule. */
+    riftSignal?: { tileIndex: number; kind: string; distortionId: string };
 };
+
+function distancesFrom(start: number, width: number, height: number, walkable: string[]): number[] {
+    const distances = Array(width * height).fill(-1) as number[];
+    distances[start] = 0;
+    const queue = [start];
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+        const current = queue[cursor];
+        const x = current % width, y = Math.floor(current / width);
+        for (const [dx, dy] of [[0, -1], [0, 1], [-1, 0], [1, 0]] as const) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || nx >= width || ny < 0 || ny >= height) continue;
+            const next = ny * width + nx;
+            if (walkable[next] !== '1' || distances[next] >= 0) continue;
+            distances[next] = distances[current] + 1;
+            queue.push(next);
+        }
+    }
+    return distances;
+}
 
 const ALLOWED_KINDS = new Set([
     'empty', 'wall', 'battle', 'elite', 'trap', 'chest', 'shard_vein',
@@ -21,6 +46,8 @@ export function validateHollowGateFloorManifest(raw: {
     playerX: unknown;
     playerY: unknown;
     tiles: unknown;
+    riftDistortionId?: unknown;
+    deriveDetour?: boolean;
 }): { ok: true; manifest: HollowGateFloorManifest } | { ok: false; reason: string } {
     const floor = Math.floor(Number(raw.floor));
     const width = Math.floor(Number(raw.width));
@@ -35,6 +62,7 @@ export function validateHollowGateFloorManifest(raw: {
     const nodes: Record<string, string> = {};
     const walkable: string[] = [];
     const counts: Record<string, number> = {};
+    const chestIndices: number[] = [];
     for (let index = 0; index < raw.tiles.length; index += 1) {
         const tile: Record<string, unknown> = raw.tiles[index] && typeof raw.tiles[index] === 'object'
             ? raw.tiles[index] as Record<string, unknown>
@@ -44,6 +72,7 @@ export function validateHollowGateFloorManifest(raw: {
         const canWalk = kind !== 'wall' && tile.terrain !== 'wall';
         walkable.push(canWalk ? '1' : '0');
         counts[kind] = (counts[kind] ?? 0) + 1;
+        if (kind === 'chest') chestIndices.push(index);
         if (kind !== 'empty' && kind !== 'wall') nodes[String(index)] = kind;
     }
     const spawnIndex = playerY * width + playerX;
@@ -107,9 +136,28 @@ export function validateHollowGateFloorManifest(raw: {
     const targetX = target % width;
     const targetY = Math.floor(target / width);
     if (Math.abs(targetX - playerX) + Math.abs(targetY - playerY) < 3) return { ok: false, reason: 'target-too-close' };
+    const fromSpawn = distancesFrom(spawnIndex, width, height, walkable);
+    const fromTarget = distancesFrom(target, width, height, walkable);
+    const directSteps = fromSpawn[target];
+    const detour = raw.deriveDetour === false ? undefined : chestIndices
+        .map((tileIndex) => ({ tileIndex, extraSteps: fromSpawn[tileIndex] + fromTarget[tileIndex] - directSteps }))
+        .filter((candidate) => candidate.extraSteps >= 4)
+        .sort((a, b) => b.extraSteps - a.extraSteps || a.tileIndex - b.tileIndex)[0];
+    const distortion = RIFT_WEEKLY_DISTORTIONS.find((entry) => entry.id === raw.riftDistortionId);
+    const riftSignalNode = distortion
+        ? Object.entries(nodes)
+            .filter(([, kind]) => kind === distortion.kind)
+            .map(([index, kind]) => ({ tileIndex: Number(index), kind, distance: fromSpawn[Number(index)] }))
+            .filter((node) => node.distance >= 0)
+            .sort((a, b) => b.distance - a.distance || a.tileIndex - b.tileIndex)[0]
+        : undefined;
     return {
         ok: true,
-        manifest: { floor, width, height, spawn: { x: playerX, y: playerY }, walkable: walkable.join(''), nodes },
+        manifest: {
+            floor, width, height, spawn: { x: playerX, y: playerY }, walkable: walkable.join(''), nodes,
+            ...(detour ? { detour: { ...detour, condition: 'echo-cache' as const } } : {}),
+            ...(distortion && riftSignalNode ? { riftSignal: { tileIndex: riftSignalNode.tileIndex, kind: riftSignalNode.kind, distortionId: distortion.id } } : {}),
+        },
     };
 }
 

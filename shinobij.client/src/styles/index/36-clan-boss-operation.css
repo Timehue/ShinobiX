@@ -1,45 +1,22 @@
-/* Four-horizon guidance and the server-owned Clan Boss operation shell. */
-.activity-spine-heading,.activity-card-topline,.operation-lobby-heading,.operation-comms-status,
+/* Loaded with the lazy Clan Boss screen; operation UI is not startup chrome. */
+.operation-lobby-heading,.operation-comms-status,
 .operation-finder-row,.operation-member,.operation-invite-row,.operation-member-identity {
     display:flex;align-items:center;justify-content:space-between;gap:8px;
 }
-.activity-spine h3,.activity-horizon h4,.operation-lobby h4,.operation-lobby h5,
-.clan-boss-operation h3,.clan-boss-operation h4 { margin:0; }
-.activity-spine-returner,.operation-population,.operation-queue-badge {
+.operation-lobby h4,.operation-lobby h5,.clan-boss-operation h3,.clan-boss-operation h4 { margin:0; }
+.operation-population,.operation-queue-badge {
     border:1px solid #338c9d;border-radius:99px;padding:4px 8px;color:#67e8f9;font-size:.7rem;
 }
-.activity-card-progress { color:var(--cyan);font-size:12px;font-weight:650; }
-.activity-spine-grid,.operation-world-context { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
-/* The spine only ever renders inside the Daily Briefing card, which is capped
-   at 720px however wide the screen is — so its column count has to follow the
-   CARD's width, not the viewport's. A viewport breakpoint got this wrong in
-   both directions: single-column in a roomy 700px card on a 900px tablet, and
-   two cramped columns in a 340px card on a 1024px window beside a wide rail. */
-.activity-spine { container: activity-spine / inline-size; }
-@container activity-spine (max-width: 440px) {
-    .activity-spine-grid { grid-template-columns:1fr; }
-}
-.activity-horizon { min-width:0;border-left:2px solid #64748b;padding-left:9px; }
-.activity-horizon-now { border-color:#facc15; }
-.activity-horizon-this-week { border-color:#c084fc; }
-.activity-horizon-long-term { border-color:#34d399; }
-.activity-horizon h4 { margin-bottom:7px;font-size:.76rem;text-transform:uppercase; }
-.activity-card,.operation-world-context>div,.operation-preparation,.operation-lobby,.operation-comms,
+.operation-world-context { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+.operation-world-context>div,.operation-preparation,.operation-lobby,.operation-comms,
 .operation-finder-row,.operation-member,.operation-standings>div {
     padding:8px;border:1px solid #334155;border-radius:8px;
 }
-.activity-card { display:flex;flex-direction:column;gap:6px;min-width:0;margin-bottom:8px; }
-.activity-card.is-complete { border-color:#238364; }
-.activity-card.is-blocked { border-color:#7f3540; }
-.activity-card p,.activity-card small,.operation-lobby p,.operation-preparation p,.operation-score-note {
+.operation-lobby p,.operation-preparation p,.operation-score-note {
     margin:0;color:var(--slate-300);font-size:.75rem;line-height:1.4;
 }
-.activity-card .activity-card-blocker,.operation-ready.is-not-ready { color:#fca5a5; }
-.activity-spine-loading,.activity-spine-error { min-height:72px; }
-.activity-spine-error { display:flex;flex-direction:column;align-items:flex-start;gap:7px; }
-.activity-card button,.activity-spine-error button,.operation-lobby button,.operation-rejoin,
-.operation-comms button,.operation-error button { min-height:44px; }
-.activity-card button { align-self:flex-start; }
+.operation-ready.is-not-ready { color:#fca5a5; }
+.operation-lobby button,.operation-rejoin,.operation-comms button,.operation-error button { min-height:44px; }
 .clan-boss-operation { display:flex;flex-direction:column;gap:12px; }
 .operation-world-context>div,.operation-preparation,.operation-finder-row>div,.operation-member-identity>div {
     display:flex;flex-direction:column;min-width:0;
@@ -72,11 +49,11 @@
     .operation-primary-actions>button,.operation-create-actions>button { flex:1 1 180px; }
 }
 @media (max-width: 559px) {
-    .activity-spine-heading,.operation-lobby-heading,.operation-comms-status { align-items:flex-start;flex-direction:column; }
+    .operation-lobby-heading,.operation-comms-status { align-items:flex-start;flex-direction:column; }
     .operation-finder-row { align-items:flex-start; }
     .operation-invite-row { flex-direction:column; }
     .operation-invite-grid { display:grid;grid-template-columns:1fr; }
 }
 @media (prefers-reduced-motion: reduce) {
-    .operation-lobby *,.activity-spine * { scroll-behavior:auto;transition:none; }
+    .operation-lobby * { scroll-behavior:auto;transition:none; }
 }

@@ -28,6 +28,12 @@ import facilityBank from "../assets/village-icons/bank.webp";
 import facilityTraining from "../assets/village-icons/stat-training.webp";
 import facilityHospital from "../assets/village-icons/hospital.webp";
 import facilityWorldMap from "../assets/village-icons/world-map.webp";
+import facilityStoryHall from "../assets/village-icons/story-hall.webp";
+import facilityPetHome from "../assets/village-icons/pet-yard.webp";
+import facilityCommunity from "../assets/village-icons/community.webp";
+import facilityBlacksmith from "../assets/village-icons/blacksmith-anvil.webp";
+import facilityLogbook from "../assets/village-icons/logbook.webp";
+import facilityPremiumShop from "../assets/village-icons/premium-shop.webp";
 
 export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "mission" | "ryo" | "fateShard" | "boneCharm"
     | "roleDefender" | "roleTracker" | "roleAssassin" | "roleSage"
@@ -35,7 +41,8 @@ export type GameArtIconKind = "vitality" | "attack" | "guard" | "speed" | "missi
     | "biomeForest" | "biomeSnow" | "biomeVolcano" | "biomeCentral" | "biomeShadow"
     | "healer" | "vanguard" | "petTamer" | "tavern" | "arena" | "missionHall" | "cardHall"
     | "dice" | "crown" | "warning" | "shop" | "key" | "scroll" | "clanHall" | "rations"
-    | "townHall" | "bank" | "training" | "hospital" | "worldMap"
+    | "townHall" | "bank" | "training" | "hospital" | "worldMap" | "storyHall"
+    | "petHome" | "community" | "blacksmith" | "logbook" | "premiumShop"
     | "auraStone" | "reward" | "potion" | "gate" | "map" | "supply" | "event";
 
 const ART: Record<GameArtIconKind, string> = {
@@ -59,6 +66,9 @@ const ART: Record<GameArtIconKind, string> = {
     clanHall: facilityClanHall, rations: facilityCafeteria,
     townHall: facilityTownHall, bank: facilityBank, training: facilityTraining,
     hospital: facilityHospital, worldMap: facilityWorldMap,
+    storyHall: facilityStoryHall, petHome: facilityPetHome, community: facilityCommunity,
+    blacksmith: facilityBlacksmith, logbook: facilityLogbook,
+    premiumShop: facilityPremiumShop,
     auraStone: "/items/shop-aura-sphere-v1.webp",
     reward: "/items/village-supply-crate-v1.webp",
     potion: "/items/shop-rejuvenation-potion-v1.webp",

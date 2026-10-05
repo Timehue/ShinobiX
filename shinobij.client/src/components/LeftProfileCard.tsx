@@ -1,7 +1,7 @@
 import { useSharedNow } from "../lib/use-shared-now";
 import { petTrainingOptions } from "../data/pet-config";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
-import { dailyMissionsCompleted, dailyHuntsCompleted } from "../lib/character-progress";
+import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../lib/character-progress";
 /*
  * Desktop left-rail profile card — avatar + name/rank + HP/Chakra/Stamina
  * + core currencies + daily caps + XP bar + in-flight timers.
@@ -23,8 +23,9 @@ import { dailyMissionsCompleted, dailyHuntsCompleted } from "../lib/character-pr
  * Extracted from App.tsx.
  */
 
-import { memo, type ReactNode } from "react";
+import { memo, useEffect, useState, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
+import { getBlackMarketUsage, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
 import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
 
 import { levelProgress } from "../lib/character-progress";
@@ -33,7 +34,7 @@ import type { Character } from "../types/character";
 import type { DailyLoginCommitFactory } from "../lib/daily-login-api";
 import type { Screen } from "../types/core";
 import type { ActiveTraining, ActiveJutsuTraining } from "../types/combat";
-import { DAILY_MISSION_LIMIT, DAILY_HUNT_LIMIT, MAX_LEVEL } from "../constants/game";
+import { DAILY_MISSION_LIMIT, MAX_LEVEL } from "../constants/game";
 import { formatPetTimer } from "../lib/utils";
 import { petDisplayName } from "../lib/pet";
 import { GameIcon, ShinobiCurrencyIcon } from "./icons/GameIcon";
@@ -44,6 +45,8 @@ import { PatchNotesModal } from "./PatchNotesModal";
 import { RankBadge } from "./RankBadge";
 import { NextGoalPin } from "./NextGoalPin";
 import { openPetExpedition } from "../lib/pet-expedition-navigation";
+import { normalizeOnboardingStep } from "../lib/onboarding-step";
+import { getCharacterElements } from "../lib/elements";
 
 // The shared prop shape for the card body + its desktop host. Both read the
 // same slice of App state; keeping one type keeps the two call-sites in sync.
@@ -54,6 +57,7 @@ type ProfileCardProps = {
     setScreen: (s: Screen) => void;
     activeTraining: ActiveTraining | null;
     activeJutsuTraining: ActiveJutsuTraining | null;
+    onOpenDailyBriefing?: (opener: HTMLButtonElement) => void;
 };
 
 // Wrapped in React.memo so the every-second useSharedNow re-render is the
@@ -117,8 +121,18 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     setScreen,
     activeTraining,
     activeJutsuTraining,
+    onOpenDailyBriefing = (opener) => window.dispatchEvent(new CustomEvent("shinobix:open-daily-briefing", { detail: opener })),
 }: ProfileCardProps) {
     useSharedNow(); // sync to global timer so mobile timers match desktop
+    const [brokerUsage, setBrokerUsage] = useState<{ used: number; day: string } | null>(null);
+    useEffect(() => {
+        let active = true;
+        setBrokerUsage(null);
+        void getBlackMarketUsage(character.name).then((usage) => {
+            if (active && usage) setBrokerUsage({ used: usage.dailyUsed, day: usage.day });
+        });
+        return () => { active = false; };
+    }, [character.name]);
     // Falls back to the name-keyed shared image when the character field hasn't
     // hydrated yet, so the rail never shows initials to a player who has a
     // portrait everyone else can see (lib/own-avatar.ts).
@@ -126,6 +140,10 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     const now = serverNow();
     const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
     const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
+    const todayUtc = new Date(now).toISOString().slice(0, 10);
+    const sealedCratesUsed = character.dailyBlackMarketCratesDay === todayUtc
+        ? character.dailyBlackMarketCrates ?? 0
+        : brokerUsage?.day === todayUtc ? brokerUsage.used : 0;
 
     return (
         <>
@@ -178,7 +196,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                 <div className="left-caps-grid">
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--green-300)" }} />Tiles</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 150 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/150</span>
+                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 100 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/100</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>
@@ -186,11 +204,11 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="target" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Hunts</span>
-                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= DAILY_HUNT_LIMIT ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{DAILY_HUNT_LIMIT}</span>
+                        <span className="left-caps-value" style={{ color: dailyHuntsCompleted(character) >= dailyHuntCap(character) ? "var(--danger)" : "var(--gold-400)" }}>{dailyHuntsCompleted(character)}/{dailyHuntCap(character)}</span>
                     </div>
-                    <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="dice" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Fate Spins</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyFateSpins ?? 0) >= 5 ? "var(--danger)" : "#a5b4fc" }}>{character.dailyFateSpins ?? 0}/5</span>
+                    <div className="left-caps-cell" title="Daily sealed crates claimed from the Broker in Sunscar Festival">
+                        <span className="left-caps-label"><GameIcon name="gift" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "#a5b4fc" }} />Sealed Crates</span>
+                        <span className="left-caps-value" style={{ color: sealedCratesUsed >= BLACK_MARKET_DAILY_CAP ? "var(--danger)" : "#a5b4fc" }}>{sealedCratesUsed}/{BLACK_MARKET_DAILY_CAP}</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="clock" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--text-dim)" }} />Reset In</span>
@@ -226,6 +244,19 @@ export const ProfileCardBody = memo(function ProfileCardBody({
                     );
                 })()}
             </div>
+            {character.level >= 5 && normalizeOnboardingStep(character.onboardingStep) === "done" && getCharacterElements(character).length > 0 && (
+                <button
+                    type="button"
+                    className="left-daily-briefing-button"
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                        event.currentTarget.focus();
+                        onOpenDailyBriefing(event.currentTarget);
+                    }}
+                >
+                    Daily Briefing
+                </button>
+            )}
 
             {/* "What's next" breadcrumb, tucked under the XP bar (desktop rail).
                 The full hub-top banner is CSS-hidden on desktop so this is the only

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'shell_config.dart';
@@ -6,6 +7,14 @@ import 'shell_config.dart';
 /// A straight port of the old TWA's PlayExperiencePolicy.java, with the same
 /// thresholds, so moving shells changes nothing a player notices.
 abstract final class PlayExperiencePolicy {
+  static const String _debugGameUrl = String.fromEnvironment('SJ_DEBUG_GAME_URL');
+  static const Set<String> _debugLoopbackHosts = {
+    'localhost',
+    '127.0.0.1',
+    '::1',
+    '10.0.2.2',
+    '10.0.3.2',
+  };
   static const int _minute = 60 * 1000;
   static const int _day = 24 * 60 * _minute;
 
@@ -26,11 +35,35 @@ abstract final class PlayExperiencePolicy {
   /// The game URL this shell opens. `playNative=1` tells the website the
   /// native review hand-off exists; `playReview` says whether this session may
   /// use it (shinobij.client/src/lib/native-play.ts).
-  static Uri launchUri({required bool reviewDue}) => Uri.https(
-        ShellConfig.host,
-        '/',
-        {'playNative': '1', 'playReview': reviewDue ? '1' : '0'},
+  static Uri launchUri({required bool reviewDue}) => resolveLaunchUri(
+        reviewDue: reviewDue,
+        debugMode: kDebugMode,
+        debugGameUrl: _debugGameUrl,
       );
+
+  /// Resolves the shell URL without letting a release build leave production.
+  /// The override exists so Android WebView checks can exercise the current
+  /// local client without deploying it or touching a live player account.
+  @visibleForTesting
+  static Uri resolveLaunchUri({
+    required bool reviewDue,
+    required bool debugMode,
+    required String debugGameUrl,
+  }) {
+    final override = debugMode ? _loopbackDebugUri(debugGameUrl) : null;
+    final uri = override ?? Uri.https(ShellConfig.host, '/');
+    final query = Map<String, String>.of(uri.queryParameters)
+      ..['playNative'] = '1'
+      ..['playReview'] = reviewDue ? '1' : '0';
+    return uri.replace(queryParameters: query);
+  }
+
+  static Uri? _loopbackDebugUri(String raw) {
+    final uri = Uri.tryParse(raw.trim());
+    if (uri == null || uri.scheme != 'http' || uri.userInfo.isNotEmpty || !uri.hasAuthority) return null;
+    if (!_debugLoopbackHosts.contains(uri.host.toLowerCase())) return null;
+    return uri;
+  }
 }
 
 /// The policy's counters, kept in SharedPreferences.

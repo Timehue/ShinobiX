@@ -225,7 +225,16 @@ export function createTowerPvpMatch(input: {
     if (binding.kind !== 'public-queue' && !input.teams) {
         throw new TypeError('A bound Tower MPvP match must supply its fixed teams.');
     }
-    const roster = input.teams
+    const solo = binding.kind === 'tournament' && input.fighters.length === 2;
+    if (solo && (!input.teams || input.teams.amber.length !== 1 || input.teams.violet.length !== 1
+        || new Set([...input.teams.amber, ...input.teams.violet]).size !== 2
+        || new Set(input.fighters.map(f => f.slug)).size !== 2
+        || input.fighters.some(f => ![...input.teams!.amber, ...input.teams!.violet].includes(f.slug)))) {
+        throw new TypeError('A solo tournament requires two distinct fighters on opposing sides.');
+    }
+    const roster = solo
+        ? buildTowerPvpRoster({ amber: input.fighters.filter(f => input.teams!.amber.includes(f.slug)), violet: input.fighters.filter(f => input.teams!.violet.includes(f.slug)) })
+        : input.teams
         ? assignFixedTowerPvpTeams(input.fighters, input.teams)
         : assignTowerPvpTeams(input.fighters);
     const bySlug = new Map(input.fighters.map(fighter => [fighter.slug, fighter] as const));
@@ -241,7 +250,7 @@ export function createTowerPvpMatch(input: {
         runId: input.matchId,
         floor: TOWER_PVP_FLOOR.id,
         seed: input.seed,
-        partySize: TOWER_PVP_TEAM_SIZE,
+        partySize: solo ? 1 : TOWER_PVP_TEAM_SIZE,
         map: {
             width: TOWER_PVP_FLOOR.map.width,
             height: TOWER_PVP_FLOOR.map.height,
@@ -283,7 +292,7 @@ export function createTowerPvpMatch(input: {
         recentCommands: [],
         settlement: { policy: 'no-progression-v1', acknowledgements: [] },
         rules: {
-            teamSize: TOWER_PVP_TEAM_SIZE,
+            teamSize: solo ? 1 : TOWER_PVP_TEAM_SIZE,
             // Driven by whether a budget was SEALED, not by whether anyone
             // happens to be carrying something: a clan-war duel where nobody
             // packed a potion still plays by consumable rules.
@@ -385,7 +394,7 @@ export function activateReadyTowerPvpMatch(match: StoredTowerPvpMatch, now: numb
     match.status = 'active';
     startRound(match.combat);
     match.combat.turnStartedAt = now;
-    match.combat.log.push('Both Tower teams are ready. The 2v2 match begins.');
+    match.combat.log.push(`Both sides are ready. The ${match.rules.teamSize}v${match.rules.teamSize} match begins.`);
     bumpTowerPvpVersion(match, now);
     return true;
 }
@@ -395,6 +404,7 @@ export function activateReadyTowerPvpMatch(match: StoredTowerPvpMatch, now: numb
  * consecutive expiry defeats only that player's actor. Their teammate may play on.
  */
 export function advanceExpiredTowerPvpTurn(match: StoredTowerPvpMatch, now: number): boolean {
+    if (expireTournamentCombat(match, now)) return true;
     if (match.status !== 'active' || !isAfkHumanTurnDue(match.combat, now)) return false;
     const actor = activeActor(match.combat);
     if (!actor?.ownerSlug) return false;
@@ -414,6 +424,23 @@ export function advanceExpiredTowerPvpTurn(match: StoredTowerPvpMatch, now: numb
         match.combat.turnStartedAt = now;
     }
     projectTowerPvpTerminal(match);
+    bumpTowerPvpVersion(match, now);
+    return true;
+}
+
+/** Checked under the combat lock by both polling and actions; no late move can beat the deadline. */
+export function expireTournamentCombat(match: StoredTowerPvpMatch, now: number): boolean {
+    const binding = match.binding;
+    if (binding?.kind !== 'tournament' || now < binding.endsAt || (match.status !== 'active' && match.status !== 'ready')) return false;
+    const health = (side: 'squad' | 'enemy') => match.combat.actors.filter(a => a.side === side)
+        .reduce((sum, actor) => sum + Math.max(0, actor.hp) / Math.max(1, actor.maxHp), 0);
+    const a = health('squad'), b = health('enemy');
+    match.winner = a === b ? binding.tieWinner : a > b ? 'amber' : 'violet';
+    match.status = 'done';
+    match.combat.status = 'done';
+    match.combat.winner = match.winner === 'amber' ? 'squad' : 'enemy';
+    match.combat.rewardSettlementState = 'settled';
+    match.combat.log.push('Tournament round time expired. Remaining health decides; equal health uses the bracket seed.');
     bumpTowerPvpVersion(match, now);
     return true;
 }

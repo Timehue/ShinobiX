@@ -82,7 +82,7 @@ export function prepareCreatorItems(incoming: Record<string, unknown>, RAW_BLOOD
                 // at MAX_STAT, this is storage hygiene).
                 if (out.bonuses && typeof out.bonuses === 'object') {
                     // sub-5: clamp custom-item bonuses to the maximum legitimate
-                    // built-in/Named-Armor envelope. Honest forge rolls are no-ops;
+                    // built-in/named-gear envelope. Honest forge rolls are no-ops;
                     // forged passives, shields, vitals, and specialty totals are bounded.
                     return budgetItemBonuses(out);
                 }

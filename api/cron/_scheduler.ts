@@ -1,4 +1,5 @@
 import { runKageChallengeClocks } from '../village/_kage-clock.js';
+import { backgroundWorkStopped, runBackgroundWork } from '../_background-work.js';
 import { runElderElections } from '../village/_elder-council.js';
 /**
  * In-process daily scheduler for the save-snapshot backup.
@@ -28,7 +29,7 @@ import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
 import { runSettlementReconciliation } from './_settlement-reconciliation.js';
-import { recoverPendingExchangeListings } from '../festival/_exchange.js';
+import { recoverExpiredExchangeAuctions, recoverPendingExchangeListings } from '../festival/_exchange.js';
 import { recoverPendingMentorSettlements } from '../clan/_mentor-settlement.js';
 import { withScheduledJobLease } from './_job-lease.js';
 import { runGuestSweep } from './_guest-sweep.js';
@@ -86,6 +87,7 @@ let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
+let _battleLapseBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
 let _rankedSettlementBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
@@ -114,6 +116,8 @@ export async function fireSettlementReconciliation(includeLegacyScan = false): P
                 try {
                     const exchange = await recoverPendingExchangeListings();
                     if (exchange.failures.length) console.warn('[cron-scheduler] Sunscar trades awaiting recovery:', exchange.failures);
+                    const auctions = await recoverExpiredExchangeAuctions();
+                    if (auctions.closed) console.log(`[cron-scheduler] Sunscar auctions closed: ${auctions.closed}.`);
                 } catch (error) { console.warn('[cron-scheduler] Sunscar recovery deferred:', (error as Error).message); }
                 // Mentor milestone rewards admitted but not fully paid (the
                 // browser that claimed them may be long gone). Bounded per run;
@@ -258,6 +262,7 @@ function msUntilNextTargetHour(now: number): number {
 }
 
 function scheduleSnapshotRecoveryRetry(): void {
+    if (backgroundWorkStopped()) return;
     if (_snapshotRecoveryRetryTimeout || process.env.DISABLE_SNAPSHOT_CRON === '1') return;
     _snapshotRecoveryRetryTimeout = setTimeout(() => {
         _snapshotRecoveryRetryTimeout = null;
@@ -266,7 +271,11 @@ function scheduleSnapshotRecoveryRetry(): void {
     _snapshotRecoveryRetryTimeout.unref?.();
 }
 
-async function runBootSnapshotCatchUp(): Promise<void> {
+function runBootSnapshotCatchUp(): Promise<void> {
+    return runBackgroundWork(runBootSnapshotCatchUpCore).then(() => undefined);
+}
+
+async function runBootSnapshotCatchUpCore(): Promise<void> {
     let staleMarkerExists = false;
     try {
         const marker = await readSnapshotSuccessMarker();
@@ -319,7 +328,11 @@ async function runBootSnapshotCatchUp(): Promise<void> {
     }
 }
 
-async function fire(): Promise<void> {
+function fire(): Promise<void> {
+    return runBackgroundWork(fireCore).then(() => undefined);
+}
+
+async function fireCore(): Promise<void> {
     if (process.env.DISABLE_SNAPSHOT_CRON !== '1') {
         try {
             const r = await runLeasedJob('snapshot', LEASE_TTL.snapshot, () => runSnapshotSaves(NIGHTLY_BUDGET_MS), (result) => result.ok);
@@ -419,7 +432,7 @@ export function startSnapshotCron(): void {
         const tick = async () => {
             if (_kageClockRunning) return;
             _kageClockRunning = true;
-            try { await runKageChallengeClocks(); }
+            try { await runBackgroundWork(runKageChallengeClocks); }
             catch (error) { console.warn('[cron-scheduler] Kage clocks:', String(error)); }
             finally { _kageClockRunning = false; }
         };
@@ -451,7 +464,11 @@ export function startSnapshotCron(): void {
         _battleLapseInterval.unref?.();
         // First pass a minute after boot: a deploy's restart is the classic way
         // for fights to be left behind, and the sweep is cheap.
-        setTimeout(() => void fireBattleLapseSweep(), 60_000).unref?.();
+        _battleLapseBootTimeout = setTimeout(() => {
+            _battleLapseBootTimeout = null;
+            void fireBattleLapseSweep();
+        }, 60_000);
+        _battleLapseBootTimeout.unref?.();
     }
     if (!_rankedSettlementInterval) {
         if (process.env.DISABLE_RANKED_SETTLEMENT_SWEEP !== '1') {
@@ -517,12 +534,12 @@ export function stopSnapshotCron(): void {
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
+    if (_battleLapseBootTimeout) { clearTimeout(_battleLapseBootTimeout); _battleLapseBootTimeout = null; }
     if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }
     if (_rankedSettlementBootTimeout) { clearTimeout(_rankedSettlementBootTimeout); _rankedSettlementBootTimeout = null; }
     if (_snapshotRecoveryInterval) { clearInterval(_snapshotRecoveryInterval); _snapshotRecoveryInterval = null; }
     if (_snapshotRecoveryRetryTimeout) { clearTimeout(_snapshotRecoveryRetryTimeout); _snapshotRecoveryRetryTimeout = null; }
-    _settlementScanRunning = false;
-    _clanBossPartySweepRunning = false;
-    _territoryLifecycleRunning = false;
-    _rankedSettlementRunning = false;
+    // Running jobs clear their own flags when they actually finish. Clearing
+    // these here could admit a duplicate if the scheduler is restarted while
+    // its preceding invocation is still draining.
 }

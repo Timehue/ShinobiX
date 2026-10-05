@@ -234,7 +234,7 @@ describe("world-map reward settlement", () => {
         const gate = worldMap.slice(worldMap.indexOf("async function exploreSector("));
         const body = gate.slice(0, gate.indexOf("await resolveExplore(sector)"));
         assert.match(body, /sectorExploreRefusal\(sector, loadSectorTerritory\(sector\)\.ownerVillage, character\.village\)/,
-            "the pool pre-check must sit next to the 150/day check, ahead of the dungeon/pet probes");
+            "the pool pre-check must sit next to the 100/day check, ahead of the dungeon/pet probes");
         assert.ok(body.indexOf("sectorExploreRefusal(") < body.indexOf("setCurrentSector(sector)"),
             "and it must refuse before the screen commits the player to the sector");
     });

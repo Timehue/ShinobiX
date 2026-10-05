@@ -468,11 +468,11 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             onAdvance={() => {}}
             onCancel={cancelScene}
             renderFooter={(typingDone) => typingDone ? (
-                <div className="vn-controls">
+                <div className={!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? "vn-controls vn-decision-controls" : "vn-controls"}>
                     {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? (
                         <>
-                            <button className="admin-button" onClick={() => startBattle()}>Enter Battle</button>
                             <button onClick={cancelScene}>Leave - No Reward</button>
+                            <button className="admin-button" onClick={() => startBattle()}>Enter Battle</button>
                         </>
                     ) : (
                         <button onClick={completeScene}>
@@ -498,17 +498,17 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             <div className="vn-finale-body">
                 <p className="vn-scene-card">{finaleText}</p>
             </div>
-            <div className="menu">
+            <div className={!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? "menu vn-decision-controls" : "menu"}>
                 {!isAuraSphereEvent && !isStoryChapterEvent && !isSageEvent && !isStoryInterlude && !isStoryEpilogue ? (
                     <>
-                        <button className="admin-button" onClick={() => startBattle()}>
-                            Enter Battle — {biomeLabel(event.biome)}
-                        </button>
                         {/* No free "skip & claim": combat continuation happens only after
                             the canonical server fight reports a verified win. Leaving here
                             dismisses the event with no reward. */}
                         <button onClick={cancelScene}>
                             Leave — No Reward
+                        </button>
+                        <button className="admin-button" onClick={() => startBattle()}>
+                            Enter Battle — {biomeLabel(event.biome)}
                         </button>
                     </>
                 ) : (

@@ -5,6 +5,8 @@ import { GameIcon } from ".././icons/GameIcon";
 import * as THREE from "three";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "../RendererRetirement";
+import { PetSummon3D } from "../PetSummon3D";
+import { useBattleFrameloop } from "../../lib/use-battle-frameloop";
 import { Billboard, Html } from "@react-three/drei";
 import type { Pet } from "../../types/pet";
 import type { PetArenaFrame, PetBattleRecord } from "../../types/pet-arena";
@@ -12,7 +14,7 @@ import { petArchetypeFor, petHighGroundTiles, petBushTiles, type ArenaTile } fro
 import { PET_SPAWN_1V1 } from "../../constants/pet-arena";
 import { PetBattleAvatar } from ".././PetBattleAvatar";
 import type { PetVisualState, PetBattleAnimationEventType } from "../../types/pet-battle";
-import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName } from "../../lib/pet-battle-anim";
+import { buildPetAnimationEvents, petPoseForAvatar, elementVfxKey, extractPetMoveName, petPortraitImage } from "../../lib/pet-battle-anim";
 import { petBattleCamera, petCameraHoldMs } from "../../lib/pet-battle-camera";
 import { petFxSpriteKey } from "../../lib/jutsu-vfx";
 import { bundledJutsuFxFrames } from "../../lib/jutsu-fx-assets";
@@ -219,6 +221,7 @@ function Standee({
     return (
         <group>
             <group ref={group} position={[base.x, 0, base.z]}>
+                <PetSummon3D enabled={side === "player" && !fainted}>
                 {/* Y-axis-locked billboard: yaws to face the camera but stays
                     vertical, so feet never lift off the floor at the angled cam. */}
                 <Billboard lockX lockZ>
@@ -235,6 +238,7 @@ function Standee({
                         </mesh>
                     </group>
                 </Billboard>
+                </PetSummon3D>
                 <Html position={[0, L.contentWorldH + 0.12, 0]} center distanceFactor={11} pointerEvents="none" zIndexRange={[6, 0]}>
                     {/* Just the name now — HP lives in the fixed corner cards (no
                         redundant floating bar). */}
@@ -600,6 +604,7 @@ export function PetColiseum({
     resultSupplement, sharedImages = {}, playerRecord, enemyRecord,
 }: PetColiseumProps) {
     const floor = useMemo(() => loadSceneTexture(COLISEUM_FLOOR_URL), []);
+    const battleFrameloop = useBattleFrameloop(!!result);
     const backdrop = useMemo(() => loadSceneTexture(COLISEUM_BG_URL), []);
     // Dispose the coliseum floor/backdrop textures when the match view unmounts.
     useEffect(() => () => { floor.dispose(); backdrop.dispose(); }, [floor, backdrop]);
@@ -909,7 +914,7 @@ export function PetColiseum({
                 @keyframes colFlash { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 0; } }
                 @media (prefers-reduced-motion: reduce) { .col-announcer { animation: none !important; opacity: 1 !important; transform: none !important; } .col-flash { animation: none !important; opacity: 0 !important; } }
             `}</style>
-            <Canvas dpr={[1, 2]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas frameloop={battleFrameloop} dpr={[1, 1.5]} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <RendererRetirement />
                 <fog attach="fog" args={["#2a1c10", 26, 54]} />
                 <ResponsiveCamera />
@@ -967,9 +972,7 @@ export function PetColiseum({
                 (overlay, slide-ins, countdown pop) over the dimmed 3D arena.
                 In 2v2 each side also introduces its reserve as a small chip. */}
             {frame?.isPrefight && (() => {
-                const miniSrc = (p?: Pet) => p
-                    ? (sharedImages["pet:" + p.id] || sharedImages["pet:" + p.id.replace(/-\d{10,}$/, "")] || p.image || "")
-                    : "";
+                const miniSrc = (p?: Pet) => p ? petPortraitImage(p, sharedImages) : "";
                 const reserveChip = (p?: Pet) => p && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 4, color: "#cbd5e1", font: "600 12px Inter, system-ui, sans-serif" }}>
                         <span style={{ color: "#94a3b8" }}>＋</span>

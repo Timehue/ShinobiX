@@ -554,6 +554,19 @@
     cursor: pointer;
     transition: color 120ms, background 120ms, border-color 120ms;
 }
+
+/* A public profile has only Overview and Achievements; give both tabs half of
+   the handset rail instead of inheriting the five-column character dossier. */
+.screen-userView .profile-page-card .profile-mobile-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.screen-userView .profile-page-card .profile-mobile-tabs > .pmtab {
+    min-inline-size: 0 !important;
+    min-block-size: 48px !important;
+    min-height: 48px !important;
+    white-space: nowrap;
+}
+
 @media (hover: hover) {
     .profile-page-card .profile-mobile-tabs .pmtab:hover {
         color: #e8d496 !important;
@@ -1502,6 +1515,35 @@
     letter-spacing: 0.16em;
     color: var(--bsv2-gold);
 }
+.profile-page-card .achievements-heading-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-inline-size: 0;
+}
+.profile-page-card .play-games-achievements-button {
+    min-block-size: 40px;
+    padding: 8px 12px;
+    border: 1px solid rgba(250, 204, 21, 0.42);
+    border-radius: 9px;
+    background: linear-gradient(135deg, rgba(58, 43, 18, 0.94), rgba(21, 24, 34, 0.98));
+    color: #ffe7a0;
+    font: 700 11px var(--font-display);
+    letter-spacing: 0.08em;
+    cursor: pointer;
+}
+.profile-page-card .play-games-achievements-button:focus-visible {
+    outline: 3px solid #fde68a;
+    outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+    .profile-page-card .play-games-achievements-button:hover {
+        border-color: rgba(250, 204, 21, 0.8);
+        background: linear-gradient(135deg, rgba(85, 61, 20, 0.98), rgba(28, 32, 45, 0.98));
+    }
+}
 
 .profile-page-card .achievement-category-filter {
     display: flex;
@@ -1554,9 +1596,11 @@
     border-color: rgba(196,162,90,0.55);
     box-shadow: 0 0 12px rgba(196,162,90,0.15), inset 0 1px 0 rgba(255,255,255,0.05);
 }
-.profile-page-card .achievement-badge.unlocked:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 0 18px rgba(232,212,150,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+@media (hover: hover) and (pointer: fine) {
+    .profile-page-card .achievement-badge.unlocked:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0 18px rgba(232,212,150,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+    }
 }
 .profile-page-card .achievement-badge.locked {
     opacity: 0.42;
@@ -1577,9 +1621,11 @@
 /* Locked-chase additions: locked medallions reuse the dim .locked treatment
    above; these style the small Locked tag, the undiscovered-secrets count,
    and the detail modal's locked state. */
-.profile-page-card .achievement-badge.locked:hover {
-    opacity: 0.62;
-    transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+    .profile-page-card .achievement-badge.locked:hover {
+        opacity: 0.62;
+        transform: translateY(-1px);
+    }
 }
 .profile-page-card .achievement-locked-tag {
     width: fit-content;

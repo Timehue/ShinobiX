@@ -204,7 +204,7 @@ describe("world-map wild-pet encounters", () => {
                 });
                 assert.equal(bodies.length, 1, "the daily cap cannot recover from an immediate retry");
                 if (result.kind === "blocked") {
-                    assert.equal(wildPetEncounterFailureMessage(result), "Daily wild-pet search limit reached (150/150). Resets at midnight UTC.");
+                    assert.equal(wildPetEncounterFailureMessage(result), "Daily wild-pet search limit reached (100/100). Resets at midnight UTC.");
                 }
             });
         }

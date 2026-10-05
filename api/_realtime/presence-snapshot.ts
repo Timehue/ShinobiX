@@ -21,6 +21,7 @@
  * never block a boot or a shutdown, so every path swallows its errors.
  */
 import { kv } from '../_storage.js';
+import { runBackgroundWork } from '../_background-work.js';
 import { MemoryOnlineStateStore, OFFLINE_AFTER_MS, onlineStore, type PresenceSnapshotRow } from './online-store.js';
 
 const SNAPSHOT_KEY = 'presence:snapshot';
@@ -76,7 +77,7 @@ let timer: ReturnType<typeof setInterval> | null = null;
 /** Start the periodic snapshot. Idempotent. */
 export function startPresenceSnapshots(): void {
     if (timer !== null) return;
-    timer = setInterval(() => { void savePresenceSnapshot(); }, SNAPSHOT_INTERVAL_MS);
+    timer = setInterval(() => { void runBackgroundWork(savePresenceSnapshot); }, SNAPSHOT_INTERVAL_MS);
     // Never hold the process open on this timer.
     if (typeof timer === 'object' && timer !== null && 'unref' in timer) {
         (timer as { unref: () => void }).unref();

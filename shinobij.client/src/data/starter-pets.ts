@@ -31,9 +31,10 @@ export type StarterPetOption = {
     icon: string;            // element emoji
     strongVs: JutsuElement;  // element this beats (×1.25)
     weakVs: JutsuElement;    // element that beats this (×0.80)
-    traitEffect: string;     // human-readable trait effect
 };
 
+// The trait embedded in each signed pet template is only a canonical payload
+// seed; the server rolls the owned starter's actual trait when it is granted.
 export const STARTER_PETS: StarterPetOption[] = [
     {
         element: "Fire",
@@ -43,7 +44,6 @@ export const STARTER_PETS: StarterPetOption[] = [
         icon: "🔥",
         strongVs: "Wind",
         weakVs: "Water",
-        traitEffect: "Aggressive. Spawns with +15% attack",
         pet: {
             id: "starter-fire",
             name: "Cinder Cub",
@@ -76,7 +76,6 @@ export const STARTER_PETS: StarterPetOption[] = [
         icon: "💧",
         strongVs: "Fire",
         weakVs: "Earth",
-        traitEffect: "Loyal. Trains 50% faster and grows stronger with you",
         pet: {
             id: "starter-water",
             name: "Ripple Seal",
@@ -109,7 +108,6 @@ export const STARTER_PETS: StarterPetOption[] = [
         icon: "🌬️",
         strongVs: "Lightning",
         weakVs: "Fire",
-        traitEffect: "Swift. Spawns with +20% speed and gains +25% battle XP while active",
         pet: {
             id: "starter-wind",
             name: "Gale Chick",
@@ -142,7 +140,6 @@ export const STARTER_PETS: StarterPetOption[] = [
         icon: "⚡",
         strongVs: "Earth",
         weakVs: "Wind",
-        traitEffect: "Battleborn. Spawns with +10% to all stats",
         pet: {
             id: "starter-lightning",
             name: "Spark Pup",
@@ -175,7 +172,6 @@ export const STARTER_PETS: StarterPetOption[] = [
         icon: "🪨",
         strongVs: "Water",
         weakVs: "Lightning",
-        traitEffect: "Guardian. Spawns with +20% HP and DEF, and cuts your battle damage by 8%",
         pet: {
             id: "starter-earth",
             name: "Pebble Tortoise",

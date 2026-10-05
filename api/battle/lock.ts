@@ -82,8 +82,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Lenient throttle on the boot/write actions; `resolve` is intentionally
     // NOT throttled — a blocked resolve would strand the player in a re-fight.
     if (action !== 'resolve') {
-        const peekName = typeof body.playerName === 'string' ? body.playerName : undefined;
-        if (!enforceRateLimit(req, res, 'battle-lock', 10, 10_000, peekName)) return;
+        if (!enforceRateLimit(req, res, 'battle-lock-preauth', 200, 10_000)) return;
     }
 
     if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
@@ -93,6 +92,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!identity.admin && identity.name !== playerName) {
         return res.status(403).json({ error: 'Can only manage your own battle lock.' });
     }
+    if (action !== 'resolve' && !enforceRateLimit(req, res, 'battle-lock', 10, 10_000, identity.admin ? playerName : identity.name)) return;
 
     const key = lockKey(playerName);
 

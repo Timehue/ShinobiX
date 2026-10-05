@@ -164,7 +164,9 @@ describe('Tower direct-cast canonical tag parity', () => {
             assert.equal(result.applied, true, tag);
             assert.deepEqual(towerReceipt(getActor(s, caster.id)!), fighterReceipt(reference.self), `${tag}: caster`);
             assert.deepEqual(towerReceipt(getActor(s, target.id)!), fighterReceipt(reference.opponent), `${tag}: target`);
-            assert.deepEqual(s.log.slice(1), reference.lines, `${tag}: shared receipt lines`);
+            // Tower owns the round and cast headers; parity is the shared
+            // resolver receipt that follows them.
+            assert.deepEqual(s.log.slice(2), reference.lines, `${tag}: shared receipt lines`);
             assert.equal(s.activeAp, 40, `${tag}: neutral 60 AP shell`);
             covered.push(tag);
         }

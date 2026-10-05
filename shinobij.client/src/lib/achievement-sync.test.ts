@@ -293,7 +293,9 @@ describe("versionedAchievementMutationFromSync", () => {
             "split character-only adoption recreates the v1-to-v2 first-session conflict");
 
         const app = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
-        const callStart = app.indexOf("void runAchievementSyncPass({");
+        assert.match(app, /import\("\.\/lib\/achievement-sync-pass"\)/,
+            "the server-owned achievement pass stays off the startup bundle");
+        const callStart = app.indexOf("runAchievementSyncPass({");
         const callEnd = app.indexOf("});", callStart);
         assert.ok(callStart >= 0 && callEnd > callStart, "App's achievement pass call must remain discoverable");
         const call = app.slice(callStart, callEnd);

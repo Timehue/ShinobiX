@@ -12,9 +12,13 @@ const smooth = (value: number) => {
 /** Two physical Beast Seals make the switch legible: one draws the outgoing
  *  companion into its paper, then a second arrives and releases the reserve
  *  into that exact field mark. The server switch remains authoritative. */
-export function PetSwitchSealFx({ beatRef, reducedMotion }: {
-    beatRef: React.MutableRefObject<SceneBeat>;
+export function PetSwitchSealFx({ beatRef, entrance, reducedMotion, lightRef, dynamicLight = true }: {
+    beatRef?: React.MutableRefObject<SceneBeat>;
+    /** Opening summon shares the reinforcement's incoming-card sequence. */
+    entrance?: React.RefObject<number>;
     reducedMotion: boolean;
+    lightRef?: React.RefObject<THREE.PointLight | null>;
+    dynamicLight?: boolean;
 }) {
     const root = useRef<THREE.Group>(null);
     const outgoingScroll = useRef<THREE.Sprite>(null);
@@ -36,6 +40,15 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
     const sparks = useRef<THREE.Points>(null);
     const sparksMaterial = useRef<THREE.PointsMaterial>(null);
     const light = useRef<THREE.PointLight>(null);
+    useEffect(() => {
+        if (!lightRef) return;
+        light.current = lightRef.current;
+        return () => {
+            if (light.current) light.current.intensity = 0;
+            light.current = null;
+        };
+    }, [lightRef]);
+    const tether = useRef({ start: new THREE.Vector3(0, .32, 0), axis: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) });
 
     const sealTexture = useMemo(() => {
         const texture = new THREE.TextureLoader().load("/items/beast-seal-reinforced.webp");
@@ -69,34 +82,35 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
     useEffect(() => () => sparksGeometry.dispose(), [sparksGeometry]);
 
     useFrame(() => {
-        const beat = beatRef.current;
-        const event = beat.event;
-        if (!event || event.t !== "switch") {
+        if (light.current) light.current.intensity = 0;
+        const beat = beatRef?.current;
+        const event = beat?.event;
+        if (!entrance && (!event || event.t !== "switch")) {
             if (root.current) root.current.visible = false;
             return;
         }
-        const cue = beat.switches?.get(event.inId) ?? beat.switches?.get(event.outId);
-        if (!cue) {
+        const cue = event?.t === 'switch' ? beat?.switches?.get(event.inId) ?? beat?.switches?.get(event.outId) : undefined;
+        if (!entrance && !cue) {
             if (root.current) root.current.visible = false;
             return;
         }
 
-        const t = clamp01((performance.now() - beat.startedAt) / Math.max(1, beat.durationMs));
-        const [x, y, z] = cue.position;
-        const side = event.side === "player" ? -1 : 1;
-        const handoff = event.reinforcement ? .17 : .56;
-        const inboundFlight = smooth((t - handoff) / (event.reinforcement ? .28 : .2));
-        const releaseAt = handoff + (event.reinforcement ? .3 : .22);
-        const releaseFadeStart = event.reinforcement ? .69 : .91;
+        const t = entrance ? clamp01(entrance.current) : clamp01((performance.now() - beat!.startedAt) / Math.max(1, beat!.durationMs));
+        const side = entrance || event?.t === 'switch' && event.side === "player" ? -1 : 1;
+        const reinforcement = !!entrance || event?.t === 'switch' && event.reinforcement;
+        const handoff = reinforcement ? .17 : .56;
+        const inboundFlight = smooth((t - handoff) / (reinforcement ? .28 : .2));
+        const releaseAt = handoff + (reinforcement ? .3 : .22);
+        const releaseFadeStart = reinforcement ? .69 : .91;
         const release = smooth((t - releaseAt) / .18);
         const trailFade = smooth((t - handoff) / .08) * (1 - smooth((t - releaseAt - .09) / .12));
-        const captureGlow = event.reinforcement ? 0 : smooth(t / .11) * (1 - smooth((t - .42) / .1));
+        const captureGlow = reinforcement ? 0 : smooth(t / .11) * (1 - smooth((t - .42) / .1));
         const releaseGlow = smooth((t - releaseAt) / .08) * (1 - smooth((t - releaseFadeStart) / .08));
         const glow = Math.max(captureGlow, releaseGlow);
 
         if (root.current) {
             root.current.visible = t < 1;
-            root.current.position.set(x, y, z);
+            if (cue && !entrance) root.current.position.set(...cue.position);
         }
 
         if (outgoingScroll.current && outgoingMaterial.current) {
@@ -106,7 +120,7 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
             const seal = smooth((t - .2) / .28);
             const launch = smooth((t - .5) / .12);
             const fold = smooth((t - .34) / .12);
-            outgoingScroll.current.visible = !event.reinforcement && t < .64;
+            outgoingScroll.current.visible = !reinforcement && t < .64;
             outgoingScroll.current.position.set(
                 side * 1.15 * (1 - arrive),
                 3.35 + arrive * .55 + seal * .2 + launch * (1.6 + 2.5 * launch),
@@ -122,7 +136,7 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
                 1,
             );
             outgoingMaterial.current.rotation = reducedMotion ? 0 : side * (.2 + arrive * .22 - launch * .5);
-            outgoingMaterial.current.opacity = event.reinforcement ? 0 : smooth(t / .06) * (1 - smooth((t - .53) / .1));
+            outgoingMaterial.current.opacity = reinforcement ? 0 : smooth(t / .06) * (1 - smooth((t - .53) / .1));
         }
 
         if (incomingScroll.current && incomingMaterial.current) {
@@ -173,13 +187,15 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
             // camera-facing seal. A vertical pillar under the scroll detached
             // as soon as the scroll flew in from the wing; aim the tapered
             // beam from the field mark to the scroll's glyph instead.
-            const tetherStart = new THREE.Vector3(0, .32, 0);
-            const tetherEnd = linkedScroll?.position.clone() ?? new THREE.Vector3(0, 4.1, .2);
+            const tetherStart = tether.current.start;
+            const tetherEnd = tether.current.axis;
+            if (linkedScroll) tetherEnd.copy(linkedScroll.position);
+            else tetherEnd.set(0, 4.1, .2);
             tetherEnd.y += .16; // cross the seal plane so its paper masks the join
             const tetherAxis = tetherEnd.sub(tetherStart);
             const tetherLength = Math.max(.12, tetherAxis.length());
             beam.current.position.copy(tetherStart).addScaledVector(tetherAxis, .5);
-            beam.current.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tetherAxis.normalize());
+            beam.current.quaternion.setFromUnitVectors(tether.current.up, tetherAxis.normalize());
             beam.current.visible = !reducedMotion && (captureGlow > .01 || releaseGlow > .01 || trailFade > .01);
             beam.current.scale.set(1.12 + glow * .08, tetherLength / 2.35, 1.12 + glow * .08);
             beamMaterial.current.color.set(releaseGlow > captureGlow ? "#c7fff0" : "#f5d591");
@@ -201,14 +217,17 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
             sparks.current.position.y = releaseGlow * .42;
             sparksMaterial.current.opacity = reducedMotion ? 0 : glow * .62;
         }
-        if (light.current) light.current.intensity = reducedMotion ? .35 : glow * (1.5 + releaseGlow * 2.4);
+        if (light.current && t < 1) light.current.intensity = reducedMotion ? .35 : glow * (1.5 + releaseGlow * 2.4);
 
-        if (light.current) light.current.position.set(0, 2.1, 0);
+        if (light.current) {
+            const position = root.current?.position;
+            light.current.position.set(position?.x ?? 0, (position?.y ?? 0) + 2.1, position?.z ?? 0);
+        }
         if (sparks.current) sparks.current.visible = !reducedMotion && t < .98;
         if (root.current && t >= 1) root.current.visible = false;
     });
 
-    return <group ref={root}>
+    return <><group ref={root} visible={false}>
         <mesh ref={trail} visible={false} geometry={trailGeometry}>
             <meshBasicMaterial ref={trailMaterial} color="#f5d591" transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
         </mesh>
@@ -218,7 +237,6 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
         <sprite ref={incomingScroll} visible={false} scale={[1.4, 1.4, 1]}>
             <spriteMaterial ref={incomingMaterial} map={sealTexture} transparent opacity={0} depthWrite={false} toneMapped={false} />
         </sprite>
-        <pointLight ref={light} color="#c4ffe7" intensity={0} distance={8} decay={2} position={[0, 2.1, 0]} />
         <mesh ref={ground} rotation={[-Math.PI / 2, 0, 0]} position={[0, .08, 0]}>
             <ringGeometry args={[.82, .9, 72]} />
             <meshBasicMaterial ref={groundMaterial} color="#f5d591" transparent opacity={0} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
@@ -240,5 +258,7 @@ export function PetSwitchSealFx({ beatRef, reducedMotion }: {
         <points ref={sparks} geometry={sparksGeometry}>
             <pointsMaterial ref={sparksMaterial} color="#c7ffe1" size={.07} sizeAttenuation transparent opacity={0} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
         </points>
-    </group>;
+    </group>
+        {dynamicLight && !lightRef && <pointLight ref={light} color="#c4ffe7" intensity={0} distance={8} decay={2} position={[0, 2.1, 0]} />}
+    </>;
 }

@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { assertKvLockContext, currentKvLockContext, withKvLeaseContext } from './_kv-lock-context.js';
 import {
     applyEventToAgg,
     summarizeVillageAgg,
@@ -114,6 +115,36 @@ test('concurrent and replayed war telemetry cannot lose or duplicate events', as
     assert.equal(agg['wr.earn'], 60);
     assert.equal(list.length, 30);
     assert.deepEqual(duplicateEventIds(list), []);
+});
+
+test('queued telemetry survives a completed economic callback without inheriting or poisoning its authority', async () => {
+    const store = memKv();
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const guardedStore = {
+        async get<T>(key: string): Promise<T | null> {
+            assert.equal(currentKvLockContext(), undefined, 'only the trusted telemetry work is detached');
+            await gate;
+            assertKvLockContext();
+            return store.get<T>(key);
+        },
+        async set(key: string, value: unknown): Promise<void> {
+            assertKvLockContext();
+            await store.set(key, value);
+        },
+    };
+    let work!: Promise<void>;
+    await withKvLeaseContext('cron:lease:daily', 'daily-owner', async () => {
+        const parent = currentKvLockContext()!;
+        await withKvLeaseContext('lock:game:village-state:stormveil', 'village-owner', async () => {
+            work = recordWarEcoEvent({ eventId: 'ended-economic-parent', village: 'Stormveil Village', kind: 'wr.earn', amount: 9 }, { kv: guardedStore });
+        });
+        release();
+        await work;
+        assert.equal(parent.health.error, undefined);
+        assertKvLockContext();
+    });
+    assert.equal((await store.get<WarEcoAgg>(warEcoAggKey('Stormveil Village')))?.['wr.earn'], 9);
 });
 
 test('every kind a caller records is kept: a per-war structure upgrade counts as a WR sink', async () => {

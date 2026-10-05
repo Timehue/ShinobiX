@@ -13,6 +13,7 @@ import { onlineStore } from './online-store.js';
 import type { OnlinePlayer } from './types.js';
 import { materializeSleeperCamps } from './sleeper-camps.js';
 import { sweepSessions, type PetDuelSession, type DuelSide } from './pet-duel-session.js';
+import { runBackgroundWork } from '../_background-work.js';
 
 let _timer: ReturnType<typeof setInterval> | null = null;
 let _onSweep: ((removedPlayers: OnlinePlayer[]) => void) | null = null;
@@ -55,7 +56,7 @@ export function startGameLoop(): void {
         try {
             // Drop players who haven't pinged within the offline window.
             const removed = onlineStore.sweepStale();
-            if (removed.length) void materializeSleeperCamps(removed).catch((err) => {
+            if (removed.length) void runBackgroundWork(() => materializeSleeperCamps(removed)).catch((err) => {
                 console.error('[game-loop] sleeper camp materialization error:', (err as Error).message);
             });
             if (removed.length && _onSweep) {

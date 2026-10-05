@@ -21,6 +21,6 @@ test('split build entry points retain the complete developer and release build',
     );
     assert.equal(
         clientPackage.scripts.build,
-        'npm run check:story-content && tsc -b && vite build',
+        'npm run check:story-content && tsc -b && vite build && node ../scripts/minify-runtime-assets.mjs',
     );
 });

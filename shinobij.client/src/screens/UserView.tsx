@@ -26,6 +26,8 @@ import { NindoCard } from "../components/NindoCard";
 import { titleStyleColor, fetchLegacyDefinitions, eraAgeName, useLegacyAvailability, type LegacyDefView } from "../lib/legacy";
 import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
+import { petCardImage } from "../lib/pet-battle-anim";
+import { achievementBadgeSrc } from "../lib/achievement-badge";
 import { GameArtIcon } from "../components/GameArtIcon";
 
 const ELEMENT_COLORS: Record<string, string> = {
@@ -115,7 +117,7 @@ export function UserView({
                     <h2>{viewingName}</h2>
                     <p>Profile not yet loaded. The player's full data has not been fetched yet.</p>
                 </div></div>
-                <button className="back-btn" onClick={onBack}>Back to Users</button>
+                <button className="back-btn" onClick={onBack}>Back</button>
             </div>
         );
     }
@@ -180,7 +182,7 @@ export function UserView({
                         <h2>{viewedCharacter.accountName || viewedCharacter.name}</h2>
                         <p>Viewing another shinobi's profile.</p>
                     </div>
-                    <button className="back-btn" onClick={onBack}>Back to Users</button>
+                    <button className="back-btn" onClick={onBack}>Back</button>
                 </div>
 
                 {!isSelf && (
@@ -274,7 +276,7 @@ export function UserView({
                         <h3 style={{ margin: "0 0 10px" }}>Pets</h3>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
                             {pets.slice(0, 8).map((p) => {
-                                const petImg = sharedImages['pet:' + String(p.id).toLowerCase()] || p.image || "";
+                                const petImg = petCardImage(p, sharedImages);
                                 return (
                                     <div key={String(p.id)} className={petVisualVariantClass(p)} style={{ display: "flex", gap: 10, alignItems: "center", background: "rgba(15,23,42,0.7)", border: `1px solid ${rarityColor(p.rarity)}55`, borderRadius: 10, padding: 8 }}>
                                         <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -330,7 +332,7 @@ export function UserView({
                                                 {/* The image guard retries a failed badge; if the retry
                                                     loads, undo the hide so the art covers the emoji again. */}
                                                 <img
-                                                    src={`/badges/${a.id}.webp`}
+                                                    src={achievementBadgeSrc(a.id)}
                                                     alt=""
                                                     onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                                     onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}
@@ -365,7 +367,7 @@ export function UserView({
                         >×</button>
                         <div className="achievement-detail-badge">
                             <img
-                                src={`/badges/${selectedAchievement.id}.webp`}
+                                src={achievementBadgeSrc(selectedAchievement.id)}
                                 alt=""
                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}

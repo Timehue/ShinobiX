@@ -77,6 +77,17 @@ test('only Jonin may place a bounty and public records never identify the backer
     assert.doesNotMatch(JSON.stringify(posted.body), /Bounty Placer/);
 });
 
+test('level-based Jonin can place a bounty without the optional Jonin exam stamp', async () => {
+    await kv.set(`save:${PLACER}`, {
+        _saveVersion: 1,
+        character: { name: 'Bounty Placer', level: 50, ryo: 50_000, examsPassed: ['genin', 'chunin'] },
+    });
+
+    const placed = await call(PLACER, { action: 'place', target: 'Bounty Target', amount: 1_000 });
+    assert.equal(placed.statusCode, 200, JSON.stringify(placed.body));
+    assert.equal((placed.body?.balances as { ryo: number }).ryo, 49_000);
+});
+
 async function feedOf(type: string) {
     return ((await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? []).filter((a) => a.type === type);
 }

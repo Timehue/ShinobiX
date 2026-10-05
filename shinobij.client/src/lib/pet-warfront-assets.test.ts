@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { stat } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { rawPetPool } from "../data/pet-pool";
 import { STARTER_PETS } from "../data/starter-pets";
@@ -39,9 +39,16 @@ test("every built-in and evolved starter pet has a local Warfront portrait fallb
     for (const pet of allPets) {
         const sources = petWarfrontPortraitSources(pet, {}, true);
         const fallback = sources.at(-1);
-        assert.ok(fallback?.startsWith("/pet-poses/"), `${pet.name} (${pet.id}) has no static pose fallback`);
+        assert.ok(fallback?.startsWith("/pet-poses/") || fallback?.startsWith("/pet-portraits/"),
+            `${pet.name} (${pet.id}) has no local static fallback`);
         const path = fileURLToPath(new URL(`../../public${fallback.split("?")[0]}`, import.meta.url));
         const info = await stat(path);
         assert.ok(info.size > 0, `${pet.name} (${pet.id}) fallback image is empty`);
     }
+});
+
+test("the legacy base Pebble idle URL serves the replacement cutout", async () => {
+    const legacy = fileURLToPath(new URL("../../public/pet-poses/starter-earth-idle.webp", import.meta.url));
+    const replacement = fileURLToPath(new URL("../../public/pet-portraits/pebble-tortoise-chibi-v2-cutout.webp", import.meta.url));
+    assert.deepEqual(await readFile(legacy), await readFile(replacement));
 });

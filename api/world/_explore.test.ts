@@ -71,6 +71,10 @@ describe('sector exploration settlement', () => {
     });
 
     it('resets on a new date and fails closed at the dedicated daily limit', () => {
+        assert.equal(DAILY_SECTOR_EXPLORE_LIMIT, 100);
+        const hundredth = applySectorExploreReward({ serverExploreDate: '2026-07-12', serverExploresToday: 99 }, 1, '2026-07-12');
+        assert.equal(hundredth.ok, true);
+        if (hundredth.ok) assert.equal(hundredth.character.serverExploresToday, 100);
         const capped = applySectorExploreReward({ serverExploreDate: '2026-07-12', serverExploresToday: DAILY_SECTOR_EXPLORE_LIMIT }, 1, '2026-07-12');
         assert.deepEqual(capped, { ok: false, reason: 'daily-limit' });
         const reset = applySectorExploreReward({ serverExploreDate: '2026-07-11', serverExploresToday: DAILY_SECTOR_EXPLORE_LIMIT }, 1, '2026-07-12');
@@ -82,18 +86,18 @@ describe('sector exploration settlement', () => {
 describe('shared sector pool sizing against the explore ceilings', () => {
     it('needs a real crowd to drain a sector, and leaves the world plenty of slack', () => {
         // The per-player ceiling is GLOBAL, not per-sector, so one maxed player
-        // can spend all 150 explores on a single tile.
-        assert.equal(SECTOR_EXPLORE_POOL_PER_DAY / DAILY_SECTOR_EXPLORE_LIMIT, 10,
-            '10 maxed players to pick a non-owner sector clean (500/day was 3.3)');
+        // can spend all 100 explores on a single tile.
+        assert.equal(SECTOR_EXPLORE_POOL_PER_DAY / DAILY_SECTOR_EXPLORE_LIMIT, 15,
+            '15 maxed players to pick a non-owner sector clean (500/day was 3.3)');
         assert.equal(
-            Math.floor(SECTOR_EXPLORE_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS)) / DAILY_SECTOR_EXPLORE_LIMIT, 15,
-            'and 15 for the village standing on ground it owns');
+            Math.ceil(SECTOR_EXPLORE_POOL_PER_DAY * (1 + OWNER_VILLAGE_POOL_BONUS) / DAILY_SECTOR_EXPLORE_LIMIT), 23,
+            'and 23 for the village standing on ground it owns');
         // World capacity vs the officially supported 200-player ceiling: the
         // pool must not be a de-facto global cap on exploring.
         const worldCapacity = MAX_WILD_SECTOR * SECTOR_EXPLORE_POOL_PER_DAY;
         const worldDemand = 200 * DAILY_SECTOR_EXPLORE_LIMIT;
         assert.equal(worldCapacity, 99_000);
-        assert.equal(worldDemand, 30_000);
+        assert.equal(worldDemand, 20_000);
         assert.ok(worldCapacity >= worldDemand * 3,
             `world explore capacity ${worldCapacity} must leave 3x headroom over ${worldDemand} of demand`);
     });

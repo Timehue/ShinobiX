@@ -4,6 +4,16 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+dependencies {
+    // Pinned to the current Play Games Services v2 release. 22.1.0 includes
+    // Game Stats and the September 2026 immediate-upload API.
+    implementation("com.google.android.gms:play-services-games-v2:22.1.0")
+    // Play Games Rewards arrive as out-of-app one-time products. The shell
+    // checks unacknowledged products on launch/resume and passes receipts to
+    // the authenticated game backend for verification and acknowledgement.
+    implementation("com.android.billingclient:billing:9.1.0")
+}
+
 // Release signing. The upload keystore lives OUTSIDE the repo (next to the old
 // Bubblewrap project), and its passwords arrive only as environment variables
 // set by tools/build-release.ps1 — nothing secret is ever written to disk.
@@ -31,8 +41,8 @@ android {
         minSdk = flutter.minSdkVersion
         // Play requires API 36 for new submissions from 2026-08-31.
         targetSdk = 36
-        // From pubspec.yaml `version: <name>+<code>`. The Play track already
-        // holds versionCode 4 (the TWA), so the code must stay above it.
+        // From pubspec.yaml `version: <name>+<code>`. Play Console currently
+        // serves versionCode 8, so new uploads must stay above it.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         // Native symbols ride inside the bundle, so Play can symbolise native
@@ -52,6 +62,12 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep a local QA install beside the Play-signed app. This lets
+            // device checks run without uninstalling or overwriting player data.
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             // Without the upload key this falls back to debug signing, which is
             // enough to prove a release build compiles but can never be uploaded.

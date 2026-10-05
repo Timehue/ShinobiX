@@ -37,6 +37,7 @@ export type HollowGateStartResult = {
     seed?: string;
     floorDepth?: number;
     variantId?: string;
+    riftDistortionId?: string;
     floorWidth?: number;
     floorHeight?: number;
     bossProfileId?: string;
@@ -314,7 +315,7 @@ export type HollowGateAttachOpts = {
 export function attachStartedRun(res: HollowGateStartResult | null, opts: HollowGateAttachOpts): void {
     if (!res?.token) return;
     const token = res.token;
-    const patch: Partial<HollowGateShrineRun> = { runToken: token, serverSeed: res.seed, augmentOffers: res.augmentOffers ?? [] };
+    const patch: Partial<HollowGateShrineRun> = { runToken: token, serverSeed: res.seed, augmentOffers: res.augmentOffers ?? [], riftDistortionId: res.riftDistortionId };
     // Attach to whatever the live run/character is now (resilient to a step taken
     // while start was in flight); skip if the run already ended.
     opts.setRun((prev) => (prev && !prev.completed ? { ...prev, ...patch } : prev));

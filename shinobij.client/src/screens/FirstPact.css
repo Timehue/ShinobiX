@@ -12,6 +12,9 @@
 }
 
 .fp-world { position: absolute; inset: 0; overflow: hidden; isolation: isolate; touch-action: none; user-select: none; }
+/* The battle portals to body at --z-combat. Keep the city below it while a
+   bout is mounted, so its HUD cannot cover or intercept battle controls. */
+.first-pact-screen.is-battling { z-index: calc(var(--z-combat, 2000) - 1); }
 .fp-world::after { content: ""; position: absolute; z-index: 20; inset: 0; pointer-events: none; box-shadow: inset 0 0 120px 22px rgba(0,0,0,.74), inset 0 -90px 120px rgba(0,7,14,.2); }
 .fp-world-canvas { position: absolute; z-index: 1; inset: 0; display: block; image-rendering: auto; }
 /* Every actor lives in world coordinates inside this one plane; the camera
@@ -152,6 +155,7 @@ button.fp-npc { appearance: none; border: 0; padding: 0; background: transparent
 .fp-dialogue-copy h2 { margin: 3px 0 10px; font: 500 29px Georgia, serif; }
 .fp-dialogue-copy p { flex: 1; margin: 0; color: #d5dce0; font: 400 16px/1.58 Georgia, serif; }
 .fp-dialogue-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 18px; }
+.fp-dialogue-actions.fp-decision-actions { justify-content: space-between; }
 .fp-dialogue-choices { display: grid; flex: 1; gap: 7px; }
 /* min-height, not more padding: a one-line choice measured 40px, under the 44px
    touch floor every other surface in this game holds to, and the Arbiter's

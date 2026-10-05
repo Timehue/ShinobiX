@@ -8,6 +8,7 @@ import { STORY_RECKONINGS, ownedItemCount, parseStoryReckoningSeal } from '../se
 import { findBounty, normalizeBoard } from '../pvp/_bounty.js';
 import { CONTRACT_HUNTER_COOLDOWN_MS, contractHunterCooldownKey, deriveContractHunter } from '../../shared/contract-hunter.js';
 import { huntMissionById } from './_mission-catalog.js';
+import { huntFormationFor } from './_hunt-trail.js';
 import { savedCurrentSector } from './_mission-progress-receipt.js';
 import { loadAiFightProfile, type AiFightProfile } from './_ai-fight-encounter.js';
 import { MAX_WILD_SECTOR, sectorBiomeOf } from '../../shared/sector-geo.js';
@@ -598,6 +599,14 @@ export async function buildWorldAiFightSpec(params: {
             if (!beast) throw new Error('world-hunt-profile-missing');
             const stem = String(beast.name ?? 'Beast').replace(/^the\s+/i, '').trim();
             const name = `${stem} ${['Yearling', 'Outrider', 'Packmate'][chain.stage]}`;
+            // New ambushes are one Tower-engine encounter. Existing sequential
+            // chains continue through their already-sealed stages during rollout.
+            if (chain.stage === 0) {
+                const huntFormation = huntFormationFor(trail.runId, request.kind, trail.decisionId);
+                const packProfile = relevelAiProfile(beast as unknown as RelevelableProfile, level, 0) as unknown as AiFightProfile;
+                return { profile: { ...packProfile, id: `world-hunt-pack-${mission.id}-${chain.chainId}-0`, name: stem, visual: beast.visual ?? beast.id }, environment,
+                    context: { kind: request.kind, sourceId: mission.id, missionId: mission.id, huntRunId: trail.runId, decisionId: trail.decisionId, sector: request.sector, stage: 0, chainId: chain.chainId, displayName: stem, finalStage: true, huntFormation } };
+            }
             return { profile: runtimeProfile(`world-hunt-pack-${mission.id}-${chain.chainId}-${chain.stage}`, name, level + chain.stage, 0, 'bruiser'), environment,
                 context: { kind: request.kind, sourceId: mission.id, missionId: mission.id, huntRunId: trail.runId, decisionId: trail.decisionId, sector: request.sector, stage: chain.stage, chainId: chain.chainId, displayName: name, ...(chain.stage === 2 ? { finalStage: true } : { nextStage: chain.stage + 1 }) } };
         }
@@ -616,7 +625,7 @@ export async function buildWorldAiFightSpec(params: {
             for (const key of Object.keys(stats)) stats[key] = Number(stats[key] ?? 0) + 6;
             profile = { ...profile, stats };
         }
-        return { profile, environment, context: { kind: request.kind, sourceId: mission.id, missionId: mission.id, huntRunId: trail.runId, sector: request.sector, stage: 0, displayName: String(profile.name ?? mission.id), finalStage: true, huntQuality: quality, huntOpening: opening } };
+        return { profile, environment, context: { kind: request.kind, sourceId: mission.id, missionId: mission.id, huntRunId: trail.runId, sector: request.sector, stage: 0, displayName: String(profile.name ?? mission.id), finalStage: true, huntQuality: quality, huntOpening: opening, huntFormation: huntFormationFor(trail.runId, request.kind) } };
     }
 
     if (request.kind === 'questbook-boss') {
@@ -702,6 +711,10 @@ export function applyWorldAiFightSettlement(
     proofId: string,
 ): Record<string, unknown> {
     const won = outcome === 'win';
+    if (context.kind === 'hunt-pack' || context.kind === 'hunt-target') {
+        const trail = context.missionId ? serverHuntTrail(character, context.missionId) : null;
+        if (!trail || trail.runId !== context.huntRunId) return character;
+    }
     let next = character;
 
     // The KV cooldown guards fight starts; mirror its deadline in the saved

@@ -56,6 +56,8 @@ export async function resolveHollowGateServerEvent(params: {
 
 export async function sealHollowGateFloor(playerName: string, token: string, run: HollowGateShrineRun): Promise<{
     ok: boolean;
+    detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null;
+    riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null;
     pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null;
     activeCombat?: HollowGateShrineRun["activeCombat"];
     position?: { x: number; y: number };
@@ -76,9 +78,9 @@ export async function sealHollowGateFloor(playerName: string, token: string, run
                 tiles: run.tiles.map((tile) => ({ kind: tile.kind, terrain: tile.terrain })),
             }),
         });
-        const data = await response.json().catch(() => ({})) as { ok?: boolean; pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
+        const data = await response.json().catch(() => ({})) as { ok?: boolean; detour?: { tileIndex: number; extraSteps: number; condition: "echo-cache" } | null; riftSignal?: { tileIndex: number; kind: string; distortionId: string } | null; pendingAmbush?: { nodeId: string; kind: "ambush" | "boss" | "card" } | null; activeCombat?: HollowGateShrineRun["activeCombat"]; position?: { x: number; y: number }; error?: string };
         return response.ok && data.ok
-            ? { ok: true, position: data.position, pendingAmbush: data.pendingAmbush }
+            ? { ok: true, position: data.position, detour: data.detour, riftSignal: data.riftSignal, pendingAmbush: data.pendingAmbush }
             : { ok: false, position: data.position, activeCombat: data.activeCombat, error: data.error || `Floor seal failed (${response.status}).` };
     } catch {
         return { ok: false, error: "The Hollow Gate floor seal is unreachable." };

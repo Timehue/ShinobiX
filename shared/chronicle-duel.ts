@@ -4018,6 +4018,9 @@ export interface ChronicleMatch {
   activePlayer: ChronicleSideKey;
   phase: ChroniclePhase;
   normalSummonUsed: boolean;
+  /** Independent of surviving Monsters and attack restrictions. Older matches
+   * recover this count from their persisted attack-declared events. */
+  attacksDeclaredThisTurn?: number;
   responseWindow: ChronicleResponseWindow | null;
   activeField: ChronicleActiveField | null;
   p1: ChronicleSide;
@@ -4133,6 +4136,7 @@ export function createMatch(
     activePlayer: firstPlayer,
     phase: "draw",
     normalSummonUsed: false,
+    attacksDeclaredThisTurn: 0,
     responseWindow: null,
     activeField: null,
     p1,
@@ -4638,6 +4642,13 @@ function applyBattleDamageMonsterEffect(
   }
 }
 
+function attacksDeclaredThisTurn(state: ChronicleMatch): number {
+  return state.attacksDeclaredThisTurn ?? (state.events ?? []).filter(
+    (event) => event.kind === "attack-declared" &&
+      event.turnNumber === state.turnNumber && event.actor === state.activePlayer,
+  ).length;
+}
+
 function eligibleTrapZones(
   state: ChronicleMatch,
   responder: ChronicleSideKey,
@@ -4753,7 +4764,7 @@ function eligibleTrapZones(
         return [];
       if (
         card.effect.kind === "summonDefenderFromHand" &&
-        (pending.targetZoneIndex !== null ||
+        ((pending.targetZoneIndex !== null && pending.targetZoneIndex !== undefined) ||
           !side.monsterZones.some((candidate) => candidate === null) ||
           !side.hand.some((id) => {
             const candidate = getChronicleCard(id);
@@ -4769,9 +4780,7 @@ function eligibleTrapZones(
         (side.monsterZones.filter(
           (candidate) => candidate?.position === "defense",
         ).length < 2 ||
-          !sideOf(state, other(responder)).monsterZones.some(
-            (candidate) => candidate?.lastAttackTurn === state.turnNumber,
-          ))
+          attacksDeclaredThisTurn(state) === 0)
       )
         return [];
       if (
@@ -4814,6 +4823,7 @@ function eligibleTrapZones(
     const monsterCard = monster ? getChronicleCard(monster.cardId) : undefined;
     if (
       card.effect.cap &&
+      card.effect.kind !== "summonDefenderFromHand" &&
       monsterCard?.cardClass === "monster" &&
       monsterCard.level > card.effect.cap
     )
@@ -5219,6 +5229,8 @@ function validateEffectTarget(
       effectiveDefense(monster) > (card.effect.cap ?? 1_000))
   )
     return `Choose a face-up opponent Monster with ${card.effect.cap ?? 1_000} or less DEF.`;
+  if (card.magicType === "equip" && monster.attachedEquipId)
+    return "That Monster already has an Equip Jutsu Card.";
   return null;
 }
 
@@ -5242,8 +5254,6 @@ function resolveMagic(
   if (card.magicType === "equip") {
     const targetIndex = Number(intent.targetZoneIndex);
     const target = side.monsterZones[targetIndex]!;
-    if (target.attachedEquipId)
-      return failure(state, "That Monster already has an Equip Jutsu Card.");
     const zone: ChronicleMagicTrapZone = {
       instanceId: nextIid(next, "equip"),
       cardId: card.id,
@@ -5965,10 +5975,15 @@ export function declareAttack(
   const error = validateAttack(state, actor, intent);
   if (error) return failure(state, error);
   const pending = { ...intent, action: "attack" };
-  return (
+  const result = (
     maybeOpenResponse(state, actor, "onAttackDeclared", pending, now) ??
     resolveAttack(state, actor, pending)
   );
+  // Check response eligibility against PRIOR attacks, then record this one
+  // exactly once, whether it resolves now, gets passed, or is stopped later.
+  if (result.ok)
+    result.state.attacksDeclaredThisTurn = attacksDeclaredThisTurn(state) + 1;
+  return result;
 }
 
 function resolvePending(
@@ -6389,6 +6404,11 @@ export function activateTrap(
       : undefined;
   const trapResolution = resolveTrapEffect(next, card, copiedWindow);
   if (copiedWindow.trigger === "onAttackDeclared") {
+    // Declaring an attack spends it even when a Snare cancels the damage step.
+    // Also covers response windows saved before the Snare was activated.
+    const attacker = sideOf(trapResolution.state, copiedWindow.pendingAction.actor)
+      .monsterZones[Number(copiedWindow.pendingAction.attackerZoneIndex)];
+    if (attacker) attacker.lastAttackTurn = trapResolution.state.turnNumber;
     trapResolution.state.log.push(
       trapResolution.cancelPending
         ? `${card.name} stops the attack. No battle damage is dealt.`
@@ -6593,6 +6613,7 @@ export function startTurn(
   next.activePlayer = sideKey;
   next.phase = "draw";
   next.normalSummonUsed = false;
+  next.attacksDeclaredThisTurn = 0;
   next.turnStartedAt = now;
   next.actedThisTurn = false;
   const side = sideOf(next, sideKey);

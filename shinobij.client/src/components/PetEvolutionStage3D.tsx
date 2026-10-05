@@ -50,7 +50,7 @@ import {
     lerp,
     type SpriteBounds,
 } from "../lib/pet-coliseum-scene";
-import { petStripVariant } from "../lib/pet-battle-anim";
+import { PEBBLE_TORTOISE_CUTOUT, petStripVariant } from "../lib/pet-battle-anim";
 import { POSED_PET_IDS } from "../assets/coliseum/pet-poses-manifest";
 import { versionPetArtUrl } from "../lib/pet-art-revision";
 
@@ -68,7 +68,9 @@ const ELEMENT_TINT: Record<string, string> = {
 };
 const elementTint = (el?: string | null) => ELEMENT_TINT[String(el ?? "").toLowerCase()] ?? "#a5f3fc";
 
-const poseIdleUrl = (id: string) => versionPetArtUrl(`/pet-poses/${id}-idle.webp`);
+const poseIdleUrl = (id: string) => id === "starter-earth"
+    ? PEBBLE_TORTOISE_CUTOUT
+    : versionPetArtUrl(`/pet-poses/${id}-idle.webp`);
 const heroUrl = (visualId: string) => versionPetArtUrl(`/pet-evos/${visualId}.webp`);
 /** The posed-asset id for a visual id (itself, or its variant-stripped base), or
  *  null when no pose set exists → the renderer falls back to the portrait. */
@@ -857,7 +859,7 @@ export function PetEvolutionStage3D({
     if (!webgl) {
         const showNew = isNewFormVisible(phase.beat) || (!isOldFormVisible(phase.beat) && phase.beat !== "charge");
         const src = versionPetArtUrl(showNew ? (newImage ?? `/pet-evos/${petVisualId(pet)}.webp`)
-                            : (oldImage ?? `/pet-poses/${posedId(oldVisualId) ?? oldVisualId}-idle.webp`));
+                            : (oldImage ?? poseIdleUrl(posedId(oldVisualId) ?? oldVisualId)));
         return (
             <div className={petVisualVariantClass(pet)} style={{ width: "100%", height: "100%", display: "grid", placeItems: "center" }}>
                 <img

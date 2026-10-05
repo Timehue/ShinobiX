@@ -22,7 +22,6 @@ export function rankedPetUnavailable(
     const id = String(pet.id ?? '');
     return !id
         || activeBreedingParentIds(character).has(id)
-        || !!pet.training
         || !!pet.expedition;
 }
 

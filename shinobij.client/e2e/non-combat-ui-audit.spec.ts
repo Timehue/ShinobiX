@@ -1,7 +1,7 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { IMAGE_GUARD_ATTRIBUTE } from "../src/lib/imageErrorGuard";
 import { writeFile } from "node:fs/promises";
-import { expectViewportSafe } from "./helpers/adaptive-assertions";
+import { expectNoLargeOverlap, expectViewportSafe } from "./helpers/adaptive-assertions";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 const NON_COMBAT_SCREENS = [
@@ -50,6 +50,10 @@ type AuditMetrics = {
 async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Promise<AuditMetrics> {
     const metrics = await page.locator(rootSelector).evaluate(async (main, guardAttribute) => {
         const viewportWidth = window.innerWidth;
+        const minimumTouchTarget = navigator.maxTouchPoints > 0
+            || window.matchMedia("(pointer: coarse)").matches
+            ? 48
+            : 24;
         const visible = (element: Element) => {
             const style = getComputedStyle(element);
             const rect = element.getBoundingClientRect();
@@ -151,7 +155,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
             .map((control) => {
                 const target = touchTarget(control);
                 const box = target.getBoundingClientRect();
-                const minimum = viewportWidth <= 979 ? 44 : 24;
+                const minimum = minimumTouchTarget;
                 const style = getComputedStyle(target);
                 const ancestors = [];
                 for (let node: Element | null = control; node; node = node.parentElement) {
@@ -219,7 +223,7 @@ async function auditVisibleScreen(page: Page, rootSelector = ".center-game"): Pr
                 .filter((control) => !control.matches(".sector-avatar-figure, .scene-tile"))
                 .filter((control) => {
                     const rect = touchTarget(control).getBoundingClientRect();
-                    const minimum = viewportWidth <= 979 ? 44 : 24;
+                    const minimum = minimumTouchTarget;
                     return Math.min(rect.width, rect.height) < minimum;
                 })
                 .map(label),
@@ -262,12 +266,12 @@ test("touch audit measures active native labels and rejects ineffective label ta
     for (const type of ["checkbox", "radio"]) {
         await page.setContent(`<main class="center-game">
             <input id="choice" type="${type}" aria-label="Compact choice" style="width:18px;height:18px;margin:0">
-            <label for="choice" style="display:inline-flex;width:120px;height:44px;align-items:center">Choose</label>
+            <label for="choice" style="display:inline-flex;width:120px;height:48px;align-items:center">Choose</label>
         </main>`);
         const choice = page.getByRole(type === "checkbox" ? "checkbox" : "radio");
         const target = page.locator('label[for="choice"]');
         expect((await auditVisibleScreen(page)).undersizedControls).toEqual([]);
-        await target.click({ position: { x: 100, y: 22 } });
+        await target.click({ position: { x: 100, y: 24 } });
         await expect(choice).toBeChecked();
         for (const style of [
             "display:inline-flex;width:18px;height:18px",
@@ -332,6 +336,23 @@ for (const destination of CENTRAL_MODAL_CARDS) {
         expect(metrics.undersizedControls, `${destination.card} has controls below the viewport touch-target minimum`).toEqual([]);
         expect(runtimeErrors, `${destination.card} emitted runtime errors`).toEqual([]);
         await capture(page, testInfo, destination.capture);
+        if (destination.screen === "arenaDistrict" && (page.viewportSize()?.width ?? 0) <= 600) {
+            const activityTabs = page.locator('.arena-lobby fieldset[aria-label="Arena activities"]');
+            await expect(page.locator(".arena-mode-scroll-hint")).toHaveText("Swipe to explore arena modes →");
+            const hasHiddenModes = await activityTabs.evaluate((element) => element.scrollWidth > element.clientWidth);
+            expect(hasHiddenModes, "phone layout should scroll its full mode list").toBe(true);
+            const lastMode = activityTabs.getByRole("button", { name: "Ranked Pet Battles" });
+            await page.mouse.move(400, 326);
+            await page.mouse.wheel(0, 320);
+            await expect.poll(() => activityTabs.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+            await expect(lastMode).toBeInViewport();
+            const fullyReachable = await lastMode.evaluate((element) => {
+                const rect = element.getBoundingClientRect();
+                const container = element.parentElement!.getBoundingClientRect();
+                return rect.left >= container.left && rect.right <= container.right;
+            });
+            expect(fullyReachable, "last arena mode should be fully visible after a horizontal swipe/scroll").toBe(true);
+        }
     });
 }
 
@@ -424,12 +445,27 @@ for (const screen of NON_COMBAT_SCREENS) {
         if (screen === "pets") {
             await expect(page.getByRole("heading", { name: "Pet Yard", exact: true })).toBeVisible();
         }
+        if (screen === "home") {
+            await expect(page.locator(".pet-home-screen")).toBeVisible();
+            await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
+            await expectNoLargeOverlap(page.locator(".pet-home-hero-copy"), page.locator(".pet-home-hero-ledger"));
+        }
         if (screen === "inventory") {
             await expect(page.locator(".inventory-page")).toBeVisible();
         }
         if (screen === "shop") {
             await expect(page.locator(".shop-screen")).toBeVisible();
         }
+        if (screen === "worldMap") {
+            // The route is lazy-loaded. A visible app shell and a non-empty
+            // Suspense card are not proof that the atlas itself is playable.
+            await expect(page.locator(".world-map-scroll")).toBeVisible();
+            await expect(page.locator(".atlas-sector").first()).toBeVisible();
+        }
+        // A mounted shell can still contain the shared lazy-screen loader.
+        // Check every route before auditing its artwork and controls so a fast
+        // screenshot cannot certify an incomplete screen as production-ready.
+        await expect(page.locator(".lazy-screen-fallback")).toHaveCount(0);
         await expect(page.locator(".center-game")).toBeVisible();
         await expect(page.locator(".app-background")).toHaveAttribute("style", /background-image:\s*url\(.+\)/);
         await expectViewportSafe(page, {
@@ -458,6 +494,21 @@ for (const screen of NON_COMBAT_SCREENS) {
         expect(metrics.brokenImages, `${screen} has broken visible artwork`).toEqual([]);
         expect(metrics.clippedControls, `${screen} has controls clipped by the viewport`).toEqual([]);
         expect(metrics.undersizedControls, `${screen} has controls below the viewport touch-target minimum`).toEqual([]);
+        if (screen === "centralHub") {
+            const districtLayout = await page.locator(".central-directory").evaluate((directory) => {
+                const grid = directory.querySelector<HTMLElement>(".central-grid");
+                const firstCardCopy = grid?.querySelector<HTMLElement>(".central-card-content");
+                return {
+                    width: directory.getBoundingClientRect().width,
+                    columns: grid ? getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length : 0,
+                    copyWidth: firstCardCopy?.getBoundingClientRect().width ?? 0,
+                };
+            });
+            if (districtLayout.width <= 620) {
+                expect(districtLayout.columns, "narrow Central content should stack district cards").toBe(1);
+                expect(districtLayout.copyWidth, "stacked Central cards should keep readable copy width").toBeGreaterThanOrEqual(180);
+            }
+        }
         if (screen === "worldMap" && (page.viewportSize()?.width ?? 0) <= 979) {
             const markerTargets = await page.locator(".atlas-sector, .atlas-hollowGate").evaluateAll((markers) => markers.map((marker) => {
                 const rect = marker.getBoundingClientRect();
@@ -473,8 +524,8 @@ for (const screen of NON_COMBAT_SCREENS) {
                 };
             }));
             expect(
-                markerTargets.filter((target) => Math.min(target.width, target.height) < 44),
-                "World Map overview markers need a 44px pseudo-element hit ring",
+                markerTargets.filter((target) => Math.min(target.width, target.height) < 48),
+                "World Map overview markers need a 48px pseudo-element hit ring",
             ).toEqual([]);
         }
         expect(runtimeErrors, `${screen} emitted runtime errors`).toEqual([]);
@@ -576,6 +627,109 @@ test("mobile shell uses five anchors and a compact keyboard-safe destination cat
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(menuTrigger).toBeFocused();
+});
+
+test("open Fold landing uses compact navigation and keeps both entry actions clear", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-desktop", "the open-Fold WebView size is checked once");
+    await page.setViewportSize({ width: 852, height: 795 });
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+
+    const utility = page.locator(".landing-utility");
+    const navigation = page.getByRole("navigation", { name: "Primary navigation" });
+    const menu = page.getByRole("button", { name: "Open navigation" });
+    const notice = page.getByRole("region", { name: "Data storage notice" });
+    const enter = page.getByTestId("start-create");
+    const explore = page.getByRole("button", { name: /Explore Gameplay/ });
+    await expect(utility).toBeHidden();
+    await expect(menu).toBeVisible();
+    await expect(navigation).toBeHidden();
+    await expect(notice).toBeVisible();
+    await expect(enter).toBeVisible();
+    await expect(explore).toBeVisible();
+
+    const layout = await page.evaluate(() => {
+        const rect = (selector: string) => document.querySelector(selector)!.getBoundingClientRect().toJSON();
+        return {
+            overflow: document.documentElement.scrollWidth > innerWidth + 1,
+            enter: rect('[data-testid="start-create"]'),
+            explore: rect('.landing-hero-actions .landing-cta--ghost'),
+            notice: rect('.storage-notice'),
+        };
+    });
+    expect(layout.overflow).toBe(false);
+    expect(layout.enter.bottom).toBeLessThan(layout.notice.top);
+    expect(layout.explore.bottom).toBeLessThan(layout.notice.top);
+    await testInfo.attach("open-fold-landing-layout", { body: JSON.stringify(layout, null, 2), contentType: "application/json" });
+    await page.screenshot({ path: testInfo.outputPath("open-fold-landing.png") });
+
+    await menu.click();
+    await expect(navigation).toBeVisible();
+    await expect(navigation.getByRole("button", { name: "The World" })).toBeVisible();
+    await expect(navigation.getByRole("button", { name: "Log In" })).toBeVisible();
+});
+
+test("an open game menu stays usable through split-window resize and rotation", async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== "chromium-mobile", "window continuity is exercised once in the touch-enabled project");
+    const runtimeErrors = collectRuntimeErrors(page);
+    const runtime = await installUiAuditRuntime(page);
+    await expectUiAuditBoot(page, runtime, "village");
+
+    const shell = page.locator(".app-shell");
+    const dialog = page.getByRole("dialog", { name: "Shinobi menu" });
+    await page.getByRole("navigation", { name: "Primary game navigation" })
+        .getByRole("button", { name: /Menu/ }).click();
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Close menu" })).toBeFocused();
+
+    // Google's large-screen guide asks games to test one-third, one-half, and
+    // two-thirds split-window widths. Use a 1920px host display so those widths
+    // are exact, alongside narrow panes and a short landscape posture. Resizing
+    // the same page preserves route and open menu.
+    const windows = [
+        { width: 640, height: 1080 },
+        { width: 960, height: 1080 },
+        { width: 1280, height: 1080 },
+        { width: 390, height: 844 },
+        { width: 700, height: 900 },
+        { width: 844, height: 390 },
+        { width: 432, height: 1008 },
+    ];
+    for (const viewport of windows) {
+        await page.setViewportSize(viewport);
+        await page.evaluate(() => new Promise<void>((resolve) => {
+            requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        }));
+        await expect(shell).toHaveAttribute("data-screen", "village");
+        await expectViewportSafe(page);
+
+        if (viewport.width <= 979) {
+            // The adaptive shell uses the mobile menu through 979px. Returning
+            // from a desktop-width pane remounts mobile navigation closed, so
+            // reopen it before checking its touch targets and scroll bounds.
+            if (!(await dialog.isVisible())) {
+                await page.getByRole("navigation", { name: "Primary game navigation" })
+                    .getByRole("button", { name: /Menu/ }).click();
+            }
+            await expect(dialog).toBeVisible();
+            await expect(dialog.getByRole("button", { name: "Close menu" })).toBeFocused();
+
+            const metrics = await auditVisibleScreen(page, '[role="dialog"][aria-label="Shinobi menu"]');
+            expect(metrics.clippedControls, `menu controls escaped ${viewport.width}x${viewport.height}`).toEqual([]);
+            expect(metrics.undersizedControls, `menu touch targets shrank at ${viewport.width}x${viewport.height}`).toEqual([]);
+        } else {
+            // At desktop widths the mobile dialog is intentionally replaced by
+            // the desktop right rail; keep navigation available after the
+            // adaptive breakpoint instead of requiring a mobile-only modal.
+            await expect(dialog).toBeHidden();
+            await expect(page.locator(".right-menu-panel")).toBeVisible();
+            const metrics = await auditVisibleScreen(page, ".right-menu-panel");
+            expect(metrics.clippedControls, `desktop navigation escaped ${viewport.width}x${viewport.height}`).toEqual([]);
+            expect(metrics.undersizedControls, `desktop navigation targets shrank at ${viewport.width}x${viewport.height}`).toEqual([]);
+        }
+    }
+
+    expect(runtimeErrors, "resizing the open game menu emitted runtime errors").toEqual([]);
+    await capture(page, testInfo, "mobile-menu-resize-continuity");
 });
 
 test("the Play app hardware-back stack returns across eligible routes", async ({ page }, testInfo) => {
@@ -841,12 +995,16 @@ test("Mission Hall Field board follows D-to-S progression and is alphabetized wi
     await capture(page, testInfo, "missions-field");
 });
 
-test("Mission Hall accepted Field cards keep their compact mobile action layout", async ({ page }) => {
-    test.skip((page.viewportSize()?.width ?? 0) > 700, "mobile Field-card regression");
+test("Mission Hall accepted Field cards show directions without an Explore action", async ({ page }) => {
     const runtimeErrors = collectRuntimeErrors(page);
     const initialSave = uiAuditSave();
-    initialSave.acceptedMissionIds = ["fetch-d-supply-trail"];
-    initialSave.missionProgress = { "fetch-d-supply-trail": 1, "fetch-d-supply-trail:raids": 0 };
+    initialSave.acceptedMissionIds = ["fetch-d-supply-trail", "fetch-c-border-scout"];
+    initialSave.missionProgress = {
+        "fetch-d-supply-trail": 1,
+        "fetch-d-supply-trail:raids": 0,
+        "fetch-c-border-scout": 0,
+        "fetch-c-border-scout:raids": 0,
+    };
     const runtime = await installUiAuditRuntime(page, initialSave);
     await expectUiAuditBoot(page, runtime, "missions");
     await page.locator('button[data-tab="field"]').click();
@@ -854,31 +1012,36 @@ test("Mission Hall accepted Field cards keep their compact mobile action layout"
     const card = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "D Rank Supply Trail Sweep" });
     await expect(card).toBeVisible();
     await expect(card.locator(".mh-fetch-progress-wrap")).toBeVisible();
-    await expect(card.getByRole("button", { name: "Explore Sector 18" })).toBeVisible();
+    await expect(card).toContainText("World Map → Sector 18 → Explore.");
+    await expect(card.getByRole("button", { name: "Explore Sector 18" })).toHaveCount(0);
     await expect(card.getByRole("button", { name: "Abandon" })).toBeVisible();
+    const borderCard = page.locator(".mh-field-card.mh-field-accepted").filter({ hasText: "C Rank Border Scout Run" });
+    await expect(borderCard).toContainText("World Map → Sector 32 → Explore.");
+    await expect(borderCard.getByRole("button", { name: "Explore Sector 32" })).toHaveCount(0);
 
-    const metrics = await card.evaluate((element) => {
-        const cardRect = element.getBoundingClientRect();
-        const primaryRect = element.querySelector(".mh-field-primary-action")?.getBoundingClientRect();
-        const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
-        const nextRect = element.querySelector(".mh-field-next-step-mobile")?.getBoundingClientRect();
-        return {
-            cardHeight: cardRect.height,
-            primaryTarget: Math.min(primaryRect?.width ?? 0, primaryRect?.height ?? 0),
-            secondaryWidth: secondaryRect?.width ?? 0,
-            secondaryHeight: secondaryRect?.height ?? 0,
-            nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
-        };
-    });
-    // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
-    // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
-    // font rendering). The budget is set from CI, which gates merges; one more
-    // wrapped line anywhere in the card still fails it.
-    expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
-    expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
-    expect(metrics.primaryTarget, "travel/claim rail should retain its 44px touch target").toBeGreaterThanOrEqual(44);
-    expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
-    expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);
+    if ((page.viewportSize()?.width ?? 0) <= 700) {
+        const metrics = await card.evaluate((element) => {
+            const cardRect = element.getBoundingClientRect();
+            const secondaryRect = element.querySelector(".mh-field-secondary-action")?.getBoundingClientRect();
+            const nextRect = element.querySelector(".mh-field-next-step-mobile")?.getBoundingClientRect();
+            return {
+                cardHeight: cardRect.height,
+                hasPrimaryAction: Boolean(element.querySelector(".mh-field-primary-action")),
+                secondaryWidth: secondaryRect?.width ?? 0,
+                secondaryHeight: secondaryRect?.height ?? 0,
+                nextStepBelowActions: Boolean(nextRect && secondaryRect && nextRect.top >= secondaryRect.bottom),
+            };
+        });
+        // Measured 2026-09-25 with Inter and Marcellus loaded: 124.5 px in Chromium
+        // mobile on Windows, 136.5 px in Linux CI (the same card, 12 px taller from
+        // font rendering). The budget is set from CI, which gates merges; one more
+        // wrapped line anywhere in the card still fails it.
+        expect(metrics.cardHeight, "in-progress mobile Field cards should keep the next instruction compact").toBeLessThanOrEqual(140);
+        expect(metrics.nextStepBelowActions, "the next instruction should not sit under Abandon").toBe(true);
+        expect(metrics.hasPrimaryAction, "exploration directions must not render as an action rail").toBe(false);
+        expect(metrics.secondaryWidth, "Abandon should remain readable beside progress").toBeGreaterThanOrEqual(60);
+        expect(metrics.secondaryHeight, "Abandon should meet the audit's minimum control height").toBeGreaterThanOrEqual(24);
+    }
     await expectViewportSafe(page, { horizontalScrollers: [".expanded-tabs"] });
     expect(runtimeErrors, "the accepted Field card emitted runtime errors").toEqual([]);
 });

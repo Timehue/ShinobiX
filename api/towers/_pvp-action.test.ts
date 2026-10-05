@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { _makeMemoryKv } from '../_storage.js';
 import type { TowerKv, TowerLock } from './_tower-store.js';
 import { applyTowerPvpCommand } from './_pvp-action.js';
+import { humanHasTowerAction } from './_engine.js';
 import {
     activateReadyTowerPvpMatch,
     createTowerPvpMatch,
@@ -128,6 +129,51 @@ describe('Tower MPvP authoritative action and settlement', () => {
         const target = result.match?.combat.actors.find(actor => actor.id === 'violet-0');
         assert.equal(target?.statuses.some(status => status.name === 'Poison'), true);
         assert.equal(result.match?.version, 2);
+    });
+
+    it('automatically passes a 2v2 turn when an accepted cast spends the last usable AP', async () => {
+        const deps = setup();
+        const match = activeMatch();
+        match.combat.actors.find(actor => actor.id === 'amber-0')!.character.jutsu = [{
+            id: 'heavy', name: 'Heavy', type: 'Ninjutsu', target: 'ENEMY',
+            effectPower: 20, ap: 80, range: 4, tags: [],
+        }];
+        await publish(deps, match);
+        const command = {
+            matchId: MATCH_ID, slug: 'alpha', type: 'jutsu' as const,
+            jutsuId: 'heavy', targetId: 'violet-0',
+            moveToken: token('auto-pass-heavy'), expectedVersion: 1,
+        };
+        const first = await applyTowerPvpCommand(command, deps);
+        assert.equal(first.applied, true);
+        assert.notEqual(first.match?.combat.turnQueue[first.match.combat.activeIndex], 'amber-0');
+        assert.equal(first.match?.version, 2);
+        const replay = await applyTowerPvpCommand(command, deps);
+        assert.equal(replay.replayed, true);
+        assert.equal(replay.match?.combat.activeIndex, first.match?.combat.activeIndex);
+    });
+
+    it('keeps a 2v2 turn open for a cheaper cast and ignores PvE-only free options', async () => {
+        const deps = setup();
+        const match = activeMatch();
+        const actor = match.combat.actors.find(candidate => candidate.id === 'amber-0')!;
+        actor.character.jutsu = [
+            { id: 'heavy', name: 'Heavy', type: 'Ninjutsu', target: 'ENEMY', effectPower: 20, ap: 80, range: 4, tags: [] },
+            { id: 'cheap', name: 'Cheap', type: 'Ninjutsu', target: 'SELF', effectPower: 0, ap: 20, range: 1, tags: [] },
+        ];
+        await publish(deps, match);
+        const result = await applyTowerPvpCommand({
+            matchId: MATCH_ID, slug: 'alpha', type: 'jutsu', jutsuId: 'heavy', targetId: 'violet-0',
+            moveToken: token('keep-cheap'), expectedVersion: 1,
+        }, deps);
+        assert.equal(result.applied, true);
+        assert.equal(result.match?.combat.turnQueue[result.match.combat.activeIndex], 'amber-0');
+        assert.equal(result.match?.combat.activeAp, 20);
+
+        const combat = result.match!.combat;
+        combat.actors.find(candidate => candidate.id === 'amber-0')!.cooldowns.cheap = 2;
+        combat.pendingCompanion = { petId: 'pet', name: 'Pet', hp: 100, damage: 10, happiness: 100, loyal: true, moves: [], pveGearId: '' };
+        assert.equal(humanHasTowerAction(combat, combat.actors.find(candidate => candidate.id === 'amber-0')!, 'pvp'), false);
     });
 
     it('rejects same-team targeting before applying damage', async () => {

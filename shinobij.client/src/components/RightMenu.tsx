@@ -23,7 +23,14 @@ import { MailUnreadBadge } from "./MailUnreadBadge";
 import { NotificationBar } from "./NotificationBar";
 import { PLAYER_MENU_GROUPS } from "./player-menu-groups";
 // Compact local game glyphs mirror the mobile nav without a second icon library.
-import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiSettings, GiShop } from "./icons/LightweightGameIcons";
+import { GiAdmin, GiDiscord, GiExitDoor, GiOpenBook, GiPremiumShop, GiSettings } from "./icons/LightweightGameIcons";
+
+const VILLAGE_RETURN_ART: Record<string, string> = {
+    "Stormveil Village": "/ui/villages/stormveil.webp",
+    "Ashen Leaf Village": "/ui/villages/ashen-leaf.webp",
+    "Frostfang Village": "/ui/villages/frostfang.webp",
+    "Moonshadow Village": "/ui/villages/moonshadow.webp",
+};
 
 // Memo'd — `navigate`/`logoutPlayer` are stable callbacks from App's
 // useCallback hooks (or the navigate wrapper). All other props are
@@ -39,6 +46,7 @@ export const RightMenu = memo(function RightMenu({
     characterClan,
     profession,
     screen,
+    currentSector,
 }: {
     navigate: (screen: Screen) => void;
     adminLoggedIn: boolean;
@@ -49,13 +57,20 @@ export const RightMenu = memo(function RightMenu({
     characterClan: string;
     profession: Profession | null;
     screen: Screen;
+    currentSector: number;
 }) {
     const [menuOpen, setMenuOpen] = useState(true);
+    // Menu screens only change the panel, not the player's town. Preserve which
+    // town hub they came from so its return artwork stays visible on those screens.
+    const townHubRef = useRef<"village" | "centralHub">(screen === "centralHub" ? "centralHub" : "village");
+    if (screen === "village" || screen === "centralHub") townHubRef.current = screen;
     const navLockUntilRef = useRef(0);
+    const lastNavigationRef = useRef<Screen | null>(null);
     const isAdminAccount = isProtectedAdminName(characterName);
     const guardedNavigate = (next: Screen) => {
         const now = Date.now();
-        if (now < navLockUntilRef.current) return;
+        if (next === lastNavigationRef.current && now < navLockUntilRef.current) return;
+        lastNavigationRef.current = next;
         navLockUntilRef.current = now + 300;
         navigate(next);
     };
@@ -110,7 +125,7 @@ export const RightMenu = memo(function RightMenu({
                             <div className="right-menu-section-grid">
                                 <button aria-current={screen === "guides" ? "page" : undefined} onClick={() => guardedNavigate("guides")} onPointerDown={() => preloadScreen("guides")}><span className="right-menu-action-icon"><GiOpenBook size={16} /></span><span className="right-menu-action-label">Guides</span></button>
                                 <button onClick={() => window.open("https://discord.gg/usr3vzykBh", "_blank", "noopener,noreferrer")}><span className="right-menu-action-icon"><GiDiscord size={16} /></span><span className="right-menu-action-label">Discord</span></button>
-                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
+                                <button aria-current={screen === "premiumShop" ? "page" : undefined} onClick={() => guardedNavigate("premiumShop")} onPointerDown={() => preloadScreen("premiumShop")} title="Buy Fate Shards and Shinobi Supporter with real money — the village Shop trades in ryo"><span className="right-menu-action-icon"><GiPremiumShop size={16} /></span><span className="right-menu-action-label">Premium Shop</span></button>
                             </div>
                         </section>
                         <section className="right-menu-section right-menu-section--system" aria-labelledby="right-menu-system">
@@ -122,6 +137,22 @@ export const RightMenu = memo(function RightMenu({
                             </div>
                         </section>
                     </div>
+                    {currentSector === 0 && screen !== "sunscarFestival" && (
+                        <button
+                            type="button"
+                            className="realm-wayfinder"
+                            onClick={() => guardedNavigate("village")}
+                            aria-label={screen === "centralHub" ? "Return to your village" : `Return to ${characterVillage || "your village"} home`}
+                            title={screen === "centralHub" ? "Return to your village" : `Return to ${characterVillage || "your village"} home`}
+                        >
+                            <img
+                                src={townHubRef.current === "centralHub" ? "/ui/central.webp" : VILLAGE_RETURN_ART[characterVillage] ?? "/ui/village-return.webp"}
+                                alt=""
+                                aria-hidden="true"
+                            />
+                            <span className="realm-wayfinder__label">Village</span>
+                        </button>
+                    )}
                 </>
             )}
         </aside>

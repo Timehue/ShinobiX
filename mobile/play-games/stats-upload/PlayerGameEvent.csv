@@ -1,0 +1,7 @@
+Event Name,Property Name,Property Type
+mission_completed,completion,STRING
+pvp_match_completed,result,STRING
+ai_victory,result,STRING
+pet_match_completed,result,STRING
+story_chapter_completed,chapter,INT64
+progressUpdate,currentProgress,INT64

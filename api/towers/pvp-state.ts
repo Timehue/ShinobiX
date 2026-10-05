@@ -15,10 +15,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(req.query.playerName ?? ''));
         const matchId = String(req.query.matchId ?? '');
         if (!playerName || !TOWER_PVP_ID.test(matchId)) return res.status(400).json({ error: 'Valid player and match are required.' });
-        if (!enforceRateLimit(req, res, 'tower-pvp-state', 180, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'tower-pvp-state-preauth', (180) * 20, 60_000)) return;
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) return res.status(403).json({ error: 'Can only view your own match.' });
+        if (!enforceRateLimit(req, res, 'tower-pvp-state', 180, 60_000, identity.admin ? playerName : identity.name)) return;
         const result = await towerPvpState(matchId, identity.admin ? playerName : identity.name);
         res.setHeader('Cache-Control', 'private, no-store');
         return result.ok

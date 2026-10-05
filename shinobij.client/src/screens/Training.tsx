@@ -1,4 +1,5 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { trainingRecommendation } from "../lib/training-recommendation";
 import { getAllJutsus } from "../lib/jutsu-loadout";
 /**
  * Training screens — stat training (Training), jutsu seal/paid training
@@ -35,7 +36,7 @@ import { mutateJutsuRyoTraining } from "../lib/jutsu-ryo-api";
 import { friendlyJutsuTrainingError, jutsuHallNoticeTitle, trainingResponseError, type JutsuHallNotice } from "../lib/training-feedback";
 import { requireServerSettlement } from "../lib/server-settlement-gate";
 import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
-import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel } from "../constants/game";
+import { JUTSU_TRAINING_CAP, jutsuLevelCapForLevel, statCapForLevel } from "../constants/game";
 import { masteryBonus, masteryHasCapstone } from "../lib/profession-mastery";
 
 import { TRAINING_TIERS, trainingStatGain, rookieStatMultiplier } from "../lib/training-config";
@@ -53,8 +54,11 @@ function formatTrainingRemaining(ms: number): string {
     return `${h > 0 ? `${h}h ` : ""}${h > 0 ? m.toString().padStart(2, "0") : m}m ${s.toString().padStart(2, "0")}s`;
 }
 
-export function Training({ character, onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
-    const [selectedStat, setSelectedStat] = useState<keyof Stats>("strength");
+export function Training({ character, savedBloodlines = [], onVersionedCharacter, activeTraining, setActiveTraining, onBack }: { character: Character; savedBloodlines?: SavedBloodline[]; onVersionedCharacter: VersionedCharacterCommit; activeTraining: ActiveTraining | null; setActiveTraining: (training: ActiveTraining | null) => void; onBack: () => void }) {
+    const recommendation = trainingRecommendation(character, savedBloodlines);
+    const [chosenStat, setSelectedStat] = useState<keyof Stats | null>(null);
+    const selectedStat = chosenStat ?? recommendation.stat;
+    const currentStatCap = statCapForLevel(character.level);
     const [timerPickerOpen, setTimerPickerOpen] = useState(false);
     const [trainingBusy, setTrainingBusy] = useState(false);
     const [trainingNotice, setTrainingNotice] = useState<string | null>(null);
@@ -193,7 +197,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                 <strong>Training Plan</strong>
                 <ul>
                     <li>Training raises the selected stat directly — and every point you earn counts toward your next level.</li>
-                    <li>Start with Strength or Speed if you want a simple first pick.</li>
+                    <li id="training-recommendation"><strong>Recommended: {recommendation.label}.</strong> {recommendation.reason}</li>
                     <li>Choose 15m while learning; longer timers run longer and show their exact gain below.</li>
                     <li>You can return to the village while training runs, then come back to collect.</li>
                 </ul>
@@ -216,7 +220,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
 
             {showAcademyTrainingHint && (
                 <div className="academy-inline-callout academy-training-callout">
-                    <strong>Academy Training:</strong> pick any stat and any timer. Short timers are best while learning.
+                    <strong>Academy Training:</strong> try the highlighted {recommendation.label} tile, then a 15m session. Any stat still completes this lesson.
                 </div>
             )}
 
@@ -231,21 +235,25 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                         <div className="stat-grid">
                             {group.stats.map((stat) => {
                                 const info = STAT_LABELS[stat];
+                                const statCapped = (character.stats?.[stat] ?? 10) >= currentStatCap;
                                 return (
                                     <button
                                         key={stat}
-                                        className={`location-button${selectedStat === stat ? " selected" : ""}${showAcademyTrainingHint && !timerPickerOpen && selectedStat === stat ? " academy-click-target" : ""}`}
-                                        data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && selectedStat === stat ? "true" : undefined}
+                                        className={`location-button${selectedStat === stat ? " selected" : ""}${!activeTraining && recommendation.stat === stat && !statCapped ? " training-recommended" : ""}${showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? " academy-click-target" : ""}`}
+                                        data-training-stat={stat}
+                                        data-academy-autoscroll={showAcademyTrainingHint && !timerPickerOpen && recommendation.stat === stat && !statCapped ? "true" : undefined}
+                                        disabled={statCapped}
+                                        aria-describedby={recommendation.stat === stat ? "training-recommendation" : undefined}
                                         onClick={() => {
                                             setSelectedStat(stat);
                                             setTimerPickerOpen(true);
                                         }}
                                         aria-pressed={selectedStat === stat}
-                                        title={`${info?.label ?? stat}: train this stat next.`}
+                                        title={statCapped ? `${info?.label ?? stat} is at the ${currentStatCap} rank cap.` : recommendation.stat === stat ? recommendation.reason : `${info?.label ?? stat}: train this stat next.`}
                                     >
                                         <span className="tile-icon">{info?.icon ?? "?"}</span>
-                                        <span>{info?.label ?? stat}</span>
-                                            <small>{selectedStat === stat ? "Choose a timer" : "Click to train"}</small>
+                                        <span className="training-stat-name">{info?.label ?? stat}</span>
+                                        <small>{statCapped ? "Maxed at rank cap" : !activeTraining && recommendation.stat === stat ? "Recommended" : selectedStat === stat ? "Choose a timer" : "Click to train"}</small>
                                     </button>
                                 );
                             })}
@@ -259,6 +267,7 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                 onClose={() => setTimerPickerOpen(false)}
                 title={`Train ${selectedStatLabel}`}
                 size="md"
+                backdropClassName="training-timer-backdrop"
                 className="training-timer-modal"
             >
                 <p className="training-timer-intro">Choose a session length for {selectedStatLabel}. The gain and stamina cost are shown before you start.</p>
@@ -287,9 +296,9 @@ export function Training({ character, onVersionedCharacter, activeTraining, setA
                     return (
                         <button
                             key={timer.label}
-                            className={`location-button${showAcademyTrainingHint && timerPickerOpen ? " academy-timer-target academy-click-target" : ""}`}
-                            data-academy-hint={showAcademyTrainingHint && timerPickerOpen ? "Next · start a timer" : undefined}
-                            data-academy-autoscroll={showAcademyTrainingHint && timerPickerOpen && timer === timers[0] ? "true" : undefined}
+                            className={`location-button${showAcademyTrainingHint && timerPickerOpen && timer.id === "15m" && !disabledReason ? " academy-timer-target academy-click-target" : ""}`}
+                            data-academy-hint={showAcademyTrainingHint && timerPickerOpen && timer.id === "15m" && !disabledReason ? "Recommended · start here" : undefined}
+                            data-academy-autoscroll={showAcademyTrainingHint && timerPickerOpen && timer.id === "15m" && !disabledReason ? "true" : undefined}
                             onClick={() => startTraining(timer)}
                             disabled={!!disabledReason}
                             title={disabledReason || `Start ${timer.label} ${selectedStatLabel} training.`}

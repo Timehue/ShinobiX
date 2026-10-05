@@ -1,3 +1,4 @@
+import type { WheelEvent } from "react";
 import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball } from "../../../components/icons/LightweightGameIcons";
 import type { DuelChallenge } from "../../../App";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../../../types/character";
@@ -7,15 +8,27 @@ import type { ArenaDistrictTab } from "../types";
 import { Ranked2v2Panel } from "../../../components/Ranked2v2Panel";
 import { RankedFormatWeaponPicker } from "../../../components/RankedFormatWeaponPicker";
 import { CentralDestinationHeader } from "../../../components/CentralDestinationHeader";
-import { ArenaTournamentPanel } from "./ArenaTournamentPanel";
+import { GrowthRewardGuide } from "../../../components/GrowthRewardGuide";
+import { TournamentPanel } from "../../tournaments/TournamentPanel";
 import { PetRankedModeCards } from "./PetRankedModeCards";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
 
+function scrollArenaModesWithWheel(event: WheelEvent<HTMLFieldSetElement>) {
+    const tabs = event.currentTarget;
+    if (tabs.scrollWidth <= tabs.clientWidth) return;
+    const delta = event.deltaY || event.deltaX;
+    if (!delta) return;
+    event.preventDefault();
+    tabs.scrollBy({ left: delta, behavior: "auto" });
+}
+
 type ArenaDistrictLobbyProps = {
     character: Character; onVersionedCharacter: VersionedCharacterCommit;
     activeTab: ArenaDistrictTab;
+    tournamentFightActive: boolean;
+    onTournamentFightStateChange: (active: boolean) => void;
     hasAvailablePet: boolean;
     availablePetCount: number;
     opponentClanData: EnhancedClanData | null;
@@ -53,17 +66,13 @@ type ArenaDistrictLobbyProps = {
 export function ArenaDistrictLobby({
     character, onVersionedCharacter,
     sharedImages,
-    activeTab,
+    activeTab, tournamentFightActive, onTournamentFightStateChange,
     hasAvailablePet,
     availablePetCount,
     opponentClanData,
     clanWarOpponents,
     incomingClanWarChallenges,
-    arenaTournament,
     dojoCircuitEnabled = true,
-    tournamentRemaining,
-    matchRemaining,
-    isAdminTournamentManager,
     playerRankedEnabled,
     rankedQueueActive,
     rankedQueueSize,
@@ -74,11 +83,6 @@ export function ArenaDistrictLobby({
     onChallengePlayer,
     onAcceptDistrictChallenge,
     onDeclineChallenge,
-    onAdvanceTournamentPlayer,
-    onDeclareTournamentWinner,
-    tournamentWinnerBusy,
-    onClearTournament,
-    onStartTournament,
     onJoinRankedQueue,
     onLeaveRankedQueue,
     onRefreshFights,
@@ -86,13 +90,14 @@ export function ArenaDistrictLobby({
     onViewPendingChallenge,
     onOpenPetLadder,
 }: ArenaDistrictLobbyProps) {
+
     return (
         <div className="card arena-lobby" data-central-district="true">
             <CentralDestinationHeader
                 backLabel="Central"
                 eyebrow="The Thousand Gates · Competitive Command"
                 icon={<GiCrossedSwords />}
-                onBack={onBack}
+                onBack={() => { if (!tournamentFightActive) onBack(); }}
                 statusLabel="District access"
                 statusValue="Open"
                 subtitle="Ranked combat, clan-war challenges, live tournaments, spectator boards, and companion competition."
@@ -100,9 +105,10 @@ export function ArenaDistrictLobby({
                 tone="crimson"
             />
 
-            <div className="clan-tabs expanded-tabs" style={{ marginBottom: 12 }}>
+            <fieldset disabled={tournamentFightActive} className="clan-tabs expanded-tabs" aria-label="Arena activities" onWheel={scrollArenaModesWithWheel} style={{ margin: '0 0 12px', minWidth: 0 }}>
                 <button className={activeTab === "clanWar" ? "active" : ""} onClick={() => onTabChange("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
-                {dojoCircuitEnabled && <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Dojo Circuit</button>}
+                <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
+                {dojoCircuitEnabled && <button onClick={() => onTabChange("dojoCircuit")}><GiTrophy style={ARENA_ICON} />Dojo Circuit</button>}
                 <button className={activeTab === "ranked" ? "active" : ""} onClick={() => onTabChange("ranked")}><GiLadder style={ARENA_ICON} />Ranked</button>
                 <button className={activeTab === "spectate" ? "active" : ""} onClick={() => onTabChange("spectate")}><GiEyeball style={ARENA_ICON} />Spectate</button>
                 <button
@@ -111,7 +117,8 @@ export function ArenaDistrictLobby({
                     title={!hasAvailablePet ? "You need one available carried pet" : undefined}
                     onClick={() => onTabChange("petBattles")}
                 ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
-            </div>
+            </fieldset>
+            <p className="arena-mode-scroll-hint" aria-hidden="true">Swipe to explore arena modes <span>→</span></p>
 
             {activeTab === "clanWar" && (
                 <>
@@ -153,19 +160,8 @@ export function ArenaDistrictLobby({
                 </>
             )}
 
-            {dojoCircuitEnabled && activeTab === "tournaments" && (
-                <ArenaTournamentPanel
-                    tournament={arenaTournament}
-                    tournamentRemaining={tournamentRemaining}
-                    matchRemaining={matchRemaining}
-                    isAdminTournamentManager={isAdminTournamentManager}
-                    tournamentWinnerBusy={tournamentWinnerBusy}
-                    onAdvancePlayer={onAdvanceTournamentPlayer}
-                    onDeclareWinner={onDeclareTournamentWinner}
-                    onClear={onClearTournament}
-                    onStart={onStartTournament}
-                />
-            )}
+            {activeTab === "tournaments" && <TournamentPanel character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onFightStateChange={onTournamentFightStateChange} />}
+            {activeTab === "ranked" && <GrowthRewardGuide />}
             {activeTab === "ranked" && <Ranked2v2Panel key={character.name} character={character} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} />}
 
             {activeTab === "ranked" && (

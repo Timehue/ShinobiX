@@ -24,12 +24,16 @@ import { restorePresenceSnapshot, savePresenceSnapshot, startPresenceSnapshots, 
 import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import { closeStoragePool } from './api/_storage.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
+import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
+import { drainRuntime } from './api/_graceful-shutdown.js';
+import { runtimeTimeouts } from './api/_runtime-timeouts.js';
 import compression from 'compression';
 import express, { type Request, type Response, type NextFunction } from 'express';
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { readFileSync, readdirSync } from 'node:fs';
+import { startTournamentClock } from './api/tournaments/_store.js';
 import { enforceRateLimit, flushRefusalLog } from './api/_ratelimit.js';
 import { readRequestMetrics, recordRequestMetric, requestSloAlert } from './api/_request-metrics.js';
 import { safeLogValue } from './api/_safe-log.js';
@@ -100,6 +104,7 @@ if (process.env.SENTRY_DSN) {
 // requests before exiting, instead of severing them mid-response.
 let _httpServer: import('node:http').Server | undefined;
 let _shutdownStarted = false;
+let _stopTournamentClock: (() => void) | undefined;
 
 // Drain in-flight requests, then exit so the supervisor respawns a fresh worker
 // (Passenger on cPanel, the platform on Railway). A bare process.exit() cuts
@@ -117,49 +122,31 @@ function gracefulShutdown(code: number, reason: string): void {
     // Write the rate-limit refusals counted since the last minute's summary, so
     // a deploy doesn't swallow them (api/_ratelimit.ts).
     try { flushRefusalLog(); } catch { /* logging must never block shutdown */ }
-    stopGameLoop();
-    stopSnapshotCron();
-    // Hand the live online roster to the next process. Presence is process memory, so
-    // without this every deploy blanks the world — players vanish from each other's
-    // sectors and the online count reads 0 until each client's next heartbeat. Started
-    // before the awaits below so it is queued even if the 4s backstop fires.
-    stopPresenceSnapshots();
-    if (!presenceStateJobsDisabled()) {
-        void savePresenceSnapshot().catch(() => undefined);
-    }
-    // Close the realtime layer and the pg pool cleanly on the way out. Both are
-    // shutdown-only and fire-and-forget under the 4s backstop below, so they can
-    // only improve the exit path, never hang it:
-    //   • closeSocketServer() disconnects live websockets so _httpServer.close()
-    //     can actually finish draining (long-lived sockets otherwise hold it open
-    //     until the backstop). Clients reconnect to the fresh worker / fall back
-    //     to the HTTP heartbeat — the same outcome as the old abrupt sever, but
-    //     with a clean disconnect event instead of a TCP reset.
-    //   • closeStoragePool() ends idle connections and waits for in-flight queries
-    //     to finish before releasing them, instead of leaving the supervisor to
-    //     reap half-open connections against the Supabase ceiling on every deploy.
-    void closeSocketServer().catch(() => undefined);
-    void closeStoragePool().catch(() => undefined);
-    let exited = false;
-    const exit = (how: string): void => {
-        if (exited) return;
-        exited = true;
-        console.log(`[shutdown] exiting worker (${reason}: ${how})`);
+    const timeoutMs = runtimeTimeouts().shutdownMs;
+    void drainRuntime({
+        stopAdmission() {
+            stopBackgroundWork();
+            stopGameLoop();
+            stopSnapshotCron();
+            stopPresenceSnapshots();
+            _stopTournamentClock?.();
+        },
+        drainHttp: () => new Promise<void>(resolve => {
+            if (!_httpServer) return resolve();
+            _httpServer.close(() => resolve());
+            _httpServer.closeIdleConnections();
+        }),
+        closeRealtime: closeSocketServer,
+        savePresence: () => presenceStateJobsDisabled() ? Promise.resolve() : savePresenceSnapshot(),
+        drainBackground: drainBackgroundWork,
+        flushMetrics: flushBetaMetrics,
+        closeStorage: closeStoragePool,
+        forceCloseHttp: () => _httpServer?.closeAllConnections(),
+        reportError: (stage, error) => console.warn(`[shutdown] ${stage}:`, safeLogValue(String(error))),
+    }, timeoutMs).then(result => {
+        console.log(`[shutdown] exiting worker (${reason}: ${result.outcome}; stage=${result.stage}; elapsedMs=${result.elapsedMs}; budgetMs=${timeoutMs})`);
         process.exit(code);
-    };
-    const backstop = setTimeout(() => exit('drain-timeout'), 4_000);
-    backstop.unref?.();
-    if (_httpServer) {
-        // Telemetry recorded by the requests that just drained is still queued
-        // (api/_beta-metrics.ts); write it before exiting. The backstop above
-        // still bounds the wait.
-        _httpServer.close(() => {
-            void flushBetaMetrics().catch(() => undefined).finally(() => exit('drained'));
-        });
-        _httpServer.closeIdleConnections();
-    } else {
-        exit('no-server'); // crashed during startup — nothing to drain
-    }
+    });
 }
 
 // Last-resort crash guards — but ONLY when Sentry is not active. Sentry's Node
@@ -186,8 +173,8 @@ if (!Sentry) {
 
 // Railway and other container supervisors use SIGTERM for deploy replacement.
 // Drain exactly the same way as an operator restart or fatal exception so an
-// in-flight save/reward write is not cut in half. Railway should allow at least
-// 10 seconds of deployment draining; our own bounded backstop exits after 4s.
+// in-flight save/reward write is not cut in half. The supervisor must allow the
+// runtime's configured drain budget before forcing an external SIGKILL.
 process.once('SIGTERM', () => gracefulShutdown(0, 'SIGTERM'));
 process.once('SIGINT', () => gracefulShutdown(0, 'SIGINT'));
 
@@ -604,8 +591,9 @@ async function runDbHealthProbe(): Promise<{
     // can gate on EXPECTED_SAVE_STORE and an operator can spot a drifted env.
     let saveStore: string | undefined;
     try {
-        const { kv, saveStoreKind } = await import('./api/_storage.js');
+        const { kv, saveStoreKind, storageLockFencingReady } = await import('./api/_storage.js');
         saveStore = saveStoreKind;
+        checks.lockFencing = (await storageLockFencingReady()).ok;
         const tag = `${process.pid}-${Date.now()}`;
         const token = randomUUID();
 
@@ -1089,6 +1077,7 @@ server.listen(PORT, () => {
     // Vercel removal: the always-on server now runs the daily save-snapshot
     // backup itself (was a Vercel cron). No-op if DISABLE_SNAPSHOT_CRON=1.
     startSnapshotCron();
+    _stopTournamentClock = startTournamentClock();
     // War-map territory self-seed. Every deploy (and the coming account wipe)
     // must not depend on an operator remembering an admin seed call: the seeder
     // only fills sectors with NO owner (a conquered sector is never touched,

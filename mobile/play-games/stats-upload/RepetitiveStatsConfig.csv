@@ -1,0 +1,6 @@
+Stat Id,Event Name,Event Property Name,Aggregation Type,Stat Display Name,Stat Description,Filter Property,Filter Operator,Filter Value,Is Competitive,Min limit,Max limit,Icon File Name,Good value direction,Unit
+mission_contracts_completed,mission_completed,completion,COUNT,Contracts Completed,Server-confirmed missions and hunts completed,,,,false,,,contracts.png,INCREASING,UNITLESS
+pvp_victories,pvp_match_completed,result,COUNT,PvP Victories,Server-confirmed PvP matches won,result,=,win,true,0,1000000,pvp.png,INCREASING,UNITLESS
+ai_victories,ai_victory,result,COUNT,AI Victories,Server-confirmed AI opponents defeated,,,,false,,,ai_victories.png,INCREASING,UNITLESS
+pet_matches_completed,pet_match_completed,result,COUNT,Pet Matches,Server-confirmed pet matches completed,,,,false,,,pet_matches.png,INCREASING,UNITLESS
+story_chapters_completed,story_chapter_completed,chapter,COUNT,Story Chapters,Story chapters completed from verified server settlements,,,,false,,,story.png,INCREASING,UNITLESS

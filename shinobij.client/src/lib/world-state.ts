@@ -155,6 +155,19 @@ export function unregisterLocalFight(fightId: string) {
     locallyRegisteredFights.delete(fightId);
 }
 
+/** Publish one battle without replacing other fighters' board entries. */
+export function registerArenaFight(fight: ArenaSpectatorFight) {
+    locallyRegisteredFights.set(fight.id, fight);
+    sharedArenaActiveFightsCache = [fight, ...sharedArenaActiveFightsCache.filter(f => f.id !== fight.id)].slice(0, 20);
+    persistSharedGameState({ kind: "arenaActiveFight", action: "register", fight });
+}
+
+export function removeArenaFight(fightId: string) {
+    locallyRegisteredFights.delete(fightId);
+    sharedArenaActiveFightsCache = sharedArenaActiveFightsCache.filter(f => f.id !== fightId);
+    persistSharedGameState({ kind: "arenaActiveFight", action: "remove", fightId });
+}
+
 export function loadPendingClanPetBattle(): PendingClanPetBattle | null {
     const battle = sharedPendingClanPetBattleCache;
     if (!battle || Date.now() - battle.createdAt > 24 * 60 * 60 * 1000) return null;

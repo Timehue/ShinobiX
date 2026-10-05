@@ -306,6 +306,18 @@ describe("applyRoundResult", () => {
         assert.ok(run.valor > before, "won round pays valor");
     });
 
+    it("continuing after a renderer failure settles a saved result only once", () => {
+        const fighting = beginFight({ ...startGauntletRun(8), fieldIds: ["x"], roster: [{ id: "x" } as never] });
+        const before = fighting.valor;
+        const continued = applyRoundResult(fighting, true);
+        const duplicateContinue = applyRoundResult(continued, true);
+
+        assert.equal(continued.round, 2, "the saved win advances the run");
+        assert.equal(continued.roundsCleared, 1);
+        assert.equal(continued.valor, before + 5, "round one pays its reward once");
+        assert.deepEqual(duplicateContinue, continued, "a second Continue is a no-op after settlement");
+    });
+
     it("a loss costs a heart; 0 hearts ends the run", () => {
         let run = beginFight({ ...startGauntletRun(8), hearts: 1, fieldIds: ["x"], roster: [{ id: "x" } as never] });
         run = applyRoundResult(run, false);

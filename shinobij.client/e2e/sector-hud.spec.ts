@@ -153,6 +153,18 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
     await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 3');
     await page.keyboard.press('d');
     await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 4');
+    // Android can forward an unhandled controller D-pad press as an arrow
+    // key. It should move the sector avatar when the world owns input, while
+    // leaving arrow keys alone when a native control owns focus.
+    await page.evaluate(() => {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    });
+    await page.keyboard.press('ArrowRight');
+    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 5');
+    const info = page.getByRole('button', {name: 'Sector Info'});
+    await info.focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 5');
     for (let i=0; i<10; i++) { await trigger.click(); await page.getByRole('button',{name:'Close Sector Info'}).click(); }
     expect(await map!.evaluate(element => element.isConnected)).toBe(true);
 });

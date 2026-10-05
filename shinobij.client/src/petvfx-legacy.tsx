@@ -20,6 +20,7 @@ import { createLiveDuel, createLivePartyDuel } from "./lib/pet-duel-live";
 import { PetBoardArena } from "./components/PetBoardArena";
 import { PetGauntlet } from "./components/PetGauntlet";
 import { runPetGridBattle } from "./lib/pet-board-sim";
+import { applyRoundResult, beginFight, startGauntletRun } from "./lib/pet-gauntlet";
 import type { PetJutsu, Pet } from "./types/pet";
 import type { Character } from "./types/character";
 import type { ArenaRole, ArenaSlot } from "./lib/pet-arena-sim";
@@ -63,6 +64,10 @@ function Harness() {
     const [qaSettlement, setQaSettlement] = useState<"error" | "pending" | "settled">("error");
     const [qaSettlementRetries, setQaSettlementRetries] = useState(0);
     const [qaExits, setQaExits] = useState(0);
+    const [boardContinueCount, setBoardContinueCount] = useState(0);
+    const [boardQaRun, setBoardQaRun] = useState(() => beginFight({
+        ...startGauntletRun(START_SEED), fieldIds: ["qa-player"], roster: [{ id: "qa-player" } as Pet],
+    }));
     useEffect(() => {
         if (PARAMS.get("remountqa") !== "1") return;
         const timers: number[] = [];
@@ -194,21 +199,39 @@ function Harness() {
     const mockChar = useMemo(() => ({ name: "Tester", ryo: 5000 } as unknown as Character), []);
     // ?board=1 — the Pet Gauntlet BOARD auto-battler (PetBoardArena), full 5v5.
     const boardMode = PARAMS.get("board") === "1";
-    const boardPlayer = useMemo(() => [
-        harnessPet(0, { element: "Fire" }), harnessPet(1, { element: "Fire" }),
-        harnessPet(2, { element: "Water" }), harnessPet(20, { element: "Earth" }),
-        harnessPet(50, { element: "Lightning" }),
-    ], []);
-    const boardEnemy = useMemo(() => [
-        harnessPet(7, { element: "Wind" }), harnessPet(8, { element: "Earth" }),
-        harnessPet(60, { element: "Fire" }), harnessPet(61, { element: "Water" }),
-        harnessPet(62, { element: "Lightning" }),
-    ], []);
+    const boardPlayer = useMemo(() => {
+        if (PARAMS.get("boardLineup") === "reported") {
+            return ["Sand Snake", "Ashen Crow", "Marsh Eel"].map((name) => {
+                const pet = rawPetPool.find((candidate) => candidate.name === name);
+                if (!pet) throw new Error(`Missing reported Gauntlet fixture pet: ${name}`);
+                return { ...pet, hp: 320, attack: 60, defense: 30, speed: 24 };
+            });
+        }
+        return [
+            harnessPet(0, { element: "Fire" }), harnessPet(1, { element: "Fire" }),
+            harnessPet(2, { element: "Water" }), harnessPet(20, { element: "Earth" }),
+            harnessPet(50, { element: "Lightning" }),
+        ];
+    }, []);
+    const boardEnemy = useMemo(() => {
+        const squad = [
+            harnessPet(PARAMS.get("boardLineup") === "reported" ? 0 : 7, { element: "Wind" }), harnessPet(8, { element: "Earth" }),
+            harnessPet(60, { element: "Fire" }), harnessPet(61, { element: "Water" }),
+            harnessPet(62, { element: "Lightning" }),
+        ];
+        // Keep the exact-lineup QA match long enough to animate while guaranteeing
+        // a round-one win, so recovery covers advancement and its +5 Valor reward.
+        return PARAMS.get("boardLineup") === "reported"
+            ? squad.map((pet) => ({ ...pet, hp: 150, attack: 18, defense: 8, speed: 14 }))
+            : squad;
+    }, []);
     const boardResult = useMemo(() => runPetGridBattle(
-        [
-            { pet: boardPlayer[0], row: 0, col: 0 }, { pet: boardPlayer[1], row: 0, col: 1 },
-            { pet: boardPlayer[2], row: 1, col: 0 }, { pet: boardPlayer[3], row: 1, col: 1 }, { pet: boardPlayer[4], row: 1, col: 2 },
-        ],
+        boardPlayer.length === 3
+            ? boardPlayer.map((pet, index) => ({ pet, row: index < 2 ? 0 : 1, col: index % 2 }))
+            : [
+                { pet: boardPlayer[0], row: 0, col: 0 }, { pet: boardPlayer[1], row: 0, col: 1 },
+                { pet: boardPlayer[2], row: 1, col: 0 }, { pet: boardPlayer[3], row: 1, col: 1 }, { pet: boardPlayer[4], row: 1, col: 2 },
+            ],
         [
             { pet: boardEnemy[0], row: 0, col: 0 }, { pet: boardEnemy[1], row: 0, col: 1 },
             { pet: boardEnemy[2], row: 1, col: 0 }, { pet: boardEnemy[3], row: 1, col: 1 }, { pet: boardEnemy[4], row: 1, col: 2 },
@@ -362,7 +385,14 @@ function Harness() {
                 <PetArenaMatch blue={arenaBlue} red={arenaRed} seed={seed} sharedImages={harnessShared} onExit={() => { }} />
             )}
             {boardMode && (
-                <PetBoardArena result={boardResult} onDone={restart} />
+                <>
+                    <output hidden data-testid="pet-board-continue-count" data-count={boardContinueCount} />
+                    <output hidden data-testid="pet-board-run-state" data-round={boardQaRun.round} data-cleared={boardQaRun.roundsCleared} data-valor={boardQaRun.valor} data-status={boardQaRun.status} data-result={boardResult.result} />
+                    {boardContinueCount === 0 && <PetBoardArena result={boardResult} onDone={() => {
+                        setBoardQaRun((run) => applyRoundResult(run, boardResult.result === "win"));
+                        setBoardContinueCount((count) => count + 1);
+                    }} />}
+                </>
             )}
             <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
                 <button style={btn} onClick={restart}>⟲ Replay</button>

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import vm from 'node:vm'
+import { minifyRuntimeSource } from '../../scripts/runtime-asset-minifier.mjs'
 
 const indexSource = readFileSync(new URL('../index.html', import.meta.url), 'utf8')
 const watchdogSource = readFileSync(new URL('../public/boot-watchdog.js', import.meta.url), 'utf8')
@@ -47,7 +48,10 @@ class FakeElement {
     }
 }
 
-function createHarness({ domReady = true, online = true }: { domReady?: boolean; online?: boolean } = {}) {
+function createHarness(
+    { domReady = true, online = true }: { domReady?: boolean; online?: boolean } = {},
+    script = watchdogSource,
+) {
     const elements = new Map([
         ['boot-splash', new FakeElement('div')],
         ['boot-loading-state', new FakeElement('div')],
@@ -90,7 +94,7 @@ function createHarness({ domReady = true, online = true }: { domReady?: boolean;
         removeEventListener: (name: string, listener: Listener) => removeListener(documentListeners, name, listener),
     }
 
-    vm.runInNewContext(watchdogSource, { window, document, URL }, { filename: 'boot-watchdog.js' })
+    vm.runInNewContext(script, { window, document, URL }, { filename: 'boot-watchdog.js' })
 
     const makeMarkupAvailable = () => {
         markupAvailable = true
@@ -238,4 +242,18 @@ test('React entry synchronously clears the watchdog only after accepting its fir
     const readyIndex = mainSource.indexOf('__shinobiBootReady?.()')
     assert.ok(renderIndex >= 0)
     assert.ok(readyIndex > renderIndex)
+})
+
+test('production-minified watchdog still recovers from a failed app chunk and clears on ready', () => {
+    const productionScript = minifyRuntimeSource(watchdogSource)
+    const harness = createHarness({}, productionScript)
+    harness.dispatchWindow('error', {
+        target: { tagName: 'SCRIPT', type: 'module', src: 'https://shinobijourney.com/assets/index-12345678.js' },
+    })
+    assert.equal(harness.elements.get('boot-recovery')?.hidden, false)
+    assert.equal(harness.reloads(), 0)
+    const ready = harness.window.__shinobiBootReady
+    assert.equal(typeof ready, 'function')
+    ;(ready as () => void)()
+    assert.equal(harness.pendingTimers(), 0)
 })

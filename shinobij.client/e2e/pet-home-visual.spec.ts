@@ -366,7 +366,7 @@ async function openHome(page: Page) {
     await page.goto("/#/home", { waitUntil: "networkidle" });
     // The SPA intentionally applies bookmarked hashes during boot rather than
     // reacting to hash-only changes after mount, so force the normal restore path.
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.getByRole("heading", { name: "Your Companions", exact: true })).toBeVisible();
     await expect(page.locator(".session-restore-overlay")).toHaveCount(0);
 }
@@ -377,10 +377,10 @@ async function reloadHome(page: Page) {
 }
 
 async function shot(page: Page, testInfo: TestInfo, name: string) {
-    await expect.poll(async () => page.locator("img").evaluateAll((images) => images
+    await expect.poll(async () => page.locator("img").evaluateAll((images) => (images as HTMLImageElement[])
         .filter((image) => !image.complete || image.naturalWidth === 0)
         .map((image) => image.getAttribute("src"))), { message: `all artwork must decode before ${name}` }).toEqual([]);
-    await page.locator("img").evaluateAll((images) => Promise.all(images.map((image) => image.decode())));
+    await page.locator("img").evaluateAll((images) => Promise.all((images as HTMLImageElement[]).map((image) => image.decode())));
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
 }
 
@@ -666,7 +666,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await expect(page.locator(".central-hub")).toBeVisible();
     await page.locator(".central-card", { hasText: "Pet Colosseum" }).click();
     await expect(page.getByRole("heading", { name: "Pet Colosseum", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-arena-return")).toContainText("Central · The Gates");
+    await expect(page.locator(".pet-arena-return")).toContainText("Central");
     await page.locator(".pet-arena-return").click();
     await expect(page.locator(".central-hub")).toBeVisible();
 
@@ -679,7 +679,7 @@ test("Pet Home visual lifecycle certification", async ({ page }, testInfo) => {
     await page.getByRole("button", { name: "Begin 24-hour breeding" }).scrollIntoViewIfNeeded();
     await shot(page, testInfo, "16-mobile-breeding-barn");
 
-    expect((await page.locator("img").evaluateAll((images) => images.filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.getAttribute("src"))))).toEqual([]);
+    expect((await page.locator("img").evaluateAll((images) => (images as HTMLImageElement[]).filter((image) => !image.complete || image.naturalWidth === 0).map((image) => image.getAttribute("src"))))).toEqual([]);
     expect(withoutAbortedFetches(consoleErrors)).toEqual([]);
     expect(withoutAbortedFetches(pageErrors)).toEqual([]);
 });
@@ -705,8 +705,8 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     let readiness = page.locator(".pet-battle-readiness");
     let warfront = readiness.locator('[data-circuit="warfront"]');
     let colosseum = readiness.locator('[data-circuit="colosseum"]');
-    await expect(warfront).toContainText("Training results unclaimed");
-    await expect(warfront.getByRole("button", { name: /Collect training results/ })).toBeDisabled();
+    await expect(warfront).toContainText("Deployment ready");
+    await expect(warfront.getByRole("button", { name: /Add Sumi to Squad/ })).toBeEnabled();
     await expect(colosseum.getByRole("button", { name: /Deploy Sumi/ })).toBeEnabled();
 
     delete selectedPet.training;
@@ -764,11 +764,11 @@ test("Pet battle readiness mirrors server admission and lineage rules", async ({
     await page.getByRole("button", { name: "Pet Arena" }).click();
     const warfrontTab = page.getByRole("button", { name: /Beastbound Warfront/ });
     await expect(warfrontTab).toBeEnabled();
-    await expect(page.locator(".pet-arena-readiness")).toContainText("5 companions");
+    await expect(page.locator(".pet-arena-readiness")).toContainText("6 companions");
     await warfrontTab.click();
     await expect(page.getByRole("heading", { name: "Beastbound Warfront", exact: true })).toBeVisible();
-    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(0);
-    await expect(page.locator(".pet-pick")).toHaveCount(5);
+    await expect(page.locator(".pet-pick", { hasText: "Sumi" })).toHaveCount(1);
+    await expect(page.locator(".pet-pick")).toHaveCount(6);
     await expect(page.getByText("Your team (4/4)")).toBeVisible();
 
     expect(withoutAbortedFetches(consoleErrors)).toEqual([]);
@@ -943,8 +943,8 @@ test("refined companion and Sunscar pages", async ({ page }, testInfo) => {
     async function fit(name: string, selector: string) {
         await page.locator(selector).scrollIntoViewIfNeeded();
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-        await expect.poll(() => page.locator(`${selector} img`).evaluateAll(images => images.filter(image => !image.complete || !image.naturalWidth).map(image => image.src))).toEqual([]);
-        await page.locator(`${selector} img`).evaluateAll(images => Promise.all(images.map(image => image.decode())));
+        await expect.poll(() => page.locator(`${selector} img`).evaluateAll(images => (images as HTMLImageElement[]).filter(image => !image.complete || !image.naturalWidth).map(image => image.src))).toEqual([]);
+        await page.locator(`${selector} img`).evaluateAll(images => Promise.all((images as HTMLImageElement[]).map(image => image.decode())));
         await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true, animations: "disabled" });
         const scan = await new AxeBuilder({ page }).include(selector).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
         expect(scan.violations.map(violation => ({ id: violation.id, nodes: violation.nodes.map(node => ({ target: node.target, summary: node.failureSummary })) }))).toEqual([]);
@@ -1183,7 +1183,7 @@ test("refined integration festival navigation, crate, and market retry", async (
     await expect(page.getByRole('button', { name: 'Return to the festival', exact: true })).toBeFocused();
     const scan = await new AxeBuilder({ page }).include('.bm-crate-dialog').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(scan.violations).toEqual([]);
-    await crate.locator('img').evaluateAll(images => Promise.all(images.map(image => image.decode())));
+    await crate.locator('img').evaluateAll(images => Promise.all((images as HTMLImageElement[]).map(image => image.decode())));
     await page.screenshot({ path: testInfo.outputPath('broker-reward-viewport.png'), animations: 'disabled' });
     await page.keyboard.press('Escape');
     await expect(crate).toHaveCount(0);

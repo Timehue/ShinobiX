@@ -44,6 +44,9 @@ import {
     normalizeOnboardingStep,
 } from "../lib/onboarding-step";
 import { companionStepMeta } from "../lib/journey-guide";
+import { trainingRecommendation } from "../lib/training-recommendation";
+import { useAcademyGuideVisibility } from "../lib/use-academy-guide-visibility";
+import type { SavedBloodline } from "../types/combat";
 import { academyStoryMomentFor, academyVowDefinition } from "../lib/academy-narrative";
 import { commitAcademyNarrativeAction, type AcademyNarrativeAction } from "../lib/academy-narrative-api";
 import { petPoseImage } from "../lib/pet-battle-anim";
@@ -126,6 +129,7 @@ const skipStyle: React.CSSProperties = {
 
 export function OnboardingCoach({
     character,
+    savedBloodlines = [],
     screen,
     activeTraining,
     currentSector,
@@ -140,6 +144,7 @@ export function OnboardingCoach({
     onOpenAwakening,
 }: {
     character: Character;
+    savedBloodlines?: SavedBloodline[];
     screen: Screen;
     activeTraining: unknown;
     currentSector: number;
@@ -291,6 +296,7 @@ export function OnboardingCoach({
          step === "inventory" || step === "cafeteria" || step === "firstMission" ||
          step === "logbook" || step === "sectorReturn" ||
          (step === "academySpar" && sparKnockedOut));
+    useAcademyGuideVisibility(bannerVisible, screen, step);
     useEffect(() => {
         if (!bannerVisible) return;
         document.body.classList.add("coach-banner-open");
@@ -403,10 +409,20 @@ export function OnboardingCoach({
             resizeTimeout = window.setTimeout(revealTarget, 180);
         };
         window.addEventListener("resize", revealAfterResize);
+        // Dialog scroll-lock restoration can move the stat back under the guide.
+        // Re-aim once when a dialog closes, never on ordinary user scrolling.
+        let modalWasOpen = document.body.classList.contains("ui-scroll-locked");
+        const modalObserver = new MutationObserver(() => {
+            const modalOpen = document.body.classList.contains("ui-scroll-locked");
+            if (modalWasOpen && !modalOpen) revealAfterResize();
+            modalWasOpen = modalOpen;
+        });
+        modalObserver.observe(document.body, { attributes: true, attributeFilter: ["class"] });
         return () => {
             window.clearTimeout(timeout);
             window.clearTimeout(resizeTimeout);
             window.removeEventListener("resize", revealAfterResize);
+            modalObserver.disconnect();
             observer?.disconnect();
             layoutObserver.disconnect();
         };
@@ -421,7 +437,7 @@ export function OnboardingCoach({
     // so the speech-bubble typewriter can slice them.
     const bannerText: string | null = (() => {
         switch (step) {
-            case "training": return "All right, first stop: the Training Grounds. Pick a stat and start any timer. We can keep moving while it runs.";
+            case "training": return trainingRecommendation(character, savedBloodlines).companionLine;
             case "jutsu": return "Next, let's give you one technique your bloodline didn't hand you. Pick any untrained jutsu. The first level is free.";
             case "jutsuLoadout": {
                 // Every new character starts with STARTING_STAT_POINTS (20) unspent, and

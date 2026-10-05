@@ -3,6 +3,7 @@ import { maybeRequestPlayReview } from "../lib/native-play";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { aiFightExitScreen, aiFightNonWinMessage } from "../lib/ai-fight-result";
+import { beginAiFightClose, consumeCommittedAiFightClose, type AiFightCloseHandoff } from '../lib/ai-fight-close-handoff';
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import {
@@ -14,6 +15,7 @@ import {
     type AiFightStart,
 } from "../lib/ai-fight-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
+import { fetchHuntCombatState, huntSessionForTower, submitHuntCombatAction } from '../lib/hunt-combat-api';
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "../lib/ai-fight-request";
 import {
     settleAiFight,
@@ -40,6 +42,7 @@ import { requestForResumedGenericFight, rememberCircuitCombatSession, forgetCirc
 // always live; the screen is code-split and warmed on the request, in parallel with
 // the start round-trip, so it is resident by the time the session opens.
 const MissionArenaFight = lazyWithRetry(() => import("../screens/MissionArenaFight").then((m) => ({ default: m.MissionArenaFight })));
+const HuntTowerFight = lazyWithRetry(() => import('../screens/BattleTowerFight').then(m => ({ default: m.BattleTowerFight })));
 const CircuitCombatResult = lazyWithRetry(() => import('../features/dojo-circuit/CircuitCombatResult').then(m => ({ default: m.CircuitCombatResult })));
 
 type ActiveFight = {
@@ -180,7 +183,7 @@ export function AiFightHost({
     /** Exact server-proved mission ids mirrored into the current UI. */
     hooks?: AiFightSettleHooks;
     onSettled: (result: AiFightSettleResult) => void;
-    onClose?: (returnScreen?: string) => void;
+    onClose?: (returnScreen: string | undefined, playerKey: string, isCurrent: () => boolean) => void;
     /**
      * Fires when a sealed fight is engaged and again when it lets go. Mirrors
      * StoryBossFightHost: the fight is a body portal, so App's `screen` never
@@ -218,7 +221,8 @@ export function AiFightHost({
     const activeRef = useRef(false);
     const queuedWorldRequestRef = useRef<AiFightRequest | null>(null);
     const settleInFlightRef = useRef<Promise<AiFightSettleResult> | null>(null);
-    const closeInFlightRef = useRef(false);
+    const closingRequestIdRef = useRef<number | null>(null);
+    const pendingCloseRef = useRef<(AiFightCloseHandoff & { queued?: AiFightRequest }) | null>(null);
     const recoveryRetryTimerRef = useRef<number | null>(null);
     const [recoveryAttempt, setRecoveryAttempt] = useState(0);
     useLayoutEffect(() => { activeRef.current = fight !== null; }, [fight]);
@@ -232,7 +236,8 @@ export function AiFightHost({
             activeRef.current = false;
             queuedWorldRequestRef.current = null;
             settleInFlightRef.current = null;
-            closeInFlightRef.current = false;
+            closingRequestIdRef.current = null;
+            pendingCloseRef.current = null;
             if (recoveryRetryTimerRef.current !== null) window.clearTimeout(recoveryRetryTimerRef.current);
         };
     }, []);
@@ -248,7 +253,8 @@ export function AiFightHost({
         settledRef.current = false;
         queuedWorldRequestRef.current = null;
         settleInFlightRef.current = null;
-        closeInFlightRef.current = false;
+        closingRequestIdRef.current = null;
+        pendingCloseRef.current = null;
         setFight((current) => current
             && aiFightPlayerKey(current.originatingPlayerName) !== nextPlayerKey
             ? null
@@ -405,7 +411,11 @@ export function AiFightHost({
             setStartFailure(null);
             // Warm-up only. A failed load resurfaces through the lazy MissionArenaFight
             // above (retries, then ErrorBoundary); it must not also escape unhandled here.
-            void import("../screens/MissionArenaFight").catch(() => {});
+            if (request.worldEncounter?.kind === 'hunt-pack' || request.worldEncounter?.kind === 'hunt-target') {
+                void import('../screens/BattleTowerFight').catch(() => {});
+            } else {
+                void import("../screens/MissionArenaFight").catch(() => {});
+            }
             startAiFight({
                 playerName: originatingPlayerName,
                 opponentId: request.opponentId,
@@ -493,6 +503,24 @@ export function AiFightHost({
         return () => { if (open) onFightOpenChange?.(false); };
     }, [open, onFightOpenChange]);
 
+    // Notify App only after the portal is gone and its presence was released.
+    // App then commits its mission guard before following the return target.
+    useEffect(() => {
+        const closed = consumeCommittedAiFightClose(pendingCloseRef, {
+            open, playerKey: activePlayerKeyRef.current, requestId: startRequestIdRef.current,
+        });
+        if (!closed) return;
+        closingRequestIdRef.current = null;
+        const isCurrent = () => mountedRef.current && activePlayerKeyRef.current === closed.playerKey
+            && startRequestIdRef.current === closed.requestId;
+        onClose?.(closed.returnScreen, closed.playerKey, isCurrent);
+        const queued = closed.queued;
+        if (queued) window.setTimeout(() => {
+            if (mountedRef.current && activePlayerKeyRef.current === closed.playerKey
+                && startRequestIdRef.current === closed.requestId) requestAiFight(queued);
+        }, 0);
+    }, [open, onClose, playerName]);
+
     if (activeStartFailure) {
         return (
             <div className="battle-ended-overlay" role="alert" aria-live="assertive">
@@ -502,12 +530,15 @@ export function AiFightHost({
                     <button onClick={() => {
                         const retry = activeStartFailure.request;
                         setStartFailure((current) => current?.requestId === activeStartFailure.requestId ? null : current);
-                        window.setTimeout(() => { requestAiFight(retry); }, 0);
+                        window.setTimeout(() => {
+                            if (mountedRef.current && activePlayerKeyRef.current === aiFightPlayerKey(activeStartFailure.originatingPlayerName)
+                                && startRequestIdRef.current === activeStartFailure.requestId) requestAiFight(retry);
+                        }, 0);
                     }}>Retry</button>
                     <button onClick={() => {
                         const screen = activeStartFailure.request.returnScreen;
+                        pendingCloseRef.current = { playerKey: aiFightPlayerKey(activeStartFailure.originatingPlayerName), requestId: activeStartFailure.requestId, returnScreen: screen };
                         setStartFailure((current) => current?.requestId === activeStartFailure.requestId ? null : current);
-                        onClose?.(screen);
                     }}>Return</button>
                 </div>
             </div>
@@ -528,7 +559,8 @@ export function AiFightHost({
         }
         if (settleInFlightRef.current) return settleInFlightRef.current;
         const scopeIsCurrent = () => mountedRef.current
-            && activePlayerKeyRef.current === originatingPlayerKey;
+            && activePlayerKeyRef.current === originatingPlayerKey
+            && startRequestIdRef.current === currentFight.requestId;
         const inFlight = (async () => {
             const settled = await settleAiFight({
                 playerName: originatingPlayerName,
@@ -542,8 +574,8 @@ export function AiFightHost({
                     },
                 },
             });
-            settledRef.current = true;
             if (scopeIsCurrent()) {
+                settledRef.current = true;
                 latestOnSettled.current(settled);
                 if (settled.worldContext && settled.outcome) {
                     stampWandererFightSettlement({ outcome: settled.outcome, worldContext: settled.worldContext, character: settled.character, _saveVersion: settled._saveVersion });
@@ -556,7 +588,7 @@ export function AiFightHost({
         try {
             return await inFlight;
         } catch (error) {
-            settledRef.current = false;
+            if (scopeIsCurrent()) settledRef.current = false;
             throw error;
         } finally {
             if (settleInFlightRef.current === inFlight) settleInFlightRef.current = null;
@@ -564,7 +596,10 @@ export function AiFightHost({
     }
 
     async function closeFight() {
-        if (closeInFlightRef.current) return;
+        if (!activeRef.current || !mountedRef.current
+            || activePlayerKeyRef.current !== originatingPlayerKey
+            || startRequestIdRef.current !== currentFight.requestId) return;
+        if (!beginAiFightClose(closingRequestIdRef, currentFight.requestId)) return;
         const active = currentFight;
         let returnScreen = aiFightExitScreen(!!latestCharacter.current?.hospitalized, active?.request.returnScreen);
         // Leaving an UNSETTLED fight is a forfeit, not an escape. Without this a
@@ -573,31 +608,45 @@ export function AiFightHost({
         // carefully. The server applies the forfeit cost and carries the actual
         // remaining HP; only a zero-HP outcome causes hospital admission.
         if (shouldSettleOnClose(!!active, settledRef.current) && active) {
-            closeInFlightRef.current = true;
             try {
                 const result = await settle(active.sessionId, active.originatingPlayerName);
                 returnScreen = aiFightExitScreen(!!result.character?.hospitalized, active.request.returnScreen);
             } catch {
-                closeInFlightRef.current = false;
+                if (!mountedRef.current || activePlayerKeyRef.current !== originatingPlayerKey
+                    || startRequestIdRef.current !== active.requestId) return;
+                closingRequestIdRef.current = null;
                 window.setTimeout(() => alert("The fight is still syncing with the combat server. Retry Return when the connection recovers."), 40);
                 return;
             }
         }
-        closeInFlightRef.current = false;
+        if (!mountedRef.current || activePlayerKeyRef.current !== originatingPlayerKey
+            || startRequestIdRef.current !== active.requestId) return;
         activeRef.current = false;
         if (active) forgetCircuitCombatSession(active.originatingPlayerName, active.sessionId);
-        setFight((current) => current?.requestId === active?.requestId ? null : current);
-        if (activePlayerKeyRef.current === originatingPlayerKey) onClose?.(returnScreen);
-        const queued = queuedWorldRequestRef.current;
+        pendingCloseRef.current = {
+            playerKey: originatingPlayerKey, requestId: active.requestId, returnScreen,
+            queued: queuedWorldRequestRef.current ?? undefined,
+        };
         queuedWorldRequestRef.current = null;
-        if (queued && activePlayerKeyRef.current === originatingPlayerKey) {
-            window.setTimeout(() => { requestAiFight(queued); }, 0);
-        }
+        setFight((current) => current?.requestId === active?.requestId ? null : current);
     }
 
     return (
         <Suspense fallback={null}>
-            <MissionArenaFight
+            {currentFight.session.huntCombat ? <HuntTowerFight
+                character={character}
+                sharedImages={sharedImages}
+                runId={currentFight.sessionId}
+                initialSession={huntSessionForTower(currentFight.session)}
+                stateFn={fetchHuntCombatState}
+                actionRetryFn={submitHuntCombatAction}
+                settleFn={settle}
+                settleOnAnyDone
+                variant="hunt"
+                enemyAvatarOverride={request.enemyAvatar}
+                onRecordBattle={onRecordBattle}
+                onExit={closeFight}
+            /> : <MissionArenaFight
                 character={character}
                 runId={currentFight.sessionId}
                 initialSession={soloPveSessionForArena(currentFight.session)}
@@ -628,7 +677,7 @@ export function AiFightHost({
                         onExit={closeFight}
                     />
                 )}
-            />
+            />}
         </Suspense>
     );
 }

@@ -21,7 +21,7 @@ import { caravanPetDiscovery } from '../festival/_caravan-pet.js';
 import { trackerTrailDiscovery } from '../sector/_tracker-trail.js';
 import { showdownBusyIssue } from './_showdown-readiness.js';
 import { publishShowdownPresence, retireShowdownPresence } from './_showdown-presence.js';
-import { grantWildPet } from './_encounter.js';
+import { grantWildPet, rollWildPetLevel } from './_encounter.js';
 import { petAcquisitionDestination } from './_placement.js';
 import { getPetFromSanctuary, storePetInSanctuary } from './_sanctuary.js';
 import { PET_CATALOG } from './_catalog.js';
@@ -173,7 +173,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const receipts = Array.isArray(character.redeemedPetEncounters)
                     ? character.redeemedPetEncounters as string[] : [];
                 const tutorial = !receipts.some((receipt) => !receipt.startsWith('wb:'));
-                const wildPet = encounter.pet as Record<string, unknown>;
+                // Use the server-owned level of the companion actually selected.
+                // The saved session above prevents retries or swaps from rerolling.
+                const wildPet: Record<string, unknown> = {
+                    ...encounter.pet as Record<string, unknown>,
+                    level: rollWildPetLevel(mine.level, roll),
+                };
                 const battle = createShowdownSession({
                     sessionId: token, playerName, format: '1v1', tier: tutorial ? 'scrapper' : 'warrior',
                     seed: randomInt(1, 0x7fffffff), playerPets: [mine],

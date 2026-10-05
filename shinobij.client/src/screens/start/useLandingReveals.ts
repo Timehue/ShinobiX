@@ -21,12 +21,18 @@ export function useLandingReveals() {
 
         function syncMotion() {
             observer.disconnect();
+            // Batch style writes before geometry reads. Interleaving a class
+            // removal and getBoundingClientRect for each section forces a
+            // synchronous style/layout pass for every section on landing boot.
+            for (const element of elements) element.classList.remove('is-revealed');
+            const viewportHeight = window.innerHeight;
             for (const element of elements) {
-                element.classList.remove('is-revealed');
                 // Never animate content already on screen (including restored
                 // scroll positions), or replay a section the visitor has seen.
-                if (element.getBoundingClientRect().top < window.innerHeight) seen.add(element);
-                if (!reducedMotion.matches && !seen.has(element)) observer.observe(element);
+                if (element.getBoundingClientRect().top < viewportHeight) seen.add(element);
+            }
+            if (!reducedMotion.matches) {
+                for (const element of elements) if (!seen.has(element)) observer.observe(element);
             }
         }
 

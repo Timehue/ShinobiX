@@ -92,6 +92,49 @@ const randomPackButton = (page: Page) => page.getByRole('button', { name: /Rando
 const pointsBalance = (page: Page) => page.locator('.chronicle-pack-gallery__balances span')
     .filter({ hasText: 'Chronicle Points' }).locator('strong');
 
+for (const [type, label, cost] of [
+    ['epic-five', 'Epic Quintet Pack', 35],
+    ['legendary-five', 'Legendary Quintet Pack', 100],
+] as const) {
+    test(`premium pack ${type}: built app purchases through Express and retains its cards after reload`, async ({ page, request }, info) => {
+        expect(new URL(String(info.project.use.baseURL)).hostname).toBe('127.0.0.1');
+        const account = await seedPackAccount(request, info, 1000);
+        await installSession(page, account);
+        await page.goto('/#/shinobiTiles', { waitUntil: 'domcontentloaded' });
+        await expectPackArchiveReady(page);
+        const before = economicState(await account.readSave());
+        const listing = page.locator(`.chronicle-pack--${type}`);
+        await listing.scrollIntoViewIfNeeded();
+        await expect.poll(() => listing.locator('img').evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+        const reply = page.waitForResponse((response) => new URL(response.url()).pathname === PACK_PATH
+            && response.request().method() === 'POST');
+        await listing.getByRole('button', { name: new RegExp(`^Open ${label}`) }).click();
+        const response = await reply;
+        expect(response.status()).toBe(200);
+        const body = await response.json() as PackReply;
+        expect(response.request().headers()['x-player-token']).toBeTruthy();
+        expect(response.request().postDataJSON().packType).toBe(type);
+        expect(body.ok).toBe(true);
+        expect(body.cards).toHaveLength(5);
+        expect(body.cost).toBe(cost);
+        expect(body.currency).toBe('fateShards');
+        const opening = page.getByRole('dialog', { name: `${label} opening` });
+        await expect(opening).toHaveCSS('--pack-art', `url("/chronicle/packs/${type}.webp")`);
+        await opening.getByRole('button', { name: /Skip/ }).click();
+        await expect(opening.locator('.pack-summary__card')).toHaveCount(5);
+        await expect(opening.locator('.pack-card__missing')).toHaveCount(0);
+        await opening.getByRole('button', { name: /Done/ }).click();
+        const committed = economicState(await account.readSave());
+        expect(committed).toEqual({ ...before, fateShards: before.fateShards - cost,
+            cards: [...before.cards, ...body.cards!].sort() });
+        await expect(page.getByLabel('Pack balances')).toContainText(`${committed.fateShards} Fate Shards`);
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await expectPackArchiveReady(page);
+        await expect(page.getByLabel('Pack balances')).toContainText(`${committed.fateShards} Fate Shards`);
+        expect(economicState(await account.readSave())).toEqual(committed);
+    });
+}
+
 async function expectPackArchiveReady(page: Page, purchaseEnabled = true, pendingControlScreenshot?: string) {
     await expect(page.getByRole('button', { name: 'Enter the Card Hall' }).or(randomPackButton(page))).toBeVisible();
     const closers = [

@@ -36,7 +36,7 @@ const TAP_SLOP_PX = 14;        // max finger travel that still counts as a tap
 const MOBILE_SHELL_QUERY = WORLD_MAP_MOBILE_QUERY;
 const WORLD_MAP_CONTROL_SELECTOR = "button, a, input, select, textarea, [role='button']";
 
-/** Keep a 44px target above the minimum after transform rounding. Rounding the
+/** Keep a 48px target above the minimum after transform rounding. Rounding the
  * inverse DOWN, or reusing it while zooming out, can shrink the target. Upward
  * 0.005 buckets retain the existing write cadence without that unsafe deadband:
  * at the maximum 4x zoom the extra painted size stays below one screen pixel. */
@@ -75,7 +75,7 @@ export function worldMapMarkerTransitionEasing(fromZoom: number, toZoom: number)
             const interpolated = left.value + (right.value - left.value) * fraction;
             return { actual, error: Math.abs((endScale - startScale) * (interpolated - actual.value) * actual.zoom) };
         });
-        // Error is in screen scale: .0001 is less than .005px on a 44px pin,
+        // Error is in screen scale: .0001 is less than .005px on a 48px pin,
         // well inside the existing .1% rounding reserve and compactness bound.
         if (depth < 16 && probes.some((probe) => probe.error > .0001)) {
             append(left, probes[1].actual, depth + 1);

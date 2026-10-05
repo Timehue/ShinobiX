@@ -14,6 +14,7 @@ import {
 function charAt(level: number, accepted: string[]): Record<string, unknown> {
     return {
         level,
+        village: 'Stormveil Village',
         acceptedMissionIds: accepted,
         serverFieldMissionRuns: Object.fromEntries(accepted.map((missionId) => [missionId, {
             missionId,
@@ -71,11 +72,17 @@ describe('_field-raid-progress', () => {
         assert.deepEqual(ids, ['fetch-d-supply-trail', 'fetch-s-shadow-front']);
     });
 
-    it('credits only the contract whose target matches the sealed raid sector', () => {
+    it('credits every accepted fetch contract from a rival village outskirts raid, never from home or its wilderness target', () => {
         const save = saveAt(80, ['fetch-d-supply-trail', 'fetch-c-border-scout', 'fetch-b-enemy-cache']);
-        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 18).map((mission) => mission.id), ['fetch-d-supply-trail']);
-        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 32).map((mission) => mission.id), ['fetch-c-border-scout']);
-        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 60), []);
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 13).map((mission) => mission.id), [
+            'fetch-d-supply-trail', 'fetch-c-border-scout', 'fetch-b-enemy-cache',
+        ]);
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 5), [], 'the player’s own village cannot satisfy the objective');
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 18), [], 'the wilderness mission sector is not a village raid');
+        assert.deepEqual(acceptedRaidFetchMissions(save, Number.POSITIVE_INFINITY, 32), [], 'other wilderness sectors do not count');
+        const otherHome = saveAt(80, ['fetch-d-supply-trail']);
+        otherHome.character = { ...(otherHome.character as Record<string, unknown>), village: 'Ashen Leaf Village' };
+        assert.deepEqual(acceptedRaidFetchMissions(otherHome, Number.POSITIVE_INFINITY, 5).map((mission) => mission.id), ['fetch-d-supply-trail'], 'a different home village makes Stormveil a valid rival');
     });
 
     it('excludes hunts, unaccepted missions, and level-ineligible fetches', () => {

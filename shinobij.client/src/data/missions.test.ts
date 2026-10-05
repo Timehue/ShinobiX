@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fieldMissionNextAction, fieldMissionRaidNeeded, nextFieldMissionObjective, sortFieldMissions } from "./missions";
+import { builtinFetchMissions, fieldMissionNextAction, fieldMissionRaidNeeded, nextFieldMissionObjective, sortFieldMissions } from "./missions";
 import type { CreatorMission, MissionRank } from "../types/missions";
 
 function mission(id: string, rank: MissionRank, name = id): CreatorMission {
@@ -45,14 +45,25 @@ test("field mission suggests the next objective while allowing either progress o
     assert.equal(fieldMissionRaidNeeded(contract, 0), true);
     assert.equal(fieldMissionRaidNeeded(contract, 1), false);
     assert.deepEqual(fieldMissionNextAction(contract, 0, 0, 0), {
-        objective: "explore", instruction: "Explore the supply trail in Sector 18.", label: "Explore Sector 18",
+        objective: "explore", instruction: "World Map → Sector 18 → Explore.", label: "Explore Sector 18",
     });
     assert.deepEqual(fieldMissionNextAction(contract, 3, 0, 0), {
-        objective: "raid", instruction: "Go to Mission Outpost in Sector 18.", label: "Go to Mission Outpost",
+        objective: "raid", instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.", label: "Go to an Enemy Village",
     });
     assert.deepEqual(fieldMissionNextAction(contract, 3, 0, 18), {
-        objective: "raid", instruction: "Raid Mission Outpost.", label: "Raid Mission Outpost",
+        objective: "raid", instruction: "Travel to one of the other three villages and raid its village guard from the outskirts.", label: "Go to an Enemy Village",
     });
     assert.equal(fieldMissionNextAction(contract, 3, 1, 18).label, "Claim Reward");
     assert.equal(fieldMissionNextAction(contract, 0, 1, 18).objective, "explore");
+});
+
+test("every built-in field mission points to its own World Map sector", () => {
+    for (const contract of builtinFetchMissions) {
+        assert.equal(
+            fieldMissionNextAction(contract, 0, 0, 0).instruction,
+            `World Map → Sector ${contract.targetSector} → Explore.`,
+        );
+    }
+    const customContract = { ...mission("custom-field", "C Rank"), targetSector: 27 };
+    assert.equal(fieldMissionNextAction(customContract, 0, 0, 0).instruction, "World Map → Sector 27 → Explore.");
 });

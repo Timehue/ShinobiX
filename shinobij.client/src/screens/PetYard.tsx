@@ -5,7 +5,6 @@ import { masteryHasCapstone } from "../lib/profession-mastery";
 import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
 import { activeCarriedPetIds, activeCarriedPets, activeTrainingPetIds, maxPets } from "../lib/entitlements";
-import "../styles/index/05-pet-yard.css";
 import "../styles/pet-skin.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { Pet, PetExpeditionProvision, PetExpeditionReturnChoice, PetExpeditionRisk, PetExpeditionType, PetGrowthAllocation, PetTrainingType } from "../types/pet";

@@ -4,6 +4,7 @@ import {
     normalizePetTutorialProgress,
 } from "../../../shared/pet-tutorial";
 import type { Wanderer } from "./wanderers";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 
 export const PET_MENTOR_WANDERER_ID = "pet-mentor-tomoe";
 export const PET_MENTOR_NAME = "Tamer Tomoe";
@@ -20,7 +21,7 @@ export function petMentorWandererFor(
     ));
     if (sector == null || !lesson) return [];
     const order = PET_TUTORIAL_UNLOCKS.findIndex((entry) => entry.id === lesson.id) + 1;
-    const home = 4 * 12 + ((sector * 11 + order * 5) % 8) + 2;
+    const home = sectorWandererHomeTile(`${PET_MENTOR_WANDERER_ID}:${order}`, sector);
     const greeting = lesson.id === "bond"
         ? "Kuro found your companion's trail. His second tail has done that since his own Bondwake. Come hear what Tomoe wrote down."
         : `Kuro found your trail. The next field note covers ${lesson.shortTitle.toLowerCase()}, if you're willing to work through it.`;

@@ -88,7 +88,8 @@ test('Tracker reconnaissance requires the selected owned role, availability, and
     assert.match(caravanChoiceBlock(run, choice, character, now)!, /Tracker companion/);
     run.selectedPetId = tracker.id;
     assert.equal(caravanChoiceBlock(run, choice, character, now), null);
-    for (const pet of [{ ...tracker, role: 'sage' }, { ...tracker, training: {} }, { ...tracker, expedition: {} }]) {
+    assert.equal(caravanChoiceBlock(run, choice, { ...character, pets: [{ ...tracker, training: { endsAt: now + 60_000 } }] }, now), null);
+    for (const pet of [{ ...tracker, role: 'sage' }, { ...tracker, expedition: {} }]) {
         assert.ok(caravanChoiceBlock(run, choice, { ...character, pets: [pet] }, now));
     }
     assert.match(caravanChoiceBlock(run, choice, { ...character, petBreeding: { state: 'breeding', readyAt: now + 1000, parentIds: [tracker.id] } }, now)!, /busy/);

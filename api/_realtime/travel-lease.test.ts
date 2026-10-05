@@ -2,6 +2,8 @@ import { before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SECTOR_EXITS, SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
 import { MAX_WILD_SECTOR, WILD_SECTOR_IDS } from '../../shared/sector-geo.js';
+import { assertKvLockContext, currentKvLockContext } from '../_kv-lock-context.js';
+import { drainBackgroundWork } from '../_background-work.js';
 
 let kv: typeof import('../_storage.js').kv;
 let travel: typeof import('./travel-lease.js');
@@ -195,5 +197,57 @@ test('an action waits for a competing presence settle lock before committing arr
     } finally {
         clearTimeout(release);
         await kv.del(lockKey, saveKey, travel.travelLeaseKey(name));
+    }
+});
+
+test('cosmetic footfall drains independently while arrival and receipt writes retain their authority', async () => {
+    const name = `travel-footfall-${process.pid}`;
+    const saveKey = `save:${name}`;
+    await kv.set(saveKey, { character: { name }, currentSector: lease.originSector, _saveVersion: 7 });
+    await travel.setTravelLease(name, lease);
+    const originalIncr = kv.incr;
+    const originalCompareSet = kv.compareSet;
+    let release!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    let counted = false;
+    let fencedArrival = false;
+    kv.compareSet = async (key, expected, value, options) => {
+        if (key === saveKey) {
+            const held = currentKvLockContext()?.leases.map(owner => owner.key) ?? [];
+            assert.ok(held.includes(`lock:${travel.travelLeaseKey(name)}`));
+            assert.ok(held.includes(`lock:${saveKey}`));
+            assertKvLockContext();
+            fencedArrival = true;
+        }
+        return originalCompareSet(key, expected, value, options);
+    };
+    kv.incr = async (key, options) => {
+        assert.equal(currentKvLockContext(), undefined, 'only the cosmetic counter leaves the gameplay scope');
+        await gate;
+        assertKvLockContext();
+        counted = true;
+        return originalIncr(key, options);
+    };
+    try {
+        assert.equal(await travel.settleTravelLease(name, lease, lease.arrivalAt), true);
+        assert.equal(fencedArrival, true);
+        assert.equal(counted, false, 'cosmetic work does not hold the arrival response');
+        const saved = await kv.get<Record<string, unknown>>(saveKey);
+        assert.equal(saved?.currentSector, lease.destinationSector);
+        assert.equal(saved?._saveVersion, 8);
+        assert.equal(await travel.getTravelLease(name), null);
+        let drained = false;
+        const draining = drainBackgroundWork().then(() => { drained = true; });
+        await new Promise<void>(resolve => setImmediate(resolve));
+        assert.equal(drained, false, 'shutdown tracks the admitted cosmetic work');
+        release();
+        await draining;
+        assert.equal(counted, true);
+    } finally {
+        release();
+        await drainBackgroundWork();
+        kv.incr = originalIncr;
+        kv.compareSet = originalCompareSet;
+        await kv.del(saveKey, travel.travelLeaseKey(name));
     }
 });

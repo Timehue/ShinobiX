@@ -57,11 +57,14 @@ const forbiddenClientExtensions = new Set([
     // audio/video authoring projects and lossless intermediates
     '.aiff', '.aif', '.flac', '.als', '.flp', '.rpp', '.aup3', '.aep', '.prproj',
 ]);
-// 2026-09-28: The themed menu icons and Warfront portraits bring the measured
-// production artifact to 538,983,231 B (514.0 MiB), 15,167 B above the former
-// 514 MiB ceiling. Reserve 516 MiB for the shipped runtime art. JavaScript/CSS
-// startup and product budgets remain independently gated by sizecheck.
-const maxClientArtifactBytes = 516 * 1024 * 1024;
+// 2026-10-02: The approved Rally feature adds 161 active six-pose atlases
+// (3,816,022 B). With the new item art, the complete artifact measured
+// 544,996,017 B against the former 516 MiB ceiling. Reserve 520 MiB for this
+// content, and independently cap Rally at 4 MiB below. Exhaustive reference
+// review found no safe 3.9 MB asset removal; retain compressed delivery and
+// compatibility fallbacks. JavaScript/CSS and startup budgets are unchanged.
+const maxClientArtifactBytes = 520 * 1024 * 1024;
+const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
     console.error(`\n[verify:dist] FAILED — ${msg}\n`);
@@ -109,6 +112,16 @@ function walkFiles(dir) {
 const clientFiles = walkFiles(clientDist);
 const clientRelativeFiles = clientFiles.map((file) => relative(clientDist, file).replaceAll('\\', '/'));
 const clientRelativeFileSet = new Set(clientRelativeFiles);
+const rallyAtlasFiles = clientFiles.filter((file) =>
+    relative(clientDist, file).replaceAll('\\', '/').startsWith('pet-rally/'));
+if (rallyAtlasFiles.length !== 161 || rallyAtlasFiles.some((file) => !file.endsWith('.webp'))) {
+    fail('Rally must ship exactly 161 WebP atlases');
+}
+const rallyAtlasBytes = rallyAtlasFiles.reduce((bytes, file) => bytes + statSync(file).size, 0);
+if (rallyAtlasBytes > maxRallyAtlasBytes) {
+    fail(`Rally atlases use ${rallyAtlasBytes} B; ceiling is ${maxRallyAtlasBytes} B`);
+}
+console.log(`[verify:dist] Rally: ${rallyAtlasFiles.length} atlases / ${rallyAtlasBytes} B (4 MiB ceiling).`);
 // The public copy is filtered by Vite. Verify the actual artifact against the
 // approved runtime manifests, including bytes, and reject retired full GLBs.
 const petLodManifest = JSON.parse(readFileSync(join(root, 'shinobij.client', 'public', 'pet-models', 'warfront-lod', 'manifest.json'), 'utf8'));

@@ -37,8 +37,8 @@ export type SectorPoolUsage = { explores: number; chests: number };
 export type SectorPoolCaps = { explores: number; chests: number; ownerBonus: number };
 
 // Mirrors the server defaults (api/world/_sector-pool.ts); replaced by whatever
-// the world-state GET ships. 1,500 explores = 10 maxed players (150/day each)
-// to drain a non-owner sector, 15 for the owning village; 1,500 × the authored
+// the world-state GET ships. 1,500 explores = 15 maxed players (100/day each)
+// to drain a non-owner sector, 23 for the owning village; 1,500 × the authored
 // 0.15 chest rate = the 225 chest cap exactly, so chests never bind first.
 const DEFAULT_CAPS: SectorPoolCaps = { explores: 1500, chests: 225, ownerBonus: 0.5 };
 

@@ -1,8 +1,8 @@
 import { memo, Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree, _roots, type GLProps } from '@react-three/fiber';
 import { RendererRetirement } from '../../components/RendererRetirement';
 import * as THREE from 'three';
-import { rallyPath, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import type { RallyState } from '../../../../shared/sunscar/rally-types';
 import { RallyPetModel } from './RallyPetModel';
 import { RallyTrackScene } from './RallyTrackScene';
@@ -15,29 +15,61 @@ import { RallyShotEffects } from './RallyShotEffects';
 import { newRallyQualitySample, rallyStartsLight, sampleRallyQuality } from './rally-quality';
 import { RallyAimGuide } from './RallyAimGuide';
 
-function RaceClock({ advance }: { advance: (delta: number) => void }) {
-    useFrame((_, delta) => advance(Math.min(delta, .1)), -2);
+type RallyRendererDefaults = Parameters<Extract<GLProps, (defaults: never) => unknown>>[0];
+
+if (import.meta.env.MODE === 'sunscar-modes-qa') {
+    (window as Window & { sunscarRallyRootCount?: () => number }).sunscarRallyRootCount = () => _roots.size;
+}
+
+let webglAvailable: boolean | undefined;
+function rallyWebglAvailable() {
+    if (webglAvailable !== undefined) return webglAvailable;
+    // Fiber configures its renderer asynchronously, outside React's error
+    // boundary. Check once before mounting it so missing WebGL can recover.
+    try {
+        const probe = document.createElement('canvas');
+        const context = probe.getContext('webgl2', { antialias: false });
+        webglAvailable = !!context;
+        context?.getExtension('WEBGL_lose_context')?.loseContext();
+    } catch { webglAvailable = false; }
+    return webglAvailable;
+}
+
+function RallyShaderPreparation() {
+    const { gl, scene, camera } = useThree();
+    useEffect(() => {
+        // Include scenery beyond the starting camera and inactive pooled FX.
+        // Compile during preparation, before Ready to race can start the clock.
+        gl.compile(scene, camera);
+    }, [gl, scene, camera]);
     return null;
 }
-function RallyAdaptiveQuality({ state, onLight }: { state: RefObject<RallyState>; onLight: () => void }) {
-    const sample = useRef(newRallyQualitySample()), lastTick = useRef(0);
+function RallyPresentationClock({ onFrame }: { onFrame: (delta: number) => void }) {
+    useFrame((_, delta) => onFrame(delta));
+    return null;
+}
+function RallyAdaptiveQuality({ state, moving, onLight }: { state: RefObject<RallyState>; moving: RefObject<boolean>; onLight: () => void }) {
+    const sample = useRef(newRallyQualitySample());
     useFrame((_, delta) => {
         const race = state.current;
-        if (sampleRallyQuality(sample.current, delta, race.tick !== lastTick.current && !race.finished)) onLight();
-        lastTick.current = race.tick;
+        // The simulation drops long display gaps. Running can therefore be
+        // true while the tick is unchanged on a severely overloaded GPU.
+        if (sampleRallyQuality(sample.current, delta, moving.current && !race.finished)) onLight();
     });
     return null;
 }
 function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light: boolean }) {
     const frames = useRef<number[]>([]);
     const frameCount = useRef(0);
+    const finishFrameCount = useRef(0);
     const elapsed = useRef(0);
     useFrame(({ gl }, delta) => {
         if (import.meta.env.MODE !== 'sunscar-modes-qa') return;
         frameCount.current++;
+        if (state.current.finished) finishFrameCount.current++;
         frames.current.push(delta); if (frames.current.length > 120) frames.current.shift();
         elapsed.current += delta;
-        if (elapsed.current < .1 && frameCount.current > 1) return;
+        if (elapsed.current < .1 && frameCount.current > 1 && !state.current.finished) return;
         elapsed.current = 0;
         // Read-only instrumentation, removed from the normal production build.
         queueMicrotask(() => {
@@ -45,6 +77,7 @@ function RallyQaMetrics({ state, light }: { state: RefObject<RallyState>; light:
                 state: structuredClone(state.current), geometry: gl.info.memory.geometries, textures: gl.info.memory.textures,
                 calls: gl.info.render.calls, triangles: gl.info.render.triangles,
                 frameCount: frameCount.current,
+                finishFrameCount: finishFrameCount.current,
                 quality: light ? 'light' : 'full', pixelRatio: gl.getPixelRatio(),
                 fps: frames.current.length / frames.current.reduce((sum, time) => sum + time, 0),
             };
@@ -88,12 +121,13 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
     useFrame(() => {
         const race = state.current;
         const p = race.racers[0];
-        const path = rallyPath(rallyTrack(race.trackId), p.distance);
+        const track = rallyTrack(race.trackId);
         const attr = points.current?.geometry.attributes.position as THREE.BufferAttribute | undefined;
         if (!attr) return;
         for (let i = 0; i < 72; i++) {
             const age = ((i / 72 + race.tick / 180) % 1);
-            attr.setXYZ(i, path.x + p.lane * 2.65 + Math.sin(i * 13) * age * 1.7, path.y + .08 + age * .7, path.z + age * 6);
+            const trail = rallyLanePosition(track, p.distance - age * 6, p.lane * 2.65 + Math.sin(i * 13) * age * 1.7);
+            attr.setXYZ(i, trail.x, trail.y + .08 + age * .7, trail.z);
         }
         attr.needsUpdate = true;
         if (points.current) points.current.visible = p.speed > 3 && p.jump < .2 && p.finishTick === null;
@@ -105,22 +139,39 @@ function Dust({ state }: { state: RefObject<RallyState> }) {
  * the race from the ref each frame). That was about half of the race's
  * JavaScript. Devices on the shared lite gate (weak touch hardware, reduced
  * motion, or the liteFx.v1 override) draw at 1x without MSAA. */
-export default memo(function RallyCanvas({ state, advance, onReady, onFail, reducedMotion, frameloop }: {
-    state: RefObject<RallyState>; advance: (delta: number) => void; onReady: (id: string) => void; onFail: () => void; reducedMotion: boolean; frameloop: 'always' | 'demand';
+export default memo(function RallyCanvas({ state, onReady, onPresentationFrame, onFail, onEconomy, allowEconomy, reducedMotion, frameloop, moving }: {
+    state: RefObject<RallyState>; onReady: (id: string) => void; onPresentationFrame: (delta: number) => void; onFail: () => void; onEconomy: () => void; allowEconomy: boolean; reducedMotion: boolean; frameloop: 'always' | 'demand'; moving: RefObject<boolean>;
 }) {
     const track = rallyTrack(state.current.trackId);
+    const [supported] = useState(rallyWebglAvailable);
+    useEffect(() => { if (!supported) onFail(); }, [supported, onFail]);
     const [lite] = useState(() => {
         try { const override = localStorage.getItem('liteFx.v1'); if (override === '0' || override === '1') return override === '1'; } catch { /* storage may be unavailable */ }
         return isLowEndMobile() || rallyStartsLight(navigator.hardwareConcurrency, (navigator as Navigator & { deviceMemory?: number }).deviceMemory);
     });
     const [light, setLight] = useState(lite);
     const lowerQuality = useCallback(() => setLight(true), []);
-    return <Canvas shadows={light ? false : 'percentage'} dpr={light ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: light ? 150 : 220 }} gl={{ antialias: !lite, powerPreference: 'high-performance' }}
-        onCreated={({ gl }) => { gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
+    const createRenderer = useCallback(async (defaults: RallyRendererDefaults): Promise<THREE.WebGLRenderer> => {
+        try {
+            return new THREE.WebGLRenderer({ ...defaults, canvas: defaults.canvas as HTMLCanvasElement, antialias: !lite, powerPreference: 'high-performance' });
+        } catch {
+            const failedRoot = _roots.get(defaults.canvas)?.store.getState();
+            // Supply cleanup's scene directly: store.set would notify Fiber's
+            // invalidation subscriber before the failed renderer exists.
+            if (failedRoot && !failedRoot.scene) failedRoot.scene = new THREE.Scene();
+            onFail();
+            // Fiber awaits this factory outside React's boundary. Abandon the
+            // failed setup while the parent unmounts Canvas for the 2D renderer;
+            // neither a rejection nor an invalid renderer may reach configure.
+            return new Promise<THREE.WebGLRenderer>(() => {});
+        }
+    }, [lite, onFail]);
+    if (!supported) return null;
+    return <Canvas shadows={light ? false : 'percentage'} dpr={light ? 1 : [1, 1.5]} frameloop={frameloop} camera={{ fov: 57, near: .1, far: light ? 150 : 220 }} gl={createRenderer}
+        onCreated={({ gl }) => { gl.debug.checkShaderErrors = import.meta.env.DEV; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.05; }}>
         <RendererRetirement />
         <CanvasLifecycle onFail={onFail}/>
-        <RaceClock advance={advance} />
-        {!light && <RallyAdaptiveQuality state={state} onLight={lowerQuality}/>}
+        {(!light || allowEconomy) && <RallyAdaptiveQuality key={light ? 'light' : 'full'} state={state} moving={moving} onLight={light ? onEconomy : lowerQuality}/>}
         {import.meta.env.MODE === 'sunscar-modes-qa' && <RallyQaMetrics state={state} light={light}/>}
         <RallySun state={state} light={light}/>
         <directionalLight position={[12, 18, 24]} intensity={.9} color="#d5e9ff" />
@@ -131,7 +182,9 @@ export default memo(function RallyCanvas({ state, advance, onReady, onFail, redu
         <RallyAimGuide state={state}/>
         {state.current.racers.map((racer, index) => <RallyPetEffects key={racer.id} state={state} index={index} light={light || reducedMotion} reducedMotion={reducedMotion} color={index === 0 ? '#ffe6a0' : '#fff0d5'}/>)}
         {state.current.racers.map((racer, index) => <PetModelBoundary key={racer.id} onFail={onFail}><Suspense fallback={null}>
-            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} />
+            <RallyPetModel state={state} index={index} onReady={onReady} reducedMotion={reducedMotion} moving={moving} />
         </Suspense></PetModelBoundary>)}
+        <RallyShaderPreparation />
+        <RallyPresentationClock onFrame={onPresentationFrame} />
     </Canvas>;
 });

@@ -1,7 +1,10 @@
 import { playerLensDiscipline } from "../lib/player-lens-discipline";
+import { CombatGridAppearanceControls, CombatGridOutline } from "../components/CombatGridAppearance";
+import { useCombatGridAppearance } from "../lib/use-combat-grid-appearance";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
+import { combatItemTooltip } from "../lib/combat-item-tooltip";
 import { getAllJutsus } from "../lib/jutsu-loadout";
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import "../styles/battle-skin.css";
 import { visiblePoll } from "../lib/poll";
 import { retryArenaSettlement } from "../lib/arena-settlement-retry";
@@ -66,6 +69,8 @@ import {
     PlainCombatBattleLog,
 } from "../components/CombatHudLayout";
 import { CombatJutsuMeta } from "../components/CombatJutsuMeta";
+import { AcademyJutsuGuide } from "../components/AcademyJutsuGuide";
+import { AcademyClickGuide, type AcademyClickStep } from "../components/AcademyClickGuide";
 import { JutsuEffectCards } from "../components/JutsuEffectCards";
 import { CombatDetailPortal } from "../components/CombatDetailPortal";
 import {
@@ -77,6 +82,7 @@ import {
 } from "../lib/combat-action-display";
 import { FighterHpBadge } from "../components/FighterHpBadge";
 import { BattlefieldActor } from "../components/BattlefieldActor";
+import { PetSummonEntrance } from "../components/PetSummonEntrance";
 import { battlefieldFacingTowardNearest, battlefieldSpriteHeadroom } from "../lib/battlefield-sprite";
 import { jutsuImpactPreviewTiles } from "../lib/jutsu-impact-preview";
 import { groundZoneTilesForDisplay } from "../lib/ground-zone-display";
@@ -85,30 +91,19 @@ import { jutsuDetailDescription, jutsuTargetingLabel } from "../lib/jutsu-effect
 import { isImageAvatar } from "../lib/avatar";
 import { battlefieldAiSprite } from "../lib/battlefield-actor-art";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-import { petCardImage, petStripVariant } from "../lib/pet-battle-anim";
-import { firstSharedImage, petVisualVariantClass, variantImageKeys } from "../lib/pet-visual-variant";
+import { petPortraitImage } from "../lib/pet-battle-anim";
+import { petVisualVariantClass } from "../lib/pet-visual-variant";
 
 import { getAllItems } from "../lib/items";
-import type { Pet } from "../types/pet";
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { unavailableCompanionSummonCopy } from "../lib/companion-summon-copy";
 import { playerSlug } from "../lib/utils";
 
-// The board token is a CIRCULAR orb (same treatment as the player/enemy), so the
-// pet's PORTRAIT is the right art. petCardImage reaches for the un-clipped
-// FULL-BODY battle sprite (`petbody:` / bodyImage) first — that's built for the
-// Pet Arena and reads wrong clipped into a circle. Prefer the portrait (`pet:` /
-// pet.image), then fall back to petCardImage so portrait-less starters still show
-// their baked idle pose instead of bare initials.
-function petOrbPortrait(pet: Pet, shared: Record<string, string>): string {
-    return firstSharedImage(shared, variantImageKeys("pet:", pet, [pet.id, petStripVariant(pet.id)]))
-        || pet.image
-        || petCardImage(pet, shared);
-}
 import { biomeLabel } from "../data/world";
 import { equipSlotForItem } from "../lib/equipment";
 import { pvpAffectsOpponent, tagMatchesName } from "../lib/tags";
 import { hollowGateCombatDirective } from "../../../shared/hollow-gate-combat-director";
+import { BASIC_CLEAR_RANGE } from "../../../shared/combat-basic-actions";
 import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 
 // ─── Solo Arena Fight (missions + story bosses) ───────────────────────────────
@@ -138,8 +133,16 @@ import type { HollowGateHoundKind } from "../../../shared/hollow-gate-contract";
 // squad rail, pylons, hazards, or spire chrome to draw.
 
 type Mode = "idle" | "move" | "attack" | "jutsu" | "weapon" | "clear";
+
+const mobileCombatQuery = "(max-width: 979px)";
+function subscribeMobileCombat(onChange: () => void) {
+    const media = window.matchMedia(mobileCombatQuery);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+}
+const isMobileCombat = () => window.matchMedia(mobileCombatQuery).matches;
 type JutsuLike = { id?: string; name?: string; type?: string; element?: string; target?: string; ap?: number; range?: number; effectPower?: number; method?: string; cooldown?: number; chakraCost?: number; staminaCost?: number; image?: string; description?: string; battleDescription?: string; tags?: Array<{ name?: string; percent?: number }> };
-type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; weaponRange?: number; apCost?: number };
+type ItemLike = { id?: string; name?: string; slot?: string; rarity?: string; image?: string; description?: string; weaponRange?: number; apCost?: number };
 /** A VFX plate in flight on the board. `target` is the anchoring actor's id. */
 type ArenaCombatVfx = { id: string; target: string; spec: CombatVfxSpec };
 /** A floating hit number / status label over a fighter's tile (cosmetic). */
@@ -237,7 +240,7 @@ export function MissionArenaFight({
     /**
      * In-battle coaching for a brand-new shinobi's first authored fights
      * (lib/first-fight-coach.ts). `"academySpar"` keeps the read-only
-     * control-level hints in the combat feedback band (the sealed spar would
+     * control-level hints plus a skippable jutsu walkthrough (the sealed spar would
      * otherwise be the one fight with no guidance); the Drill, first-chapter and
      * Errand lessons add a few once-only lines in the companion's voice through
      * the ally bark bubble. Display-only: nothing here gates an action. Absent
@@ -288,9 +291,15 @@ export function MissionArenaFight({
     outcomeFn?: (runId: string, playerName: string) => Promise<unknown>;
 }) {
     const [session, setSession] = useState<ServerArenaSession>(initialSession);
+    const mobileCombat = useSyncExternalStore(subscribeMobileCombat, isMobileCombat, () => false);
     const [mode, setMode] = useState<Mode>("idle");
+    const gridAppearance = useCombatGridAppearance(String(session.map.biome ?? "central"), mode !== "idle");
     const [selJutsu, setSelJutsu] = useState<JutsuLike | null>(null);
     const [inspectedJutsuId, setInspectedJutsuId] = useState("");
+    const [academyGuideEnabled, setAcademyGuideEnabled] = useState(true);
+    const [academyGuideJutsuId, setAcademyGuideJutsuId] = useState("");
+    const [academyCoachOpen, setAcademyCoachOpen] = useState(false);
+    const academyExplainedRef = useRef(new Set<string>());
     const [selWeaponId, setSelWeaponId] = useState<string>("");
     // Which tile the cursor/keyboard is on, so a tile-targeted cast can preview
     // the footprint it would leave there. Hover-only by nature — see
@@ -961,7 +970,11 @@ export function MissionArenaFight({
         enemyShield: enemyShieldNow,
         myDebuffs: myActiveDebuffs,
         canAttack: enemyInMelee && myAp >= attackAp && myStamina >= 10,
-        canMove: myAp >= moveAp,
+        attackAp,
+        canMove: myAp >= moveAp && towerNeighbors(myPos, w, h).some(tile =>
+            !session.map.blockedTiles.includes(tile)
+            && !session.actors.some(actor => actor.hp > 0 && actor.pos === tile)
+            && !activeBarrierTilesForDisplay(session.actors.flatMap(actor => actor.statuses), session.round, w * h).has(tile)),
         canCastJutsu,
         hasFlicker: myJutsu.some(isMoveJutsu),
         hasKunai: myWeapons.some((weapon) => weapon.range >= 2),
@@ -980,7 +993,7 @@ export function MissionArenaFight({
             enemyShieldSeen: coachHistory.enemyShieldSeen || enemyShieldNow > 0,
         },
     }, coachSeenRef.current) : null;
-    const coachBand = coachLine?.surface === "band" ? coachLine.text : "";
+    const coachBand = coachLine?.surface === "band" && (coach !== "academySpar" || academyGuideEnabled) ? coachLine.text : "";
     const coachBubbleId = coachLine?.surface === "bubble" ? coachLine.id : "";
     const coachBubbleText = coachLine?.surface === "bubble" ? coachLine.text : "";
     useEffect(() => {
@@ -1023,7 +1036,7 @@ export function MissionArenaFight({
     // Whether the (single) enemy is reachable by the currently-armed action.
     const enemyInRange = (() => {
         if (!enemy || enemy.hp <= 0 || myPos < 0) return false;
-        const range = mode === "clear" ? Infinity : mode === "jutsu" ? armedJutsuRange : mode === "weapon" ? weaponRange : 1;
+        const range = mode === "clear" ? BASIC_CLEAR_RANGE : mode === "jutsu" ? armedJutsuRange : mode === "weapon" ? weaponRange : 1;
         return towerHexDistance(myPos, enemy.pos, w) <= range;
     })();
 
@@ -1113,6 +1126,9 @@ export function MissionArenaFight({
                 // Tutorial guidance follows authoritative success, never intent.
                 if (action.type === "attack") setSparAttacked(true);
                 if (action.type === "jutsu") setSparCasted(true);
+                if (coach === "academySpar" && academyGuideEnabled && !sparCasted && action.type === "jutsu" && res.session.status !== "done") {
+                    setAcademyCoachOpen(true);
+                }
                 if (coach) {
                     const cast = action.type === "jutsu" ? myJutsu.find((j) => j.id === action.jutsuId) : undefined;
                     const heavy = !!cast && Number(cast.ap ?? 0) >= 60;
@@ -1171,6 +1187,10 @@ export function MissionArenaFight({
         setSelJutsu(same ? null : j);
         setSelWeaponId("");
         setMode(same ? "idle" : "jutsu");
+        if (!same && coach === "academySpar" && academyGuideEnabled && j.id && !academyExplainedRef.current.has(j.id)) {
+            setInspectedJutsuId("");
+            setAcademyGuideJutsuId(j.id);
+        }
     }
     function armWeapon(id: string) {
         if (busy || !myTurn) return;
@@ -1191,12 +1211,12 @@ export function MissionArenaFight({
     const enemyBattleSprite = battlefieldAiSprite(enemyVisual, sharedImages);
     // The pet's portrait is resolved from the player's OWN save (character.pets) rather
     // than sealed into the session — a base64 pet image would bloat every 2.5s poll.
-    // Portrait-first (see petOrbPortrait) — `pet.image` alone misses published art.
+    // Portrait-first — `pet.image` alone misses published and replacement art.
     const companionPetId = String(companion?.character?.visual ?? "");
     const companionPet = companionPetId ? (character.pets ?? []).find((p) => p.id === companionPetId) : undefined;
     const activePet = (character.pets ?? []).find((pet) => pet.id === character.activePetId);
     const unavailableCompanionCopy = unavailableCompanionSummonCopy(activePet);
-    const companionImage = companionPet ? petOrbPortrait(companionPet, sharedImages ?? {}) : "";
+    const companionImage = companionPet ? petPortraitImage(companionPet, sharedImages ?? {}) : "";
     const companionRoundsLeft = Number(companion?.character?.companionRoundsLeft ?? 0);
 
     // The sealed session strips jutsu art (combat fields only), so card thumbnails
@@ -1227,20 +1247,105 @@ export function MissionArenaFight({
 
     // The armed-action hint line under the action bar.
     const targetingHint = !myTurn ? "" :
-        mode === "move" ? "Click a highlighted tile to move." :
+        mode === "move" ? (moveTiles.size > 0 ? "Click a highlighted tile to move." : "No open adjacent tile. Choose another action.") :
         mode === "attack" ? (enemyInMelee ? `Click ${enemyName} to strike.` : `Move next to ${enemyName} to strike.`) :
         mode === "weapon" ? `Click ${enemyName} if in range.` :
-        mode === "clear" ? `Click ${enemyName} to strip its buffs.` :
+        mode === "clear" ? `Click ${enemyName} within ${BASIC_CLEAR_RANGE} tiles to strip its buffs.` :
         mode === "jutsu" && isSelfCastJutsu(selJutsu) ? `Click yourself to cast ${selJutsu?.name ?? "it"}.` :
-        mode === "jutsu" && isMoveJutsu(selJutsu) ? `Click a highlighted tile to flicker there.` :
-        mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? `Click a highlighted tile to place ${selJutsu?.name ?? "the zone"}.` :
-        mode === "jutsu" && selJutsu ? `Click ${enemyName} to cast ${selJutsu?.name ?? "it"}.` : "";
+        mode === "jutsu" && isMoveJutsu(selJutsu) ? (tileTargets.size > 0 ? "Click a highlighted tile to move there." : "No open destination in range. Choose another action.") :
+        mode === "jutsu" && selJutsu?.target === "EMPTY_GROUND" ? (tileTargets.size > 0 ? `Click a highlighted tile to place ${selJutsu?.name ?? "the zone"}.` : "No open destination in range. Choose another action.") :
+        mode === "jutsu" && selJutsu ? (enemyInRange
+            ? `Click ${enemyName} to cast ${selJutsu?.name ?? "it"}.`
+            : "Out of range. Use Move or a movement jutsu first.") : "";
 
     // Keep this feedback band present before, during, and after targeting. Toggling
     // the grid child used to resize the board row; useBoardScale observed that
     // change and visibly zoomed the battlefield on every jutsu click.
     const showTargetingHint = myTurn && !!targetingHint;
     const actionNotice = reject || (showTargetingHint ? targetingHint : "");
+
+    const academyGuided = coach === "academySpar" && academyGuideEnabled && !done;
+    const academyGuideJutsu = academyGuided && myTurn && !busy && mode === "jutsu"
+        && selJutsu?.id === academyGuideJutsuId ? selJutsu : null;
+    const academyTargetReady = !!selJutsu && (isSelfCastJutsu(selJutsu)
+        || (isMoveJutsu(selJutsu) || selJutsu.target === "EMPTY_GROUND" ? tileTargets.size > 0 : enemyInRange));
+    const academyNextStep: AcademyClickStep | null = (() => {
+        if (!academyGuided || busy) return null;
+        const command = (action: string, title: string, description: string): AcademyClickStep => ({
+            selector: `#combat [data-academy-action="${action}"]`, title, description,
+        });
+        const tile = (position: number, title: string, description: string): AcademyClickStep => ({
+            selector: `#combat .hex-tile[data-tile="${position}"]`, title, description,
+        });
+        const closest = (tiles: Iterable<number>) => [...tiles].sort((a, b) =>
+            towerHexDistance(a, enemyPos, w) - towerHexDistance(b, enemyPos, w))[0];
+        const wait = command("wait", "End your turn", "Tap Wait. Your AP refills at the start of your next turn.");
+        if (mobileCombat && tabs.tab === "log") return {
+            selector: '#combat .battle-tabbar [role="tab"]:first-child', title: "Return when ready",
+            description: "Read the result below, then tap Actions to continue training.",
+        };
+        if (!myTurn) return { selector: "#academy-coach-trigger", title: "Watch the dummy",
+            description: "It is the dummy’s turn. Your controls return when your AP refills." };
+        if (outOfActions) return wait;
+        const ready = myJutsu.filter(j => j.id && myAp >= adjustedActionAp(Number(j.ap ?? 0))
+            && myChakra >= Number(j.chakraCost ?? 0) && myStamina >= Number(j.staminaCost ?? 0)
+            && Number(myActor?.cooldowns?.[j.id ?? ""] ?? 0) <= 0
+            && !isElementallySealedForDisplay(myActor?.statuses, j.element, session.round));
+        const reachable = (j: JutsuLike) => {
+            if (isSelfCastJutsu(j)) return true;
+            const range = Math.max(1, Number(j.range) || (j.method === "INSTANT_EFFECT" || j.method === "AOE_LINE" ? 4 : 1));
+            if (isMoveJutsu(j) || j.target === "EMPTY_GROUND") return [...towerTilesInRange(myPos, range, w, h)]
+                .some(t => !unavailableGroundTiles.has(t));
+            return !!enemy && enemy.hp > 0 && towerHexDistance(myPos, enemyPos, w) <= range;
+        };
+        const readyWithTarget = ready.filter(reachable);
+        const selectJutsu = (j: JutsuLike, reason = ""): AcademyClickStep => ({
+            selector: `#mission-jutsu-select-${CSS.escape(j.id!)}`, title: `Tap ${j.name}`,
+            description: reason || "Check its power and cost before choosing a target. Selecting the card spends nothing.",
+        });
+        const canMoveNow = myAp >= moveAp && towerNeighbors(myPos, w, h).some(t => !unavailableGroundTiles.has(t));
+        const move = (reason: string) => command("move", "Move into range", `${reason} Tap Move, then a highlighted empty tile (${moveAp} AP).`);
+        const recovery = (reason: string): AcademyClickStep => canMoveNow ? move(reason)
+            : readyWithTarget.length ? selectJutsu(readyWithTarget[0]!, `${reason} Try this available jutsu instead.`)
+                : { ...wait, description: `${reason} Tap Wait to recover AP next turn.` };
+        let step: AcademyClickStep;
+        if (mode === "jutsu" && selJutsu && ready.some(j => j.id === selJutsu.id)) {
+            const cost = adjustedActionAp(Number(selJutsu.ap ?? 0));
+            if (isSelfCastJutsu(selJutsu)) step = tile(myPos, "Tap your ninja", `Cast ${selJutsu.name} on yourself (${cost} AP).`);
+            else if (isMoveJutsu(selJutsu) || selJutsu.target === "EMPTY_GROUND") {
+                const destination = closest(hittingTargets.size ? hittingTargets : tileTargets);
+                step = destination !== undefined ? tile(destination, "Tap this empty tile",
+                    `${isMoveJutsu(selJutsu) ? "Move here with" : "Place"} ${selJutsu.name} (${cost} AP). Other highlighted tiles also work.`)
+                    : recovery("This jutsu has no open destination.");
+            } else step = enemyInRange ? tile(enemyPos, "Tap the highlighted dummy", `Cast ${selJutsu.name} on ${enemyName} (${cost} AP).`)
+                : recovery("The dummy is out of range.");
+        } else if (mode === "move") {
+            const destination = closest(moveTiles);
+            step = destination !== undefined ? tile(destination, "Tap this empty tile", `Move here for ${moveAp} AP. Other highlighted tiles also work.`)
+                : recovery("There is no open adjacent tile.");
+        } else if (mode === "weapon" || mode === "attack" || mode === "clear") {
+            step = enemyInRange ? tile(enemyPos, "Tap the highlighted dummy", targetingHint.replace("Click", "Tap"))
+                : recovery("The dummy is out of range.");
+        } else {
+            const offensive = readyWithTarget.find(j => !isSelfCastJutsu(j) && !isMoveJutsu(j));
+            const recommended = offensive ?? readyWithTarget[0];
+            if (!sparCasted && recommended) step = selectJutsu(recommended);
+            else if (enemyInMelee && myAp >= attackAp && myStamina >= 10) step = command("attack", "Strike the dummy", `Tap Attack to strike immediately (${attackAp} AP, 10 SP).`);
+            else if (!enemyInMelee && canMoveNow) step = move("Get closer to the dummy.");
+            else if (recommended) step = selectJutsu(recommended);
+            else step = wait;
+        }
+        return reject ? { ...step, description: `${reject} ${step.description}` } : step;
+    })();
+    const academyClickStep = !academyCoachOpen && !academyGuideJutsu && !inspectedJutsu ? academyNextStep : null;
+    const academyPrompt = !academyGuideEnabled ? "Academy jutsu lessons paused."
+        : busy ? "Resolving your action…"
+        : !myTurn ? "Watch the dummy’s turn. Your AP refills next turn."
+        : reject || targetingHint || academyNextStep?.description || coachBand;
+    function closeAcademyGuide() {
+        if (academyGuideJutsuId) academyExplainedRef.current.add(academyGuideJutsuId);
+        setAcademyGuideJutsuId("");
+    }
 
     const playerAp = myTurn ? session.activeAp : (done ? 0 : 100);
     const enemyAp = enemyActive ? session.activeAp : (done ? 0 : 100);
@@ -1252,7 +1357,7 @@ export function MissionArenaFight({
     return (
         <ShinobiCombatShell
             mode="solo"
-            className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}`}
+            className={`pvp-battle-layout mission-arena-fight arena-bg-${biome}${storyTheme ? " story-arena-fight" : ""}${academyGuided ? " academy-guided" : ""}`}
             style={storyTheme?.backdropImage ? { background: `linear-gradient(rgba(6,10,20,0.82), rgba(6,10,20,0.9)), url(${storyTheme.backdropImage}) center/cover fixed` } : undefined}
         >
             {/* Story flavor overlays (display-only) — float above the arena board. */}
@@ -1269,7 +1374,7 @@ export function MissionArenaFight({
                     </div>
                 </div>
             )}
-            <CombatHudLayout className="combat-log-wide" hasActionNotice>
+            <CombatHudLayout className="combat-log-wide" hasActionNotice={!mobileCombat}>
                 {/* Player dossier */}
                 <CombatSideHud
                     name={me}
@@ -1294,7 +1399,8 @@ export function MissionArenaFight({
                         subtitle={<>Round {session.round} | {eventLabel ?? 'Shinobi Duel'}</>}
                     />
 
-                    <CombatEnvironmentStrip>
+                    <CombatEnvironmentStrip className="combat-grid-environment">
+                        <div className="combat-grid-environment-details">
                         <span className="twp-strip-biome">{biomeLabel(biome as Parameters<typeof biomeLabel>[0])}</span>
                         <span className="twp-strip-sep">·</span>
                         <span className="twp-strip-label">Terrain</span>
@@ -1319,6 +1425,8 @@ export function MissionArenaFight({
                                 </span>
                             </>
                         )}
+                        </div>
+                        <CombatGridAppearanceControls appearance={gridAppearance} />
                     </CombatEnvironmentStrip>
 
                     <CombatApPanel>
@@ -1327,7 +1435,7 @@ export function MissionArenaFight({
                             <div className="hud-bar ap-display-bar"><span style={{ width: `${playerAp}%` }} /></div>
                             <small>{playerAp}/100 | {myTurn ? "Active" : "Waiting"}</small>
                         </div>
-                        {myTurn && !done ? (
+                        {myTurn && !done && coach !== "academySpar" ? (
                             <CombatRoundTimer
                                 active={myTurn && !done}
                                 resetSignal={session.round * 100 + session.actionsThisTurn}
@@ -1336,8 +1444,12 @@ export function MissionArenaFight({
                             />
                         ) : (
                             <div className="round-timer-display round-timer-inactive">
-                                <div className="round-timer-ring"><span className="round-timer-num">—</span></div>
-                                <small>{enemyActive ? `${enemyName}'s Turn` : "—"}</small>
+                                <div className="round-timer-ring">{coach === "academySpar" && !done
+                                    ? <button type="button" id="academy-coach-trigger" className="academy-coach-trigger"
+                                        aria-label="Open Academy guide" aria-haspopup="dialog" aria-expanded={academyCoachOpen}
+                                        aria-controls="academy-coach-dialog" onClick={() => setAcademyCoachOpen(true)}>?</button>
+                                    : <span className="round-timer-num">—</span>}</div>
+                                <small title={coach === "academySpar" ? "Academy practice has no turn timer." : undefined}>{academyGuideJutsu ? "Reading" : enemyActive ? `${enemyName}'s Turn` : coach === "academySpar" && !done ? "Practice" : "—"}</small>
                             </div>
                         )}
                         <div>
@@ -1347,7 +1459,7 @@ export function MissionArenaFight({
                         </div>
                     </CombatApPanel>
 
-                    <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef}>
+                    <div className={`hex-battlefield hex-${biome}${gateDirective ? ` hollow-gate-combat hg-tone-${gateDirective.tone} hg-phase-${gateDirective.phase}` : ""}`} ref={battlefieldCallbackRef} {...gridAppearance.boardProps}>
                         <div style={(() => {
                             const scaledW = layer.width * effectiveScale;
                             const scaledH = layer.height * effectiveScale;
@@ -1377,7 +1489,7 @@ export function MissionArenaFight({
                                 {companion && isImageAvatar(companionImage) && (() => {
                                     const { left, top } = towerHexPixel(companion.pos, w);
                                     return <div key="pet-orb" className={`avatar-orb pet-summon-orb ${companionPet ? petVisualVariantClass(companionPet) : ""}`} data-battlefield-actor-id="companion" style={{ position: "absolute", left: left + HEX_W / 2 - ORB / 2, top: top + HEX_H * 0.85 - ORB, width: ORB, height: ORB, zIndex: 9, pointerEvents: "none", transition: "left 280ms ease, top 280ms ease" }}>
-                                        <img className="tiny-map-avatar" src={companionImage} alt={companion.name} />
+                                        <PetSummonEntrance><img className="tiny-map-avatar" src={companionImage} alt={companion.name} /></PetSummonEntrance>
                                     </div>;
                                 })()}
                                 {companion && (() => {
@@ -1495,6 +1607,7 @@ export function MissionArenaFight({
                                             onFocus={tileTargets.has(i) ? () => setHoverTile(i) : undefined}
                                             onBlur={tileTargets.has(i) ? () => setHoverTile(t => (t === i ? null : t)) : undefined}
                                         >
+                                            <CombatGridOutline />
                                             {isBarrier ? <span className="combat-barrier-marker" aria-hidden="true">WALL</span>
                                                 : i === myPos ? ""
                                                 : i === enemyPos ? ""
@@ -1506,11 +1619,16 @@ export function MissionArenaFight({
                             </div>
                         </div>
                     </div>
-                    <BattleTabBar tab={tabs.tab} setTab={tabs.setTab} unread={tabs.unread} />
+                    <BattleTabBar tab={tabs.tab} setTab={(tab) => {
+                        tabs.setTab(tab);
+                        if (coach === "academySpar" && tab === "actions") {
+                            window.requestAnimationFrame(() => document.querySelector<HTMLElement>("#combat .combat-action-tray")?.scrollTo({ top: 0 }));
+                        }
+                    }} unread={tabs.unread} />
 
-                    {/* This fixed-height slot never unmounts: changing its message
-                        must not resize (and therefore auto-zoom) the board. */}
-                    <div className="combat-action-notice">
+                    {/* Desktop keeps a fixed feedback slot. Mobile omits the hint
+                        and its reserved row so terrain sits directly above the map. */}
+                    {!mobileCombat && <div className="combat-action-notice">
                         <div
                             className={`combat-targeting-hint${reject ? " is-error" : ""}`}
                             role={reject ? "alert" : "status"}
@@ -1518,11 +1636,11 @@ export function MissionArenaFight({
                             aria-atomic="true"
                         >
                             {reject && <strong>Can't do that</strong>}
-                            {actionNotice ? <span>{actionNotice}</span> : coachBand ? (
+                            {actionNotice ? <span>{actionNotice}</span> : coach !== "academySpar" && coachBand ? (
                                 <span className="spar-coach-hint">{coachBand}</span>
                             ) : <span>{"\u00a0"}</span>}
                         </div>
-                    </div>
+                    </div>}
 
                     {/* Basic commands and the jutsu/weapon/item loadout share a
                         single phone panel. `.combat-action-tray` is the one
@@ -1530,18 +1648,22 @@ export function MissionArenaFight({
                         `display: contents` everywhere else so each surface keeps
                         the grid area it already had. */}
                     <CombatActionTray>
+                        {mobileCombat && reject && <div className="combat-mobile-feedback" role="alert">{reject}</div>}
                         <CombatCommandBar>
                             <button onClick={() => { if (enemyInMelee) void send({ type: "attack", targetId: enemy!.id }); else { setMode("attack"); setSelJutsu(null); setSelWeaponId(""); } }}
+                                data-academy-action="attack"
                                 disabled={busy || !myTurn || outOfActions || myAp < attackAp || myStamina < 10 || !enemy || enemy.hp <= 0}
                                 title={!enemyInMelee ? `Move next to ${enemyName} first` : undefined}
                                 className={mode === "attack" ? "selected-action" : ""}><i className="cmd-icon" aria-hidden="true"><GiCrossedSwords /></i><span>Attack</span><small>{attackAp} AP<span className="cmd-detail"> | 10 SP | R1</span></small></button>
                             <button className={mode === "move" ? "selected-action" : ""}
+                                data-academy-action="move"
                                 disabled={busy || !myTurn || outOfActions || myAp < moveAp}
                                 onClick={() => { setSelJutsu(null); setSelWeaponId(""); setMode(m => m === "move" ? "idle" : "move"); }}><i className="cmd-icon" aria-hidden="true"><GiBootPrints /></i><span>Move</span><small>{moveAp} AP<span className="cmd-detail"> / tile</span></small></button>
                             <button onClick={() => { resetTargeting(); void send({ type: "heal" }); }}
                                 disabled={busy || !myTurn || outOfActions || healCd > 0 || myChakra < 10 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiHealing /></i><span>Heal</span><small>{utilityAp} AP<span className="cmd-detail"> | 10 CP | CD {healCd}</span></small></button>
                             <button onClick={() => { resetTargeting(); if (enemy) void send({ type: "clear", targetId: enemy.id }); }}
-                                disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {clearCd}</span></small></button>
+                                disabled={busy || !myTurn || outOfActions || clearCd > 0 || myAp < utilityAp || !enemy || enemy.hp <= 0 || towerHexDistance(myPos, enemyPos, w) > BASIC_CLEAR_RANGE}
+                                title={`Clear enemy buffs within ${BASIC_CLEAR_RANGE} tiles`}><i className="cmd-icon" aria-hidden="true"><GiMagicSwirl /></i><span>Clear</span><small>{utilityAp} AP<span className="cmd-detail"> | R{BASIC_CLEAR_RANGE} | CD {clearCd}</span></small></button>
                             <button onClick={() => { resetTargeting(); void send({ type: "cleanse" }); }}
                                 disabled={busy || !myTurn || outOfActions || cleanseCd > 0 || myAp < utilityAp}><i className="cmd-icon" aria-hidden="true"><GiWaterDrop /></i><span>Cleanse</span><small>{utilityAp} AP<span className="cmd-detail"> | CD {cleanseCd}</span></small></button>
                             <button
@@ -1571,7 +1693,7 @@ export function MissionArenaFight({
                                 title={retreatSealed ? "Berserker's Gamble seals retreat." : `Attempt to escape for ${fleeAp} AP and 10% max HP. Failure continues the fight.`}
                                 onClick={() => { resetTargeting(); void send({ type: "flee" }); }}
                             ><i className="cmd-icon" aria-hidden="true"><GiRun /></i><span>Flee</span><small>{retreatSealed ? "Retreat sealed" : <>{fleeAp} AP<span className="cmd-detail"> · escape roll</span></>}</small></button>
-                            <button onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
+                            <button data-academy-action="wait" onClick={() => { resetTargeting(); void send({ type: "wait" }); }} disabled={busy || !myTurn}><i className="cmd-icon" aria-hidden="true"><GiSandsOfTime /></i><span>Wait</span><small>End turn</small></button>
                         </CombatCommandBar>
 
                         <div
@@ -1595,10 +1717,13 @@ export function MissionArenaFight({
                                         const Icon = jutsuIcon(j.type);
                                         const art = jutsuArt(j);
                                         return (
-                                            <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""}`}>
-                                                {onCd && <span className="combat-cd-badge" title={`${cd} round(s) until ready`}>{cd}</span>}
+                                            <div key={j.id} className={`combat-jutsu-card-wrap ${armed ? "selected-action" : ""} ${onCd ? "jutsu-cooling" : ""}`}>
+                                                {onCd && <span className="combat-cd-badge combat-jutsu-cd-badge" title={`${cd} round(s) until ready`}><span className="combat-cd-prefix">CD </span>{cd}</span>}
                                                 <button
                                                     type="button"
+                                                    id={`mission-jutsu-select-${j.id}`}
+                                                    aria-haspopup={academyGuided ? "dialog" : undefined}
+                                                    aria-controls={academyGuideJutsu?.id === j.id ? "academy-jutsu-guide" : undefined}
                                                     className={`combat-jutsu-button ${armed ? "selected-action" : ""} ${onCd ? "jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || !affordable}
                                                     title={`${j.name} | ${ap} AP | Range ${j.range}${chakra ? ` | ${chakra} CP` : ""}${stamina ? ` | ${stamina} SP` : ""}${sealed ? " | Elementally sealed" : ""}${onCd ? ` | CD ${cd}` : ""}`}
@@ -1611,7 +1736,7 @@ export function MissionArenaFight({
                                                     <span className="combat-jutsu-name">{j.name}</span>
                                                     {/* "CD 0" is noise on every card; an ACTIVE cooldown already
                                                         shows as the corner pip. */}
-                                                    <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} />
+                                                    <CombatJutsuMeta character={character} jutsu={j} statuses={myActor?.statuses} round={session.round} activeCooldown={cd} sealedResourceCosts={{ chakraCost: chakra, staminaCost: stamina }} />
                                                 </button>
                                                 <button
                                                     type="button"
@@ -1643,7 +1768,14 @@ export function MissionArenaFight({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${armed ? " jutsu-armed" : ""}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | R${range}`}
+                                                    title={combatItemTooltip(item, {
+                                                        action: thrown ? "Throwable" : "Weapon",
+                                                        apCost: ap,
+                                                        range,
+                                                        charges: thrown && left !== Infinity ? left : undefined,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     onClick={() => armWeapon(item.id ?? "")}
                                                 >
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
@@ -1669,7 +1801,13 @@ export function MissionArenaFight({
                                                     type="button"
                                                     className={`combat-jutsu-button combat-item-button rarity-${item.rarity ?? "common"}${onCd ? " jutsu-on-cooldown" : ""}`}
                                                     disabled={busy || !myTurn || outOfActions || onCd || out || myAp < ap}
-                                                    title={out ? `${item.name} — none left` : `${item.name} | ${ap} AP | Use`}
+                                                    title={combatItemTooltip(item, {
+                                                        action: "Consumable",
+                                                        apCost: ap,
+                                                        charges: left,
+                                                        cooldown: cd,
+                                                        unavailable: out ? "No uses left" : undefined,
+                                                    })}
                                                     onClick={() => { resetTargeting(); if (item.id) void send({ type: "item", itemId: item.id }); }}
                                                 >
                                                     <span className="combat-jutsu-thumb combat-item-thumb" style={cardArtBackdrop(art)}>
@@ -1684,14 +1822,34 @@ export function MissionArenaFight({
                                     })}
                                 </div>
                             )}
-                            {inspectedJutsu && (() => {
+                            {academyGuideJutsu && (() => {
+                                const guideJutsu = {
+                                    ...(jutsuCatalogById[String(academyGuideJutsu.id)] ?? {}),
+                                    ...academyGuideJutsu,
+                                    tags: academyGuideJutsu.tags ?? [],
+                                } as Jutsu;
+                                // Match the sealed fighter, even if the live save has changed.
+                                const sealedCharacter = { ...character, ...myActor?.character } as Character;
+                                const mastery = getJutsuMastery(sealedCharacter, guideJutsu.id);
+                                return <AcademyJutsuGuide key={guideJutsu.id} jutsu={guideJutsu}
+                                    masteryLevel={mastery.level} apCost={adjustedActionAp(Number(guideJutsu.ap ?? 0))}
+                                    targetReady={academyTargetReady}
+                                    currentAp={myAp} targetHint={isSelfCastJutsu(academyGuideJutsu)
+                                        ? "Choose your own ninja to apply this technique to yourself."
+                                        : isMoveJutsu(academyGuideJutsu) || guideJutsu.target === "EMPTY_GROUND"
+                                            ? tileTargets.size > 0 ? "Choose a highlighted empty tile on the battlefield." : "There is no open destination in range. Return to battle and choose another action."
+                                            : enemyInRange ? `Choose ${enemyName} on the battlefield to cast.`
+                                                : `${enemyName} is out of range. Close the guide, then use Move or a movement jutsu to get closer first.`}
+                                    onClose={closeAcademyGuide} onSkip={() => { closeAcademyGuide(); setAcademyGuideEnabled(false); }} />;
+                            })()}
+                            {inspectedJutsu && !academyGuideJutsu && (() => {
                                 // Prefer the server-sealed combat values/tags while filling
                                 // descriptive fields from the player's authored catalog.
                                 const detailJutsu = {
                                     ...(jutsuCatalogById[String(inspectedJutsu.id ?? "")] ?? {}),
                                     ...inspectedJutsu,
                                 } as Jutsu;
-                                const mastery = getJutsuMastery(character, detailJutsu.id);
+                                const mastery = getJutsuMastery({ ...character, ...myActor?.character } as Character, detailJutsu.id);
                                 const scaled = scaleJutsuByLevel(detailJutsu, mastery.level);
                                 const targeting = jutsuTargetingLabel(detailJutsu);
                                 const detailDescription = jutsuDetailDescription(detailJutsu);
@@ -1761,6 +1919,41 @@ export function MissionArenaFight({
                     isActive={enemyActive}
                 />
             </CombatHudLayout>
+
+            {academyClickStep && <AcademyClickGuide step={academyClickStep} />}
+
+            {coach === "academySpar" && !done && academyCoachOpen && !academyGuideJutsu && !inspectedJutsu && (
+                <CombatDetailPortal id="academy-coach-dialog" labelId="academy-coach-title"
+                    triggerId="academy-coach-trigger" className="academy-jutsu-guide academy-coach-popup"
+                    onClose={() => setAcademyCoachOpen(false)}>
+                    <header className="academy-guide-header">
+                        <div><small>Academy practice</small><h2 id="academy-coach-title">Academy guide</h2></div>
+                        <button type="button" data-combat-detail-close aria-label="Close Academy guide" onClick={() => setAcademyCoachOpen(false)}>×</button>
+                    </header>
+                    <p className="academy-guide-prompt">{academyPrompt}</p>
+                    {sparCasted && <p>Check the battle log to see the damage and effects of your cast.</p>}
+                    <div className="academy-coach-actions">
+                        {sparCasted && <button type="button" onClick={() => {
+                            setAcademyCoachOpen(false);
+                            tabs.setTab("log");
+                            window.requestAnimationFrame(() => document.querySelector<HTMLElement>("#combat .combat-log-scroll-region")?.focus({ preventScroll: true }));
+                        }}>Review battle log</button>}
+                        {academyGuideEnabled && selJutsu?.id && myTurn && !busy && <button type="button" onClick={() => {
+                            setAcademyCoachOpen(false);
+                            setAcademyGuideJutsuId(selJutsu.id ?? "");
+                        }}>Explain selected jutsu</button>}
+                        <button type="button" onClick={() => {
+                            setAcademyGuideEnabled(!academyGuideEnabled);
+                            setAcademyCoachOpen(false);
+                            if (!academyGuideEnabled && selJutsu?.id && myTurn && !busy) setAcademyGuideJutsuId(selJutsu.id);
+                        }}>{academyGuideEnabled ? "Skip lessons" : "Resume lessons"}</button>
+                    </div>
+                    <footer className="academy-guide-footer">
+                        <small>Reopen with ? beside your AP bars.</small>
+                        <button type="button" className="academy-guide-next" onClick={() => setAcademyCoachOpen(false)}>Back to battle</button>
+                    </footer>
+                </CombatDetailPortal>
+            )}
 
             {done && resultRevealed && (renderResult
                 ? renderResult({ won, draw: session.winner === "draw", settleState, settleResult, retry: () => { void runSettle(); }, onExit })

@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
-import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave, type UiAuditSave } from './helpers/ui-audit-runtime';
+import { returnToWorldAtlas } from './helpers/sector-navigation';
 
 for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     test(`Academy Logbook handoff survives reload at ${viewport.width}px`, async ({ page }) => {
@@ -33,7 +34,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         expect(logbookCalls).toBe(1);
     });
 
-    test(`Supply Trail at Explore 3/3 leads to its Sector 18 outpost at ${viewport.width}px`, async ({ page }) => {
+    test(`Supply Trail at Explore 3/3 leads to a rival-village raid at ${viewport.width}px`, async ({ page }) => {
         await page.setViewportSize(viewport);
         const missionId = 'fetch-d-supply-trail';
         const save = uiAuditSave();
@@ -51,6 +52,21 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         save.acceptedMissionIds = [missionId];
         save.missionProgress = { [missionId]: 3, [`${missionId}:raids`]: 0 };
         const runtime = await installUiAuditRuntime(page, save);
+        const postedSave = () => JSON.parse(runtime.lastCommit()?.postedState ?? '{}') as UiAuditSave;
+        const travelRequests: Array<{
+            method: string;
+            body: Record<string, unknown>;
+            headers: Record<string, string>;
+        }> = [];
+        await page.route('**/api/player/travel', async route => {
+            const request = route.request();
+            travelRequests.push({
+                method: request.method(),
+                body: request.postDataJSON() as Record<string, unknown>,
+                headers: await request.allHeaders(),
+            });
+            await route.fulfill({ json: { arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 } });
+        });
         await page.route('**/api/missions/field-trail', route => route.fulfill({ json: {
             ok: true,
             state: (save.character?.serverFieldMissionRuns as Record<string, unknown>)[missionId],
@@ -59,12 +75,29 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
             missionProgress: save.missionProgress,
             _saveVersion: runtime.currentVersion(),
         } }));
-        let raidRequest: Record<string, unknown> | null = null;
+        const raidRequests: Array<Record<string, unknown>> = [];
+        let battleLaunches = 0;
+        await page.route('**/api/missions/ai-fight-start', async route => {
+            const request = route.request();
+            const headers = await request.allHeaders();
+            const body = request.postDataJSON() as Record<string, unknown> | null;
+            const recoveryProbe = body && Object.keys(body).length === 3
+                && body.playerName === 'AuditNinja'
+                && body.recoveryProbeVersion === 2
+                && (body.resumeWorldFight === true || body.resumeAiFight === true);
+            if (request.method() === 'POST' && recoveryProbe
+                && headers['x-player-name'] === 'AuditNinja'
+                && headers['x-player-token'] === 'ui-audit-token') {
+                return route.fulfill({ status: 204 });
+            }
+            battleLaunches++;
+            return route.fulfill({ status: 409, json: { error: 'A rejected raid must not start a fresh battle.' } });
+        });
         await page.route('**/api/missions/raid-start', route => {
-            raidRequest = route.request().postDataJSON() as Record<string, unknown>;
+            raidRequests.push(route.request().postDataJSON() as Record<string, unknown>);
             return route.fulfill({ status: 409, json: {
                 reason: 'location-mismatch',
-                error: 'Return to Sector 18 and try again.',
+                error: 'Return to Ashen Leaf Village outskirts (Sector 13) and try again.',
             } });
         });
 
@@ -73,14 +106,54 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         const card = page.locator('.mh-field-card.mh-field-accepted').filter({ hasText: 'D Rank Supply Trail Sweep' });
         await expect(card).toContainText('Explore 3/3');
         await expect(card).toContainText('Raid 0/1');
-        await expect(card).toContainText('Next: Raid Mission Outpost.');
-        await card.getByRole('button', { name: 'Raid Mission Outpost' }).click();
+        await expect(card).toContainText('Next: Travel to one of the other three villages and raid its village guard from the outskirts.');
+        await card.getByRole('button', { name: 'Go to an Enemy Village' }).click();
         await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
-        const action = page.locator('.sector-hud-context').getByRole('button', { name: 'Raid Mission Outpost' });
+        await expect(page.locator('.sector-hud')).toBeVisible();
+        await expect(page.locator('.sector-hud')).toContainText('Sector 18');
+        await returnToWorldAtlas(page);
+        const ashenRegion = page.locator('.wm-village-chip[data-region="ashen"]');
+        if (await ashenRegion.isVisible()) {
+            await ashenRegion.click();
+            await expect(ashenRegion).toHaveAttribute('aria-pressed', 'true');
+        }
+        await page.getByRole('button', { name: 'Enter Ashen Leaf Village', exact: true }).click();
+        await expect(page.getByRole('heading', { name: 'Ashen Leaf Village', exact: true })).toBeVisible();
+        expect(travelRequests).toEqual([{
+            method: 'POST',
+            body: { destinationSector: 13 },
+            headers: expect.objectContaining({
+                'x-player-name': 'AuditNinja',
+                'x-player-token': 'ui-audit-token',
+            }),
+        }]);
+        await expect.poll(() => postedSave().currentSector).toBe(13);
+        const arrivalCommit = runtime.lastCommit()!;
+        await expect.poll(runtime.acknowledgedVersion).toBe(arrivalCommit.version);
+        expect(arrivalCommit.baseVersion).toBe(arrivalCommit.version - 1);
+        expect(runtime.currentVersion()).toBe(arrivalCommit.version);
+        expect(runtime.persistedStateMatchesLastPost()).toBe(true);
+        expect(postedSave().character?.village).toBe('Stormveil Village');
+        expect(postedSave().character?.serverFieldMissionRuns).toEqual(save.character?.serverFieldMissionRuns);
+        expect(postedSave().acceptedMissionIds).toEqual([missionId]);
+        expect(postedSave().missionProgress).toEqual(save.missionProgress);
+        await expect(page.locator('.territory-raid-guidance')).toContainText('Wins here count toward your field mission raid objectives.');
+        const action = page.getByRole('button', { name: 'Raid Village Garrison', exact: true });
         await expect(action).toBeVisible();
         await expect(action).toBeEnabled();
         await action.click();
-        expect(raidRequest).toMatchObject({ missionId, sector: 18 });
-        await expect(page.getByRole('alertdialog', { name: 'Notice' })).toContainText('Return to Sector 18 and try again.');
+        await expect(page.getByRole('alertdialog', { name: 'Notice' })).toContainText('Return to Ashen Leaf Village outskirts (Sector 13) and try again.');
+        expect(raidRequests).toHaveLength(1);
+        expect(raidRequests[0]).toMatchObject({ playerName: 'AuditNinja', sector: 13, aiId: 'builtin-ai-mist-sentinel' });
+        expect(raidRequests[0].requestId).toMatch(/^[A-Za-z0-9_-]{8,96}$/);
+        expect(raidRequests[0]).not.toHaveProperty('missionId');
+        expect(battleLaunches).toBe(0);
+        await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'worldMap');
+        expect(postedSave().currentSector).toBe(13);
+        expect(postedSave().character?.serverFieldMissionRuns).toEqual(save.character?.serverFieldMissionRuns);
+        expect(postedSave().acceptedMissionIds).toEqual([missionId]);
+        expect(postedSave().missionProgress).toEqual(save.missionProgress);
+        expect(postedSave().character?.ryo).toBe(save.character?.ryo);
+        await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toHaveCount(0);
     });
 }

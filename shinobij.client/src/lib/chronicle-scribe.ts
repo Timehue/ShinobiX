@@ -19,6 +19,7 @@ import type { Character } from "../types/character";
 import type { Biome } from "../types/core";
 import type { CreatorEvent } from "../types/vn";
 import type { Wanderer } from "./wanderers";
+import { sectorWandererHomeTile } from "./wanderer-placement";
 // No presence-gate import: the scribe is intentionally always present (see
 // scribeWandererFor). Everything else about her rides the normal wanderer path.
 
@@ -62,7 +63,7 @@ export function scribeWandererFor(character: Character, sector: number | null, _
 
 /** Ihara as a roaming sector wanderer; talking to her opens the codex VN. */
 export function synthChronicleScribe(sector: number): Wanderer {
-    const home = 5 * 12 + ((sector * 7 + 3) % 8) + 2;
+    const home = sectorWandererHomeTile(SCRIBE_WANDERER_ID, sector);
     return {
         id: SCRIBE_WANDERER_ID,
         name: SCRIBE_NAME,

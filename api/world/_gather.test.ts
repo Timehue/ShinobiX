@@ -62,7 +62,7 @@ test('claim grants exact stacks, declines trace, rejects forgery and replays wit
 test('gather credits only a tile and obeys the normal daily limit', () => {
     const result=applySectorExploreReward({ryo:50,totalTilesExplored:2},33,'2026-09-27','tile');
     assert.equal(result.ok,true);if(result.ok){assert.equal(result.reward.ryo,0);assert.equal(result.character.ryo,50);assert.equal(result.character.totalTilesExplored,3);}
-    assert.equal(applySectorExploreReward({serverExploreDate:'2026-09-27',serverExploresToday:150},33,'2026-09-27','tile').ok,false);
+    assert.equal(applySectorExploreReward({serverExploreDate:'2026-09-27',serverExploresToday:100},33,'2026-09-27','tile').ok,false);
 });
 function stocked(id:string, quantity=1) {
     return {level:65,ryo:10000,inventory:[],itemStacks:[

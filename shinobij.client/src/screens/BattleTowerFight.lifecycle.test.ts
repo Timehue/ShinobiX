@@ -67,7 +67,7 @@ describe("Tower combat ownership and lifecycle", () => {
 
 describe("Tower completed-run recovery", () => {
     it("offers recovery-preserving exits during pending actions, settlement, and recovery failures", () => {
-        assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{isTeamPvp && busy\}/);
+        assert.match(fightSource, /className="tower-fight-leave"\s+disabled=\{\(isTeamPvp \|\| isHunt\) && busy\}/);
         assert.equal(fightSource.match(/onLeave=\{leaveUnsettled\}/g)?.length, 2, "both result presentations need the safe escape");
         assert.match(fightSource, /const leaveUnsettled = onLeaveActive \? async \(\) =>/);
         assert.match(fightSource, /withTowerRequestDeadline\(\(\) => settleFn\(runId, me\)\)/);

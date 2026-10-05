@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { strict as assert } from "node:assert";
 import { describe, it } from "node:test";
 import { runInNewContext } from "node:vm";
+import { minifyRuntimeSource } from "../../../scripts/runtime-asset-minifier.mjs";
 
 /*
  * Navigation handling in public/sw.js — the offline fallback.
@@ -17,7 +18,13 @@ type FakeResponse = { name: string; ok: boolean; status: number };
 const response = (name: string, options?: Partial<FakeResponse>): FakeResponse =>
     ({ name, ok: true, status: 200, ...options });
 
-function harness(fetchImpl: (request: { url: string }) => Promise<FakeResponse>) {
+const serviceWorkerSource = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
+const minifiedServiceWorkerSource = minifyRuntimeSource(serviceWorkerSource);
+
+function harness(
+    fetchImpl: (request: { url: string }) => Promise<FakeResponse>,
+    source = serviceWorkerSource,
+) {
     const listeners = new Map<string, (event: Record<string, unknown>) => void>();
     const stored = new Map<string, FakeResponse>();
     const deletedCaches = new Set<string>();
@@ -45,7 +52,6 @@ function harness(fetchImpl: (request: { url: string }) => Promise<FakeResponse>)
         constructor(url: string) { this.url = url; }
     }
 
-    const source = readFileSync(new URL("../../public/sw.js", import.meta.url), "utf8");
     runInNewContext(source, {
         self: worker,
         caches: {
@@ -160,5 +166,19 @@ describe("service worker offline fallback", () => {
     it("non-navigation requests are still not intercepted", async () => {
         const h = harness(async (req) => response(`fetched:${req.url}`));
         assert.equal(h.apiCall(), false, "API calls must remain untouched by the SW");
+    });
+
+    it("production-minified worker preserves online passthrough and offline fallback", async () => {
+        let online = true;
+        const h = harness(async (req) => {
+            if (!online) throw new TypeError("Failed to fetch");
+            return response(`network:${req.url}`);
+        }, minifiedServiceWorkerSource);
+        await h.install();
+        const before = h.reads();
+        assert.equal((await h.navigate())?.name, "network:https://shinobijourney.com/");
+        assert.equal(h.reads(), before, "an online navigation must remain a network passthrough");
+        online = false;
+        assert.equal((await h.navigate())?.name, "network:/offline.html");
     });
 });

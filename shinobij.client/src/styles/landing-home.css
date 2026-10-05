@@ -48,7 +48,7 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
 #landing-home .landing-cta--primary { background: linear-gradient(115deg, #e4c997, #ba955f); border: 1px solid #ecd0a0; color: #201a11; box-shadow: inset 0 0 0 3px #36271020; }
 #landing-home .landing-cta--ghost { background: #0e0d0d80; border: 1px solid #bfa77b8a; color: #ede4d2; }
 #landing-home .landing-nav-play { min-height: 44px; padding: 12px 25px; }
-.landing-hero { --landing-hero-scene: linear-gradient(90deg, #0e0d0d80, #0e0d0d20 50%, transparent 75%), linear-gradient(0deg, #0e0d0d, transparent 22%), url('/landing/hero-shinobi.webp') 62% center / cover no-repeat; position: relative; min-height: min(850px, calc(100svh - 121px)); padding: 48px 6% 84px; display: flex; align-items: center; background: var(--landing-hero-scene); }
+.landing-hero { --landing-hero-scene: linear-gradient(90deg, #0e0d0d80, #0e0d0d20 50%, transparent 75%), linear-gradient(0deg, #0e0d0d, transparent 22%), url('/landing/hero-shinobi.webp?v=20261001-1440-q84') 62% center / cover no-repeat; position: relative; min-height: min(850px, calc(100svh - 121px)); padding: 48px 6% 84px; display: flex; align-items: center; background: var(--landing-hero-scene); }
 .landing-hero-inner { width: 100%; max-width: 1320px; margin: auto; position: relative; z-index: 1; }
 .landing-atmosphere { position: absolute; inset: 0; overflow: hidden; pointer-events: none; contain: paint; mask-image: linear-gradient(90deg, transparent 20%, #0009 52%, #000 72%); }
 .landing-atmosphere-glow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at 63% 28%, #ffd79832, transparent 34%); animation: landing-warm-light 12s ease-in-out infinite; }
@@ -225,10 +225,12 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
 .landing-footer-policy-links { display: flex; flex-wrap: wrap; gap: 18px; }
 .landing-footer-policy-links a { min-height: 44px; display: inline-flex; align-items: center; font-size: 9px; color: #aaa39b; text-decoration: none; }
 @media (hover: hover) {
-    #landing-home .landing-cta:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
-    .landing-feature-card:hover > img { transform: scale(1.04); }
-    .landing-feature-card:hover { border-color: #d0b17b; box-shadow: none; }
-    #landing-home .landing-text-link:hover, .landing-footer a:hover, .landing-footer button:hover { color: #f1d399; background: none; }
+@media (hover: hover) and (pointer: fine) {
+  #landing-home .landing-cta:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.1); }
+  .landing-feature-card:hover > img { transform: scale(1.04); }
+  .landing-feature-card:hover { border-color: #d0b17b; box-shadow: none; }
+  #landing-home .landing-text-link:hover, .landing-footer a:hover, .landing-footer button:hover { color: #f1d399; background: none; }
+}
 }
 @media (min-width: 1700px) {
     /* Cap the scene, not the viewport: a full-width cover at 2560/3440px
@@ -295,11 +297,32 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
     .landing-companion-traits { flex-direction: column; gap: 14px; }
     .landing-footer-legal { flex-direction: column; align-items: flex-start; gap: 4px; }
 }
+/* An open Fold lands between phone navigation and the full desktop header.
+   Reclaim that row's width for the actual page by using the compact menu while
+   keeping the cinematic landscape hero at its tablet composition. */
+@media (min-width: 801px) and (max-width: 900px) {
+    .landing-utility { display: none; }
+    .landing-topbar-inner { min-height: 76px; padding: 0 20px; gap: 12px; }
+    .landing-logo--nav { width: 122px; }
+    .landing-logo--nav .landing-logo-art { height: 70px; }
+    .landing-topnav { display: none; position: absolute; top: 100%; left: 0; right: 0; padding: 16px 24px 24px; background: var(--landing-surface-deep); border-bottom: 1px solid #d0b17b; }
+    .landing-topnav.is-open { display: flex; flex-direction: column; align-items: stretch; gap: 3px; }
+    .landing-topnav .landing-navlink { padding: 12px; }
+    .landing-mobile-login { display: inline-flex; }
+    .landing-desktop-login { display: none; }
+    .landing-menu-toggle { display: block; width: 44px; min-height: 44px; background: none; border: 1px solid #b297684d; border-radius: 0; color: #dcc694; font-size: 19px; padding: 0; }
+    .landing-nav-actions { gap: 10px; }
+    #landing-home .landing-nav-play { padding-inline: 20px; font-size: 10px; }
+    #landing-home section[id] { scroll-margin-top: 85px; }
+}
 @media (max-width: 560px) {
     .landing-topbar-inner { padding-inline: 12px; }
     .landing-logo--nav { width: 116px; }
     #landing-home .landing-nav-play { padding-inline: 16px; }
-    .landing-hero { min-height: 760px; padding: 16px 22px 64px; background-size: auto 570px; background-position: 72% 0; background-color: #0e0d0d; }
+    .landing-hero {
+        --landing-hero-scene: linear-gradient(90deg, #0e0d0d80, #0e0d0d20 50%, transparent 75%), linear-gradient(0deg, #0e0d0d, transparent 22%), url('/landing/hero-shinobi-mobile.webp?v=20261001-mobile-q82') left top / auto 570px no-repeat;
+        min-height: 760px; padding: 16px 22px 64px; background-size: auto 570px; background-position: left 0; background-color: #0e0d0d;
+    }
     .landing-hero::before { background: linear-gradient(0deg, #0e0d0d 18%, #0e0d0ded 34%, #0e0d0d66 54%, transparent 85%); }
     #landing-home .landing-eyebrow { font-size: 9px; letter-spacing: .19em; color: #fff0d0; text-shadow: 0 1px 3px #080707, 0 2px 10px #080707; }
     #landing-home .landing-title { margin-top: 4px; }
@@ -307,7 +330,7 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
     .landing-logo--hero .landing-logo-art { max-height: 190px; }
     /* Lift the brand above the fox while keeping the description and actions
        below the artwork. The open middle lets the companion remain visible. */
-    #landing-home .landing-hero-hook { font-size: 23px; line-height: 1.25; margin-top: 4px; margin-bottom: 240px; text-shadow: 0 2px 12px #080707cc; }
+    #landing-home .landing-hero-hook { font-size: 23px; line-height: 1.25; margin-top: 4px; margin-bottom: max(144px, calc(240px - var(--storage-notice-height, var(--landing-notice-clearance, 0px)))); text-shadow: 0 2px 12px #080707cc; }
     #landing-home .landing-tagline { font-size: 12px; line-height: 1.8; }
     .landing-hero-actions { gap: 10px; margin-top: 20px; }
     .landing-hero-actions .landing-cta { width: 100%; min-height: 48px; font-size: 10px; }
@@ -360,7 +383,117 @@ html:has(.landing-lightbox[open]) { overflow: hidden; scrollbar-gutter: stable; 
     .landing-footer-policy-links { gap: 4px 20px; }
     .landing-lightbox-bar { font-size: 10px; }
 }
+
+/* Open foldables land between the phone and tablet breakpoints. Android can
+   report a landscape-shaped WebView even while the device is open in portrait,
+   because system bars reduce the usable height. Lift the hero copy by the
+   measured fixed-notice clearance so both actions stay clear; StorageNotice
+   retains the same value after dismissal to prevent a jump. */
+@media (min-width: 561px) and (max-width: 979px) and (min-height: 600px) {
+    #landing-home .landing-hero-inner {
+        top: calc(16px - max(16px, var(--storage-notice-height, var(--landing-notice-clearance, 0px))));
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     #landing-home *, #landing-home *::before, #landing-home *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
     @media (hover: hover) { #landing-home .landing-cta:hover, #landing-home .landing-feature-card:hover > img { transform: none !important; } }
+}
+
+
+/* Short landscape windows (especially phones and split-screen) need the
+   desktop composition without spending a third of the viewport on chrome. */
+@media (orientation: landscape) and (max-height: 520px) and (min-width: 600px) {
+    .landing-utility { display: none; }
+    .landing-topbar-inner { min-height: 60px; padding: 0 3%; gap: 12px; }
+    .landing-logo--nav { width: 100px; }
+    .landing-logo--nav .landing-logo-art { height: 52px; }
+    .landing-navlink { min-height: 40px; font-size: 9px; }
+    .landing-hero {
+        min-height: max(300px, calc(100svh - 61px));
+        padding: 6px 4% 18px;
+        align-items: center;
+        background-position: 62% center;
+        background-size: cover;
+    }
+    .landing-hero-inner { transform: translateY(-12px); }
+    .landing-hero-copy { width: min(440px, 53%); }
+    #landing-home .landing-title { margin-top: 0; }
+    .landing-logo--hero { width: min(290px, 100%); }
+    .landing-logo--hero .landing-logo-art { max-height: 135px; }
+    #landing-home .landing-eyebrow { font-size: 8px; }
+    #landing-home .landing-hero-hook { margin: 3px 0 6px; font-size: clamp(18px, 2.4vw, 21px); }
+    #landing-home .landing-tagline { max-width: 380px; font-size: 10px; line-height: 1.45; }
+    .landing-hero-actions { gap: 8px; margin-top: 12px; }
+    .landing-hero-actions .landing-cta { min-height: 44px; padding: 10px 16px; font-size: 9px; }
+    #landing-home .landing-cta-note { margin-top: 8px; font-size: 9px; }
+    #landing-home .landing-scroll-cue { bottom: 0; }
+}
+
+/* Narrow split-screen and compact landscape windows sit below the breakpoint
+   above. Keep the mobile controls, but reclaim enough vertical room to show
+   the brand, both entry actions, and the free-to-play note together. */
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 599px) {
+    .landing-utility { display: none; }
+    .landing-topbar-inner { min-height: 54px; padding: 0 10px; gap: 8px; }
+    .landing-logo--nav { width: 96px; }
+    .landing-logo--nav .landing-logo-art { height: 46px; }
+    .landing-nav-actions { gap: 6px; }
+    .landing-menu-toggle { width: 44px; min-height: 44px; }
+    #landing-home .landing-nav-play { min-height: 44px; padding: 10px 12px; font-size: 8px; }
+    .landing-hero {
+        min-height: max(260px, calc(100svh - 55px));
+        padding: 8px 14px 12px;
+        align-items: center;
+        background-position: 68% center;
+        background-size: auto 100%;
+    }
+    .landing-hero::before {
+        background: linear-gradient(90deg, #0e0d0df5 0%, #0e0d0dd9 48%, #0e0d0d35 100%);
+    }
+    .landing-hero-copy { width: min(380px, 84%); margin-inline: 0 auto; }
+    #landing-home .landing-title { margin-top: 2px; }
+    .landing-logo--hero { width: min(190px, 100%); }
+    .landing-logo--hero .landing-logo-art { max-height: 60px; }
+    #landing-home .landing-eyebrow { font-size: 7px; letter-spacing: .16em; }
+    #landing-home .landing-hero-hook { margin: 3px 0 5px; font-size: clamp(16px, 3.7vw, 19px); line-height: 1.15; }
+    #landing-home .landing-tagline { max-width: 47ch; font-size: 8px; line-height: 1.25; }
+    .landing-hero-actions { gap: 8px; margin-top: 7px; }
+    .landing-hero-actions .landing-cta {
+        flex: 1 1 0;
+        width: auto;
+        min-width: 0;
+        min-height: 44px;
+        padding: 6px 5px;
+        font-size: 8px;
+        line-height: 1.2;
+        letter-spacing: .02em;
+        gap: 4px;
+        white-space: nowrap;
+    }
+    #landing-home .landing-cta-note { margin-top: 4px; font-size: 8px; }
+    #landing-home .landing-scroll-cue { display: none; }
+}
+
+/* On an open foldable the CSS viewport can be wide while still being short
+   (842 × 641 on the current Fold profile). Reclaim the utility strip and
+   compress the cinematic hero so its primary entry action clears the fixed
+   storage notice without shrinking the actual touch target. */
+@media (orientation: landscape) and (min-width: 801px) and (min-height: 521px) and (max-height: 700px) {
+    .landing-utility { display: none; }
+    .landing-topbar-inner { min-height: 62px; padding-inline: 3%; gap: 12px; }
+    .landing-logo--nav { width: 104px; }
+    .landing-logo--nav .landing-logo-art { height: 54px; }
+    .landing-navlink { min-height: 40px; }
+    #landing-home .landing-nav-play { min-height: 44px; padding-block: 10px; }
+    .landing-hero { min-height: max(420px, calc(100svh - 62px)); padding: 12px 4% 40px; }
+    .landing-hero-copy { width: min(440px, 53%); }
+    .landing-logo--hero .landing-logo-art { max-height: 170px; }
+    #landing-home .landing-eyebrow { margin-bottom: 8px; font-size: 8px; }
+    #landing-home .landing-hero-hook { margin: 6px 0 9px; font-size: clamp(20px, 2.4vw, 24px); }
+    #landing-home .landing-tagline { font-size: 11px; line-height: 1.5; }
+    .landing-hero-actions { gap: 8px; margin-top: 14px; }
+    .landing-hero-actions .landing-cta { min-height: 44px; padding: 10px 16px; }
+    #landing-home .landing-cta-note { margin-top: 8px; font-size: 9px; }
+    #landing-home .landing-scroll-cue { bottom: 4px; }
 }

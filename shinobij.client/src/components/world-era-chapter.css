@@ -1,0 +1,22 @@
+.era-chapter { margin-top: 14px; padding: 14px; border: 1px solid rgba(196,181,253,.28); border-radius: 12px; background: linear-gradient(130deg,rgba(109,40,217,.10),rgba(15,23,42,.4)); font-size: .8rem; line-height: 1.5; }
+.era-chapter-heading { display: grid; gap: 4px; }
+.era-chapter-heading span { color: #c4b5fd; letter-spacing: .08em; font-size: .65rem; }
+.era-chapter-heading strong { color: #ede9fe; font-size: .95rem; }
+.era-chapter-voice { color: var(--slate-300); }
+.era-chapter-reward { color: #c4b5fd; }
+.era-chapter-routes { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,220px),1fr)); gap: 10px; }
+.era-chapter-routes > div { padding: 12px; border: 1px solid rgba(148,163,184,.2); border-radius: 8px; }
+.era-chapter-routes ul { padding-left: 18px; }
+.era-chapter button { min-height: 42px; padding: 8px 12px; border: 1px solid rgba(196,181,253,.4); border-radius: 7px; background: rgba(109,40,217,.18); color: #ede9fe; cursor: pointer; font: inherit; }
+.era-chapter button:disabled { opacity: .5; cursor: default; }
+.era-chapter button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+.era-chapter-objectives { display: grid; gap: 8px; margin: 12px 0; }
+.era-chapter-objectives > div { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.era-chapter-objectives span { flex: 1 1 180px; }
+.era-chapter-claim { width: 100%; }
+.era-chapter-sealed { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--green-300); }
+.era-chapter-error { color: var(--red-300); }
+.era-campaign-stages { padding-left: 22px; display: grid; gap: 12px; }
+.era-campaign-stages ul { padding-left: 18px; }
+.era-campaign-stages small { display: block; color: var(--slate-400); }
+.era-campaign-scene { padding: 10px; border-left: 2px solid #c4b5fd; color: #ddd6fe; }

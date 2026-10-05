@@ -650,6 +650,10 @@
     margin-bottom: 6px;
 }
 
+.archives-header > .danger-button {
+    min-height: 44px;
+}
+
     .archives-header h2 {
         margin: 0;
         font-size: 1.25rem;

@@ -46,13 +46,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const playerName = safeName(String(body.playerName ?? ''));
         const action = String(body.action ?? 'status');
         if (!playerName) return res.status(400).json({ error: 'Missing player.', errorCode: 'invalid-player' });
-        if (!enforceRateLimit(req, res, 'ranked-2v2', 60, 60_000, playerName)) return;
+        if (!enforceRateLimit(req, res, 'ranked-2v2-preauth', (60) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only manage your own ranked duo.' });
         }
+        if (!enforceRateLimit(req, res, 'ranked-2v2', 60, 60_000, identity.admin ? playerName : identity.name)) return;
         const slug = identity.admin ? playerName : identity.name;
         res.setHeader('Cache-Control', 'private, no-store');
 

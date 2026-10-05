@@ -7,6 +7,7 @@ import {
     firstPactCompanionCourtLines,
     firstPactCompanionEverydayLines,
     firstPactEpilogueCompanionCopy,
+    firstPactPresentPetIds,
     resolveFirstPactCompanions,
 } from "./first-pact-aftermath.js";
 import { activeCarriedPetIds } from "./entitlements.js";
@@ -85,9 +86,9 @@ test("busy and non-carried companions remain archival without physical actions",
     } as unknown as Character;
     const breeding = activeClientBreedingParentIds(character);
     const carried = new Set(activeCarriedPetIds(character));
-    const present = new Set(owned
-        .filter((pet) => carried.has(pet.id) && isPetAvailableForColosseum(pet, breeding))
-        .map((pet) => pet.id));
+    const colosseumAvailable = owned
+        .filter((pet) => carried.has(pet.id) && isPetAvailableForColosseum(pet, breeding));
+    const present = firstPactPresentPetIds(colosseumAvailable, Date.now());
     // A is away, B is training, C is breeding, and D falls beyond the carried
     // projection. All remain in the historical record without acting on screen.
     const resolved = resolveFirstPactCompanions(progress(), owned, present);

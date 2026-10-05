@@ -356,6 +356,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ryoGained = Math.max(0, Math.floor(ryoGain * decay));
                 const credit = creditPvpWinBase(aChar as never, ryoGained);
                 updatedAttacker = credit.char as unknown as Record<string, unknown>;
+                // creditPvpWinBase reconciles level fields by cloning its input;
+                // carry the earlier shield spend across that replacement.
+                if (attackerShielded) updatedAttacker = { ...updatedAttacker, pvpShieldUntil: 0 };
 
                 // PvP kill credit (server-side; the live path applies this on the
                 // attacker's own client).

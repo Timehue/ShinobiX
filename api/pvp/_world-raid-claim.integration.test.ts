@@ -49,10 +49,10 @@ function response() {
     return { out, res: res as never };
 }
 
-function request(playerName: string, outcome: 'win' | 'loss') {
+function request(playerName: string, outcome: 'win' | 'loss', battleId = BATTLE_ID) {
     return {
         method: 'POST',
-        body: { playerName, battleId: BATTLE_ID, outcome, completionVersion: 1 },
+        body: { playerName, battleId, outcome, completionVersion: 1 },
         query: {},
         headers: {
             'x-player-token': issuePlayerToken(playerName),
@@ -70,8 +70,8 @@ function fighter(name: string) {
     };
 }
 
-async function seed(now: number) {
-    for (const name of [WINNER, LOSER]) {
+async function seed(now: number, battleId = BATTLE_ID, winner = WINNER, loser = LOSER) {
+    for (const name of [winner, loser]) {
         await kv.set(`save:${name}`, {
             _saveVersion: 1,
             currentSector: SECTOR,
@@ -93,15 +93,15 @@ async function seed(now: number) {
             },
         });
     }
-    await kv.set(`pvp:${BATTLE_ID}`, {
-        battleId: BATTLE_ID,
-        p1: fighter(WINNER),
-        p2: fighter(LOSER),
+    await kv.set(`pvp:${battleId}`, {
+        battleId,
+        p1: fighter(winner),
+        p2: fighter(loser),
         status: 'done',
         winner: 'p1',
         rewardAuthority: 'world',
         progressionAuthorityVersion: 1,
-        worldAttacker: { side: 'p1', name: WINNER, village: VILLAGE, clan: CLAN },
+        worldAttacker: { side: 'p1', name: winner, village: VILLAGE, clan: CLAN },
         worldTerritoryEvidence: {
             version: 1,
             sector: SECTOR,
@@ -191,4 +191,55 @@ test('a retry of the same claim replays instead of double-settling', async () =>
         1,
         'one receipt per proof, however many times the claim is retried',
     );
+});
+
+test('the real claim barrier repairs both Legacy records without a client win report or a second reward', async () => {
+    const previousFlag = process.env.ENABLE_LEGACY;
+    const originalSet = kv.set;
+    process.env.ENABLE_LEGACY = '1';
+    const battleId = 'pvp-world-raid-legacy-recovery';
+    const winnerName = 'worldraidlegacywinner', loserName = 'worldraidlegacyloser';
+    try {
+        const now = Date.now();
+        await seed(now, battleId, winnerName, loserName);
+        const session = await kv.get<Record<string, unknown>>(`pvp:${battleId}`);
+        assert.ok(session);
+        const p1 = { ...fighter(winnerName), character: { ...fighter(winnerName).character, specialty: 'Ninjutsu' } };
+        const p2 = { ...fighter(loserName), hp: 0, character: { ...fighter(loserName).character, specialty: 'Genjutsu' } };
+        await kv.set(`pvp:${battleId}`, {
+            ...session, battleId, p1, p2, lastMoveAt: now - 1_000,
+            log: [`100 damage to ${loserName}.`, `${winnerName} uses Basic Heal, restoring 30 HP.`, `Heal: ${loserName} restores 20 HP.`],
+        });
+        await kv.set(`legacy:stats:${loserName}`, { bootstrappedAt: now });
+        let fail = true;
+        kv.set = async (key, value, options) => {
+            if (fail && key === `legacy:stats:${loserName}`) { fail = false; return null; }
+            return originalSet(key, value, options);
+        };
+        const partial = response();
+        await handler(request(winnerName, 'win', battleId), partial.res);
+        assert.equal(partial.out.statusCode, 503, JSON.stringify(partial.out.body));
+        assert.equal(await kv.get(`legacy:pvp-tracked:${battleId}`), null);
+        kv.set = originalSet;
+        for (const [player, outcome] of [[winnerName, 'win'], [loserName, 'loss'], [winnerName, 'win']] as const) {
+            const retry = response();
+            await handler(request(player, outcome, battleId), retry.res);
+            assert.equal(retry.out.statusCode, 200, JSON.stringify(retry.out.body));
+        }
+        const winner = await kv.get<Record<string, unknown>>(`legacy:stats:${winnerName}`);
+        const loser = await kv.get<Record<string, unknown>>(`legacy:stats:${loserName}`);
+        assert.equal(winner?.pvpWins, 1);
+        assert.equal(winner?.ninjutsuKills, 1);
+        assert.equal(winner?.ninjutsuDamage, 100);
+        assert.equal(winner?.healingDone, 30);
+        assert.equal(loser?.pvpLosses, 1);
+        assert.equal(loser?.healingDone, 20);
+        const save = await kv.get<{ character: Record<string, unknown> }>(`save:${winnerName}`);
+        assert.equal(save?.character.totalPvpKills, 1, 'base rewards and Legacy bootstrap count the same win once');
+        assert.equal(await kv.get(`legacy:pvp-tracked:${battleId}`), true);
+    } finally {
+        kv.set = originalSet;
+        if (previousFlag === undefined) delete process.env.ENABLE_LEGACY;
+        else process.env.ENABLE_LEGACY = previousFlag;
+    }
 });

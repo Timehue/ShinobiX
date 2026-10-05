@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs><linearGradient id="plate" x2="0" y2="1"><stop stop-color="#29304a"/><stop offset="1" stop-color="#111624"/></linearGradient><linearGradient id="star" x2="0.6" y2="1"><stop stop-color="#fff2bd"/><stop offset=".55" stop-color="#edbe67"/><stop offset="1" stop-color="#a9633b"/></linearGradient><filter id="glow"><feGaussianBlur stdDeviation="13"/></filter></defs>
+  <circle cx="256" cy="256" r="218" fill="#d3aa65" opacity=".24" filter="url(#glow)"/><circle cx="256" cy="256" r="210" fill="url(#plate)" stroke="#edc574" stroke-width="10"/><circle cx="256" cy="256" r="190" fill="none" stroke="#5d5b68" stroke-width="3"/>
+  <path d="M143 360v-51h55v51M223 360v-89h55v89M303 360V202h55v158" fill="#324258" stroke="#a9d4d6" stroke-width="9" stroke-linejoin="round"/>
+  <path d="m151 274 71-70 49 22 86-96" fill="none" stroke="#e8bf6d" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/><path d="m324 130 42-12-9 43" fill="none" stroke="#fff0b8" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m256 102 26 52 58 8-42 40 10 57-52-27-52 27 10-57-42-40 58-8Z" transform="translate(0 34)" fill="url(#star)" stroke="#fff0be" stroke-width="9" stroke-linejoin="round"/>
+  <circle cx="256" cy="256" r="16" fill="#fff4cf"/>
+</svg>

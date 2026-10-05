@@ -26,6 +26,8 @@ import "../styles/pet-skin.css";
 import * as THREE from "three";
 import { Canvas } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
+import { useOwnedTimeouts } from "../lib/use-owned-timeouts";
+import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { Html, PerformanceMonitor, Sparkles } from "@react-three/drei";
 import type { Pet } from "../types/pet";
 import { PetBattleAvatar } from "./PetBattleAvatar";
@@ -307,6 +309,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     ), [quality, roster]);
 
     const clock = useRef<DuelClock>({ t: Math.max(0, initialTick), playing: false, intro: 0 });   // starts paused for the VS intro + opening choreography
+    const timers = useOwnedTimeouts();
     const seqRef = useRef(0);
     const [runId, setRunId] = useState(0);
     // A live duel must hand its outcome over EXACTLY once — Replay remounts the
@@ -318,8 +321,8 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const finishScheduled = useRef(false);
     const resultTimer = useRef<number | null>(null);
     useEffect(() => () => {
-        if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
-    }, []);
+        if (resultTimer.current !== null) timers.cancel(resultTimer.current);
+    }, [timers]);
     useEffect(() => {
         if (!resultVisible) return;
         const dialog = resultDialogRef.current;
@@ -377,6 +380,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         };
     }, [resultVisible]);
     const [paused, setPaused] = useState(false);
+    const battleFrameloop = useBattleFrameloop(false);
     const [numbers, setNumbers] = useState<Array<{ id: number; text: string; pos: Vec3; crit: boolean; heal: boolean; shield?: boolean }>>([]);
     const [impacts, setImpacts] = useState<Array<{ id: number; pos: Vec3; color: string; big: boolean; mode: DuelImpactMode }>>([]);
     const [elementBursts, setElementBursts] = useState<Array<{ id: number; pos: Vec3; kind: DuelElementBurstKind; color: string; big: boolean; heading: number; style: PetHeroMoveStyle }>>([]);
@@ -417,24 +421,24 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     const [commandAck, setCommandAck] = useState<{ id: number; actorIds: readonly string[] } | null>(null);
     useEffect(() => {
         if (!cutIn) return;
-        const timer = window.setTimeout(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1320);
-        return () => window.clearTimeout(timer);
-    }, [cutIn]);
+        const timer = timers.schedule(() => setCutInQueue((queue) => queue.slice(1)), cutIn.hold ?? 1320);
+        return () => timers.cancel(timer);
+    }, [cutIn, timers]);
     useEffect(() => {
         if (!commandEcho) return;
-        const timer = window.setTimeout(() => setCommandEcho((cur) => (cur && cur.id === commandEcho.id ? null : cur)), 1050);
-        return () => window.clearTimeout(timer);
-    }, [commandEcho]);
+        const timer = timers.schedule(() => setCommandEcho((cur) => (cur && cur.id === commandEcho.id ? null : cur)), 1050);
+        return () => timers.cancel(timer);
+    }, [commandEcho, timers]);
     useEffect(() => {
         if (!commandAck) return;
-        const timer = window.setTimeout(() => setCommandAck((current) => current?.id === commandAck.id ? null : current), 680);
-        return () => window.clearTimeout(timer);
-    }, [commandAck]);
+        const timer = timers.schedule(() => setCommandAck((current) => current?.id === commandAck.id ? null : current), 680);
+        return () => timers.cancel(timer);
+    }, [commandAck, timers]);
     useEffect(() => () => {
-        if (tacticCommitTimer.current !== null) window.clearTimeout(tacticCommitTimer.current);
-        if (finisherTimer.current !== null) window.clearTimeout(finisherTimer.current);
-        if (crowdTimer.current !== null) window.clearTimeout(crowdTimer.current);
-    }, []);
+        if (tacticCommitTimer.current !== null) timers.cancel(tacticCommitTimer.current);
+        if (finisherTimer.current !== null) timers.cancel(finisherTimer.current);
+        if (crowdTimer.current !== null) timers.cancel(crowdTimer.current);
+    }, [timers]);
     const elementById = useMemo(() => Object.fromEntries(roster.map((r) => [r.id, r.pet.element])) as Record<string, string | null | undefined>, [roster]);
     // Keep the canonical species name separate from the player's display name:
     // animation classification must survive nicknames, while commentary and HUD
@@ -466,14 +470,14 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         if (live && !tacticLocked) return;
         // Clear the VS splash first, then let the gather play in the clear while the
         // simulation remains paused for the full opening.
-        const splashT = window.setTimeout(() => setIntro(false), INTRO_SPLASH_END * 1000);
-        const fightT = window.setTimeout(() => {
+        const splashT = timers.schedule(() => setIntro(false), INTRO_SPLASH_END * 1000);
+        const fightT = timers.schedule(() => {
             clock.current.intro = INTRO_TOTAL;
             clock.current.playing = true;
             setPaused(false);
         }, INTRO_TOTAL * 1000);
-        return () => { window.clearTimeout(splashT); window.clearTimeout(fightT); };
-    }, [runId, live, tacticLocked]);
+        return () => { timers.cancel(splashT); timers.cancel(fightT); };
+    }, [runId, live, tacticLocked, timers]);
 
     // FX map through the SAME field→floor placement as the fighters, at mid-body
     // height, so impacts / numbers / casts land on the right pet in the 3D scene.
@@ -481,7 +485,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         const id = seqRef.current++;
         const fp = duelFieldToFloor(n.x, n.z);
         setNumbers((arr) => appendCapped(arr, { id, text: n.text, pos: [fp.wx, FLOOR_Y + TARGET_SPRITE_H * 1.05, fp.wz], crit: n.crit, heal: n.heal, shield: n.shield }, 4));
-        window.setTimeout(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
+        timers.schedule(() => setNumbers((arr) => arr.filter((x) => x.id !== id)), 850);
     };
     const spawnImpact = (n: { x: number; z: number; color: string; big: boolean; mode?: DuelImpactMode }) => {
         const mode = n.mode ?? "impact";
@@ -653,10 +657,10 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     };
     // Full-screen element flash / big "CRITICAL!/FINISH!" callout / combo-counter pop.
     const triggerFlash = (color: string, intensity: number) => setFlash({ id: seqRef.current++, color, intensity: Math.min(0.6, intensity) });
-    const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); window.setTimeout(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
-    const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); window.setTimeout(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
+    const triggerCallout = (text: string) => { const id = seqRef.current++; setCallout({ id, text }); timers.schedule(() => setCallout((c) => (c && c.id === id ? null : c)), 760); };
+    const triggerCombo = (n: number) => { const id = seqRef.current++; setCombo({ id, n }); timers.schedule(() => setCombo((c) => (c && c.id === id ? null : c)), 820); };
     // Play-by-play broadcast line (lower-third) — narrates the swings of the fight.
-    const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); window.setTimeout(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
+    const triggerAnnounce = (text: string, tone: "danger" | "reversal" | "ultimate" | "ko") => { const id = seqRef.current++; setAnnounce({ id, text, tone }); timers.schedule(() => setAnnounce((a) => (a && a.id === id ? null : a)), 2600); };
     // Named-move flash ("Hellhound Execution!") — a quick stylish callout, side-tinted.
     const triggerMoveCallout = (text: string, side: "player" | "enemy", tone: DuelMoveCalloutTone = "attack", who?: string, element?: string | null) => {
         const id = seqRef.current++;
@@ -664,7 +668,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         // The old 780 ms pill vanished before the eye could parse actor + move.
         // A named technique now owns a complete release beat; tactical reads stay
         // slightly shorter so they never compete with the next contact.
-        window.setTimeout(
+        timers.schedule(
             () => setMoveCallout((current) => current?.id === id ? null : current),
             tone === "attack" || tone === "combo" ? 1180 : 980,
         );
@@ -678,11 +682,11 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             side: winnerId ? (winnerId.startsWith("player") ? "player" : "enemy") : "draw",
         } as const;
         setClashResult(next);
-        window.setTimeout(() => setClashResult((current) => current?.id === id ? null : current), 1850);
+        timers.schedule(() => setClashResult((current) => current?.id === id ? null : current), 1850);
     };
     const triggerFinisher = (actorId: string, targetId: string, move: string | undefined) => {
         const id = seqRef.current++;
-        if (finisherTimer.current !== null) window.clearTimeout(finisherTimer.current);
+        if (finisherTimer.current !== null) timers.cancel(finisherTimer.current);
         // One beat owns the screen: clear informational overlays before the
         // finishing windup rather than stacking them beneath a larger banner.
         setCommandEcho(null);
@@ -693,7 +697,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setFinisherCue({ id, actorId, targetId, move, side: actorId.startsWith("enemy") ? "enemy" : "player" });
         duckBattleMusic(0.16, 860);
         playPetSfx("finisher");
-        finisherTimer.current = window.setTimeout(() => {
+        finisherTimer.current = timers.schedule(() => {
             setFinisherCue((current) => current?.id === id ? null : current);
             finisherTimer.current = null;
         }, 1450);
@@ -831,7 +835,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setCommandAck({ id, actorIds: [...live.controlledIds] });
         setCommandEcho({ id, label: `${selected.name.toUpperCase()} PLAN LOCKED`, tone: "plan" });
         setFlash({ id, color: selected.color, intensity: 0.18 });
-        tacticCommitTimer.current = window.setTimeout(() => {
+        tacticCommitTimer.current = timers.schedule(() => {
             setTacticLocked(true);
             setTacticCommitting(false);
             tacticCommitTimer.current = null;
@@ -934,17 +938,17 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
         setWeatherCue(null);
         duckBattleMusic(0.24, 1050);
         if (duel.result === "win") playPetSfx("victory");
-        crowdTimer.current = window.setTimeout(() => {
+        crowdTimer.current = timers.schedule(() => {
             playPetSfx("crowd");
             crowdTimer.current = null;
         }, 320);
-        resultTimer.current = window.setTimeout(() => {
+        resultTimer.current = timers.schedule(() => {
             setResultVisible(true);
             stopBattleMusic();
         }, 2350);
     };
     const replay = () => {
-        if (resultTimer.current !== null) window.clearTimeout(resultTimer.current);
+        if (resultTimer.current !== null) timers.cancel(resultTimer.current);
         resultTimer.current = null;
         finishScheduled.current = false;
         // initialTick restores the entry position only. Replay must start at
@@ -1133,7 +1137,7 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
             {/* The duel now plays INSIDE the 3D coliseum (curved wall + lit floor +
                 perspective hero camera), so fighters STAND on the floor with real
                 contact shadows instead of floating over a painted wall. */}
-            <Canvas key={quality.id} shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || resultVisible ? "demand" : "always"} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
+            <Canvas key={quality.id} shadows={quality.modelShadows ? { type: THREE.PCFShadowMap } : false} dpr={dpr} frameloop={paused || resultVisible ? "demand" : battleFrameloop} camera={{ position: CAM_POS, fov: CAM_FOV }} onCreated={({ camera }) => camera.lookAt(CAM_LOOK[0], CAM_LOOK[1], CAM_LOOK[2])}>
                 <RendererRetirement />
                 {!weatherCue && <fog attach="fog" args={["#2a1c10", 26, 54]} />}
                 <ResponsiveCamera />

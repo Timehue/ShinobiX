@@ -160,6 +160,7 @@ describe('Tower N-actor AOE cutover', () => {
         assert.equal(s.actionsThisTurn, 1);
         assert.equal(getActor(s, 'caster')!.cooldowns.manyfold, 4);
         assert.deepEqual(s.log, [
+            '--- Round 1 ---',
             'caster uses Manyfold → target-b.',
             ...reference.lines,
         ]);

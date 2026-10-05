@@ -65,6 +65,7 @@ export function hollowGateResumeState(
         floorDepth: run.floorDepth,
         floor,
         ...(run.variantId ? { variantId: run.variantId } : {}),
+        ...(run.riftDistortionId ? { riftDistortionId: run.riftDistortionId } : {}),
         ...(run.floorWidth != null ? { floorWidth: run.floorWidth } : {}),
         ...(run.floorHeight != null ? { floorHeight: run.floorHeight } : {}),
         ...(run.bossProfileId ? { bossProfileId: run.bossProfileId } : {}),

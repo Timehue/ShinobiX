@@ -28,7 +28,7 @@ import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
 import { withKvLock } from './_lock.js';
 import { rotatePlayerSessionEpoch } from './_auth.js';
-import { authKey, googleIdentityKey, type AuthRecord } from './player-auth.js';
+import { authKey, googleIdentityKey, releaseGoogleIdentityForAccount, type AuthRecord } from './player-auth.js';
 import { recoveryCodeKey } from './_recovery-code.js';
 import { REGISTRY_KEY } from './player/_public-index.js';
 import { clanSlugBare } from './clan/_kick-core.js';
@@ -40,7 +40,7 @@ export type DeletePlayerAccountResult = {
     removed: string[];
     /** Rows belonging to OTHER records that referenced this player. */
     detached: string[];
-    /** Non-fatal problems; deletion continues past each of them. */
+    /** Cleanup problems. Protected teardown failures retain auth for a retry. */
     failures: string[];
 };
 
@@ -204,45 +204,53 @@ export async function deletePlayerAccount(rawName: string): Promise<DeletePlayer
     }
 
     const saveKey = `save:${slug}`;
-    // Detach FIRST: reading the save is how the clan is discovered AND how the
-    // Tebex subscription is cancelled, and this deletes that save a few lines
-    // below.
-    const detached = await detachPlayerReferences(slug);
-    result.removed.push(...detached.removed);
-    result.detached.push(...detached.detached);
-    result.failures.push(...detached.failures);
-
     try {
-        await withKvLock(authKey(slug), async () => {
+        // The sweep already holds save -> auth. Retain auth -> First Pact here
+        // before any reference, credential or character teardown, so a busy
+        // story lock leaves the whole account untouched and retryable.
+        await withKvLock(authKey(slug), () => withKvLock(`first-pact:${slug}`, async () => {
             const record = await kv.get<AuthRecord>(authKey(slug));
-            // Rotate, never delete — see the note at the top of this file.
-            await rotatePlayerSessionEpoch(slug);
-            if (await kv.del(authKey(slug))) result.removed.push(authKey(slug));
+            const firstPactRemoved = await deletePlayerFirstPactState(slug);
+            if (firstPactRemoved) result.removed.push(firstPactRemoved);
+
+            // The save must remain available to discover clan/billing references.
+            // Storage/reference failures keep the auth retry anchor; billing
+            // cancellation retains its deliberate non-blocking/parked behavior.
+            const detached = await detachPlayerReferences(slug);
+            result.removed.push(...detached.removed);
+            result.detached.push(...detached.detached);
+            result.failures.push(...detached.failures);
+            if (detached.failures.some(failure => !failure.startsWith('tebex subscription:'))) return;
+
             if (record?.google?.sub) {
                 const identityKey = googleIdentityKey(record.google.sub);
-                if (await kv.del(identityKey)) result.removed.push(identityKey);
+                if (await releaseGoogleIdentityForAccount(slug, record.google.sub)) result.removed.push(identityKey);
             }
             // The recovery code has to go with the account. Slugs are reusable,
             // so a surviving `auth-recovery:<slug>` is a working credential to
             // whoever registers this name next — see _recovery-code.ts.
             if (await kv.del(recoveryCodeKey(slug))) result.removed.push(recoveryCodeKey(slug));
-        }, { failClosed: true });
-    } catch (err) {
-        result.failures.push(`${authKey(slug)}: ${(err as Error).message}`);
-    }
 
-    try {
-        // Acquire the standalone story lock before removing the save. If the
-        // lock is contended, fail closed while the character and registry still
-        // exist so a later sweep can retry the whole deletion coherently.
-        const firstPactRemoved = await deletePlayerFirstPactState(slug);
-        const saveRemoved = await kv.del(saveKey);
-        if (saveRemoved) result.removed.push(saveKey);
-        if (firstPactRemoved) result.removed.push(firstPactRemoved);
-        await kv.hdel(REGISTRY_KEY, slug);
-        result.detached.push(`${REGISTRY_KEY}[${slug}]`);
+            // Remove the derived index before the save, so a failed index cleanup
+            // also retains the save's reference evidence for a fresh retry.
+            await kv.hdel(REGISTRY_KEY, slug);
+            result.detached.push(`${REGISTRY_KEY}[${slug}]`);
+            if (await kv.del(saveKey)) result.removed.push(saveKey);
+
+            // Auth is the sweep's retry anchor and the final deletion. Rotate,
+            // never erase revocation state. Keep the retained row aligned before
+            // a refused auth deletion so the unchanged generation guard permits
+            // a later sweep. If rotation commits but this stamp fails, the
+            // unchanged epoch guard still refuses that lower-row generation;
+            // recovery needs fresh credential proof or operator intervention.
+            // A poisoned lease must never perform speculative compensation.
+            const sessionEpoch = await rotatePlayerSessionEpoch(slug);
+            if (record) await kv.set(authKey(slug), { ...record, sessionEpoch });
+            if (await kv.del(authKey(slug))) result.removed.push(authKey(slug));
+            else result.failures.push(`${authKey(slug)}: final deletion was not confirmed`);
+        }, { failClosed: true }), { failClosed: true });
     } catch (err) {
-        result.failures.push(`${saveKey}: ${(err as Error).message}`);
+        result.failures.push(`${slug} teardown: ${(err as Error).message}`);
     }
 
     return result;

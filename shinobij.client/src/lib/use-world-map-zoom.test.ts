@@ -4,12 +4,12 @@ import { readFileSync } from "node:fs";
 import { isWorldMapControlTarget, isWorldMapZoomEnabled, worldMapMarkerScaleForZoom, worldMapMarkerTransitionEasing } from "./use-world-map-zoom";
 import { ACADEMY_TRAIL_FOCUS_EVENT, requestAcademyTrailFocus } from "./academy-trail-focus";
 
-test("marker targets stay at least 44px across zoom presets and both pinch directions", () => {
+test("marker targets stay at least 48px across zoom presets and both pinch directions", () => {
     const zooms = [2.7083333333333335, 2.61512, ...Array.from({ length: 3991 }, (_, i) => 0.01 + i / 1000)];
     for (const zoom of [...zooms, ...zooms.toReversed()]) {
-        const screenSize = 44 * worldMapMarkerScaleForZoom(zoom) * zoom;
-        assert.ok(screenSize >= 44, `zoom ${zoom} shrank the target to ${screenSize}px`);
-        assert.ok(screenSize < 44.925, `zoom ${zoom} enlarged the target to ${screenSize}px`);
+        const screenSize = 48 * worldMapMarkerScaleForZoom(zoom) * zoom;
+        assert.ok(screenSize >= 48, `zoom ${zoom} shrank the target to ${screenSize}px`);
+        assert.ok(screenSize < 49, `zoom ${zoom} enlarged the target to ${screenSize}px`);
     }
 });
 
@@ -21,12 +21,12 @@ test("small pinch changes retain bounded marker-scale writes without shrinking t
         const next = worldMapMarkerScaleForZoom(zoom);
         if (next !== previous) writes += 1;
         previous = next;
-        assert.ok(44 * next * zoom >= 44, `pinch step ${step} shrank the target`);
+        assert.ok(48 * next * zoom >= 48, `pinch step ${step} shrank the target`);
     }
     assert.ok(writes > 0 && writes < 10, `${writes} inherited style writes for 1000 small pinch updates`);
 });
 
-test("native marker easing preserves 44px to under 45px throughout both zoom directions", () => {
+test("native marker easing preserves 48px to under 49px throughout both zoom directions", () => {
     for (const from of [.01, .1, .3, 1, 1.43, 2.6, 2.7083333333333335, 3.71, 4]) {
         for (const to of [.01, .1, .3, 1, 1.43, 2.6, 2.7083333333333335, 3.71, 4]) {
             if (from === to) continue;
@@ -46,8 +46,8 @@ test("native marker easing preserves 44px to under 45px throughout both zoom dir
                 const left = stops[segment - 1]; const right = stops[segment];
                 const interpolated = left.value + (right.value - left.value) * (time - left.time) / (right.time - left.time);
                 const scale = worldMapMarkerScaleForZoom(from) + (worldMapMarkerScaleForZoom(to) - worldMapMarkerScaleForZoom(from)) * interpolated;
-                const screenSize = 44 * scale * (from + (to - from) * progress);
-                assert.ok(screenSize >= 44 && screenSize < 45, `${from} -> ${to} at ${time}: ${screenSize}px`);
+                const screenSize = 48 * scale * (from + (to - from) * progress);
+                assert.ok(screenSize >= 48 && screenSize < 49, `${from} -> ${to} at ${time}: ${screenSize}px`);
             }
         }
     }

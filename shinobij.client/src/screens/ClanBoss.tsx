@@ -21,6 +21,7 @@ import {
 } from "../lib/clan-boss-api";
 import { ClanBossPartyLobby, type ClanBossPartyAction } from "../components/ClanBossPartyLobby";
 import { ClanBossOperationComms } from "../components/ClanBossOperationComms";
+import "../styles/index/36-clan-boss-operation.css";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { BattleTowerFight } from "./BattleTowerFight";
 import {

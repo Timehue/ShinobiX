@@ -1,4 +1,7 @@
 import { kv } from './_storage.js';
+import { withTelemetryLock } from './_telemetry-lock.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
+import { runBackgroundWork } from './_background-work.js';
 
 // ─── Economy telemetry + transaction trail ────────────────────────────────────
 //
@@ -66,13 +69,20 @@ export function duplicateTxnIds(txns: EconTxn[]): string[] {
 type EconKv = Pick<typeof kv, 'get' | 'set'>;
 
 // Record one currency delta. Best-effort, never throws into the reward path.
-// No-op for a zero delta or an unknown currency. The aggregate update is a
-// lock-free read-modify-write — at tens of players a rare lost update only
-// slightly understates a trend counter; the capped txn list is the precise
-// drill-down. The supply TRUTH for disputes is the list, not the counter.
-export async function recordEconomyTxn(
+// No-op for a zero delta or an unknown currency. These admin projections take
+// their own telemetry lock and remain tracked until shutdown drains them. They
+// never inherit the currency writer's lease or poison its later authority work.
+export function recordEconomyTxn(
     txn: { txnId: string; player: string; currency: string; delta: number; source: string; balanceAfter?: number; ts?: number },
     opts: { kv?: EconKv } = {},
+): Promise<void> {
+    return withoutKvLeaseContext(() => runBackgroundWork(() => recordEconomyTxnCore(txn, opts)))
+        .then(() => undefined);
+}
+
+async function recordEconomyTxnCore(
+    txn: { txnId: string; player: string; currency: string; delta: number; source: string; balanceAfter?: number; ts?: number },
+    opts: { kv?: EconKv },
 ): Promise<void> {
     const store = opts.kv ?? kv;
     try {
@@ -88,13 +98,13 @@ export async function recordEconomyTxn(
             source: String(txn.source).slice(0, 48),
             ...(Number.isFinite(Number(txn.balanceAfter)) ? { balanceAfter: Math.round(Number(txn.balanceAfter)) } : {}),
         };
-        // Running aggregate.
-        const aggK = econAggKey(full.currency);
-        const agg = (await store.get<EconAgg>(aggK)) ?? { created: 0, destroyed: 0 };
-        await store.set(aggK, applyTxnToAgg(agg, full.delta));
-        // Capped recent list (newest-first).
-        const list = (await store.get<EconTxn[]>(ECON_TXN_LIST_KEY)) ?? [];
-        await store.set(ECON_TXN_LIST_KEY, [full, ...list].slice(0, MAX_ECON_TXNS));
+        await withTelemetryLock(ECON_TXN_LIST_KEY, store, async () => {
+            const aggK = econAggKey(full.currency);
+            const agg = (await store.get<EconAgg>(aggK)) ?? { created: 0, destroyed: 0 };
+            await store.set(aggK, applyTxnToAgg(agg, full.delta));
+            const list = (await store.get<EconTxn[]>(ECON_TXN_LIST_KEY)) ?? [];
+            await store.set(ECON_TXN_LIST_KEY, [full, ...list].slice(0, MAX_ECON_TXNS));
+        });
     } catch (e) {
         console.error('[economy] recordEconomyTxn failed:', e);
     }

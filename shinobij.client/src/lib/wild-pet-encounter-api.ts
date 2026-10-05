@@ -28,7 +28,7 @@ export type WildPetEncounterResult =
     | { kind: "blocked"; error: string; status?: number; retryable: boolean; reason?: string; pendingDungeon?: { requestId: string; sector: number } };
 
 export function wildPetEncounterFailureMessage(result: Extract<WildPetEncounterResult, { kind: "blocked" }>): string {
-    if (result.reason === "daily-limit") return "Daily wild-pet search limit reached (150/150). Resets at midnight UTC.";
+    if (result.reason === "daily-limit") return "Daily wild-pet search limit reached (100/100). Resets at midnight UTC.";
     if (result.status === 401) return "Your session needs to reconnect. Sign in again, then explore to recover your saved attempt.";
     if (!result.retryable) return result.error;
     if (result.status === 429) return "Too many exploration requests. Wait a moment, then try again; your saved attempt will be reused.";

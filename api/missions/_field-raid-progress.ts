@@ -10,24 +10,21 @@ import {
     savedAcceptedMissionIds,
 } from './_mission-progress-receipt.js';
 import { serverFieldMissionRun } from './_field-trail.js';
+import { VILLAGE_OUTSKIRTS } from '../../shared/sector-geo.js';
 
 const FIELD_RECEIPT_TTL_SECONDS = 14 * 24 * 60 * 60;
 
 /*
  * field-raid producer — the raid half of the built-in FETCH mission receipt.
  *
- * Every builtin fetch-* mission requires raidCount raids on top of its explore
- * tiles (validateMissionProgressReceipt), but nothing ever stamped that half, so
- * all five were permanently unclaimable. record-progress deliberately refuses
- * combat kinds ("a progress ping is no proof of a raid"), so the credit has to
- * come from the authoritative raid reporter — report-raid, which already proves
- * the raid happened via a consumed raid-start token (AI raids) or a validated
- * PvpSession win (PvP raids).
+ * Fetch contracts count victories from the existing village-outskirts raid
+ * system. record-progress deliberately refuses combat kinds, so the credit has
+ * to come from the authoritative raid reporter, which proves AI raids with a
+ * consumed raid-start token and PvP raids with a validated PvpSession win.
  *
- * Crediting inside report-raid's single invocation is what keeps this safe: the
- * proof is consumed exactly once, and the same request stamps both the Vanguard
- * profession progress and the fetch-mission raidCount. No second endpoint
- * competes for the proof, so no single-use token is consumed twice.
+ * The credit runs from the authoritative AI or PvP settlement after it seals
+ * the win. Its stable proof receipt makes retries idempotent, and no client
+ * progress ping can manufacture a village raid.
  */
 
 /**
@@ -45,9 +42,10 @@ export function fieldRaidEvidenceId(proofId: string): string {
 /**
  * The accepted built-in fetch missions a raid win should credit.
  *
- * Mirrors the client's matching filter (App.tsx recordMissionRaid): accepted,
- * fetch-flavored, and actually asking for raids. Hunt ids share FIELD_MISSIONS
- * but claim on the 'hunt' path and carry no raidCount, so they're excluded.
+ * Only the accepted fetch contracts that ask for raids receive credit, and a
+ * proof must come from the outskirts sector of a village other than the
+ * player's own. Hunt ids share FIELD_MISSIONS but claim on the 'hunt' path and
+ * carry no raidCount, so they're excluded.
  * Eligibility is re-checked because claim-mission re-checks it too — crediting a
  * mission the player can no longer claim would just build a dead receipt.
  *
@@ -70,8 +68,13 @@ export function acceptedRaidFetchMissions(
         if (HUNT_MISSION_IDS.has(id)) continue;
         const mission = fieldMissionById(id);
         if (!mission || Math.floor(Number(mission.raidCount ?? 0)) <= 0) continue;
-        if (Number.isSafeInteger(raidSector)
-            && Math.floor(Number(mission.targetSector)) !== Math.floor(Number(raidSector))) continue;
+        if (Number.isSafeInteger(raidSector)) {
+            const homeVillage = String(character?.village ?? '').trim();
+            const isEnemyVillageOutskirts = Object.entries(VILLAGE_OUTSKIRTS).some(([village, outskirts]) =>
+                village !== homeVillage && raidSector === outskirts + 4,
+            );
+            if (!homeVillage || !isEnemyVillageOutskirts) continue;
+        }
         if (!canPlayerReceiveMission(character, mission).ok) continue;
         const run = serverFieldMissionRun(character, mission.id);
         if (!run || run.acceptedAt > proofAt) continue;

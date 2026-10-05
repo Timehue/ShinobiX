@@ -5,12 +5,29 @@ import test from 'node:test';
 import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { applyCardPackPurchase, applyItemPurchase, discountedShopCost, shopDiscountPercent } from './_settlement.js';
 import { STORY_PROGRESSION_CARD_IDS } from '../card-clash/_progression-cards.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 
 const item = (overrides: Partial<SettlementItem> = {}): SettlementItem => ({
     id: 'test-kunai', name: 'Test Kunai', slot: 'hand', rarity: 'common', cost: 100, ...overrides,
 } as SettlementItem);
 const character = (overrides: Record<string, unknown> = {}) => ({
     name: 'rill', level: 10, ryo: 1000, fateShards: 100, chroniclePoints: 250, inventory: [], itemStacks: [], tileCards: [], equipment: {}, ...overrides,
+});
+
+test('profession scroll gates also apply to legacy shop settlements', () => {
+    const scroll = ITEM_CATALOG['profession-change-approval'] as SettlementItem;
+    for (const overrides of [{ level: 19, profession: 'vanguard' }, { level: 20 }, { level: 100, profession: 'invalid' }]) {
+        const input = character({ fateShards: 500, ...overrides });
+        const before = structuredClone(input);
+        assert.equal(applyItemPurchase(input, scroll, 1, 'profession-scroll-test', 100).ok, false);
+        assert.deepEqual(input, before);
+    }
+    const bought = applyItemPurchase(character({ level: 20, profession: 'healer', fateShards: 200 }), scroll, 1, 'profession-scroll-test', 100);
+    assert.equal(bought.ok, true);
+    if (bought.ok) {
+        assert.equal(bought.character.fateShards, 0);
+        assert.deepEqual(bought.character.inventory, ['profession-change-approval']);
+    }
 });
 
 test('item purchase computes the authoritative discount, grants once, and replays safely', () => {

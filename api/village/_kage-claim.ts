@@ -38,18 +38,25 @@ export async function claimVacantKageSeat(village: string, playerSlug: string, n
     const save = await kv.get<Record<string, unknown>>(`save:${slug}`);
     const char = (save?.character ?? null) as Record<string, unknown> | null;
     if (!char) return { ok: false, status: 404, error: 'Your save was not found.' };
-    const displayName = String(char.name ?? slug);
+    let displayName = String(char.name ?? slug);
     const key = kageKey(village);
 
     let seatedAt = 0;
     const result = await withKvLock<ClaimSeatResult>(key, async () => {
+        // A transfer can finish after the initial lookup while this claim waits
+        // for the Kage lock. Transfer retains this same lock through its save
+        // write, so only the current save may authorize the new reign.
+        const currentSave = await kv.get<Record<string, unknown>>(`save:${slug}`);
+        const currentChar = (currentSave?.character ?? null) as Record<string, unknown> | null;
+        if (!currentChar) return { ok: false, status: 404, error: 'Your save was not found.' };
+        displayName = String(currentChar.name ?? slug);
         const state = (await kv.get<KageStateLike>(key)) ?? { kageSystemUnlocked: false };
         const elig = canClaimVacantSeat({
             now, state, challengerName: displayName,
-            challengerLevel: num(char.level),
-            challengerAccountCreatedAt: num(char.createdAt),
-            challengerMerit: num(char.villageMerit),
-            isMember: !!opts.isAdmin || String(char.village ?? '').trim() === village.trim(),
+            challengerLevel: num(currentChar.level),
+            challengerAccountCreatedAt: num(currentChar.createdAt),
+            challengerMerit: num(currentChar.villageMerit),
+            isMember: !!opts.isAdmin || String(currentChar.village ?? '').trim() === village.trim(),
         });
         if (!elig.ok) {
             // Admins skip the personal gates but never the unlock / vacancy check.

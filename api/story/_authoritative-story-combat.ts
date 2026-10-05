@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import type { ServerAiRule } from '../combat-core/ai-authoring.js';
 import { LIBERATOR_TITLES, STORY_LEVELS, STORY_REWARDS, storyOpponentId } from './_settle.js';
+import { VILLAGE_OUTSKIRTS, sectorBiomeOf } from '../../shared/sector-geo.js';
 
 /*
  * Server-authoritative story-boss combat (SERVER_COMBAT_MIGRATION_PLAN Stage 4,
@@ -21,14 +22,11 @@ export function storyCombatBindingKey(runId: string): string {
     return `story-combat-binding:${runId}`;
 }
 
-// Mirrors the client's data/village-biomes.ts map so the sealed fight keeps the
-// chapter's authored battlefield feel. Values must stay within TOWER_BIOMES.
-export const STORY_VILLAGE_BIOMES: Record<string, string> = {
-    'Stormveil Village': 'forest',
-    'Ashen Leaf Village': 'volcano',
-    'Frostfang Village': 'snow',
-    'Moonshadow Village': 'shadow',
-};
+// Story fights use the biome of each village's gate sector, matching the
+// client's village map and the shared painted-world geography.
+export const STORY_VILLAGE_BIOMES: Record<string, string> = Object.fromEntries(
+    Object.entries(VILLAGE_OUTSKIRTS).map(([village, sector]) => [village, sectorBiomeOf(sector)]),
+);
 
 export interface StoryCombatBinding {
     version: 1;

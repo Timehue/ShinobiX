@@ -17,7 +17,8 @@
  * textures (shrine:tile-*), per-theme tiles (shrine:icon-theme-*), content
  * icon variants (shrine:icon-*) and decorations all overlay the CSS look.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import "../../styles/index/29-clan-exchange-storefront.css";
 import "../../styles/index/33-hollow-gate-cinematic.css";
 import type { CSSProperties } from "react";
 import { HollowGateAvatar } from "./HollowGateAvatar";
@@ -55,6 +56,11 @@ const HOLLOW_GATE_TILE_ART: Partial<Record<HollowGateTileKind, GameArtIconKind>>
 type HiddenChamberState = { searched: boolean; relicTaken: boolean } | null;
 
 const BOSS_INTRO_SESSION_PREFIX = "shinobix:hollow-gate-alpha-intro:";
+const RIFT_DISTORTION_LABEL: Record<string, { label: string; detail: string }> = {
+    "echoed-cache": { label: "Echoed Cache", detail: "One existing chest is marked on each floor. Its usual chest contents are unchanged." },
+    "echoed-threat": { label: "Echoed Threat", detail: "One existing battle is marked on each floor. Enemy and reward rules are unchanged." },
+    "resonant-vein": { label: "Resonant Vein", detail: "One existing shard vein is marked on each floor. Its usual contents are unchanged." },
+};
 const bossIntroSeenKeys = new Set<string>();
 
 function bossIntroWasSeen(key: string): boolean {
@@ -123,6 +129,10 @@ export function HollowGateShrineView({
     onCloseHiddenChamber,
 }: HollowGateShrineViewProps) {
     const run = hollowGateRun;
+    const visibleSet = useMemo(() => run.diviner
+        ? new Set(run.tiles.map((_, i) => i))
+        : computeHollowGateVisible(run),
+    [run]);
     const hiddenChamberOpen = hollowGateHiddenChamber !== null;
     useEffect(() => {
         primeGameAudio(["ambience-hollow", "omen", "paper", "reveal", "mythic"]);
@@ -323,9 +333,6 @@ export function HollowGateShrineView({
                                     disguised until stepped on. */}
                                 {(() => {
                                     // Room-flood visibility (whole floor when Diviner's Eye is active).
-                                    const visibleSet = run.diviner
-                                        ? new Set(run.tiles.map((_, i) => i))   // Diviner's Eye — whole floor lit
-                                        : computeHollowGateVisible(run);
                                     // Known = currently visible ∪ previously explored (stepped
                                     // OR ever seen) — the click-to-walk surface and the "map
                                     // memory" fog tier.
@@ -383,18 +390,24 @@ export function HollowGateShrineView({
                                         }
                                         return out;
                                     }
-                                    // Build the decoration pool for a given cell: themed first (so themed
+                                    // Build one decoration pool per room theme: themed first (so themed
                                     // rooms feel cohesive), then user picks, then atlas defaults. Returns
                                     // the chosen image url or undefined if no decoration art exists at all.
+                                    const decorationPools = new Map<string, string[]>();
                                     function pickDecorationFor(idx: number, theme: string | undefined, hintIndex: number): string | undefined {
-                                        const pool = [
-                                            ...themedDecorations(theme),
-                                            ...userDecorations,
-                                            ...legacyDecorations.filter((x): x is string => Boolean(x)),
-                                        ];
+                                        const poolKey = theme ?? "";
+                                        let pool = decorationPools.get(poolKey);
+                                        if (!pool) {
+                                            pool = [
+                                                ...themedDecorations(theme),
+                                                ...userDecorations,
+                                                ...legacyDecorations.filter((x): x is string => Boolean(x)),
+                                            ];
+                                            decorationPools.set(poolKey, pool);
+                                        }
                                         if (pool.length === 0) return undefined;
                                         // Mix the tile index with the legacy hint so old runs (which stamped
-                                        // a 0-3 index per tile) still get stable picks; new runs just pass 0.
+                                        // a 0-3 decoration index per tile) still get stable picks; new runs just pass 0.
                                         const seed = ((idx * 2654435761) ^ (hintIndex * 16777619)) >>> 0;
                                         return pool[seed % pool.length];
                                     }
@@ -460,17 +473,27 @@ export function HollowGateShrineView({
                                     // Variant-aware icon lookup for a content role (chest, battle, etc.).
                                     // Tries shrine:icon-<role>-1..N in deterministic hash order, falls back
                                     // to shrine:icon-<role> (legacy single-icon assignments).
+                                    const roleIconPools = new Map<string, string[]>();
                                     function pickRoleIconImage(role: string, idx: number): string | undefined {
                                         const cfg = HOLLOW_GATE_ICON_ROLES[role];
                                         if (!cfg) return undefined;
-                                        if (cfg.count === 1) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                        const assigned: string[] = [];
-                                        for (let i = 1; i <= cfg.count; i += 1) {
-                                            const v = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
-                                            if (v) assigned.push(v);
+                                        let assigned = roleIconPools.get(role);
+                                        if (!assigned) {
+                                            assigned = [];
+                                            if (cfg.count > 1) {
+                                                for (let i = 1; i <= cfg.count; i += 1) {
+                                                    const image = sharedImages[HOLLOW_GATE_ICON_KEY(`${role}-${i}`)];
+                                                    if (image) assigned.push(image);
+                                                }
+                                            }
+                                            if (assigned.length === 0) {
+                                                const fallback = sharedImages[HOLLOW_GATE_ICON_KEY(role)];
+                                                if (fallback) assigned.push(fallback);
+                                            }
+                                            roleIconPools.set(role, assigned);
                                         }
-                                        if (assigned.length === 0) return sharedImages[HOLLOW_GATE_ICON_KEY(role)];
-                                        return assigned[variantPick(idx, assigned.length)];
+                                        if (assigned.length === 0) return undefined;
+                                        return assigned.length === 1 ? assigned[0] : assigned[variantPick(idx, assigned.length)];
                                     }
                                     const w = run.width, h = run.height;
                                     const isWallAt = (x: number, y: number) => {
@@ -499,6 +522,8 @@ export function HollowGateShrineView({
                                         const x = i % w;
                                         const y = Math.floor(i / w);
                                         const isPlayer = x === run.playerX && y === run.playerY;
+                                        const isDetourChest = run.detourTileIndex === i;
+                                        const isRiftSignal = run.riftSignalTileIndex === i;
                                         const revealed = tile.revealed;
                                         const visible = visibleSet.has(i);
                                         const known = knownSet.has(i);
@@ -597,7 +622,7 @@ export function HollowGateShrineView({
                                                 ? `Unknown tile, row ${y + 1}, column ${x + 1}`
                                                 : wall
                                                     ? `Wall, row ${y + 1}, column ${x + 1}`
-                                                    : `${showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
+                                                    : `${isDetourChest ? `Optional echo cache, standard chest contents, about ${run.detourExtraSteps ?? 0} extra route steps; ` : ""}${isRiftSignal ? `Weekly Rift signal for ${RIFT_DISTORTION_LABEL[run.riftDistortionId ?? ""]?.label ?? "the active distortion"}; ` : ""}${showIcon ? tile.kind.replaceAll("_", " ") : "explored floor"}, row ${y + 1}, column ${x + 1}${clickable ? ", press Enter to walk here" : ""}`;
 
                                         // Torch sconces: a wall face beside an OPENING in its wall
                                         // line (where a corridor/door pierces through) always carries
@@ -616,7 +641,7 @@ export function HollowGateShrineView({
                                                  aria-colindex={x + 1}
                                                  aria-current={isPlayer ? "location" : undefined}
                                                  tabIndex={clickable ? 0 : -1}
-                                                 className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}`}
+                                                 className={`hg-cell ${shapeCls} ${fogCls}${texture ? "" : checkCls}${texturedFace ? " hg-tex" : ""}${clickable ? " hg-clickable" : ""}${isDest ? " hg-dest" : ""}${isDetourChest ? " hg-detour-cache" : ""}${isRiftSignal ? " hg-rift-signal" : ""}`}
                                                  style={styleBg ? { background: styleBg } : undefined}
                                                  onClick={clickable ? () => onTileClick(i) : undefined}
                                                  onKeyDown={clickable ? (event) => {
@@ -626,6 +651,8 @@ export function HollowGateShrineView({
                                                  } : undefined}
                                              >
                                                  {sconce && <span className="hg-flame" aria-hidden="true" />}
+                                                 {isDetourChest && <span className="hg-detour-mark" aria-hidden="true">✦</span>}
+                                                 {isRiftSignal && <span className="hg-rift-mark" aria-hidden="true">◈</span>}
                                                  {iconImage ? (
                                                      <img
                                                          src={iconImage}
@@ -654,9 +681,6 @@ export function HollowGateShrineView({
                                     {/* Minimap — the explored floor at a glance (the camera stays
                                         close, the minimap keeps the run orientable). */}
                                     {(() => {
-                                        const visibleSet = run.diviner
-                                            ? new Set(run.tiles.map((_, i) => i))
-                                            : computeHollowGateVisible(run);
                                         const px = Math.max(3, Math.min(7, Math.floor(200 / run.width)));
                                         return (
                                             <div style={{ background: "rgba(15,9,28,0.7)", border: "1px solid rgba(168,85,247,0.3)", borderRadius: 8, padding: 10 }}>
@@ -668,6 +692,8 @@ export function HollowGateShrineView({
                                                         const seen = visibleSet.has(i) || t.revealed || t.seen;
                                                         const isWall = t.terrain === "wall" || (t.terrain == null && t.kind === "wall");
                                                         const cls = isYou ? "hg-mm-you"
+                                                            : run.riftSignalTileIndex === i ? "hg-mm-rift-signal"
+                                                            : run.detourTileIndex === i ? "hg-mm-detour"
                                                             : !seen ? "hg-mm-dark"
                                                             : isWall ? "hg-mm-wall"
                                                             : t.kind === "descend" || t.kind === "boss" ? "hg-mm-goal"
@@ -681,6 +707,14 @@ export function HollowGateShrineView({
                                         );
                                     })()}
                                     {/* Objectives panel — updates as the run progresses. */}
+                                    {run.detourTileIndex != null && <div className="hg-detour-card" role="note">
+                                        <b>Optional Echo Cache</b>
+                                        <span>Side route adds about {run.detourExtraSteps ?? 0} steps over the direct route. It uses the floor’s standard chest contents; the main route stays open if you skip it.</span>
+                                    </div>}
+                                    {run.riftDistortionId && RIFT_DISTORTION_LABEL[run.riftDistortionId] && <div className="hg-rift-card" role="note">
+                                        <b>This week’s Rift distortion · {RIFT_DISTORTION_LABEL[run.riftDistortionId].label}</b>
+                                        <span>{RIFT_DISTORTION_LABEL[run.riftDistortionId].detail} Use the signal to choose your route; the Rift’s boss, daily offer, and rewards stay the same.</span>
+                                    </div>}
                                     {(() => {
                                         const maxFloor = hollowGateRunMaxFloor(run);
                                         const reachedFinalFloor = run.floor >= maxFloor;

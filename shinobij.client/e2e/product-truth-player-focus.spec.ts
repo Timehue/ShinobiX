@@ -37,6 +37,13 @@ type RuntimeSaveCommit = {
     postedState: string;
 };
 
+type RuntimeSaveLoad = {
+    generation: number;
+    characterName: unknown;
+    currentSector: unknown;
+    version: number;
+};
+
 // Must list EVERY id in PUBLIC_CAPABILITY_IDS. The client parser fails closed on
 // a partial response, so one missing id makes capabilities read "unknown" — and
 // because autosave is capability-guarded, the save under test then never commits
@@ -78,7 +85,8 @@ async function installRuntime(page: Page) {
     let save: RuntimeSavePayload = {
         character: { ...baseCharacter },
         currentBiome: "central",
-        currentSector: 40,
+        // This matrix boots Central directly, so its character is already in town.
+        currentSector: 0,
         acceptedMissionIds: [],
         missionProgress: {},
         triggeredEvents: ["builtin-aura-sphere-lv9"],
@@ -87,6 +95,8 @@ async function installRuntime(page: Page) {
     let capabilityRequestCount = 0;
     let sectorCampaignRequestCount = 0;
     let saveVersion = 1;
+    let saveReadCount = 0;
+    let lastLoadedSave: RuntimeSaveLoad | null = null;
     let acknowledgedVersion = 0;
     let lastCommit: RuntimeSaveCommit | null = null;
     await page.addInitScript(() => {
@@ -105,7 +115,17 @@ async function installRuntime(page: Page) {
         const url = new URL(request.url());
         const path = url.pathname.toLowerCase();
         if (path === "/api/save/visualninja") {
-            if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
+            if (request.method() === "GET") {
+                const loaded = {
+                    generation: ++saveReadCount,
+                    characterName: save.character.name,
+                    currentSector: save.currentSector,
+                    version: saveVersion,
+                };
+                await json(route, { ...save, _saveVersion: saveVersion });
+                lastLoadedSave = loaded;
+                return;
+            }
             const incoming = request.postDataJSON() as RuntimeSavePayload;
             const rawBaseVersion = incoming._baseSaveVersion;
             if (!Number.isSafeInteger(rawBaseVersion) || Number(rawBaseVersion) < 0) {
@@ -169,6 +189,8 @@ async function installRuntime(page: Page) {
         capabilityRequests: () => capabilityRequestCount,
         sectorCampaignRequests: () => sectorCampaignRequestCount,
         committedVersion: () => saveVersion,
+        saveReadCount: () => saveReadCount,
+        lastLoadedSave: () => lastLoadedSave,
         acknowledgedVersion: () => acknowledgedVersion,
         lastCommit: () => lastCommit,
         persistedStateMatchesLastPost: () => Boolean(lastCommit && JSON.stringify(save) === lastCommit.postedState),
@@ -176,6 +198,23 @@ async function installRuntime(page: Page) {
 }
 
 type RuntimeFixture = Awaited<ReturnType<typeof installRuntime>>;
+
+async function expectRuntimeSaveLoaded(page: Page, runtime: RuntimeFixture) {
+    await expect.poll(() => {
+        const loaded = runtime.lastLoadedSave();
+        return Boolean(loaded
+            && loaded.generation > 0
+            && loaded.generation === runtime.saveReadCount()
+            && loaded.characterName === "VisualNinja"
+            && loaded.currentSector === 0
+            && loaded.version === runtime.committedVersion());
+    }, {
+        timeout: 20_000,
+        message: "the latest successful town load must match VisualNinja and its save authority",
+    }).toBe(true);
+    await expect(page.locator(".left-profile-name, .mthd-name").filter({ visible: true }).first()).toHaveText("VisualNinja");
+    await expect(page.getByRole("complementary", { name: "Device and server saves diverged" })).toHaveCount(0);
+}
 
 async function expectRuntimeSaveCommitted(page: Page, runtime: RuntimeFixture) {
     await expect.poll(() => {
@@ -221,7 +260,10 @@ test("product truth and player focus visual matrix", async ({ page }, testInfo) 
 
     await page.setViewportSize({ width: 1440, height: 900 });
     await loadScreen(page, "centralHub");
-    await expectRuntimeSaveCommitted(page, runtime);
+    await expectRuntimeSaveLoaded(page, runtime);
+    // Read-only admission need not create a write. Any write that did occur
+    // must still satisfy the unchanged exact persistence acknowledgement.
+    if (runtime.lastCommit()) await expectRuntimeSaveCommitted(page, runtime);
     const desktopMenu = page.locator(".right-menu-panel.open");
     await expect(desktopMenu).toBeVisible();
     await expect(desktopMenu.getByRole("button", { name: "Sector Map" })).toHaveCount(0);

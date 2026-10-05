@@ -47,6 +47,7 @@ export type WorldAiFightContext = {
     finalStage?: boolean;
     huntQuality?: number;
     huntOpening?: 'cornered' | 'even' | 'enraged';
+    huntFormation?: import('./hunt-combat.js').HuntFormation;
     /** Server-only version of the quest/story seal; prevents pre-advance replay. */
     sealVersion?: string;
     /** Server-derived home-village binding for a global outskirts defense. */

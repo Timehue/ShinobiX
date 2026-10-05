@@ -33,6 +33,8 @@ export function riftEventConfig(rift: HollowRift): HollowGateEventConfig {
 export type RiftResponse = {
     ok?: boolean;
     reason?: string;
+    /** Monotonic save token returned by the authoritative rift endpoint. */
+    _saveVersion?: number;
     activeRiftQuest?: Character["activeRiftQuest"];
     ryo?: number;
     totalRyo?: number;

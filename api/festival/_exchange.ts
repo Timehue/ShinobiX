@@ -177,11 +177,26 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
             // A refusal before a save commit is reversible. Storage errors are
             // ambiguous and leave the reservation intact for receipt recovery.
             if (error instanceof ExchangeError) {
-                const reopened = await transition(listing, { state: 'active', buyer: undefined });
-                await kv.hdel(playerIndex(listing.buyer!), listing.id);
-                await cleanup(reopened);
+                if (listing.listingType === 'auction' && (listing.auctionEndsAt ?? Infinity) <= Date.now()) {
+                    // A winning bidder may spend their balance or fill capacity before close.
+                    // In that case close the auction without a sale and return the escrowed asset.
+                    listing = await transition(listing, { state: 'cancelling', buyer: undefined });
+                    // Continue through the normal seller return leg below.
+                } else {
+                    const reopened = await transition(listing, { state: 'active', buyer: undefined });
+                    await kv.hdel(playerIndex(listing.buyer!), listing.id);
+                    await cleanup(reopened);
+                    throw error;
+                }
+            } else {
+                throw error;
             }
-            throw error;
+        }
+        if (listing.state === 'cancelling') {
+            await applyLeg(listing, listing.seller, 'return');
+            listing = await transition(listing, { state: 'cancelled', completedAt: Date.now() });
+            await cleanup(listing);
+            return listing;
         }
         await applyLeg(listing, listing.seller, 'payment');
         listing = await transition(listing, { state: 'sold', completedAt: Date.now(), saleNoticePending: true });
@@ -215,14 +230,21 @@ async function recoverLocked(current: StoredExchangeListing, catalogs?: Settleme
     return listing;
 }
 
-export async function createExchangeListing(player: string, input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number; currency?: unknown }): Promise<ExchangeListing> {
+export async function createExchangeListing(player: string, input: { requestId: string; kind: ExchangeKind; assetId: string; quantity: number; price: number; currency?: unknown; listingType?: unknown; durationHours?: unknown }): Promise<ExchangeListing> {
     const currency = parseCurrency(input.currency);
     if (!['item', 'pet', 'card', 'resource'].includes(input.kind) || !input.assetId || input.assetId.length > 160) throw new ExchangeError('Choose a valid asset.', 400);
     if (!Number.isSafeInteger(input.quantity) || input.quantity < 1 || input.quantity > EXCHANGE_MAX_QUANTITY) throw new ExchangeError('Enter a valid whole quantity.', 400);
     if (!Number.isSafeInteger(input.price) || input.price < 1 || input.price > EXCHANGE_MAX_PRICE) throw new ExchangeError(`The total price must be between 1 and ${EXCHANGE_MAX_PRICE.toLocaleString()} ${EXCHANGE_CURRENCIES[currency]}.`, 400);
+    const listingType = input.listingType === undefined ? 'fixed' : input.listingType;
+    if (listingType !== 'fixed' && listingType !== 'auction') throw new ExchangeError('Choose fixed price or auction.', 400);
+    const durationHours = Number(input.durationHours);
+    if (listingType === 'auction' && ![6, 24, 48].includes(durationHours)) throw new ExchangeError('Choose an auction duration of 6, 24, or 48 hours.', 400);
     const id = createHash('sha256').update(`${player}:${input.requestId}`).digest('hex').slice(0, 32);
     // Keep old ryo request fingerprints replayable across this rollout.
-    const fingerprint = JSON.stringify([input.kind, input.assetId, input.quantity, input.price, ...(currency === 'ryo' ? [] : [currency])]);
+    const fingerprint = listingType === 'fixed'
+        // Keep fixed-price retries from clients already in flight across this rollout replayable.
+        ? JSON.stringify([input.kind, input.assetId, input.quantity, input.price, ...(currency === 'ryo' ? [] : [currency])])
+        : JSON.stringify([input.kind, input.assetId, input.quantity, input.price, ...(currency === 'ryo' ? [] : [currency]), listingType, durationHours]);
     return withKvLock('sunscar-exchange:create', () => withKvLock(exchangeListingKey(id), async () => {
         let listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
         if (listing && listing.fingerprint !== fingerprint) throw new ExchangeError('This request ID was already used for a different listing.');
@@ -236,8 +258,10 @@ export async function createExchangeListing(player: string, input: { requestId: 
             if (!record?.character) throw new ExchangeError('Player save not found.', 404);
             const sealed = sealAsset(await recoverExchangeDefinitions(record), catalogs, input.kind, input.assetId);
             const fee = exchangeFee(input.price);
+            const createdAt = Date.now();
             listing = { id, seller: player, sellerName: String((record.character as Obj).name), sealed, asset: sealed.asset,
-                quantity: input.quantity, price: input.price, currency, fee, proceeds: input.price - fee, createdAt: Date.now(), state: 'preparing', fingerprint };
+                quantity: input.quantity, price: input.price, currency, fee, proceeds: input.price - fee, createdAt, listingType,
+                ...(listingType === 'auction' ? { auctionEndsAt: createdAt + durationHours * 3_600_000, bidCount: 0 } : {}), state: 'preparing', fingerprint };
             // Index first: an interruption can leave an inert pointer, never an
             // unfindable escrow. Nothing has been removed at this point.
             await kv.hset(LIVE_INDEX, { [id]: listing.createdAt });
@@ -249,13 +273,42 @@ export async function createExchangeListing(player: string, input: { requestId: 
     }, { failClosed: true, ttlSec: 60 }), { failClosed: true, ttlSec: 60 });
 }
 
-export async function actOnExchangeListing(player: string, id: string, action: 'buy' | 'cancel', expectedPrice?: number, expectedCurrency?: unknown): Promise<ExchangeListing> {
+async function closeExpiredAuctionLocked(listing: StoredExchangeListing): Promise<StoredExchangeListing> {
+    if (listing.listingType !== 'auction' || (listing.auctionEndsAt ?? Infinity) > Date.now() || listing.state !== 'active') return listing;
+    if (!listing.highestBid) return recoverLocked(await transition(listing, { state: 'cancelling' }));
+    const price = listing.highestBid.amount;
+    const fee = exchangeFee(price);
+    await kv.hset(playerIndex(listing.highestBid.player), { [listing.id]: listing.createdAt });
+    return recoverLocked(await transition(listing, { state: 'buying', buyer: listing.highestBid.player, price, fee, proceeds: price - fee }));
+}
+
+export async function actOnExchangeListing(player: string, id: string, action: 'buy' | 'cancel' | 'bid', expectedPrice?: number, expectedCurrency?: unknown): Promise<ExchangeListing> {
     if (!/^[a-f0-9]{32}$/.test(id)) throw new ExchangeError('Invalid listing.', 400);
     return withKvLock(exchangeListingKey(id), async () => {
         let listing = await kv.get<StoredExchangeListing>(exchangeListingKey(id));
         if (!listing) throw new ExchangeError('This listing was not found.', 404);
+        if (listing.state === 'active' && listing.listingType === 'auction' && (listing.auctionEndsAt ?? Infinity) <= Date.now()) {
+            listing = await closeExpiredAuctionLocked(listing);
+        }
+        if (action === 'bid') {
+            if (listing.state !== 'active' || listing.listingType !== 'auction' || (listing.auctionEndsAt ?? 0) <= Date.now()) throw new ExchangeError('This auction is no longer accepting bids.');
+            if (listing.seller === player) throw new ExchangeError('You cannot bid on your own auction.', 400);
+            // A retry after a lost response confirms the already accepted bid.
+            if (listing.highestBid?.player === player && listing.highestBid.amount === expectedPrice) return publicListing(listing);
+            if (!Number.isSafeInteger(expectedPrice) || expectedPrice! <= Math.max(listing.price, listing.highestBid?.amount ?? 0) || expectedPrice! > EXCHANGE_MAX_PRICE) throw new ExchangeError(`Your bid must be higher than ${(listing.highestBid?.amount ?? listing.price).toLocaleString()}.`, 400);
+            if (parseCurrency(expectedCurrency) !== exchangeCurrency(listing)) throw new ExchangeError('The bid currency does not match this auction.');
+            const record = await kv.get<Obj>(`save:${player}`);
+            const character = record?.character as Obj | undefined;
+            if (!character || balance(character[exchangeCurrency(listing)] ?? 0) < expectedPrice!) throw new ExchangeError(`You need ${expectedPrice!.toLocaleString()} ${EXCHANGE_CURRENCIES[exchangeCurrency(listing)]} available to bid.`);
+            const grantBlocker = exchangeGrantBlocker(character, listing.sealed, listing.quantity);
+            if (grantBlocker) throw new ExchangeError(`You cannot receive this item yet: ${grantBlocker.message}`);
+            listing = await transition(listing, { highestBid: { player, playerName: String(character.name ?? player), amount: expectedPrice! }, bidCount: (listing.bidCount ?? 0) + 1 });
+            await kv.hset(playerIndex(player), { [id]: listing.createdAt });
+            return publicListing(listing);
+        }
         if (action === 'cancel' && listing.seller !== player) throw new ExchangeError('Only the seller may cancel this listing.', 403);
         if (action === 'buy' && listing.seller === player) throw new ExchangeError('You cannot buy your own listing.', 400);
+        if (action === 'buy' && listing.listingType === 'auction') throw new ExchangeError('This listing is an auction. Place a bid instead.');
         if (action === 'buy' && expectedPrice !== listing.price) throw new ExchangeError('The quoted price does not match. Refresh before buying.');
         // Missing currency is a legacy ryo quote, never consent to spend shards.
         if (action === 'buy' && parseCurrency(expectedCurrency) !== exchangeCurrency(listing)) throw new ExchangeError('The quoted currency does not match. Refresh before buying.');
@@ -277,7 +330,7 @@ export async function actOnExchangeListing(player: string, id: string, action: '
  *  definitions, stats or artwork of listings that are not on the page. The
  *  text a search matches is only read when there is a search term. */
 const MARKET_PROJECTION = {
-    state: ['state'], price: ['price'], currency: ['currency'], createdAt: ['createdAt'],
+    state: ['state'], price: ['price'], highestBid: ['highestBid', 'amount'], currency: ['currency'], createdAt: ['createdAt'],
     category: ['asset', 'category'], rarity: ['asset', 'rarity'],
 } as const;
 const MARKET_SEARCH_PROJECTION = {
@@ -317,7 +370,7 @@ export async function exchangeMarketPage(player: string, query: ExchangeMarketQu
     for (const [index, row] of projected.entries()) {
         if (!row || row.state !== 'active') continue;
         rows.push({
-            id: ids[index]!, sellerName: String(row.sellerName ?? ''), price: Number(row.price) || 0,
+            id: ids[index]!, sellerName: String(row.sellerName ?? ''), price: Number(row.highestBid) || Number(row.price) || 0,
             ...(row.currency === 'fateShards' || row.currency === 'ryo' ? { currency: row.currency } : {}),
             createdAt: Number(row.createdAt) || 0, name: String(row.name ?? ''), description: String(row.description ?? ''),
             category: String(row.category ?? ''), rarity: String(row.rarity ?? ''),
@@ -418,4 +471,26 @@ export async function recoverPendingExchangeListings(limit = 50) {
         }
     }
     return result;
+}
+
+/** Expire auctions from the live index and settle their winning bid through
+ * the same recoverable purchase journal used by fixed price trades. */
+export async function recoverExpiredExchangeAuctions(limit = 50) {
+    const refs = await kv.hgetall<Record<string, number>>(LIVE_INDEX) ?? {};
+    const ids = Object.keys(refs);
+    let closed = 0;
+    for (let i = 0; i < ids.length && closed < limit; i += 100) {
+        const rows = await kv.mget<StoredExchangeListing[]>(...ids.slice(i, i + 100).map(exchangeListingKey));
+        for (const candidate of rows) {
+            if (!candidate || candidate.state !== 'active' || candidate.listingType !== 'auction' || (candidate.auctionEndsAt ?? Infinity) > Date.now()) continue;
+            await withKvLock(exchangeListingKey(candidate.id), async () => {
+                const listing = await kv.get<StoredExchangeListing>(exchangeListingKey(candidate.id));
+                if (!listing || listing.state !== 'active' || listing.listingType !== 'auction' || (listing.auctionEndsAt ?? Infinity) > Date.now()) return;
+                await closeExpiredAuctionLocked(listing);
+            }, { failClosed: true, ttlSec: 60 });
+            closed++;
+            if (closed >= limit) break;
+        }
+    }
+    return { closed };
 }

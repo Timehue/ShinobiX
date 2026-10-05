@@ -25,6 +25,8 @@ const BASIC_PACKS: readonly PackListing[] = [
 const PREMIUM_PACKS: readonly PackListing[] = [
   { type: "epic", name: "Elite Pack", note: "1 top-tier Rare or Epic card", count: 1, cost: 10, currency: "fateShards" },
   { type: "legendary", name: "Legendary Pack", note: "1 guaranteed Legendary card", count: 1, cost: 30, currency: "fateShards" },
+  { type: "epic-five", name: "Epic Quintet Pack", note: "5 random Epic cards · all five guaranteed Epic", count: 5, cost: 35, currency: "fateShards" },
+  { type: "legendary-five", name: "Legendary Quintet Pack", note: "5 random Legendary cards · all five guaranteed Legendary", count: 5, cost: 100, currency: "fateShards" },
 ];
 
 const PACKS = [...BASIC_PACKS, ...PREMIUM_PACKS];
@@ -82,7 +84,7 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
         <p>{pack.note}</p>
         <div className="chronicle-pack__facts">
           <span>{pack.count} {pack.count === 1 ? "card" : "cards"}</span>
-          <span>{pack.currency === "chroniclePoints" ? "Common / Rare" : pack.type === "epic" ? "Rare / Epic" : "Legendary"}</span>
+          <span>{pack.currency === "chroniclePoints" ? "Common / Rare" : pack.type === "epic" ? "Rare / Epic" : pack.type === "epic-five" ? "Epic" : "Legendary"}</span>
         </div>
         <button type="button" onClick={() => void open(pack)} disabled={unavailable(pack)}>
           {pending(pack.type) ? `Recover ${pack.name}` : `Open ${pack.name}`}
@@ -107,18 +109,18 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
           <span><strong>{character.tileCards?.length ?? 0}</strong> owned cards</span>
         </div>
       </div>
+      <p className="chronicle-pack-gallery__odds">
+        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Epic Quintet draws five Marketplace Epics; Legendary Quintet draws five Marketplace Legendaries. Within each eligible pool, every card is equally likely. There are no weighted tiers or pity timer. Each card is drawn independently from the full eligible pool, so duplicates can appear within a pack or across packs regardless of owned copies. Deck copy limits apply only when building a deck.
+      </p>
       <div className="chronicle-pack-gallery__section-head">
         <div><h3>Basic packs</h3><p>Five cards per pack · 100 Chronicle Points</p></div>
         {onOpenEchoesOfWar ? <button type="button" onClick={onOpenEchoesOfWar}>Earn points in Echoes of War →</button> : null}
       </div>
       <div className="chronicle-pack-gallery__grid">{BASIC_PACKS.map(renderPack)}</div>
       <div className="chronicle-pack-gallery__section-head chronicle-pack-gallery__section-head--premium">
-        <div><h3>Premium packs</h3><p>Single-card pulls from the premium card pool</p></div>
+        <div><h3>Premium packs</h3><p>Single-card pulls and five-card rarity packs from the premium card pool</p></div>
       </div>
       <div className="chronicle-pack-gallery__grid chronicle-pack-gallery__grid--premium">{PREMIUM_PACKS.map(renderPack)}</div>
-      <p className="chronicle-pack-gallery__odds">
-        <strong>Pack odds:</strong> Elemental packs draw only matching-element Monsters. The Random Pack draws from every eligible Basic card, including Jutsu and Snares. Basic packs draw Common or Rare cards; Elite draws a Marketplace Rare or Epic; Legendary is always Legendary. Within each eligible pool, every playable card is equally likely. There are no weighted tiers or pity timer. Cards are drawn independently and may repeat until their deck copy limit is reached.
-      </p>
       {reveal && revealPack ? <CardPackOpening
         key={reveal.nonce}
         packType={reveal.type}

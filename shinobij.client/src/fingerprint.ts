@@ -34,6 +34,7 @@
 const STORAGE_KEY = 'shinobix:fp';
 let _cachedFp: string | null = null;
 let _computePromise: Promise<string> | null = null;
+let _primeScheduled = false;
 
 function safeGet(fn: () => string | number | undefined | null): string {
     try {
@@ -188,5 +189,19 @@ export function getFingerprintSync(): string | null {
  * — won't block startup.
  */
 export function primeFingerprint(): void {
-    void getFingerprint().catch(() => { /* swallow */ });
+    if (_cachedFp || _computePromise || _primeScheduled || typeof window === 'undefined') return;
+    _primeScheduled = true;
+    const start = () => {
+        _primeScheduled = false;
+        void getFingerprint().catch(() => { /* swallow */ });
+    };
+    const scheduleDuringIdle = () => {
+        const requestIdle = (window as Window & {
+            requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+        }).requestIdleCallback;
+        if (requestIdle) requestIdle(start, { timeout: 5000 });
+        else window.setTimeout(start, 5000);
+    };
+    if (document.readyState === 'complete') scheduleDuringIdle();
+    else window.addEventListener('load', scheduleDuringIdle, { once: true });
 }

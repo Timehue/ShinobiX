@@ -204,7 +204,7 @@ test('session and rate-limit refusals retain a receipt without automatic request
 
 test('daily cap and definitive sector conflicts stop with accurate explanations', { concurrency: false }, async () => {
     for (const failure of [
-        { error: 'Daily hidden-dungeon search limit reached.', reason: 'daily-limit', message: /150\/150.*midnight UTC/ },
+        { error: 'Daily hidden-dungeon search limit reached.', reason: 'daily-limit', message: /100\/100.*midnight UTC/ },
         { error: 'You are not in that sector.', reason: 'sector-mismatch', message: /You are not in that sector/ },
     ]) {
         await withProbeReplies([jsonReply({ error: failure.error, reason: failure.reason }, 409)], async (bodies) => {

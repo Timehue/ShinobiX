@@ -7,6 +7,7 @@
 }
 
 .pet-home-screen {
+    container: pet-home-screen / inline-size;
     min-height: 100%;
     color: #edf6f7;
     background: radial-gradient(circle at 50% 0, #14283a 0, #07101d 48%, #040913 100%);
@@ -43,6 +44,16 @@
 .pet-home-hero-ledger span { color: #7f98a4; font-size: .58rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
 .pet-home-hero-ledger strong { margin-top: .25rem; overflow: hidden; color: #fff1c8; font: 700 clamp(.9rem,1.7vw,1.35rem)/1.08 Georgia,serif; text-overflow: ellipsis; white-space: nowrap; }
 .pet-home-hero-ledger small { margin-top: .25rem; color: #8fa7b5; font-size: .62rem; }
+
+@container pet-home-screen (max-width: 760px) {
+    .pet-home-hero {
+        grid-template-columns: minmax(0, 1fr);
+        align-items: start;
+        gap: 1.25rem;
+    }
+    .pet-home-hero-copy { max-width: 650px; }
+    .pet-home-hero-ledger { width: min(620px, 100%); justify-self: start; }
+}
 
 .pet-home-tabs {
     box-sizing: border-box;
@@ -86,6 +97,7 @@
 .pet-yard-kicker { display: block; margin-bottom: .3rem; color: #78d9bd; font-size: .58rem; font-weight: 900; letter-spacing: .18em; text-transform: uppercase; }
 
 .pet-collection, .breeding-barn { width: min(1260px, calc(100% - 2rem)); margin: 0 auto; }
+.pet-collection { container: pet-collection / inline-size; }
 .pet-home-section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin: 1.5rem 0 1rem; }
 .pet-home-section-heading h2 { margin: .2rem 0 0; font: 700 clamp(1.8rem, 4vw, 3rem)/1 Georgia, serif; }
 .pet-home-section-heading > strong { color: #b7cad4; white-space: nowrap; }
@@ -104,6 +116,16 @@
 .pet-collection-filters label > span, .breeding-parent-picker > span { color: #a8bdc7; font-size: .72rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .pet-collection-filters input, .pet-collection-filters select, .breeding-parent-picker select {
     min-width: 0; width: 100%; height: 44px; border: 1px solid rgba(178, 210, 229, .28); border-radius: 10px; color: #edf6f7; background: #0b1726; padding: 0 .75rem;
+}
+
+@container pet-collection (max-width: 900px) {
+    .pet-collection-filters { grid-template-columns: repeat(4, minmax(0,1fr)); }
+    .pet-collection-filters .pet-search { grid-column: span 2; }
+}
+
+@container pet-collection (max-width: 620px) {
+    .pet-collection-filters { grid-template-columns: 1fr 1fr; padding: .7rem; }
+    .pet-collection-filters .pet-search { grid-column: 1 / -1; }
 }
 
 .pet-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
@@ -293,8 +315,6 @@
     .pet-home-tab-detail { display: none; }
     .pet-home-tab-label { font-size: .78rem; }
     .pet-yard-screen .pet-yard-header { grid-template-columns: auto minmax(0,1fr); }
-    .pet-collection-filters { grid-template-columns: repeat(4, minmax(0,1fr)); }
-    .pet-collection-filters .pet-search { grid-column: span 2; }
     .breeding-odds { grid-template-columns: repeat(2,1fr); }
     .egg-nursery { grid-template-columns: 1fr; }
     .pet-sanctuary-manager { grid-template-columns: 1fr 1fr; }
@@ -326,8 +346,6 @@
     .pet-yard-screen .pet-yard-header { grid-template-columns: 1fr; align-items: stretch; }
     .pet-yard-screen .pet-yard-header .pet-yard-return { justify-self: start; }
     .pet-collection, .breeding-barn { width: min(100% - 1rem, 1260px); }
-    .pet-collection-filters { grid-template-columns: 1fr 1fr; padding: .7rem; }
-    .pet-collection-filters .pet-search { grid-column: 1 / -1; }
     .pet-collection-grid { grid-template-columns: 1fr; gap: .75rem; }
     .pet-collection-card { display: grid; grid-template-columns: 112px minmax(0,1fr); align-items: start; gap: .65rem .8rem; padding: .8rem; }
     .pet-collection-portrait { grid-column: 1; height: 128px; }

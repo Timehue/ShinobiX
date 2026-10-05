@@ -94,8 +94,15 @@ test('Legacy mission progress is derived from committed save receipts', () => {
         deltas: { missionCompletions: 1 },
         durableReceipt: false,
     });
+    assert.deepEqual(legacyMissionProgressSpec('field', 'field-1', date, {
+        claimedServerMissions: [`${date}:field:field-1:fieldrun_01`],
+    }), {
+        receiptId: `mission:${date}:field:field-1:fieldrun_01`,
+        deltas: { missionCompletions: 1 },
+        durableReceipt: false,
+    }, 'the current run-specific claim marker still reconciles Legacy progress');
     assert.deepEqual(legacyMissionProgressSpec('hunt', 'hunt-1', date, {
-        claimedServerMissions: [`${date}:hunt:hunt-1`],
+        claimedServerMissions: [`${date}:hunt:hunt-1:hunt_run_01`],
     })?.deltas, { huntCompletions: 1 });
     assert.deepEqual(legacyMissionProgressSpec('academy-trial', 'academy', date, {
         academyTrialClaimed: true,

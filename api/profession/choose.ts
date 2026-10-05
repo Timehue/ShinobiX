@@ -7,20 +7,25 @@ import { bumpSaveVersion } from '../save/_save-version.js';
 import {
     PROFESSION_CHANGE_APPROVAL_ID,
     PROFESSION_CHANGE_APPROVAL_NAME,
-    PROFESSION_CHANGE_LEVEL as PROFESSION_UNLOCK_LEVEL,
+    PROFESSION_UNLOCK_LEVEL,
+    isProfession,
+    professionChangeUnlockError,
 } from '../../shared/profession-change.js';
 
-const VALID_PROFESSIONS = ['healer', 'vanguard', 'petTamer'] as const;
-type Profession = typeof VALID_PROFESSIONS[number];
-
 function consumeProfessionApproval(character: Record<string, unknown>): Record<string, unknown> | null {
-    if (!Array.isArray(character.inventory)) return null;
-    const inventory = character.inventory;
+    const inventory = Array.isArray(character.inventory) ? character.inventory : [];
     const approvalIndex = inventory.indexOf(PROFESSION_CHANGE_APPROVAL_ID);
-    if (approvalIndex < 0) return null;
-    return {
+    if (approvalIndex >= 0) return {
         ...character,
         inventory: [...inventory.slice(0, approvalIndex), ...inventory.slice(approvalIndex + 1)],
+    };
+    const stacks = Array.isArray(character.itemStacks) ? character.itemStacks : [];
+    const stackIndex = stacks.findIndex(stack => stack?.itemId === PROFESSION_CHANGE_APPROVAL_ID && Number.isSafeInteger(stack.count) && stack.count > 0);
+    if (stackIndex < 0) return null;
+    return {
+        ...character,
+        itemStacks: stacks.flatMap((stack, index) => index !== stackIndex ? [stack]
+            : stack.count > 1 ? [{ ...stack, count: stack.count - 1 }] : []),
     };
 }
 
@@ -32,11 +37,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
         const playerName = safeName(String(body.playerName ?? ''));
-        const profession = String(body.profession ?? '') as Profession;
+        const profession = String(body.profession ?? '');
         const respecRequested = body.respec === true;
 
         if (!playerName) return res.status(400).json({ error: 'Invalid player name.' });
-        if (!VALID_PROFESSIONS.includes(profession)) {
+        if (!isProfession(profession)) {
             return res.status(400).json({ error: 'Invalid profession.' });
         }
         // Admin accounts can't pick a profession — the picker UI also skips
@@ -69,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!char) return { status: 404 as const, body: { error: 'Character not found.' } };
 
             const level = Number(char.level ?? 0);
-            if (level < PROFESSION_UNLOCK_LEVEL) {
+            if (!Number.isFinite(level) || level < PROFESSION_UNLOCK_LEVEL) {
                 return { status: 403 as const, body: { error: `Profession unlocks at Level ${PROFESSION_UNLOCK_LEVEL}.` } };
             }
 
@@ -85,6 +90,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     },
                 };
             }
+            if (respecRequested) {
+                const error = professionChangeUnlockError(char);
+                if (error) return { status: 403 as const, body: { error } };
+                if (body.fromProfession !== undefined && body.fromProfession !== char.profession) {
+                    return { status: 409 as const, body: { error: 'Your profession has changed. Refresh before choosing another path.' } };
+                }
+                // Bind retries to this choice generation. A delayed A→B request
+                // must not reset fresh A progress after a later B→A change.
+                if (body.fromProfessionChosenAt !== undefined && body.fromProfessionChosenAt !== (char.professionChosenAt ?? null)) {
+                    return { status: 409 as const, body: { error: 'Your profession has changed. Refresh before choosing another path.' } };
+                }
+            }
+            let paidCharacter = char;
             if (char.profession) {
                 if (!respecRequested) {
                     return {
@@ -96,7 +114,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                     };
                 }
-                if (!consumeProfessionApproval(char)) {
+                const consumed = consumeProfessionApproval(char);
+                if (!consumed) {
                     return {
                         status: 409 as const,
                         body: {
@@ -106,16 +125,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         },
                     };
                 }
+                paidCharacter = consumed;
             }
 
             const changingProfession = Boolean(char.profession);
-            const paidCharacter = changingProfession ? consumeProfessionApproval(char)! : char;
+            const priorChosenAt = Number(char.professionChosenAt);
             const nextCharacter = {
                 ...paidCharacter,
                 profession,
                 professionRank: 1,
                 professionXp: 0,
-                professionChosenAt: Date.now(),
+                professionChosenAt: Math.max(Date.now(), Number.isSafeInteger(priorChosenAt) ? priorChosenAt + 1 : 0),
                 ...(changingProfession ? { masterySpec: {} } : {}),
             };
             const updated = {

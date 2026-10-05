@@ -29,7 +29,6 @@ type PetBattleReadinessProps = {
 function colosseumBlocker(pet: Pet, breedingPetIds: ReadonlySet<string>, now: number): string | null {
     switch (colosseumPetBusyReason(pet, breedingPetIds, now)) {
         case "expedition": return "On expedition";
-        case "training": return "Training in progress";
         case "breeding": return "Committed to the Shinobi Hatchery";
         default: return null;
     }
@@ -47,10 +46,6 @@ function warfrontBlocker(
     switch (warfrontPetBusyReason(pet, breedingPetIds)) {
         case "breeding":
             return { status: "Committed to the Shinobi Hatchery", action: "Breeding in progress" };
-        case "training":
-            return pet.training && now >= pet.training.endsAt
-                ? { status: "Training results unclaimed", action: "Collect training results" }
-                : { status: "Training in progress", action: "Training in progress" };
         case "expedition":
             return pet.expedition && now >= pet.expedition.endsAt
                 ? { status: "Expedition results unclaimed", action: "Collect expedition results" }

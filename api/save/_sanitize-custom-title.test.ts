@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizeCharacterSave } from './[name].js';
 import { isServerCreditedTitle, isKnownEarnedTitle } from '../_titles-registry.js';
+import { PLAY_GAMES_REWARD_PRODUCTS } from '../../shared/play-games-rewards.js';
 
 type Char = Record<string, unknown>;
 const sanitize = (incoming: Char, existing: Char | null) => sanitizeCharacterSave(
@@ -30,6 +31,13 @@ test('generic saves preserve the committed title and paid cosmetics', () => {
 test('incoming ownership proofs cannot authorize a title change', () => {
     const out = sanitize({ customTitle: SERVER_TITLE, legacy: { titles: [SERVER_TITLE] }, serverTitles: [SERVER_TITLE] }, { customTitle: '' });
     assert.equal(out.customTitle, '');
+});
+
+test('generic saves cannot change a Play reward title, and preserve its server-owned vault', () => {
+    const title = PLAY_GAMES_REWARD_PRODUCTS[0]!.title;
+    const out = sanitize({ customTitle: title }, { customTitle: '', serverTitles: [title] });
+    assert.equal(out.customTitle, '', 'profile-title API is the authorized title-change path');
+    assert.deepEqual(out.serverTitles, [title]);
 });
 
 test('first save cannot bootstrap a custom title or paid cosmetics', () => {

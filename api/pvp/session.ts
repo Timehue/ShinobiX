@@ -4,9 +4,11 @@ import type { ActionReceipt } from '../_receipts.js';
 import { createHash, randomUUID, randomBytes } from 'crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { kv } from '../_storage.js';
+import { withKvLock } from '../_lock.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
 import { PVP_PREFIGHT_COUNTDOWN_MS } from '../../shared/pvp-turn.js';
+import { shieldExpiryForGrant } from '../combat-core/shields.js';
 import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -52,7 +54,7 @@ import {
 } from './_clan-war-authorization.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
 import { LEGACY_JUTSU_CATALOG, LEGACY_JUTSU_ID_BY_LEGACY } from './_legacy-jutsu-catalog.js';
-import { legacyEnabled } from '../_legacy-track.js';
+import { legacyEnabled, LEGACY_PVP_RECEIPT_TTL_SECONDS } from '../_legacy-track.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses, derivePveBonuses, buildItemLookup } from './_multipliers.js';
 import { territoryRewardsSuspended } from '../_territory-lifecycle.js';
 import { carriedBloodlines, characterMayUseJutsu } from './_bloodline-gate.js';
@@ -150,6 +152,8 @@ export type PvpFighter = {
     stamina: number;
     maxStamina: number;
     shield: number;
+    /** Round at whose start the remaining shield disappears. */
+    shieldExpiresAtRound?: number;
     statuses: PvpStatus[];
     character: Record<string, unknown>;
     pos: number; // hex grid position (0–119 for 12×10 grid)
@@ -1439,6 +1443,7 @@ export function hydrateCharacterFromSave(saveCharacter: Record<string, unknown>,
         const pve = derivePveBonuses(saveCharacter, save, admin?.items ?? null);
         merged.pveDamagePct      = clampNumber(pve.pveDamagePct,      0, 100, 0);
         merged.pveDamageTakenPct = clampNumber(pve.pveDamageTakenPct, 0, 75, 0);
+        merged.pveSpecialistBonuses = pve.pveSpecialistBonuses;
     }
     // Vitals defense-in-depth. A tampered save could ship a huge maxHp
     // (effectively unkillable) or maxChakra (Poison ticks scale off the victim's
@@ -1738,6 +1743,7 @@ export function makePvpFighter(
         stamina: startStamina,
         maxStamina,
         shield: startingShield,
+        ...(startingShield > 0 ? { shieldExpiresAtRound: shieldExpiryForGrant(1) } : {}),
         statuses: [],
         character: char,
         pos,
@@ -1761,7 +1767,7 @@ function normalizeBiome(b: unknown): string {
  *
  *  - RANKED is fought on neutral ground, always ('central'). A session creator
  *    could otherwise hold a ladder-long advantage.
- *  - A WILD SECTOR has a server-known biome (shared/sector-geo, the same table
+ *  - A WILD SECTOR or Death's Gate has a server-known biome (shared/sector-geo, the same table
  *    the world map paints from), so it is derived, never read from the body. An
  *    honest client sends exactly this value, so real play is unaffected.
  *  - Anything else — arena, direct challenges, story backdrops — has no ground
@@ -1770,7 +1776,7 @@ function normalizeBiome(b: unknown): string {
 export function sealedSessionBiome(rewardSector: unknown, bodyBiome: unknown, isRanked: boolean): string {
     if (isRanked) return 'central';
     const sector = Math.floor(Number(rewardSector));
-    if (isWildSector(sector)) return normalizeBiome(sectorBiomeOf(sector));
+    if (isWildSector(sector) || sector === 99) return normalizeBiome(sectorBiomeOf(sector));
     return normalizeBiome(bodyBiome);
 }
 function normalizeElement(e: unknown): string {
@@ -2445,6 +2451,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // an attacker can neither grant the bonus to themselves nor deny it
             // to the guard. The value is recomputed from the guard's OWN save;
             // the move resolver applies it as a ≤5% damage reduction.
+            let guardDefenderRole: 'p1' | 'p2' | null = null;
             if (!identity.admin && useCurrentVitals === true) {
                 const defenderRole: 'p1' | 'p2' | null =
                     identity.name === p1Norm ? 'p2' : identity.name === p2Norm ? 'p1' : null;
@@ -2453,6 +2460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     const defenderSave = defenderRole === 'p1' ? p1Save : p2Save;
                     const onGuardDuty = defenderNorm ? await kv.get(`guard:${defenderNorm}`) : null;
                     if (onGuardDuty) {
+                        guardDefenderRole = defenderRole;
                         const pct = townDefensePctFromSave(defenderSave?.character as Record<string, unknown> | undefined);
                         if (pct > 0) {
                             if (defenderRole === 'p1') finalP1Character.guardDefensePct = pct;
@@ -2856,7 +2864,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // WINDOW are therefore beyond a tampered client's reach, so it
                     // cannot wait for or claim a favourable forecast.
                     //
-                    // The biome is not open to it either: on a wild sector
+                    // The biome is not open to it either: on a wild sector or Death's Gate
                     // `sealedBiome` is sectorBiomeOf(rewardSector), not the body (see
                     // where it is derived above), so the rotation table this draw
                     // comes from is the real ground's table.
@@ -2864,8 +2872,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // The sky is sealed HERE, at session creation, and does not follow
                     // the schedule mid-fight — a window turning under a live fight must
                     // not move the damage terms both sides agreed to. Non-sector casual
-                    // fights (no wild rewardSector) keep the client-chosen environment.
-                    if (isWildSector(secNum)) {
+                    // fights (no sector reward) keep the client-chosen environment.
+                    if (isWildSector(secNum) || secNum === 99) {
                         const weather = resolveSectorWeather(sealedBiome, secNum, Date.now(), territory);
                         const elements = sectorWeatherElements(weather);
                         sealedWeatherPos = normalizeElement(elements.positiveElement);
@@ -3128,12 +3136,41 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ? null
                 : publicationCapabilityFor(battleId);
             try {
+                await withKvLock(`pvp:session-publication:${battleId}`, async () => {
                 const sessionKey = `pvp:${battleId}`;
                 if (creatorReservation) {
                     await requirePvpPendingSessionOwnership(kv, creatorReservation);
                 }
                 if (clanWarReservation?.owned) {
                     await requireClanWarPvpReservation(clanWarReservation);
+                }
+                // Guard evidence and the session share the battle-id publication
+                // lease. A competing creator must see the winning session before
+                // it can touch that session's roles; rollback retries may replace
+                // only their own exact tombstone. Keep the existing private proof
+                // shape, and never depend on the later map notification.
+                if (legacyEnabled() && rewardAuthority === 'world') {
+                    const existing = await kv.get<unknown>(sessionKey);
+                    if (existing === null || (publicationCapability
+                        && pvpSessionPublicationTombstoneMatchesCapability(existing, publicationCapability))) {
+                        const guardKey = `legacy:guard-defense:${battleId}`;
+                        if (guardDefenderRole) {
+                            const proof = {
+                                defender: guardDefenderRole === 'p1' ? p1Name : p2Name,
+                                attacker: guardDefenderRole === 'p1' ? p2Name : p1Name,
+                            };
+                            if (await kv.set(guardKey, proof, { nx: true, ex: LEGACY_PVP_RECEIPT_TTL_SECONDS }) !== 'OK') {
+                                const recorded = await kv.get<unknown>(guardKey);
+                                if (!recorded) throw new Error('legacy-guard-proof-publication-pending');
+                                if (!isDeepStrictEqual(recorded, proof)) throw new Error('pvp-session-capability-conflict');
+                            }
+                        } else {
+                            // An orphan witness belongs to the request that made
+                            // it. A fresh non-guard create may not inherit it or
+                            // erase another publisher's evidence after lease expiry.
+                            if (await kv.get(guardKey) && existing === null) throw new Error('pvp-session-capability-conflict');
+                        }
+                    }
                 }
                 if (rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId) {
                     const placed = await kv.set(sessionKey, session, { nx: true, ex: PVP_ACTIVE_ROW_TTL } as never);
@@ -3173,6 +3210,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         }
                     }
                 }
+                }, { failClosed: true });
             } catch (writeError) {
                 const recovered = await kv.get<PvpSession>(`pvp:${battleId}`).catch(() => null);
                 const admission = rankedStamp.rankedKind === 'player' && rankedStamp.rankedMatchId
@@ -3316,6 +3354,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             });
         } catch (err) {
             console.error('[pvp/session]', err);
+            if (err instanceof Error && err.message === 'legacy-guard-proof-publication-pending') {
+                return res.status(503).json({ error: 'Guard defense proof is still being confirmed. Retry the same battle request.' });
+            }
             if (err instanceof Error && (
                 err.message.startsWith('player-ranked-')
                 || err.message.includes('activation-')

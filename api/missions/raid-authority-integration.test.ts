@@ -212,7 +212,7 @@ describe('sealed raid authority', () => {
         assert.equal(await kv.get(`raid-start-count:${player}:${utcDateKey()}`), null);
     });
 
-    it('mission outpost victory stamps one fetch receipt and has no Vanguard, Legacy, or territory effects', async () => {
+    it('retired wilderness mission outpost proofs no longer satisfy a village raid objective', async () => {
         const player = 'raidauthmissiononly';
         const acceptedAt = Date.now() - 1_000;
         await seed(player, {
@@ -240,9 +240,9 @@ describe('sealed raid authority', () => {
         const receipt = await kv.get<Record<string, unknown>>(missionProgressReceiptKey(player, FIELD_MISSION));
         const save = await kv.get<Record<string, unknown>>(`save:${player}`);
         const territory = await kv.get<Record<string, unknown>>('world:territory:18');
-        assert.deepEqual(first.fetchMissionsCredited, [FIELD_MISSION]);
-        assert.deepEqual(replay.fetchMissionsCredited, [FIELD_MISSION]);
-        assert.equal(receipt?.raidCount, 1, 'proof-specific evidence prevents duplicate credit');
+        assert.deepEqual(first.fetchMissionsCredited, []);
+        assert.deepEqual(replay.fetchMissionsCredited, []);
+        assert.equal(receipt?.raidCount ?? 0, 0, 'a wilderness outpost is not a village outskirts raid');
         assert.equal(first.xpAwarded, 0);
         assert.equal(first.bonusRyo, 0);
         assert.equal(first.bonusSeals, 0);

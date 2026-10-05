@@ -10,6 +10,8 @@ import { fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
+import "../styles/index/15-world-map-territory.css";
+import "../styles/index/29-clan-exchange-storefront.css";
 import "../styles/atlas-skin.css";
 import "../styles/world-map-mobile.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
@@ -95,7 +97,7 @@ import { FIELD_STORY_PREFIX, storyFieldAftermathEvent, storyFieldObjective } fro
 import { StoryFieldScene } from "../components/StoryFieldScene";
 import { StoryFieldJournal } from "../components/StoryFieldJournal";
 import { StoryFieldRouteBoundary } from "../components/StoryFieldRouteBoundary";
-import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, acceptRift, abandonRift } from "../lib/hollow-rifts";
+import { RIFT_GIVER_PREFIX, RIFT_ACCEPT_MARKER, RIFT_DESCEND_MARKER, RIFT_ABANDON_MARKER, nextRift, synthRiftGiver, riftBySynthId, riftIntroEvent, riftDescentEvent, riftByDescentEventId, isRiftDescentEventId, riftTargetSector, sectorPhrase, acceptRift, abandonRift } from "../lib/hollow-rifts";
 import { hollowRiftById, type HollowRift } from "../data/hollow-rifts";
 import { SCRIBE_WANDERER_ID, SCRIBE_ACCEPT_MARKER, CODEX_FLIP_LIMIT, scribeWandererFor, scribeIntroEvent, claimTravelersCodex, codexRevealCards } from "../lib/chronicle-scribe";
 import { usePetMentorGuide } from "../lib/use-pet-mentor-guide";
@@ -116,22 +118,7 @@ import { capabilityAdmissionAllowed, mutationAdmissionMessage } from "../lib/liv
 import { createPortal } from "react-dom";
 import { travelMaskMs } from "../lib/travel-mask";
 import { serverNow } from "../lib/server-clock";
-
-function storyReckoningActionFailure(reason: string | undefined, arc: StoryReckoning, action: "accept" | "turn-in"): string {
-    const place = arc.crossVillage ? "an outskirts post" : `${arc.village} outskirts`;
-    if (reason === "presence" || reason === "offline") return `Reconnect to the world, then speak with ${arc.npcName} at ${place}.`;
-    if (reason === "wrong-place") return `Return to ${place} and speak with ${arc.npcName}.`;
-    if (reason === "traveling") return `Finish traveling, then speak with ${arc.npcName} at ${place}.`;
-    if (reason === "in-battle") return `Finish the battle, then speak with ${arc.npcName} at ${place}.`;
-    if (action === "accept" && reason === "busy") return "Finish the story burden you already carry first.";
-    if (action === "accept" && reason === "ineligible") return "This reckoning is not available now.";
-    if (reason === "incomplete") return `Finish the field route or battle, then return to ${arc.npcName}.`;
-    if (reason === "no-item") return `Recover ${arc.task.targetName}, then return to ${arc.npcName}.`;
-    if (reason === "daily-cap") return "You have settled enough reckonings today. Return tomorrow.";
-    if (reason === "none") return `This reckoning is no longer active. Speak with ${arc.npcName} at ${place} if it remains unsettled.`;
-    return action === "accept" ? "The reckoning could not be sealed. Reconnect and try again."
-        : "The reckoning could not be turned in. Reconnect and try again.";
-}
+import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
@@ -175,8 +162,9 @@ import { buildPetEncounterVn } from "../lib/pet-encounter-vn";
 import { canonicalNarrativeEvent } from "../lib/canonical-narrative";
 import { defaultAncientChestVn, defaultPetEncounterVn } from "../data/default-vn-events";
 import { biomeForWorldSector, sectorRegionName, villageOutskirtsSectorNumber, weatherForBiome } from "../data/sectors";
+import { villageBiomeMap } from "../data/village-biomes";
 import { biomeLabel, weatherEffects } from "../data/world";
-import { builtinFetchMissions, builtinHuntMissions, fieldMissionRaidNeeded, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
+import { builtinFetchMissions, builtinHuntMissions, missionRaidProgressKey, missionRaidRequirement, nextFieldMissionObjective } from "../data/missions";
 import { takeFieldMissionNavigationIntent } from "../lib/field-mission-navigation";
 import { makeId, playerSlug, sameSector } from "../lib/utils";
 import { setSectorReopen, takeSectorReopen, consumeReloadIntoSector } from "../lib/sector-return";
@@ -206,14 +194,6 @@ import castleImg from "../assets/castle.webp";
 import houseImg from "../assets/house1.webp";
 import towerImg from "../assets/tower.webp";
 import moonshadowImage from "../assets/moonshadow.webp";
-
-
-
-
-
-
-
-
 import stormveilLandmarkArt from "../assets/map-landmarks/stormveil.webp";
 import ashenLeafLandmarkArt from "../assets/map-landmarks/ashen-leaf.webp";
 import frostfangLandmarkArt from "../assets/map-landmarks/frostfang.webp";
@@ -253,7 +233,7 @@ import { SageWhisper } from "../components/SageWhisper";
 import { buildSageVnEvent } from "../lib/legacy-sage-vn";
 import { SageOfferModal } from "../components/SageOfferModal";
 import { huntReadyForFight, huntRequiredTracks, huntTrailSector } from "../lib/hunt-trail";
-import { HUNT_PACK_STAGES, huntOpeningFor, huntPackMember, huntSignFor, type HuntChoice } from "../lib/hunt-encounter";
+import { huntOpeningFor, huntPackMember, huntSignFor, type HuntChoice } from "../lib/hunt-encounter";
 import { postWorldHunt, type WorldHuntTrailView } from "../lib/world-hunt-api";
 import { HuntEncounterCard, type HuntEncounterView } from "../components/HuntEncounterCard";
 import { beastPortrait } from "../data/hunter-art";
@@ -358,6 +338,7 @@ function WorldMapContent({
     onOwnSaveRead,
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
+    onExplorePresentationActiveChange,
 }: {
     setCurrentBiome: (biome: Biome) => void;
     setScreen: (screen: Screen) => void;
@@ -417,6 +398,7 @@ function WorldMapContent({
     // (lib/weekly-boss-launch.ts) and the Weekly Boss screen starts the sealed
     // fight (shared leaderboard, 3-attempt cap), then returns the player here.
     onLaunchWeeklyBoss?: (bossAiId: string, bossDisplayName?: string, returnScreen?: Screen) => void;
+    onExplorePresentationActiveChange?: (active: boolean) => void;
 }) {
     const legacyAvailable = useLegacyAvailability();
     const legacyActionsAvailable = useLegacyMutationAvailability();
@@ -440,7 +422,6 @@ function WorldMapContent({
     // crowd in motion doesn't re-render this whole screen.
     const liveSectorPlayers = useLiveSectorRoster();
     const [selectedSector, setSelectedSector] = useState<number | null>(null);
-    const [focusedFieldMissionId, setFocusedFieldMissionId] = useState<string | null>(null);
     const [fieldScene, setFieldScene] = useState<{ questId: string; pointId: string; review?: boolean } | null>(null);
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
@@ -497,18 +478,8 @@ function WorldMapContent({
         if (!mission || mission.targetSector !== intent.targetSector
             || nextFieldMissionObjective(mission, missionProgress[mission.id] ?? 0,
                 missionProgress[missionRaidProgressKey(mission.id)] ?? 0) !== intent.objective) return;
-        setSelectedSector(mission.targetSector);
-        setFocusedFieldMissionId(mission.id);
+        setSelectedSector(intent.objective === "explore" ? mission.targetSector : null);
     }, [character.name, acceptedMissionIds, missionProgress]);
-
-    const missionOutpost = selectedSector == null ? null : (focusedFieldMissionId
-        ? builtinFetchMissions.find((mission) => mission.id === focusedFieldMissionId
-            && acceptedMissionIds.includes(mission.id) && mission.targetSector === selectedSector
-            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))
-        : builtinFetchMissions.find((mission) => mission.targetSector === selectedSector
-            && acceptedMissionIds.includes(mission.id)
-            && missionRaidRequirement(mission) > 0
-            && fieldMissionRaidNeeded(mission, missionProgress[missionRaidProgressKey(mission.id)] ?? 0))) ?? null;
 
     function adoptHuntProgressMirror(
         missionId: string,
@@ -1771,8 +1742,8 @@ function WorldMapContent({
             void syncHuntTrailAfterPack(missionId).then((trail) => {
                 const lead = trail?.sector;
                 setTimeout(() => alert(lead
-                    ? `The last of the pack goes down. The trail reopens in Sector ${lead}; your target is alone now.`
-                    : "The last of the pack goes down. Your target is alone now, and it knows it."), 40);
+                    ? `The last of the pack goes down. The trail reopens in Sector ${lead}; you have the advantage.`
+                    : "The last of the pack goes down. You have the advantage on the trail."), 40);
             });
             return;
         }
@@ -2199,7 +2170,7 @@ function WorldMapContent({
         // This is only a navigation marker. The Showdown endpoint validates the
         // exact wanderer and chooses the format, both teams and seed itself.
         setPendingPetBattleOpponent({
-            owner: w.name,
+            owner: "Roaming AI",
             // PetArenaOpponent is the existing navigation envelope. This pet
             // is never shown or sent to Showdown; the server draws the real team.
             pet: genericPetArenaOpponents[0].pet,
@@ -2641,16 +2612,24 @@ function WorldMapContent({
     const [chestVnPage, setChestVnPage] = useState(0);
     const [chestVnLine, setChestVnLine] = useState(0);
     const [chestVnDone, setChestVnDone] = useState(false);
+    const [explorePresentationInFlight, setExplorePresentationInFlight] = useState(false);
+    // Explore completion is server-confirmed before its result panel is shown.
+    // Hold the first-contract prompt across that handoff and until the panel closes.
+    useEffect(() => {
+        const presentationOpen = Boolean(explorePresentationInFlight || activePetEncounter || activeChest || activeGather || selectedCreatorEvent || fieldScene);
+        onExplorePresentationActiveChange?.(presentationOpen);
+    }, [explorePresentationInFlight, activePetEncounter, activeChest, activeGather, selectedCreatorEvent, fieldScene, onExplorePresentationActiveChange]);
+    useEffect(() => () => onExplorePresentationActiveChange?.(false), [onExplorePresentationActiveChange]);
     const locations = [
         // Crest positions sit ON each settlement in the 2026-07 keyart: the
         // pagoda cluster NW, the ice palace NE, the stilt harbour SW, the violet
         // palace SE, the great keep at the centre and the obelisk shrine east of
         // it. The painting carries no lettering — WorldPoiPlates draws the names
         // just below each crest (see components/WorldRoadsOverlay.tsx).
-        { name: "Stormveil Village", type: "village", biome: "forest" as Biome, x: 16, y: 74, art: stormveilLandmarkArt },
-        { name: "Ashen Leaf Village", type: "village", biome: "volcano" as Biome, x: 16, y: 20, art: ashenLeafLandmarkArt },
-        { name: "Frostfang Village", type: "village", biome: "snow" as Biome, x: 76, y: 20, art: frostfangLandmarkArt },
-        { name: "Moonshadow Village", type: "village", biome: "shadow" as Biome, x: 86, y: 64, art: moonshadowLandmarkArt },
+        { name: "Stormveil Village", type: "village", biome: villageBiomeMap["Stormveil Village"], x: 16, y: 74, art: stormveilLandmarkArt },
+        { name: "Ashen Leaf Village", type: "village", biome: villageBiomeMap["Ashen Leaf Village"], x: 16, y: 20, art: ashenLeafLandmarkArt },
+        { name: "Frostfang Village", type: "village", biome: villageBiomeMap["Frostfang Village"], x: 76, y: 20, art: frostfangLandmarkArt },
+        { name: "Moonshadow Village", type: "village", biome: villageBiomeMap["Moonshadow Village"], x: 86, y: 64, art: moonshadowLandmarkArt },
         { name: "Central", type: "central", biome: "central" as Biome, x: 48, y: 40, art: centralLandmarkArt, staminaReward: 20, xpReward: 20 },
         // Hollow Gate — the violet obelisk shrine east of the keep. Sector 57
         // (Hollow Temple) sits just beside it and is map-travel-only, so this
@@ -2736,6 +2715,22 @@ function WorldMapContent({
     }
 
     function enterLandmark(location: typeof locations[number]) {
+        if (location.type === "village") {
+            const home = location.name === character.village;
+            // Home uses the safe-zone sector; foreign villages use the same
+            // territory sector as their exploration and battle view.
+            const destination = home ? 0 : villageOutskirtsSector(location.name) + 4;
+            beginSectorTravel(destination, (arrivalTile) => {
+                setCurrentBiome(location.biome);
+                setCurrentWeather(weatherForBiome(location.biome));
+                setCurrentSector(destination);
+                setSelectedSector(null);
+                setSectorPlayerPos(arrivalTile ?? SECTOR_CENTRE_TILE);
+                setSelectedVillageTerritory(home ? null : location);
+                setSelectedLandmark(home ? location : null);
+            });
+            return;
+        }
         setCurrentBiome(location.biome);
         setCurrentWeather(weatherForBiome(location.biome));
         // Hollow Gate is a forbidden shrine. Entry is gated by either the Kage's
@@ -2745,12 +2740,11 @@ function WorldMapContent({
             setHollowGateMenu(true);   // choose: enter the shrine, or attune (spend shards)
             return;
         }
-        // Enemy village ? territory exploration page; own village & Central ? normal landmark
-        if (location.type === "village" && location.name !== character.village) {
-            setSelectedVillageTerritory(location);
-        } else {
-            setSelectedLandmark(location);
+        if (location.type === "central") {
+            setScreen("centralHub");
+            return;
         }
+        setSelectedLandmark(location);
     }
     // Warm the destination's assets DURING the 3s travel window so arrival paints
     // instantly instead of flashing an unloaded scene. Purely best-effort browser
@@ -2786,7 +2780,7 @@ function WorldMapContent({
             arrive();
             return;
         }
-        prefetchTravelDestination(sector); // warm the destination during the 3s window
+        if (sector !== 0) prefetchTravelDestination(sector); // warm the destination during the 3s window
         travelRequestInFlight.current = true;
         const presentation = travelPresentation.current;
         void (async () => {
@@ -2938,8 +2932,9 @@ function WorldMapContent({
         if (!selectedSector || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
         function handleKey(e: KeyboardEvent) {
-            const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-            if (e.defaultPrevented || (e.target as HTMLElement)?.closest?.('[data-sector-hud], [contenteditable], [role=dialog]')
+            const target = e.target as HTMLElement;
+            const tag = target?.tagName?.toLowerCase();
+            if (e.defaultPrevented || target?.closest?.('[data-sector-hud], [contenteditable], [role=dialog]')
                 || document.querySelector('[aria-modal=true], dialog[open]')) return;
             if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
 
@@ -2949,9 +2944,19 @@ function WorldMapContent({
                 void exploreSector(activeSector);
                 return;
             }
-            if (!['w', 'a', 's', 'd'].includes(key)) return;
+            // Android may re-emit a gamepad's unhandled D-pad input as arrow
+            // keys. Keep arrows as a no-touch fallback for the map, but leave
+            // them to ordinary control navigation whenever a UI control owns
+            // focus. The Web Gamepad API path continues to map analog movement
+            // to WASD through gamepad-navigation.ts.
+            const arrowMovement: Record<string, string> = {
+                arrowup: 'w', arrowleft: 'a', arrowdown: 's', arrowright: 'd',
+            };
+            const movementKey = arrowMovement[key] ?? key;
+            if (arrowMovement[key] && target?.closest?.('button, a, [role=button], [role=menuitem], [tabindex]:not([tabindex="-1"])')) return;
+            if (!['w', 'a', 's', 'd'].includes(movementKey)) return;
             e.preventDefault();
-            const outwardDirection = key === 'w' ? 'north' : key === 'd' ? 'east' : key === 's' ? 'south' : 'west';
+            const outwardDirection = movementKey === 'w' ? 'north' : movementKey === 'd' ? 'east' : movementKey === 's' ? 'south' : 'west';
             const roadExit = roadExitsForSector(activeSector).find((exit) =>
                 exit.tile === sectorPlayerPos && exit.direction === outwardDirection,
             );
@@ -2962,10 +2967,10 @@ function WorldMapContent({
             setSectorPlayerPos(prev => {
                 const col = prev % SECTOR_GRID_W;
                 const row = Math.floor(prev / SECTOR_GRID_W);
-                if (key === 'w' && row > 0)                          return prev - SECTOR_GRID_W;
-                if (key === 's' && row < (SECTOR_GRID_SIZE / SECTOR_GRID_W) - 1) return prev + SECTOR_GRID_W;
-                if (key === 'a' && col > 0)                          return prev - 1;
-                if (key === 'd' && col < SECTOR_GRID_W - 1)          return prev + 1;
+                if (movementKey === 'w' && row > 0)                          return prev - SECTOR_GRID_W;
+                if (movementKey === 's' && row < (SECTOR_GRID_SIZE / SECTOR_GRID_W) - 1) return prev + SECTOR_GRID_W;
+                if (movementKey === 'a' && col > 0)                          return prev - 1;
+                if (movementKey === 'd' && col < SECTOR_GRID_W - 1)          return prev + 1;
                 return prev;
             });
         }
@@ -3306,6 +3311,8 @@ function WorldMapContent({
     async function exploreSector(sector: number) {
         if (exploreInFlight.current) return;
         exploreInFlight.current = true;
+        onExplorePresentationActiveChange?.(true);
+        setExplorePresentationInFlight(true);
         try {
             const recovered = await recoverPendingWorldRewards(true);
             if (recovered !== "none") return;
@@ -3315,8 +3322,8 @@ function WorldMapContent({
                 return;
             }
             const dailyTiles = character.dailyTilesExplored ?? 0;
-            if (dailyTiles >= 150) {
-                alert("Daily tile exploration limit reached (150/150). Resets at midnight UTC.");
+            if (dailyTiles >= 100) {
+                alert("Daily tile exploration limit reached (100/100). Resets at midnight UTC.");
                 return;
             }
             const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
@@ -3333,6 +3340,7 @@ function WorldMapContent({
             await resolveExplore(sector);
         } finally {
             exploreInFlight.current = false;
+            setExplorePresentationInFlight(false);
         }
     }
 
@@ -3525,12 +3533,32 @@ function WorldMapContent({
             missionId: activeHuntMission.id,
         });
         if (!authoritative.ok || !authoritative.state) {
+            // A successful state read can reconcile a stale accepted card by
+            // clearing a same-day claimed contract. Apply that versioned save
+            // just like the live-trail path so the cleared contract does not
+            // linger in the character cache.
+            if (authoritative.ok) {
+                if (authoritative.character) {
+                    if (!onVersionedCharacter(authoritative.character, authoritative._saveVersion)) return;
+                } else if (onServerVersion?.(authoritative._saveVersion) === false) {
+                    return;
+                }
+            }
             if (authoritative.acceptedMissionIds) setAcceptedMissionIds(authoritative.acceptedMissionIds);
             adoptHuntProgressMirror(activeHuntMission.id, authoritative.state, authoritative.missionProgress);
+            if (authoritative.ok) {
+                setAuthoritativeHuntStates((current) => {
+                    const next = { ...current };
+                    delete next[activeHuntMission.id];
+                    return next;
+                });
+            }
             setHuntToast({
                 id: Date.now(),
-                kicker: "Trail unavailable",
-                text: authoritative.error ?? "The Guild no longer has an active trail for this contract.",
+                kicker: authoritative.reason === "already-claimed-today" ? "Hunt already claimed" : "Trail unavailable",
+                text: authoritative.reason === "already-claimed-today"
+                    ? "This contract was already claimed today. The Guild refreshed your board; choose another hunt."
+                    : authoritative.error ?? "The Guild no longer has an active trail for this contract.",
             });
             return;
         }
@@ -3633,7 +3661,7 @@ function WorldMapContent({
             setHuntToast({
                 id: Date.now(),
                 kicker: "The pack breaks first",
-                text: `You are not the hunter here. ${HUNT_PACK_STAGES} of them come out of the scrub at once.`,
+                text: "Movement breaks through the scrub. The creatures on this trail have turned on you.",
             });
             launchHuntPackStage(mission, ai, 0, sector, undefined, decision.decisionId);
             return;
@@ -3707,12 +3735,11 @@ function WorldMapContent({
     }
 
     /**
-     * One wave of the beast's pack. Reuses the wanderer ambush chain (HP carries
-     * across waves) via a `huntPack` mode. Pack members carry derived ids, never
-     * the contract beast's — a mook must not be able to stamp the kill receipt.
+     * Start a server-selected hunt formation, or resume a pre-upgrade chain.
+     * The descriptor selects identity only; the server seals actors and waves.
      */
     function launchHuntPackStage(mission: CreatorMission, beast: CreatorAi, stage: number, sector: number, chainId?: string, decisionId?: string) {
-        const member = huntPackMember(mission, beast.name, stage);
+        const member = stage === 0 ? { id: `hunt-pack-${mission.id}`, name: beast.name } : huntPackMember(mission, beast.name, stage);
         // Scaled to the player like the bandit gauntlet, and softer than the
         // contract target — these are outriders, not the beast on the poster.
         const pack = makeBuiltinAi(member.id, member.name, beast.icon, Math.max(1, character.level + stage), beast.village, [], 0, undefined, "bruiser");
@@ -4004,7 +4031,20 @@ function WorldMapContent({
                         setSelectedCreatorEvent(null);
                         if (rift) void acceptRift(character.name, rift.id).then((resp) => {
                             if (resp.ok && resp.activeRiftQuest) {
+                                if (onServerVersion?.(resp._saveVersion) === false) return;
                                 updateCharacter(prev => prev ? ({ ...prev, activeRiftQuest: resp.activeRiftQuest }) : prev);
+                                const sealedSector = resp.activeRiftQuest.targetSector;
+                                if (Number.isInteger(sealedSector)) {
+                                    setSelectedSector(playableFieldObjectiveSector(sealedSector));
+                                    const previewSector = riftTargetSector(character.name, rift.id);
+                                    if (sealedSector !== previewSector) {
+                                        setTravelToast({
+                                            id: Date.now(),
+                                            kicker: "Rift location corrected",
+                                            text: `The rift is in ${sectorPhrase(sealedSector)}. The map and quest journal now point there.`,
+                                        });
+                                    }
+                                }
                             } else {
                                 setTimeout(() => alert(resp.reason === "busy" ? "Finish the rift you already carry first." : resp.reason === "cooldown" ? "The energy has not gathered again yet. Come back later." : "The rift could not be marked. Try again in a moment."), 40);
                             }
@@ -4305,12 +4345,15 @@ function WorldMapContent({
         const bystanderHunters = bountyHunterWanderers.filter((wanderer) => wanderer.verb === "watch");
         const hostileNaturals = sectorWanderers.filter((wanderer) => wanderer.verb === "attack"); // bandits + night ninjas
         const ambientNaturals = sectorWanderers.filter((wanderer) => wanderer.verb !== "attack");
-        // Priority is danger/current objective → system unlocks → optional
-        // encounters → ambient life. The Weekly Boss consumes one of the three
-        // ordinary slots; hired war mercenaries are appended afterwards by design.
+        // Priority is danger/current objective → pet onboarding → other system
+        // objectives → optional encounters → ambient life. Keep the field mentor
+        // beside the prompt that opens her lesson so a full road never advertises
+        // an NPC whose actor was crowded out. The Weekly Boss consumes one of the
+        // three ordinary slots; hired war mercenaries are appended afterwards.
         const cappedSectorWanderers = capSectorWanderers([
             targetedHunters,
             hostileNaturals,
+            petMentor.wanderers,
             courierWanderers,
             trackerTrailWanderers,
             storyReckoningWanderers,
@@ -4318,7 +4361,6 @@ function WorldMapContent({
             sageWanderers,
             roamingQuestGivers,
             emissaryWanderers,
-            petMentor.wanderers,
             bystanderHunters,
             ambientNaturals,
         ], sectorOverlayBoss ? 1 : 0);
@@ -4377,7 +4419,7 @@ function WorldMapContent({
             : false;
 
         return (
-            <div className="map-instance">
+            <div className="map-instance" data-gamepad-mode={sectorIsCurrent ? "sector" : undefined}>
                 {savedFindsBanner}
                 {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
@@ -4433,11 +4475,6 @@ function WorldMapContent({
                         onExplore={handleExploreSelectedSector}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
-                        missionOutpost={missionOutpost ? { missionId: missionOutpost.id, missionName: missionOutpost.name } : null}
-                        missionRaidCooldownMs={raidStartCooldownMs}
-                        onStartMissionRaid={missionOutpost ? () => runWhenSectorConfirmed(selectedSector!, () => {
-                            void launchAiGuardRaid("", 0, missionOutpost.targetSector, undefined, missionOutpost.id);
-                        }) : undefined}
                     />
                         }
                         overlayLayer={
@@ -4755,11 +4792,14 @@ function WorldMapContent({
         const loc = selectedVillageTerritory;
         const biome = loc.biome;
         const weather = weatherForBiome(biome);
+        const villageRaidMissionActive = builtinFetchMissions.some((mission) =>
+            acceptedMissionIds.includes(mission.id) && missionRaidRequirement(mission) > 0,
+        );
         // Pick a virtual sector number inside the enemy territory for explore/battle logic
         const virtualSector = villageOutskirtsSector(loc.name) + 4;
         const sectorMapSrc = villageOuterTerritoryMapUrl(loc.name, virtualSector);
         return (
-            <div className="map-instance">
+            <div className="map-instance village-outskirts-instance">
                 <div className="instance-frame">
                     <main className="tile-scene">
                         <div className="scene-title">
@@ -4799,11 +4839,12 @@ function WorldMapContent({
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>Explore Territory</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
-                        {/* Village Guard / Raid */}
                         <div className="territory-guard-section">
+                            <h4>Village Raid</h4>
+                            <p className="territory-raid-guidance">Raid this village from its outskirts.{villageRaidMissionActive ? " Wins here count toward your field mission raid objectives." : ""}</p>
                             {territoryGuards.length > 0 ? (
                                 <>
-                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guarded</p>
+                                    <p className="territory-guard-label"><GameArtIcon kind="roleDefender" size={17} /> Village Guard</p>
                                     {territoryGuards.map(g => (
                                         <p key={g.name} className="territory-guard-name">
                                             {g.name} <span className="territory-guard-lvl">Lv.{g.level}</span>{g.defenseBonusPercent ? <span className="territory-guard-lvl"> DEF +{g.defenseBonusPercent.toFixed(1)}%</span> : null}
@@ -4902,15 +4943,15 @@ function WorldMapContent({
                                             })(); });
                                         }}
                                     >
-                                        <GameArtIcon kind="roleDefender" size={17} /> Challenge Guard
+                                        <GameArtIcon kind="roleDefender" size={17} /> Raid Village Guard
                                     </button>
                                     <p className="hint" style={{ fontSize: "0.7rem", color: "var(--text-muted)", marginTop: 2 }}>
-                                        Guard online? Real PvP. Guard offline? AI fight.
+                                        Online guards fight back directly; otherwise, defeat the village garrison.
                                     </p>
                                 </>
                             ) : (
                                 <>
-                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>Village Undefended</p>
+                                    <p className="territory-guard-label" style={{ color: "var(--slate-600)" }}>No Active Player Guard</p>
                                     <button onClick={() => runWhenSectorConfirmed(virtualSector, () => {
                                         launchAiGuardRaid(pickGuardAi(character.level), character.level, virtualSector, () => {
                                             setCurrentSector(virtualSector);
@@ -4918,7 +4959,7 @@ function WorldMapContent({
                                             setCurrentWeather(weather);
                                         });
                                     })}>
-                                        Raid {loc.name.split(" ")[0]}
+                                        Raid Village Garrison
                                     </button>
                                 </>
                             )}
@@ -4932,8 +4973,6 @@ function WorldMapContent({
     }
 
     if (selectedLandmark) {
-        const isCentral = selectedLandmark.type === "central";
-
         const villageImage =
             selectedLandmark.name === "Ashen Leaf Village" ? houseImg :
                 selectedLandmark.name === "Frostfang Village" ? castleImg :
@@ -4944,13 +4983,7 @@ function WorldMapContent({
         return (
             <div className="map-instance">
                 <div className="village-full-scene">
-                    {!isCentral ? (
-                        <img src={villageImage} alt={selectedLandmark.name} />
-                    ) : (
-                        <div className="central-full-scene">
-                            <h1>The Thousand Gates</h1>
-                        </div>
-                    )}
+                    <img src={villageImage} alt={selectedLandmark.name} />
 
                     {/* Living preview: time-of-day wash + drifting biome ambience +
                         wildlife behind the menu, so the village breathes while you
@@ -4964,30 +4997,14 @@ function WorldMapContent({
                         <p>{biomeLabel(selectedLandmark.biome)}</p>
 
                         <div className="menu">
-                            {isCentral ? (
-                                <button onClick={() => {
-                                    setCurrentBiome("central");
-                                    setScreen("centralHub");
-                                }}>
-                                    Enter Central
-                                </button>
-                            ) : (
-                                <button onClick={() => setScreen("village")}>Enter {selectedLandmark.name.split(" ")[0]}</button>
-                            )}
-
-                            {isCentral ? (
-                                <button onClick={() => { setCurrentBiome("central"); setCurrentWeather(weatherForBiome("central")); setScreen("arena"); }}>
-                                    Central Battle
-                                </button>
-                            ) : (
-                                <button onClick={() => {
-                                    const outskirtsSector = villageOutskirtsSector(character.village);
-                                    setSelectedLandmark(null);
-                                    triggerTravelPoint(outskirtsSector);
-                                }}>
-                                    Outskirts
-                                </button>
-                            )}
+                            <button onClick={() => setScreen("village")}>Enter {selectedLandmark.name.split(" ")[0]}</button>
+                            <button onClick={() => {
+                                const outskirtsSector = villageOutskirtsSector(character.village);
+                                setSelectedLandmark(null);
+                                triggerTravelPoint(outskirtsSector);
+                            }}>
+                                Outskirts
+                            </button>
 
                             <button onClick={() => setSelectedLandmark(null)}>Leave</button>
                         </div>

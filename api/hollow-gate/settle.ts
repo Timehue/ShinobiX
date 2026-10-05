@@ -34,6 +34,7 @@ import {
     setCountedItem,
 } from './_ledger.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
+import { recordEraCampaignEvidence } from '../_era-campaign.js';
 
 /*
  * /api/hollow-gate/settle  — POST only  (docs/hollow-gate-augments.md)
@@ -226,6 +227,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the stale marker then blocks every later entry as "spent".
             next.lastHollowGateStart = undefined;
             next.redeemedHollowGateRuns = [...redeemedRuns.slice(-99), token];
+            next = recordEraCampaignEvidence(next, { kind: 'gate', receiptId: `gate:${token}`, at: Date.now(), startedAt: run.mintedAt,
+                depth: run.floorDepth, floor: run.currentFloor ?? 1, bossResolved, extracted: outcome === 'extract' });
             fragmentsClampedTo = itemStackCount(next.itemStacks, HG_HIGH_VALUE_ITEM_ID);
             const updated = await writeVersionedPlayerSaveWithStore(kv, saveKey, fresh, next, {}, { hollowGateCurrencySource: 'run' });
             return {

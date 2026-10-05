@@ -2,6 +2,7 @@ import type { Character } from "../types/character";
 import type { AiFightBattleKind } from "./ai-fight-api";
 import { reportAiFightWin, type AiFightReportResult } from "./ai-fight-api";
 import type { WorldAiFightContext } from "../../../shared/world-ai-fight";
+import { recordServerConfirmedPlayEvent } from "./google-play-games";
 
 /*
  * Settling a SERVER-resolved AI fight.
@@ -108,6 +109,11 @@ export async function settleAiFight(params: {
     const reported: AiFightReportResult | null = await reportAiFightWin(params.playerName, params.token);
     if (!reported) throw new Error("The fight could not be settled.");
     const outcome = (reported.outcome ?? null) as AiFightOutcome | null;
+    // The report endpoint settles from its sealed server session. Suppress
+    // replayed responses so a reconnect cannot count the same win twice.
+    if (outcome === "win" && reported.replayed !== true) {
+        void recordServerConfirmedPlayEvent("ai_victory", { result: outcome });
+    }
     const fetchMissionsCredited = Array.from(new Set(
         (reported.raidProgression?.fetchMissionsCredited ?? reported.fetchMissionsCredited ?? [])
             .filter((missionId): missionId is string => typeof missionId === "string")

@@ -1,6 +1,7 @@
 import type { Screen } from "../types/core";
 import type { Character } from "../types/character";
 import { baseStats, rankFromLevel } from "./stats";
+import { trainingRecommendation } from "./training-recommendation";
 import {
     normalizeOnboardingStep,
     onboardingStepAtLeast,
@@ -196,7 +197,7 @@ export function buildJourneyGuide(character: Character): JourneyGuideState {
                 ? `${trainedPoints} stat point${trainedPoints === 1 ? "" : "s"} trained. Keep raising your core stats between missions.`
                 : startedTraining
                     ? "Training started. Collect it when the timer finishes; you can keep learning meanwhile."
-                : "Start with Strength or Speed if you are unsure. Short timers are easiest while learning.",
+                : `Try ${trainingRecommendation(character).label}. ${trainingRecommendation(character).reason} Start with 15m while learning.`,
             actionLabel: startedTraining ? "View Training" : "Begin Training",
             screen: "training",
             complete: startedTraining,

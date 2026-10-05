@@ -1,4 +1,5 @@
 /* eslint-disable react-hooks/purity */
+import "../styles/index/40-village-social-panels.css";
 import { useState, useEffect } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiGreekTemple, GiCrossedSwords, GiBlackFlag, GiCrown, GiTrophy } from "../components/icons/LightweightGameIcons";

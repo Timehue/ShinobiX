@@ -4,6 +4,7 @@ import { requestCaravan, type CaravanResponse } from '../../lib/sunscar-caravan'
 import { declineWildPetEncounter, startWildPetEncounter, type WildPetEncounterResult } from '../../lib/wild-pet-encounter-api';
 import { WildPetBinding } from '../../components/WildPetBinding';
 import { petCardImage } from '../../lib/pet-battle-anim';
+import type { TowerSession } from '../../lib/towers-api';
 import type { SoloPveSession } from '../../lib/solo-pve-api';
 import { CARAVAN_RANKS, CARAVAN_TOOLS, CARAVAN_WEATHER, caravanRank, type CaravanChoice, type CaravanNode, type CaravanRun as CaravanRunState, type CaravanTool } from '../../../../shared/sunscar/caravan-types';
 import { caravanChoiceBlock, caravanFieldCharacter, caravanRewardPreview, caravanTrackerBlock, caravanTravelCost, currentCaravanNode } from '../../../../shared/sunscar/caravan-state';
@@ -46,7 +47,7 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
     const [petId, setPetId] = useState(character.activePetId ?? '');
     const [selectedNode, setSelectedNode] = useState<string | null>(null);
     const [view, setView] = useState<'decision' | 'map'>('decision');
-    const [session, setSession] = useState<SoloPveSession | null>(null);
+    const [session, setSession] = useState<SoloPveSession | TowerSession | null>(null);
     const [wild, setWild] = useState<WildPetEncounterResult | null>(null);
     const [wildBattleOpen, setWildBattleOpen] = useState(false);
     const [petMessage, setPetMessage] = useState('');
@@ -211,6 +212,6 @@ export default function CaravanRun({ character, onVersionedCharacter, onBack, ..
             <details className="caravan-journal"><summary>Field journal · {run.log.length} reports</summary>{run.log.map((entry, i) => <article key={i}><h3>{entry.title}</h3><p>{entry.text}</p><small>Cargo {entry.cargo}% · Supplies {entry.supplies} · Morale {entry.morale}%</small></article>)}</details>
             <div className="caravan-retire">{retire ? <><p>Return without delivering? You keep earned discoveries and partial reputation. This uses today’s departure and pays no Ryo.</p><button disabled={busy || hasPending} onClick={() => act('retire')}>End this expedition</button><button className="sunscar-secondary" onClick={() => setRetire(false)}>Keep traveling</button></> : <><p>Your mission saves after each choice. You can leave the festival and resume your escort here.</p><button className="sunscar-secondary" disabled={busy || hasPending || run.status === 'combat' || awaitingPet} onClick={() => setRetire(true)}>Return without delivery</button></>}</div>
         </>}
-        {session && <Suspense fallback={<div className="sunscar-loading" role="status">Preparing the encounter…</div>}><CaravanBattle {...catalogs} character={character} session={session} title={run?.contract.title ?? 'Caravan Run'} settle={settleCombat} onExit={() => { setSession(null); void send(); }}/></Suspense>}
+        {session && <Suspense fallback={<div className="sunscar-loading" role="status">Preparing the encounter…</div>}><CaravanBattle {...catalogs} character={character} session={session} title={run?.contract.title ?? 'Caravan Run'} settle={settleCombat} onVersionedCharacter={onVersionedCharacter} onExit={() => { setSession(null); void send(); }}/></Suspense>}
     </div>;
 }

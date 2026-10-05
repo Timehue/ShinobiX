@@ -80,7 +80,7 @@ export function WorldSectorOverlayLayer({
             {fieldStory && <SectorStoryFieldMarker {...fieldStory} />}
             {wanderers.map((wanderer) => (
                 <SectorWanderer
-                    key={wanderer.id}
+                    key={`${sector}:${wanderer.id}:${wanderer.homeTile}`}
                     wanderer={wanderer}
                     playerIndex={playerTile}
                     biome={biome}

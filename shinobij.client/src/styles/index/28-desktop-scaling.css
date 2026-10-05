@@ -835,6 +835,7 @@ textarea:focus-visible,
     height: min(62vh, var(--hg-bh, 62vh));
     box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.85);
     touch-action: manipulation;
+    background-image: radial-gradient(ellipse at 50% 46%, var(--hg-floor-accent-soft), transparent 68%);
 }
 .hg-board {
     position: absolute;

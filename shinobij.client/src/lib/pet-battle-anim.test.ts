@@ -9,6 +9,7 @@ import {
     extractPetMoveName,
     petBattleSprite,
     petCardImage,
+    petPortraitImage,
     petBattleLayers,
     petBattleSheet,
     petPoseImage,
@@ -58,7 +59,12 @@ test("petBattleSprite: an evolved starter prefers its stage art, else falls back
 test("petCardImage: a starter falls back to its idle pose (no inline image)", () => {
     // Starters ship NO inline image but DO have a baked idle pose — this is the
     // pet-yard bug fix: without the pose fallback the card shows name initials.
-    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=5");
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "standard" })), "/pet-poses/starter-fire-idle.webp?v=7");
+});
+
+test("tutorial starter cards use the refreshed Ripple Seal and Spark Pup art", () => {
+    assert.equal(petPoseImage(mkPet({ id: "starter-water", rarity: "standard" })), "/pet-poses/starter-water-idle.webp?v=7");
+    assert.equal(petPoseImage(mkPet({ id: "starter-lightning", rarity: "standard" })), "/pet-poses/starter-lightning-idle.webp?v=7");
 });
 
 test("Raijin's saved portrait and pose paths resolve to the current art", () => {
@@ -69,6 +75,44 @@ test("Raijin's saved portrait and pose paths resolve to the current art", () => 
     assert.deepEqual(petBattleSprite(raijin), { mode: "circleFallback", src: portrait });
     assert.equal(petPoseImage(raijin), idle);
     assert.equal(petCardImage({ ...raijin, image: "" }), idle);
+});
+
+test("base Pebble Tortoise ignores old saved and shared art on cards, tokens, and sprites", () => {
+    const old = "/pet-poses/starter-earth-idle.webp?v=5";
+    const portrait = "/pet-portraits/pebble-tortoise-chibi-v2.webp";
+    const cutout = "/pet-portraits/pebble-tortoise-chibi-v2-cutout.webp";
+    const shared = {
+        "pet:starter-earth": old,
+        "petbody:starter-earth": old,
+        "petsheet:starter-earth": old,
+        "petlayers:starter-earth:far": old,
+        "petlayers:starter-earth:mid": old,
+        "petlayers:starter-earth:near": old,
+    };
+    for (const pet of [
+        mkPet({ id: "starter-earth", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:550e8400-e29b-41d4-a716-446655440000", templateId: "starter-earth", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:550e8400-e29b-41d4-a716-446655440000", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth:legacy-instance", image: old, bodyImage: old }),
+        mkPet({ id: "starter-earth-1700000000000", image: old, bodyImage: old }),
+    ]) {
+        assert.equal(petCardImage(pet, shared), portrait);
+        assert.equal(petPortraitImage(pet, shared), portrait);
+        assert.equal(petPoseImage(pet, shared), cutout);
+        assert.deepEqual(petBattleSprite(pet, shared), { mode: "fullBodySprite", src: cutout });
+        assert.equal(petBattleSheet(pet, shared), null);
+        assert.equal(petBattleLayers(pet, shared), null);
+    }
+    const evolved = mkPet({ id: "starter-earth", rarity: "rare", evolutionStage: 1, image: "/pet-evos/starter-earth-r.webp" });
+    assert.equal(petCardImage(evolved), "/pet-evos/starter-earth-r.webp");
+    assert.deepEqual(petBattleSprite(evolved), { mode: "circleFallback", src: "/pet-evos/starter-earth-r.webp" });
+    assert.equal(petPoseImage(evolved), "/pet-poses/starter-earth-r-idle.webp?v=7");
+});
+
+test("circular pet tokens prefer shared portraits over body sprites", () => {
+    const pet = mkPet({ id: "starter-fire", image: "inline.png", bodyImage: "body.png" });
+    assert.equal(petPortraitImage(pet, { "pet:starter-fire": "shared.png" }), "shared.png");
+    assert.equal(petPortraitImage(pet), "inline.png");
 });
 
 test("petCardImage: Snow Rabbit uses clean card art for wild and owned instances", () => {
@@ -89,7 +133,7 @@ const reviewedCardPoses = [
 
 test("petCardImage: reviewed static poses follow template identity for wild and owned pets", () => {
     for (const [templateId, file] of reviewedCardPoses) {
-        const expected = `/pet-poses/${file}?v=5`;
+        const expected = `/pet-poses/${file}?v=7`;
         assert.equal(petCardImage(mkPet({ id: templateId })), expected, templateId);
         assert.equal(petCardImage(mkPet({
             id: `${templateId}:550e8400-e29b-41d4-a716-446655440000`,
@@ -123,7 +167,7 @@ test("petCardImage: reviewed fallbacks preserve shared, inline, and palette art 
 test("reviewed card fallbacks do not replace battle sprites or pose-first billboard images", () => {
     for (const [id] of reviewedCardPoses) {
         const pet = mkPet({ id });
-        assert.equal(petPoseImage(pet), `/pet-poses/${id}-idle.webp?v=5`, id);
+        assert.equal(petPoseImage(pet), `/pet-poses/${id}-idle.webp?v=7`, id);
         assert.deepEqual(petBattleSprite(pet), { mode: "circleFallback", src: "" }, id);
     }
 });
@@ -177,7 +221,7 @@ test("petCardImage: an owned palette variant prefers variant-specific shared art
 
 test("petCardImage: a UUID-owned pet falls back to its template idle pose", () => {
     const owned = mkPet({ id: "rare-26:550e8400-e29b-41d4-a716-446655440000", templateId: "rare-26" });
-    assert.equal(petCardImage(owned), "/pet-poses/rare-26-idle.webp?v=5");
+    assert.equal(petCardImage(owned), "/pet-poses/rare-26-idle.webp?v=7");
 });
 
 test("petCardImage: a UUID-owned chromatic prefers template variant art", () => {
@@ -200,13 +244,13 @@ test("breeding-exclusive Mythics resolve authored portraits and dedicated idle p
     });
     assert.equal(petCardImage(owned), "/pet-portraits/breeding-mythics/mythic-13.webp");
     assert.equal(petBattleSprite(owned).src, "/pet-portraits/breeding-mythics/mythic-13.webp");
-    assert.equal(petPoseImage(owned), "/pet-poses/mythic-13-idle.webp?v=5");
+    assert.equal(petPoseImage(owned), "/pet-poses/mythic-13-idle.webp?v=7");
 });
 
 test("breeding Mythics resolve their own idle pose sprites", () => {
     for (const id of ["mythic-10", "mythic-11", "mythic-12", "mythic-13", "mythic-14", "mythic-15"]) {
         const pet = mkPet({ id: `${id}:550e8400-e29b-41d4-a716-446655440000`, templateId: id, rarity: "mythic" });
-        assert.equal(petPoseImage(pet), `/pet-poses/${id}-idle.webp?v=5`, id);
+        assert.equal(petPoseImage(pet), `/pet-poses/${id}-idle.webp?v=7`, id);
     }
 });
 
@@ -219,7 +263,7 @@ test("Celestial Lion keeps its own portrait and uses its own idle pose", () => {
     });
     assert.equal(petCardImage(owned), portrait);
     assert.equal(petBattleSprite(owned).src, portrait);
-    assert.equal(petPoseImage(owned), "/pet-poses/mythic-15-idle.webp?v=5");
+    assert.equal(petPoseImage(owned), "/pet-poses/mythic-15-idle.webp?v=7");
     assert.equal(petCardImage(mkPet({ id: "mythic-15", rarity: "mythic" })), portrait);
 });
 
@@ -230,16 +274,16 @@ test("petCardImage: a UUID-owned evolved starter resolves its stage pose", () =>
         rarity: "rare",
         evolutionStage: 1,
     });
-    assert.equal(petCardImage(evolved), "/pet-poses/starter-fire-r-idle.webp?v=5");
+    assert.equal(petCardImage(evolved), "/pet-poses/starter-fire-r-idle.webp?v=7");
 });
 
 test("petCardImage: an evolved starter prefers its stage pose", () => {
     // visualId starter-fire-r has an idle pose in the manifest.
-    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp?v=5");
+    assert.equal(petCardImage(mkPet({ id: "starter-fire", rarity: "rare", evolutionStage: 1 })), "/pet-poses/starter-fire-r-idle.webp?v=7");
 });
 
 test("petCardImage: an encounter clone resolves the pose by variant-stripped base id", () => {
-    assert.equal(petCardImage(mkPet({ id: "standard-2-1700000000000" })), "/pet-poses/standard-2-idle.webp?v=5");
+    assert.equal(petCardImage(mkPet({ id: "standard-2-1700000000000" })), "/pet-poses/standard-2-idle.webp?v=7");
 });
 
 test("petCardImage: an id with no pose and no image → empty string (caller shows initials)", () => {

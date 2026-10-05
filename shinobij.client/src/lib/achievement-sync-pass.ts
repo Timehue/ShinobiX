@@ -10,6 +10,7 @@ import {
     type AchievementSyncResponse,
 } from "./achievement-sync";
 import { markAchievementsToasted, unseenAchievements } from "./achievement-toast-ledger";
+import { mirrorServerAchievementUnlocks } from "./google-play-games";
 
 /*
  * One pass of App's achievement-sync effect, which starts a pass on every
@@ -113,6 +114,7 @@ export async function runAchievementSyncPass(input: AchievementSyncPassInput): P
         const mutation = versionedAchievementMutationFromSync(characterRef.current, data);
         if (!mutation || mutation.character.name.toLowerCase() !== playerName.toLowerCase()) return;
         if (!commitVersionedCharacter(mutation.character, mutation._saveVersion)) return;
+        if (!silent) mirrorServerAchievementUnlocks(syncedToastIds(data));
         if (silent) { markAchievementsToasted(playerName, mutation.character.unlockedAchievements); return; }
         const toastIds = unseenAchievements(playerName, syncedToastIds(data));
         if (toastIds.length === 0) return;

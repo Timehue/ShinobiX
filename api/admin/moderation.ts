@@ -5,6 +5,8 @@ import { isFullAdmin } from '../_auth.js';
 import { enforceRateLimit } from '../_ratelimit.js';
 import { isPublicVisitorIp, trustedVisitorIp } from '../_client-ip.js';
 import { withKvLock } from '../_lock.js';
+import { withoutKvLeaseContext } from '../_kv-lock-context.js';
+import { runBackgroundWork } from '../_background-work.js';
 import { onlineStore } from '../_realtime/online-store.js';
 
 // ─── Moderation key model ─────────────────────────────────────────────────────
@@ -143,7 +145,12 @@ export function clientIpFrom(req: VercelRequest): string {
  * is the case ~99% of the time (fingerprints don't change every 2s), and it
  * drops the heartbeat write count by 80%.
  */
-export async function recordClientFingerprint(name: string, fp: string): Promise<void> {
+export function recordClientFingerprint(name: string, fp: string): Promise<void> {
+    return withoutKvLeaseContext(() => runBackgroundWork(() => recordClientFingerprintCore(name, fp)))
+        .then(() => undefined);
+}
+
+async function recordClientFingerprintCore(name: string, fp: string): Promise<void> {
     if (!name || !fp || !FP_PATTERN.test(fp)) return;
     const n = normalizeName(name);
     try {
@@ -180,7 +187,12 @@ export async function recordClientFingerprint(name: string, fp: string): Promise
  * index already lists this name, we skip both writes. Players sit on one IP
  * for hours at a time, so this short-circuits ~99% of heartbeat writes.
  */
-export async function recordClientIp(name: string, ip: string): Promise<void> {
+export function recordClientIp(name: string, ip: string): Promise<void> {
+    return withoutKvLeaseContext(() => runBackgroundWork(() => recordClientIpCore(name, ip)))
+        .then(() => undefined);
+}
+
+async function recordClientIpCore(name: string, ip: string): Promise<void> {
     if (!name || !ip || !isPublicVisitorIp(ip)) return;
     const n = normalizeName(name);
     try {

@@ -84,6 +84,7 @@ test('a level-12 player with no pets and no deck enters the intro rift', async (
     assert.equal(started.statusCode, 200, JSON.stringify(started.body));
     assert.ok(started.body?.token, 'the rift mints its run');
     assert.equal(started.body?.variantId, 'rift-legacy-echo');
+    assert.ok(typeof started.body?.riftDistortionId === 'string', 'the server seals the active weekly map rule');
     assert.equal(await kv.get(countKey), 1);
 
     const saved = await kv.get<{ character: Record<string, unknown> }>(saveKey);

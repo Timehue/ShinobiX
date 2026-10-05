@@ -134,11 +134,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
         const hostName = safeName(String(body.hostName ?? ''));
         if (!hostName) return res.status(400).json({ error: 'Invalid host name.' });
-        if (!enforceRateLimit(req, res, 'towers-start', 6, 60_000, hostName)) return;
+        if (!enforceRateLimit(req, res, 'towers-start-preauth', (6) * 20, 60_000)) return;
 
         const identity = await authedPlayerOrAdmin(req, hostName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
         if (!identity.admin && identity.name !== hostName) return res.status(403).json({ error: 'Can only start your own runs.' });
+        if (!enforceRateLimit(req, res, 'towers-start', 6, 60_000, identity.admin ? hostName : identity.name)) return;
 
         const mode: 'story' | 'spire' = String(body.mode ?? 'story') === 'spire' ? 'spire' : 'story';
         const spireTier = Math.floor(Number(body.ascensionTier));

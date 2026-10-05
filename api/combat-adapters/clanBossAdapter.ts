@@ -98,6 +98,7 @@ export function towerActorToPvpFighter(actor: TowerActor): PvpFighter {
         stamina: actor.stamina,
         maxStamina: actor.maxStamina,
         shield: actor.shield,
+        shieldExpiresAtRound: actor.shieldExpiresAtRound,
         statuses: actor.statuses.map(status => ({ ...status })),
         character: actor.character,
         pos: actor.pos,

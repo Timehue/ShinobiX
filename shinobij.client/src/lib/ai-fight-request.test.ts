@@ -53,10 +53,14 @@ test("unsubscribing restores the fail-closed no-host state", () => {
 
 const host = readFileSync(new URL("../components/AiFightHost.tsx", import.meta.url), "utf8");
 
-test("AiFightHost renders the code-split authoritative solo shell", () => {
+test("AiFightHost code-splits the solo arena and the hunt-specific combat surface", () => {
     assert.match(host, /<MissionArenaFight/);
     assert.match(host, /import\(["']\.\.\/screens\/MissionArenaFight["']\)/);
-    assert.doesNotMatch(host, /<BattleTowerFight|screens\/BattleTowerFight/);
+    assert.match(host, /const HuntTowerFight = lazyWithRetry\(\(\) => import\(['"]\.\.\/screens\/BattleTowerFight['"]\)/);
+    assert.match(host, /currentFight\.session\.huntCombat \? <HuntTowerFight/);
+    assert.match(host, /initialSession=\{huntSessionForTower\(currentFight\.session\)\}/);
+    assert.match(host, /stateFn=\{fetchHuntCombatState\}/);
+    assert.match(host, /actionRetryFn=\{submitHuntCombatAction\}/);
 });
 
 test("AiFightHost requires standalone solo-PvE and has no local or Tower authority", () => {

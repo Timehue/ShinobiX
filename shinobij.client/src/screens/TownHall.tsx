@@ -6,6 +6,7 @@ import { adoptVillageAnbu, adoptVillageOrders } from "../lib/world-state";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useEffectEvent, useRef } from "react";
+import "../styles/index/29-clan-exchange-storefront.css";
 import "../styles/index/19-town-hall.css";
 import "../styles/town-hall-aaa.css";
 import { GameArtIcon, type GameArtIconKind } from "../components/GameArtIcon";

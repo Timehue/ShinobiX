@@ -27,7 +27,9 @@ import {
 } from "../lib/pet-arena-3d";
 import { petCombatModel, type PetCombatModelConfig } from "../lib/pet-3d-models";
 import { DEFAULT_PET_MODEL_FRAME, PetModel3D, type PetModelFrame } from "./PetModel3D";
+import { PetSummon3D } from "./PetSummon3D";
 import { petVisualQuality } from "../lib/pet-visual-quality";
+import { useBattleFrameloop } from "../lib/use-battle-frameloop";
 import { petModelVariantSurface } from "../lib/pet-visual-variant";
 import { projectileVisual, type ProjectileVisual } from "../lib/pet-projectile-vfx";
 import { bundledJutsuFxFrames } from "../lib/jutsu-fx-assets";
@@ -288,7 +290,9 @@ function Fighter3D({ result, clock, id, pet, config }: {
                         </mesh>
                     )}>
                         <group scale={s}>
+                            <PetSummon3D enabled={team === 'blue'}>
                             <PetModel3D config={config} frame={modelFrame} element={pet.element} surfaceTreatment={petModelVariantSurface(pet)} />
+                            </PetSummon3D>
                         </group>
                     </Suspense>
                 </group>
@@ -710,16 +714,19 @@ function RewindJanitor3D({ clock, onRewind }: { clock: ArenaClockRef; onRewind: 
 }
 
 // ── The stage root ───────────────────────────────────────────────────────────
-export function PetArena3DStage({ result, roster, clock, shake, children }: {
+export function PetArena3DStage({ result, roster, clock, shake, finished = false, children }: {
     result: ArenaResult;
     roster: Array<{ id: string; pet: Pet }>;
     clock: ArenaClockRef;
     shake: MutableRefObject<number>;
+    /** Keep the outcome beat visible, then stop the cosmetic 3D loop on results. */
+    finished?: boolean;
     /** Mounted INSIDE the Canvas with the 3D spawn callbacks — the caller wires
      *  them into its ArenaDirector + HUD frame-writers (which are projection-
      *  agnostic and reused verbatim from the classic renderer). */
     children: (spawns: Arena3DSpawns) => ReactNode;
 }) {
+    const frameloop = useBattleFrameloop(finished);
     const stageRef = useRef<HTMLDivElement>(null);
     const [stageWidth, setStageWidth] = useState(1200);
     const floaterTimersRef = useRef<Set<number>>(new Set());
@@ -802,7 +809,7 @@ export function PetArena3DStage({ result, roster, clock, shake, children }: {
             {/* shadows="percentage" = PCFShadowMap explicitly — the boolean form picks
                 PCFSoftShadowMap, which three 0.184 deprecates with a PER-FRAME console
                 warning (and silently falls back to PCF anyway). */}
-            <Canvas dpr={quality.dpr} shadows={quality.modelShadows ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 120, position: [0, 18, 20] }} gl={{ antialias: true }}>
+            <Canvas frameloop={frameloop} dpr={quality.dpr} shadows={quality.modelShadows ? "percentage" : false} camera={{ fov: A3D_FOV, near: 0.5, far: 120, position: [0, 18, 20] }} gl={{ antialias: true }}>
                 <RendererRetirement />
                 <color attach="background" args={["#05070f"]} />
                 <fog attach="fog" args={["#0a0f1f", 28, 80]} />

@@ -29,12 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const bodyPeek = typeof req.body === 'string'
-        ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })()
-        : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'pet-evolve', 10, 60_000, peekName)) return;
-    if (!enforceRateLimit(req, res, 'pet-evolve-burst', 1, EVOLVE_RATE_LIMIT_MS, peekName)) return;
+    if (!enforceRateLimit(req, res, 'pet-evolve-preauth', 200, 60_000)) return;
 
     try {
         const body = typeof req.body === 'string' ? JSON.parse(req.body) : (req.body ?? {});
@@ -48,6 +43,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!bodyNameMatchesAuth(identity, playerName)) {
             return res.status(403).json({ error: 'Can only evolve your own pets.' });
         }
+        const rateLimitIdentity = identity.admin ? playerName : identity.name;
+        if (!enforceRateLimit(req, res, 'pet-evolve', 10, 60_000, rateLimitIdentity)) return;
+        if (!enforceRateLimit(req, res, 'pet-evolve-burst', 1, EVOLVE_RATE_LIMIT_MS, rateLimitIdentity)) return;
 
         const saveKey = `save:${playerName}`;
 

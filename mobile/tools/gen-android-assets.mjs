@@ -5,7 +5,7 @@
 // Usage (from the repo root): node mobile/tools/gen-android-assets.mjs
 // Re-run after changing shinobij.client/public/icon-512.png or
 // icon-maskable-512.png (themselves made by scripts/gen-pwa-icons.mjs).
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
@@ -22,12 +22,23 @@ async function png(source, dp, factor, target) {
     await writeFile(target, await sharp(source).resize(Math.round(dp * factor)).png().toBuffer());
 }
 
+async function splashWebp(source, dp, factor, target) {
+    await mkdir(dirname(target), { recursive: true });
+    await writeFile(target, await sharp(source)
+        .resize(Math.round(dp * factor))
+        .webp({ quality: 95, alphaQuality: 100, effort: 6 })
+        .toBuffer());
+}
+
 for (const [density, factor] of densities) {
     // Legacy launcher icon, and the full-bleed art behind the adaptive icon.
     await png(icon, 48, factor, join(res, `mipmap-${density}/ic_launcher.png`));
     await png(maskable, 108, factor, join(res, `mipmap-${density}/ic_maskable.png`));
-    // Android 12+ system splash: 288dp, shown through a 192dp circle.
-    await png(maskable, 288, factor, join(res, `drawable-${density}/splash_icon.png`));
+    // Android 12+ system splash: 288dp, shown through a 192dp circle. Keep
+    // lossless transparency while using WebP to avoid packaging multi-megabyte PNGs.
+    const splashPng = join(res, `drawable-${density}/splash_icon.png`);
+    await splashWebp(maskable, 288, factor, join(res, `drawable-${density}/splash_icon.webp`));
+    await rm(splashPng, { force: true });
     // Android 11 and older: the launch window's centred mark.
     await png(icon, 160, factor, join(res, `drawable-${density}/launch_mark.png`));
 }
@@ -41,8 +52,13 @@ await writeFile(join(res, 'mipmap-anydpi-v26/ic_launcher.xml'), `<?xml version="
 `);
 
 // The in-app splash (lib/src/shell_page.dart) draws the same art as the
-// Android 12+ system splash, so the hand-off between the two is invisible.
+// Android 12+ system splash. Use the same high quality WebP encoding so the
+// matching Flutter asset does not reintroduce the large PNG into the bundle.
 await mkdir(join(repo, 'mobile/assets'), { recursive: true });
-await copyFile(maskable, join(repo, 'mobile/assets/splash_mark.png'));
+const splashMark = join(repo, 'mobile/assets/splash_mark.png');
+await writeFile(join(repo, 'mobile/assets/splash_mark.webp'), await sharp(maskable)
+    .webp({ quality: 95, alphaQuality: 100, effort: 6 })
+    .toBuffer());
+await rm(splashMark, { force: true });
 
 console.log('Android launcher icons and splash art regenerated.');

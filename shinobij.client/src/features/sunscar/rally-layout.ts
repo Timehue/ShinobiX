@@ -1,11 +1,11 @@
-import { rallyPath, rallySection } from '../../../../shared/sunscar/rally-tracks';
+import { rallyLanePosition, rallyPath, rallyPathFrame, rallySection } from '../../../../shared/sunscar/rally-tracks';
 import { sunscarRandom } from '../../../../shared/sunscar/random';
 import type { RallyTrack } from '../../../../shared/sunscar/rally-types';
 
 /** The road ribbon samples the course every step from this start. Scenery reads
  * the edge the ribbon actually draws, including its taper at section seams. */
 export const RALLY_RIBBON_START = -20;
-export const RALLY_RIBBON_STEP = 8;
+export const RALLY_RIBBON_STEP = 2;
 /** Open ground between the drawn road edge and the nearest boulder surface. */
 export const RALLY_ROCK_CLEARANCE = 1.2;
 /** Open ground between a boulder and any stand, pavilion, spectator or arch. */
@@ -50,11 +50,13 @@ export function rallyArch(track: RallyTrack, distance: number): { half: number; 
 }
 
 /** Market pavilions along the festival and market courses. */
-export function rallyPavilions(track: RallyTrack): { x: number; y: number; z: number; accent: boolean }[] {
+export function rallyPavilions(track: RallyTrack): { x: number; y: number; z: number; yaw: number; accent: boolean }[] {
     if (track.scenery !== 'festival' && track.scenery !== 'market') return [];
     return Array.from({ length: 16 }, (_, i) => {
-        const p = rallyPath(track, i * track.length / 16 + 15);
-        return { x: p.x + (i % 2 ? -11 : 11), y: p.y, z: p.z, accent: i % 3 !== 0 };
+        const distance = i * track.length / 16 + 15;
+        const side = i % 2 ? -1 : 1;
+        const p = rallyLanePosition(track, distance, side * 16);
+        return { ...p, yaw: rallyPathFrame(track, distance).yaw, accent: i % 3 !== 0 };
     });
 }
 

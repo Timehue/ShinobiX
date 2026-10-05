@@ -40,6 +40,9 @@ import { AMBIGUOUS_ACTION_MESSAGE } from "../lib/ambiguous-action";
 import { academyVowDefinition } from "../lib/academy-narrative";
 import { normalizeOnboardingStep } from "../lib/onboarding-step";
 import { useFirstContractLoadoutTab } from "../lib/use-first-contract-loadout-tab";
+import { achievementBadgeSrc } from "../lib/achievement-badge";
+import { isAppShell } from "../lib/surface";
+import { isPlayGamesAuthenticated, showPlayGamesAchievements } from "../lib/google-play-games";
 import academyFieldSealArt from "../assets/academy/onboarding/shiranui-field-seal.webp";
 
 type ProfileDossierRow = {
@@ -185,6 +188,15 @@ export function Profile({
     const visibleMobileTab = !legacyAvailable && mobileTab === 'legacy' ? 'overview' : mobileTab;
     const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
     const [achievementCategory, setAchievementCategory] = useState<AchievementCategory | "All">("All");
+    const [playGamesAchievementsAvailable, setPlayGamesAchievementsAvailable] = useState(false);
+    useEffect(() => {
+        if (!isAppShell()) return;
+        let active = true;
+        void isPlayGamesAuthenticated().then(authenticated => {
+            if (active) setPlayGamesAchievementsAvailable(authenticated);
+        });
+        return () => { active = false; };
+    }, []);
     const achievementStates = useMemo(
         () => ACHIEVEMENTS.map(a => ({ a, unlocked: isAchievementUnlocked(character, a) })),
         [character],
@@ -762,6 +774,35 @@ export function Profile({
                             </div>
                         </div>
                     )}
+                    {(character.serverTitles?.length ?? 0) > 0 && (
+                        <div style={{ marginBottom: 16 }}>
+                            <p className="act-label">Shinobi Journey Honors</p>
+                            <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.6rem" }}>
+                                Special titles awarded by the game and verified Play rewards — tap one to wear it (free).
+                            </p>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                                {[...new Set(character.serverTitles)].map((title) => {
+                                    const active = character.customTitle === title;
+                                    return (
+                                        <button
+                                            key={title}
+                                            onClick={() => equipTitle(title)}
+                                            title={active ? "Currently worn" : `Wear “${title}”`}
+                                            style={{
+                                                padding: "3px 10px", borderRadius: 999, fontSize: 12.5, fontWeight: 700,
+                                                cursor: "pointer", whiteSpace: "nowrap",
+                                                color: active ? "#0b1020" : "#7dd3fc",
+                                                background: active ? "#7dd3fc" : "rgba(56,189,248,.12)",
+                                                border: "1px solid rgba(56,189,248,.45)",
+                                            }}
+                                        >
+                                            {active ? "✦ " : ""}{title}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                     <p className="act-label">Custom Title</p>
                     <p style={{ color: "#94a3b8", fontSize: "0.85rem", margin: "0.2rem 0 0.75rem" }}>
                         {character.customTitle
@@ -904,9 +945,20 @@ export function Profile({
             <section className="achievements-panel">
                 <div className="achievements-heading">
                     <h3>Achievements</h3>
-                    <span className="achievements-count">
-                        {unlockedAchievementTotal}/{ACHIEVEMENTS.length} unlocked
-                    </span>
+                    <div className="achievements-heading-actions">
+                        <span className="achievements-count">
+                            {unlockedAchievementTotal}/{ACHIEVEMENTS.length} unlocked
+                        </span>
+                        {playGamesAchievementsAvailable && (
+                            <button
+                                type="button"
+                                className="play-games-achievements-button"
+                                onClick={() => { void showPlayGamesAchievements(); }}
+                            >
+                                Play Games
+                            </button>
+                        )}
+                    </div>
                 </div>
                 <label className="achievement-category-filter">
                     <span>Category</span>
@@ -944,7 +996,7 @@ export function Profile({
                                             {/* The image guard retries a failed badge; if the retry
                                                 loads, undo the hide so the art covers the emoji again. */}
                                             <img
-                                                src={`/badges/${a.id}.webp`}
+                                                src={achievementBadgeSrc(a.id)}
                                                 alt=""
                                                 loading="lazy"
                                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
@@ -1014,7 +1066,7 @@ export function Profile({
 
                         <div className="achievement-detail-badge">
                             <img
-                                src={`/badges/${selectedAchievement.id}.webp`}
+                                src={achievementBadgeSrc(selectedAchievement.id)}
                                 alt=""
                                 onLoad={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = ""; }}
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = "hidden"; }}

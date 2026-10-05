@@ -33,28 +33,39 @@ test('skip offers a recoverable journal without manufacturing Academy accomplish
     assert.equal(action({ level: 2, onboardingStep: 'done' }, 'skip').character.firstContract, undefined);
 });
 
-test('opening, switching or unrelated activity cannot finish the assignment', () => {
+test('assignments unlock in order and unrelated activity cannot finish the active assignment', () => {
     const { character } = action(rookie, 'complete', 'combat');
-    const switched = action(character, 'discovery').character;
-    assert.equal(readFirstContract(switched.firstContract)?.completedAt, undefined);
-    assert.equal(recordFirstContractActivity(switched, 'combat', { kind: 'combat-claim' }), switched);
-    const finished = recordFirstContractActivity(switched, 'discovery', { kind: 'field-explore', sector: 4 });
+    assert.equal(applyAcademyNarrativeAction(character, {}, 'discovery').ok, false, 'step two stays locked until combat is completed');
+    assert.equal(recordFirstContractActivity(character, 'discovery', { kind: 'field-explore', sector: 4 }), character);
+    const combat = recordFirstContractActivity(character, 'combat', { kind: 'combat-claim' });
+    assert.deepEqual(readFirstContract(combat.firstContract)?.completedRoutes, ['combat']);
+    const discovery = action(combat, 'discovery').character;
+    assert.equal(readFirstContract(discovery.firstContract)?.completedAt, undefined);
+    const finished = recordFirstContractActivity(discovery, 'discovery', { kind: 'field-explore', sector: 4 });
     assert.equal(readFirstContract(finished.firstContract)?.evidence?.sector, 4);
+    assert.deepEqual(readFirstContract(finished.firstContract)?.completedRoutes, ['combat', 'discovery']);
     assert.equal(recordFirstContractActivity(finished, 'discovery', { kind: 'field-explore', sector: 9 }), finished);
-    assert.equal(action(finished, 'companion').changed, false);
-    assert.equal(action(finished, 'discovery').changed, false);
+    assert.equal(applyAcademyNarrativeAction(finished, {}, 'companion').ok, true, 'the third assignment unlocks after discovery');
+    assert.equal(applyAcademyNarrativeAction(finished, {}, 'combat').ok, false, 'completed steps cannot be selected again');
 });
 
 test('completion acknowledgements and next-day return are durable and replay-safe', () => {
-    const { character } = action(rookie, 'complete', 'companion');
+    assert.equal(applyAcademyNarrativeAction(rookie, {}, 'complete', undefined, 'companion').ok, false, 'graduation must start at the first assignment');
+    const { character } = action(rookie, 'complete', 'combat');
     assert.equal(applyAcademyNarrativeAction(character, {}, 'contract-acknowledge').ok, false);
-    const completed = recordFirstContractActivity(character, 'companion', { kind: 'companion-care' }, Date.now() - 86_400_000);
+    const first = recordFirstContractActivity(character, 'combat', { kind: 'combat-claim' }, Date.now() - 86_400_000);
+    assert.equal(applyAcademyNarrativeAction(first, {}, 'contract-acknowledge').ok, false, 'the journal remains open until all steps are complete');
+    const discovery = action(first, 'discovery').character;
+    const second = recordFirstContractActivity(discovery, 'discovery', { kind: 'field-explore', sector: 4 }, Date.now() - 86_400_000);
+    const companion = action(second, 'companion').character;
+    const completed = recordFirstContractActivity(companion, 'companion', { kind: 'companion-care' }, Date.now() - 86_400_000);
+    assert.deepEqual(readFirstContract(completed.firstContract)?.completedRoutes, ['combat', 'discovery', 'companion']);
     const acknowledged = action(completed, 'contract-acknowledge').character;
     assert.equal(action(acknowledged, 'contract-acknowledge').changed, false);
     const returned = action(acknowledged, 'contract-return').character;
     assert.equal(action(returned, 'contract-return').changed, false);
     assert.ok(readFirstContract(returned.firstContract)?.returnedAt);
-    const today = recordFirstContractActivity(character, 'companion', { kind: 'companion-care' });
+    const today = recordFirstContractActivity(companion, 'companion', { kind: 'companion-care' });
     assert.equal(action(today, 'contract-return').changed, false);
 });
 

@@ -50,6 +50,7 @@ import guardChallengeHandler from './api/village-guard/challenge.js';
 import generateImageHandler from './api/generate-image.js';
 import gameStateHandler    from './api/game-state.js';
 import dojoCircuitHandler from './api/dojo-circuit/event.js';
+import tournamentHandler from './api/tournaments/event.js';
 import worldStateHandler   from './api/world-state.js';
 import { seedHomeSectorOwnership } from './api/world-state.js';
 import { villageWarMapEnabled } from './api/_release-flags.js';
@@ -57,6 +58,7 @@ import messagesHandler     from './api/messages.js';
 import reportHandler       from './api/report.js';
 import perfBeaconHandler   from './api/perf-beacon.js';
 import kageHandler         from './api/village/kage.js';
+import villageTransferHandler from './api/village/transfer.js';
 import kageChallengeHandler from './api/village/kage-challenge.js';
 import villageWarDebuffHandler from './api/village/war-debuff.js';
 import bloodlineReviewHandler from './api/admin/bloodline-review.js';
@@ -111,6 +113,7 @@ import profileSettleHandler from './api/profile/settle.js';
 import shopSettleHandler from './api/shop/settle.js';
 import inventorySellHandler from './api/inventory/sell.js';
 import achievementsSyncHandler from './api/achievements/sync.js';
+import playRewardClaimHandler from './api/play/reward-claim.js';
 import auraFeedHandler from './api/aura/feed.js';
 import awakeningRollHandler from './api/awakening/roll.js';
 import bloodlinesForgeHandler from './api/bloodlines/forge.js';
@@ -271,6 +274,7 @@ import legacyEvaluateHandler          from './api/legacy/evaluate.js';
 import legacySageHandler              from './api/legacy/sage.js';
 import legacyTrialHandler             from './api/legacy/trial.js';
 import erasHandler                    from './api/eras.js';
+import eraJourneyHandler              from './api/eras/journey.js';
 import announcementsHandler           from './api/announcements.js';
 import worldCrisisHandler              from './api/world-crisis.js';
 import worldCrisis80Handler            from './api/world-crisis-80.js';
@@ -429,6 +433,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Game / world state
     route('/game-state',  gameStateHandler);
     route('/dojo-circuit/event', dojoCircuitHandler);
+    route('/tournaments/event', tournamentHandler);
     route('/world-state', worldStateHandler);
     route('/messages',    messagesHandler);
     route('/report',      reportHandler);
@@ -439,6 +444,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // Village
     route('/village/kage', kageHandler);
+    route('/village/transfer', villageTransferHandler);
     // Village — server-authoritative Kage succession (declare/press/accept/resolve).
     route('/village/kage-challenge', kageChallengeHandler);
     // Village — losing-village "demoralized" training debuff lookup (read-only).
@@ -742,6 +748,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/legacy/sage',               legacySageHandler);
     route('/legacy/trial',              legacyTrialHandler);
     route('/eras',                      erasHandler);
+    route('/eras/journey',              eraJourneyHandler);
     route('/announcements',             announcementsHandler);
     route('/world-crisis',              worldCrisisHandler);
     route('/world-crisis-80',           worldCrisis80Handler);
@@ -823,6 +830,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Release-handoff endpoints. Express has no folder-convention routing, so every
     // handler added during the feature and settlement work must be mounted here.
     route('/achievements/sync', achievementsSyncHandler);
+    route('/play/reward-claim', playRewardClaimHandler);
     route('/aura/feed', auraFeedHandler);
     route('/awakening/roll', awakeningRollHandler);
     route('/bloodlines/forge', bloodlinesForgeHandler);

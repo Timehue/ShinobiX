@@ -129,9 +129,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).end();
 
-    const bodyPeek = typeof req.body === 'string' ? (() => { try { return JSON.parse(req.body); } catch { return {}; } })() : (req.body ?? {});
-    const peekName: string | undefined = typeof bodyPeek?.playerName === 'string' ? bodyPeek.playerName : undefined;
-    if (!enforceRateLimit(req, res, 'training-start', 6, 30_000, peekName)) return;
+    if (!enforceRateLimit(req, res, 'training-start-preauth', 120, 30_000)) return;
 
     let dailyReservation: DailyStartReservation | null = null;
     try {
@@ -149,6 +147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && identity.name !== playerName) {
             return res.status(403).json({ error: 'Can only start your own training.' });
         }
+        if (!enforceRateLimit(req, res, 'training-start', 6, 30_000, identity.admin ? playerName : identity.name)) return;
 
         // Daily mint cap, read-check-increment under a fail-closed lock so
         // concurrent reservations and rollbacks cannot overwrite one another.

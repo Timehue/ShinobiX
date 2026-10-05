@@ -2,6 +2,7 @@ import { kv, type KvLike } from './_storage.js';
 import { withTelemetryLock } from './_telemetry-lock.js';
 import { captureProductEventFromBetaMetric } from './_product-analytics.js';
 import { ACADEMY_PATH_STEPS } from '../shared/academy-path.js';
+import { withoutKvLeaseContext } from './_kv-lock-context.js';
 
 export type BetaMetricEvent =
     | 'account.registered'
@@ -328,10 +329,16 @@ function drainPendingMetrics(): Promise<void> {
 
 /** Resolves once every metric queued so far is written (tests, shutdown). */
 export function flushBetaMetrics(): Promise<void> {
-    return pendingMetricDays.size || metricDrain ? drainPendingMetrics() : Promise.resolve();
+    return withoutKvLeaseContext(() => pendingMetricDays.size || metricDrain ? drainPendingMetrics() : Promise.resolve());
 }
 
-export async function recordBetaMetric(input: BetaMetricInput, opts: { kv?: BetaKv } = {}): Promise<void> {
+export function recordBetaMetric(input: BetaMetricInput, opts: { kv?: BetaKv } = {}): Promise<void> {
+    // Queued analytics take their own telemetry lock. They must neither inherit
+    // a completed request's lease nor poison the request's authority on failure.
+    return withoutKvLeaseContext(() => recordBetaMetricDetached(input, opts));
+}
+
+async function recordBetaMetricDetached(input: BetaMetricInput, opts: { kv?: BetaKv }): Promise<void> {
     captureProductEventFromBetaMetric(input);
     const store = opts.kv ?? kv;
     if (store === kv) {

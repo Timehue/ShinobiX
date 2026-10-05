@@ -31,6 +31,9 @@
 
 import type { KvProjection } from './_storage-projection.js';
 import { signalKeyWritten } from './_kv-write-signal.js';
+import { assertKvLockContext, currentKvLockContext, LockOwnershipLostError, poisonKvLockContext } from './_kv-lock-context.js';
+import { runtimeTimeouts } from './_runtime-timeouts.js';
+import { makeGuardedRestKv } from './_storage-lock-rest.js';
 
 interface CacheEntry { value: unknown; expiresAt: number; }
 const _readCache = new Map<string, CacheEntry>();
@@ -52,6 +55,23 @@ const _noCachePrefixes = [
     // lock, and overwrite v6. Every save read (including mget/hgetall) must hit
     // the backing store; caches remain enabled for deliberately safe prefixes.
     'save:',
+    // Shared treasury/pool balances, their receipts, and reservation counters
+    // are read under distributed locks. A process-local pre-lock snapshot can
+    // still overwrite a newer worker's credit or exceed a shared encounter cap.
+    'game:village-state:', 'clan-seal-pool:', 'world:sector-pool:', 'world:shrine:',
+    // Recovery journals and discovery pointers must agree with uncached debit
+    // and credit receipts after a retry or a deployment handoff.
+    'economy-tx:', 'economy-settlement:', 'economy-settlement-pending:',
+    // The active Weekly Boss attempt and its prepared/settled record are
+    // cross-worker authority just like the boss's shared generation state.
+    'weekly-boss-active:', 'weekly-boss-run:',
+    // Credential rotation/revocation and Google subject ownership must become
+    // visible on every worker immediately. These namespaces are distinct from
+    // `auth:`; a cached recovery hash can accept a replaced spare key.
+    'auth-recovery:', 'guest-resume:', 'auth-google:', 'auth-google-ticket:',
+    // Purchase receipt ownership is checked under its distributed lock. A
+    // cached miss must not hide another account's already-claimed purchase.
+    'play:reward:purchase:',
     // Recovery joins these private receipts with uncached player/clan debit
     // proofs. A worker-local pending snapshot must not hide another worker's
     // completion or make that join disagree immediately after a retry.
@@ -109,6 +129,7 @@ const _noCachePrefixes = [
     'game:weekly-boss-state',
     // Circuit join/seal/pause writes share a distributed event lock.
     'game:dojo-circuit:',
+    'game:tournaments:',
     // Direct-message inboxes, threads, and per-player deletion cutoffs are all
     // lock-coordinated live state. A worker-local snapshot can resurrect a
     // deleted row or lose a concurrently delivered message.
@@ -161,21 +182,30 @@ function _cacheTtlMs(key: string): number {
 }
 
 function _cacheRead<T>(key: string): T | undefined {
+    if (_storageClosed) throw new Error('Storage is closed for shutdown.');
+    assertKvLockContext();
+    // A lock holder needs the current database predecessor, regardless of the
+    // ordinary cache policy for this key. Detached/poisoned holders fail above.
+    if (currentKvLockContext()) return undefined;
     if (!_shouldCache(key)) return undefined;
     const entry = _readCache.get(key);
     if (!entry) return undefined;
-    if (Date.now() > entry.expiresAt) { _readCache.delete(key); return undefined; }
+    if (Date.now() >= entry.expiresAt) { _readCache.delete(key); return undefined; }
     // Mark as most-recently-used so a hot key is never the first eviction target.
     _readCache.delete(key);
     _readCache.set(key, entry);
     return entry.value as T;
 }
 
-function _cacheWrite(key: string, value: unknown): void {
+function _cacheWrite(key: string, value: unknown, rowExpiresAt?: string | null): void {
     if (!_shouldCache(key)) return;
+    // Cache freshness must never extend the lifetime of the stored row. This
+    // also applies to write-through cache entries and batched reads.
+    const cacheExpiresAt = Date.now() + _cacheTtlMs(key);
+    const expiresAt = rowExpiresAt ? Math.min(cacheExpiresAt, new Date(rowExpiresAt).getTime()) : cacheExpiresAt;
     // Delete-then-set moves an existing key to the newest LRU slot.
     _readCache.delete(key);
-    _readCache.set(key, { value, expiresAt: Date.now() + _cacheTtlMs(key) });
+    _readCache.set(key, { value, expiresAt });
     // Evict the least-recently-used entries once over the ceiling. The oldest key is
     // the first one the iterator yields; deleting it is O(1). Old expired entries sit
     // near the front, so they get reclaimed first in the natural course of eviction.
@@ -197,14 +227,18 @@ import pg from 'pg';
 const { Pool } = pg;
 
 let _pool: pg.Pool | null = null;
+let _storageClosed = false;
+let _poolClose: Promise<void> | null = null;
 
 export async function closeStoragePool(): Promise<void> {
-    const pool = _pool;
-    _pool = null;
-    if (pool) await pool.end();
+    _storageClosed = true;
+    _readCache.clear();
+    _poolClose ??= _pool ? _pool.end() : Promise.resolve();
+    await _poolClose;
 }
 
 function getPool(): pg.Pool {
+    if (_storageClosed) throw new Error('Storage is closed for shutdown.');
     if (_pool) return _pool;
 
     // DATABASE_URL wins; fall back to SUPABASE_POSTGRES_URL (set automatically
@@ -225,6 +259,7 @@ function getPool(): pg.Pool {
     // causing Node.js to emit DEP0169 on every request. Passing individual
     // config fields bypasses that code path entirely.
     const parsed = new URL(cleanUrl);
+    const limits = runtimeTimeouts();
     _pool = new Pool({
         host: parsed.hostname,
         port: parsed.port ? parseInt(parsed.port, 10) : 5432,
@@ -247,9 +282,9 @@ function getPool(): pg.Pool {
         // acquire timeout. PG_POOL_MAX overrides either default explicitly, and
         // a (dormant) cPanel host booting N Passenger workers stays at 5 so it
         // can't multiply into the Supabase connection ceiling.
-        max: Number(process.env.PG_POOL_MAX ?? (process.env.RAILWAY_ENVIRONMENT ? 15 : 5)),
+        max: limits.poolMax,
         idleTimeoutMillis: 30_000,
-        connectionTimeoutMillis: 15_000,
+        connectionTimeoutMillis: limits.connectionMs,
         // Bound a pathologically slow query so it can't pin a pool connection
         // indefinitely (there was no query timeout before — a hung statement held
         // its connection until the server role's 2-min default, and with only a
@@ -261,8 +296,8 @@ function getPool(): pg.Pool {
         // this only ever fires on a genuine hang.
         // statement_timeout is server-enforced; query_timeout is the client-side
         // backstop if the socket itself wedges. Overridable via PG_STATEMENT_TIMEOUT_MS.
-        statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 30_000),
-        query_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS ?? 30_000),
+        statement_timeout: limits.statementMs,
+        query_timeout: limits.statementMs,
     });
 
     _pool.on('error', (err) => {
@@ -270,6 +305,62 @@ function getPool(): pg.Pool {
     });
 
     return _pool;
+}
+
+type PgQueryExecutor = {
+    query<R extends pg.QueryResultRow = pg.QueryResultRow>(sql: string, values?: unknown[]): Promise<pg.QueryResult<R>>;
+};
+
+/**
+ * Each locked KV statement is fenced in its own transaction. FOR SHARE holds
+ * every owner row until COMMIT, so even an expired lease cannot be replaced
+ * between its validation and the protected write. No callback-wide transaction
+ * is needed, and this works with transaction-pooling Postgres connections.
+ */
+const fencedPg: PgQueryExecutor = {
+    async query<R extends pg.QueryResultRow>(sql: string, values?: unknown[]): Promise<pg.QueryResult<R>> {
+        const context = currentKvLockContext();
+        if (!context) return getPool().query<R>(sql, values);
+        assertKvLockContext(context);
+        let client: pg.PoolClient | undefined;
+        try {
+            client = await getPool().connect();
+            assertKvLockContext(context);
+            await client.query('BEGIN');
+            const { rows } = await client.query<{ key: string; value: unknown; live: boolean }>(
+                `WITH held AS MATERIALIZED (
+                     SELECT key, value, expires_at FROM public.kv_store
+                     WHERE key = ANY($1::text[]) ORDER BY key FOR SHARE
+                 ) SELECT key, value, expires_at > clock_timestamp() AS live FROM held`,
+                [context.leases.map(lease => lease.key)],
+            );
+            const owners = new Map(rows.map(row => [row.key, row]));
+            if (context.leases.some(lease => {
+                const row = owners.get(lease.key);
+                return !row?.live || row.value !== lease.owner;
+            })) throw new LockOwnershipLostError();
+            assertKvLockContext(context);
+            const result = await client.query<R>(sql, values);
+            assertKvLockContext(context);
+            await client.query('COMMIT');
+            return result;
+        } catch (error) {
+            // Never replay a mutation after a lost query/COMMIT response. It
+            // might already be durable. Domain receipt/recovery code owns retry.
+            const failure = poisonKvLockContext(context, error);
+            if (client) await client.query('ROLLBACK').catch(() => undefined);
+            client?.release(failure);
+            client = undefined;
+            throw failure;
+        } finally {
+            client?.release();
+        }
+    },
+};
+
+function getPgDb(): PgQueryExecutor {
+    assertKvLockContext();
+    return currentKvLockContext() ? fencedPg : getPool();
 }
 
 export function _toSqlPattern(pattern: string): string {
@@ -294,7 +385,7 @@ const pgKv = {
     async get<T = unknown>(key: string): Promise<T | null> {
         const hit = _cacheRead<T>(key);
         if (hit !== undefined) return hit;
-        const db = getPool();
+        const db = getPgDb();
         const { rows } = await db.query<{ value: unknown; expires_at: string | null }>(
             `SELECT value, expires_at FROM public.kv_store WHERE key = $1`,
             [key]
@@ -302,23 +393,31 @@ const pgKv = {
         if (!rows.length) { _cacheWrite(key, null); return null; }
         const row = rows[0];
         if (row.expires_at && new Date(row.expires_at) <= new Date()) {
-            void db.query(`DELETE FROM public.kv_store WHERE key = $1`, [key]);
+            // Another writer may replace this expired row after the SELECT.
+            // Recheck expiry in the DELETE so lazy cleanup cannot erase its
+            // live replacement. Cleanup failure must not reject an expired read.
+            // A locked read must not spawn detached fenced maintenance after
+            // its callback ends. NX/CAS already handle expired predecessors;
+            // an ordinary unlocked read can reclaim this row later.
+            if (!currentKvLockContext()) void db.query(
+                `DELETE FROM public.kv_store WHERE key = $1 AND expires_at <= now()`, [key],
+            ).catch(() => undefined);
             return null;
         }
-        _cacheWrite(key, row.value);
+        _cacheWrite(key, row.value, row.expires_at);
         return row.value as T;
     },
 
     async set(key: string, value: unknown, options?: { ex?: number; nx?: boolean }): Promise<'OK' | null> {
         _cacheInvalidate(key);
-        const db = getPool();
+        const db = getPgDb();
         const exp = options?.ex ? expiresAt(options.ex) : null;
         if (options?.nx) {
             const { rows } = await db.query<{ kv_set_nx: boolean }>(
                 `SELECT public.kv_set_nx($1, $2::jsonb, $3::timestamptz) AS kv_set_nx`,
                 [key, JSON.stringify(value), exp]
             );
-            if (rows[0].kv_set_nx) { _cacheWrite(key, value); signalKeyWritten(key); }
+            if (rows[0].kv_set_nx) { _cacheWrite(key, value, exp); signalKeyWritten(key); }
             return rows[0].kv_set_nx ? 'OK' : null;
         }
         await db.query(
@@ -328,7 +427,7 @@ const pgKv = {
                  SET value = EXCLUDED.value, expires_at = EXCLUDED.expires_at, updated_at = now()`,
             [key, JSON.stringify(value), exp]
         );
-        _cacheWrite(key, value);
+        _cacheWrite(key, value, exp);
         signalKeyWritten(key);
         return 'OK';
     },
@@ -336,7 +435,7 @@ const pgKv = {
     async compareSet(key: string, expected: unknown | null, value: unknown, options?: { ex?: number }): Promise<boolean> {
         _cacheInvalidate(key);
         const exp = options?.ex ? expiresAt(options.ex) : null;
-        const db = getPool();
+        const db = getPgDb();
         let swapped: boolean;
         if (expected === null) {
             // One statement handles both allowed absence cases. A conflicting
@@ -375,14 +474,14 @@ const pgKv = {
             );
             swapped = rows[0]?.swapped === true;
         }
-        if (swapped) { _cacheWrite(key, value); signalKeyWritten(key); }
+        if (swapped) { _cacheWrite(key, value, exp); signalKeyWritten(key); }
         return swapped;
     },
 
     async del(...keys: string[]): Promise<number> {
         if (!keys.length) return 0;
         _cacheInvalidate(...keys);
-        const { rowCount } = await getPool().query(
+        const { rowCount } = await getPgDb().query(
             `DELETE FROM public.kv_store WHERE key = ANY($1::text[])`, [keys]
         );
         if (rowCount) signalKeyWritten(...keys);
@@ -395,7 +494,7 @@ const pgKv = {
         // one row-locked operation, so no other writer can slip a new lock in
         // between. The lock value is stored as a JSONB string, so compare against
         // the JSON-encoded token.
-        const { rowCount } = await getPool().query(
+        const { rowCount } = await getPgDb().query(
             `DELETE FROM public.kv_store WHERE key = $1 AND value = $2::jsonb`,
             [key, JSON.stringify(expected)]
         );
@@ -407,7 +506,7 @@ const pgKv = {
     async incr(key: string, options?: { ex?: number }): Promise<number> {
         _cacheInvalidate(key);
         const exp = options?.ex ? expiresAt(options.ex) : null;
-        const { rows } = await getPool().query<{ kv_incr: string }>(
+        const { rows } = await getPgDb().query<{ kv_incr: string }>(
             `SELECT public.kv_incr($1, $2::timestamptz) AS kv_incr`,
             [key, exp]
         );
@@ -416,7 +515,7 @@ const pgKv = {
     },
 
     async keys(pattern: string): Promise<string[]> {
-        const { rows } = await getPool().query<{ key: string }>(
+        const { rows } = await getPgDb().query<{ key: string }>(
             `SELECT key FROM public.kv_store WHERE key LIKE $1 AND (expires_at IS NULL OR expires_at > now())`,
             [_toSqlPattern(pattern)]
         );
@@ -435,15 +534,16 @@ const pgKv = {
             else { missIndices.push(i); missKeys.push(keys[i]); }
         }
         if (missKeys.length) {
-            const { rows } = await getPool().query<{ key: string; value: unknown }>(
-                `SELECT key, value FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
+            const { rows } = await getPgDb().query<{ key: string; value: unknown; expires_at: string | null }>(
+                `SELECT key, value, expires_at FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
                 [missKeys]
             );
-            const map = new Map(rows.map((r) => [r.key, r.value]));
+            const map = new Map(rows.map((r) => [r.key, r]));
             for (let j = 0; j < missKeys.length; j++) {
-                const val = map.has(missKeys[j]) ? (map.get(missKeys[j]) as T[number]) : null;
+                const row = map.get(missKeys[j]);
+                const val = row ? (row.value as T[number]) : null;
                 result[missIndices[j]] = val;
-                _cacheWrite(missKeys[j], val);
+                _cacheWrite(missKeys[j], val, row?.expires_at);
             }
         }
         return result;
@@ -461,7 +561,7 @@ const pgKv = {
         const expression = fragments.length ? fragments.join(' || ') : "'{}'::jsonb";
         // Read the current row directly. A projection must never seed the cache
         // consumed by get/mget or become authority for a subsequent save write.
-        const { rows } = await getPool().query<{ key: string; value: Record<string, unknown> | null }>(
+        const { rows } = await getPgDb().query<{ key: string; value: Record<string, unknown> | null }>(
             `SELECT key, CASE WHEN jsonb_typeof(value) = 'object' THEN ${expression} ELSE NULL END AS value
              FROM public.kv_store WHERE key = ANY($1::text[]) AND (expires_at IS NULL OR expires_at > now())`,
             params,
@@ -479,7 +579,7 @@ const pgKv = {
         // tombstones never become broken image URLs. Ordinary hash callers keep
         // normal Redis-style hkeys semantics.
         if (options?.nonEmptyStrings) {
-            const { rows } = await getPool().query<{ k: string }>(
+            const { rows } = await getPgDb().query<{ k: string }>(
                 `SELECT field.key AS k FROM public.kv_store
                  CROSS JOIN LATERAL jsonb_each(
                      CASE WHEN jsonb_typeof(kv_store.value) = 'object' THEN kv_store.value ELSE '{}'::jsonb END
@@ -494,7 +594,7 @@ const pgKv = {
         }
         // Extract field names IN SQL — never ships the (multi-MB) value itself.
         // jsonb_object_keys errors on non-objects, so guard on jsonb_typeof.
-        const { rows } = await getPool().query<{ k: string }>(
+        const { rows } = await getPgDb().query<{ k: string }>(
             `SELECT jsonb_object_keys(value) AS k FROM public.kv_store
              WHERE key = $1 AND (expires_at IS NULL OR expires_at > now())
                AND jsonb_typeof(value) = 'object'`,
@@ -505,7 +605,7 @@ const pgKv = {
 
     async hset(key: string, fields: Record<string, unknown>): Promise<number> {
         _cacheInvalidate(key);
-        await getPool().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
+        await getPgDb().query(`SELECT public.kv_hset($1, $2::jsonb)`, [key, JSON.stringify(fields)]);
         signalKeyWritten(key);
         return Object.keys(fields).length;
     },
@@ -513,7 +613,7 @@ const pgKv = {
     async hdel(key: string, ...fields: string[]): Promise<number> {
         if (!fields.length) return 0;
         _cacheInvalidate(key);
-        await getPool().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
+        await getPgDb().query(`SELECT public.kv_hdel($1, $2::text[])`, [key, fields]);
         signalKeyWritten(key);
         return fields.length;
     },
@@ -803,6 +903,11 @@ const supabaseKv = {
         return fields.length;
     },
 };
+
+const guardedSupabaseKv = makeGuardedRestKv(supabaseKv, async request => {
+    const { data, error } = await getSupabase().rpc('kv_guarded_operation', request);
+    return { data, error };
+}, _toSqlPattern, signalKeyWritten);
 
 // ─── Disk-backed KV (cPanel) + HTTP proxy KV (Vercel) ────────────────────────
 //
@@ -1779,7 +1884,7 @@ function _resolveBaseKv(): KvLike {
     }
     _resolvedBaseKv = qaMemoryKv
         ? _makeMemoryKv()
-        : ((forcePg || (havePgUrl && !_onVercel)) ? pgKv : supabaseKv);
+        : ((forcePg || (havePgUrl && !_onVercel)) ? pgKv : guardedSupabaseKv);
     if (qaMemoryKv) console.log('[kv] isolated in-memory QA backend active');
     return _resolvedBaseKv;
 }
@@ -1873,7 +1978,37 @@ if (process.env.REQUIRE_DISK_OVERLAY === '1' && !_diskOverlay) {
     );
 }
 
-export const kv = _diskOverlay ? _makeRoutedKv(_baseKv, _diskOverlay) : _baseKv;
+function rejectUnfencedOverlayContext(store: KvLike): KvLike {
+    return new Proxy(store, {
+        get(target, property, receiver) {
+            const member = Reflect.get(target, property, receiver) as unknown;
+            if (typeof member !== 'function') return member;
+            return (...args: unknown[]) => {
+                assertKvLockContext();
+                if (currentKvLockContext()) {
+                    throw new LockOwnershipLostError('Retired disk/proxy storage cannot fence protected operations. Use the supported base store.');
+                }
+                return Reflect.apply(member, target, args);
+            };
+        },
+    });
+}
+
+export const kv = _diskOverlay ? rejectUnfencedOverlayContext(_makeRoutedKv(_baseKv, _diskOverlay)) : _baseKv;
+
+/** Read-only readiness gate: never claim fencing for a retired external overlay. */
+export async function storageLockFencingReady(): Promise<{ ok: boolean; backend: string }> {
+    if (_diskOverlay) return { ok: false, backend: 'unsupported-overlay' };
+    const backend = _resolveBaseKv();
+    if (backend === pgKv) return { ok: true, backend: 'pg' };
+    if (_qaMemoryKvAtLoad || process.env.SHINOBIX_QA_MEMORY_KV === '1') return { ok: true, backend: 'memory-qa' };
+    try {
+        const { data, error } = await getSupabase().rpc('kv_guarded_operation', { p_leases: [], p_operation: 'capability', p_args: {} });
+        return { ok: !error && (data as { version?: number } | null)?.version === 1, backend: 'supabase-rest' };
+    } catch {
+        return { ok: false, backend: 'supabase-rest' };
+    }
+}
 
 // Which backend `save:*` keys actually resolve to, surfaced by /health?deep=1.
 // Since the cPanel overlay retirement (2026-07-17) 'base-store' is the

@@ -1,3 +1,4 @@
+import { PVE_SPECIALIST_FIELDS } from '../../../shared/relics';
 /*
  * Equipment helpers — slot normalization, slot display labels, armor
  * quality damage-reduction lookup.
@@ -232,6 +233,7 @@ export function consolidateItemBonuses(
         // "Pve Damage Percent", and the *Taken* one reads as if more were worse.
         pveDamagePercent:      "PvE Damage",
         pveDamageTakenPercent: "PvE Damage Reduction",
+        ...Object.fromEntries(PVE_SPECIALIST_FIELDS.map(field => [field, `PvE ${field.slice(3, -13)} Damage %`])),
     };
 
     for (const [stat, value] of entries) {

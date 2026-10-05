@@ -20,7 +20,7 @@ import {
     type HollowGateRunToken,
     type HgCurrencyKey,
 } from './_run-token.js';
-import { RIFT_QUESTS, parseRiftQuestSeal, reconcileRiftRunBinding, type RiftQuestSeal } from '../sector/_rift-quest.js';
+import { RIFT_QUESTS, parseRiftQuestSeal, reconcileRiftRunBinding, riftWeeklyDistortion, type RiftQuestSeal } from '../sector/_rift-quest.js';
 import { recordBetaMetric } from '../_beta-metrics.js';
 import { loadPublishedContent } from '../_content-store.js';
 import { HOLLOW_GATE_LEDGER_ITEM_IDS, type HollowGateRewardLedger } from './_ledger.js';
@@ -367,6 +367,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 dailyRunOrdinal: ord,
                 ...(riftDef ? {
                     variantId: riftDef.id,
+                    riftDistortionId: riftWeeklyDistortion().id,
                     riftQuestAcceptedAt: currentRiftSeal!.at,
                     bossProfileId: riftDef.bossAiId,
                     bossName: riftDef.bossName,
@@ -459,6 +460,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             variantId: committed.runToken.variantId,
             floorWidth: committed.runToken.floorWidth,
             floorHeight: committed.runToken.floorHeight,
+            riftDistortionId: committed.runToken.riftDistortionId,
             bossProfileId: committed.runToken.bossProfileId,
             bossName: committed.runToken.bossName,
             chosenAugmentId: committed.runToken.chosenAugmentId,
