@@ -4808,6 +4808,7 @@ function WorldMapContent({
 
                         <div className="pixel-map walkable-sector-map sector-image-map">
                             <SectorMap image={sectorMapSrc} />
+                            <DayNightSky className="on-floor" />
                             <SceneAmbience biome={biome} weather={weather} />
                             <SceneCritters biome={biome} />
                             {Array.from({ length: 144 }).map((_, index) => {

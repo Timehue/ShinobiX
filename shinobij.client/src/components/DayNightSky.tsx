@@ -5,8 +5,8 @@
  * glides through dawn → day → dusk → night over the shared world clock.
  *
  * Pure decoration: two absolutely-positioned divs, pointer-events:none, $0, no
- * assets. The clock is read in an effect/interval (never during render) so the
- * component stays render-pure, and it pauses while the tab is hidden.
+ * assets. The clock is read once to seed the first frame, then in an interval
+ * (never on a re-render), and it pauses while the tab is hidden.
  *
  * It re-reads on SKY_REFRESH_MS rather than a hardcoded minute. The world's day
  * is two real hours now (shared/world-clock), so a fixed 60s tick would step the
@@ -28,11 +28,15 @@ export function DayNightSky({
     intensity?: number;
     className?: string;
 }) {
-    // Start from a neutral noon sky so render never touches the clock; the mount
-    // effect immediately swaps in the real local sky. The disable check is a plain
-    // localStorage read in render (same gate pattern as SectorScene3D) — kept out
-    // of state so the effect never calls setState synchronously.
-    const [sky, setSky] = useState<SkyState>(NOON_SKY);
+    // The first frame is the real sky, read once by the lazy initializer (the
+    // same `useState(() => serverNow())` seed the timers use). It used to start
+    // from NOON_SKY and let the mount effect swap the real sky in, but whenever
+    // the browser painted in between, the tint's 2s transition then played that
+    // swap: at night every entry to a scene began in daylight and dimmed. The
+    // disable check is a plain localStorage read in render (same gate pattern as
+    // SectorScene3D) — kept out of state so the effect never calls setState
+    // synchronously.
+    const [sky, setSky] = useState<SkyState>(() => (dayCycleDisabled() ? NOON_SKY : skyNow()));
     const disabled = dayCycleDisabled();
 
     useEffect(() => {
