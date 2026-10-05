@@ -277,6 +277,14 @@ The Tower weather divergence is confirmed by
 `api/towers/_weather-element.test.ts`. It is latent: only hunts seal weather
 onto a Tower battle, and world fights carry no weather today.
 
+**Update 2026-10-04:** no longer latent. World encounters (hunts included),
+exploration and raid fights now seal their wild sector's sky at start
+(`api/missions/ai-fight-start.ts`, pinned by
+`api/missions/_ai-fight-sector-weather.test.ts`), so a hunt's Tower battle
+carries real weather. The Tower term already reads `weatherElement ?? element`
+like PvP and Solo, which is what `_weather-element.test.ts` drives through that
+same hunt path.
+
 1. **Delete the dormant cPanel KV overlay.** That is about 730 lines of
    `api/_storage.ts` (the disk, remote and routed KV factories, migrate/copy,
    and the overlay wiring), plus:

@@ -427,6 +427,18 @@ describe('sealed hunt handler journey', () => {
         assert.notEqual(rematch.body?.token, firstTarget.body?.token);
         assert.deepEqual((rematch.body?.worldContext as Record<string, unknown>)?.huntFormation,
             (firstTarget.body?.worldContext as Record<string, unknown>)?.huntFormation);
+        // The hunt's Tower battle fights under the sky its Solo session sealed
+        // from the sector (ai-fight-start), not on an unweathered board. A sealed
+        // clear sky is still a string, so `undefined` here means nothing sealed.
+        const rematchSession = rematch.body?.session as {
+            environment: Record<string, unknown>;
+            huntCombat: { battle: { weather?: unknown } };
+        };
+        assert.equal(typeof rematchSession.environment.weatherPositiveElement, 'string', 'the hunt seals its sector sky');
+        assert.deepEqual(rematchSession.huntCombat.battle.weather, {
+            positiveElement: rematchSession.environment.weatherPositiveElement,
+            negativeElement: rematchSession.environment.weatherNegativeElement,
+        });
         await playHuntToVictory(player, String(rematch.body?.sessionId));
         const targetWin = await post(reportHandler, player, { aiFightToken: rematch.body?.token });
         assert.equal(targetWin.statusCode, 200, JSON.stringify(targetWin.body));

@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { before, beforeEach, after, describe, it } from 'node:test';
+import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
+import { sectorBiomeOf } from '../../shared/sector-geo.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -358,5 +360,48 @@ describe('Sector Combat garrison assault (rebuilt on Solo PvE)', { concurrency: 
         assert.match(source, /case 'abandon': return await doAbandon\(/);
         assert.match(source, /case 'status': return await doStatus\(/);
         assert.match(source, /case 'seed': return await doSeed\(/);
+    });
+});
+
+// The garrison stands in for a human sector-war duel, and that duel seals the
+// sector's sky (api/pvp/session.ts). The stand-in must fight under the same one,
+// on the defender's terrain, or the two halves of one contest score differently.
+describe('Sector Combat garrison assault — the sector sky', { concurrency: false }, () => {
+    // The start limiter (12 a minute per player) outlives the per-test KV wipe,
+    // and the cases above already spend most of the seeded attacker's budget,
+    // so these assault as a copy of that attacker under their own name.
+    async function startAs(playerName: string): Promise<ResponseOut> {
+        const save = await kv.get<Record<string, unknown>>(`save:${ATTACKER_PLAYER}`);
+        await kv.set(`save:${playerName}`, { ...save, character: { ...(save?.character as Record<string, unknown>), name: playerName } });
+        return call({ action: 'garrison-start', playerName, sector: SECTOR });
+    }
+
+    it('seals the sky a holding clan has stamped on the sector', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        await kv.set(TERRITORY_KEY, { sector: SECTOR, ownerVillage: DEFENDER, ownerClan: 'Frost Wardens', weather: 'thunderstorm', updatedAt: now });
+        const response = await startAs('garrisonskystamp');
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        const env = (response.body as { session: { environment: Record<string, unknown> } }).session.environment;
+        assert.equal(env.weatherPositiveElement, 'Lightning');
+        assert.equal(env.weatherNegativeElement, 'Wind');
+    });
+
+    it('seals the scheduled sky of an unheld sector at the moment the assault starts', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const territory = await kv.get<Record<string, unknown>>(TERRITORY_KEY);
+        const skyAt = (ms: number) => sectorWeatherElements(resolveSectorWeather(sectorBiomeOf(SECTOR), SECTOR, ms, territory));
+        const before = skyAt(Date.now());
+        const response = await startAs('garrisonskysched');
+        const afterwards = skyAt(Date.now());
+        assert.equal(response.statusCode, 200, JSON.stringify(response.body));
+        const env = (response.body as { session: { environment: Record<string, unknown> } }).session.environment;
+        // A sealed clear sky is still a string; undefined would mean nothing was sealed.
+        assert.equal(typeof env.weatherPositiveElement, 'string');
+        assert.ok(
+            [before, afterwards].some((sky) => sky.positiveElement === env.weatherPositiveElement && sky.negativeElement === env.weatherNegativeElement),
+            `sealed ${JSON.stringify(env)} is not the sector's scheduled sky ${JSON.stringify([before, afterwards])}`,
+        );
     });
 });
