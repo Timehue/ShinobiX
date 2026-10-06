@@ -151,6 +151,32 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         assert.equal(frostTreasury.treasury?.honorSeals, 2);
     });
 
+    it('settles due sector wars BEFORE paying income, so a captured sector pays its new owner', async () => {
+        const store = memStore();
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27]) owners[s] = 'Frostfang Village';
+        for (const s of [17, 18, 19, 20, 21, 22, 23, 24]) owners[s] = 'Moonshadow Village';
+        seedTerritory(store, owners);
+        // The due war's verdict: Moonshadow takes sector 26 from Frostfang.
+        const sweep = async (): Promise<unknown[]> => {
+            store.m.set('world:territory:26', { sector: 26, ownerVillage: 'Moonshadow Village' });
+            return [{ sector: 26 }];
+        };
+
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: sweep, now: NOW, enabled: true });
+        assert.equal(r.sectorWarsSettled, 1);
+        assert.equal((store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord).warResources, 25, 'the loser keeps 1 sector');
+        assert.equal((store.m.get(villageWarKey('Moonshadow Village')) as VillageWarRecord).warResources, 225, 'the winner is paid for 9');
+    });
+
+    it('still pays income when the sector-war settlement sweep fails', async () => {
+        const store = memStore();
+        const failingSweep = async (): Promise<unknown[]> => { throw new Error('settle down'); };
+        const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: failingSweep, now: NOW, enabled: true });
+        assert.equal(r.sectorWarsSettled, 0);
+        assert.equal(r.ran, 4);
+    });
+
     it('falls back to the home-sector baseline when territory is unseeded', async () => {
         // No world:territory:* rows at all = the pre-launch/unseeded world. The
         // faucet must NOT silently switch off world-wide.
