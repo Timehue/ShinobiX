@@ -15,7 +15,6 @@ import {
     type AiFightStart,
 } from "../lib/ai-fight-api";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
-import { fetchHuntCombatState, huntSessionForTower, submitHuntCombatAction } from '../lib/hunt-combat-api';
 import { onAiFightRequest, requestAiFight, type AiFightRequest } from "../lib/ai-fight-request";
 import {
     settleAiFight,
@@ -662,7 +661,7 @@ export function AiFightHost({
                         onExit={closeFight}
                     />
                 )}
-            />}
+            />
         </Suspense>
     );
 }

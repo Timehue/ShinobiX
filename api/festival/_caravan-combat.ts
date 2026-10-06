@@ -211,7 +211,10 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
         if (!history?.some(entry => entry.id === id)) {
             const entry = makeBattleEntry({ id, ts: session!.lastActionAt, mode: 'Caravan ambush', opponent: `${session!.actors.filter(a => a.side === 'enemy').length} raiders`, self: actor.name,
                 outcome: winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss', rounds: session!.round,
-                actions: buildActionsFromTowerLog(session!.log, [actor.name], session!.actors.filter(a => a.side === 'enemy').map(a => a.name)) });
+                actions: buildActionsFromTowerLog(
+                    winner ? session!.log : [...session!.log, 'The escort has ended.'],
+                    [actor.name], session!.actors.filter(a => a.side === 'enemy').map(a => a.name),
+                ) });
             next.battleHistory = appendBattleHistory(history, entry);
         }
         return { ok: true, character: next, value: { outcome: winner ? 'win' : 'loss' }, write: true };

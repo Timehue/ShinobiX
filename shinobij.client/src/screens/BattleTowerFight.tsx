@@ -486,9 +486,7 @@ export function BattleTowerFight({
     const isHunt = variant === "hunt";
     const isCaravanAmbush = variant === "caravan-ambush";
     const [session, setSession] = useState<TowerSession>(initialSession);
-    const displayLog = isHunt || isCaravanAmbush
-        ? presentEmbeddedTowerLog(session.log, session.floor, isHunt ? 'hunt' : 'caravan')
-        : session.log;
+    const displayLog = session.log;
     const battleTabs = useBattleTabs(session.log.length);
     const combatFloor = session.sealedCatalogFloor ?? session.encounterFloor;
     const [mode, setMode] = useState<Mode>("idle");

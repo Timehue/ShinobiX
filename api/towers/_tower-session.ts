@@ -257,8 +257,6 @@ export type TowerSession = {
      * cycle costs nothing.)
      */
     pendingCompanion?: import('./_companion.js').CompanionSeal;
-    /** Sealed binding for a Caravan-owned Tower combat session. */
-    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
     /** Pet resource receipts used by Caravan's normal defeat/win settlement. */
     companionUsage?: { petId: string; pveGearId?: string; consumableId?: string };
 
