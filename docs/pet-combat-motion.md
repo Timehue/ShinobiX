@@ -37,11 +37,19 @@ covered five desktop/mobile previews, two recordings, 21 frozen-pose checks and
 five actual primary-combat scenarios with no browser errors or overflow.
 The complete strict layout matrix passed 20 tests with 10 configured skips.
 
-Repository-wide lint has three existing unused-variable errors in untouched
-mission/arena files. Full smoke collection is blocked by a duplicate
-`getWorldMapRegionForPoint` import in `e2e/world-map-mobile.spec.ts`; a separate
-adaptive-shell authority assertion was also reproduced with the original pet
-modules. Those unrelated files and checks are not changed by this pass.
+The authorized release follow-up removes three unused mission/arena symbols
+and a duplicate world-map test import, corrects the maximum-name adaptive
+fixture's expected account, regenerates the canonical design-token export,
+and updates a retired-overlay storage test to exercise current REST lock
+fencing. The preview also mounts the shared renderer retirement component.
+Dependency patches reuse the narrow compression, proxy-addr and source-map-js
+updates proposed in PRs #294-297. Both fresh-install dependency audits report
+zero vulnerabilities. Production security and release gates remain enabled.
+
+The motion layer uses native bone rotations and compact, labeled joint tuples
+to fit the existing production bundle budget. An equivalence sweep compared
+50,232 frames on all 161 identities, including every existing clip, and matched
+2,135,952 bone quaternions exactly against the pre-budget-trim layer.
 
 Repeated Owl wing residual after dodges fell from 42.17 degrees to zero on the
 desktop preview and from 40.72 to zero on the constrained mobile preview.

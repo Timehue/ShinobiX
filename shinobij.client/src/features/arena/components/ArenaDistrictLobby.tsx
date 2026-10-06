@@ -1,4 +1,3 @@
-import type { WheelEvent } from "react";
 import { GiCrossedSwords, GiLadder, GiPawPrint, GiTrophy, GiEyeball } from "../../../components/icons/LightweightGameIcons";
 import type { DuelChallenge } from "../../../App";
 import type { Character, PlayerRecord, VersionedCharacterCommit } from "../../../types/character";
@@ -14,15 +13,6 @@ import { PetRankedModeCards } from "./PetRankedModeCards";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
 
 const ARENA_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
-
-function scrollArenaModesWithWheel(event: WheelEvent<HTMLFieldSetElement>) {
-    const tabs = event.currentTarget;
-    if (tabs.scrollWidth <= tabs.clientWidth) return;
-    const delta = event.deltaY || event.deltaX;
-    if (!delta) return;
-    event.preventDefault();
-    tabs.scrollBy({ left: delta, behavior: "auto" });
-}
 
 type ArenaDistrictLobbyProps = {
     character: Character; onVersionedCharacter: VersionedCharacterCommit;

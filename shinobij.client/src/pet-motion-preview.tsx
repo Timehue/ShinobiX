@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { Canvas, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { PetModel3D, DEFAULT_PET_MODEL_FRAME, type PetModelMotion } from './components/PetModel3D';
+import { RendererRetirement } from './components/RendererRetirement';
 import { petCombatModel } from './lib/pet-3d-models';
 import { PET_VISUAL_QUALITY_PRESETS } from './lib/pet-visual-quality';
 import { rawPetPool } from './data/pet-pool';
@@ -51,6 +52,7 @@ function Preview() {
             <button onClick={() => setGeneration(g => g + 1)}>Reset rig</button>
         </div>
         <div style={{flex:1, minHeight:0}}><Canvas dpr={1} camera={{ position:[0,3.5,window.innerWidth < 500 ? 17 : 11], fov:38 }} onCreated={({camera}) => camera.lookAt(0,1.5,0)}>
+            <RendererRetirement />
             <color attach="background" args={['#101726']}/><ambientLight intensity={1.4}/>
             <directionalLight position={[3,6,4]} intensity={2.2}/><directionalLight position={[-3,2,-3]} color="#8bc5ff" intensity={1.2}/>
             <Suspense fallback={null}><Fighter key={generation} motion={motion} paused={paused} victorious={victorious}/><Probe/></Suspense>
