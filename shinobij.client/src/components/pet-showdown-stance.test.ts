@@ -65,7 +65,8 @@ test("3v3 formations pair every visible lane reciprocally", () => {
 
 test("the entire 3D fighter performance follows the hit-stop-aware presentation clock", () => {
     assert.match(modelSource, /const presentationDelta = f\.timeline === undefined \? delta : animationDelta/);
-    assert.match(modelSource, /const gaitPhase = timeline \* gait/);
+    assert.match(modelSource, /const gaitPhase = authoredCombatRig && running && activeTake \? gaitPhaseInClip \* Math\.PI \* 2 : timeline \* gait/);
+    assert.match(modelSource, /advancePetAnimationMixer\(mixer, presentationDelta\)/);
     assert.match(modelSource, /uniform\.time\.value = timeline/);
     assert.match(modelSource, /const deformBlend = 1 - Math\.exp\(-presentationDelta \* 18\)/);
     assert.doesNotMatch(modelSource, /Math\.min\(1, delta \* (?:turnRate|8|11|12|13|15)/);

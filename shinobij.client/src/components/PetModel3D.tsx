@@ -13,7 +13,9 @@ import { petHeroBodyPose, type PetHeroMoveStyle } from "../lib/pet-hero-moves";
 import { stablePetModelPresentationBounds } from "../lib/pet-model-bounds";
 import type { PetModelSurfaceTreatment } from "../lib/pet-model-surface";
 import type { PetSignaturePerformance } from "../lib/pet-signature-performance";
-import { createPetAnimationEpoch, retirePetAnimationMixer, samplePetAnimationPhase, synchronizePetAnimationEpoch, transitionPetAnimation } from "../lib/pet-animation-lifecycle";
+import { advancePetAnimationMixer, createPetAnimationEpoch, preparePetAnimationPhase, retirePetAnimationMixer, synchronizePetAnimationEpoch, synchronizePetLocomotionPhase, transitionPetAnimation } from "../lib/pet-animation-lifecycle";
+import { createPetCombatRigMotion } from "../lib/pet-combat-rig-motion";
+import { INDIVIDUAL_PET_ANIMATION_MODEL_IDS } from "../lib/pet-proper-animation-assets";
 import { disposePetModelResources } from "../lib/pet-model-resources";
 
 export type PetModelMotion =
@@ -846,30 +848,9 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
     const lastTimeline = useRef<number | null>(null);
     const facingInitialized = useRef(false);
     const lightColor = surfaceTreatment?.emissive ?? ELEMENT_LIGHT[String(element ?? "")] ?? "#c4b5fd";
-    const avianWingBones = useMemo(() => {
-        const bones: Array<{ bone: THREE.Bone; side: number; reach: number }> = [];
-        const seen = new Set<string>();
-        for (const scene of [prepared.surface, prepared.outline]) {
-            scene?.traverse((object) => {
-                if (!(object as THREE.SkinnedMesh).isSkinnedMesh) return;
-                for (const bone of (object as THREE.SkinnedMesh).skeleton.bones) {
-                    // GLTFLoader sanitizes dots in animation target names, so
-                    // accept both DCC `wing_upper.L` and runtime `wing_upperL` /
-                    // `wing_upper_L` spellings.
-                    if (!/^wing_(upper|mid)[._]?(L|R)$/iu.test(bone.name)) continue;
-                    const key = `${scene.uuid}:${bone.uuid}`;
-                    if (seen.has(key)) continue;
-                    seen.add(key);
-                    bones.push({
-                        bone,
-                        side: /L$/iu.test(bone.name) ? 1 : -1,
-                        reach: bone.name.includes("upper") ? 1 : 0.55,
-                    });
-                }
-            });
-        }
-        return bones;
-    }, [prepared.surface, prepared.outline]);
+    const rigMotion = useMemo(() => createPetCombatRigMotion(
+        [prepared.surface, prepared.outline], INDIVIDUAL_PET_ANIMATION_MODEL_IDS.has(config.visualId),
+    ), [prepared.surface, prepared.outline, config.visualId]);
 
     useEffect(() => {
         const lifetime = resourceLifetime.current;
@@ -930,13 +911,18 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // frame timing.
         const presentationDelta = f.timeline === undefined ? delta : animationDelta;
         lastTimeline.current = timeline;
+        // Restore before any mixer evaluation, including a zero-delta hit-stop.
+        // A clip is allowed to leave middle wings or distal legs unkeyed.
+        rigMotion.restore();
         if (timelineReset) {
+            rigMotion.reset();
+            motionStart.current = timeline;
             animation.activeClip = null;
             animation.activeFamily = "idle";
             animation.activeAction = null;
             animation.activeOutlineAction = null;
-            mixer?.stopAllAction();
-            outlineMixer?.stopAllAction();
+            retirePetAnimationMixer(mixer);
+            retirePetAnimationMixer(outlineMixer);
             lastVictorious.current = false;
             victoryStart.current = timeline;
             facingInitialized.current = false;
@@ -1024,6 +1010,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                 next.enabled = true;
                 next.clampWhenFinished = oneShot;
                 next.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
+                if (family === "locomotion" && animation.activeFamily === "locomotion") synchronizePetLocomotionPhase(next, previous);
                 // A melee dash swaps to the locomotion bank. Re-entering the
                 // attack take at contact must skip the already-played windup.
                 if (phaseWindow) next.time = clip.duration * phaseWindow.start;
@@ -1036,6 +1023,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
                     nextOutline.enabled = true;
                     nextOutline.clampWhenFinished = oneShot;
                     nextOutline.setLoop(oneShot ? THREE.LoopOnce : THREE.LoopRepeat, oneShot ? 1 : Infinity);
+                    if (family === "locomotion" && animation.activeFamily === "locomotion") synchronizePetLocomotionPhase(nextOutline, previousOutline);
                     if (phaseWindow) nextOutline.time = clip.duration * phaseWindow.start;
                     transitionPetAnimation(nextOutline, previousOutline, transition, contactTransition);
                     animation.activeOutlineAction = nextOutline;
@@ -1083,61 +1071,58 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
             const rateBlend = Math.min(1, presentationDelta * 8);
             if (animation.activeAction) animation.activeAction.timeScale = THREE.MathUtils.lerp(animation.activeAction.timeScale, locomotionRate, rateBlend);
             if (animation.activeOutlineAction) animation.activeOutlineAction.timeScale = THREE.MathUtils.lerp(animation.activeOutlineAction.timeScale, locomotionRate, rateBlend);
-            mixer.update(presentationDelta);
-            outlineMixer?.update(presentationDelta);
             // Raijin's weighted mane and paws must keep the reviewed side-fall
             // silhouette after the one-shot reaches its settle frame. Re-sample
             // that frame while KO is held so later mixer updates cannot relax
             // the sculpt back toward its standing bind pose.
             if (config.visualId === "starter-lightning-l" && family === "death" && motionAge >= 1.03 && animation.activeClip && animation.activeAction) {
                 const settleTime = Math.min(animation.activeClip.duration - 0.001, 1.03);
-                const hold = (action: THREE.AnimationAction, owner: THREE.AnimationMixer) => {
+                const hold = (action: THREE.AnimationAction) => {
                     action.enabled = true;
                     action.paused = true;
                     action.time = settleTime;
                     action.setEffectiveWeight(1);
-                    owner.update(0);
                 };
-                hold(animation.activeAction, mixer);
-                if (animation.activeOutlineAction && outlineMixer) hold(animation.activeOutlineAction, outlineMixer);
+                hold(animation.activeAction);
+                if (animation.activeOutlineAction && outlineMixer) hold(animation.activeOutlineAction);
             }
             if (phaseWindow && f.attackPhaseProgress !== undefined && animation.activeClip && animation.activeAction) {
                 // Seek only the active take, leaving mixer time free to finish
                 // crossfades. Wall-clock playback otherwise parks at the end of
                 // a windup, then skips recovery when the user selects Fast.
-                samplePetAnimationPhase(animation.activeAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
+                preparePetAnimationPhase(animation.activeAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
                 if (animation.activeOutlineAction && outlineMixer) {
-                    samplePetAnimationPhase(animation.activeOutlineAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
+                    preparePetAnimationPhase(animation.activeOutlineAction, phaseWindow.start, phaseWindow.end, f.attackPhaseProgress);
                 }
             }
+            advancePetAnimationMixer(mixer, presentationDelta);
+            if (outlineMixer) advancePetAnimationMixer(outlineMixer, presentationDelta);
             if (phaseWindow && animation.activeClip && animation.activeAction) {
                 const phaseEnd = animation.activeClip.duration * phaseWindow.end;
-                if (animation.activeAction.time >= phaseEnd) {
+                if (animation.activeAction.time > phaseEnd) {
                     animation.activeAction.time = phaseEnd;
                     animation.activeAction.paused = true;
                     mixer.update(0);
                 }
-                if (animation.activeOutlineAction && outlineMixer && animation.activeOutlineAction.time >= phaseEnd) {
+                if (animation.activeOutlineAction && outlineMixer && animation.activeOutlineAction.time > phaseEnd) {
                     animation.activeOutlineAction.time = phaseEnd;
                     animation.activeOutlineAction.paused = true;
                     outlineMixer.update(0);
                 }
             }
         }
-        if (config.profile === "avian" && avianWingBones.length && (avianDive || f.motion === "dodge")) {
-            // Layer a readable, symmetric wing beat after the authored mixer has
-            // sampled. The shared roster clips were originally quadruped takes;
-            // without this avian pass their wing bones barely left the body even
-            // during a dive. The mixer overwrites this local delta next frame, so
-            // it cannot accumulate into a twist or jitter.
-            const phase = avianDive ? avianDiveP : dodgeP;
-            const beat = Math.sin(phase * Math.PI * 3.2);
-            const spread = 0.44 + (0.5 + beat * 0.5) * 0.62;
-            for (const { bone, side, reach } of avianWingBones) {
-                bone.rotateX(side * spread * reach);
-                bone.rotateZ(side * 0.08 * reach * Math.sin(Math.PI * phase));
-            }
-        }
+        const activeTake = animation.activeClip;
+        const activeName = activeTake ? normalizedClipName(activeTake) : "";
+        const gaitPhaseInClip = activeTake && activeTake.duration > 0 ? (animation.activeAction?.time ?? 0) / activeTake.duration : 0;
+        rigMotion.apply({
+            motion: f.motion, timeline, delta: presentationDelta, phase: gaitPhaseInClip,
+            galloping: activeName === "gallop",
+            locomotion: !f.victorious && motionOwnsLocomotion(f.motion, f.moving) && (activeName === "walk" || activeName === "gallop"),
+            wingPhase: config.profile === "avian" && (avianDive || f.motion === "dodge") ? avianDive ? avianDiveP : dodgeP : null,
+            breath: signatureDirection?.breath ?? 1,
+            lookYaw: resolveCombatBodyYaw(f.faceX, f.faceZ, config.yawOffset) - r.rotation.y,
+            contact: f.contactPose === true || f.victorious === true,
+        }, activeTake);
         const gait = (config.profile === "heavy" ? 8.8 : config.profile === "avian" ? 14 : 12.2) * signatureCadence * THREE.MathUtils.clamp(signatureAgility, 0.82, 1.18);
         const profileBounce = config.profile === "heavy" ? 0.045 : aquaticSeal ? 0.026 : config.profile === "serpentine" ? 0.08 : 0.065;
         // Dodge owns one clean hop cycle. Do not layer the ordinary running gait
@@ -1157,8 +1142,11 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         const breath = Math.sin(personalityTime * (f.desperate ? 7.2 : 3.45 + performanceVariant * 0.22))
             * (f.desperate ? 0.035 : 0.016 + performanceVariant * 0.002) * (signatureDirection?.breath ?? 1);
         const idleSway = idle ? Math.sin(personalityTime * (1.55 + performanceVariant * 0.18) * (signatureDirection?.idleRate ?? 1)) : 0;
-        const gaitPhase = timeline * gait;
-        const strideWave = Math.sin(gaitPhase * 0.72);
+        // The body and distal recovery follow the actual skeletal stride.
+        // A separate wall-time oscillator beats against speed-scaled clips and
+        // rocks the body while its feet are at a different part of the cycle.
+        const gaitPhase = authoredCombatRig && running && activeTake ? gaitPhaseInClip * Math.PI * 2 : timeline * gait;
+        const strideWave = Math.sin(authoredCombatRig ? gaitPhase : gaitPhase * 0.72);
         const sealStroke = aquaticSeal && running ? Math.sin(gaitPhase * 0.56) : 0;
         const sealCompression = Math.abs(sealStroke);
         const runWave = running && !authoredCombatRig ? Math.abs(Math.sin(gaitPhase)) : 0;
@@ -1166,7 +1154,7 @@ function LoadedPetModel3D({ config, frame, element, showIdentity = true, surface
         // centre-of-mass transfer or the whole creature reads like a rigid model
         // being translated across the floor. This low-frequency weight shift is
         // deliberately much smaller than the legacy procedural bob.
-        const authoredRunWave = running && authoredCombatRig ? Math.abs(Math.sin(gaitPhase * 0.72)) : 0;
+        const authoredRunWave = running && authoredCombatRig ? Math.abs(Math.sin(gaitPhase)) : 0;
         const bob = runWave * profileBounce
             + (groundedAuthoredQuadruped ? authoredRunWave * profileBounce * 0.16 : authoredRunWave * profileBounce * 0.34)
             + (f.casting && !authoredCombatRig ? Math.sin(timeline * 6) * 0.045 : 0);
