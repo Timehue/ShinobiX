@@ -23,7 +23,7 @@ import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../li
  * Extracted from App.tsx.
  */
 
-import { memo, useEffect, useState, type ReactNode } from "react";
+import { memo, type ReactNode } from "react";
 import { serverNow } from "../lib/server-clock";
 import { useBlackMarketUsage, utcDay, BLACK_MARKET_DAILY_CAP } from "../lib/black-market";
 import { formatCompact, formatExact, formatRatio } from "../lib/format-number";
@@ -129,15 +129,6 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     onOpenDailyBriefing = (opener) => window.dispatchEvent(new CustomEvent("shinobix:open-daily-briefing", { detail: opener })),
 }: ProfileCardProps) {
     useSharedNow(); // sync to global timer so mobile timers match desktop
-    const [brokerUsage, setBrokerUsage] = useState<{ used: number; day: string } | null>(null);
-    useEffect(() => {
-        let active = true;
-        setBrokerUsage(null);
-        void getBlackMarketUsage(character.name).then((usage) => {
-            if (active && usage) setBrokerUsage({ used: usage.dailyUsed, day: usage.day });
-        });
-        return () => { active = false; };
-    }, [character.name]);
     // Falls back to the name-keyed shared image when the character field hasn't
     // hydrated yet, so the rail never shows initials to a player who has a
     // portrait everyone else can see (lib/own-avatar.ts).

@@ -1968,14 +1968,12 @@ function expireCompanions(session: TowerSession): void {
 }
 
 export function startRound(session: TowerSession): void {
-    if (session.towerId === 'hunt') {
-        const marker = `--- Round ${session.round} ---`;
-        if (!session.log.includes(marker)) {
-            // The initial marker belongs before the hunt label; later markers
-            // follow the preceding round's effects in the shared combat HUD.
-            if (session.round <= 1) session.log.unshift(marker);
-            else session.log.push(marker);
-        }
+    const marker = `--- Round ${session.round} ---`;
+    if (!session.log.includes(marker)) {
+        // The initial marker belongs before the hunt label; later markers
+        // follow the preceding round's effects in the shared combat HUD.
+        if (session.round <= 1) session.log.unshift(marker);
+        else session.log.push(marker);
     }
     for (const actor of session.actors) {
         const aged = expireShield(actor, session.round);
@@ -2160,7 +2158,9 @@ export function checkTowerWinner(session: TowerSession, floor: TowerFloor): void
     if (squadWinsByObjective(session, floor)) {
         session.status = 'done'; session.winner = 'squad';
         session.objectiveState.completed = true;
-        session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!' : `Floor ${floor.id} cleared!`);
+        session.log.push(session.towerId === 'hunt' ? 'Hunt encounter cleared!'
+            : session.towerId === 'sunscar-caravan-ambush' ? 'The road is open.'
+                : `Floor ${floor.id} cleared!`);
     }
 }
 

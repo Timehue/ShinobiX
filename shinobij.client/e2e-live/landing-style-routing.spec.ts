@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
+import { uniquePlayerName } from './helpers/player-names';
 
 function acknowledgeLandingNotices() {
     localStorage.setItem('shinobij_cookie_notice_v1', 'accepted');
@@ -60,7 +61,7 @@ test('fresh mobile landing keeps its complete brand and entry action usable with
 });
 
 test('restored player skips landing CSS and opens the saved game screen', async ({ page, request }) => {
-    const name = `cssrestore${Date.now().toString(36)}`;
+    const name = uniquePlayerName((stamp) => `cssrestore${stamp}`);
     const registration = await request.post('/api/player-auth', {
         data: { action: 'register', name, password: 'LocalPerf!2941' },
     });

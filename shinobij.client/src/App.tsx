@@ -18,6 +18,7 @@ import { GameAlertHost, GameConfirmHost, GamePasswordPromptHost, gameConfirm } f
 import { createPlayerLogout } from "./lib/player-logout";
 import { GameToastHost, gameToast } from "./components/GameToast";
 import { PlayGameServicesLoader } from "./components/PlayGameServicesLoader";
+import { usePetBattleMusicLifecycle } from "./lib/use-pet-battle-music-lifecycle";
 import { AdaptiveGameShell } from "./components/layout/AdaptiveGameShell";
 import { MaintenanceOperatorBoundary } from "./components/MaintenanceOperatorBoundary";
 // (No save-conflict banner import: that component is deleted — it warned about

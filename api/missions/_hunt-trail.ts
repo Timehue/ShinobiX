@@ -42,12 +42,6 @@ export function huntHash(value: string): number {
     return hash >>> 0;
 }
 
-export function huntFormationFor(runId: string, kind: string, decisionId = ''): import('../../shared/hunt-combat.js').HuntFormation {
-    const roll = huntHash(`${runId}:${kind}:${decisionId}:formation-v1`) % 5;
-    return roll === 0 ? { version: 1, kind: 'single', count: 1 }
-        : { version: 1, kind: roll <= 2 ? 'waves' : 'pack', count: roll === 1 || roll === 3 ? 2 : 3 };
-}
-
 export function serverHuntSign(missionId: string, stage: number, hunterName: string): ServerHuntSign {
     const safeStage = Math.max(0, Math.floor(Number(stage) || 0));
     return SIGNS[huntHash(`${missionId}:${hunterName.toLowerCase()}:sign:${safeStage}`) % SIGNS.length]!;

@@ -271,6 +271,18 @@
     line-height: 1.25;
 }
 
+@media (orientation: landscape) and (max-height: 520px) {
+    .ui-modal-backdrop.training-timer-backdrop { align-items: center; }
+    .training-timer-modal .training-timer-grid > .location-button {
+        min-height: 72px;
+        padding: 5px !important;
+    }
+    .training-timer-modal .training-timer-grid .tile-icon img {
+        width: 22px !important;
+        height: 22px !important;
+    }
+}
+
 /* Active training summary box */
 .card:has(.stat-group-list) .summary-box {
     background: linear-gradient(180deg, rgba(20,28,46,0.85), rgba(12,18,34,0.85)) !important;

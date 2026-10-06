@@ -90,18 +90,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     return reply(409, { error: 'Your profession has changed. Refresh before choosing another path.' });
                 }
             }
-            if (respecRequested) {
-                const error = professionChangeUnlockError(char);
-                if (error) return { status: 403 as const, body: { error } };
-                if (body.fromProfession !== undefined && body.fromProfession !== char.profession) {
-                    return { status: 409 as const, body: { error: 'Your profession has changed. Refresh before choosing another path.' } };
-                }
-                // Bind retries to this choice generation. A delayed A→B request
-                // must not reset fresh A progress after a later B→A change.
-                if (body.fromProfessionChosenAt !== undefined && body.fromProfessionChosenAt !== (char.professionChosenAt ?? null)) {
-                    return { status: 409 as const, body: { error: 'Your profession has changed. Refresh before choosing another path.' } };
-                }
-            }
             let paidCharacter = char;
             if (char.profession) {
                 if (!respecRequested) {
@@ -118,11 +106,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         requiredItemId: PROFESSION_CHANGE_APPROVAL_ID,
                     });
                 }
-                paidCharacter = consumed;
             }
 
             const changingProfession = Boolean(char.profession);
-            const paidCharacter = changingProfession ? consumeProfessionApproval(char)! : char;
+            paidCharacter = changingProfession ? consumeProfessionApproval(char)! : char;
             const priorChosenAt = Number(char.professionChosenAt);
             const nextCharacter = {
                 ...paidCharacter,

@@ -14,7 +14,6 @@ import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_SCROLL_NAME, VILLAGE_TRANS
 import type { GameItem } from "../types/combat";
 import { AURA_SPHERE_ITEM_ID } from "../constants/game";
 import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
-import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_SCROLL_NAME, VILLAGE_TRANSFER_SCROLL_IMAGE, VILLAGE_TRANSFER_COST, VILLAGE_TRANSFER_LEVEL } from "../../../shared/village-transfer";
 import {
     PROFESSION_CHANGE_APPROVAL_COST,
     PROFESSION_CHANGE_APPROVAL_ID,

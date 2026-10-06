@@ -28,6 +28,7 @@ import { LegacyBadge } from "../components/LegacyBadge";
 import { petVisualVariantClass } from "../lib/pet-visual-variant";
 import { petCardImage } from "../lib/pet-battle-anim";
 import { GameArtIcon } from "../components/GameArtIcon";
+import { achievementBadgeSrc } from "../lib/achievement-badge";
 
 const ELEMENT_COLORS: Record<string, string> = {
     fire: "var(--red-400)", water: "var(--blue-400)", earth: "#d4a574", lightning: "#fbbf24",

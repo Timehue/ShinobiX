@@ -17,19 +17,15 @@ import "../styles/world-map-mobile.css";
 import { useWorldMapLayout } from "../lib/use-world-map-layout";
 import { getWorldMapRegionForPoint, WORLD_MAP_REGIONS } from "../lib/world-map-regions";
 import { visiblePoll } from "../lib/poll";
-// The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic, so
-// this screen chunk owns those two stylesheets the same way Shop does (the card
-// view and the overlay are component modules and must stay CSS-free).
+// The Chronicle Scribe's codex hand-off ends on the pack-opening cinematic.
 import "../styles/chronicle-duel.css";
 import "../styles/card-pack-opening.css";
-// Compact local event-modal glyphs shared with the rest of the game.
 import {
     GiCardPickup,
     GiOpenTreasureChest,
     GiPawPrint,
     GiTrail,
 } from "../components/icons/LightweightGameIcons";
-// Currency/material rewards reuse the game's own emblem set so they match the HUD.
 import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
 import festivalMarkerArt from "../assets/festival/sunscar-festival-marker-v1.webp";
@@ -63,12 +59,6 @@ import {
     type WorldSectorCommandTerritory,
 } from "../components/WorldSectorCommandPanel";
 import { resolveOwnAvatar } from "../lib/own-avatar";
-// The dialog-only imports main carried here (SectorWanderer, questMetricForId,
-// relicSurveyWalkthrough, epicForWanderer, metricLabel, timeLeftLabel) are not
-// listed: the wanderer dialog they served is no longer inline in this screen —
-// it is <WorldWandererDialog>, which imports what it needs itself. The
-// <SectorWanderer> named in a comment further down is that component's, not a
-// use from this file.
 import { useSectorWanderers, isWanderersEnabled, currentWandererDayBucket, wandererPresenceGate, questForWanderer, isWandererOnCooldown, withWandererCooldown, WANDERER_FLEE_COOLDOWN_MS, WANDERER_DECLINE_COOLDOWN_MS, QUEST_GIVER_PRESENCE, pickRoamingQuestGivers, capSectorWanderers, lockedQuestMetrics, parseWandererId, wandererRelocationSector, pruneWandererMoves,WANDERER_ARCHETYPES, type Wanderer } from "../lib/wanderers";
 import { QUEST_BOSSES, questbookEntry, questbookStage, bossStatBonusFromChoices, rivalryEscalation } from "../lib/questbook";
 import { standingReaction } from "../lib/wanderer-standing";

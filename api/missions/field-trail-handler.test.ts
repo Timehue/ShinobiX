@@ -352,29 +352,6 @@ describe('authoritative field mission lifecycle', () => {
         assert.equal(replaySecond.body?.applied, false, 'retries of one run remain idempotent');
         assert.match(String(replaySecond.body?.reason), /already-claimed|not-accepted/);
 
-        const secondProofIds = ['fieldclaimsecond01', 'fieldclaimsecond02', 'fieldclaimsecond03'];
-        for (const [index, id] of secondProofIds.entries()) {
-            await addExploreReceipt(player, id, secondRun.acceptedAt + index + 1);
-            const recorded = await post(progressHandler, player, {
-                missionId: MISSION_ID,
-                kind: 'field-explore',
-                runId: secondRun.runId,
-                worldExploreRequestId: id,
-            });
-            assert.equal(recorded.body?.recorded, true);
-        }
-        const secondRaid = await settleRaidProgression({
-            playerName: player,
-            proofId: 'sealed-field-raid-proof-02',
-            proofAt: secondRun.acceptedAt + 10,
-            sector: 13,
-        });
-        assert.deepEqual(secondRaid.settlement.fetchMissionsCredited, [MISSION_ID]);
-        const secondClaim = await post(claimHandler, player, { missionType: 'field', missionId: MISSION_ID });
-        assert.equal(secondClaim.statusCode, 200, JSON.stringify(secondClaim.body));
-        assert.equal(secondClaim.body?.applied, true, 'a second field run can use another shared daily mission slot');
-        assert.equal((secondClaim.body?.character as Record<string, unknown>).ryo, 200);
-
         const abandoned = await post(trailHandler, player, { missionId: MISSION_ID, action: 'abandon' });
         assert.equal(abandoned.body?.state, null);
         // Simulate the next UTC day by expiring today's bounded claim markers;

@@ -1,6 +1,5 @@
 import type { FirstPactAftermathId, FirstPactProgress, FirstPactVowId } from "../../../shared/first-pact-contract";
 import type { Pet } from "../types/pet";
-import { serverNow } from "./server-clock";
 
 export type FirstPactCompanionView = {
     id: string;
@@ -59,12 +58,6 @@ export function resolveFirstPactCompanions(
 }
 
 /** A timer can leave a pet combat-eligible while it is still physically away training. */
-export function firstPactPresentPetIds(pets: readonly Pet[], now = serverNow()): ReadonlySet<string> {
-    return new Set(pets
-        .filter((pet) => !pet.training || now >= pet.training.endsAt)
-        .map((pet) => pet.id));
-}
-
 const join = (names: readonly string[]) => {
     if (!names.length) return "";
     return names.length === 1
