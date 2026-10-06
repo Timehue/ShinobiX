@@ -37,7 +37,7 @@
  */
 
 import { NAMED_WEAPON_OFFENSE } from '../shared/named-forge-roll.js';
-import { FORGED_ITEM_ID } from './save/_forged-items.js';
+import { isForgedNamedWeaponId } from './save/_forged-items.js';
 
 import { PVE_SPECIALIST_FIELDS } from '../shared/relics.js';
 
@@ -57,8 +57,7 @@ const ARMOR_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'armor']);
 // Specialty-stat (offense/defense) total budget per slot. Unknown slot → loosest
 // (hand) so a legit item of an unanticipated slot is never clipped.
 function specialtyBudgetForItem(item: Record<string, unknown>): number {
-    const id = String(item.id ?? '');
-    if (item.slot === 'hand' && /^named-weapon-/i.test(id) && FORGED_ITEM_ID.test(id)) {
+    if (item.slot === 'hand' && isForgedNamedWeaponId(item.id)) {
         return 4 * NAMED_WEAPON_OFFENSE.max;
     }
     return ARMOR_SLOTS.has(String(item.slot)) ? 280 : 420;

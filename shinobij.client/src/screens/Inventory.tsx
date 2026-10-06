@@ -1104,7 +1104,7 @@ export function Inventory({
                                                 <p>
                                                     <strong>{selectedPresentation?.effectLabel}:</strong> {selectedGameItem.weaponEffect}
                                                     {["hand", "thrown"].includes(equipSlotForItem(selectedGameItem))
-                                                        ? ` ${weaponEffectDisplayValue(selectedGameItem.weaponEffect, selectedGameItem.weaponEffectValue)}`
+                                                        ? ` ${weaponEffectDisplayValue(selectedGameItem.weaponEffect, selectedGameItem.weaponEffectValue, selectedGameItem)}`
                                                         : selectedGameItem.weaponEffectValue != null ? ` ${weaponTagCombatPercent(selectedGameItem.weaponEffect, selectedGameItem.weaponEffectValue)}%` : ""}
                                                 </p>
                                             )}
@@ -1115,7 +1115,7 @@ export function Inventory({
                                                 <h4>Weapon Traits</h4>
                                                 <div className="item-popup-effect-grid">
                                                     {selectedGameItem.weaponTags.map((t, i) => (
-                                                        <p key={i}><strong>{t.name}</strong> {weaponEffectDisplayValue(t.name, t.percent)}</p>
+                                                        <p key={i}><strong>{t.name}</strong> {weaponEffectDisplayValue(t.name, t.percent, selectedGameItem)}</p>
                                                     ))}
                                                 </div>
                                             </div>

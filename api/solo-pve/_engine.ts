@@ -54,12 +54,14 @@ import {
     applyDoTs,
     applyGroundEffectToFighter,
     applyJutsu,
+    catalogWeaponFlatTags,
     poisonSpendDamage,
     reconcileGroundStatuses,
     tickGroundEffects,
     tickStatuses,
 } from '../pvp/move.js';
 import { characterOwnsElement } from '../pvp/_elements.js';
+import { isForgedNamedWeaponId } from '../save/_forged-items.js';
 import { trimPvpLog, type PvpFighter, type PvpGroundEffect, type PvpStatus } from '../pvp/session.js';
 import {
     hollowGateCombatDirective,
@@ -1241,6 +1243,8 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
             tags,
             isUtility: false,
             weaponSwing: true,
+            namedWeaponSwing: isForgedNamedWeaponId(item.id),
+            catalogWeaponFlat: catalogWeaponFlatTags(item.id),
             suppressBloodline: !characterOwnsElement(self.character, item.weaponElement),
         };
         session.log.push(`${self.name} uses ${weapon.name}:`);
