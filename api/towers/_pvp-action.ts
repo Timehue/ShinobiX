@@ -57,8 +57,18 @@ export type TowerPvpActionResult = {
 };
 
 const PUBLIC_ACTION_TYPES = new Set<TowerPvpActionType>([
-    'move', 'dash', 'attack', 'jutsu', 'weapon', 'heal', 'cleanse', 'clear', 'wait', 'forfeit',
+    'move', 'dash', 'attack', 'jutsu', 'weapon', 'item', 'heal', 'cleanse', 'clear', 'wait', 'forfeit',
 ]);
+
+/**
+ * Consumables follow the match's sealed rule. Ranked 2v2 seals the Ranked Format kit
+ * and a Clan War 2v2 seals the fighters' own budget; both used to be refused here, so
+ * a sealed kit could never be used. The open Team Arena seals nothing and stays closed.
+ */
+function towerPvpActionAllowed(match: StoredTowerPvpMatch, type: TowerPvpActionType): boolean {
+    if (!PUBLIC_ACTION_TYPES.has(type)) return false;
+    return type !== 'item' || match.rules.consumables === 'enabled';
+}
 
 function towerPvpCommandFingerprint(
     input: TowerPvpActionInput,
@@ -79,6 +89,8 @@ function towerPvpCommandFingerprint(
     } else if (input.type === 'weapon') {
         intent.targetId = String(input.targetId ?? '');
         if (input.itemId) intent.itemId = String(input.itemId);
+    } else if (input.type === 'item') {
+        intent.itemId = String(input.itemId ?? '');
     }
     return createHash('sha256').update(JSON.stringify(intent)).digest('hex');
 }
@@ -108,6 +120,7 @@ function actionFrom(
             ...(input.itemId ? { itemId: String(input.itemId) } : {}),
             ...token,
         };
+        case 'item': return { actorId, type: 'item', itemId: String(input.itemId ?? ''), ...token };
         case 'heal': return { actorId, type: 'heal', ...token };
         case 'cleanse': return { actorId, type: 'cleanse', ...token };
         case 'clear': return { actorId, type: 'clear', targetId: String(input.targetId ?? ''), ...token };
@@ -158,7 +171,7 @@ export async function applyTowerPvpCommand(
         if (!command.moveToken) {
             return { status: 400, applied: false, replayed: false, reason: 'invalid-move-token', match, currentVersion: command.currentVersion };
         }
-        if (!PUBLIC_ACTION_TYPES.has(input.type)
+        if (!towerPvpActionAllowed(match, input.type)
             || (input.type !== 'forfeit' && !isTowerActionType(input.type))) {
             return { status: 400, applied: false, replayed: false, reason: 'invalid-action-type', match, currentVersion: command.currentVersion };
         }

@@ -622,7 +622,10 @@ test('a lethal hit terminalizes the persisted PvP session before Absorb can revi
     assert.equal(terminal.log.some((line) => line.startsWith('bob absorbs ')), false, 'no post-death absorb heal is recorded');
 });
 
-test('Cleanse preserves deferred Stun, Wound, Drain, and prevention in both round phases', async () => {
+// Owner ruling 2026-10-05: a player who Cleanses as soon as they are debuffed takes
+// no Wound or Drain, so Cleanse also strips debuffs cast this round that have not
+// started yet. (It used to leave them, so the opener's fresh Drain still ticked twice.)
+test('Cleanse strips deferred Stun, Wound, Drain, and prevention in both round phases', async () => {
     const phases = [
         { role: 'p1' as const, player: 'alice', label: 'opener' },
         { role: 'p2' as const, player: 'bob', label: 'closer' },
@@ -658,10 +661,82 @@ test('Cleanse preserves deferred Stun, Wound, Drain, and prevention in both roun
         assert.equal(statuses.some((status) => status.name === 'Ignition'), false,
             `${phase.label}: active debuff is cleansed`);
         for (const expected of pending) {
-            assert.ok(statuses.some((status) => status.name === expected.name && status.activeRound === 2),
-                `${phase.label}: pending ${expected.name} survives until activation`);
+            assert.equal(statuses.some((status) => status.name === expected.name), false,
+                `${phase.label}: pending ${expected.name} is cleansed before it starts`);
         }
     }
+});
+
+// Ranked armor (Ranked Seal set), Decrease Damage Taken and a Defense Pill: none of
+// them may reduce a Drain or a Wound tick (owner ruling, 2026-10-05).
+function rankedDotVictim(statuses: PvpStatus[]): PvpFighter {
+    const base = fighter('bob', 1);
+    return {
+        ...base,
+        character: { ...(base.character as Record<string, unknown>), armorRawDR: 0.35 },
+        statuses: [
+            ...statuses,
+            { name: 'Decrease Damage Taken', rounds: 2, activeRound: 1, percent: 30, kind: 'positive' },
+            { name: 'Decrease Damage Taken', rounds: 2, activeRound: 1, percent: 20, source: 'item-defense-pill', kind: 'positive' },
+        ],
+    };
+}
+const ACTIVE_DRAIN: PvpStatus = { name: 'Drain', rounds: 2, activeRound: 2, amount: 300, kind: 'negative' };
+const ACTIVE_WOUND: PvpStatus = { name: 'Wound', rounds: 2, activeRound: 2, amount: 90, kind: 'negative' };
+
+test('Drain and Wound tick in full at the END of the holder turn, through armor and every defense', async () => {
+    const battleId = 'dot-end-of-turn';
+    seed(session(battleId, {
+        round: 2,
+        roundOpener: 'p1',
+        activePlayer: 'p1',
+        p2: rankedDotVictim([ACTIVE_DRAIN, ACTIVE_WOUND]),
+    }));
+
+    await postMove('alice', { battleId, role: 'p1', action: 'wait', moveToken: `${battleId}-1` });
+    const turnStart = storedSession(battleId);
+    assert.equal(turnStart.activePlayer, 'p2');
+    assert.equal(turnStart.p2.hp, 5000, 'nothing ticks before the holder can act');
+
+    await postMove('bob', { battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-2` });
+    const turnEnd = storedSession(battleId);
+    assert.equal(turnEnd.p2.hp, 5000 - 300 - 90, 'the full 300 Drain and the full 90 Wound land');
+    assert.equal(turnEnd.p2.chakra, 1000 - 300, 'Drain takes its full 300 chakra too');
+    assert.ok(turnEnd.log.includes('bob drained 300 HP+chakra.'), turnEnd.log.join(' | '));
+    assert.ok(turnEnd.log.includes('bob bleeds 90 (Wound).'), turnEnd.log.join(' | '));
+});
+
+test('a player who Cleanses as their first action takes no Wound or Drain', async () => {
+    const battleId = 'dot-cleanse-first';
+    seed(session(battleId, {
+        round: 2,
+        roundOpener: 'p1',
+        activePlayer: 'p2',
+        p2: rankedDotVictim([ACTIVE_DRAIN, ACTIVE_WOUND]),
+    }));
+
+    const cleanse = await postMove('bob', { battleId, role: 'p2', action: 'cleanse', moveToken: `${battleId}-1` });
+    assert.equal(cleanse.statusCode, 200);
+    await postMove('bob', { battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-2` });
+    const after = storedSession(battleId);
+    assert.equal(after.p2.hp, 5000);
+    assert.equal(after.log.some((line) => line.includes('drained') || line.includes('(Wound)')), false, after.log.join(' | '));
+});
+
+test('a lethal end-of-turn tick ends the fight before the turn passes', async () => {
+    const battleId = 'dot-lethal-end-of-turn';
+    seed(session(battleId, {
+        round: 2,
+        roundOpener: 'p1',
+        activePlayer: 'p2',
+        p2: { ...rankedDotVictim([ACTIVE_DRAIN]), hp: 250 },
+    }));
+
+    await postMove('bob', { battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-1` });
+    const after = storedSession(battleId);
+    assert.equal(after.status, 'done');
+    assert.equal(after.winner, 'p1');
+    assert.equal(after.p2.hp, 0);
 });
 
 test('Clear preserves deferred positive prevention statuses in both round phases', async () => {
@@ -1036,11 +1111,13 @@ test('pending third Wound preserves two current stacks, then caps the next bound
         });
         if (phase.role === 'p1') {
             const closerTurn = storedSession(battleId);
-            assert.equal(closerTurn.p2.hp, hpAfterCast - 100,
-                'opener cast: both old Wounds still tick on the closer this round');
+            assert.equal(closerTurn.p2.hp, hpAfterCast,
+                'opener cast: nothing ticks on the closer before they act');
             await postMove('bob', {
                 battleId, role: 'p2', action: 'wait', moveToken: `${battleId}-close`,
             });
+            assert.equal(storedSession(battleId).p2.hp, hpAfterCast - 100,
+                'opener cast: both old Wounds tick at the end of the closer turn this round');
         }
         const nextRound = storedSession(battleId);
         const nextTarget = phase.target === 'p1' ? nextRound.p1 : nextRound.p2;
@@ -1814,17 +1891,18 @@ test('ranked pill percentages are exact and smoke blocks ordinary hits but not P
     assert.equal(dealt(statBuffed, defender, pierce), plainPierce, 'temporary stat buffs cannot increase Pierce');
 });
 
-test('Defense Pill also reduces a bleed tick by exactly 15%', () => {
-    const wounded = { ...fighter('alice', 0), statuses: [
+// Owner ruling 2026-10-05: a Wound bleeds its full share of the hit and a Drain takes
+// its full amount, so the pill (and armor) no longer trims either tick.
+test('Defense Pill does not reduce a Wound or Drain tick', () => {
+    const afflicted = { ...fighter('alice', 0), statuses: [
         { name: 'Wound', amount: 100, kind: 'negative', rounds: 2, activeRound: 1 },
+        { name: 'Drain', amount: 80, kind: 'negative', rounds: 2, activeRound: 1 },
     ] } as PvpFighter;
-    const withoutPill = wounded.hp - applyDoTs(wounded, 1).fighter.hp;
-    const withPill = { ...wounded, statuses: [...wounded.statuses,
+    const withPill = { ...afflicted, statuses: [...afflicted.statuses,
         { name: 'Decrease Damage Taken', source: 'item-defense-pill', percent: 15,
             kind: 'positive', rounds: 2, activeRound: 1 } as PvpStatus,
     ] };
-    const protectedTick = withPill.hp - applyDoTs(withPill, 1).fighter.hp;
-    assert.equal(protectedTick, Math.floor(withoutPill * 0.85));
+    assert.equal(withPill.hp - applyDoTs(withPill, 1).fighter.hp, 180);
 });
 
 test('Smoke Bomb leaves Wound, Drain, and Poison damage unchanged', () => {

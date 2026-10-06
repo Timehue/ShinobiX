@@ -1,6 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave, type UiAuditSave } from './helpers/ui-audit-runtime';
-import { returnToWorldAtlas } from './helpers/sector-navigation';
+import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 }]) {
     test(`Academy Logbook handoff survives reload at ${viewport.width}px`, async ({ page }) => {
@@ -52,7 +51,6 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 390, height: 844 
         save.acceptedMissionIds = [missionId];
         save.missionProgress = { [missionId]: 3, [`${missionId}:raids`]: 0 };
         const runtime = await installUiAuditRuntime(page, save);
-        const postedSave = () => JSON.parse(runtime.lastCommit()?.postedState ?? '{}') as UiAuditSave;
         const travelRequests: Array<{
             method: string;
             body: Record<string, unknown>;

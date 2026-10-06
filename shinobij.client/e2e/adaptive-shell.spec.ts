@@ -779,7 +779,7 @@ test("representative empty, loading, validation, long-content, and entitlement s
     await installPersistedAdaptiveSession(page, maximumAccountName);
     await page.goto("/?adaptive-fixture=maximum#/centralHub", { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /Central/ })).toBeVisible();
-    await expectLoadedSave(page, api);
+    await expectLoadedSave(page, api, maximumAccountName);
 
     let releaseClanList: (() => void) | undefined;
     const clanListGate = new Promise<void>((resolveGate) => { releaseClanList = resolveGate; });

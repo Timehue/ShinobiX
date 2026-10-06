@@ -5914,7 +5914,7 @@ export function FirstPact({
 
     return (
         <main className={`first-pact-screen${battle ? " is-battling" : ""}`} style={{ "--fp-key-art": `url(${sunkenCourtKeyArt})` } as CSSProperties}>
-            <div className="fp-world" ref={viewportRef} onPointerDown={handleWorldPointer}>
+            <div className="fp-world" ref={viewportRef} data-gamepad-mode={entered ? "sector" : undefined} onPointerDown={handleWorldPointer}>
                 <canvas ref={canvasRef} className="fp-world-canvas" role="img" aria-label="Connected tile-based exterior city of the living Sunken Court" />
 
                 {/* Actors live in WORLD coordinates; the camera pans this one

@@ -1,4 +1,3 @@
-import { getWorldMapRegionForPoint } from "../src/lib/world-map-regions";
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
 import { writeFileSync } from "node:fs";
 import { installUiAuditRuntime, uiAuditSave as townUiAuditSave, type UiAuditRuntime, type UiAuditSave } from "./helpers/ui-audit-runtime";

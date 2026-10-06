@@ -44,6 +44,9 @@ export const CHAKRA_CAP = 5000;
 export const STAMINA_CAP = 5000;
 // Used by the awakening / aura-sphere combat mechanic.
 export const STUN_AP_PENALTY = 40;
+// Hexes a Push or Pull moves its target when there is room. Mirrors PUSH_PULL_TILES
+// in api/combat-core/formulas.ts (pinned by api/_combat-formula-parity.test.ts).
+export const PUSH_PULL_TILES = 4;
 
 // ── combatResourcesV2 — chakra/stamina combat-resource redesign ──────────────
 // Master switch for the redesigned system (docs/chakra-stamina-redesign-plan.md):

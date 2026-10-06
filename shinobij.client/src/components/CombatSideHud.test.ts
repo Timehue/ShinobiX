@@ -44,6 +44,22 @@ describe("CombatSideHud deferred status display", () => {
         assert.match(source, /raw potency, converted into a flat bonus through diminishing returns/);
     });
 
+    it("shows a Drain tick in full, Lag/Overclock as AP, and a Barrier without its hex index", () => {
+        const drain = { name: "Drain", rounds: 2, amount: 300, kind: "negative" as const };
+        const panel = renderToStaticMarkup(createElement(CombatEffectsPanel, { title: "Debuffs", tone: "negative", statuses: [drain] }));
+        assert.match(panel, /300 · 2r/, "a Drain lands its full amount, so the chip shows it");
+        const lag = renderToStaticMarkup(createElement(CombatEffectsPanel, {
+            title: "Debuffs", tone: "negative",
+            statuses: [{ name: "Lag", rounds: 1, percent: 20, kind: "negative" as const }],
+        }));
+        assert.match(lag, /\+10 AP · 1r/);
+        assert.doesNotMatch(lag, /20%/, "Lag is a flat AP swing; its stored percent is never read");
+        const barrier = renderToStaticMarkup(createElement(CombatEffectsPanel, {
+            title: "Buffs", statuses: [{ name: "Barrier", rounds: 2, amount: 37, kind: "positive" as const }],
+        }));
+        assert.match(barrier, /wall · 2r/);
+    });
+
     it("shows the Smoke Bomb source by name in player debuffs", () => {
         const smoke = { name: "Decrease Damage Given", source: "item-smoke-bomb", percent: 100, rounds: 1, kind: "negative" as const };
         const desktop = renderToStaticMarkup(createElement(CombatEffectsPanel, { title: "Debuffs", tone: "negative", statuses: [smoke] }));

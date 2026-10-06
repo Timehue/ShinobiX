@@ -70,7 +70,10 @@ export const POST_DAMAGE_ORDER = [
 /** `endTurn` (api/pvp/move.ts): what happens between one fighter's turn and
  *  the next. */
 export const TURN_HANDOFF_ORDER = [
-    /** Past the round cap, the fight ends before anyone gets another tick. */
+    /** The fighter who just acted: Wound, Poison and Drain ticks, after they had the
+     *  whole turn to Cleanse (owner ruling 2026-10-05). A lethal tick ends the fight. */
+    'applyDoTs',
+    /** Past the round cap, the fight ends before anyone gets another turn. */
     'roundCapCheck',
     /** On a new round only: both fighters' statuses and ground effects age. */
     'tickStatusesAndGround',
@@ -80,8 +83,6 @@ export const TURN_HANDOFF_ORDER = [
     'applyGroundEffects',
     /** The fighter about to act: queued Push/Pull movement lands. */
     'applyQueuedMovement',
-    /** The fighter about to act: Wound, Poison and Drain ticks. */
-    'applyDoTs',
     /** The fighter about to act: chakra/stamina regen. */
     'resourceRegen',
     /** A fighter at 0 HP now loses. */

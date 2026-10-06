@@ -39,6 +39,7 @@ import {
     POISON_CAP_BY_RANK,
     POISON_DEFAULT_PCT,
     poisonPercentForTag,
+    PUSH_PULL_TILES,
     postDamageFormula,
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
@@ -60,6 +61,7 @@ import {
     isCombatStatusActive,
     removeActiveCombatStatusesByKind,
     removeActiveCombatStatusesByName,
+    removeCombatStatusesByKind,
     sumActiveCombatStatusPercent,
     tickCombatStatuses,
 } from '../combat-core/statuses.js';
@@ -656,7 +658,7 @@ function damageMasteryFor(self: PvpFighter, jutsu: Jutsu, masteryLevel: number):
 //
 // Phases 1 & 3 read the ORIGINAL fighters on purpose, so amp/DR can't read a buff
 // THIS cast just applied. Phases 2 & 4 thread the mutated copies. DoT/tick effects
-// (Wound/Poison/Drain ticks) are NOT here — they resolve at the start of the
+// (Wound/Poison/Drain ticks) are NOT here — they resolve at the end of the
 // victim's turn in applyDoTs (endTurn). Action validation lives in the move handler.
 
 type JutsuDamageSetup = { baseDmg: number; effectiveDR: number; offStats: Record<string, number> };
@@ -803,7 +805,9 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             if (blocksDebuff(o, 'Stun')) continue;
             if (hasStatus(o, 'Stun Prevent', round)) { lines.push(`Stun Prevent: ${o.name} blocks Stun.`); continue; }
             o = addJutsuStatus(o, jutsu, { name: 'Stun', rounds: 1, kind: 'negative' }, round);
-            lines.push(`Stun: ${o.name} loses 40 AP next turn.`);
+            // Next ROUND, not next turn: when the round's opener casts it, the target's
+            // turn later this same round is not stunned.
+            lines.push(`Stun: ${o.name} loses ${STUN_AP_PENALTY} AP on their turn next round.`);
             continue;
         }
         // Poison skips the generic `pct`: its percent is not on the amp scale, so it
@@ -888,9 +892,10 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             continue;
         }
         // Push/Pull resolve INSTANTLY (matches PvE) — was deferred to next round
-        // for non-ground jutsus. Displacement happens on cast.
-        if (tagName === 'Push') { if (!blocksDebuff(o, 'Push')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
-        if (tagName === 'Pull') { if (!blocksDebuff(o, 'Pull')) { const dist = Math.max(1, Number(jutsu.range) || 1); let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
+        // for non-ground jutsus. Displacement happens on cast, PUSH_PULL_TILES hexes
+        // whatever the jutsu's range, stopping at the first hex it cannot enter.
+        if (tagName === 'Push') { if (!blocksDebuff(o, 'Push')) { const dist = PUSH_PULL_TILES; let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const away = hexNeighbors(nextPos).filter(t => distance(t, s.pos) > distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!away.length) break; nextPos = away[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Push: ${o.name} is pushed ${movedTiles} tile(s).`); } continue; }
+        if (tagName === 'Pull') { if (!blocksDebuff(o, 'Pull')) { const dist = PUSH_PULL_TILES; let nextPos = o.pos; let movedTiles = 0; for (let step = 0; step < dist; step++) { const toward = hexNeighbors(nextPos).filter(t => distance(t, s.pos) < distance(nextPos, s.pos) && t !== s.pos && !tileBlocked(t, round, s, o)); if (!toward.length) break; nextPos = toward[0]!; movedTiles += 1; } o = { ...o, pos: nextPos }; lines.push(`Pull: ${o.name} is pulled ${movedTiles} tile(s).`); } continue; }
         if (tagName === 'Bloodline Seal') { if (!blocksDebuff(o, 'Bloodline Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Bloodline Seal', rounds: 2, kind: 'negative' }, round, true); lines.push(`Bloodline Seal: ${o.name}'s bloodline is sealed.`); } continue; }
         if (tagName === 'Elemental Seal') { if (!blocksDebuff(o, 'Elemental Seal')) { o = addJutsuStatus(o, jutsu, { name: 'Elemental Seal', rounds: 1, kind: 'negative' }, round); lines.push(`Elemental Seal: ${o.name}'s elemental jutsu are sealed.`); } continue; }
         // Recoil applies regardless of THIS jutsu's damage — a zero-damage 40-AP
@@ -1131,10 +1136,11 @@ export function applyJutsu(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu,
     return { self: resolved.self, opponent: resolved.opponent, lines: resolved.logLines, fx: resolved.hitFx, metadata: resolved.metadata };
 }
 
-// ─── DoTs applied at start of each turn ───────────────────────────────────────
-// A fighter's own mitigation against damage-over-time: armor + active Decrease
-// Damage Taken, at DR_DOT_SCALE. Smoke Bomb affects direct hits only. Shared by
-// applyDoTs (Wound/Drain ticks) and the on-spend Poison hit (poisonSpendDamage).
+// ─── DoTs applied at the end of the holder's turn ─────────────────────────────
+// A fighter's own mitigation against Poison: armor + active Decrease Damage Taken,
+// at DR_DOT_SCALE. Smoke Bomb affects direct hits only. Shared by applyDoTs (the
+// legacy Poison tick) and the on-spend Poison hit (poisonSpendDamage). Wound and
+// Drain ignore it (see applyDoTs).
 function ownDotMitigation(f: PvpFighter, round: number): number {
     const ownArmor = armorRawDrFromCharacter(f.character as Record<string, unknown>);
     let ownStatusDR = 0;
@@ -1147,9 +1153,9 @@ function ownDotMitigation(f: PvpFighter, round: number): number {
 }
 
 // combatResourcesV2 Poison, paid when the poisoned fighter spends chakra/stamina
-// on a jutsu. Reduced by their own armor + Decrease Damage Taken exactly like a
-// Wound or Drain tick; the on-spend hook used to subtract the raw number, so
-// defenses did nothing against it. The active percent is also held to the S-rank
+// on a jutsu. Reduced by their own armor + Decrease Damage Taken, like the legacy
+// Poison tick; the on-spend hook used to subtract the raw number, so defenses did
+// nothing against it. The active percent is also held to the S-rank
 // ceiling, which covers a Poison sealed onto a fighter before the rank caps
 // existed. Shared by PvP, solo PvE and Battle Towers. 0 when v2 is off, the
 // fighter is not poisoned, or the cast was free.
@@ -1168,16 +1174,18 @@ export function poisonSpendDamage(fighter: PvpFighter, spend: number, round: num
     return mitigation <= 0 ? 0 : Math.max(1, Math.floor(raw * mitigation));
 }
 
-// v4.3: DoT ticks are partially mitigated by the defender's own DR pool (armor + DDT stacks),
-// scaled by DR_DOT_SCALE so DoT can't be made fully invulnerable.
+// Wound and Drain land exactly as cast (owner ruling, 2026-10-05): a Drain takes its
+// full amount (300 in ranked) and a Wound bleeds its full share of the hit that caused
+// it. Armor, Decrease Damage Taken and the Defense Pill used to cut both again here,
+// so a ranked 300 Drain landed 238. The legacy Poison tick stays partially mitigated
+// by the holder's own DR pool (armor + DDT stacks), scaled by DR_DOT_SCALE.
 // Exported so Battle Towers' engine can tick Wound/Poison/Drain with identical math.
-// Pure function; exporting it changes zero PvP behaviour.
 export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFighter; lines: string[]; fx: HitFxEvent[]; vfx: RelativeVfxEvent[] } {
     const lines: string[] = [];
     const fx: HitFxEvent[] = [];
     const vfx: RelativeVfxEvent[] = [];
     let f = { ...fighter };
-    // Compute own DR pool against incoming DoT.
+    // Compute own DR pool against incoming Poison.
     const dotMitigation = ownDotMitigation(f, round);
     const mit = (raw: number) => Math.max(0, Math.floor(raw * dotMitigation));
     const poisons = activeStatuses(f, round).filter((status) => nameMatches(status.name, 'Poison'));
@@ -1193,7 +1201,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
 
     for (const s of activeStatuses(f, round)) {
         if (s.name === 'Wound' && s.amount) {
-            const dmg = mit(s.amount);
+            const dmg = Math.max(0, Math.floor(s.amount));
             f = { ...f, hp: Math.max(0, f.hp - dmg) };
             lines.push(`${f.name} bleeds ${dmg} (Wound).`);
             pushFx(fx, 'self', dmg, 'damage');
@@ -1212,7 +1220,7 @@ export function applyDoTs(fighter: PvpFighter, round: number): { fighter: PvpFig
             vfx.push(vfxEvent('self', 'poisonCloud', 'target', 'minor'));
         }
         if (s.name === 'Drain') {
-            const amt = mit(s.amount ?? DRAIN_BASE_TICK);
+            const amt = Math.max(0, Math.floor(s.amount ?? DRAIN_BASE_TICK));
             f = { ...f, hp: Math.max(0, f.hp - amt), chakra: Math.max(0, f.chakra - amt) };
             lines.push(`${f.name} drained ${amt} HP+chakra.`);
             pushFx(fx, 'self', amt, 'damage');
@@ -1294,16 +1302,49 @@ function endTurn(session: PvpSession): PvpSession {
     const roundAdvanced = current !== roundOpenerFor(session);
     const newRound = roundAdvanced ? session.round + 1 : session.round;
     const lines: string[] = [];
+
+    // Wound and Drain tick on the fighter whose turn is ending, after they have had
+    // the whole turn to answer them (owner ruling, 2026-10-05): a fighter who
+    // Cleanses takes none of it. They used to tick at the START of the holder's
+    // turn, before the holder could act, so a Cleanse always came one tick late.
+    // The count is unchanged: a status cast in round N starts in round N+1 and
+    // lasts 2 rounds, so the holder's turns in rounds N+1 and N+2 each end in a tick.
+    const endingFighter = current === 'p1' ? session.p1 : session.p2;
+    const dots = applyDoTs(endingFighter, session.round);
+    let s: PvpSession = current === 'p1' ? { ...session, p1: dots.fighter } : { ...session, p2: dots.fighter };
+    lines.push(...dots.lines);
+    // Each tick is its own floating number (true amount, matching the log) with a
+    // bumped fxSeq so the client renders it exactly once.
+    const dotFx: HitFxTarget[] = dots.fx.map((e) => ({ target: current, amount: e.amount, kind: e.kind }));
+    const dotVfx: CombatVfxTarget[] = dots.vfx.map((e) => ({
+        target: current,
+        key: e.key,
+        anchor: e.anchor,
+        intensity: e.intensity,
+        durationMs: e.durationMs,
+        persistent: e.persistent,
+        maxParticles: e.maxParticles,
+        tiles: e.tiles,
+    }));
+    const fxPatch = {
+        ...(dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {}),
+        ...(dotVfx.length ? { vfx: dotVfx, vfxSeq: (session.vfxSeq ?? 0) + 1 } : {}),
+    };
+    // A tick can finish the fighter. The fight ends here, before the turn passes.
+    if (dots.fighter.hp <= 0) {
+        return checkWinner({ ...s, log: [...s.log, ...lines], ...fxPatch });
+    }
     if (roundAdvanced) lines.push(`--- Round ${newRound} ---`);
 
     // The closer just consumed the match's 50th and final player-turn. Resolve
-    // the timeout before granting the opener any round-26 start-of-turn DoT,
-    // ground pulse, regen, or stun processing that the closer can never receive.
+    // the timeout before granting the opener any round-26 ground pulse, regen,
+    // or stun processing that the closer can never receive.
     if (newRound > MAX_ROUNDS) {
         return checkWinner({
-            ...session,
+            ...s,
             round: newRound,
-            log: lines.length ? [...session.log, ...lines] : session.log,
+            log: lines.length ? [...s.log, ...lines] : s.log,
+            ...fxPatch,
         });
     }
 
@@ -1312,7 +1353,6 @@ function endTurn(session: PvpSession): PvpSession {
     // made a deferred two-round buff last one opponent attack for the opener but
     // two for the closer. Cooldowns remain per-fighter and tick after that
     // fighter's own turn as before.
-    let s = { ...session };
     if (roundAdvanced) {
         const p1 = expireShield(tickStatuses(s.p1, session.round), newRound);
         const p2 = expireShield(tickStatuses(s.p2, session.round), newRound);
@@ -1340,7 +1380,6 @@ function endTurn(session: PvpSession): PvpSession {
     // their turn (applied below, once nextFighter is resolved). Legacy PvP had none —
     // resources were finite per fight.
 
-    // Apply DoTs to the next player at start of their turn
     let nextFighter = next === 'p1' ? s.p1 : s.p2;
     // Recurring zone effects apply only when the target starts a turn. An opener
     // cast already supplied this round's explicit pulse; a closer cast did not,
@@ -1354,34 +1393,12 @@ function endTurn(session: PvpSession): PvpSession {
     const moved = applyQueuedMovement(nextFighter, otherFighter, newRound);
     nextFighter = reconcileGroundStatuses(moved.fighter, s.groundEffects, next);
     lines.push(...moved.lines);
-    const dots = applyDoTs(nextFighter, newRound);
-    nextFighter = dots.fighter;
-    lines.push(...dots.lines);
     if (COMBAT_RESOURCES_V2) {
         const rgLvl = rankedCombatLevel(nextFighter.character);
         const rg = v2ResourceRegen(rgLvl);
         nextFighter = { ...nextFighter, chakra: Math.min(nextFighter.maxChakra, nextFighter.chakra + rg), stamina: Math.min(nextFighter.maxStamina, nextFighter.stamina + rg) };
     }
     s = next === 'p1' ? { ...s, p1: nextFighter } : { ...s, p2: nextFighter };
-
-    // DoT ticks all land on the next player — surface each as its own floating
-    // number (true amount, matching the log) with a bumped fxSeq so the client
-    // renders it exactly once.
-    const dotFx: HitFxTarget[] = dots.fx.map((e) => ({ target: next, amount: e.amount, kind: e.kind }));
-    const dotVfx: CombatVfxTarget[] = dots.vfx.map((e) => ({
-        target: next,
-        key: e.key,
-        anchor: e.anchor,
-        intensity: e.intensity,
-        durationMs: e.durationMs,
-        persistent: e.persistent,
-        maxParticles: e.maxParticles,
-        tiles: e.tiles,
-    }));
-    const fxPatch = {
-        ...(dotFx.length ? { fx: dotFx, fxSeq: (session.fxSeq ?? 0) + 1 } : {}),
-        ...(dotVfx.length ? { vfx: dotVfx, vfxSeq: (session.vfxSeq ?? 0) + 1 } : {}),
-    };
 
     s = checkWinner({ ...s, round: newRound, log: lines.length ? [...s.log, ...lines] : s.log, ...fxPatch });
     if (s.status === 'done') return s;
@@ -2172,7 +2189,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     lines.push(`${me.name}'s Cleanse Prevent blocks the cleanse.`);
                     result = commit(null, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'seal', 'caster', 'minor')]);
                 } else {
-                    const cleansed = removeActiveCombatStatusesByKind(me.statuses, 'negative', session.round);
+                    // Pending debuffs too: a Wound or Drain cast earlier this round is gone
+                    // before it ever ticks (removeCombatStatusesByKind).
+                    const cleansed = removeCombatStatusesByKind(me.statuses, 'negative');
                     const removed = cleansed.removed.map(s => s.name);
                     lines.push(`Cleanse: removed ${removed.length ? removed.join(', ') : 'no negative effects'} from ${me.name}.`);
                     result = commit({ ...me, statuses: cleansed.statuses }, null, 60, { cleanse: 10 }, undefined, undefined, [vfxEvent('self', 'cleanse', 'caster')]);

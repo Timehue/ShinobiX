@@ -80,6 +80,8 @@ export function ClanWar2v2Battle({ character, setScreen }: { character: Characte
             settleFn={settleClanWar2v2(challengeId)}
             settleOnAnyDone
             variant="team-pvp"
+            // A reward-bearing clan-war duel seals the fighters' own consumable budget.
+            teamPvpConsumables={match.rules?.consumables === "enabled"}
             onExit={back}
         />
     );
