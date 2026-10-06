@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             .map(([slug]) => slug);
         const playerKeys = playerSlugs.map(slug => `save:${slug}`);
         if (playerKeys.length === 0) {
-            res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=30');
+            res.setHeader('Cache-Control', 'private, no-store'); // login-gated, per healer
             return res.status(200).json({ injured: [] });
         }
 

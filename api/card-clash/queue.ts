@@ -33,7 +33,7 @@ type QueueEntry = {
 
 const QUEUE_KEY = 'card-clash:queue';
 const KV_TTL_SECONDS = 2 * 60 * 60;
-const STALE_MS = 60 * 1000;             // entries older than this must re-queue
+const STALE_MS = 3 * 60 * 1000;         // unpolled this long must re-queue (hidden tabs poll ~1/min)
 const MATCH_TTL_SECONDS = 5 * 60;       // per-player pairing record (poll handoff)
 const PAIR_TTL_SECONDS = 5 * 60;        // shared match-auth record (join window)
 const matchKey = (slug: string) => `${QUEUE_KEY}:match:${slug}`;

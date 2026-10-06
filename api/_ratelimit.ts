@@ -1,11 +1,11 @@
 /**
  * Two-tier rate limiter.
  *
- * Tier 1 — per-instance in-memory bucket. Cheap, no I/O. Catches burst abuse
- * within a single Vercel lambda or the long-lived cPanel Node process.
+ * Tier 1 — per-process in-memory bucket. Cheap, no I/O. Catches burst abuse
+ * within the server process.
  *
- * Tier 2 — KV-backed fixed-window counter. Survives across serverless
- * invocations and Vercel's stateless cold starts. The in-memory limiter is
+ * Tier 2 — KV-backed fixed-window counter. Survives restarts and deploys,
+ * including the brief overlap of old and new processes during a deploy. The in-memory limiter is
  * used as a fast pre-reject; if the local check passes, we then check the
  * KV-backed window asynchronously and reject if THAT is over.
  *

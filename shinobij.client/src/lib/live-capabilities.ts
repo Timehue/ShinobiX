@@ -12,6 +12,11 @@ export const CAPABILITY_REFRESH_MS = 30_000;
 export const CAPABILITY_MAX_AGE_MS = 90_000;
 export const CAPABILITY_REQUEST_TIMEOUT_MS = 8_000;
 export const CAPABILITY_MAX_BACKOFF_MS = 5 * 60_000;
+/** A hidden tab keeps renewing its lease this long. The heartbeat, presence
+ * socket and live queues all hang off the lease, so letting it lapse 90s after
+ * hiding took a player offline (a sleeper camp in the wild) and out of every
+ * queue. Past this window the tab is treated as abandoned and lapses as before. */
+export const CAPABILITY_HIDDEN_KEEPALIVE_MS = 30 * 60_000;
 
 export function nextCapabilityRefreshDelay(
     consecutiveFailures: number,
@@ -262,6 +267,7 @@ export type LiveCapabilitiesPollingEnvironment = Readonly<{
     onOnline: (listener: () => void) => () => void;
     onVisibilityChange: (listener: () => void) => () => void;
     random?: () => number;
+    now?: () => number;
 }>;
 
 /** One lifecycle coordinator owns initial load, visible polling, online/foreground
@@ -275,17 +281,20 @@ export function startLiveCapabilitiesPolling(
     let consecutiveFailures = 0;
     let timeoutHandle: unknown = null;
     let refreshCycle: Promise<void> | null = null;
+    const now = environment.now ?? Date.now;
+    let hiddenAt = environment.isVisible() ? null : now();
+    const keepAlive = () => hiddenAt === null || now() - hiddenAt < CAPABILITY_HIDDEN_KEEPALIVE_MS;
 
     const clearSchedule = () => {
         if (timeoutHandle !== null) environment.cancel(timeoutHandle);
         timeoutHandle = null;
     };
     const schedule = () => {
-        if (disposed || !environment.isVisible()) return;
+        if (disposed || !keepAlive()) return;
         clearSchedule();
         timeoutHandle = environment.schedule(() => {
             timeoutHandle = null;
-            if (!environment.isVisible()) return;
+            if (!keepAlive()) return;
             void refreshAndSchedule();
         }, nextCapabilityRefreshDelay(consecutiveFailures, environment.random));
     };
@@ -307,9 +316,15 @@ export function startLiveCapabilitiesPolling(
         if (disposed || refreshCycle) return;
         refreshCycle = refreshAndSchedule().finally(() => { refreshCycle = null; });
     };
+    // Hiding keeps the running schedule (see CAPABILITY_HIDDEN_KEEPALIVE_MS);
+    // showing again refreshes at once, which also revives a lapsed lease.
     const refreshWhenVisible = () => {
-        if (environment.isVisible()) refreshNow();
-        else clearSchedule();
+        if (!environment.isVisible()) {
+            hiddenAt ??= now();
+            return;
+        }
+        hiddenAt = null;
+        refreshNow();
     };
 
     const removeOnline = environment.onOnline(refreshNow);

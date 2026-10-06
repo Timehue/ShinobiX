@@ -27,14 +27,10 @@ import { onKeyWritten } from '../_kv-write-signal.js';
 //   • SSE:     opponent move appears within 250ms (the server-side
 //     poll cadence), with no client wakeup overhead.
 //
-// Why this is cheaper on Vercel compute:
-//   • One streaming function = one invocation that lives ~5 min.
-//   • One polling client = 300 invocations over 5 min.
-//
 // Lifecycle:
-//   • Stream lasts up to STREAM_DURATION_MS (4.5 min) — safely under
-//     the 300s Vercel Function timeout. Client reconnects automatically
-//     via EventSource's built-in reconnect logic when the stream ends.
+//   • Stream lasts up to STREAM_DURATION_MS (13 min). The client reconnects
+//     automatically via EventSource's built-in reconnect logic when the
+//     stream ends.
 //   • Closes early when session.status === 'done' so the client knows
 //     to stop and tear down.
 //   • Closes early if the underlying KV key disappears (TTL expired).
@@ -43,14 +39,9 @@ import { onKeyWritten } from '../_kv-write-signal.js';
 // EventSource works without custom headers. Session state is
 // shareable — both fighters + any spectator can read it.
 
-// Vercel Pro lets streaming functions live up to 900s. Bumped from
-// 4.5min → 13min so most fights finish in a single stream with no
-// mid-fight reconnect. Server-side poll interval dropped from 250ms
-// → 100ms — Supabase Pro has unlimited API requests so the extra
-// reads are free, and the latency improvement is the difference
-// between "responsive" and "instant" from the player's perspective
-// (sub-100ms means human reaction time can't tell the move was
-// server-mediated).
+// 13 minutes, so most fights finish in a single stream with no mid-fight
+// reconnect. Originally sized to Vercel's 900s streaming limit; Railway has
+// no such limit, and the value is simply kept.
 const STREAM_DURATION_MS = 13 * 60 * 1000;  // 13 minutes
 const HEARTBEAT_INTERVAL_MS = 15_000;
 // The stream no longer re-reads its session every 100 ms (about 20 database

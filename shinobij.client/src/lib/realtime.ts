@@ -6,7 +6,8 @@
 // Falls back gracefully when env vars aren't set: realtimeAvailable()
 // returns false and consumers should use their SSE/polling path.
 //
-// Required env vars (set in Vercel → Project Settings → Env Vars):
+// Required env vars (Railway service variables, passed to the Docker build as
+// build args — see the Dockerfile; Vite inlines them at build time):
 //   VITE_SUPABASE_URL        — your project URL
 //   VITE_SUPABASE_ANON_KEY   — your anon (public) key
 //

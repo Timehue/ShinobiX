@@ -13,6 +13,7 @@ import {
     type Ranked2v2State,
 } from "../lib/ranked-2v2-api";
 import { setTowerPvpMatchId } from "../lib/screen-guards";
+import { useMatchFoundSfx } from "../lib/match-alert-sfx";
 import { gameConfirm } from "./GameAlert";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
 
@@ -74,6 +75,8 @@ export function Ranked2v2Panel({ character, sharedImages, onVersionedCharacter }
         const id = window.setInterval(() => { void refresh(); }, phase === "queued" ? 2_000 : 4_000);
         return () => window.clearInterval(id);
     }, [phase, refresh]);
+
+    useMatchFoundSfx(Boolean(state.match), state.queue.state === "queued" || busy === "queue");
 
     // Mirror the live match into the nav lock so the shell knows a fight is on.
     useEffect(() => {
