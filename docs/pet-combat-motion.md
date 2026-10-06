@@ -45,6 +45,12 @@ fencing. The preview also mounts the shared renderer retirement component.
 Dependency patches reuse the narrow compression, proxy-addr and source-map-js
 updates proposed in PRs #294-297. Both fresh-install dependency audits report
 zero vulnerabilities. Production security and release gates remain enabled.
+The Dojo controller test boots the real authenticated production screen,
+samples both controller edges on animation frames, and completes the Card Hall
+tutorial on all seven browser/device cases. Its focused runner uses the same
+immutable production preview. Stronghold leave-failure coverage checks enabled
+movement and resumed polling directly, replacing an obsolete guidance string;
+the complete local Chromium/WebKit lifecycle audit passes with no page errors.
 
 The motion layer uses native bone rotations and compact, labeled joint tuples
 to fit the existing production bundle budget. An equivalence sweep compared
