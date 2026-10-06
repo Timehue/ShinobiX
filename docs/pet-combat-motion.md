@@ -52,7 +52,8 @@ movement and resumed polling directly, replacing an obsolete guidance string;
 the complete local Chromium/WebKit lifecycle audit passes with no page errors.
 Desktop/mobile paid recovery retry
 coverage now expects its selected paid discharge to charge once.
-The map camera rechecks its media query after native viewport resize, including
+The map camera rechecks its media query through its existing viewport observer,
+including
 a held pointer across phone/desktop boundaries when a query notification is lost.
 
 Static combat sprites, scene textures and lazy stylesheets use shorter generated

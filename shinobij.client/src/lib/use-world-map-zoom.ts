@@ -253,6 +253,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
     // The viewport measurer, so the activation effect can re-measure the moment
     // the `wm-zoom` class lands (see that effect for why the order matters).
     const measureRef = useRef<() => void>(() => undefined);
+    const activationRef = useRef<() => void>(() => undefined);
     // Attaches or detaches the pan's touchmove guard to match zoom mode, so the
     // activation effect can re-sync it (see viewportRef for why it exists).
     const syncTouchGuardRef = useRef<() => void>(() => undefined);
@@ -420,20 +421,13 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         };
         let mq: MediaQueryList | null = null;
         try { mq = window.matchMedia(MOBILE_SHELL_QUERY); } catch { mq = null; }
-        // WebKit can deliver a viewport resize before its media-query change
-        // while a pointer is held. Recheck after layout as well, so returning
-        // to the phone shell cannot leave the desktop camera active.
-        let resizeFrame = 0;
-        const onResize = () => {
-            if (resizeFrame) cancelAnimationFrame(resizeFrame);
-            resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; recompute(); });
-        };
+        // The existing viewport observer also rechecks this after layout when
+        // WebKit misses a query notification across a held-pointer resize.
+        activationRef.current = recompute;
         mq?.addEventListener?.("change", recompute);
-        window.addEventListener("resize", onResize, { passive: true });
         return () => {
             mq?.removeEventListener?.("change", recompute);
-            window.removeEventListener("resize", onResize);
-            if (resizeFrame) cancelAnimationFrame(resizeFrame);
+            activationRef.current = () => undefined;
         };
     }, []);
 
@@ -511,6 +505,7 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         };
         let animationFrame = 0;
         const measure = () => {
+            activationRef.current();
             const previousSize = sizeRef.current;
             const nextSize = { w: el.clientWidth, h: el.clientHeight };
             if (previousSize.w === nextSize.w && previousSize.h === nextSize.h) return;
