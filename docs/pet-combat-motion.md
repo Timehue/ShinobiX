@@ -62,9 +62,10 @@ a held pointer across phone/desktop boundaries when a query notification is lost
 Static combat sprites, scene textures and lazy stylesheets use shorter generated
 filenames with the
 same content hashes, cache naming pattern and manifest mappings. Source art,
-identity/portrait filenames, vendor names, standalone HUD CSS and landing CSS
+identity/portrait and authored mission opponent filenames, vendor names, standalone HUD CSS and landing CSS
 naming are preserved. The integration-enabled build
-enforces the unchanged 9,150,000-byte product budget.
+enforces the unchanged 9,150,000-byte product budget. All eight authored mission
+combat cases pass on the isolated real server across desktop and mobile.
 A byte comparison confirms all 943 emitted images and 69 stylesheets remain
 identical when only lazy stylesheet filenames change.
 All 943 final imported image payloads also match the original preview's SHA-256

@@ -1364,7 +1364,7 @@ export default defineConfig({
                     : asset.originalFileNames.some((name) => {
                         const source = name.replace(/\\/g, '/');
                         return /\.(?:png|webp|jpe?g|avif|svg|gif)$/i.test(source) && (
-                            /\/assets\/(?:combat-actors|fx)\//.test(source)
+                            (/\/assets\/(?:combat-actors|fx)\//.test(source) && !/(?:^|\/)builtin-ai-/.test(source))
                             || /\/assets\/first-pact\/.*(?:atlas|key-art|architecture)/.test(source)
                         );
                     })
