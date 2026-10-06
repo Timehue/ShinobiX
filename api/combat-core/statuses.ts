@@ -37,6 +37,23 @@ export function removeActiveCombatStatusesByKind<T extends CombatStatus>(
     };
 }
 
+/**
+ * Remove every status of `kind`, active or still pending. Cleanse uses this (owner
+ * ruling, 2026-10-05): a player who Cleanses as soon as they are debuffed takes no
+ * Wound or Drain, even when the debuff was cast earlier in the same round and has
+ * not started yet. Wound and Drain tick at the end of the holder's turn, so the
+ * holder always gets a turn to Cleanse before the first tick.
+ */
+export function removeCombatStatusesByKind<T extends CombatStatus>(
+    statuses: readonly T[],
+    kind: T['kind'],
+): { statuses: T[]; removed: T[] } {
+    return {
+        statuses: statuses.filter(status => status.kind !== kind),
+        removed: statuses.filter(status => status.kind === kind),
+    };
+}
+
 /** Consume statuses by name only when they are active in `round`. */
 export function removeActiveCombatStatusesByName<T extends CombatStatus>(
     statuses: readonly T[],

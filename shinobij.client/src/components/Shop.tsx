@@ -11,6 +11,7 @@ import { useCallback, useEffect, useState, useRef } from "react";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { wildBindingSeal } from "../../../shared/wild-binding";
 import { getAllItems } from "../lib/items";
+import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { countItem } from "../lib/inventory";
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
@@ -430,8 +431,16 @@ function ShopBase({
                                         <h4>Weapon Effect: {selectedItem.weaponEffect}</h4>
                                         <div className="item-popup-effect-grid">
                                             <p><strong>Trigger:</strong> On use</p>
-                                            <p><strong>Calculation:</strong> {typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue > 100 ? "flat" : "percentage"}</p>
-                                            <p><strong>Effect Power:</strong> {selectedItem.weaponEffectValue}{typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue <= 100 ? "%" : ""}</p>
+                                            {["hand", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? (
+                                                // A weapon's flat Heal/Shield/Drain and its capped percentages,
+                                                // as the server resolves them — not the stored number.
+                                                <p><strong>Effect Power:</strong> {weaponEffectDisplayValue(selectedItem.weaponEffect, selectedItem.weaponEffectValue)}</p>
+                                            ) : (
+                                                <>
+                                                    <p><strong>Calculation:</strong> {typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue > 100 ? "flat" : "percentage"}</p>
+                                                    <p><strong>Effect Power:</strong> {selectedItem.weaponEffectValue}{typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue <= 100 ? "%" : ""}</p>
+                                                </>
+                                            )}
                                             <p><strong>Target:</strong> self / enemy</p>
                                             <p><strong>Damage EP:</strong> {selectedItem.weaponEp ?? 0}</p>
                                             <p><strong>Cooldown:</strong> {selectedItem.weaponCooldown ?? 0} rounds</p>

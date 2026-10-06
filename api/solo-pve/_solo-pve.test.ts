@@ -505,7 +505,10 @@ describe('solo-PvE engine', () => {
         assert.ok(stepped.session.enemy.statuses.some((status) => status.name === 'Decrease Damage Given'));
     });
 
-    it('Clear and Cleanse remove active effects without erasing deferred statuses', () => {
+    // Owner ruling 2026-10-05: Cleanse also strips debuffs that have not started yet, so
+    // a player who Cleanses as soon as they are debuffed takes no Wound or Drain. Clear
+    // still leaves deferred buffs alone.
+    it('Cleanse removes active and deferred debuffs; Clear keeps deferred buffs', () => {
         const cleanseSession = makeSession();
         cleanseSession.player.statuses = [
             { name: 'Ignition', rounds: 2, activeRound: 1, percent: 30, kind: 'negative' },
@@ -519,8 +522,8 @@ describe('solo-PvE engine', () => {
         assert.equal(cleansed.applied, true);
         assert.equal(cleansed.session.player.statuses.some((status) => status.name === 'Ignition'), false);
         for (const name of ['Stun', 'Wound', 'Drain', 'Cleanse Prevent']) {
-            assert.ok(cleansed.session.player.statuses.some((status) => status.name === name && status.activeRound === 2),
-                `pending ${name} survives Solo Cleanse`);
+            assert.equal(cleansed.session.player.statuses.some((status) => status.name === name), false,
+                `pending ${name} is removed by Solo Cleanse`);
         }
 
         const clearSession = makeSession();

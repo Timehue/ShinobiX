@@ -87,12 +87,12 @@ describe('resolution order matches the engine source', () => {
 
     it('endTurn hands off in TURN_HANDOFF_ORDER', () => {
         const anchors: Record<TurnHandoffStep, string> = {
+            applyDoTs: 'applyDoTs(endingFighter, session.round)',
             roundCapCheck: 'if (newRound > MAX_ROUNDS)',
             tickStatusesAndGround: 'tickStatuses(s.p1, session.round)',
             tickCooldowns: 'tickCooldowns(',
             applyGroundEffects: 'applyGroundEffects(s, newRound, next)',
             applyQueuedMovement: 'applyQueuedMovement(nextFighter',
-            applyDoTs: 'applyDoTs(nextFighter, newRound)',
             resourceRegen: 'v2ResourceRegen(',
             checkWinner: 's = checkWinner(',
             stunPenalty: 'STUN_AP_PENALTY',

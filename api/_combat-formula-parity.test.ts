@@ -214,6 +214,14 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
             'STUN_AP_PENALTY diverged between server move.ts and client constants/game.ts',
         );
     });
+    // The jutsu card promises the distance a Push or Pull really moves.
+    it('PUSH_PULL_TILES (server) === PUSH_PULL_TILES (client constants/game.ts)', () => {
+        assert.equal(
+            num(SERVER_FORMULAS, 'PUSH_PULL_TILES'),
+            num(CLIENT_GAME_CONSTS, 'PUSH_PULL_TILES'),
+            'PUSH_PULL_TILES diverged between combat-core/formulas.ts and client constants/game.ts',
+        );
+    });
     // Guard that the authoritative shared resolver consumes the rank cap. The
     // client helper remains a preview mirror, not an independent combat engine.
     it('the live Solo/PvP resolver consumes the wound rank cap', () => {

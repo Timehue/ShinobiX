@@ -45,10 +45,10 @@ import {
 } from './_companion.js';
 // statusDurationFor: towers used to keep its own copy of the duration table;
 // sharing the PvP one keeps a status lasting the same rounds in every mode.
-import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel, statusDurationFor } from '../combat-core/formulas.js';
+import { directDamageBaseFormula, JUTSU_MAX_LEVEL, jutsuLevelCapForLevel, PUSH_PULL_TILES, statusDurationFor } from '../combat-core/formulas.js';
 import { rankedCombatLevel } from '../pvp/_ranked-format.js';
 import { setSafeRecordValue } from '../_utils.js';
-import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
+import { GROUND_EFFECT_TAGS, OPPONENT_AFFECTING_TAGS, REQUIRES_DAMAGE_TAGS, STACKABLE_STATUS, canonicalTagName } from '../pvp/_tags.js';
 import {
     pveAiCompetence,
     pveAiMasteryForLevel,
@@ -1068,9 +1068,13 @@ function towerJutsuTargetsSelf(jutsu: JutsuLike): boolean {
         && (String(jutsu.target ?? '') === 'SELF' || !towerJutsuAffectsOpponent(jutsu));
 }
 function towerResolverLines(lines: readonly string[], jutsu: JutsuLike): string[] {
-    // A shared Barrier line contains a PvP-grid coordinate. The Tower emits its
-    // authoritative coordinate after its own deterministic placement below.
-    return jutsuHasTag(jutsu, 'Barrier') ? lines.filter(line => !line.startsWith('Barrier:')) : [...lines];
+    // A shared Barrier or Push/Pull line describes the PvP grid. The Tower emits its own
+    // authoritative line after its own placement / displacement (placeTowerBarrier,
+    // applyDisplacement), so the PvP-grid copy would only contradict it.
+    const gridLine = (line: string) => (jutsuHasTag(jutsu, 'Barrier') && line.startsWith('Barrier:'))
+        || (jutsuHasTag(jutsu, 'Push') && line.startsWith('Push:'))
+        || (jutsuHasTag(jutsu, 'Pull') && line.startsWith('Pull:'));
+    return lines.filter(line => !gridLine(line));
 }
 function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: TowerActor, jutsu: JutsuLike): void {
     if (!jutsuHasTag(jutsu, 'Barrier')) return;
@@ -1438,37 +1442,60 @@ function groundZoneTargets(session: TowerSession, effect: PvpGroundEffect): Towe
         a.hp > 0 && victimSides.includes(a.side)
         && !(effect.owner === 'p1' && objectiveBossDamageLocked(session, a)));
 }
-function applyZoneToUnits(session: TowerSession, effect: PvpGroundEffect): void {
+/** Pulse one zone onto every hostile standing in it. Returns true when one was caught. */
+function applyZoneToUnits(session: TowerSession, effect: PvpGroundEffect, includePending = false): boolean {
+    let caught = false;
     for (const a of groundZoneTargets(session, effect)) {
         if (!effect.tiles.includes(a.pos)) continue;
-        const r = applyGroundEffectToFighter(actorToFighter(a), effect, session.round);
+        caught = true;
+        const r = applyGroundEffectToFighter(actorToFighter(a), effect, session.round, includePending);
         a.statuses = r.fighter.statuses;
+        if (r.lines.length) session.log.push(...r.lines);
+    }
+    return caught;
+}
+/** Pulse every live hostile zone onto the fighter about to act, if they stand in it. */
+function applyZonesToActor(session: TowerSession, actor: TowerActor): void {
+    for (const effect of session.groundEffects ?? []) {
+        if (!effect.tiles.includes(actor.pos)) continue;
+        if (!groundZoneTargets(session, effect).some(target => target.id === actor.id)) continue;
+        const r = applyGroundEffectToFighter(actorToFighter(actor), effect, session.round);
+        actor.statuses = r.fighter.statuses;
         if (r.lines.length) session.log.push(...r.lines);
     }
 }
 /** Place a ground zone at `tile` from a ground-target (EMPTY_GROUND) jutsu, and bite anyone
- *  already standing in it. Returns false if the jutsu carries no ground-eligible tags. */
+ *  already standing in it. Returns false if the jutsu carries no ground-eligible tags.
+ *
+ *  Timing is PvP's (api/pvp/move.ts): the zone recurs from next round, at the start of each
+ *  victim's turn, for two of their turns. The squad always opens a Tower round, so a squad
+ *  zone also bites the enemies standing in it right away (they have not acted yet) and that
+ *  pulse counts as the first of the two. An enemy zone has no such pulse, because the squad
+ *  has already acted this round. The old version pulsed at round end and then aged the
+ *  pulse away before anyone acted, so a zone only ever worked on the cast itself. */
 function layGroundZone(session: TowerSession, actor: TowerActor, jutsuId: string, jutsu: JutsuLike, tile: number): boolean {
     const tags = towerGroundTags(jutsu.tags);
     if (!tags.length) return false;
-    const effect: PvpGroundEffect = {
+    let effect: PvpGroundEffect = {
         id: `gz-${session.round}-${actor.id}-${jutsuId}`,
         owner: actor.side === 'squad' ? 'p1' : 'p2',
         name: jutsu.name ?? 'Ground Effect',
         tiles: groundZoneTiles(tile, session.map.width, session.map.height, jutsu.method, actor.pos, jutsu.range),
         rounds: 2,
+        activeRound: session.round + 1,
         ...(typeof jutsu.bloodlineRank === 'string' && jutsu.bloodlineRank ? { bloodlineRank: jutsu.bloodlineRank } : {}),
         tags,
     };
-    session.groundEffects = [...(session.groundEffects ?? []), effect];
     session.log.push(`${actor.name} lays ${effect.name} across ${effect.tiles.length} tiles for 2 rounds.`);
-    applyZoneToUnits(session, effect);
+    if (actor.side === 'squad') {
+        effect = { ...effect, castPulseConsumed: applyZoneToUnits(session, effect, true) };
+    }
+    session.groundEffects = [...(session.groundEffects ?? []), effect];
     return true;
 }
-/** Round-end: re-apply every live zone to units standing in it, then expire spent zones. */
+/** Round-end: age every zone (phase-aware, as in PvP), then drop pulses from spent zones. */
 function applyRoundGroundEffects(session: TowerSession): void {
-    for (const effect of session.groundEffects ?? []) applyZoneToUnits(session, effect);
-    session.groundEffects = tickGroundEffects(session.groundEffects);
+    session.groundEffects = tickGroundEffects(session.groundEffects, session.round);
     reconcileTowerGroundStatuses(session);
 }
 function reconcileTowerGroundStatuses(session: TowerSession): void {
@@ -1477,7 +1504,7 @@ function reconcileTowerGroundStatuses(session: TowerSession): void {
     }
 }
 // PvP-parity displacement: a Push/Pull-tagged jutsu shoves the struck target across the tower hex
-// grid — Push AWAY from the attacker, Pull TOWARD it, by `jutsu.range` tiles (mirrors api/pvp/
+// grid — Push AWAY from the attacker, Pull TOWARD it, by PUSH_PULL_TILES tiles (mirrors api/pvp/
 // move.ts:812-813). The PvP-grid pos in applyJutsu's result is meaningless on the tower board (a
 // different grid), so writeBackFighter drops it; THIS re-derives the move on the tower grid with
 // the tower's own neighbour/distance/blocked helpers. Deterministic (first legal neighbour in the
@@ -1492,9 +1519,10 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
     if (!isPush && !isPull) return;
     if (hasActiveStatus(target, 'Debuff Prevent', session.round)) return; // PvP gates displacement on Debuff Prevent
     const w = session.map.width, h = session.map.height;
-    const dist = Math.max(1, Math.floor(Number(jutsu.range) || 1));
+    const dist = PUSH_PULL_TILES;
     const distTo = (t: number) => hexDistance(t, attacker.pos, w);
     let pos = target.pos;
+    let moved = 0;
     for (let step = 0; step < dist; step++) {
         const here = distTo(pos);
         const next = towerNeighbors(pos, w, h).find(t =>
@@ -1502,11 +1530,43 @@ function applyDisplacement(session: TowerSession, attacker: TowerActor, target: 
             (isPush ? distTo(t) > here : distTo(t) < here));
         if (next === undefined) break; // wall / edge / occupied — can't move further
         pos = next;
+        moved += 1;
     }
     if (pos !== target.pos) {
         target.pos = pos;
-        session.log.push(`${isPush ? 'Push' : 'Pull'}: ${target.name} is ${isPush ? 'pushed' : 'pulled'} ${dist} tile${dist !== 1 ? 's' : ''}.`);
+        session.log.push(`${isPush ? 'Push' : 'Pull'}: ${target.name} is ${isPush ? 'pushed' : 'pulled'} ${moved} tile${moved !== 1 ? 's' : ''}.`);
     }
+}
+
+/**
+ * A dash (Move on a single-target jutsu) still resolves its other utility tags at zero
+ * damage, exactly as PvP does (api/pvp/move.ts) — it used to spend the AP and drop them.
+ * Pierce and the damage-reading riders (Wound, Siphon) cannot resolve on a zero-damage
+ * cast. Hostile effects land on the nearest foe within the jutsu's range of the landing
+ * tile; with no foe in range only the caster's own effects resolve.
+ */
+function resolveDashSecondaryTags(session: TowerSession, actor: TowerActor, jutsu: JutsuLike): void {
+    const tags = (Array.isArray(jutsu.tags) ? jutsu.tags : []).filter(tag => {
+        const name = canonicalTagName(String((tag as { name?: unknown })?.name ?? ''));
+        return name !== 'Move' && name !== 'Pierce' && !REQUIRES_DAMAGE_TAGS.has(name);
+    });
+    if (!tags.length) return;
+    const w = session.map.width;
+    const range = Math.max(1, Number(jutsu.range ?? 5));
+    const foe = session.actors
+        .filter(target => target.hp > 0
+            && hostileSidesFor(actor.side).includes(target.side)
+            && hexDistance(actor.pos, target.pos, w) <= range
+            && !(actor.side === 'squad' && objectiveBossDamageLocked(session, target)))
+        .sort((a, b) => hexDistance(actor.pos, a.pos, w) - hexDistance(actor.pos, b.pos, w)
+            || a.pos - b.pos || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))[0];
+    const resolvedTags = foe
+        ? tags
+        : tags.filter(tag => TOWER_CAST_SCOPED_TAGS.has(canonicalTagName(String((tag as { name?: unknown })?.name ?? ''))));
+    if (!resolvedTags.length) return;
+    const secondary: JutsuLike = { ...jutsu, effectPower: 0, isUtility: true, tags: resolvedTags };
+    runJutsu(session, actor, foe ?? actor, secondary, 1);
+    if (foe) applyDisplacement(session, actor, foe, secondary);
 }
 // Shared resolution for attack / jutsu / weapon (and self-cast jutsu). Folds the
 // positional tower multipliers into applyJutsu's wMult (terrain handled by its biome
@@ -1616,7 +1676,10 @@ function resolveHit(
     if (!deferWinnerCheck) checkTowerWinner(session, floor);
 }
 // Round-end: tick Wound/Poison/Drain DoTs and expire statuses for every living actor,
-// reusing the EXACT PvP helpers so timing/mitigation match the live game.
+// reusing the EXACT PvP helpers so timing/mitigation match the live game. Every
+// fighter has acted by round end, so a fighter who Cleanses on their turn takes none
+// of it (owner ruling, 2026-10-05; PvP and solo PvE tick at the end of the holder's
+// own turn for the same reason).
 function applyRoundStatusTicks(session: TowerSession): void {
     const roundPlates: TowerVfxEvent[] = [];
     for (const a of session.actors) {
@@ -1876,7 +1939,9 @@ export function humanHasTowerAction(session: TowerSession, actor: TowerActor, mo
         if (!item?.id || !equippedIds.has(item.id)) continue;
         const slot = normalizeSlot(item.slot);
         const weapon = slot === 'hand' || slot === 'thrown';
-        if (mode === 'pvp' && slot !== 'hand') continue;
+        // Thrown ammunition and consumables need a sealed charge (checked below). The open
+        // Team Arena seals none, so in PvP they only count where the match sealed a kit
+        // (ranked 2v2, Clan War 2v2).
         const cost = Math.max(0, Number(item.apCost ?? (weapon ? BASIC_ATTACK_AP : 35)));
         const cdKey = `${weapon ? 'weapon' : 'item'}:${item.id}`;
         if (!canAct(session, cost, actor) || (actor.cooldowns[cdKey] ?? 0) > 0) continue;
@@ -1922,6 +1987,9 @@ function tickCooldowns(actor: TowerActor): void {
 }
 function refreshAp(session: TowerSession): void {
     const actor = activeActor(session);
+    // A hostile ground zone pulses onto the fighter about to act if they stand in it,
+    // in PvP's order (api/pvp/move.ts endTurn). Zones apply statuses only, never damage.
+    if (actor && actor.hp > 0) applyZonesToActor(session, actor);
     // An ENEMY actor taking the field starts a fresh guard window: snapshot squad
     // HP (the mercy floor reads it) and clear the per-turn damage tally. This is
     // the one hook that runs at every turn start (startRound + endTurn).
@@ -2615,6 +2683,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
             } else {
                 spendActionAp(session, actor, cost);
                 session.actionsThisTurn += 1;
+                if (String(jm.method ?? 'SINGLE').toUpperCase() !== 'AOE_SPIRAL') resolveDashSecondaryTags(session, actor, jm);
             }
             // Spiral dash: erupt a ground nova on the landing tile (best-effort — a
             // pure Move jutsu carries no ground tags, so this no-ops for Flicker).
@@ -2864,7 +2933,7 @@ export function endTurn(session: TowerSession, floor: TowerFloor): void {
         observedVfxSeq = session.vfxSeq;
     };
     session.objectiveState.roundsSurvived = (session.objectiveState.roundsSurvived ?? 0) + 1;
-    applyRoundGroundEffects(session); // re-apply persistent ground zones to units standing in them, then tick
+    applyRoundGroundEffects(session); // age ground zones (their pulses land at each victim's turn start)
     applyRoundStatusTicks(session); // bleed Wound/Poison/Drain + expire statuses (PvP DoT math)
     collectRoundPlates();
     applyRoundHazards(session); // chip anyone standing on a hazard tile at round end

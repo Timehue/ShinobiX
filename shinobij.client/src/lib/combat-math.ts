@@ -142,7 +142,8 @@ export function drainTickPVE(masteryLevel: number): number {
     return Math.max(DRAIN_BASE_TICK_PVE, Math.min(DRAIN_MAX_TICK_PVE, DRAIN_BASE_TICK_PVE + masteryLevel * DRAIN_PER_LEVEL_PVE));
 }
 
-// DoT ticks (Wound / Poison / Drain) are partially mitigated by the defender's
+// Wound and Drain ticks land in full (api/pvp/move.ts applyDoTs, owner ruling
+// 2026-10-05). The legacy Poison tick is partially mitigated by the defender's
 // own DR pool (armor + Decrease Damage Taken stacks), scaled by DR_DOT_SCALE_PVE
 // so DoTs can never be fully invulnerable. Mirrors api/pvp/move.ts DR_DOT_SCALE
 // (0.5) EXACTLY — without this helper, PvE applied DoT ticks UNMITIGATED while

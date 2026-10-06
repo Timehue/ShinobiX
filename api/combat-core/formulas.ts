@@ -49,6 +49,10 @@ export const WOUND_HARD_CAP_PCT = 60;
 export const GUARD_DEFENSE_MAX_MIT = 0.5;
 export const STUN_AP_PENALTY = 40;
 export const MAX_WOUND_STACKS = 2;
+// Push and Pull move the target this many hexes, stopping early only at a wall, an
+// edge, an occupied hex or the caster (owner ruling, 2026-10-05). They used to move
+// the jutsu's RANGE in hexes, so a range-1 shove moved one hex and a range-5 one five.
+export const PUSH_PULL_TILES = 4;
 
 // Poison's percent is NOT on the amp-tag scale. It feeds v2PoisonOnSpend, where
 // the victim loses HP = chakra/stamina spent × percent × POISON_SPEND_FACTOR (12)

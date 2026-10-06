@@ -630,6 +630,10 @@ jobs:
         if: ${{ matrix.shard == 4 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.village-transfer.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/village-transfer.log
+      - name: Dojo Circuit gamepad flow
+        if: ${{ matrix.shard == 5 }}
+        working-directory: shinobij.client
+        run: npm run test:e2e:dojo-circuit 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/dojo-circuit.log
       - name: Sector controls and spectator integration
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client

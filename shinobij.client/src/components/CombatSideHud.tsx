@@ -1,7 +1,7 @@
 import React from "react";
 import { K_AMP_PVE } from "../lib/combat-math";
 import { isImageAvatar } from "../lib/avatar";
-import { partitionCombatDisplayStatuses, type CombatDisplayStatus } from "../lib/combat-action-display";
+import { partitionCombatDisplayStatuses, TEMPO_AP_SWING, type CombatDisplayStatus } from "../lib/combat-action-display";
 
 // Tags that feed the diminishing-returns soft-cap pools in combat (see
 // combat-math.ts). For these, stacking is NOT linear — the HUD surfaces the
@@ -61,11 +61,12 @@ export type CombatHudStatus = CombatDisplayStatus & {
     rounds: number;
     kind: "positive" | "negative";
 };
+type HudStatusInput = { name: string; rounds: number; amount?: number; percent?: number; source?: string };
 
 // Group duplicate stacking statuses into one entry with a ×count, summing raw
 // percent/amount. Shared by the desktop panel and the mobile strip so both read
 // identically.
-function groupStatuses(statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; source?: string }[]): GroupedStatus[] {
+function groupStatuses(statuses: readonly HudStatusInput[]): GroupedStatus[] {
     const grouped: GroupedStatus[] = [];
     for (const s of statuses) {
         const name = s.source === "item-smoke-bomb" ? "Smoke Bomb" : s.name;
@@ -84,8 +85,13 @@ function groupStatuses(statuses: readonly { name: string; rounds: number; amount
 
 // The value that actually fires for a grouped status: effective % for soft-cap
 // pool tags once stacked, the 60%-capped total for Absorb/Reflect/Lifesteal,
-// else the raw rounded %/amount. Shared by panel + strip.
+// the flat AP swing for Lag/Overclock (their stored % is never read), else the
+// raw rounded %/amount (a Wound/Drain tick lands in full). Shared by panel + strip.
 function statusValueText(s: GroupedStatus): string {
+    if (s.name === "Lag") return `+${TEMPO_AP_SWING} AP`;
+    if (s.name === "Overclock") return `−${TEMPO_AP_SWING} AP`;
+    // A Barrier's amount is the hex it walls off, not a magnitude.
+    if (s.name === "Barrier") return "wall";
     const pooled = s.percent != null && POOL_TAGS.has(s.name);
     const capped = s.percent != null && CAP_SUM_TAGS.has(s.name);
     const potency = s.percent != null && POTENCY_TAGS.has(s.name);
@@ -283,7 +289,7 @@ export function CombatEffectsPanel({
     tone = "positive",
 }: {
     title: string;
-    statuses: readonly { name: string; rounds: number; amount?: number; percent?: number; source?: string }[];
+    statuses: readonly HudStatusInput[];
     tone?: "positive" | "negative";
 }) {
     // Group duplicate stacking statuses (e.g. three "Increase Damage Given")
