@@ -51,6 +51,20 @@ tutorial on all seven browser/device cases. Its focused runner uses the same
 immutable production preview. Stronghold leave-failure coverage checks enabled
 movement and resumed polling directly, replacing an obsolete guidance string;
 the complete local Chromium/WebKit lifecycle audit passes with no page errors.
+The responsive follow-up restores existing controller text-entry wiring,
+keyboard/focus styles and First Pact walking opt-in removed from main; newer
+privacy-denial and disconnect handling remains intact. The unchanged controller
+suite passes 139 cases across all seven browser/device projects, with one
+configured Firefox mobile-emulation skip. Desktop/mobile paid recovery retry
+coverage now expects its selected paid discharge to charge once.
+
+Imported images and lazy stylesheets use shorter generated filenames with the
+same content hashes, cache naming pattern and manifest mappings. Source art,
+vendor names and entry CSS naming are preserved. The integration-enabled build
+measures 9,149,004 bytes against the unchanged 9,150,000-byte product budget,
+saving 11,561 bytes of repeated URLs from the restored-controller build.
+A byte comparison confirms all 943 emitted images and 69 stylesheets remain
+identical when only lazy stylesheet filenames change.
 
 The motion layer uses native bone rotations and compact, labeled joint tuples
 to fit the existing production bundle budget. An equivalence sweep compared

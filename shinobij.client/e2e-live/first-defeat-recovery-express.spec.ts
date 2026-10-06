@@ -280,7 +280,7 @@ test(`persistent world defeat and recovery: ${recovery}`, async ({ page, request
   await expect(page.locator('.stormveil-village-screen')).toBeVisible();
   await capture('06-recovered');
   const recovered = await save(); events.push({ moment: 'recovered', save: recovered });
-  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
+  const expectedCharge = ['paid', 'paid-lost', 'paid-timeout', 'terminal-lost', 'terminal-retry', 'external-stale'].includes(recovery) ? Math.min(2500, 25 * character.level) : 0;
   expect(recovered.character.ryo).toBe(character.ryo - expectedCharge);
   expect(recovered.character.hp).toBe(recovered.character.maxHp);
   expect(recovered.character.hospitalized).toBe(false);

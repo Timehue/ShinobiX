@@ -2717,6 +2717,10 @@
             "line": 88
           },
           {
+            "source": "shinobij.client/src/styles/input-accessibility.css",
+            "line": 171
+          },
+          {
             "source": "shinobij.client/src/styles/landing-home.css",
             "line": 406
           },
