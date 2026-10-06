@@ -55,7 +55,7 @@
     "dependencies": {
         "@sentry/node": "^10.74.0",
         "@supabase/supabase-js": "^2.116.0",
-        "compression": "^1.8.1",
+        "compression": "^1.8.2",
         "dotenv": "^17.0.0",
         "express": "^5.0.1",
         "pg": "^8.23.0",

@@ -6,7 +6,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { resolve, extname } from 'node:path';
 import assert from 'node:assert/strict';
-import { chromium, webkit } from '@playwright/test';
+import { chromium, webkit, expect } from '@playwright/test';
 import { createBrowserNetworkDiagnostics } from './lib/browser-network-diagnostics.mjs';
 const tmp = resolve('.tmp/stronghold-audit');
 const outputArg = process.argv.find(value => value.startsWith('--output='));
@@ -223,7 +223,9 @@ try {
         const state = fixture(); const page = await prepare(browser, { width: 390, height: 844 }, state); await ready(page);
         state.failLeave = true; await page.getByRole('button', { name: 'Leave stronghold' }).click();
         await page.getByText('Connection interrupted. Try leaving again.').waitFor();
-        const oldPolls = state.polls; await page.waitForFunction(() => document.querySelector('.stronghold-guidance')?.textContent.includes('Tap the floor')); assert(state.polls > oldPolls);
+        const oldPolls = state.polls;
+        await expect(page.getByRole('button', { name: 'Move right', exact: true })).toBeEnabled();
+        await expect.poll(() => state.polls).toBeGreaterThan(oldPolls);
         state.failLeave = false;
         for (let n = 1; n <= 25; n++) {
             await page.keyboard.press(n % 2 ? 'd' : 'a');

@@ -265,11 +265,6 @@ function ShopBase({
                 <p className="shop-discount-note">Town Hall discount <strong>{shopDiscountPercent.toFixed(2)}%</strong></p>
             )}
 
-            {currency === "fateShards" && <div className="marketplace-scrolls">
-                <VillageTransfer key={`village-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
-                <ProfessionChange key={`profession-${character.name}`} character={character} onVersionedCharacter={onVersionedCharacter} />
-            </div>}
-
             {slotGroups.map((group) => {
                 const groupItems = shopItems.filter((item) =>
                     group.beastSeals ? Boolean(wildBindingSeal(item.id))
