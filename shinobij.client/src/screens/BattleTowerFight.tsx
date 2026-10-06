@@ -39,6 +39,7 @@ import {
     activeBarrierTilesForDisplay,
     adjustedCombatApCost,
     isElementallySealedForDisplay,
+    TEMPO_AP_SWING,
 } from "../lib/combat-action-display";
 import { equipSlotForItem } from "../lib/equipment";
 import {
@@ -443,6 +444,7 @@ export function BattleTowerFight({
     storyTheme,
     variant = "tower",
     pvpContextLabel = 'Team Arena',
+    teamPvpConsumables = false,
     enemyAvatarOverride,
 }: {
     character: Character;
@@ -479,6 +481,9 @@ export function BattleTowerFight({
     storyTheme?: StoryFightTheme;
     variant?: "tower" | "team-pvp" | "hunt" | "caravan-ambush";
     pvpContextLabel?: string;
+    /** A team-pvp match that sealed a consumable kit (ranked 2v2, Clan War 2v2)
+     *  shows its thrown ammunition and items; the open Team Arena keeps them hidden. */
+    teamPvpConsumables?: boolean;
     /** Hunt encounters show the creature's own artwork instead of a Tower warden. */
     enemyAvatarOverride?: string;
 }) {
@@ -1215,9 +1220,10 @@ export function BattleTowerFight({
         return { weapons, consumables };
     }, [myActor]);
     const { weapons: myWeapons, consumables: myConsumables } = loadout;
-    const actionWeapons = isTeamPvp ? myWeapons.filter(({ thrown }) => !thrown) : myWeapons;
-    const actionConsumables = isTeamPvp ? [] : myConsumables;
-    const arenaSuppressedGear = isTeamPvp && (actionWeapons.length !== myWeapons.length || myConsumables.length > 0);
+    const teamPvpGearLocked = isTeamPvp && !teamPvpConsumables;
+    const actionWeapons = teamPvpGearLocked ? myWeapons.filter(({ thrown }) => !thrown) : myWeapons;
+    const actionConsumables = teamPvpGearLocked ? [] : myConsumables;
+    const arenaSuppressedGear = teamPvpGearLocked && (actionWeapons.length !== myWeapons.length || myConsumables.length > 0);
     const myChakra = myActor?.chakra ?? 0;
     const myStamina = myActor?.stamina ?? 0;
     const healCd = Number(myActor?.cooldowns?.basicHeal ?? 0);
@@ -2660,7 +2666,15 @@ function StatusChip({ status }: { status: TowerStatus }) {
     const positive = status.kind === "positive";
     const name = status.source === "item-smoke-bomb" ? "Smoke Bomb" : status.name;
     const label = status.source === "item-smoke-bomb" ? "SMOKE" : STATUS_ABBR[name] ?? name.slice(0, 5).toUpperCase();
-    const detail = `${name}${status.percent ? ` ${status.percent}%` : ""}${status.rounds ? ` · ${status.rounds} turn${status.rounds !== 1 ? "s" : ""}` : ""}`;
+    // Lag/Overclock are a flat AP swing (their stored % is never read); a Wound/Drain
+    // tick lands in full.
+    const value = name === "Lag" ? ` +${TEMPO_AP_SWING} AP`
+        : name === "Overclock" ? ` −${TEMPO_AP_SWING} AP`
+        : status.percent ? ` ${status.percent}%`
+        : (name === "Wound" || name === "Drain") && status.amount != null
+            ? ` ${Math.round(status.amount)}/turn`
+            : "";
+    const detail = `${name}${value}${status.rounds ? ` · ${status.rounds} turn${status.rounds !== 1 ? "s" : ""}` : ""}`;
     return (
         <span title={detail} style={{
             fontSize: 8, fontWeight: 800, padding: "0 3px", borderRadius: 3, lineHeight: "12px", letterSpacing: 0.2,

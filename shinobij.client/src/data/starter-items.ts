@@ -376,7 +376,9 @@ export const starterItems: GameItem[] = [
         description: "The Ranked Format's neutral throwable. A stronger impact applies Wound for 2 rounds.",
         weaponEp: 20,
         weaponEffect: "Wound",
-        weaponEffectValue: 300,
+        // A weapon's Wound is capped at the basic rank's 25% (api/combat-core/formulas.ts
+        // woundCapForJutsu), so the old stored 300 bled exactly this and read "300%".
+        weaponEffectValue: 25,
         apCost: 20,
         weaponCooldown: 5,
         bonuses: {},
@@ -837,7 +839,9 @@ export const starterItems: GameItem[] = [
         rarity: "legendary",
         cost: 100,
         image: "/items/shop-frostfang-oathblade-v1.webp",
-        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Damage 22 EP | Shield 300 | 40 AP | Range 4 | CD 5]",
+        // A swing's Shield is flat: the 30% mastery-0 share of a jutsu's 750
+        // (api/pvp/move.ts). The stored 300 is never read, so the card says 225.
+        description: "A sacred Frostfang sword carried by warriors sworn to protect their clan. [Damage 22 EP | Shield 225 | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 22, levelReq: 40, weaponEffect: "Shield", weaponEffectValue: 300,
         bonuses: { taijutsuOffense: 136 },
     },

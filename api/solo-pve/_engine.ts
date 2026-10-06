@@ -32,7 +32,7 @@ import { hexDistance, hexNeighbors } from '../combat-core/grid.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { adjustedApCost } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
-import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName } from '../combat-core/statuses.js';
+import { activeCombatStatuses, addCombatStatus, removeActiveCombatStatusesByKind, removeActiveCombatStatusesByName, removeCombatStatusesByKind } from '../combat-core/statuses.js';
 import { validateServerAiRules, type ServerAiRule } from '../combat-core/ai-authoring.js';
 import {
     projectAuthoritativeCombatEvent,
@@ -96,7 +96,6 @@ const BASIC_HEAL_AP = 60;
 const BASIC_HEAL_CHAKRA = 10;
 const CLEAR_AP = 60;
 const CLEANSE_AP = 60;
-const ROUND_TIMED_ITEM_STATUSES = new Set(['item-attack-pill', 'item-defense-pill', 'item-smoke-bomb']);
 
 export type SoloPveEngineOptions = {
     /** Server-owned escape decision. Never derive this from request data. */
@@ -533,10 +532,6 @@ function startTurn(session: SoloPveSession, side: SoloPveSide): void {
     let value = fighter(session, side);
     applyGroundEffects(session, side);
     value = fighter(session, side);
-    const dots = applyDoTs(value, session.round);
-    value = dots.fighter;
-    session.log.push(...dots.lines);
-    appendFx(session, side, dots.fx);
     if (COMBAT_RESOURCES_V2) {
         const level = Math.max(1, Number(value.character.level) || 1);
         const regen = v2ResourceRegen(level);
@@ -682,11 +677,14 @@ function companionCast(session: SoloPveSession, companion: SoloPveCompanion, mov
     const resolution = companionDealDamage(session, companion, move);
     const dealt = resolution.dealt;
     session.log.push(`${companion.name}${label} -> ${session.enemy.name} for ${dealt}.`);
+    // The companion acts after the enemy's turn has already started (its AP is set). A
+    // Stun or Wound therefore starts next round, like any jutsu status; applied at once,
+    // the Stun was aged away at the end of this same enemy turn without ever costing AP.
     switch (kind) {
         case 'stun': case 'freeze': case 'movelock':
-            addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Stun', rounds: 1, kind: 'negative', activeRound: session.round + 1 }); break;
         case 'wound':
-            addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative' }); break;
+            addCompanionStatus(session.enemy, { name: 'Wound', rounds, amount: Math.max(1, Math.floor(dealt * 0.4)), kind: 'negative', activeRound: session.round + 1 }); break;
         case 'dot': case 'burn':
             addCompanionStatus(session.enemy, { name: 'Poison', rounds, percent: 8, kind: 'negative' });
             if (kind === 'burn') addCompanionStatus(session.enemy, { name: 'Decrease Damage Given', rounds, percent: 15, kind: 'negative' });
@@ -806,6 +804,16 @@ function runSoloPveCompanionPhase(session: SoloPveSession): void {
 export function endSoloPveTurn(session: SoloPveSession): void {
     if (session.status !== 'active') return;
     const current = session.activeSide;
+    // Wound and Drain tick on the fighter whose turn is ending, after they have had
+    // the whole turn to Cleanse them (owner ruling 2026-10-05; the same rule as PvP's
+    // endTurn in api/pvp/move.ts). They used to tick at the start of the holder's
+    // turn, before the holder could act.
+    const dots = applyDoTs(fighter(session, current), session.round);
+    setFighter(session, current, dots.fighter);
+    session.log.push(...dots.lines);
+    appendFx(session, current, dots.fx);
+    checkWinner(session);
+    if (session.status !== 'active') return;
     if (current === 'enemy') {
         const directive = hollowGateDirective(session);
         const hazard = directive ? hollowGateHazardDamage(directive, session.player.pos, session.player.maxHp) : 0;
@@ -816,28 +824,18 @@ export function endSoloPveTurn(session: SoloPveSession): void {
             if (session.status !== 'active') return;
         }
     }
-    // Solo PvE normally ticks the acting fighter at the end of each turn. The
-    // canonical combat items promise full rounds, so age both sides' item
-    // statuses together at the end of the enemy phase instead.
-    const currentFighter = fighter(session, current);
-    if (current === 'player') {
-        const itemStatuses = currentFighter.statuses.filter(status => ROUND_TIMED_ITEM_STATUSES.has(status.source ?? ''));
-        const other = tickStatuses({ ...currentFighter, statuses: currentFighter.statuses.filter(status => !ROUND_TIMED_ITEM_STATUSES.has(status.source ?? '')) }, session.round);
-        setFighter(session, current, { ...other, statuses: [...other.statuses, ...itemStatuses] });
-    } else {
-        setFighter(session, current, tickStatuses(currentFighter, session.round));
-        const playerItems = session.player.statuses.filter(status => ROUND_TIMED_ITEM_STATUSES.has(status.source ?? ''));
-        if (playerItems.length) {
-            const agedItems = tickStatuses({ ...session.player, statuses: playerItems }, session.round).statuses;
-            session.player = { ...session.player, statuses: [
-                ...session.player.statuses.filter(status => !ROUND_TIMED_ITEM_STATUSES.has(status.source ?? '')),
-                ...agedItems,
-            ] };
-        }
+    // Statuses age once per round, for both sides together, after the enemy (the
+    // round's closer) acts — the same rule as PvP (api/pvp/move.ts endTurn). This
+    // used to tick only the fighter whose turn had just ended, so a Reflect,
+    // Decrease Damage Taken or Prevent the player cast "for 2 rounds" was gone
+    // before the enemy's second turn. Only the combat items had been exempted.
+    if (current === 'enemy') {
+        setFighter(session, 'enemy', tickStatuses(fighter(session, 'enemy'), session.round));
+        setFighter(session, 'player', tickStatuses(fighter(session, 'player'), session.round));
     }
     session.cooldowns[current] = tickCombatCooldowns(session.cooldowns[current]);
     if (current === 'enemy') {
-        session.groundEffects = tickGroundEffects(session.groundEffects);
+        session.groundEffects = tickGroundEffects(session.groundEffects, session.round);
         setFighter(session, 'player', session.player);
         setFighter(session, 'enemy', session.enemy);
         if (session.companion) {
@@ -975,20 +973,34 @@ function groundTags(jutsu: SoloPveJutsu): PvpGroundEffect['tags'] {
     return canonicalGroundTags(jutsu.tags);
 }
 
+// Zone timing is PvP's (api/pvp/move.ts): the zone recurs from next round at the start of
+// each of the victim's turns, for two of their turns. The player always opens the round,
+// so a player zone also bites the enemy right away (the enemy has not acted yet) and that
+// pulse counts as the first of the two. An enemy zone has no such pulse, because the
+// player has already acted this round. The old version pulsed every cast at once and aged
+// every zone at each round end, so an enemy zone reached the player for one turn only.
 function addGroundEffect(session: SoloPveSession, side: SoloPveSide, jutsu: SoloPveJutsu, plan: JutsuActionPlan): void {
-    const effect: PvpGroundEffect = createCanonicalGroundEffect({
-        id: `${session.sessionId}:${session.eventSeq + 1}:${side}:${jutsu.id}`,
-        owner: side === 'player' ? 'p1' : 'p2',
-        name: jutsu.name,
-        plan,
-        bloodlineRank: jutsu.bloodlineRank,
-    });
+    const opponent = fighter(session, 'enemy');
+    const effect: PvpGroundEffect = {
+        ...createCanonicalGroundEffect({
+            id: `${session.sessionId}:${session.eventSeq + 1}:${side}:${jutsu.id}`,
+            owner: side === 'player' ? 'p1' : 'p2',
+            name: jutsu.name,
+            plan,
+            bloodlineRank: jutsu.bloodlineRank,
+        }),
+        activeRound: session.round + 1,
+        castPulseConsumed: side === 'player' && plan.footprint.includes(opponent.pos),
+    };
+    // Registered before the pulse: setFighter reconciles zone statuses against the
+    // live zones and would strip a pulse from a zone it cannot find.
     session.groundEffects.push(effect);
     session.log.push(`${jutsu.name} creates a ground effect across ${effect.tiles.length} hexes for 2 rounds.`);
-    const opponentSide = otherSide(side);
-    const applied = applyGroundEffectToFighter(fighter(session, opponentSide), effect, session.round);
-    setFighter(session, opponentSide, applied.fighter);
-    session.log.push(...applied.lines);
+    if (side === 'player') {
+        const applied = applyGroundEffectToFighter(opponent, effect, session.round, true);
+        setFighter(session, 'enemy', applied.fighter);
+        session.log.push(...applied.lines);
+    }
 }
 
 function payJutsuResources(session: SoloPveSession, side: SoloPveSide, chakra: number, stamina: number): void {
@@ -1190,7 +1202,9 @@ function resolveDirectAction(session: SoloPveSession, side: SoloPveSide, action:
         if (!canAct(session, side, CLEANSE_AP) || (session.cooldowns[side].cleanse ?? 0) > 0) return { applied: false, reason: 'cannot-act' };
         const blocked = activeStatuses(self, session.round).some((status) => status.name === 'Cleanse Prevent');
         if (!blocked) {
-            const cleansed = removeActiveCombatStatusesByKind(self.statuses, 'negative', session.round);
+            // Pending debuffs too, as in PvP: a Wound or Drain cast earlier this round
+            // is gone before it ever ticks.
+            const cleansed = removeCombatStatusesByKind(self.statuses, 'negative');
             setFighter(session, side, { ...self, statuses: cleansed.statuses });
         }
         session.cooldowns[side].cleanse = 10;

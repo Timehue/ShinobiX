@@ -59,7 +59,9 @@ describe("player-facing jutsu tag contract", () => {
         assert.match(info("Ignition").summary, /every hit/i);
         assert.match(info("Mirror").rule, /stay on the user/i);
         assert.match(info("Buff Prevent").rule, /direct Heal, Shield/i);
-        assert.match(info("Push").value, /up to range/i);
+        // Push and Pull move 4 tiles whatever the jutsu's range (owner ruling 2026-10-05).
+        assert.match(info("Push").value, /up to 4 tiles/i);
+        assert.match(info("Pull").summary, /4 tiles toward/i);
         assert.match(info("Pull").rule, /stops early/i);
         // The tempo pair is a FLAT +/-10 AP per action, not a percentage, and the
         // copy must say so in AP — "20-30%, scaling with mastery" told players

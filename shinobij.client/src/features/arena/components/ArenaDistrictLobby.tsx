@@ -95,7 +95,7 @@ export function ArenaDistrictLobby({
                 tone="crimson"
             />
 
-            <fieldset disabled={tournamentFightActive} className="clan-tabs expanded-tabs" aria-label="Arena activities" style={{ margin: '0 0 12px', minWidth: 0 }}>
+            <fieldset disabled={tournamentFightActive} className="clan-tabs expanded-tabs" aria-label="Arena activities" onWheel={scrollArenaModesWithWheel} style={{ margin: '0 0 12px', minWidth: 0 }}>
                 <button className={activeTab === "clanWar" ? "active" : ""} onClick={() => onTabChange("clanWar")}><GiCrossedSwords style={ARENA_ICON} />Clan War</button>
                 <button className={activeTab === "tournaments" ? "active" : ""} onClick={() => onTabChange("tournaments")}><GiTrophy style={ARENA_ICON} />Tournaments</button>
                 {dojoCircuitEnabled && <button onClick={() => onTabChange("dojoCircuit")}><GiTrophy style={ARENA_ICON} />Dojo Circuit</button>}
@@ -108,6 +108,7 @@ export function ArenaDistrictLobby({
                     onClick={() => onTabChange("petBattles")}
                 ><GiPawPrint style={ARENA_ICON} />Ranked Pet Battles</button>
             </fieldset>
+            <p className="arena-mode-scroll-hint" aria-hidden="true">Swipe to explore arena modes <span>→</span></p>
 
             {activeTab === "clanWar" && (
                 <>

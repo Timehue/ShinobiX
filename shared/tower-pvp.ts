@@ -143,7 +143,7 @@ export type TowerPvpQueueCommand =
     };
 
 export type TowerPvpActionType =
-    | 'move' | 'dash' | 'attack' | 'jutsu' | 'weapon'
+    | 'move' | 'dash' | 'attack' | 'jutsu' | 'weapon' | 'item'
     | 'heal' | 'cleanse' | 'clear' | 'wait' | 'forfeit';
 
 export type TowerPvpActionCommand = {

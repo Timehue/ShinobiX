@@ -37,11 +37,10 @@ covered five desktop/mobile previews, two recordings, 21 frozen-pose checks and
 five actual primary-combat scenarios with no browser errors or overflow.
 The complete strict layout matrix passed 20 tests with 10 configured skips.
 
-The authorized release follow-up removes three unused mission/arena symbols
-and a duplicate world-map test import, corrects the maximum-name adaptive
-fixture's expected account, regenerates the canonical design-token export,
-and updates a retired-overlay storage test to exercise current REST lock
-fencing. The preview also mounts the shared renderer retirement component.
+The authorized release follow-up removes the unused arena wheel handler and
+mounts shared renderer retirement in the QA preview. Current main's combat
+changes, controller retirement and overlapping storage/design-token/browser
+gate repairs remain intact.
 Dependency patches reuse the narrow compression, proxy-addr and source-map-js
 updates proposed in PRs #294-297. Both fresh-install dependency audits report
 zero vulnerabilities. Production security and release gates remain enabled.
@@ -51,20 +50,17 @@ tutorial on all seven browser/device cases. Its focused runner uses the same
 immutable production preview. Stronghold leave-failure coverage checks enabled
 movement and resumed polling directly, replacing an obsolete guidance string;
 the complete local Chromium/WebKit lifecycle audit passes with no page errors.
-The responsive follow-up restores existing controller text-entry wiring,
-keyboard/focus styles and First Pact walking opt-in removed from main; newer
-privacy-denial and disconnect handling remains intact. The unchanged controller
-suite passes 139 cases across all seven browser/device projects, with one
-configured Firefox mobile-emulation skip. Desktop/mobile paid recovery retry
+Desktop/mobile paid recovery retry
 coverage now expects its selected paid discharge to charge once.
 
 Imported images and lazy stylesheets use shorter generated filenames with the
 same content hashes, cache naming pattern and manifest mappings. Source art,
 vendor names and entry CSS naming are preserved. The integration-enabled build
-measures 9,149,004 bytes against the unchanged 9,150,000-byte product budget,
-saving 11,561 bytes of repeated URLs from the restored-controller build.
+measures 9,140,267 bytes against the unchanged 9,150,000-byte product budget.
 A byte comparison confirms all 943 emitted images and 69 stylesheets remain
 identical when only lazy stylesheet filenames change.
+All 943 final imported image payloads also match the original preview's SHA-256
+fingerprints after both filename optimizations.
 
 The motion layer uses native bone rotations and compact, labeled joint tuples
 to fit the existing production bundle budget. An equivalence sweep compared

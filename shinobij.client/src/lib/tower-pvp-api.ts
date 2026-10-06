@@ -162,9 +162,11 @@ export async function fetchTowerPvpMatch(matchId: string, playerName: string, si
     return data.match;
 }
 
+// Items are allowed through: the server only accepts them in a match that sealed a
+// consumable kit (ranked 2v2, Clan War 2v2) and refuses them in the open Team Arena.
 function pvpActionBody(action: TowerActionInput): Record<string, unknown> {
-    if (action.type === "item" || action.type === "summon") {
-        throw new Error("Consumables and summons are disabled in the Team Arena.");
+    if (action.type === "summon") {
+        throw new Error("Summons are disabled in the Team Arena.");
     }
     return action;
 }

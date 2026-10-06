@@ -136,6 +136,20 @@ export function effectivePoisonPercent(rawPercent: number | undefined, bloodline
     return Math.max(1, Math.floor(ceiling * (100 + mastery) / 150));
 }
 
+// Wound's own per-rank ceiling (lower than the amp table). Mirrors
+// WOUND_CAP_BY_RANK + woundCapForJutsu in api/combat-core/formulas.ts.
+export const WOUND_CAP_BY_RANK: Record<string, number> = {
+    basic: 25,
+    AB: 30,
+    S: 35,
+};
+export function woundCapForRank(rank?: string | null): number {
+    const trimmed = (rank ?? "").trim();
+    if (/^S/i.test(trimmed)) return WOUND_CAP_BY_RANK.S;
+    if (/^[AB]/i.test(trimmed)) return WOUND_CAP_BY_RANK.AB;
+    return WOUND_CAP_BY_RANK.basic;
+}
+
 export function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, level = 50): number {
     if (normalizeTagName(tag.name) === "Poison") return effectivePoisonPercent(tag.percent, bloodlineRank, level);
     const raw = tag.percent > 0 ? tag.percent : 30;
@@ -144,6 +158,9 @@ export function effectiveTagPercent(tag: JutsuTag, bloodlineRank?: Rank | null, 
     if (cappedDamageTags.includes(normalizeTagName(tag.name))) {
         return Math.min(levelScaled, tagCapForRank(bloodlineRank));
     }
+    // The server caps the bleed at the jutsu's rank (a basic jutsu's "Wound 30%"
+    // applies 25%), so the card shows the capped number it will really use.
+    if (normalizeTagName(tag.name) === "Wound") return Math.min(levelScaled, woundCapForRank(bloodlineRank));
     return levelScaled;
 }
 

@@ -63,6 +63,7 @@ import { countItem } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
 import { tagMatchesName, WEAPON_POISON_TAG_CAP } from "../lib/tags";
+import { WEAPON_AMP_TAG_CAP, WEAPON_FLAT_TAG_AMOUNTS, WEAPON_WOUND_TAG_CAP } from "../lib/weapon-effect-display";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
@@ -2037,13 +2038,13 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at 35%; Wound caps at 25%. Heal, Shield, and Drain use combat mastery rather than the rolled percentage.</span></div>
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: a swing heals {WEAPON_FLAT_TAG_AMOUNTS.Heal} HP, shields {WEAPON_FLAT_TAG_AMOUNTS.Shield}, or drains {WEAPON_FLAT_TAG_AMOUNTS.Drain} HP and chakra per turn.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat shield, scaled by combat mastery and limited by your shield cap</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat heal, scaled by combat mastery; tag count does not change it</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_AMOUNTS.Shield} shield per swing, limited by your shield cap</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_AMOUNTS.Heal} HP per swing; tag count does not change it</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores up to 35% of damage dealt, after shield and mitigation</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Increases target damage taken for 2 turns; combat amplification caps apply</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>

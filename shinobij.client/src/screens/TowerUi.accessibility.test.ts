@@ -83,9 +83,16 @@ test("Team Arena ready checks expire safely and transfer focus between timed sta
 test("Team PvP presentation keeps live-player art and hides disabled consumable actions", () => {
     assert.match(fight, /isTeamPvp && typeof sealed === "string" && sealed/);
     assert.match(fight, /isTeamPvp && typeof a\.character\?\.avatarImage === "string"/);
-    assert.match(fight, /const actionWeapons = isTeamPvp \? myWeapons\.filter\(\(\{ thrown \}\) => !thrown\) : myWeapons/);
-    assert.match(fight, /const actionConsumables = isTeamPvp \? \[\] : myConsumables/);
+    // Only the open Team Arena hides thrown ammunition and items. A match that sealed a
+    // consumable kit (ranked 2v2, Clan War 2v2) shows it, because the server accepts it.
+    assert.match(fight, /const teamPvpGearLocked = isTeamPvp && !teamPvpConsumables/);
+    assert.match(fight, /const actionWeapons = teamPvpGearLocked \? myWeapons\.filter\(\(\{ thrown \}\) => !thrown\) : myWeapons/);
+    assert.match(fight, /const actionConsumables = teamPvpGearLocked \? \[\] : myConsumables/);
     assert.match(fight, /Team Arena disables consumables and thrown ammunition/);
+    const ranked2v2 = readFileSync(new URL("../components/Ranked2v2Panel.tsx", import.meta.url), "utf8");
+    const clanWar2v2 = readFileSync(new URL("./ClanWar2v2Battle.tsx", import.meta.url), "utf8");
+    assert.match(ranked2v2, /teamPvpConsumables=\{\(state\.match as TowerPvpMatch\)\.rules\?\.consumables === "enabled"\}/);
+    assert.match(clanWar2v2, /teamPvpConsumables=\{match\.rules\?\.consumables === "enabled"\}/);
     assert.match(fight, /aria-label=\{isTeamPvp \? "Your Team" : "Squad"\}/);
     assert.match(fight, /aria-label=\{isTeamPvp \? "Rival Team and battle log" : "Enemies and battle log"\}/);
 });
