@@ -167,7 +167,7 @@ const CUTSCENE_CSS = `
 
 .pet-evo-tube {
     position: absolute; top: -8%; left: 50%;
-    
+
     width: clamp(320px, 78vw, 660px); height: 116%;
     pointer-events: none; mix-blend-mode: screen;
     background:
