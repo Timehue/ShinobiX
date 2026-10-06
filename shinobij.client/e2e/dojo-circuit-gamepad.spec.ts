@@ -12,8 +12,16 @@ test('controller can enter Card Clash from the live Dojo Circuit without touch i
             id: 'Standard test controller', index: 0, mapping: 'standard', connected: true, timestamp: 0,
             axes: [0, 0],
             buttons: Array.from({ length: 16 }, () => ({ pressed: false, touched: false, value: 0 })),
+            releaseAfterSample: null as number | null,
         };
-        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+        Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => {
+            const sampled = { ...pad, buttons: pad.buttons.map(button => ({ ...button })) };
+            if (pad.releaseAfterSample !== null) {
+                pad.buttons[pad.releaseAfterSample] = { pressed: false, touched: false, value: 0 };
+                pad.releaseAfterSample = null;
+            }
+            return [sampled];
+        } });
         (window as Window & { dojoTestGamepad?: typeof pad }).dojoTestGamepad = pad;
     });
 
@@ -44,11 +52,14 @@ test('controller can enter Card Clash from the live Dojo Circuit without touch i
     await trialCards.nth(0).focus();
     const press = async (index: number) => {
         await page.evaluate(async (buttonIndex) => {
-            const pad = (window as Window & { dojoTestGamepad: { buttons: Array<{ pressed: boolean; value: number }> } }).dojoTestGamepad;
+            const pad = (window as Window & { dojoTestGamepad: {
+                buttons: Array<{ pressed: boolean; value: number }>; releaseAfterSample: number | null;
+            } }).dojoTestGamepad;
             const sampledFrames = () => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
             pad.buttons[buttonIndex] = { pressed: true, value: 1 };
-            // The production controller polls on RAF. Keep both edges present
-            // for sampled frames, including while the Card Hall mounts.
+            // Release after one controller sample. Two slow WebKit RAF frames
+            // can exceed the real D-pad repeat delay and step two cards.
+            pad.releaseAfterSample = buttonIndex;
             await sampledFrames();
             pad.buttons[buttonIndex] = { pressed: false, value: 0 };
             await sampledFrames();

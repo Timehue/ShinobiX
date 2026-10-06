@@ -44,7 +44,8 @@ Dependency patches reuse the narrow compression, proxy-addr and source-map-js
 updates proposed in PRs #294-297. Both fresh-install dependency audits report
 zero vulnerabilities. Production security and release gates remain enabled.
 The Dojo controller test boots the real authenticated production screen,
-samples both controller edges on animation frames, and completes the Card Hall
+samples a single controller pulse without triggering slow-frame D-pad repeats,
+and completes the Card Hall
 tutorial on all seven browser/device cases. Its focused runner uses a distinct
 immutable production preview so the required CI flow can follow smoke in one
 checkout. Stronghold leave-failure coverage checks enabled
@@ -52,6 +53,8 @@ movement and resumed polling directly, replacing an obsolete guidance string;
 the complete local Chromium/WebKit lifecycle audit passes with no page errors.
 Desktop/mobile paid recovery retry
 coverage now expects its selected paid discharge to charge once.
+The Marketplace keeps one scroll-card block at its existing bottom handoff target;
+both village and profession purchase/recovery flows pass on desktop and mobile.
 The map camera rechecks its media query through its existing viewport observer,
 including
 a held pointer across phone/desktop boundaries when a query notification is lost.
