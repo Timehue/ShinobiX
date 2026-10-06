@@ -58,8 +58,16 @@ async function hitEvidence(control: Locator) {
 
 async function expectReachable(control: Locator) {
     await expect(control).toBeVisible();
-    await expect.poll(async () => (await hitEvidence(control)).hits.every(h => h.reachesControl), { timeout: 5000 }).toBe(true);
-    const { rect: r, viewport: v } = await hitEvidence(control);
+    let evidence: Awaited<ReturnType<typeof hitEvidence>> | undefined;
+    await expect.poll(async () => {
+        const sample = await hitEvidence(control);
+        if (!sample.hits.every(h => h.reachesControl)) return false;
+        evidence = sample;
+        return true;
+    }, { timeout: 5000 }).toBe(true);
+    // Geometry and hit testing must describe the same frame: a natural reveal
+    // can replace Skip with Continue between separate browser evaluations.
+    const { rect: r, viewport: v } = evidence!;
     expect(r.x).toBeGreaterThanOrEqual(0);
     expect(r.y).toBeGreaterThanOrEqual(0);
     expect(r.x + r.width).toBeLessThanOrEqual(v.width);
@@ -130,9 +138,11 @@ test("the complete evolution timeline and reduced motion retain a reachable Cont
     await page.emulateMedia({ reducedMotion: "no-preference" });
     const writes = await prepare(page);
     await evolve(page);
+    const openedAt = performance.now();
     await expectReachable(page.locator(".pet-evo-skip"));
     await page.screenshot({ path: info.outputPath("timeline-start.png") });
-    await page.waitForTimeout(3000);
+    // Screenshot and geometry work count toward the three-second checkpoint.
+    await page.waitForTimeout(Math.max(0, 3000 - (performance.now() - openedAt)));
     await expectReachable(page.locator(".pet-evo-skip"));
     await page.screenshot({ path: info.outputPath("timeline-morph.png") });
     await expect(page.locator(".pet-evo-continue")).toBeVisible({ timeout: 20_000 });
@@ -156,10 +166,13 @@ test("nonzero phone safe areas keep both controls clear in portrait and landscap
     test.skip(!["chromium-390", "chromium-mobile", "chrome-native-phone"].includes(info.project.name), "CDP safe-area emulation in bundled and installed Chrome");
     test.setTimeout(90_000);
     await page.emulateMedia({ reducedMotion: "no-preference" });
+    const clockStart = Date.now();
+    await page.clock.install({ time: clockStart });
     const session = await page.context().newCDPSession(page);
     await session.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 34, right: 24, bottom: 34, left: 24 } });
     await prepare(page);
-    await evolve(page);
+    await page.clock.pauseAt(clockStart + 120_000);
+    await evolve(page, true);
     const skip = page.locator(".pet-evo-skip");
     await expectReachable(skip);
     expect((await skip.boundingBox())!.y).toBe(50);
