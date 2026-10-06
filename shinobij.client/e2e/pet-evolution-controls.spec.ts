@@ -1,6 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { STARTER_PETS } from "../src/data/starter-pets";
 import { ASCENSION_STONE_ID, AWAKENING_STONE_ID, evolvePet, evolutionLineFor } from "../src/data/pet-evolutions";
+import { EVOLUTION_TOTAL_MS } from "../src/lib/pet-evolution-cutscene";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
 
 async function prepare(page: Page) {
@@ -67,17 +68,62 @@ async function expectReachable(control: Locator) {
     }, { timeout: 5000 }).toBe(true);
     // Geometry and hit testing must describe the same frame: a natural reveal
     // can replace Skip with Continue between separate browser evaluations.
+    expectHitGeometry(evidence!);
     const { rect: r, viewport: v } = evidence!;
+    if (v.height <= 520 && await control.evaluate(n => n.classList.contains("pet-evo-continue"))) {
+        const caption = await control.page().locator(".pet-evo-name-new").boundingBox();
+        expect(caption!.y + caption!.height).toBeLessThanOrEqual(r.y);
+    }
+}
+
+type ControlSample = Pick<Awaited<ReturnType<typeof hitEvidence>>, "rect" | "viewport" | "hits"> & { elapsedMs: number };
+type EvolutionProbe = { initial?: ControlSample | null; morph?: ControlSample | null; complete?: ControlSample | null };
+
+function expectHitGeometry(evidence: Pick<ControlSample, "rect" | "viewport" | "hits">) {
+    expect(evidence.hits.every(hit => hit.reachesControl)).toBe(true);
+    const { rect: r, viewport: v } = evidence;
     expect(r.x).toBeGreaterThanOrEqual(0);
     expect(r.y).toBeGreaterThanOrEqual(0);
     expect(r.x + r.width).toBeLessThanOrEqual(v.width);
     expect(r.y + r.height).toBeLessThanOrEqual(v.height);
     expect(r.width).toBeGreaterThanOrEqual(48);
     expect(r.height).toBeGreaterThanOrEqual(48);
-    if (v.height <= 520 && await control.evaluate(n => n.classList.contains("pet-evo-continue"))) {
-        const caption = await control.page().locator(".pet-evo-name-new").boundingBox();
-        expect(caption!.y + caption!.height).toBeLessThanOrEqual(r.y);
-    }
+}
+
+async function observeNaturalEvolution(page: Page) {
+    await page.evaluate(() => {
+        const probe: EvolutionProbe = {};
+        (window as Window & { __petEvolutionControlProbe?: EvolutionProbe }).__petEvolutionControlProbe = probe;
+        let startedAt: number | undefined;
+        const sample = (selector: string, elapsedMs: number): ControlSample | null => {
+            const node = document.querySelector(selector);
+            if (!node) return null;
+            const r = node.getBoundingClientRect();
+            return {
+                elapsedMs,
+                rect: { x: r.x, y: r.y, width: r.width, height: r.height },
+                viewport: { width: innerWidth, height: innerHeight },
+                hits: [[.5, .5], [.1, .1], [.9, .1], [.1, .9], [.9, .9]].map(([x, y]) => {
+                    const hit = document.elementFromPoint(r.x + r.width * x, r.y + r.height * y);
+                    return { reachesControl: hit === node || !!hit && node.contains(hit), covering: hit?.outerHTML.slice(0, 220) };
+                }),
+            };
+        };
+        const tick = (timestamp: number) => {
+            if (document.querySelector(".pet-evo-cutscene")) startedAt ??= timestamp;
+            if (startedAt !== undefined) {
+                const elapsedMs = timestamp - startedAt;
+                if (probe.initial === undefined && elapsedMs >= 400) probe.initial = sample(".pet-evo-skip", elapsedMs);
+                if (probe.morph === undefined && elapsedMs >= 3000) probe.morph = sample(".pet-evo-skip", elapsedMs);
+                if (document.querySelector(".pet-evo-continue")) {
+                    probe.complete = sample(".pet-evo-continue", elapsedMs);
+                    return;
+                }
+            }
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
 }
 
 test("evolution controls receive real pointer hits after scrolling, resizing and repeated reveals", async ({ page }, info) => {
@@ -137,15 +183,25 @@ test("the complete evolution timeline and reduced motion retain a reachable Cont
     test.setTimeout(90_000);
     await page.emulateMedia({ reducedMotion: "no-preference" });
     const writes = await prepare(page);
+    // Sample live frames in the browser. A slow screenshot/protocol round trip
+    // must not try to query a Skip button after the natural reveal replaces it.
+    await observeNaturalEvolution(page);
     await evolve(page);
-    const openedAt = performance.now();
-    await expectReachable(page.locator(".pet-evo-skip"));
-    await page.screenshot({ path: info.outputPath("timeline-start.png") });
-    // Screenshot and geometry work count toward the three-second checkpoint.
-    await page.waitForTimeout(Math.max(0, 3000 - (performance.now() - openedAt)));
-    await expectReachable(page.locator(".pet-evo-skip"));
-    await page.screenshot({ path: info.outputPath("timeline-morph.png") });
     await expect(page.locator(".pet-evo-continue")).toBeVisible({ timeout: 20_000 });
+    await expect.poll(() => page.evaluate(() =>
+        (window as Window & { __petEvolutionControlProbe?: EvolutionProbe }).__petEvolutionControlProbe?.complete ?? null
+    )).not.toBeNull();
+    const observations = await page.evaluate(() =>
+        (window as Window & { __petEvolutionControlProbe?: EvolutionProbe }).__petEvolutionControlProbe!
+    );
+    await info.attach("natural-timeline-control-samples", { body: JSON.stringify(observations, null, 2), contentType: "application/json" });
+    for (const phase of ["initial", "morph", "complete"] as const) {
+        expect(observations[phase], `${phase} must have a live control`).toBeTruthy();
+        expectHitGeometry(observations[phase]!);
+    }
+    expect(observations.initial!.elapsedMs).toBeGreaterThanOrEqual(400);
+    expect(observations.morph!.elapsedMs).toBeGreaterThanOrEqual(3000);
+    expect(observations.complete!.elapsedMs).toBeGreaterThanOrEqual(EVOLUTION_TOTAL_MS - 100);
     const proceed = page.locator(".pet-evo-continue");
     await expectReachable(proceed);
     await page.screenshot({ path: info.outputPath("timeline-complete.png") });
