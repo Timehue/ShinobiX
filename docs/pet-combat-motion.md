@@ -37,10 +37,9 @@ covered five desktop/mobile previews, two recordings, 21 frozen-pose checks and
 five actual primary-combat scenarios with no browser errors or overflow.
 The complete strict layout matrix passed 20 tests with 10 configured skips.
 
-The authorized release follow-up removes the unused arena wheel handler and
-mounts shared renderer retirement in the QA preview. Current main's combat
-changes, controller retirement and overlapping storage/design-token/browser
-gate repairs remain intact.
+The authorized release follow-up mounts shared renderer retirement in the QA
+preview. Current main's combat changes, arena wheel behavior, controller
+retirement and overlapping storage/design-token/browser gate repairs remain intact.
 Dependency patches reuse the narrow compression, proxy-addr and source-map-js
 updates proposed in PRs #294-297. Both fresh-install dependency audits report
 zero vulnerabilities. Production security and release gates remain enabled.
@@ -56,7 +55,7 @@ coverage now expects its selected paid discharge to charge once.
 Imported images and lazy stylesheets use shorter generated filenames with the
 same content hashes, cache naming pattern and manifest mappings. Source art,
 vendor names and entry CSS naming are preserved. The integration-enabled build
-measures 9,140,267 bytes against the unchanged 9,150,000-byte product budget.
+enforces the unchanged 9,150,000-byte product budget.
 A byte comparison confirms all 943 emitted images and 69 stylesheets remain
 identical when only lazy stylesheet filenames change.
 All 943 final imported image payloads also match the original preview's SHA-256
