@@ -10,6 +10,7 @@ import { fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
+import { cacheDynamicImport, lazyWithRetry } from "../lib/lazyWithRetry";
 import "../styles/index/15-world-map-territory.css";
 import "../styles/index/29-clan-exchange-storefront.css";
 import "../styles/atlas-skin.css";
@@ -125,7 +126,8 @@ import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorExits as roadExitsForSector, travelArrivalTile, type SectorExit } from "../../../shared/sector-links";
 import { applyCurrencyRewards, rewardSummary } from "../lib/currency";
 import { startWildPetEncounter, wildPetEncounterFailureMessage } from "../lib/wild-pet-encounter-api";
-import { WildPetBinding } from "../components/WildPetBinding";
+const loadWildPetBinding = cacheDynamicImport(() => import("../components/WildPetBinding").then(m => ({ default: m.WildPetBinding })));
+const WildPetBinding = lazyWithRetry(loadWildPetBinding);
 import {
     openAncientChest,
     recordSectorExplore,
@@ -2561,6 +2563,11 @@ function WorldMapContent({
         return () => clearInterval(t);
     }, [wandererDialog, character.activeQuestbook?.deadline]);
     const [activePetEncounter, setActivePetEncounter] = useState<Pet | null>(null);
+    // Warm only an actual encounter, while its introduction is still visible.
+    // Battle/model preparation inside WildPetBinding remains unchanged.
+    useEffect(() => {
+        if (activePetEncounter) void loadWildPetBinding().catch(() => undefined);
+    }, [activePetEncounter]);
     // The single-use token /api/pet/encounter-start minted for the pet on screen.
     // The battle binds to this token; the server owns the roll and capture.
     const petEncounterToken = useRef("");
@@ -3978,7 +3985,7 @@ function WorldMapContent({
     }
 
     if (activePetEncounter && petVnDone) {
-        return <WildPetBinding
+        return <Suspense fallback={<p role="status">Preparing encounter…</p>}><WildPetBinding
             character={character}
             token={petEncounterToken.current}
             pet={activePetEncounter}
@@ -3994,7 +4001,7 @@ function WorldMapContent({
                 petEncounterTrailId.current = "";
                 setActivePetEncounter(null);
             }}
-        />;
+        /></Suspense>;
     }
     if (legacyAvailable && sageVnEvent) {
         // The Wandering Sage's introduction. Completing it opens the offer

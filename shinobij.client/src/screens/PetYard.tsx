@@ -1,6 +1,7 @@
 import { petTamerExpeditionMult, petTamerTrainingSpeedPct } from "../lib/profession-bonuses";
 import { PetBattleReadiness } from "../components/PetBattleReadiness";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef, Suspense, useTransition } from "react";
+import { cacheDynamicImport, lazyWithRetry, retryDynamicImport } from "../lib/lazyWithRetry";
 import { masteryHasCapstone } from "../lib/profession-mastery";
 import { visiblePoll } from "../lib/poll";
 import { serverNow } from "../lib/server-clock";
@@ -13,7 +14,6 @@ import { getPetXpBonus } from "../lib/village-upgrades";
 import { derivePetGrowthStats, emptyPetGrowthAllocation, petGrowthAttributeCap, petGrowthPointsEarned, petTrainingPreview, petXpNeeded } from "../lib/pet-balance";
 import { nextEvolution, EVOLUTION_STONE_NAMES, petVisualId } from "../data/pet-evolutions";
 import { petEvolveCutsceneEnabled } from "../lib/pet-coliseum-flag";
-import { PetEvolutionCutscene } from "../components/PetEvolutionCutscene";
 import { gameConfirm } from "../components/GameAlert";
 import { formatPetTimer } from "../lib/utils";
 import { isPetOnExpedition, petCurrentHappiness, petDisplayName, petFreePettingLeft } from "../lib/pet";
@@ -43,6 +43,12 @@ import "../styles/pet-yard-refined.css";
 import { GameIcon } from "../components/icons/GameIcon";
 import { PetExpeditionBoard } from "../components/PetExpeditionBoard";
 import { clearPetExpeditionPetHint, PET_EXPEDITION_OPEN_EVENT, readPetExpeditionPetHint } from "../lib/pet-expedition-navigation";
+
+const loadEvolutionCutscene = cacheDynamicImport(() => import("../components/PetEvolutionCutscene").then(m => ({ default: m.PetEvolutionCutscene })));
+const PetEvolutionCutscene = lazyWithRetry(loadEvolutionCutscene);
+function warmEvolutionCutscene() {
+    if (petEvolveCutsceneEnabled()) void loadEvolutionCutscene().catch(() => undefined);
+}
 
 export function PetYard({ character, updateCharacter, onVersionedCharacter, onServerVersion, setScreen, onBack, backLabel = "Village", onImmediateSave: _onImmediateSave, sharedImages = {} }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; onServerVersion: (version: unknown) => boolean; setScreen: (s: Screen) => void; onBack: () => void; backLabel?: string; onImmediateSave?: (c: Character) => void; sharedImages?: Record<string, string> }) {
     const combatEligiblePets = activeCarriedPets<Pet>(character);
@@ -77,7 +83,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const [nicknameInput, setNicknameInput] = useState("");
     const [nicknameMsg, setNicknameMsg] = useState("");
     const [evolveBusy, setEvolveBusy] = useState(false);
+    const [evolvePresentationPending, startEvolutionPresentation] = useTransition();
     const evolveBusyRef = useRef(false);
+    const evolutionRequestRef = useRef(0);
+    const yardRef = useRef<HTMLDivElement>(null);
     const [petTrainingBusy, setPetTrainingBusy] = useState(false);
     const petTrainingBusyRef = useRef(false);
     const [growthBusy, setGrowthBusy] = useState(false);
@@ -143,19 +152,38 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     const canOfferEscort = character.profession === "petTamer" && !!character.clan;
     const showStarterPetNote = character.level < 20 && character.pets.length > 0 && !(character.examsPassed ?? []).includes("genin");
 
-    useEffect(() => {
+    // Navigation can show its new shell before a lazy destination commits.
+    // Cancel the preflight on intent, and on committed unmount/account change,
+    // instead of waiting for a passive effect to release the previous screen.
+    useLayoutEffect(() => {
         mountedRef.current = true;
         activeAccountRef.current = character.name.trim().toLowerCase();
+        return () => {
+            mountedRef.current = false;
+            evolutionRequestRef.current += 1;
+            expeditionLaunchRequestRef.current += 1;
+            expeditionLaunchBusyRef.current = false;
+        };
+    }, [character.name]);
+
+    function leaveYard(navigate: () => void) {
+        evolutionRequestRef.current += 1;
+        evolveBusyRef.current = false;
+        setEvolveBusy(false);
+        navigate();
+    }
+
+    function navigateFromYard(nextScreen: Screen) {
+        if (nextScreen === "pets") setScreen(nextScreen);
+        else leaveYard(() => setScreen(nextScreen));
+    }
+
+    useEffect(() => {
         const expeditionHint = readPetExpeditionPetHint();
         if (expeditionHint) {
             requestAnimationFrame(() => expeditionBoardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
             clearPetExpeditionPetHint();
         }
-        return () => {
-            mountedRef.current = false;
-            expeditionLaunchRequestRef.current += 1;
-            expeditionLaunchBusyRef.current = false;
-        };
     }, [character.name]);
 
     useEffect(() => {
@@ -261,6 +289,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     }
 
     function openYardSection(section: keyof typeof YARD_SECTION_LABELS) {
+        if (section === "growth") warmEvolutionCutscene();
         setYardSection(section);
         requestAnimationFrame(() => {
             const panel = document.getElementById('pet-yard-section');
@@ -742,19 +771,41 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
     // gate + consumes one stone + computes the evolved stats; we only mirror the
     // result (replace the pet, drop one consumed stone) into the local save.
     async function evolveSelectedPet() {
-        if (!selectedPet || evolveBusyRef.current) return;
+        if (!selectedPet || evolveBusyRef.current || evolvePresentationPending || evolveCutscene) return;
         const next = nextEvolution(selectedPet);
         if (!next) return;
         const stoneName = EVOLUTION_STONE_NAMES[next.requiredItem] ?? "evolution stone";
         if (selectedPet.level < next.requiredLevel) { setEvolveMsg(`Error: Reach level ${next.requiredLevel} first.`); return; }
         if (!character.inventory.includes(next.requiredItem)) { setEvolveMsg(`Error: Need ${stoneName} (Grand Marketplace).`); return; }
+        const evolutionRequest = ++evolutionRequestRef.current;
+        const isCurrentEvolution = () => evolutionRequest === evolutionRequestRef.current
+            && mountedRef.current
+            && activeAccountRef.current === character.name.trim().toLowerCase()
+            // Global navigation can also retain this lazy screen temporarily.
+            && (yardRef.current?.closest(".app-shell")?.getAttribute("data-screen") ?? "pets") === "pets";
         evolveBusyRef.current = true;
         setEvolveBusy(true);
+        warmEvolutionCutscene();
         if (!(await gameConfirm(`Evolve ${petDisplayName(selectedPet)} into ${next.name}? This consumes 1 ${stoneName}.`))) {
+            if (!isCurrentEvolution()) return;
             evolveBusyRef.current = false;
             setEvolveBusy(false);
             return;
         }
+        // Load the optional presentation before consuming the stone. The
+        // confirmation and growth controls normally give this a head start;
+        // a slow/failed chunk must not shorten the reveal or strand a mutation.
+        if (petEvolveCutsceneEnabled()) {
+            try { await retryDynamicImport(loadEvolutionCutscene); }
+            catch {
+                if (!isCurrentEvolution()) return;
+                setEvolveMsg("Error: Evolution presentation could not load. Reload before trying again; no stone was consumed.");
+                evolveBusyRef.current = false;
+                setEvolveBusy(false);
+                return;
+            }
+        }
+        if (!isCurrentEvolution()) return;
         const oldName = petDisplayName(selectedPet);
         // POSE-first (transparent cutout) — NOT selectedPet.image, which can be a
         // published portrait with an opaque background that the cutscene would
@@ -771,7 +822,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 body: JSON.stringify({ playerName: character.name, petId: selectedPet.id }),
             });
             const data = await res.json().catch(() => ({})) as { pet?: Pet; error?: string; _saveVersion?: number };
-            if (!res.ok || !data.pet) { setEvolveMsg(`Error: ${data.error ?? "Evolution failed."}`); return; }
+            if (!res.ok || !data.pet) {
+                if (isCurrentEvolution()) setEvolveMsg(`Error: ${data.error ?? "Evolution failed."}`);
+                return;
+            }
             if (!onServerVersion(data._saveVersion)) return;
             // Stage art (public/pet-evos/<visualId>.webp) is stamped SERVER-side by
             // evolvePet, so prefer what /api/pet/evolve returned and only derive it
@@ -797,17 +851,22 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                     pets: prev.pets.map((p) => (p.id === selectedPet.id ? evolved : p)),
                 };
             });
+            // A request already sent still settles authoritatively, but must
+            // not reopen presentation on a screen/account the player left.
+            if (!isCurrentEvolution()) return;
             if (petEvolveCutsceneEnabled()) {
-                setEvolveCutscene({ pet: evolved, oldName, oldVisualId, oldImage });
+                startEvolutionPresentation(() => setEvolveCutscene({ pet: evolved, oldName, oldVisualId, oldImage }));
                 setEvolveMsg("");
             } else {
                 setEvolveMsg(`Success: Evolved into ${evolved.name}!`);
             }
         } catch {
-            setEvolveMsg("Error: Evolution unconfirmed — refresh before retrying.");
+            if (isCurrentEvolution()) setEvolveMsg("Error: Evolution unconfirmed - refresh before retrying.");
         } finally {
-            evolveBusyRef.current = false;
-            setEvolveBusy(false);
+            if (isCurrentEvolution()) {
+                evolveBusyRef.current = false;
+                setEvolveBusy(false);
+            }
         }
     }
 
@@ -815,16 +874,18 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
 
     return (
-        <div className="pet-yard-screen pet-yard-refined">
+        <div ref={yardRef} className="pet-yard-screen pet-yard-refined">
             {evolveCutscene && (
-                <PetEvolutionCutscene
-                    pet={evolveCutscene.pet}
-                    oldName={evolveCutscene.oldName}
-                    oldVisualId={evolveCutscene.oldVisualId}
-                    oldImage={evolveCutscene.oldImage}
-                    newImage={evolveCutscene.pet.image}
-                    onClose={() => setEvolveCutscene(null)}
-                />
+                <Suspense fallback={null}>
+                    <PetEvolutionCutscene
+                        pet={evolveCutscene.pet}
+                        oldName={evolveCutscene.oldName}
+                        oldVisualId={evolveCutscene.oldVisualId}
+                        oldImage={evolveCutscene.oldImage}
+                        newImage={evolveCutscene.pet.image}
+                        onClose={() => setEvolveCutscene(null)}
+                    />
+                </Suspense>
             )}
 
             {/* ── Expedition reward modal ── */}
@@ -916,11 +977,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
 
             <div className="pet-yard-overlay">
                 <header className="pet-yard-header">
-                    <button type="button" className="back-btn pet-yard-return" onClick={onBack} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
+                <button type="button" className="back-btn pet-yard-return" onClick={() => leaveYard(onBack)} aria-label={`Back to ${backLabel}`}><span aria-hidden="true">←</span><span><small>Return to</small><strong>{backLabel}</strong></span></button>
                     <div className="pet-yard-title"><span className="pet-yard-kicker">Companion home · Care & training</span><h2>Pet Yard</h2><p>Every great journey begins with a bond.</p></div>
                     <div className="pet-yard-roster-count"><strong>{combatEligiblePets.length}<small> / {maxPets(character)}</small></strong><span>Carried companions</span></div>
                 </header>
-                <PetHomeTabs active="yard" setScreen={setScreen} />
+            <PetHomeTabs active="yard" setScreen={navigateFromYard} />
 
                 {preservedOverflowCount > 0 ? (
                     <p className="hint" role="status" style={{ color: "var(--gold-2)", margin: "0.35rem 0" }}>
@@ -935,7 +996,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                             <h3>Your companion grows beside you</h3>
                             <p>Choose a field companion, then begin a short training session in Growth & training.</p>
                         </div>
-                        <button onClick={() => setScreen("logbook")}>Open Logbook</button>
+                    <button onClick={() => navigateFromYard("logbook")}>Open Logbook</button>
                     </section>
                 )}
 
@@ -1230,7 +1291,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                                 <li style={{ color: hasLevel ? "#4ade80" : "#f87171" }}>{hasLevel ? "" : ""} Level {next.requiredLevel} (now {selectedPet.level})</li>
                                                 <li style={{ color: hasStone ? "#4ade80" : "#f87171" }}>{hasStone ? "" : ""} {stoneName}</li>
                                             </ul>
-                                            <button onClick={evolveSelectedPet} disabled={!ready || evolveBusy} style={{ width: "100%" }}>
+                                            <button onPointerDown={warmEvolutionCutscene} onFocus={warmEvolutionCutscene} onClick={evolveSelectedPet} disabled={!ready || evolveBusy || evolvePresentationPending || Boolean(evolveCutscene)} style={{ width: "100%" }}>
                                                 {evolveBusy ? "Evolving…" : ready ? ` Evolve into ${next.name}` : !hasLevel ? `Reach Lv ${next.requiredLevel}` : `Need ${stoneName}`}
                                             </button>
                                             {evolveMsg && <p className="hint" style={{ fontSize: "0.72rem", marginTop: 4, color: evolveMsg.startsWith("Success:") ? "#4ade80" : "#f87171" }}>{evolveMsg}</p>}
@@ -1442,7 +1503,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                                     totalPetWins={character.totalPetWins ?? 0}
                                     breedingPetIds={breedingPetIds}
                                     isOverflow={selectedPetIsOverflow}
-                                    setScreen={setScreen}
+                                    setScreen={navigateFromYard}
                                 />
 
                                 <section className="pet-jutsu-panel">
@@ -1499,7 +1560,7 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                         <span className="pet-empty-emblem" aria-hidden="true"><GameIcon name="paw" size={44} /></span>
                         <h3>Your journey starts with a bond</h3>
                         <p>Explore the World Map to meet and befriend your first companion.</p>
-                        <button onClick={() => setScreen("worldMap")}>Go to World Map</button>
+                            <button onClick={() => navigateFromYard("worldMap")}>Go to World Map</button>
                     </div>
                 )}
             </div>

@@ -989,7 +989,6 @@
     font-size: 1.5rem;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--ink);
     -webkit-text-stroke: 0.6px rgba(0, 0, 0, 0.85);
     paint-order: stroke fill;
     text-shadow: 0 2px 8px #000;

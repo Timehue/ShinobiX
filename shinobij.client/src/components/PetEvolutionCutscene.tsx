@@ -27,6 +27,7 @@ import {
     burstIntensity,
 } from "../lib/pet-evolution-cutscene";
 import { PetEvolutionStage3D } from "./PetEvolutionStage3D";
+import { Modal } from "./ui/Modal";
 
 export function PetEvolutionCutscene({
     pet,
@@ -80,7 +81,9 @@ export function PetEvolutionCutscene({
     const handleSkip = () => { endedRef.current = true; setElapsed(EVOLUTION_TOTAL_MS); };
 
     return (
-        <div className="pet-evo-cutscene" role="dialog" aria-label={`${oldName} is evolving`} onClick={phase.done ? onClose : undefined}>
+        <Modal open bare className="pet-evo-cutscene" ariaLabel={`${oldName} is evolving`}
+            onClose={onClose} disableBackdropClose disableEscapeClose={!phase.done}>
+            <div className="pet-evo-content" onClick={phase.done ? onClose : undefined}>
             <style>{CUTSCENE_CSS}</style>
 
             {/* Rushing data tunnel (backdrop) + the big TUBE OF LIGHT that rises and
@@ -117,22 +120,39 @@ export function PetEvolutionCutscene({
 
             {/* Controls */}
             {!phase.done && <button className="pet-evo-skip" onClick={handleSkip}>Skip ⏭</button>}
-            {phase.done && <button className="pet-evo-continue" onClick={onClose}>Continue</button>}
-        </div>
+            {phase.done && <button autoFocus className="pet-evo-continue" onClick={onClose}>Continue</button>}
+            </div>
+        </Modal>
     );
 }
 
+// Keep these design notes out of the shipped CSS string.
+/* Rushing data tunnel: speed-lines + scrolling scan grid, masked to a vignette. */
+
+/* The big TUBE OF LIGHT — a tall bright column of energy with white light streaks
+   rushing UP inside it, a strong glow halo, and faded caps so it reads as a pillar
+   the pet is enveloped in. Position/opacity driven per-frame (it rises into place). */
+
+/* Wide enough to ENVELOP the pet — a quadruped's tail and haunches spread far
+       past its shoulders, and a column narrower than the silhouette reads as the
+       pet standing beside the light rather than inside it. */
+
+/* Full-bleed so the 3D Tron grid floor fills the frame (the camera frames the
+   grounded pet at screen centre) instead of being boxed into a small square. */
 const CUTSCENE_CSS = `
-.pet-evo-cutscene {
+.ui-modal-card.pet-evo-cutscene {
     position: fixed; inset: 0; z-index: 9999;
+    width: 100%; height: 100%; max-width: none; max-height: none;
+    margin: 0; padding: 0; border: 0; border-radius: 0;
     display: grid; place-items: center;
     background: radial-gradient(circle at 50% 46%, #0b1a3a 0%, #060c1c 58%, #03060e 100%);
     overflow: hidden; perspective: 900px;
     animation: pet-evo-fadein 400ms ease both;
 }
+.pet-evo-content { position: absolute; inset: 0; }
 @keyframes pet-evo-fadein { from { opacity: 0; } to { opacity: 1; } }
 
-/* Rushing data tunnel: speed-lines + scrolling scan grid, masked to a vignette. */
+
 .pet-evo-tunnel {
     position: absolute; inset: -10%; pointer-events: none; mix-blend-mode: screen;
     background:
@@ -144,14 +164,10 @@ const CUTSCENE_CSS = `
 @keyframes pet-evo-tunnel-rush { from { background-position: 0 0, 0 0; } to { background-position: 0 0, 0 -46px; } }
 @keyframes pet-evo-tunnel-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.04); } }
 
-/* The big TUBE OF LIGHT — a tall bright column of energy with white light streaks
-   rushing UP inside it, a strong glow halo, and faded caps so it reads as a pillar
-   the pet is enveloped in. Position/opacity driven per-frame (it rises into place). */
+
 .pet-evo-tube {
     position: absolute; top: -8%; left: 50%;
-    /* Wide enough to ENVELOP the pet — a quadruped's tail and haunches spread far
-       past its shoulders, and a column narrower than the silhouette reads as the
-       pet standing beside the light rather than inside it. */
+    
     width: clamp(320px, 78vw, 660px); height: 116%;
     pointer-events: none; mix-blend-mode: screen;
     background:
@@ -165,8 +181,7 @@ const CUTSCENE_CSS = `
 }
 @keyframes pet-evo-tube-rush { from { background-position: 0 0, 0 0; } to { background-position: 0 -19px, 0 0; } }
 
-/* Full-bleed so the 3D Tron grid floor fills the frame (the camera frames the
-   grounded pet at screen centre) instead of being boxed into a small square. */
+
 .pet-evo-stage {
     position: absolute; inset: 0; width: 100%; height: 100%;
     display: grid; place-items: center; transform-style: preserve-3d;
@@ -190,16 +205,20 @@ const CUTSCENE_CSS = `
 .pet-evo-rarity { font-size: 0.45em; text-transform: uppercase; color: var(--gold-300); opacity: 0.85; letter-spacing: 0.2em; }
 
 .pet-evo-skip {
-    position: absolute; top: 16px; right: 16px; z-index: 2;
+    position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); right: calc(16px + env(safe-area-inset-right, 0px)); z-index: 2;
     background: rgba(255,255,255,0.12); color: var(--slate-200); border: 1px solid rgba(255,255,255,0.2);
     border-radius: 8px; padding: 6px 12px; font-size: 0.85rem; cursor: pointer;
 }
 .pet-evo-continue {
-    position: absolute; bottom: 6%; left: 50%; transform: translateX(-50%); z-index: 2;
+    position: absolute; bottom: max(6%, calc(16px + env(safe-area-inset-bottom, 0px))); left: 50%; transform: translateX(-50%); z-index: 2;
     background: linear-gradient(180deg, #2563eb, #1e40af); color: #fff; border: none;
     border-radius: 10px; padding: 10px 28px; font-size: 1rem; font-weight: 700; cursor: pointer;
     box-shadow: 0 0 24px rgba(37,99,235,0.7);
     animation: pet-evo-fadein 300ms ease both;
+}
+.pet-evo-skip, .pet-evo-continue { min-width: 48px; min-height: 48px; }
+@media (max-height: 520px) {
+    .pet-evo-name { bottom: calc(64px + max(6%, calc(16px + env(safe-area-inset-bottom, 0px)))); }
 }
 @media (prefers-reduced-motion: reduce) {
     .pet-evo-cutscene, .pet-evo-tunnel, .pet-evo-tube, .pet-evo-name-old, .pet-evo-name-new.slam, .pet-evo-continue {
