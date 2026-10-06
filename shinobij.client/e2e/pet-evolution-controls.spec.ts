@@ -24,9 +24,15 @@ async function prepare(page: Page) {
     return () => writes;
 }
 
-async function evolve(page: Page) {
+async function evolve(page: Page, manualClock = false) {
     await page.getByRole("button", { name: /Evolve into/ }).click();
     await page.getByRole("alertdialog", { name: "Confirm", exact: true }).getByRole("button", { name: "Confirm", exact: true }).click();
+    if (manualClock) {
+        await expect.poll(async () => {
+            await page.clock.runFor(100);
+            return page.locator(".pet-evo-cutscene").isVisible();
+        }).toBe(true);
+    }
     await expect(page.locator(".pet-evo-cutscene")).toBeVisible();
     await expect(page.locator(".pet-evo-cutscene")).toHaveCSS("opacity", "1");
 }
@@ -69,10 +75,15 @@ async function expectReachable(control: Locator) {
 test("evolution controls receive real pointer hits after scrolling, resizing and repeated reveals", async ({ page }, info) => {
     test.setTimeout(90_000);
     await page.emulateMedia({ reducedMotion: "no-preference" });
+    const clockStart = Date.now();
+    await page.clock.install({ time: clockStart });
     const writes = await prepare(page);
+    // Hold the layout phase while taking screenshots and rotating the viewport.
+    // The separate timeline test still lets all 8.7 seconds elapse naturally.
+    await page.clock.pauseAt(clockStart + 120_000);
     const original = page.viewportSize()!;
     await page.locator(".center-game").evaluate(n => { n.scrollTop = 250; });
-    await evolve(page);
+    await evolve(page, true);
     const skip = page.locator(".pet-evo-skip");
     await expect(skip).toBeVisible();
     await page.screenshot({ path: info.outputPath("skip.png") });
@@ -102,7 +113,7 @@ test("evolution controls receive real pointer hits after scrolling, resizing and
     await expect(page.locator(".pet-evo-cutscene")).toHaveCount(0);
     await expect(page.locator("#root")).not.toHaveAttribute("inert", "");
     await expect(page.getByRole("heading", { name: "Growth & training" })).toBeVisible();
-    await evolve(page);
+    await evolve(page, true);
     await expectReachable(skip);
     await skip.focus();
     await skip.press("Enter");
