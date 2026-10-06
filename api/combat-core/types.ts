@@ -37,6 +37,10 @@ export type CombatJutsu = {
     isUtility?: boolean;
     /** Server-authored marker for an equipped-weapon swing, never a player jutsu. */
     weaponSwing?: boolean;
+    /** Server-authored marker: the swing's weapon is a forged Named Weapon. */
+    namedWeaponSwing?: boolean;
+    /** Server-authored marker: a built-in weapon's authored flat Heal/Shield. */
+    catalogWeaponFlat?: Partial<Record<'Heal' | 'Shield', number>>;
     bloodlineRank?: string;
     method?: string;
     chakraCost?: number;

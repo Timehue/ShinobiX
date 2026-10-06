@@ -62,8 +62,8 @@ import { getAllItems } from "../lib/items";
 import { countItem } from "../lib/inventory";
 import { publishSharedImage, readImageFile } from "../lib/shared-images";
 import { starterSavedBloodlines } from "../data/jutsu";
-import { tagMatchesName, WEAPON_POISON_TAG_CAP } from "../lib/tags";
-import { WEAPON_AMP_TAG_CAP, WEAPON_FLAT_TAG_AMOUNTS, WEAPON_WOUND_TAG_CAP } from "../lib/weapon-effect-display";
+import { WEAPON_POISON_TAG_CAP } from "../lib/tags";
+import { WEAPON_AMP_TAG_CAP, WEAPON_DRAIN_TICK_SOLO, WEAPON_DRAIN_TICK_SPLIT, WEAPON_FLAT_TAG_SOLO, WEAPON_FLAT_TAG_SPLIT, WEAPON_WOUND_TAG_CAP, namedRollTagValue, weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { weeklyBossSchedule } from "../lib/weekly-boss";
 import { biomeLabel } from "../data/world";
 import {
@@ -84,7 +84,7 @@ import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS } from ".
 import { Modal } from "../components/ui/Modal";
 import { NamedForgeRevealModal, type NamedForgeAnimation } from "../components/NamedForgeRevealModal";
 import {
-    NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX, NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE,
+    NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE,
     NAMED_WEAPON_TAGS, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
     NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_STATS,
     NAMED_ARMOR_SPECIALS, namedForgeUniformPercent,
@@ -1420,7 +1420,7 @@ export function CentralHub({
                     ...petPveGear.map((gear) => ({
                         name: gear.name,
                         cost: gear.craftPts,
-                        desc: `1× ${gear.name} (PVE slot) — ${gear.desc}. Breaks after ${PET_PVE_DURABILITY} summons.`,
+                        desc: `Pet gear · 1× ${gear.name} (equip on a pet, PVE slot) — ${gear.desc}. Breaks after ${PET_PVE_DURABILITY} summons.`,
                         itemId: gear.id,
                         per: 1,
                     })),
@@ -1428,7 +1428,7 @@ export function CentralHub({
                     ...petConsumables.map((cons) => ({
                         name: cons.name,
                         cost: cons.craftPts,
-                        desc: `1× ${cons.name} (Consumable slot) — ${cons.desc}. Single use.`,
+                        desc: `Pet item · 1× ${cons.name} (equip on a pet, Consumable slot) — ${cons.desc} in pet battles. Single use.`,
                         itemId: cons.id,
                         per: 1,
                     })),
@@ -1707,8 +1707,8 @@ export function CentralHub({
                                             <div><span>Level Req</span><span>{effectiveItemLevelReq(weaponInfoItem)}</span></div>
                                             <div><span>EP</span><span>{weaponInfoItem.weaponEp ?? 0}</span></div>
                                             <div><span>Effect</span><span>{weaponInfoItem.weaponEffect ?? "—"}</span></div>
-                                            {weaponInfoItem.weaponEffectValue != null && (
-                                                <div><span>Effect Value</span><span>{weaponInfoItem.weaponEffectValue}</span></div>
+                                            {weaponInfoItem.weaponEffect && weaponInfoItem.weaponEffectValue != null && (
+                                                <div><span>Effect Value</span><span>{weaponEffectDisplayValue(weaponInfoItem.weaponEffect, weaponInfoItem.weaponEffectValue, weaponInfoItem)}</span></div>
                                             )}
                                             {weaponInfoItem.weaponRange != null && (
                                                 <div><span>Range</span><span>{weaponInfoItem.weaponRange}</span></div>
@@ -2000,9 +2000,9 @@ export function CentralHub({
                                                 <div className="no-section">
                                                     <div className="no-label">Damage EP</div>
                                                     <div className="no-rows">
-                                                        {Array.from({ length: NAMED_WEAPON_EP_MAX - NAMED_WEAPON_EP_MIN + 1 }, (_, i) => NAMED_WEAPON_EP_MIN + i).map(v => (
+                                                        {NAMED_WEAPON_EP_VALUES.map(v => (
                                                             <div key={v} className="no-row">
-                                                                <span>{v}</span><span className="no-pct">{namedForgeUniformPercent(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX)}%</span>
+                                                                <span>{v}</span><span className="no-pct">{(100 / NAMED_WEAPON_EP_VALUES.length).toFixed(1)}%</span>
                                                             </div>
                                                         ))}
                                                     </div>
@@ -2038,13 +2038,13 @@ export function CentralHub({
                                                         ))}
                                                     </div>
                                                     {/* Poison has its own weapon ceiling, so its strength is fixed rather than rolled. */}
-                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: a swing heals {WEAPON_FLAT_TAG_AMOUNTS.Heal} HP, shields {WEAPON_FLAT_TAG_AMOUNTS.Shield}, or drains {WEAPON_FLAT_TAG_AMOUNTS.Drain} HP and chakra per turn.</span></div>
+                                                    <div className="no-row"><span>Poison is always {WEAPON_POISON_TAG_CAP}%. Percentage buffs cap at {WEAPON_AMP_TAG_CAP}%; Wound caps at {WEAPON_WOUND_TAG_CAP}%. Heal, Shield, and Drain ignore the rolled percentage: as the only tag a swing heals or shields {WEAPON_FLAT_TAG_SOLO} or drains {WEAPON_DRAIN_TICK_SOLO} HP and chakra per turn; with 2 tags, {WEAPON_FLAT_TAG_SPLIT} and {WEAPON_DRAIN_TICK_SPLIT}. Drain cannot be reduced.</span></div>
                                                 </div>
                                                 <div className="no-section no-wide">
                                                     <div className="no-label">Tag Formula Notes</div>
                                                     <div className="no-rows">
-                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_AMOUNTS.Shield} shield per swing, limited by your shield cap</span></div>
-                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_AMOUNTS.Heal} HP per swing; tag count does not change it</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="roleDefender" size={15} /> Shield</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} shield per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags; limited by your shield cap</span></div>
+                                                        <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Heal</span><span className="no-pct">Flat {WEAPON_FLAT_TAG_SOLO} HP per swing as the only tag, {WEAPON_FLAT_TAG_SPLIT} with 2 tags</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="vitality" size={15} /> Siphon</span><span className="no-pct">Restores up to 35% of damage dealt, after shield and mitigation</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="elementFire" size={15} /> Ignition</span><span className="no-pct">Increases target damage taken for 2 turns; combat amplification caps apply</span></div>
                                                         <div className="no-row"><span><GameArtIcon kind="warning" size={15} /> Poison / Drain</span><span className="no-pct">{COMBAT_RESOURCES_V2 ? "Drain saps HP+chakra each round; Poison bites when the target spends chakra/stamina to cast" : "Deals rolled% of enemy chakra as damage per round"}</span></div>
@@ -2074,14 +2074,13 @@ export function CentralHub({
                                                     <div className="nw-stat"><span>Range</span><strong>{namedWeaponRoll.range}</strong></div>
                                                     <div className="nw-stat"><span>All Offenses</span><strong>+{namedWeaponRoll.offenseVal}</strong></div>
                                                     {namedWeaponRoll.tags.map((t, i) => {
-                                                        const healFlat = t.name === "Heal" ? (t.percent >= 35 ? 400 : 200) : null;
-                                                        const dmgScaled = t.name === "Shield" || t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound" || tagMatchesName(t.name, "Ignition");
+                                                        // Heal/Shield/Drain are flat by tag count; these three ride the hit's damage.
+                                                        const dmgScaled = t.name === "Siphon" || t.name === "Lifesteal" || t.name === "Wound";
                                                         return (
                                                             <div key={i} className="nw-stat nw-tag">
                                                                 <span>Tag {i + 1}</span>
                                                                 <strong>
-                                                                    {t.name} {t.percent}%
-                                                                    {healFlat !== null && <span className="nw-formula"> (flat {healFlat} HP)</span>}
+                                                                    {t.name} {namedRollTagValue(t.name, t.percent, namedWeaponRoll.tags.length)}
                                                                     {dmgScaled && <span className="nw-formula"> (= {t.percent}% of hit dmg)</span>}
                                                                 </strong>
                                                             </div>
@@ -2150,7 +2149,7 @@ export function CentralHub({
                         { label: "AP cost", value: "40" },
                         { label: "Range", value: String(namedWeaponRoll.range) },
                         { label: "All offenses", value: `+${namedWeaponRoll.offenseVal}` },
-                        ...namedWeaponRoll.tags.map((tag, index) => ({ label: `Tag ${index + 1}`, value: `${tag.name} · ${tag.percent}%` })),
+                        ...namedWeaponRoll.tags.map((tag, index) => ({ label: `Tag ${index + 1}`, value: `${tag.name} · ${namedRollTagValue(tag.name, tag.percent, namedWeaponRoll.tags.length)}` })),
                     ] : []
                     : namedArmorRoll ? [
                         { label: "Slot", value: NAMED_ARMOR_SLOTS.find((slot) => slot.value === namedArmorRoll.slot)?.label ?? namedArmorRoll.slot },

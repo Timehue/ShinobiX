@@ -1,5 +1,7 @@
-// Personal forged gear retains its server-minted identity across old and new UUID shapes.
-export const FORGED_ITEM_ID = /^named-(weapon|armor)-[0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12}$/i;
+// Personal forged gear retains its server-minted identity across old and new UUID
+// shapes. Defined in shared/ so the client's item cards use the identical test.
+import { FORGED_ITEM_ID, isForgedNamedWeaponId } from '../../shared/named-forge-roll.js';
+export { FORGED_ITEM_ID, isForgedNamedWeaponId };
 
 /**
  * Drop every server-forged item from a `creatorItems` array.

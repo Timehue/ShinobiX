@@ -410,6 +410,37 @@ export function shieldAmountForMastery(masteryLevel: number): number {
     return Math.min(SHIELD_FLAT, Math.floor(SHIELD_FLAT * masteryDamageFrac(masteryLevel)));
 }
 
+/**
+ * Heal/Shield on a forged Named Weapon swing (owner ruling 2026-10-06). The
+ * amount is set by how many distinct tags the weapon carries: a blade whose only
+ * tag is Heal or Shield gets the full 450, and a blade with two or more tags
+ * splits it to 225 each. Increase Heal still multiplies the Heal on top, exactly
+ * as it does for a jutsu. Built-in weapons and combat items (isUtility: true)
+ * keep the mastery-0 jutsu amount.
+ */
+export const WEAPON_FLAT_TAG_SOLO = 450;
+export const WEAPON_FLAT_TAG_SPLIT = 225;
+
+export function weaponFlatTagAmount(distinctTagCount: number): number {
+    return distinctTagCount <= 1 ? WEAPON_FLAT_TAG_SOLO : WEAPON_FLAT_TAG_SPLIT;
+}
+
+export function weaponHealAmount(distinctTagCount: number, healBoost: number): number {
+    return Math.floor(weaponFlatTagAmount(distinctTagCount) * Math.max(1, Number(healBoost) || 1));
+}
+
+/**
+ * Drain tick on a forged Named Weapon swing (owner ruling 2026-10-06): 150 HP +
+ * chakra per turn as the blade's only tag, 75 beside another. Like every Drain it
+ * is unmitigated (applyDoTs skips the armor cut).
+ */
+export const WEAPON_DRAIN_TICK_SOLO = 150;
+export const WEAPON_DRAIN_TICK_SPLIT = 75;
+
+export function weaponDrainTick(distinctTagCount: number): number {
+    return distinctTagCount <= 1 ? WEAPON_DRAIN_TICK_SOLO : WEAPON_DRAIN_TICK_SPLIT;
+}
+
 export function itemDamageMultiplier(itemDamagePct: unknown): number {
     return 1 + Math.max(0, Number(itemDamagePct ?? 0)) / 100;
 }

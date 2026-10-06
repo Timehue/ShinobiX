@@ -12,7 +12,7 @@
  */
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { applyJutsu, characterOwnsElement } from './move.js';
+import { applyJutsu, catalogWeaponFlatTags, characterOwnsElement } from './move.js';
 import { JUTSU_MAX_LEVEL, WEAPON_AMP_TAG_CAP, WEAPON_EP_CEILING } from '../combat-core/formulas.js';
 import { ITEM_CATALOG } from './_item-catalog.js';
 import { JUTSU_CATALOG } from './_jutsu-catalog.js';
@@ -246,14 +246,55 @@ describe('weapon tag percents ignore jutsu mastery', () => {
         );
     });
 
-    it('the FLAT Heal magnitude still scales with real mastery (a swing is not a full heal jutsu)', () => {
+    // Owner ruling 2026-10-06: a forged Named Weapon's flat Heal/Shield follows its
+    // distinct tag count, not mastery — 450 as the only tag, 225 beside another.
+    // Built-in weapons sit on their own rarity/level ladder and keep the mastery amount.
+    const swing = (tags: Array<{ name: string; percent?: number }>, extra: Record<string, unknown> = { namedWeaponSwing: true }) =>
+        applyJutsu(fighter('A', 100), fighter('B'), asJutsu({ id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 30, tags, ...extra }), 1, 'central', 1);
+
+    it('a weapon with no authored flat amount keeps the mastery-0 225', () => {
+        assert.equal(swing([{ name: 'Heal', percent: 37 }], {}).self.hp - 100, 225);
+        assert.equal(swing([{ name: 'Shield', percent: 30 }], {}).self.shield, 225);
+    });
+
+    // Owner ruling 2026-10-06: built-ins follow their rarity/level ladder, so the
+    // catalog's authored Shield is what a swing grants.
+    it('built-in catalog weapons shield their authored amount: Frostfang 300, Glacier King 400', () => {
+        for (const [id, expected] of [['frostfang-oathblade', 300], ['glacier-king-cleaver', 400]] as const) {
+            const item = (ITEM_CATALOG as Record<string, Record<string, unknown>>)[id]!;
+            const r = swing([{ name: 'Shield', percent: Number(item.weaponEffectValue) }], { name: item.name, catalogWeaponFlat: catalogWeaponFlatTags(id) });
+            assert.equal(r.self.shield, expected, `${item.name} shields ${expected}`);
+        }
+        assert.equal(catalogWeaponFlatTags('named-weapon-0f07ac79-66d2-4f4f-a4b4-3c9b6eb74527'), undefined, 'forged items are not catalog weapons');
+        assert.equal(catalogWeaponFlatTags('ashen-dragon-katana'), undefined, 'a non-Heal/Shield built-in has no flat amount');
+    });
+
+    it('a Named Weapon drains 150 per turn alone and 75 beside another tag; built-ins keep 50', () => {
+        const drain = (r: ReturnType<typeof applyJutsu>) => r.opponent.statuses.find(s => s.name === 'Drain')?.amount;
+        assert.equal(drain(swing([{ name: 'Drain', percent: 37 }])), 150);
+        assert.equal(drain(swing([{ name: 'Drain', percent: 18 }, { name: 'Wound', percent: 18 }])), 75);
+        assert.equal(drain(swing([{ name: 'Drain', percent: 37 }], {})), 50);
+    });
+
+    it('a single-tag Heal or Shield Named Weapon gives the full 450', () => {
+        assert.equal(swing([{ name: 'Heal', percent: 37 }]).self.hp - 100, 450);
+        assert.equal(swing([{ name: 'Shield', percent: 37 }]).self.shield, 450);
+    });
+
+    it('a two-tag Named Weapon splits Heal and Shield to 225 each', () => {
+        assert.equal(swing([{ name: 'Heal', percent: 18 }, { name: 'Wound', percent: 18 }]).self.hp - 100, 225);
+        assert.equal(swing([{ name: 'Shield', percent: 18 }, { name: 'Absorb', percent: 18 }]).self.shield, 225);
+        const both = swing([{ name: 'Heal', percent: 18 }, { name: 'Shield', percent: 18 }]);
+        assert.equal(both.self.hp - 100, 225);
+        assert.equal(both.self.shield, 225);
+    });
+
+    it('a combat item (isUtility) is not a swing and keeps the mastery-0 heal', () => {
         const r = applyJutsu(fighter('A', 100), fighter('B'), asJutsu({
-            id: 'weapon', name: 'Named Blade', isUtility: false, ap: 40, effectPower: 30,
-            tags: [{ name: 'Heal', percent: 37 }],
+            id: 'item', name: 'Item', isUtility: true, weaponSwing: true, namedWeaponSwing: true, target: 'SELF', ap: 40, effectPower: 10,
+            tags: [{ name: 'Heal' }],
         }), 1, 'central', 1);
-        const healed = r.self.hp - 100;
-        assert.ok(healed > 0, 'the swing still heals');
-        assert.ok(healed < 750, `a weapon heal stays below the maxed-jutsu HEAL_FLAT, got ${healed}`);
+        assert.equal(r.self.hp - 100, 225);
     });
 });
 

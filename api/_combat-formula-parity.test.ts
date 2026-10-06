@@ -259,7 +259,8 @@ describe('combat formula parity (move.ts ⇄ combat-math.ts)', () => {
         // that exact function, so PvE drain is mastery-scaled and stamina-free
         // by construction.
         assert.match(SERVER_FORMULAS, /export function drainTick\(masteryLevel: number\)/, 'shared Drain mastery helper is missing');
-        assert.match(SERVER, /const drainTickAmount = drainTick\(masteryLevel\)/, 'move.ts no longer consumes the mastery-scaled Drain helper');
+        // A forged Named Weapon drains by tag count instead (owner ruling 2026-10-06).
+        assert.match(SERVER, /const drainTickAmount = namedBladeSwing \? weaponDrainTick\(tagTotals\.size\) : drainTick\(masteryLevel\)/, 'move.ts no longer consumes the mastery-scaled Drain helper');
         assert.match(SERVER, /hp: Math\.max\(0, f\.hp - amt\), chakra: Math\.max\(0, f\.chakra - amt\)/, 'Drain tick no longer affects HP+chakra');
         assert.doesNotMatch(SERVER, /drainStamina/, 'Drain should not touch stamina');
         assertSoloUsesSharedMove('applyJutsu');

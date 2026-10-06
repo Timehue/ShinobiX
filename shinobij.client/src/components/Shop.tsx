@@ -429,7 +429,7 @@ function ShopBase({
                                             {["hand", "thrown"].includes(normalizeEquipmentSlot(selectedItem.slot)) ? (
                                                 // A weapon's flat Heal/Shield/Drain and its capped percentages,
                                                 // as the server resolves them — not the stored number.
-                                                <p><strong>Effect Power:</strong> {weaponEffectDisplayValue(selectedItem.weaponEffect, selectedItem.weaponEffectValue)}</p>
+                                                <p><strong>Effect Power:</strong> {weaponEffectDisplayValue(selectedItem.weaponEffect, selectedItem.weaponEffectValue, selectedItem)}</p>
                                             ) : (
                                                 <>
                                                     <p><strong>Calculation:</strong> {typeof selectedItem.weaponEffectValue === "number" && selectedItem.weaponEffectValue > 100 ? "flat" : "percentage"}</p>

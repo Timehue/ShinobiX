@@ -6,7 +6,7 @@ import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, NAMED_WEAPON_EP
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { NAMED_FORGE_CURRENCY_POINTS, namedForgePointTotal } from '../../shared/named-forge-economy.js';
 import { WEAPON_EP_CEILING } from '../combat-core/formulas.js';
-import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH } from '../../shared/named-forge-roll.js';
+import { NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SLOTS, NAMED_ARMOR_SPECIALS, NAMED_ARMOR_STATS, NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_RANGES, NAMED_WEAPON_TAG_APPEARANCE_PERCENT, NAMED_WEAPON_TAG_STRENGTH } from '../../shared/named-forge-roll.js';
 
 describe('named forge authority', () => {
     it('debits exactly 200 Fate Shards and preserves all other currencies', () => {
@@ -32,18 +32,25 @@ describe('named forge authority', () => {
         assert.equal(item.levelReq, NAMED_ITEM_LEVEL_REQ, 'named weapons carry the same Level 90 gate as named armor');
     });
 
-    it('rolls a named blade at 24-27 EP, whole numbers, both ends reachable (owner ruling 2026-09-25)', () => {
+    it('describes Heal/Shield/Drain by the flat amount the blade grants, not the rolled percent', () => {
+        const solo = buildNamedItem({ kind: 'weapon', ep: 25, range: 4, offenseVal: 170, tags: [{ name: 'Shield', percent: 37 }] }, 'Ward', '');
+        assert.match(solo.description, /Shield 450\b/);
+        const dual = buildNamedItem({ kind: 'weapon', ep: 25, range: 4, offenseVal: 170, tags: [{ name: 'Drain', percent: 18 }, { name: 'Wound', percent: 17 }] }, 'Leech', '');
+        assert.match(dual.description, /Drain 75 HP \+ chakra per turn, Wound 17%/);
+    });
+
+    it('rolls a named blade at 24-27 EP in half-point steps, both ends reachable (owner rulings 2026-09-25, 2026-10-06)', () => {
         assert.deepEqual([NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX], [24, 27]);
         assert.ok(NAMED_WEAPON_EP_MAX <= WEAPON_EP_CEILING, 'a new forge stays under the saved-weapon ceiling');
         const seen = new Set<number>();
-        // 400 draws miss one of four values with odds near 1e-50.
-        for (let i = 0; i < 400; i += 1) {
+        // 700 draws miss one of seven values with odds near 1e-46.
+        for (let i = 0; i < 700; i += 1) {
             const roll = rollNamedForge('weapon');
             assert.ok(roll.kind === 'weapon', `rolled ${JSON.stringify(roll)}`);
-            assert.ok(Number.isInteger(roll.ep) && roll.ep >= 24 && roll.ep <= 27, `rolled EP ${roll.ep}`);
+            assert.ok(Number.isInteger(roll.ep * 2) && roll.ep >= 24 && roll.ep <= 27, `rolled EP ${roll.ep}`);
             seen.add(roll.ep);
         }
-        assert.deepEqual([...seen].sort(), [24, 25, 26, 27]);
+        assert.deepEqual([...seen].sort((a, b) => a - b), [24, 24.5, 25, 25.5, 26, 26.5, 27]);
     });
 
     it('recovers the exact forged item from an idempotency receipt', () => {
@@ -130,7 +137,7 @@ describe('named forge tag fairness', () => {
             const drift = Math.abs(seen - expected) / expected;
             assert.ok(drift < 0.15, `${name} drew ${seen} vs ~${Math.round(expected)} expected (${(drift * 100).toFixed(1)}% off)`);
         }
-        for (const [table, outcomes] of [[epCounts, 4], [rangeCounts, NAMED_WEAPON_RANGES.length], [offenseCounts, NAMED_WEAPON_OFFENSE.max - NAMED_WEAPON_OFFENSE.min + 1], [tagCountCounts, 2]] as const) {
+        for (const [table, outcomes] of [[epCounts, NAMED_WEAPON_EP_VALUES.length], [rangeCounts, NAMED_WEAPON_RANGES.length], [offenseCounts, NAMED_WEAPON_OFFENSE.max - NAMED_WEAPON_OFFENSE.min + 1], [tagCountCounts, 2]] as const) {
             assert.equal(table.size, outcomes);
             for (const seen of table.values()) assert.ok(Math.abs(seen - DRAWS / outcomes) < DRAWS / outcomes * 0.15);
         }

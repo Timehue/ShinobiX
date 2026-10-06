@@ -2,12 +2,12 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { debitNamedForgeWallet } from '../../shared/named-forge-economy.js';
 import {
-    NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX, NAMED_WEAPON_TAGS as WEAPON_TAGS,
+    NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_TAGS as WEAPON_TAGS,
     NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
     NAMED_ARMOR_STATS, NAMED_ARMOR_QUALITIES, NAMED_ARMOR_SPECIALS as ARMOR_SPECIALS,
     NAMED_ARMOR_SLOTS as SLOTS,
 } from '../../shared/named-forge-roll.js';
-import { WEAPON_POISON_TAG_CAP } from '../combat-core/formulas.js';
+import { WEAPON_POISON_TAG_CAP, weaponDrainTick, weaponFlatTagAmount } from '../combat-core/formulas.js';
 
 // The named forge's weapon EP roll, inclusive at both ends.
 export { NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX } from '../../shared/named-forge-roll.js';
@@ -81,11 +81,12 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
         const tagCount = pick(NAMED_WEAPON_TAG_COUNTS);
         const single = tagCount === 1;
         // 24-27 EP (owner ruling 2026-09-25): around the mythic tier's 25, so a
-        // named blade lands 73-80% of a fully maxed 60-AP jutsu. Named weapons
+        // named blade lands 73-80% of a fully maxed 60-AP jutsu. Rolled in
+        // half-point steps (owner ruling 2026-10-06), 7 values. Named weapons
         // forged before this keep their 32-34 EP until the reset, which is why
         // WEAPON_EP_CEILING (36) still bounds a player's saved weapon.
         const strength = single ? NAMED_WEAPON_TAG_STRENGTH.single : NAMED_WEAPON_TAG_STRENGTH.dual;
-        return { kind, ep: randomInt(NAMED_WEAPON_EP_MIN, NAMED_WEAPON_EP_MAX + 1), range: pick(NAMED_WEAPON_RANGES), offenseVal: randomInt(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max + 1), tags: tags.slice(0, tagCount).map((name) => forgedTag(name, randomInt(strength.min, strength.max + 1))) };
+        return { kind, ep: pick(NAMED_WEAPON_EP_VALUES), range: pick(NAMED_WEAPON_RANGES), offenseVal: randomInt(NAMED_WEAPON_OFFENSE.min, NAMED_WEAPON_OFFENSE.max + 1), tags: tags.slice(0, tagCount).map((name) => forgedTag(name, randomInt(strength.min, strength.max + 1))) };
     }
     const slot = SLOTS.includes(slotRaw as typeof SLOTS[number]) ? slotRaw as typeof SLOTS[number] : 'body';
     const special = pick(ARMOR_SPECIALS);
@@ -101,7 +102,12 @@ export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: stri
     const id = `named-${roll.kind}-${randomUUID().replace(/-/g, '')}`;
     if (roll.kind === 'weapon') {
         const name = nameRaw || 'Named Weapon';
-        const tagDesc = roll.tags.map((tag) => `${tag.name} ${tag.percent}%`).join(', ');
+        // Heal/Shield/Drain ignore the rolled percent: they are flat by tag count.
+        const count = roll.tags.length;
+        const tagDesc = roll.tags.map((tag) => tag.name === 'Heal' ? `Heal ${weaponFlatTagAmount(count)} HP`
+            : tag.name === 'Shield' ? `Shield ${weaponFlatTagAmount(count)}`
+            : tag.name === 'Drain' ? `Drain ${weaponDrainTick(count)} HP + chakra per turn`
+            : `${tag.name} ${tag.percent}%`).join(', ');
         return { id, name, slot: 'hand', rarity: 'legendary', cost: 0, levelReq: NAMED_ITEM_LEVEL_REQ, description: flavorRaw || `A master-forged weapon. Tags: ${tagDesc}.`, weaponEp: roll.ep, apCost: 40, weaponRange: roll.range, weaponCooldown: 5, weaponTags: roll.tags, flavorText: flavorRaw || undefined, bonuses: { ninjutsuOffense: roll.offenseVal, taijutsuOffense: roll.offenseVal, bukijutsuOffense: roll.offenseVal, genjutsuOffense: roll.offenseVal } };
     }
     const slotLabel = roll.slot === 'hand' ? 'Gloves' : roll.slot[0].toUpperCase() + roll.slot.slice(1);
