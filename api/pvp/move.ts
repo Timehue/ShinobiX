@@ -15,6 +15,8 @@ import { tickCombatCooldowns } from '../combat-core/cooldowns.js';
 import { expireShield, timeShieldGain } from '../combat-core/shields.js';
 import { adjustedApCost, TEMPO_AP_SWING } from '../combat-core/resources.js';
 import { castHeaderLine } from '../combat-core/cast-flavor.js';
+import { isForgedNamedWeaponId } from '../save/_forged-items.js';
+import { ITEM_CATALOG } from './_item-catalog.js';
 import { resolveJutsu as resolveCoreJutsu, type ResolveJutsuMetadata } from '../combat-core/resolveJutsu.js';
 import {
     DISCIPLINE_OFFENSE_FIELD,
@@ -31,6 +33,7 @@ import {
     generalsBonusFromStatuses,
     directDamageBaseFormula,
     directDamageNumberFormula,
+    HEAL_FLAT,
     healMultiplierFromStatuses,
     healAmountForMastery,
     JUTSU_MAX_LEVEL,
@@ -44,9 +47,13 @@ import {
     postDamagePercentAmount,
     scaledTagPercent as scaleCombatTagPercent,
     shieldAmountForMastery,
+    SHIELD_FLAT,
     WEAPON_AMP_TAG_CAP,
     WEAPON_POISON_TAG_CAP,
     statusDurationFor,
+    weaponDrainTick,
+    weaponFlatTagAmount,
+    weaponHealAmount,
     weatherMultiplier,
     withDisciplineBonuses,
     withGeneralsBonus,
@@ -295,6 +302,10 @@ type Jutsu = {
     isUtility?: boolean;
     /** Internal server stamp: this cast was synthesized from equipped weapon data. */
     weaponSwing?: boolean;
+    /** Internal server stamp: the swing's weapon is a forged Named Weapon. */
+    namedWeaponSwing?: boolean;
+    /** Internal server stamp: a built-in weapon's authored flat Heal/Shield. */
+    catalogWeaponFlat?: Partial<Record<'Heal' | 'Shield', number>>;
     bloodlineRank?: string;
     method?: string;
     chakraCost?: number;
@@ -628,6 +639,21 @@ function isWeaponSwing(jutsu: Pick<Jutsu, 'weaponSwing'>): boolean {
     return jutsu.weaponSwing === true;
 }
 
+/**
+ * A BUILT-IN catalog weapon's authored flat Heal/Shield (owner ruling 2026-10-06):
+ * built-ins sit on a rarity/level ladder, so the Frostfang Oathblade (legendary)
+ * shields 300 and the Glacier King Cleaver (mythic) 400, as their cards say. Only
+ * ITEM_CATALOG entries qualify — a player-authored item's value is a clamped
+ * percent, not a flat amount — and the jutsu ceiling (HEAL_FLAT/SHIELD_FLAT) bounds it.
+ */
+export function catalogWeaponFlatTags(itemId: unknown): Jutsu['catalogWeaponFlat'] {
+    const item = typeof itemId === 'string' ? ITEM_CATALOG[itemId] : undefined;
+    const tag = item?.weaponEffect;
+    const value = Number(item?.weaponEffectValue);
+    if ((tag !== 'Heal' && tag !== 'Shield') || !(value > 0)) return undefined;
+    return { [tag]: Math.min(tag === 'Heal' ? HEAL_FLAT : SHIELD_FLAT, value) };
+}
+
 // A weapon has no mastery row to train, so its swing used to resolve its EP at
 // mastery 0: 30% of the hit a jutsu of the same EP lands once maxed. Owner ruling
 // 2026-09-25: EP means the same thing on a weapon and a jutsu. A swing's EP (and
@@ -768,10 +794,19 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
     //     bloodline rank so ampTagCapForRank would wrongly floor it at 30).
     //
     // The flat Heal/Shield MAGNITUDE deliberately keeps the real mastery — a swing
-    // heals its ~30% share, not a full jutsu's 750. See _weapon-damage.test.ts.
+    // heals its ~30% share, not a full jutsu's 750 — EXCEPT on a forged Named
+    // Weapon (owner ruling 2026-10-06), which follows its tag count instead: 450
+    // when Heal/Shield is the blade's only tag, 225 beside another. Built-in
+    // weapons are tuned on their own rarity/level ladder and stay on the mastery
+    // amount. Combat items are isUtility and never qualify. See
+    // weaponFlatTagAmount and _weapon-damage.test.ts.
     // (A swing's EP and Pierce are a separate carve-out: they resolve at the rank's
     // mastery cap, in damageMasteryFor above.)
+    // A built-in weapon instead uses its authored amount (catalogWeaponFlatTags).
     const weaponSwing = isWeaponSwing(jutsu);
+    const bladeSwing = weaponSwing && jutsu.isUtility !== true;
+    const namedBladeSwing = bladeSwing && jutsu.namedWeaponSwing === true;
+    const catalogFlat = bladeSwing && !namedBladeSwing ? jutsu.catalogWeaponFlat : undefined;
     const tagPercentMastery = weaponSwing ? JUTSU_MAX_LEVEL : masteryLevel;
     for (const tag of tags) {
         // Branch on the CANONICAL name only — sessions are sealed canonical, and
@@ -783,9 +818,9 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
         const tagTotal = tagTotals.get(tagName) ?? 1;
         const stackLabel = tagTotal > 1 ? ` (stack ${tagOccurrence}/${tagTotal})` : '';
         const pct = Math.floor(scaledTagPercent(tag.percent ?? 0, tagPercentMastery, tagName, jutsu.bloodlineRank, weaponSwing ? WEAPON_AMP_TAG_CAP : undefined));
-        if (tagName === 'Heal') { const healAmt = healAmountForMastery(masteryLevel, healBoost); const applied = Math.min(healAmt, Math.max(0, s.maxHp - s.hp - healing)); healing += healAmt; lines.push(`Heal: ${s.name} restores ${applied} HP.`); continue; }
+        if (tagName === 'Heal') { const healAmt = namedBladeSwing ? weaponHealAmount(tagTotals.size, healBoost) : catalogFlat?.Heal ? Math.floor(catalogFlat.Heal * Math.max(1, Number(healBoost) || 1)) : healAmountForMastery(masteryLevel, healBoost); const applied = Math.min(healAmt, Math.max(0, s.maxHp - s.hp - healing)); healing += healAmt; lines.push(`Heal: ${s.name} restores ${applied} HP.`); continue; }
         if (tagName === 'Shield') {
-            const requested = shieldAmountForMastery(masteryLevel);
+            const requested = namedBladeSwing ? weaponFlatTagAmount(tagTotals.size) : catalogFlat?.Shield ?? shieldAmountForMastery(masteryLevel);
             const available = Math.max(0, pvpLiveShieldCap(s) - boundedShield(s) - shieldGain);
             const granted = Math.min(requested, available);
             shieldGain += granted;
@@ -817,7 +852,8 @@ function resolveTagStatuses(self: PvpFighter, opponent: PvpFighter, jutsu: Jutsu
             // v4.3: Drain is single-stack (addStatus replaces on re-apply) and scales with attacker mastery.
             // Tick = clamp(50 + masteryLevel × 5, 50, 300). At mastery 50: 300/tick.
             if (!blocksDebuff(o, 'Drain')) {
-                const drainTickAmount = drainTick(masteryLevel);
+                // A forged Named Weapon drains by its tag count (150 alone, 75 beside another).
+                const drainTickAmount = namedBladeSwing ? weaponDrainTick(tagTotals.size) : drainTick(masteryLevel);
                 o = addJutsuStatus(o, jutsu, { name: 'Drain', rounds: 2, amount: drainTickAmount, kind: 'negative' }, round);
                 lines.push(`Drain: ${o.name} loses ${drainTickAmount} HP+chakra/turn for 2 turns.`);
             }
@@ -2587,6 +2623,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // PvE is already exempt (its weapon synth uses an 'item-' id).
                     isUtility: false,
                     weaponSwing: true,
+                    namedWeaponSwing: isForgedNamedWeaponId(serverItem.id),
+                    catalogWeaponFlat: catalogWeaponFlatTags(serverItem.id),
                     effectPower: serverItem.weaponEp ?? 15,
                     ap: wApCost,
                     range: weapRange,

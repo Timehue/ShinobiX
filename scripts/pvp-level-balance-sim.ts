@@ -56,6 +56,7 @@ import {
 } from '../api/pvp/_tags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../api/pvp/_item-catalog.js';
 import { NAMED_WEAPON_EP_MAX } from '../api/craft/_named.js';
+import { isForgedNamedWeaponId } from '../api/save/_forged-items.js';
 import { JUTSU_CATALOG } from '../api/pvp/_jutsu-catalog.js';
 import { deriveCombatMultipliers, deriveEquipmentStatBonuses } from '../api/pvp/_multipliers.js';
 import { pvpSessionHp } from '../api/pvp/_low-level-hp.js';
@@ -63,6 +64,7 @@ import {
     applyDoTs,
     applyGroundEffectToFighter,
     applyJutsu,
+    catalogWeaponFlatTags,
     poisonSpendDamage,
     pvpNormalizedEffectiveHealth,
     tickGroundEffects,
@@ -1308,6 +1310,10 @@ function synthWeapon(item: CatalogItem, fighter?: PvpFighter): SimJutsu {
         cooldown: Number(item.weaponCooldown ?? 5),
         isUtility: false,
         weaponSwing: true,
+        // Same stamps as the live weapon synths (api/pvp/move.ts), so a named or
+        // built-in Heal/Shield/Drain blade simulates what it really grants.
+        namedWeaponSwing: isForgedNamedWeaponId(item.id),
+        catalogWeaponFlat: catalogWeaponFlatTags(item.id),
         suppressBloodline: !item.weaponElement
             || !((fighter?.character.elements as string[] | undefined) ?? [String(fighter?.character.element ?? '')]).includes(item.weaponElement),
         tags: tags.map((tag) => ({ ...tag, name: canonicalTagName(tag.name) })),

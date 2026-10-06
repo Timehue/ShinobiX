@@ -180,8 +180,10 @@ describe('sanitizeJutsuList (smoke)', () => {
         assert.equal(out[0]!.effectPower, 60);
     });
     it('strips the internal weaponSwing scaling stamp from authored jutsu', () => {
-        const out = sanitizeJutsuList([{ id: 'forged', weaponSwing: true }]) as Array<Record<string, unknown>>;
+        const out = sanitizeJutsuList([{ id: 'forged', weaponSwing: true, namedWeaponSwing: true, catalogWeaponFlat: { Shield: 750 } }]) as Array<Record<string, unknown>>;
         assert.equal(out[0]!.weaponSwing, undefined);
+        assert.equal(out[0]!.namedWeaponSwing, undefined, 'the Named Weapon Heal/Shield stamp is server-only too');
+        assert.equal(out[0]!.catalogWeaponFlat, undefined, 'the built-in weapon flat stamp is server-only too');
     });
     it('dedupes a duplicate amp tag within one cast (no double-stack)', () => {
         const out = sanitizeJutsuList([

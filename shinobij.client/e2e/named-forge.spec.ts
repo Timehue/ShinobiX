@@ -58,7 +58,9 @@ test('weapon pop-out shows the sealed roll, stays open, and restores the Crafter
     await setup(page);
     await page.locator('.cf-tabs').getByRole('button', { name: 'Weapons', exact: true }).click();
     const odds = page.locator('.nw-odds');
-    await expect(odds).toContainText('25%');
+    // Seven half-point EP values (24, 24.5 … 27), one in seven each.
+    await expect(odds).toContainText('24.5');
+    await expect(odds).toContainText('14.3%');
     await expect(odds).toContainText('12.5% to appear per roll');
     const opener = page.getByRole('button', { name: 'Roll Named Weapon', exact: true });
     await opener.click();
