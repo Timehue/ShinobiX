@@ -46,5 +46,8 @@ export const warfrontE2ePort = () => resolvePort('WARFRONT_E2E_PORT', 4174, 1917
 export const adaptiveDprE2ePort = () => resolvePort('ADAPTIVE_DPR_E2E_PORT', 4176, 20176, 'adaptive-dpr');
 export const uiAuditE2ePort = () => resolvePort('UI_AUDIT_PORT', 4177, 21177, 'ui-audit');
 export const mobileGauntletE2ePort = () => resolvePort('MOBILE_GAUNTLET_PORT', 4178, 22177, 'mobile-gauntlet');
+// Responsive CI runs this after smoke in the same checkout. Its immutable
+// snapshot must have a distinct port/name even after smoke's server has exited.
+export const dojoE2ePort = () => resolvePort('DOJO_E2E_PORT', 4180, 23178, 'Dojo production preview');
 
 export const previewRootFor = (port: string) => `.playwright-dist-${port.replace(/[^a-z0-9_-]/gi, '_')}`;

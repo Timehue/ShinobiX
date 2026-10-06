@@ -798,7 +798,22 @@ test("integration: a mouse press released outside the map still lets focus revea
 
 test("integration: a press held on a marker while the map leaves zoom mode leaves the next tap working", async ({ page }, testInfo) => {
     test.skip(!phoneProjects.includes(testInfo.project.name), "exercise the zoom-mode boundary in both phone engines");
-    const errors = await bootWorldMap(page);
+    const errors = await bootWorldMap(page, undefined, async () => {
+        // Reproduce a missing media-query change notification without changing
+        // the real viewport or query result. Native resize must recover the
+        // camera and clear the held pointer across both shell boundaries.
+        await page.addInitScript(() => {
+            const matchMedia = window.matchMedia.bind(window);
+            window.matchMedia = (query) => {
+                const media = matchMedia(query);
+                if (query === '(max-width: 979px)') {
+                    media.addEventListener = () => undefined;
+                    media.removeEventListener = () => undefined;
+                }
+                return media;
+            };
+        });
+    });
     const destinations: number[] = [];
     await page.route("**/api/player/travel", async (route) => {
         destinations.push(Number(route.request().postDataJSON().destinationSector));

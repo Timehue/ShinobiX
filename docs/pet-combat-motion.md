@@ -45,16 +45,21 @@ updates proposed in PRs #294-297. Both fresh-install dependency audits report
 zero vulnerabilities. Production security and release gates remain enabled.
 The Dojo controller test boots the real authenticated production screen,
 samples both controller edges on animation frames, and completes the Card Hall
-tutorial on all seven browser/device cases. Its focused runner uses the same
-immutable production preview. Stronghold leave-failure coverage checks enabled
+tutorial on all seven browser/device cases. Its focused runner uses a distinct
+immutable production preview so the required CI flow can follow smoke in one
+checkout. Stronghold leave-failure coverage checks enabled
 movement and resumed polling directly, replacing an obsolete guidance string;
 the complete local Chromium/WebKit lifecycle audit passes with no page errors.
 Desktop/mobile paid recovery retry
 coverage now expects its selected paid discharge to charge once.
+The map camera rechecks its media query after native viewport resize, including
+a held pointer across phone/desktop boundaries when a query notification is lost.
 
-Imported images and lazy stylesheets use shorter generated filenames with the
+Static combat sprites, scene textures and lazy stylesheets use shorter generated
+filenames with the
 same content hashes, cache naming pattern and manifest mappings. Source art,
-vendor names and entry CSS naming are preserved. The integration-enabled build
+identity/portrait filenames, vendor names, standalone HUD CSS and landing CSS
+naming are preserved. The integration-enabled build
 enforces the unchanged 9,150,000-byte product budget.
 A byte comparison confirms all 943 emitted images and 69 stylesheets remain
 identical when only lazy stylesheet filenames change.

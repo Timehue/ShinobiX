@@ -420,9 +420,20 @@ export function useWorldMapZoom(initialRegion: WorldMapRegionId = "ashen"): Worl
         };
         let mq: MediaQueryList | null = null;
         try { mq = window.matchMedia(MOBILE_SHELL_QUERY); } catch { mq = null; }
+        // WebKit can deliver a viewport resize before its media-query change
+        // while a pointer is held. Recheck after layout as well, so returning
+        // to the phone shell cannot leave the desktop camera active.
+        let resizeFrame = 0;
+        const onResize = () => {
+            if (resizeFrame) cancelAnimationFrame(resizeFrame);
+            resizeFrame = requestAnimationFrame(() => { resizeFrame = 0; recompute(); });
+        };
         mq?.addEventListener?.("change", recompute);
+        window.addEventListener("resize", onResize, { passive: true });
         return () => {
             mq?.removeEventListener?.("change", recompute);
+            window.removeEventListener("resize", onResize);
+            if (resizeFrame) cancelAnimationFrame(resizeFrame);
         };
     }, []);
 

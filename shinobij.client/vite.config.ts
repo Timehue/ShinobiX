@@ -1355,14 +1355,22 @@ export default defineConfig({
                 // Keep content hashes and the service worker's name-hash shape;
                 // the manifest still maps source modules to their emitted files.
                 // Vendor names remain visible to the independent size gates.
-                // Imported images and lazy CSS names repeat throughout JS/CSS.
+                // Static combat sprites, scene textures and lazy CSS names
+                // repeat throughout JS/CSS. Keep identity/portrait filenames.
                 // Keep content hashes and manifest source mappings with short
-                // prefixes, preserving immutable caching and the entry CSS name.
+                // prefixes, preserving immutable caching and standalone HUD CSS names.
                 assetFileNames: (asset) => asset.originalFileNames.some((name) => /\/assets\/fx\/[^/]+\/[^/]+\.png$/.test(name.replace(/\\/g, '/')))
                     ? 'assets/f-[hash][extname]'
-                    : asset.originalFileNames.some((name) => /\.(?:png|webp|jpe?g|avif|svg|gif)$/i.test(name))
+                    : asset.originalFileNames.some((name) => {
+                        const source = name.replace(/\\/g, '/');
+                        return /\.(?:png|webp|jpe?g|avif|svg|gif)$/i.test(source) && (
+                            /\/assets\/(?:combat-actors|fx)\//.test(source)
+                            || /\/assets\/first-pact\/.*(?:atlas|key-art|architecture)/.test(source)
+                        );
+                    })
                         ? 'assets/i-[hash][extname]'
-                        : asset.names.some((name) => name.endsWith('.css')) && !asset.names.includes('index.css')
+                        : asset.names.some((name) => name.endsWith('.css'))
+                            && !asset.names.some((name) => /^(?:index|battle-skin|chronicle-duel|profile-skin|landing-home)\.css$/.test(name))
                             ? 'assets/s-[hash][extname]'
                     : 'assets/[name]-[hash][extname]',
                 chunkFileNames: (chunk) => chunk.name.endsWith('-vendor')
