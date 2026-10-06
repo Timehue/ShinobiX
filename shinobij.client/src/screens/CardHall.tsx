@@ -41,6 +41,7 @@ import {
   requestFreePlayQueue,
   type FreePlayQueueAuthority,
 } from "../lib/free-play-queue-client";
+import { playFightNotificationSfx } from "../lib/match-alert-sfx";
 import {
   CardSparChallengeError,
   requestCardSparChallenge,
@@ -821,8 +822,10 @@ function FreePlayQueue({
     return () =>
       document.removeEventListener("visibilitychange", syncVisibility);
   }, []);
+  // The search keeps polling in a hidden tab: the server drops an entry that
+  // stops polling, and the match-found sound is meant for players tabbed out.
   useEffect(() => {
-    if (!searching || !pageVisible) return;
+    if (!searching) return;
     const lease = leaseRef.current;
     if (!lease || !leaseIsCurrent(lease)) return;
     let alive = true;
@@ -849,6 +852,7 @@ function FreePlayQueue({
           lease.owned = false;
           setSearching(false);
           setError("");
+          playFightNotificationSfx();
           onStart(outcome.matchId);
           return;
         }
@@ -867,15 +871,15 @@ function FreePlayQueue({
         lease.pollBusy = false;
       }
     };
-    const stop = visiblePoll(() => void poll(), 2500);
+    const timer = window.setInterval(() => void poll(), 2500);
     void poll();
     return () => {
       alive = false;
       controller.abort();
       lease.controllers.delete(controller);
-      stop();
+      window.clearInterval(timer);
     };
-  }, [searching, pageVisible, activeAuthority, onStart, leaseIsCurrent]);
+  }, [searching, activeAuthority, onStart, leaseIsCurrent]);
 
   const enterSparMatch = useCallback((matchId: string) => {
     const lease = leaseRef.current;

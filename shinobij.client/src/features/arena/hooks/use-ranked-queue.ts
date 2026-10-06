@@ -17,6 +17,7 @@ import {
     useLiveCapabilities,
 } from "../../../lib/live-capabilities-context";
 import { requireServerSettlement } from "../../../lib/server-settlement-gate";
+import { playFightNotificationSfx } from "../../../lib/match-alert-sfx";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../../../shared/ranked-eligibility";
 
 /**
@@ -246,11 +247,9 @@ export function useRankedQueue({
             void leaveRankedQueueOnServer(retired);
         };
         const poll = async () => {
+            // Keeps polling in a hidden tab: the server drops an entry 3 min after
+            // its last poll, and the match-found sound is for players tabbed out.
             if (stopped || !rankedQueueLifecycle.isCurrent(session)) return;
-            if (document.visibilityState === "hidden") {
-                scheduleNextPoll();
-                return;
-            }
             if (!rankedMutationAllowedNow()) {
                 retireRankedQueueUi(session);
                 setPlayerRankedEnabled(false);
@@ -332,6 +331,7 @@ export function useRankedQueue({
 
                     const launchingSession = rankedQueueLifecycle.consumeMatch(session);
                     if (!launchingSession) return;
+                    playFightNotificationSfx();
                     setRankedQueueSession(launchingSession);
                     setRankedQueueActive(false);
                     const outcome = await launchRankedMatch(

@@ -38,7 +38,9 @@ export type QueueEntry = {
 
 const QUEUE_KEY = 'pvp:ranked-queue';
 const KV_TTL_SECONDS = 2 * 60 * 60;   // 2-hour TTL
-const STALE_MS = 60 * 1000;           // Remove entries older than 60s (must re-queue)
+// Entries not polled for 3 min must re-queue. It is 3 min, not 60s, because a
+// hidden tab keeps polling but Chrome can slow its timers to once a minute.
+const STALE_MS = 3 * 60 * 1000;
 // Durable per-player match record (audit #10). When two players are matched,
 // BOTH get one — so the player who didn't poll first still discovers the match
 // on their next poll instead of silently vanishing from the queue. Short TTL so

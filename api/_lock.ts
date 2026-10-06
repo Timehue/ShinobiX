@@ -11,7 +11,7 @@
  *   });
  *
  * The lock key is `lock:<target>` with a short TTL (default 5s) so a crashed
- * lambda can't deadlock the key forever. Acquire is attempted up to
+ * or redeployed server process can't deadlock the key forever. Acquire is attempted up to
  * `maxAttempts` times with exponential backoff (25ms → 50ms → 100ms → 200ms).
  *
  * By default, if the lock cannot be acquired in time, we still run the

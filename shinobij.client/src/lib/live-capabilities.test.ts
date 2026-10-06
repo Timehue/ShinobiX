@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PublicCapabilities } from "../../../shared/public-capabilities";
 import {
+    CAPABILITY_HIDDEN_KEEPALIVE_MS,
     CAPABILITY_MAX_AGE_MS,
     LiveCapabilitiesStore,
     canViewCapability,
@@ -244,25 +245,93 @@ describe("live capability messaging", () => {
         assert.equal(timers.at(-1)?.delay, 30_000);
         assert.equal(timers.at(-1)?.cancelled, false);
 
+        // Hiding keeps the lease alive: the running refresh is not cancelled.
         visible = false;
         visibilityListener?.();
-        assert.equal(timers.at(-1)?.cancelled, true);
+        const hiddenRefresh = timers.at(-1)!;
+        assert.equal(hiddenRefresh.cancelled, false);
+        hiddenRefresh.cancelled = true; // fired, so no longer pending
+        hiddenRefresh.callback();
+        await flushTasks();
+        assert.equal(calls, 2);
 
         visible = true;
         visibilityListener?.();
         await flushTasks();
-        assert.equal(calls, 2);
+        assert.equal(calls, 3);
         assert.equal(timers.at(-1)?.cancelled, false);
 
         onlineListener?.();
         await flushTasks();
-        assert.equal(calls, 3);
+        assert.equal(calls, 4);
         assert.equal(timers.filter((timer) => !timer.cancelled).length, 1);
 
         stop();
         assert.equal(onlineListener, null);
         assert.equal(visibilityListener, null);
         assert.equal(timers.filter((timer) => !timer.cancelled).length, 0);
+    });
+
+    it("keeps a hidden tab's lease for the keepalive window, then lets it lapse", async () => {
+        let clock = 0;
+        let calls = 0;
+        const store = new LiveCapabilitiesStore(async () => {
+            calls += 1;
+            return okResponse(available);
+        }, () => clock);
+        let visible = true;
+        let visibilityListener: (() => void) | null = null;
+        const timers: Array<{ callback: () => void; cancelled: boolean }> = [];
+        const pending = () => timers.filter((timer) => !timer.cancelled);
+        const fireNext = async () => {
+            const timer = pending().at(-1);
+            assert.ok(timer, "a refresh should be scheduled");
+            timer.cancelled = true;
+            timer.callback();
+            await flushTasks();
+        };
+        const stop = startLiveCapabilitiesPolling(store, {
+            schedule: (callback) => {
+                const timer = { callback, cancelled: false };
+                timers.push(timer);
+                return timer;
+            },
+            cancel: (handle) => { (handle as { cancelled: boolean }).cancelled = true; },
+            isVisible: () => visible,
+            onOnline: () => () => {},
+            onVisibilityChange: (listener) => {
+                visibilityListener = listener;
+                return () => { visibilityListener = null; };
+            },
+            random: () => 0.5,
+            now: () => clock,
+        });
+        await flushTasks();
+        assert.equal(calls, 1);
+
+        visible = false;
+        visibilityListener?.();
+        // Still renewing well past the 90s lease, so the player stays online.
+        for (clock = 30_000; clock < CAPABILITY_HIDDEN_KEEPALIVE_MS; clock += 30_000) {
+            await fireNext();
+            assert.equal(store.getSnapshot().freshness, "fresh");
+        }
+        const renewedWhileHidden = calls;
+        assert.ok(renewedWhileHidden > 50, `expected steady renewal, saw ${renewedWhileHidden}`);
+
+        // Past the window the tab counts as abandoned: no further renewal.
+        clock = CAPABILITY_HIDDEN_KEEPALIVE_MS + 1;
+        await fireNext();
+        assert.equal(calls, renewedWhileHidden);
+        assert.equal(pending().length, 0);
+
+        // Coming back revives it at once.
+        visible = true;
+        visibilityListener?.();
+        await flushTasks();
+        assert.equal(calls, renewedWhileHidden + 1);
+        assert.equal(pending().length, 1);
+        stop();
     });
 
     it("does not schedule after unmount during an in-flight refresh", async () => {

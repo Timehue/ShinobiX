@@ -7,6 +7,7 @@ import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
 import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
+import { useMatchFoundSfx } from "../lib/match-alert-sfx";
 import {
     petRankedQueue,
     fetchRankedPetCharacter,
@@ -128,6 +129,7 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     // most of its download.
     const matchFound = state.state === "paired" || state.state === "active" || state.state === "completed";
     useEffect(() => { if (matchFound) preloadShowdownReplay(); }, [matchFound]);
+    useMatchFoundSfx(matchFound, state.state === "queued" || busy);
 
     // The initiator mints the sealed token once both sides are paired.
     useEffect(() => {

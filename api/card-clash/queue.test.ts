@@ -157,8 +157,8 @@ test("poll reports an expired lease instead of pretending the player is still qu
   store.set("card-clash:queue", [{
     name: "alpha",
     level: 1,
-    joinedAt: Date.now() - 61_000,
-    lastSeen: Date.now() - 61_000,
+    joinedAt: Date.now() - 181_000,
+    lastSeen: Date.now() - 181_000,
   }]);
 
   const poll = await call({ name: "alpha", action: "poll" });
@@ -169,6 +169,22 @@ test("poll reports an expired lease instead of pretending the player is still qu
     match: null,
     reason: "not-queued",
   });
+});
+
+test("a hidden tab polling about once a minute keeps its queue spot", async () => {
+  // Chrome can slow a hidden tab's timers to once a minute, so a gap just
+  // over 60s between polls must not drop the player.
+  store.clear();
+  store.set("card-clash:queue", [{
+    name: "alpha",
+    level: 1,
+    joinedAt: Date.now() - 70_000,
+    lastSeen: Date.now() - 70_000,
+  }]);
+
+  const poll = await call({ name: "alpha", action: "poll" });
+  assert.equal(poll.statusCode, 200);
+  assert.equal((poll.body as { inQueue: boolean }).inQueue, true);
 });
 
 test("concurrent opposite-side polls converge on one pair without orphaning either handoff", async () => {

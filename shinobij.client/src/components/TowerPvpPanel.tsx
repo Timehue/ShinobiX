@@ -12,6 +12,7 @@ import {
 } from "../lib/tower-pvp-api";
 import { towerPlayerSlug } from "../lib/towers-api";
 import { gameConfirm } from "./GameAlert";
+import { useMatchFoundSfx } from "../lib/match-alert-sfx";
 
 type PvpSyncState = "checking" | "live" | "reconnecting";
 
@@ -90,6 +91,8 @@ export function TowerPvpPanel({
     useEffect(() => {
         return onStatus(setRealtimeConnected);
     }, []);
+
+    useMatchFoundSfx(presence.state === "matched", presence.state === "queued" || busy === "join");
 
     const adoptPresence = useCallback((next: TowerPvpPresence) => {
         const current = presenceRef.current;

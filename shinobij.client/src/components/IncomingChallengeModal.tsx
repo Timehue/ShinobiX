@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import { playFightNotificationSfx } from "../lib/match-alert-sfx";
 import type { DuelChallenge } from "../App";
 import { GameArtIcon } from "./GameArtIcon";
 import "./IncomingChallengeModal.css";
@@ -38,9 +40,22 @@ export function IncomingChallengeModal({
     onDecline: (challenge: DuelChallenge) => void;
 }) {
     const meLower = selfName.toLowerCase();
-    const pending = challenges.filter(
-        (c) => !c.accepted && !c.declined && !c.sectorAttack && c.toName.toLowerCase() === meLower,
-    );
+    const incoming = challenges.filter((c) => !c.accepted && !c.declined && c.toName.toLowerCase() === meLower);
+    const pending = incoming.filter((c) => !c.sectorAttack);
+
+    // Sound once per new challenge, including the sector attacks this modal
+    // never shows: the heartbeat re-delivers each one every beat until it
+    // expires, so the ids heard are remembered for as long as App is mounted.
+    const incomingIds = incoming.map((c) => c.id).join("\n");
+    const heardIds = useRef(new Set<string>());
+    useEffect(() => {
+        let fresh = false;
+        for (const id of incomingIds.split("\n")) {
+            if (id && !heardIds.current.has(id)) { heardIds.current.add(id); fresh = true; }
+        }
+        if (fresh) playFightNotificationSfx();
+    }, [incomingIds]);
+
     if (!pending.length) return null;
 
     const c = pending[0];

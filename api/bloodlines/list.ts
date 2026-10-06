@@ -115,9 +115,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return bloodlines;
             },
         );
-        // The process cache owns the 60s freshness window. A one-second shared
-        // edge TTL preserves the previous overall freshness budget.
-        res.setHeader('Cache-Control', 's-maxage=1, stale-while-revalidate=120');
+        // The process cache owns the 60s freshness window. Login-gated, so never
+        // shared-cacheable: a widened CDN cache rule would otherwise hand this
+        // list to anonymous callers and bypass the gate above.
+        res.setHeader('Cache-Control', 'private, no-store');
         return res.status(200).json({ bloodlines });
     } catch (err) {
         // Return empty list rather than 500 so the bloodline gallery degrades
