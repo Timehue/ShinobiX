@@ -40,6 +40,8 @@ import { clanBossWeekId } from '../clan-boss/_storage.js';
 import { runTerritoryLifecycleSweep } from '../_territory-lifecycle-store.js';
 import { runBattleLapseSweep } from './_battle-lapse-sweep.js';
 import { runPlayerRankedSettlementSweep } from './_player-ranked-settlement-sweep.js';
+import { settleDueSectorWars } from '../_sector-war-settle.js';
+import { villageWarMapEnabled } from '../_release-flags.js';
 
 const KAGE_CLOCK_TICK_MS = 15_000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -47,6 +49,9 @@ const MERC_TICK_MS = 10 * 60_000; // village-war mercenary auto-snipe cadence
 const SETTLEMENT_RECONCILIATION_TICK_MS = 5 * 60_000;
 const CLAN_BOSS_PARTY_SWEEP_TICK_MS = 5 * 60_000;
 const TERRITORY_LIFECYCLE_TICK_MS = 5 * 60_000;
+// 72h sector wars end at whatever hour they were declared. Settling only in the
+// 03:00 daily pass left a finished war unflipped for up to a day.
+const SECTOR_WAR_SETTLE_TICK_MS = 5 * 60_000;
 const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came back to
 // Player-ranked sagas nobody came back to finish (restart mid-saga, lost gate admission).
 const RANKED_SETTLEMENT_TICK_MS = 5 * 60_000;
@@ -73,6 +78,7 @@ const LEASE_TTL = {
     settlementReconciliation: 4 * 60,
     clanBossPartySweep: 4 * 60,
     territoryLifecycle: 4 * 60,
+    sectorWarSettle: 4 * 60,
     battleLapse: 9 * 60,
     rankedSettlement: 4 * 60,
     guestSweep: 20 * 60 * 60,
@@ -87,6 +93,7 @@ let _mercInterval: ReturnType<typeof setInterval> | null = null;
 let _settlementInterval: ReturnType<typeof setInterval> | null = null;
 let _clanBossPartySweepInterval: ReturnType<typeof setInterval> | null = null;
 let _territoryLifecycleInterval: ReturnType<typeof setInterval> | null = null;
+let _sectorWarSettleInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseInterval: ReturnType<typeof setInterval> | null = null;
 let _battleLapseBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
@@ -96,6 +103,7 @@ let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
+let _sectorWarSettleRunning = false;
 let _battleLapseRunning = false;
 let _rankedSettlementRunning = false;
 // Pre-pointer journals are discovered once per process until a pass completes.
@@ -202,6 +210,25 @@ async function fireTerritoryLifecycleSweep(): Promise<void> {
         console.error('[cron-scheduler] territory lifecycle sweep threw:', (err as Error).message);
     } finally {
         _territoryLifecycleRunning = false;
+    }
+}
+
+async function fireSectorWarSettlement(): Promise<void> {
+    if (_sectorWarSettleRunning || !villageWarMapEnabled()) return;
+    _sectorWarSettleRunning = true;
+    try {
+        const leased = await withScheduledJobLease(
+            'sector-war-settle',
+            () => settleDueSectorWars(),
+            { ttlSec: LEASE_TTL.sectorWarSettle, holdUntilExpiryOnSuccess: true },
+        );
+        if (leased.acquired && leased.value.length > 0) {
+            console.log(`[cron-scheduler] sector wars: settled ${leased.value.length}.`);
+        }
+    } catch (err) {
+        console.error('[cron-scheduler] sector-war settlement threw:', (err as Error).message);
+    } finally {
+        _sectorWarSettleRunning = false;
     }
 }
 
@@ -471,6 +498,11 @@ export function startSnapshotCron(): void {
         _territoryLifecycleInterval.unref?.();
         void fireTerritoryLifecycleSweep();
     }
+    if (!_sectorWarSettleInterval) {
+        _sectorWarSettleInterval = setInterval(() => void fireSectorWarSettlement(), SECTOR_WAR_SETTLE_TICK_MS);
+        _sectorWarSettleInterval.unref?.();
+        void fireSectorWarSettlement();
+    }
     if (!_battleLapseInterval) {
         _battleLapseInterval = setInterval(() => void fireBattleLapseSweep(), BATTLE_LAPSE_TICK_MS);
         _battleLapseInterval.unref?.();
@@ -545,6 +577,7 @@ export function stopSnapshotCron(): void {
     if (_settlementInterval) { clearInterval(_settlementInterval); _settlementInterval = null; }
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
+    if (_sectorWarSettleInterval) { clearInterval(_sectorWarSettleInterval); _sectorWarSettleInterval = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
     if (_battleLapseBootTimeout) { clearTimeout(_battleLapseBootTimeout); _battleLapseBootTimeout = null; }
     if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }

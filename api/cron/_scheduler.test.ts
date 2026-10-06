@@ -14,6 +14,17 @@ test('the ranked settlement sweep runs on its own leased tick and stops with the
     assert.match(source, /clearTimeout\(_rankedSettlementBootTimeout\)/);
 });
 
+test('sector wars settle on their own leased 5-minute tick, not only at 03:00', () => {
+    // A 72h war ends at whatever hour it was declared; waiting for the daily
+    // pass left a finished war unflipped for up to a day.
+    const source = readFileSync('api/cron/_scheduler.ts', 'utf8');
+    assert.match(source, /const SECTOR_WAR_SETTLE_TICK_MS = 5 \* 60_000;/);
+    assert.match(source, /setInterval\(\(\) => void fireSectorWarSettlement\(\), SECTOR_WAR_SETTLE_TICK_MS\)/);
+    assert.match(source, /withScheduledJobLease\(\s*'sector-war-settle',\s*\(\) => settleDueSectorWars\(\),/);
+    assert.match(source, /if \(_sectorWarSettleRunning \|\| !villageWarMapEnabled\(\)\) return;/);
+    assert.match(source, /clearInterval\(_sectorWarSettleInterval\)/);
+});
+
 test('stuck player trades are recovered on the leased settlement tick', () => {
     // Behaviour is covered through recoverPendingPlayerTrades in
     // api/player/_trade-settlement.test.ts; this pins that the always-on server

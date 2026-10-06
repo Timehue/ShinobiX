@@ -100,8 +100,9 @@ export interface SectorWarSettlement {
 
 /** Settle every war whose 72 hours are up. Returns what was settled. Never
  *  throws — a settlement hiccup must not break the caller's own path; an
- *  unsettled war is simply retried by the next caller: any sector-war
- *  declaration, a `status` call, or the 03:00 UTC daily pass. (The war map's
+ *  unsettled war is simply retried by the next caller: the scheduler's 5-minute
+ *  sector-war tick, any sector-war declaration, a `status` call, or the 03:00
+ *  UTC daily pass (which settles before paying income). (The war map's
  *  own poll, GET /api/village/war-map, does not settle.) Every
  *  settlement and every deferral is logged as a `[war-event]` line, so a war
  *  that keeps failing to settle is visible rather than silent. */

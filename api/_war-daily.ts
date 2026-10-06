@@ -116,6 +116,16 @@ export async function runVillageWarDailyPass(
     });
     const now = deps.now ?? Date.now();
     const today = utcDateString(now);
+    // Settle any 72h wars that are due BEFORE the territory scan below, so a
+    // sector the attacker already won pays its new owner, not the old one. The
+    // scheduler's 5-minute tick settles them as they end; this catches any it
+    // missed. Its own try/catch means a settle failure never costs income.
+    let sectorWarsSettled = 0;
+    try {
+        sectorWarsSettled = (await (deps.sweepSectorWars ?? settleDueSectorWars)(now)).length;
+    } catch (err) {
+        console.error('[village-war] sector-war settlement sweep failed:', (err as Error).message);
+    }
     // One territory scan for the whole pass — the WR + seal faucet both scale with it.
     const heldSectors = deps.heldSectors
         ?? await loadHeldSectorCounts(
@@ -203,15 +213,6 @@ export async function runVillageWarDailyPass(
         } catch (err) {
             console.error(`[village-war] daily pass failed for ${village}:`, (err as Error).message);
         }
-    }
-    // Settle any 72h wars whose window closed while nobody was watching — the
-    // endpoint's status poll settles the watched ones within seconds; this is the
-    // backstop. AFTER the per-village pass so a settle failure never costs income.
-    let sectorWarsSettled = 0;
-    try {
-        sectorWarsSettled = (await (deps.sweepSectorWars ?? settleDueSectorWars)(now)).length;
-    } catch (err) {
-        console.error('[village-war] sector-war settlement sweep failed:', (err as Error).message);
     }
     // Clan provisions mirror: every active clan war eats 30 rations/day per clan.
     if (storesEnabled) {
