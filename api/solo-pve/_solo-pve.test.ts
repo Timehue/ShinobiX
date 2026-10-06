@@ -809,6 +809,39 @@ describe('solo-PvE engine', () => {
         });
     }
 
+    // Owner ruling 2026-10-06: a FORGED Named Weapon id gets the tag-count Shield
+    // (450 alone), a built-in catalog weapon its authored amount, anything else 225.
+    it('Shield per weapon kind: Named 450 alone, built-in its catalog amount, other 225', () => {
+        const shieldAfterSwing = (id: string) => {
+            const player = makeFighter('Alice', 62, {
+                character: {
+                    level: 100, specialty: 'Bukijutsu',
+                    stats: { bukijutsuOffense: 1_200, strength: 500, intelligence: 500 },
+                    jutsu: [],
+                    pvpItems: [{
+                        id, name: 'Test Fang', slot: 'hand',
+                        weaponEp: 25, apCost: 40, weaponRange: 3, weaponCooldown: 5,
+                        weaponTags: [{ name: 'Shield', percent: 37 }],
+                    }],
+                    equipment: { hand: id },
+                },
+            });
+            const session = createSoloPveSession({
+                sessionId: `named-shield-${id}`, ownerSlug: 'alice',
+                encounter: { kind: 'test', id: 'named-shield' },
+                player, enemy: makeFighter('Rival', 63), now: NOW,
+            });
+            const result = applySoloPveAction(session, { type: 'weapon', itemId: id });
+            assert.equal(result.applied, true, `the swing should be accepted (reason: ${result.reason})`);
+            return result.session.player.shield - session.player.shield;
+        };
+        assert.equal(shieldAfterSwing('named-weapon-0f07ac79-66d2-4f4f-a4b4-3c9b6eb74527'), 450);
+        assert.equal(shieldAfterSwing('named-weapon-test'), 225);
+        // Built-ins shield their catalog amount (rarity/level ladder).
+        assert.equal(shieldAfterSwing('frostfang-oathblade'), 300);
+        assert.equal(shieldAfterSwing('glacier-king-cleaver'), 400);
+    });
+
     it('an unspecified thrown weapon reaches four hexes, as in PvP and Tower', () => {
         const enemyPos = Array.from({ length: GRID_W * GRID_H }, (_, pos) => pos)
             .find(pos => hexDistance(62, pos) === 4);

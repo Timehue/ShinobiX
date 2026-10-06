@@ -22,7 +22,8 @@ import { filledDiskTiles } from '../combat-core/aoe.js';
 import { hexDistance } from '../combat-core/grid.js';
 import { BASIC_CLEAR_RANGE } from '../../shared/combat-basic-actions.js';
 import { applyJutsu as applyPvpJutsu, applyDoTs, tickStatuses, applyGroundEffectToFighter, tickGroundEffects, characterOwnsElement, poisonSpendDamage } from '../pvp/move.js';
-import { reconcileGroundStatuses } from '../pvp/move.js';
+import { catalogWeaponFlatTags, reconcileGroundStatuses } from '../pvp/move.js';
+import { isForgedNamedWeaponId } from '../save/_forged-items.js';
 import { resolveTowerPlayerJutsu, towerJutsuToCombatJutsu } from '../combat-adapters/clanBossAdapter.js';
 import { TOWER_PVP_TOWER_ID } from './_pvp-session.js';
 import { weatherMultiplier } from '../combat-core/formulas.js';
@@ -134,6 +135,10 @@ type JutsuLike = {
     suppressBloodline?: boolean;
     /** Internal server stamp for equipped-weapon tag scaling. */
     weaponSwing?: boolean;
+    /** Internal server stamp: the swing's weapon is a forged Named Weapon. */
+    namedWeaponSwing?: boolean;
+    /** Internal server stamp: a built-in weapon's authored flat Heal/Shield. */
+    catalogWeaponFlat?: Partial<Record<'Heal' | 'Shield', number>>;
     /** Equipped weapon element, used only by the PvE relic bonus channel. */
     pveWeaponElement?: string;
     /** deterministic Tower-AI authoring hints; ignored by the shared resolver */
@@ -2591,7 +2596,7 @@ function applyResolvedAction(session: TowerSession, floor: TowerFloor, action: T
         const weaponJutsu: JutsuLike = {
             id: 'weapon', name: item.name ?? 'Weapon', type: 'Bukijutsu',
             pveWeaponElement: item.weaponElement,
-            isUtility: false, weaponSwing: true, effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
+            isUtility: false, weaponSwing: true, namedWeaponSwing: isForgedNamedWeaponId(item.id), catalogWeaponFlat: catalogWeaponFlatTags(item.id), effectPower: Number(item.weaponEp ?? 15), ap: wCost, range: wRange,
             // Elemental-weapon gate (parity with PvP): the swing rides the wielder's
             // bloodline damage multiplier only when the weapon's element is one the
             // wielder has awakened. No element → no boost.

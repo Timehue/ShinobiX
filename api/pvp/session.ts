@@ -786,6 +786,8 @@ export function sanitizeJutsuList(rawList: unknown, options: SanitizeJutsuListOp
             // server-synthesized equipped-weapon action. Never let persisted or
             // client-authored jutsu opt into max-mastery weapon tag scaling.
             delete out.weaponSwing;
+            delete out.namedWeaponSwing;
+            delete out.catalogWeaponFlat;
             // Hard caps so a tampered jutsu can't supply an instant-kill effect.
             // Max LEGIT effectPower is 50 (player bloodline jutsu, save-clamped in
             // api/save/[name].ts; built-in catalog + starters are ≤36). Ceiling 60
