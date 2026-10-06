@@ -28,7 +28,7 @@ sign-in servers reject with `disallowed_useragent`.
 
 Regenerate icons after any change to
 `shinobij.client/public/shinobi-journey-mark-512-v3.png` (the source of truth
-for the launcher icons — the browser-tab favicon, `shinobi-journey-mark-48-v3.png`,
+for the launcher icons — the browser-tab favicon, `shinobi-journey-mark-48-v4.png`,
 is a separate fixed-name asset and is not touched by this script):
 
 ```bash
