@@ -1,4 +1,5 @@
 import { strongholdLocation } from '../_stronghold-presence.js';
+import { serverWalkTile } from '../_sector-obstacles.js';
 /**
  * Pure helpers for turning a raw heartbeat / WS-ping body into safe presence
  * fields, and for projecting a stored OnlinePlayer back into the PlayerRecord
@@ -30,11 +31,12 @@ export function normalizeSector(value: unknown, fallback = 40): number {
 // nothing parseable, so an older client without a tile degrades gracefully (the
 // viewer falls back to a deterministic per-name tile). Display-only: no gameplay
 // path reads tile, so a bogus value can only mis-place a cosmetic marker.
-export function normalizeTile(value: unknown, fallback?: number): number | undefined {
-    if (value === null || value === undefined || value === '') return fallback;
+export function normalizeTile(value: unknown, fallback?: number, sector?: number): number | undefined {
+    if (value === null || value === undefined || value === '') return sector === undefined ? fallback : serverWalkTile(sector, fallback);
     const tile = Number(value);
-    if (!Number.isFinite(tile)) return fallback;
-    return Math.max(0, Math.min(143, Math.floor(tile)));
+    if (!Number.isFinite(tile)) return sector === undefined ? fallback : serverWalkTile(sector, fallback);
+    const normalized = Math.max(0, Math.min(143, Math.floor(tile)));
+    return sector === undefined ? normalized : serverWalkTile(sector, normalized);
 }
 
 // Cap client-supplied travelingUntil so an exploit can't make a player
@@ -177,6 +179,7 @@ export function toPlayerRecord(p: OnlinePlayer) {
         // Within-sector tile for live peer rendering (omitted → viewer falls back
         // to a deterministic per-name tile). Display-only.
         tile: p.tile,
+        ...(p.worldPosition ? { worldPosition: p.worldPosition, movementSequence: p.movementSeq ?? 0 } : {}),
         stronghold: strongholdLocation(p.name, p.sector),
     };
 }

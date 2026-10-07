@@ -42,7 +42,7 @@ import { mirrorSlotContent } from '../_content-store.js';
 import { syncCurrencyLedger } from '../_currency-ledger.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { settleSaveRecordForRead } from '../_elapsed-state.js';
-import { readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
+import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
 import { applyCanonicalFirstSave } from './_first-save-baseline.js';
 import { readVillageUpgrades } from '../village/_upgrade.js';
 import { readPendingWorldRewards } from '../world/_pending-rewards.js';
@@ -733,6 +733,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const walked = await readWalkedTile(kv, name).catch(() => null);
             const resume = resumeTileFor(walked, Number(payload.currentSector), payload.currentTile);
             if (resume !== undefined) payload = { ...payload, currentTile: resume };
+            const position = resumeWorldPositionFor(walked, Number(payload.currentSector), payload.worldPosition);
+            if (position || payload.worldPosition) payload = { ...payload, worldPosition: position ?? null };
         }
         // Owner reads (the login / restore pull) also carry the account-side
         // mirror of un-settled World explore/chest request ids, so a new device

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import type { PvpSession } from './session.js';
 import { isCancelledUnstartedPvpDuel } from '../../shared/pvp-cancellation.js';
+import { isWalkableTile } from '../../shared/sector-walk-mask.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -41,6 +42,7 @@ async function call(handler: typeof move, name: string, body: Record<string, unk
 }
 
 async function seed(id: string) {
+    assert.ok(isWalkableTile(53, 65) && isWalkableTile(53, 66), 'movement probes must test the battle lock on accessible ground');
     const now = Date.now();
     const fighter = (name: string, pos: number) => ({
         name, pos, hp: 90, maxHp: 100, chakra: 70, maxChakra: 100,
@@ -73,7 +75,7 @@ async function seed(id: string) {
         online.upsert({ name, sector: 53, character: null });
         online.setInBattle(name, true);
         online.setPendingAttacker(name, { name: session[role === 'p1' ? 'p2' : 'p1'].name });
-        assert.equal(online.moveToTile(name, 10), null);
+        assert.equal(online.moveToTile(name, 65), null);
     }
     return session;
 }
@@ -89,7 +91,7 @@ test('cancellation releases both players and never writes their saves or runs br
         assert.equal(isCancelledUnstartedPvpDuel(result.body), true);
         assert.equal(result.body.terminalReason, 'cancelled-unjoined');
         for (const [i, fighter] of [session.p1, session.p2].entries()) {
-            assert.equal(online.moveToTile(fighter.name, 10)?.tile, 10, 'movement resumes before any claim');
+            assert.equal(online.moveToTile(fighter.name, 65)?.tile, 65, 'movement resumes before any claim');
             assert.equal(online.get(fighter.name)?.pendingAttacker, null);
             assert.equal(await kv.get(`pvp:pending-session:${fighter.name}`), null);
             const reward = await call(claim, fighter.name, {
@@ -122,7 +124,7 @@ test('pending recovery repairs a legacy cancellation after a crash, including af
             pending: '1', playerName: session.p1.name, recoveryProbeVersion: '2',
         })).status, 204);
         for (const fighter of [session.p1, session.p2]) {
-            assert.equal(online.moveToTile(fighter.name, 11)?.tile, 11);
+            assert.equal(online.moveToTile(fighter.name, 65)?.tile, 65);
             assert.equal(await kv.get(`pvp:pending-session:${fighter.name}`), null);
         }
     }
@@ -138,7 +140,7 @@ test('cancellation replay cannot clear a newer duel or bypass outcome and partic
     online.setInBattle(session.p1.name, true);
     assert.equal((await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'cancel-unjoined' })).status, 200);
     assert.equal(await kv.get(`pvp:pending-session:${session.p1.name}`), newPointer);
-    assert.equal(online.moveToTile(session.p1.name, 12), null, 'the newer fight still blocks movement');
+    assert.equal(online.moveToTile(session.p1.name, 65), null, 'the newer fight still blocks movement');
     assert.equal((await call(claim, 'stranger', { battleId: session.battleId, outcome: 'draw', completionVersion: 1 })).status, 403);
     assert.equal((await call(claim, session.p1.name, { battleId: session.battleId, outcome: 'win', completionVersion: 1 })).status, 409);
     await kv.del(`pvp:pending-session:${session.p1.name}`);
@@ -148,7 +150,7 @@ test('cancellation replay cannot clear a newer duel or bypass outcome and partic
     assert.equal((await call(claim, session.p1.name, {
         battleId: session.battleId, outcome: 'draw', completionVersion: 1,
     })).status, 200);
-    assert.equal(online.moveToTile(session.p1.name, 12), null);
+    assert.equal(online.moveToTile(session.p1.name, 65), null);
     assert.deepEqual(await kv.get(`battle-state:${session.p1.name}`), newerProjection);
 });
 
@@ -187,5 +189,5 @@ test('a cancellation cleanup failure remains repairable from the committed termi
     } finally { kv.compareSet = originalCompareSet; }
     assert.equal((await kv.get<PvpSession>(`pvp:${session.battleId}`))?.status, 'done');
     assert.equal((await call(getSession, session.p1.name, {}, { id: session.battleId })).status, 200);
-    for (const fighter of [session.p1, session.p2]) assert.ok(online.moveToTile(fighter.name, 14));
+    for (const fighter of [session.p1, session.p2]) assert.ok(online.moveToTile(fighter.name, 66));
 });

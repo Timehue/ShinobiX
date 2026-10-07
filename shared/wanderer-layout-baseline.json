@@ -1,0 +1,172 @@
+[
+  {
+    "sector": 1,
+    "bucket": 10000,
+    "nightIndex": 6,
+    "cast": [],
+    "night": {
+      "id": "w-1-10000-2",
+      "name": "Sumi of the Unlit Road",
+      "archetype": "nightblade",
+      "level": 9,
+      "greeting": "Put the light out. We'll settle this the way the dark likes it."
+    }
+  },
+  {
+    "sector": 1,
+    "bucket": 80000,
+    "nightIndex": 2,
+    "cast": [
+      {
+        "id": "w-1-80000-0",
+        "name": "Hibiki the Restless",
+        "archetype": "bandit",
+        "level": 7,
+        "greeting": "Far from home. That makes this easy."
+      }
+    ],
+    "night": {
+      "id": "w-1-80000-2",
+      "name": "Oboro Three-Shadows",
+      "archetype": "nightblade",
+      "level": 7,
+      "greeting": "Put the light out. We'll settle this the way the dark likes it."
+    }
+  },
+  {
+    "sector": 9,
+    "bucket": 10000,
+    "nightIndex": 4,
+    "cast": [
+      {
+        "id": "w-9-10000-0",
+        "name": "Brother Yuki",
+        "archetype": "pilgrim",
+        "level": 22,
+        "greeting": "Rest a moment, traveler. The road is long."
+      }
+    ],
+    "night": {
+      "id": "w-9-10000-2",
+      "name": "Oboro Three-Shadows",
+      "archetype": "nightblade",
+      "level": 19,
+      "greeting": "I've followed you since the moon came up. Turn around."
+    }
+  },
+  {
+    "sector": 9,
+    "bucket": 80000,
+    "nightIndex": 6,
+    "cast": [],
+    "night": {
+      "id": "w-9-80000-2",
+      "name": "Oboro Three-Shadows",
+      "archetype": "nightblade",
+      "level": 21,
+      "greeting": "Put the light out. We'll settle this the way the dark likes it."
+    }
+  },
+  {
+    "sector": 17,
+    "bucket": 10000,
+    "nightIndex": 1,
+    "cast": [
+      {
+        "id": "w-17-10000-0",
+        "name": "Frostfang Scout",
+        "archetype": "patrol",
+        "level": 28,
+        "greeting": "State your village and your business."
+      }
+    ],
+    "night": {
+      "id": "w-17-10000-2",
+      "name": "Oboro Three-Shadows",
+      "archetype": "nightblade",
+      "level": 30,
+      "greeting": "I've followed you since the moon came up. Turn around."
+    }
+  },
+  {
+    "sector": 17,
+    "bucket": 80000,
+    "nightIndex": 0,
+    "cast": [],
+    "night": {
+      "id": "w-17-80000-2",
+      "name": "Hollow-Moon Kaito",
+      "archetype": "nightblade",
+      "level": 33,
+      "greeting": "Nobody patrols this road after dark. Nobody but me."
+    }
+  },
+  {
+    "sector": 31,
+    "bucket": 10000,
+    "nightIndex": 3,
+    "cast": [
+      {
+        "id": "w-31-10000-0",
+        "name": "Wandering Aki",
+        "archetype": "pilgrim",
+        "level": 49,
+        "greeting": "Take it, take it. An old man needs a lighter pack more than he needs ryo."
+      }
+    ],
+    "night": {
+      "id": "w-31-10000-2",
+      "name": "Oboro Three-Shadows",
+      "archetype": "nightblade",
+      "level": 48,
+      "greeting": "Put the light out. We'll settle this the way the dark likes it."
+    }
+  },
+  {
+    "sector": 31,
+    "bucket": 80000,
+    "nightIndex": 0,
+    "cast": [],
+    "night": {
+      "id": "w-31-80000-2",
+      "name": "Hollow-Moon Kaito",
+      "archetype": "nightblade",
+      "level": 51,
+      "greeting": "Put the light out. We'll settle this the way the dark likes it."
+    }
+  },
+  {
+    "sector": 66,
+    "bucket": 10000,
+    "nightIndex": 1,
+    "cast": [],
+    "night": {
+      "id": "w-66-10000-2",
+      "name": "Sumi of the Unlit Road",
+      "archetype": "nightblade",
+      "level": 95,
+      "greeting": "I've followed you since the moon came up. Turn around."
+    }
+  },
+  {
+    "sector": 66,
+    "bucket": 80000,
+    "nightIndex": 2,
+    "cast": [
+      {
+        "id": "w-66-80000-0",
+        "name": "Lone Beast",
+        "archetype": "beast",
+        "level": 95,
+        "greeting": "A wild beast bars your path, hackles raised."
+      }
+    ],
+    "night": {
+      "id": "w-66-80000-2",
+      "name": "Nightjar Reiko",
+      "archetype": "nightblade",
+      "level": 95,
+      "greeting": "I've followed you since the moon came up. Turn around."
+    }
+  }
+]

@@ -23,6 +23,9 @@
  */
 import type { OnlinePlayer, OnlineStateStore, PresenceStoreEvent, PresenceUpsert } from './types.js';
 import { safeName } from '../_utils.js';
+import { serverWalkableTile, serverWalkTile } from '../_sector-obstacles.js';
+import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import type { WorldPosition } from '../../shared/world-position.js';
 
 /** One persisted presence row — identity and position only, no character blob. */
 export type PresenceSnapshotRow = {
@@ -98,10 +101,14 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (player.travelDestinationSector === undefined || player.travelingUntil === undefined || now < player.travelingUntil) return;
         const previousSector = player.sector;
         player.sector = player.travelDestinationSector;
-        if (player.travelDestinationTile !== undefined) player.tile = player.travelDestinationTile;
+        player.tile = serverWalkTile(player.sector, player.travelDestinationTile ?? player.tile);
+        const position = player.travelDestinationWorldPosition;
+        if (position) player.worldPosition = position;
+        else delete player.worldPosition;
         player.travelingUntil = undefined;
         player.travelDestinationSector = undefined;
         player.travelDestinationTile = undefined;
+        player.travelDestinationWorldPosition = undefined;
         this.settledTravelKeys.add(key);
         if (previousSector !== player.sector) {
             this.removeFromSector(key, previousSector);
@@ -117,6 +124,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         arrivalAt: number,
         originSector?: number,
         arrivalTile?: number,
+        worldPosition?: WorldPosition,
     ): OnlinePlayer {
         if (originSector !== undefined && originSector !== player.sector) {
             const previousSector = player.sector;
@@ -126,7 +134,10 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             this.emit({ type: 'moved', name: key, from: previousSector, to: player.sector });
         }
         player.travelDestinationSector = destinationSector;
-        player.travelDestinationTile = arrivalTile;
+        player.travelDestinationTile = serverWalkTile(destinationSector, arrivalTile);
+        const position = worldPosition && worldPositionModel().read(worldPosition);
+        player.travelDestinationWorldPosition = position && worldPositionModel().location(position).sector === destinationSector ? position : undefined;
+        if (player.travelDestinationWorldPosition) player.movementSeq = (player.movementSeq ?? 0) + 1;
         player.travelingUntil = arrivalAt;
         player.lastSeenAt = this.now();
         this.settledTravelKeys.delete(key);
@@ -149,6 +160,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         let travelingUntil = prev?.travelingUntil;
         let travelDestinationSector = prev?.travelDestinationSector;
         let travelDestinationTile = prev?.travelDestinationTile;
+        let travelDestinationWorldPosition = prev?.travelDestinationWorldPosition;
         if (prev && !prev.locationUnverified && this.isFresh(prev, now)) {
             // Presence is no longer allowed to teleport a live session. A sector
             // change must either be a safe-zone exit (sector 0) or the matured
@@ -179,6 +191,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 travelingUntil = undefined;
                 travelDestinationSector = undefined;
                 travelDestinationTile = undefined;
+                travelDestinationWorldPosition = undefined;
             } else if (entry.sector === prev.sector) {
                 // ordinary presence refresh
             } else if (
@@ -191,6 +204,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
                 travelingUntil = undefined;
                 travelDestinationSector = undefined;
                 travelDestinationTile = undefined;
+                travelDestinationWorldPosition = undefined;
                 this.settledTravelKeys.add(key);
             }
         }
@@ -207,6 +221,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             travelingUntil,
             travelDestinationSector,
             travelDestinationTile,
+            ...(travelDestinationWorldPosition ? { travelDestinationWorldPosition } : {}),
             // SERVER-OWNED (F01): a beat cannot set or clear it. The heartbeat
             // derives it from the combat stores (battle-authority.ts) and fight
             // hosts set it at start/terminal via setInBattle; `entry.inBattle`
@@ -214,10 +229,15 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             inBattle: prev?.inBattle,
             // Within-sector tile for live peer rendering; keep the last known tile
             // if this beat didn't carry one (older client / non-sector screen).
-            tile: (entry.tileSector ?? entry.sector) === sector && !(travelingUntil !== undefined && travelingUntil > now)
-                ? entry.tile ?? prev?.tile : prev?.tile,
+            tile: serverWalkTile(sector, prev?.worldPosition && sector === prev.sector ? prev.tile : (entry.tileSector ?? entry.sector) === sector && !(travelingUntil !== undefined && travelingUntil > now)
+                ? entry.tile ?? prev?.tile : prev?.tile),
             movementSeq: prev?.movementSeq ?? 0,
+            ...(prev?.worldPosition && sector === prev.sector ? { worldPosition: prev.worldPosition } : {}),
         };
+        if (!prev && entry.restoredWorldPosition) {
+            const restored = worldPositionModel().read(entry.restoredWorldPosition);
+            if (restored && worldPositionModel().location(restored).sector === sector) next.worldPosition = restored;
+        }
         const movedFrom = prev && prev.sector !== next.sector ? prev.sector : undefined;
         if (movedFrom !== undefined) this.removeFromSector(key, movedFrom);
         this.players.set(key, next);
@@ -343,18 +363,18 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         if (changed) this.emit({ type: 'changed', name: key, sector: p.sector });
     }
 
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null {
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null {
         const key = canon(name);
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
-        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile);
+        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile, worldPosition);
     }
 
-    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number): OnlinePlayer | null {
+    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null {
         const key = canon(name);
         const p = this.players.get(key);
         if (!p) return null;
-        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile);
+        return this.applyTravel(key, p, destinationSector, arrivalAt, originSector, arrivalTile, worldPosition);
     }
 
     cancelTravel(name: string, arrivalAt: number): void {
@@ -364,6 +384,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         p.travelingUntil = undefined;
         p.travelDestinationSector = undefined;
         p.travelDestinationTile = undefined;
+        p.travelDestinationWorldPosition = undefined;
         this.settledTravelKeys.delete(key);
     }
 
@@ -385,9 +406,26 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
     moveToTile(name: string, tile: number): OnlinePlayer | null {
         const p = this.get(name);
         if (!p || p.inBattle || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
+        // Once the continuous client owns a cursor, an old queued tile delta
+        // cannot re-anchor it or bypass movement admission.
+        if (p.worldPosition) return null;
+        // Clients publish the chosen destination, not each animation step. Tiles
+        // carry no rewards or combat weight; speed checks would reject honest lag.
+        if (!serverWalkableTile(p.sector, tile)) return null;
         p.tile = tile;
         p.movementSeq = (p.movementSeq ?? 0) + 1;
         p.lastSeenAt = this.now();
+        return p;
+    }
+
+    commitWorldPosition(name: string, rawPosition: WorldPosition, expectedSequence: number): OnlinePlayer | null {
+        const p = this.get(name), model = worldPositionModel(), position = model.read(rawPosition);
+        if (!p || !position || p.inBattle || (p.movementSeq ?? 0) !== expectedSequence
+            || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
+        const location = model.location(position);
+        if (location.sector !== p.sector || location.tile === undefined) return null;
+        p.worldPosition = position; p.tile = location.tile;
+        p.movementSeq = (p.movementSeq ?? 0) + 1; p.lastSeenAt = this.now();
         return p;
     }
 

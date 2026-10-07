@@ -114,7 +114,8 @@ const FROZEN = {
     COMBAT_STRIP_TOPLEVEL_FIELDS: [
         'currentBiome', 'activeTraining', 'activeJutsuTraining',
         'acceptedMissionIds', 'missionProgress',
-        'triggeredEvents', 'pendingAiProfileId', 'currentSector', 'worldTravelReceipt',
+        // Owner-approved continuous-world cursor, 2026-10-07.
+        'triggeredEvents', 'pendingAiProfileId', 'currentSector', 'worldPosition', 'worldTravelReceipt',
         'creatorAis', 'creatorEvents', 'creatorMissions', 'creatorRaids', 'creatorCards',
         'petEncounterVn', 'ancientChestVn', 'editablePets',
     ],
@@ -170,7 +171,7 @@ const FROZEN = {
         'dailyBattleFloors', 'dailyBattleDate', 'lastTaxDate',
     ],
     SERVER_LEDGER_TOPLEVEL_FIELDS: [
-        'currentSector', 'currentTile', 'worldTravelReceipt', 'pendingTravel',
+        'currentSector', 'currentTile', 'worldPosition', 'worldTravelReceipt', 'pendingTravel',
         '_trainingReceipts', 'activeTraining',
         'activeWandererQuestSeal', 'activeStoryReckoningSeal',
         'activeRiftQuestSeal', 'activeQuestbookSeal',

@@ -1,6 +1,11 @@
 export const COMBAT_MISSION_CLIENT_TRUST_DISABLED_REASON = 'server_authoritative_combat_required';
 export const PLAYER_AI_IMAGE_GENERATION_DISABLED_REASON = 'player_ai_image_generation_public_beta_disabled';
 
+/** Reviewed sector floors ship solid by default; incident rollback restores free movement. */
+export function sectorObstaclesEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+    return env.DISABLE_SECTOR_OBSTACLES !== '1';
+}
+
 export function playerAiImageGenerationEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
     return env.ENABLE_PLAYER_AI_IMAGE_GENERATION === '1';
 }

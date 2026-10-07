@@ -12,6 +12,8 @@
  * implements the SAME interface and consumers don't change.
  */
 
+import type { WorldPosition } from '../../shared/world-position.js';
+
 export type OnlinePlayer = {
     /** Canonical (trimmed, lowercased) name — the map key. */
     name: string;
@@ -32,6 +34,7 @@ export type OnlinePlayer = {
     travelDestinationSector?: number;
     /** Destination tile to adopt when a road-crossing lease matures. */
     travelDestinationTile?: number;
+    travelDestinationWorldPosition?: WorldPosition;
     /** Sector whose room saw this player before a stale, matured travel sweep. */
     departureSector?: number;
     /**
@@ -44,6 +47,8 @@ export type OnlinePlayer = {
     /** Within-sector tile (0..143) for peer rendering and road-exit proximity.
      * Walking remains client supplied; this is not authoritative path validation. */
     tile?: number;
+    /** Accepted server-owned cursor; legacy clients may omit it. */
+    worldPosition?: WorldPosition;
     /** Monotonic server sequence for within-sector movement deltas. */
     movementSeq?: number;
     /** Boot snapshots may render a roster, but cannot authorize gameplay until
@@ -62,6 +67,8 @@ export type PresenceUpsert = {
     tile?: number;
     /** Sector the supplied tile belongs to; differs during stale travel beats. */
     tileSector?: number;
+    /** Hydrated from durable server state only; never copied from an ingress body. */
+    restoredWorldPosition?: WorldPosition;
 };
 
 /**
@@ -98,9 +105,9 @@ export interface OnlineStateStore {
     /** Set/clear the server-owned inBattle flag (fight start/terminal, heartbeat corroboration). */
     setInBattle(name: string, inBattle: boolean): void;
     /** Start a server-owned travel lease. Returns null if the player cannot travel. */
-    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number): OnlinePlayer | null;
+    startTravel(name: string, destinationSector: number, arrivalAt: number, originSector?: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null;
     /** Restore a server-persisted lease after a process restart. */
-    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number): OnlinePlayer | null;
+    restoreTravel(name: string, destinationSector: number, arrivalAt: number, originSector: number, arrivalTile?: number, worldPosition?: WorldPosition): OnlinePlayer | null;
     /** Roll back a lease that could not be persisted. */
     cancelTravel(name: string, arrivalAt: number): void;
     /** Consume the one-shot signal that its persisted lease may be deleted. */
@@ -111,6 +118,8 @@ export interface OnlineStateStore {
     retryTravelSettlement(name: string): void;
     /** Apply a within-sector movement intent and return the refreshed record. */
     moveToTile(name: string, tile: number): OnlinePlayer | null;
+    /** Commit a pre-admitted world move in its server-owned sector. */
+    commitWorldPosition(name: string, position: WorldPosition, expectedSequence: number): OnlinePlayer | null;
     /** Drop entries past the offline window. Returns the removed records. */
     sweepStale(): OnlinePlayer[];
     /** Number of tracked entries (including not-yet-swept stale ones). */

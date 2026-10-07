@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getPendingLocalSectorCorrection, setLocalSectorTile, subscribeLocalSectorTileCorrections } from './presence-store';
 import { updateRealtimeTile } from './use-presence-socket';
 import { createTravelPresentationScope } from './travel-presentation';
+import { isContinuousWorldControlActive } from './continuous-world-control';
 
 /** Bridges a mounted map to presence and owns its disposable travel work. */
 export function useWorldTravelPresentation(name: string, initialTile: () => number, onSectorCorrection: (sector: number) => void) {
@@ -22,7 +23,7 @@ export function useWorldTravelPresentation(name: string, initialTile: () => numb
     }), []);
     useEffect(() => {
         setLocalSectorTile(sectorPlayerPos);
-        updateRealtimeTile(sectorPlayerPos);
+        if (!isContinuousWorldControlActive()) updateRealtimeTile(sectorPlayerPos);
     }, [sectorPlayerPos]);
     return { sectorPlayerPos, setSectorPlayerPos, travelRequestInFlight, travelPresentation };
 }

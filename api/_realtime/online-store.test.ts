@@ -134,12 +134,12 @@ test('stale mid-travel disconnect is swept at its matured destination', () => {
 
 test('moveToTile refreshes a player and increments movement sequence', () => {
     const { store } = makeStore();
-    store.upsert({ name: 'rill', sector: 1, character: null, tile: 10 });
-    const firstSequence = store.moveToTile('rill', 11)?.movementSeq;
-    const second = store.moveToTile('rill', 12);
+    store.upsert({ name: 'rill', sector: 1, character: null, tile: 25 });
+    const firstSequence = store.moveToTile('rill', 26)?.movementSeq;
+    const second = store.moveToTile('rill', 27);
     assert.equal(firstSequence, 1);
     assert.equal(second?.movementSeq, 2);
-    assert.equal(second?.tile, 12);
+    assert.equal(second?.tile, 27);
 });
 
 test('character falls back to the previously-stored slim character', () => {

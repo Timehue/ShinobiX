@@ -8,6 +8,10 @@ import { HollowGateEntryMenu } from './world-map/HollowGateEntryMenu';
 import { sectorBackgroundImage, sectorDepthImage, sectorMapUrl, ambienceBiomeForSector } from './world-map/sector-art';
 import { fetchVillageGuards } from "../lib/village-guard-api";
 import { useWorldTravelPresentation } from "../lib/use-world-travel-presentation";
+import { confirmRoadPosition } from "../lib/road-position-confirmation";
+import { useSectorRoadWalk } from "../lib/use-sector-road-walk";
+import { useContinuousWorldAuthority } from "../lib/use-continuous-world-authority";
+import { requestContinuousWorldWalk } from "../lib/continuous-world-control";
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useState, useEffect, useLayoutEffect, useMemo, useRef, lazy, Suspense, type ReactNode, type CSSProperties } from "react";
 import "../styles/index/15-world-map-territory.css";
@@ -51,6 +55,9 @@ import { sectorPlayerRoster, projectSectorPlayers } from "../lib/sector-player-r
 import { findSectorSpectatorBattle } from "../lib/sector-spectate";
 import { useSectorPlayerAction } from "../lib/use-sector-player-action";
 import { WorldSectorCanvas } from "../components/WorldSectorCanvas";
+import { SectorVillageEntrance } from "../components/SectorVillageEntrance";
+import { sectorWalkMask } from "../../../shared/sector-walk-mask";
+import { stepSectorTile, useSectorTileGrounding } from "../lib/sector-obstacles";
 import { WorldSectorOverlayLayer } from "../components/WorldSectorOverlayLayer";
 import { ModalDialogScrim } from "../components/ModalDialogScrim";
 import { WorldWandererDialog, type WorldWandererDialogState } from "../components/WorldWandererDialog";
@@ -2584,6 +2591,7 @@ function WorldMapContent({
             setSelectedVillageTerritory(null);
             setRouteHoverSector(null);
         });
+    const sectorObstacles = useSectorTileGrounding(selectedSector, sectorPlayerPos, setSectorPlayerPos);
     const [selectedCreatorEvent, setSelectedCreatorEvent] = useState<CreatorEvent | null>(null);
     // Anbu Vault Infiltration (anbuInfiltration.v1): the walk-up prompt on the
     // sector's vault structure, and the live raid screen (portaled full-screen).
@@ -2787,6 +2795,8 @@ function WorldMapContent({
         const presentation = travelPresentation.current;
         void (async () => {
             try {
+                if (request && !await confirmRoadPosition(character.name, request.originSector, request.originTile)) throw new Error('Road position not confirmed');
+                if (!presentation.isCurrent()) return;
                 const response = await fetch('/api/player/travel', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2862,6 +2872,8 @@ function WorldMapContent({
     }
 
     function triggerTravelPoint(sector: number) {
+        const road = currentSector == null ? undefined : roadExitsForSector(currentSector).find(exit => exit.destinationSector === sector);
+        if (road && requestContinuousWorldWalk(sector, road.destinationTile)) return;
         if (sector === FESTIVAL_SECTOR) {
             setSelectedSector(null);
             setScreen("sunscarFestival");
@@ -2875,20 +2887,8 @@ function WorldMapContent({
             setCurrentWeather(weatherForSector(sector, biome));
             setCurrentSector(sector);
             setSelectedSector(sector);
-            // Put the player somewhere that makes sense in the sector they are
-            // ENTERING. Travelling used to leave the tile untouched, so you kept the
-            // coordinates you happened to be standing on: leave by the right-hand
-            // edge and you arrived on the RIGHT of the next sector instead of the
-            // left, leave from the top and you arrived at the top. That made every
-            // trip read as a teleport rather than as travelling a direction.
-            // Along a road, arrive on the edge facing the sector you came from —
-            // identical to walking through that gate. With no road, derive that same
-            // edge from the two sectors' map positions, so EVERY arrival comes in
-            // from the side you travelled from; only a trip with no origin at all
-            // (a fresh boot, a village spawn) still starts in the middle.
-            // The SERVER seals this tile from the SAME shared definition, and it is
-            // what everyone else in the destination sees; ours is the fallback for a
-            // response that carries none.
+            // Legacy fast travel uses the server's sealed arrival; older replies
+            // fall back to the same shared edge definition.
             const arrival = (Number.isInteger(arrivalTile) ? arrivalTile : undefined)
                 ?? (originSector == null ? null : travelArrivalTile(originSector, sector));
             setSectorPlayerPos(arrival ?? SECTOR_CENTRE_TILE);
@@ -2898,16 +2898,11 @@ function WorldMapContent({
     }
 
     function crossSectorExit(exit: SectorExit) {
-        if (!sameSector(currentSector, exit.sector)) return;
-        setSectorPlayerPos(exit.tile);
+        if (!sameSector(currentSector, exit.sector) || sectorPlayerPos !== exit.tile) return;
         beginSectorTravel(exit.destinationSector, (arrivalTile) => {
             const destinationTile = Number.isInteger(arrivalTile) ? Number(arrivalTile) : exit.destinationTile;
             const destinationBiome = biomeForSector(exit.destinationSector);
-            // Appear on the side you came in through, and STOP. Crossing north
-            // lands you on the destination's SOUTH edge, which is what makes the
-            // move read as travelling a direction; every step after that is the
-            // player's. ⚖ An animated per-tile walk-in used to run here and was
-            // removed — see WALK_IN_DEPTH in shared/sector-links.ts for why.
+            // Match the incoming road edge and stop; further movement is input.
             setSectorPlayerPos(destinationTile);
             setCurrentBiome(destinationBiome);
             setCurrentWeather(weatherForSector(exit.destinationSector, destinationBiome));
@@ -2924,12 +2919,15 @@ function WorldMapContent({
         });
     }
 
+    const roadWalk = useSectorRoadWalk(sameSector(currentSector, selectedSector ?? undefined) ? selectedSector : null,
+        sectorPlayerPos, setSectorPlayerPos, crossSectorExit, () => isTraveling || travelRequestInFlight.current);
+    const worldAuthority = useContinuousWorldAuthority({ currentSector, busy: () => isTraveling || travelRequestInFlight.current,
+        setSectorPlayerPos, setCurrentSector, setSelectedSector, setCurrentBiome, setCurrentWeather, setRegionSplash });
+
     // ── WASD / E keyboard controls inside a sector tile view ─────────────────────
     // W/A/S/D moves one tile in that direction on the 12-wide sector grid.
     // E explores the open sector.
     // Only active while a sector panel is open and focus is not in a text field.
-    const SECTOR_GRID_W = 12;
-    const SECTOR_GRID_SIZE = 144;
     useEffect(() => {
         if (!selectedSector || selectedSector === FESTIVAL_SECTOR || !sameSector(currentSector, selectedSector)) return;
         const activeSector = selectedSector;
@@ -2963,17 +2961,11 @@ function WorldMapContent({
                 exit.tile === sectorPlayerPos && exit.direction === outwardDirection,
             );
             if (roadExit && sameSector(currentSector, activeSector)) {
-                crossSectorExit(roadExit);
+                roadWalk.requestExit(roadExit);
                 return;
             }
-            setSectorPlayerPos(prev => {
-                const col = prev % SECTOR_GRID_W;
-                const row = Math.floor(prev / SECTOR_GRID_W);
-                if (movementKey === 'w' && row > 0)                          return prev - SECTOR_GRID_W;
-                if (movementKey === 's' && row < (SECTOR_GRID_SIZE / SECTOR_GRID_W) - 1) return prev + SECTOR_GRID_W;
-                if (movementKey === 'a' && col > 0)                          return prev - 1;
-                if (movementKey === 'd' && col < SECTOR_GRID_W - 1)          return prev + 1;
-                return prev;
+            roadWalk.selectTile(prev => {
+                return stepSectorTile(activeSector, prev, movementKey);
             });
         }
         window.addEventListener('keydown', handleKey);
@@ -4273,9 +4265,7 @@ function WorldMapContent({
         // The painted floor is now unconditional: every sector has one, and the
         // vista fallback (with its per-sector art) was retired. A territory with
         // its own custom backdrop still gets the <SectorScene> stack below.
-        const sectorMapSrc = territory.backgroundImage
-            ? undefined
-            : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
+        const sectorMapSrc = territory.backgroundImage && !sectorWalkMask(selectedSector) ? undefined : sectorMapUrl(ambienceBiomeForSector(selectedSector), selectedSector);
         const sectorOwnerLabel = territory.ownerClan ? `${territory.ownerClan} (${territory.ownerVillage})` : "Unclaimed";
         // Clan territory is inert until a clan claims the sector. Collapse its five-row
         // card until it is owned, mid-capture, guarded, cooling down, or a live war
@@ -4426,6 +4416,7 @@ function WorldMapContent({
                 {petMentor.guide}
                 <div className="instance-frame sector-instance-frame">
                     <WorldSectorCanvas
+                        obstacles={sectorObstacles}
                         suspended={!!vaultRaid}
                         sector={selectedSector}
                         biome={biome}
@@ -4451,8 +4442,11 @@ function WorldMapContent({
                         }))}
                         sharedImages={sharedImages}
                         sleeperPeers={sleeperPeers}
-                        onSelectTile={setSectorPlayerPos}
-                        onCrossExit={crossSectorExit}
+                        onSelectTile={roadWalk.selectTile}
+                        onCrossExit={roadWalk.requestExit}
+                        onWalkArrive={roadWalk.arriveAtTile}
+                        onWorldAuthority={worldAuthority}
+                        worldMovementBlocked={() => isTraveling || travelRequestInFlight.current}
                         hudLayer={
                     <SectorHud key={selectedSector}
                         sector={selectedSector}
@@ -4481,10 +4475,8 @@ function WorldMapContent({
                         }
                         overlayLayer={
                             <>
-                            {!vaultRaid && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
-                                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
-                                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
-                                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
+                            {!vaultRaid && <SectorVillageEntrance sector={selectedSector} village={character.village} present={sectorIsCurrent}
+                                onEnter={name => { const village = locations.find(l => l.type === "village" && l.name === name); if (village) enterLandmark(village); }} />}
                             {!vaultRaid && <WorldSectorOverlayLayer
                                 sector={selectedSector}
                                 biome={ambienceBiomeForSector(selectedSector)}
@@ -4503,6 +4495,14 @@ function WorldMapContent({
                                 onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
                                 onOpenShrine={() => setTracesModal({ view: "shrine" })}
                             />}
+                            </>
+                        }
+                        mapHudLayer={
+                            <>
+                            {!vaultRaid && <StoryFieldJournal character={character} currentSector={currentSector} onLocate={setSelectedSector}
+                                onOpen={(questId, pointId) => setFieldScene({ questId, pointId })}
+                                onReview={(questId, pointId) => setFieldScene({ questId, pointId, review: true })}
+                                abandonBusy={storyReckoningAbandonBusy} onAbandon={() => void handleStoryReckoningAbandon()} />}
                             {sectorIsCurrent ? petMentor.roadPrompt : null}
                             {tracesModal && sectorTraces && (
                                 <SectorTracesModal

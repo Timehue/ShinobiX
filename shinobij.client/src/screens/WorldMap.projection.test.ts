@@ -307,12 +307,11 @@ test("selected-sector canvas preserves stage and stacking order", () => {
         "<SectorPeersLive",
         "<SectorAvatar",
         "{overlayLayer}",
-        "<SectorForeground",
         "{encounterLayer}",
     ], "selected-sector stage order");
     assertOrdered(canvasSource, [
         "if (roadExit && isCurrent) onCrossExit(roadExit);",
-        "else onSelectTile(index);",
+        "else onSelectTile(nearestWalkableTile(sector, index, obstacles));",
     ], "one-click road crossing before ordinary movement");
     // Every visual that belongs to a tile must stay nested in that tile button.
     // An explicitly placed sibling grid item reserves its cell before the 144
@@ -320,18 +319,16 @@ test("selected-sector canvas preserves stage and stacking order", () => {
     // its index. The result is both visual (gates drift inward) and functional
     // (clicking a square moves to a different tile).
     assert.doesNotMatch(canvasSource, /SectorGatePlate|gate-plate|gridColumn|gridRow/u);
-    assertOrdered(canvasSource, [
-        '<button',
-        '<SectorGateMarker',
-        '</button>',
-    ], "gate marker stays inside its indexed tile button");
+    assert.doesNotMatch(canvasSource, /SectorGateMarker|sector-road-exit-ready/u);
+    assert.match(canvasSource, /onArrive=\{onWalkArrive\}/u);
 });
 
 test("WorldMap retains controller and portal ownership around the canvas slots", () => {
     const projection = sliceBetween(worldMapSource, "<WorldSectorCanvas", "if (selectedVillageTerritory) {");
     assertOrdered(projection, [
-        "onSelectTile={setSectorPlayerPos}",
-        "onCrossExit={crossSectorExit}",
+        "onSelectTile={roadWalk.selectTile}",
+        "onCrossExit={roadWalk.requestExit}",
+        "onWalkArrive={roadWalk.arriveAtTile}",
         "overlayLayer={",
         "<WorldSectorOverlayLayer",
         "createPortal(",
@@ -438,6 +435,7 @@ test("selected-sector scouting is read-only and never impersonates travel", () =
     assert.match(projection, /<SectorHud[\s\S]*present=\{sectorIsCurrent\}/u);
 
     assert.match(canvasSource, /disabled=\{!isCurrent\}[\s\S]*onClick/u);
+    assert.match(canvasSource, /const walkable = isWalkableTile\(sector, index, obstacles\);/u);
     assert.match(canvasSource, /\{isCurrent && \(\s*<SectorAvatar/u);
     assert.match(commandPanelSource, /disabled=\{!present \|\| !villageWarAdmissionOpen/u);
     assert.match(rowSource, /disabled=\{busy \|\| \(spectating \? player\.spectateDisabled : player\.actionDisabled\)\}/u);
@@ -445,7 +443,7 @@ test("selected-sector scouting is read-only and never impersonates travel", () =
     assert.match(hudSource, /disabled=\{!present\} onClick=\{onHunt\}/u);
 
     const keyboard = sliceBetween(worldMapSource, "// ── WASD / E keyboard controls", "// Clear the edge-crossing slide class");
-    assertOrdered(keyboard, ["!sameSector(currentSector, selectedSector)", "const activeSector = selectedSector", "void exploreSector(activeSector)", "setSectorPlayerPos"], "remote scouting keyboard guard");
+    assertOrdered(keyboard, ["!sameSector(currentSector, selectedSector)", "const activeSector = selectedSector", "void exploreSector(activeSector)", "roadWalk.selectTile"], "remote scouting keyboard guard");
     const combatEnvironment = sliceBetween(worldMapSource, "function selectedSectorCombatEnvironment", "function focusSectorCombat");
     assert.match(combatEnvironment, /!sameSector\(currentSector, sector\)/u);
     assert.match(worldMapSource, /function handleExploreSelectedSector\(\)[\s\S]*sameSector\(currentSector, selectedSector\)[\s\S]*exploreSector\(selectedSector\)/u);
@@ -458,18 +456,18 @@ test("the village Outskirts control uses authoritative travel", () => {
     assert.doesNotMatch(outskirts, /set(?:CurrentSector|SelectedSector|CurrentBiome|CurrentWeather)\(/u);
 });
 
-test("a current-sector gate click atomically moves to and crosses its shared road exit", () => {
+test("a completed road approach crosses only its current shared exit", () => {
     const crossing = sliceBetween(worldMapSource, "function crossSectorExit", "// ── WASD / E keyboard controls");
     assertOrdered(crossing, [
         "sameSector(currentSector, exit.sector)",
-        "setSectorPlayerPos(exit.tile)",
+        "sectorPlayerPos !== exit.tile",
         "beginSectorTravel(exit.destinationSector",
         'mode: "edge"',
         "originSector: exit.sector",
         "originTile: exit.tile",
         "exitId: exit.id",
-    ], "atomic gate activation");
-    assert.doesNotMatch(crossing, /sectorPlayerPos !== exit\.tile/u);
+    ], "completed road approach");
+    assert.match(worldMapSource, /roadWalk\.requestExit\(roadExit\)/u);
     assert.match(canvasSource, /title=\{roadExit[\s\S]*\? `\$\{isCurrent \? "Cross" : "Road"\}/u);
-    assert.match(canvasSource, /ready=\{isCurrent\}/u);
+    assert.doesNotMatch(canvasSource, /SectorGateMarker/u);
 });

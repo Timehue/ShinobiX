@@ -486,6 +486,7 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     f('missionProgress', 'top', 'client-state', 'missions', ['combat-strip-toplevel']),
     f('currentSector', 'top', 'server-owned', 'world', ['combat-strip-toplevel', 'ledger-toplevel'], 'server travel and safe-zone arrivals only; autosaves cannot move a player'),
     f('currentTile', 'top', 'server-owned', 'world', ['ledger-toplevel'], 'server-issued arrival tile; owner reads and cold presence project the walked-tile checkpoint over it'),
+    f('worldPosition', 'top', 'server-owned', 'world', ['combat-strip-toplevel', 'ledger-toplevel'], 'server-accepted cursor on the versioned continuous world graph; never client-autosave authority'),
     f('worldTravelReceipt', 'top', 'server-owned', 'world', ['combat-strip-toplevel', 'ledger-toplevel'], 'co-written arrival receipt prevents duplicate settlement after cleanup failure'),
     f('pendingTravel', 'top', 'server-owned', 'world', ['ledger-toplevel'], 'owner reads project the durable travel lease; client loading masks cannot authorize arrival'),
     f('currentBiome', 'top', 'client-state', 'world', ['combat-strip-toplevel']),

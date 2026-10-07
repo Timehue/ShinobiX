@@ -13,7 +13,7 @@ import { queuePresenceUpdate } from '../_realtime/presence-broadcast.js';
 import { clearSleeperCampOnBeat } from '../_realtime/sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from '../_realtime/travel-lease.js';
 import { durablePresenceSectorForWrite } from '../_realtime/world-duel-engagement.js';
-import { noteWalkedTile, readWalkedTile, resumeTileFor } from '../_realtime/walked-tile.js';
+import { noteWalkedTile, readWalkedTile, resumeTileFor, resumeWorldPositionFor } from '../_realtime/walked-tile.js';
 import { battleAuthorityKeys, battleEvidenceFrom, resolveBattleAuthority } from '../_realtime/battle-authority.js';
 import { battleStartedWithin } from '../_realtime/battle-projection.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
@@ -220,7 +220,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const battleKeys = battleAuthorityKeys(name);
         let [signals, savedLocation, persistedTravel, walkedTile] = await Promise.all([
             kv.mget(challengeKey, resetSignalKey, healSignalKey, noticesKey, stakeRefundKey, towerInviteKey, ...battleKeys),
-            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number }>(`save:${safeName(name)}`),
+            existing ? Promise.resolve(null) : kv.get<{ currentSector?: number; currentTile?: number; worldPosition?: unknown }>(`save:${safeName(name)}`),
             existing ? Promise.resolve(null) : getTravelLease(name),
             // F03: the tile the player last stood on, cold start only.
             existing ? Promise.resolve(null) : readWalkedTile(kv, name).catch(() => null),
@@ -318,13 +318,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
                     ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, entrySector, savedLocation?.currentTile)),
             tileSector: existing && !superseded ? normalizeSector(sector, existing.sector) : presenceSector,
+            restoredWorldPosition: !existing && body.continuousWorld === true
+                ? persistedTravel && now >= persistedTravel.arrivalAt ? persistedTravel.worldPosition
+                    : resumeWorldPositionFor(walkedTile, entrySector, savedLocation?.worldPosition) : undefined,
         });
         // Restore before the next await: no newer live journey may be replaced
         // by a delayed cold-session lease after combat evidence resolves.
         if (!existing && persistedTravel && now < persistedTravel.arrivalAt) {
             stored = onlineStore.restoreTravel(
                 name, persistedTravel.destinationSector, persistedTravel.arrivalAt,
-                persistedTravel.originSector, persistedTravel.arrivalTile,
+                persistedTravel.originSector, persistedTravel.arrivalTile, persistedTravel.worldPosition,
             ) ?? stored;
         }
         // F01: `inBattle` is what the combat stores can PROVE, never what the
@@ -349,7 +352,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // F03: remember the spot the player is standing on, durably and cheaply
         // (throttled per player, fire-and-forget; walked-tile.ts). A reload
         // resumes here rather than on the road they arrived by.
-        void noteWalkedTile(kv, name, stored.sector, stored.tile, now);
+        void noteWalkedTile(kv, name, stored.sector, stored.tile, now, stored.worldPosition);
         const pendingAttacker = stored.pendingAttacker ?? null;
         onlineStore.clearPendingAttacker(name);
         // Throttled cross-worker presence beat (fallback for consumers like the
@@ -421,6 +424,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // the arrival-settle window so a real trip is never bounced.
             sector: stored.sector,
             tile: stored.tile,
+            ...(stored.worldPosition ? { worldPosition: stored.worldPosition, movementSequence: stored.movementSeq ?? 0 } : {}),
             traveling: (stored.travelingUntil ?? 0) > now,
             pendingAttacker,
             pendingChallenges: pendingChallenges ?? [],

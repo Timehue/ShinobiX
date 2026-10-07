@@ -1,0 +1,21 @@
+{
+  "file": "scripts/fixtures/coastal-water-standing-area.png",
+  "sha256": "437afa8cfb11a7cbe0ee8f9707f4fa2815526cb001012cadaaeaa7837fcc4e2c",
+  "source": "Western Piers rejected whole generated pass4",
+  "sourceSha256": "76e3c261269ad70704fe6ae00eee96eb713429435f0b10bc9a3e97834c5fd957",
+  "normalize": {
+    "width": 1024,
+    "height": 1024,
+    "fit": "fill"
+  },
+  "crop": {
+    "left": 24,
+    "top": 536,
+    "width": 37,
+    "height": 37
+  },
+  "logicalTile": 72,
+  "authoredMaterial": ".",
+  "physicallyObservedMaterial": "water",
+  "purpose": "Small actual-pixel regression fixture;not delivered game artwork"
+}

@@ -24,6 +24,8 @@
  * test.
  */
 
+import { sectorArtKey } from './sector-geo.js';
+import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts.js';
 export type ShrineTheme = 'village' | 'hollow-gate' | 'ancients';
 
 export type ShrineDef = {
@@ -40,7 +42,7 @@ export type ShrineDef = {
     top: number;
 };
 
-export const SHRINE_DEFS: readonly ShrineDef[] = [
+const ORIGINAL_SHRINE_DEFS: readonly ShrineDef[] = [
     // ——— The four village shrines ———
     {
         id: 'heartwood', sector: 15, name: 'Heartwood Shrine', theme: 'village', village: 'Ashen Leaf Village',
@@ -93,6 +95,12 @@ export const SHRINE_DEFS: readonly ShrineDef[] = [
         left: 48, top: 45,
     },
 ];
+
+/** Cosmetic shrine tiers — lifetime-total ryo thresholds. Pure display, no payouts. */
+export const SHRINE_DEFS: readonly ShrineDef[] = ORIGINAL_SHRINE_DEFS.map(definition => {
+    const site = SECTOR_FLOOR_LAYOUTS[sectorArtKey(definition.sector)]?.sites.shrine;
+    return site ? { ...definition, left: site.left, top: site.top } : definition;
+});
 
 /** Cosmetic shrine tiers — lifetime-total ryo thresholds. Pure display, no payouts. */
 export const SHRINE_TIERS: readonly { name: string; at: number }[] = [

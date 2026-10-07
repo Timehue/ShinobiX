@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page, type Route, type TestInfo } from
 import AxeBuilder from "@axe-core/playwright";
 import { PUBLIC_CAPABILITY_IDS } from "../../shared/public-capabilities";
 import { PET_TUTORIAL_LESSON_IDS } from "../../shared/pet-tutorial";
+import { worldPositionModel } from "../../shared/continuous-world-layout";
 
 /**
  * Assert an <img> ships full-resolution art, waiting for it to actually decode.
@@ -156,6 +157,8 @@ function character(completedLessonIds: string[] = []) {
 
 async function installApi(page: Page, currentSector = 0, completedLessonIds: string[] = []) {
     let saveVersion = 1;
+    const worldModel = worldPositionModel();
+    let worldCursor = worldModel.fallback(currentSector, 78), worldSequence = 0;
     const savedCharacter = { ...character(completedLessonIds), wandererCooldowns: quietRoadCooldowns(currentSector) };
 
     await page.addInitScript(() => {
@@ -195,6 +198,17 @@ async function installApi(page: Page, currentSector = 0, completedLessonIds: str
         const request = route.request();
         const path = new URL(request.url()).pathname.toLowerCase();
         if (path === "/api/perf-beacon") return route.fulfill({ status: 204 });
+        if (path === "/api/player/world-move") {
+            if (request.method() === "POST") {
+                const body = request.postDataJSON(), cursor = worldModel.read(body.worldPosition);
+                if (!cursor || body.expectedSequence !== worldSequence)
+                    return json(route, { ok: false, sequence: worldSequence, worldPosition: worldCursor }, 409);
+                worldCursor = cursor; worldSequence++;
+                currentSector = worldModel.location(cursor).sector;
+            }
+            const location = worldCursor ? worldModel.location(worldCursor) : { sector: currentSector, tile: 78 };
+            return json(route, { ok: true, ...location, sequence: worldSequence, worldPosition: worldCursor, players: [] });
+        }
         if (path === "/api/player/capabilities") {
             return json(route, {
                 ok: true,
@@ -210,6 +224,7 @@ async function installApi(page: Page, currentSector = 0, completedLessonIds: str
                     character: savedCharacter,
                     currentBiome: "forest",
                     currentSector,
+                    currentTile: worldCursor ? worldModel.location(worldCursor).tile : 78,
                     acceptedMissionIds: [],
                     missionProgress: {},
                     triggeredEvents: [

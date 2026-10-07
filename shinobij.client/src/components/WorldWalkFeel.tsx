@@ -2,9 +2,6 @@
 /*
  * WorldWalkFeel — the threshold-moment layer for walking the world:
  *
- *   SectorGateMarker  painted-style torii gate on road-exit tiles (replaces the
- *                     arrow + "S23" chip), tinted by the DESTINATION region so
- *                     the doorway telegraphs where it leads.
  *   RegionSplash      Elden-Ring-style region-name calligraphy card, shown once
  *                     per region per session when the player enters it.
  *   RouteGlowOverlay  shortest walking route (BFS over the shared road graph)
@@ -17,7 +14,6 @@ import { useEffect, useRef } from "react";
 import { SECTOR_ROAD_PAIRS } from "../../../shared/sector-links";
 import { ATLAS_SECTOR_POINTS } from "../data/sector-points";
 import { sectorRegionKey, sectorRegionLabel, type SectorRegionKey } from "../../../shared/sector-geo";
-import type { SectorDirection } from "../../../shared/sector-links";
 
 /** Region accent tints (match the world-map treatment per region). */
 const REGION_TINT: Readonly<Record<SectorRegionKey, string>> = {
@@ -37,34 +33,6 @@ const REGION_TINT: Readonly<Record<SectorRegionKey, string>> = {
 export function regionTintForSector(sector: number): string {
     const key = sectorRegionKey(sector);
     return key ? REGION_TINT[key] : "#c9a45c";
-}
-
-/* ── Gate marker ─────────────────────────────────────────────────────────── */
-
-/** Torii-silhouette gate on an exit tile, tinted by the destination region.
- *  `ready` = the player stands on the tile (one more step crosses). */
-export function SectorGateMarker({ destinationSector, direction, ready }: {
-    destinationSector: number;
-    direction: SectorDirection;
-    ready: boolean;
-}) {
-    const tint = regionTintForSector(destinationSector);
-    return (
-        <span className={`sector-gate ${ready ? "sector-gate-ready" : ""} sector-gate-${direction}`} aria-hidden="true">
-            <svg viewBox="0 0 24 24" className="sector-gate-svg" style={{ color: tint }}>
-                {/* kasagi (top lintel, slight wing) */}
-                <path d="M1.5 7.4 Q12 4.6 22.5 7.4 L22.5 9.2 Q12 6.6 1.5 9.2 Z" fill="currentColor" />
-                {/* nuki (tie beam) */}
-                <rect x="4.1" y="11" width="15.8" height="1.7" rx="0.5" fill="currentColor" />
-                {/* pillars, slightly splayed */}
-                <path d="M5.2 8.2 L7.6 8.2 L8.3 22 L5.6 22 Z" fill="currentColor" />
-                <path d="M16.4 8.2 L18.8 8.2 L18.4 22 L15.7 22 Z" fill="currentColor" />
-            </svg>
-            <b className={`sector-gate-chevron is-${direction}`}>
-                {direction === "north" ? "↑" : direction === "east" ? "→" : direction === "south" ? "↓" : "←"}
-            </b>
-        </span>
-    );
 }
 
 /* ── Region splash ───────────────────────────────────────────────────────── */

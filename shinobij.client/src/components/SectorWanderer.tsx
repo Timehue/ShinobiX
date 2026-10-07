@@ -14,12 +14,14 @@
  * movement only — the actual fight is started by <WorldMap> through the existing
  * arena AI path, so nothing here touches combat, rewards, or saves.
  */
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { WorldPlayerPosition } from '../lib/world-player-position';
 import type { Biome } from "../types/core";
 import type { Wanderer } from "../lib/wanderers";
 import { wandererAvatar } from "../lib/wanderer-art";
 import { loiterPositionAt } from "../lib/wanderer-loiter";
 import { serverNow } from "../lib/server-clock";
+import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
@@ -89,11 +91,13 @@ const rowOf = (t: number) => Math.floor(t / GRID_W);
 
 export function SectorWanderer({
     wanderer,
+    sector = Number(wanderer.id.split("-")[1]),
     playerIndex,
     biome,
     onEngage,
 }: {
     wanderer: Wanderer;
+    sector?: number;
     playerIndex: number;
     biome: Biome;
     onEngage: (w: Wanderer) => void;
@@ -123,6 +127,7 @@ export function SectorWanderer({
 
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
+    const worldPlayer = useContext(WorldPlayerPosition);
     const onEngageRef = useRef(onEngage);
     useEffect(() => { playerRef.current = playerIndex; }, [playerIndex]);
     useEffect(() => { onEngageRef.current = onEngage; }, [onEngage]);
@@ -180,6 +185,7 @@ export function SectorWanderer({
     // The movement loop.
     useEffect(() => {
         const reduced = prefersReducedMotion();
+        const navigate = createSectorNavigator();
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
         const schedule = () => {
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
@@ -194,8 +200,10 @@ export function SectorWanderer({
             lastTsRef.current = ts;
 
             const p = posRef.current;
-            const pcol = colOf(playerRef.current);
-            const prow = rowOf(playerRef.current);
+            const candidate = worldPlayer?.current;
+            const actual = candidate && candidate.sector === sector ? candidate : null;
+            const pcol = actual?.col ?? colOf(playerRef.current);
+            const prow = actual?.row ?? rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
             const movement = wanderer.movement
@@ -266,6 +274,8 @@ export function SectorWanderer({
                 tCol = colOf(next); tRow = rowOf(next);
             }
 
+            const nextStep = navigate(sector, p, { col: tCol, row: tRow });
+            tCol = nextStep.col; tRow = nextStep.row;
             const dx = tCol - p.col, dy = tRow - p.row;
             const dist = Math.hypot(dx, dy);
             const step = WALK_TILES_PER_SEC * dt;

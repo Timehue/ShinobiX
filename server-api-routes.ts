@@ -6,6 +6,7 @@
 import saveHandler       from './api/save/[name].js';
 import heartbeatHandler  from './api/player/heartbeat.js';
 import travelHandler     from './api/player/travel.js';
+import worldMoveHandler from './api/player/world-move.js';
 import challengeHandler  from './api/player/challenge.js';
 import playerBlocksHandler from './api/player/blocks.js';
 import friendsHandler    from './api/player/friends.js';
@@ -157,6 +158,7 @@ import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import villageUpgradeHandler from './api/village/upgrade.js';
 import worldClaimGatherHandler from './api/world/claim-gather.js';
 import worldExploreHandler from './api/world/explore.js';
+import worldSectorLayoutHandler from './api/world/sector-layout.js';
 import worldOpenChestHandler from './api/world/open-chest.js';
 import saveSnapshotHandler from './api/admin/save-snapshot.js';
 // Cron — daily save-snapshot HTTP trigger. The nightly run is in-process via
@@ -355,6 +357,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Player
     route('/player/heartbeat',    heartbeatHandler);
     route('/player/travel',       travelHandler);
+    route('/player/world-move', worldMoveHandler);
     route('/player/challenge',    challengeHandler);
     route('/player/blocks',       playerBlocksHandler);
     route('/player/friends',      friendsHandler);
@@ -872,5 +875,6 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/village/upgrade', villageUpgradeHandler);
     route('/world/claim-gather', worldClaimGatherHandler);
     route('/world/explore', worldExploreHandler);
+    route('/world/sector-layout', worldSectorLayoutHandler);
     route('/world/open-chest', worldOpenChestHandler);
 }

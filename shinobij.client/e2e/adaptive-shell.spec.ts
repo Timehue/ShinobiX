@@ -8,6 +8,7 @@ import {
     type PublicCapabilityId,
 } from "../../shared/public-capabilities";
 import { travelArrivalTile } from "../../shared/sector-links";
+import { worldPositionModel } from "../../shared/continuous-world-layout";
 import {
     expectFinalActionableClearsFixedNavigation,
     expectNoLargeOverlap,
@@ -88,6 +89,8 @@ function json(route: Route, body: unknown, status = 200) {
 
 async function installAuthenticatedApi(page: Page, initialSave: SavePayload | null = null) {
     let save: SavePayload | null = initialSave ? structuredClone(initialSave) : null;
+    const worldModel = worldPositionModel();
+    let worldCursor = worldModel.read(null), worldSequence = 0;
     let saveVersion = save ? 1 : 0;
     let saveReadCount = 0;
     let lastLoadedSave: SaveFixtureLoad | null = null;
@@ -163,14 +166,29 @@ async function installAuthenticatedApi(page: Page, initialSave: SavePayload | nu
             }
         }
         if (path === "/api/battle-lock") return json(route, { lock: null });
+        if (path === "/api/player/world-move" && save) {
+            if (request.method() === 'POST') {
+                const body = request.postDataJSON(), position = worldModel.read(body.worldPosition);
+                if (!position || body.expectedSequence !== worldSequence) return json(route, { ok: false, sequence: worldSequence,
+                    sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), worldPosition: worldCursor }, 409);
+                worldCursor = position; worldSequence++;
+                const location = worldModel.location(position); save.currentSector = location.sector; save.currentTile = location.tile;
+            }
+            if (!worldCursor || worldModel.location(worldCursor).sector !== Number(save.currentSector))
+                worldCursor = worldModel.fallback(Number(save.currentSector), Number(save.currentTile ?? 78));
+            return json(route, { ok: true, sequence: worldSequence, sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), worldPosition: worldCursor, players: [] });
+        }
         if (path === "/api/player/travel") {
             const body = request.postDataJSON() as { destinationSector?: unknown };
             const originSector = Number(save?.currentSector ?? 0);
             const destinationSector = Number(body.destinationSector);
+            const arrivalTile = travelArrivalTile(originSector, destinationSector) ?? 78;
+            if (save) { save.currentSector = destinationSector; save.currentTile = arrivalTile; }
+            worldCursor = worldModel.fallback(destinationSector, arrivalTile); worldSequence++;
             return json(route, {
                 arrivalAt: Date.now(),
                 travelMs: 0,
-                arrivalTile: travelArrivalTile(originSector, destinationSector) ?? 78,
+                arrivalTile,
             });
         }
         if (path === "/api/world-state") return json(route, { territories: [], wars: [], standings: [] });
@@ -1196,6 +1214,7 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await expect(hud.getByRole("button", { name: /^(Recover|Leave|Actions|Players Here)$/ })).toHaveCount(0);
 
     const tiles = stage.locator("button.scene-tile");
+    await expect(stage.locator('.continuous-world-map > canvas')).toHaveAttribute('data-world-sector', '44');
     await expect(tiles).toHaveCount(144);
     const tileLabels = await tiles.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
     expect(tileLabels.every((label) => typeof label === "string" && label.length > 0)).toBe(true);
@@ -1229,12 +1248,15 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     });
     expect(tileGeometry).toEqual(Array.from({ length: 144 }, () => true));
     await expect(stage.getByRole("button", { name: "Current tile row 7 column 7" })).toHaveCount(1);
-    await stage.getByRole("button", { name: "Move to tile row 2 column 10" }).click();
+    const destination = stage.getByRole("button", { name: "Move to tile row 2 column 10" });
+    await destination.focus(); await destination.press('Enter');
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
-    await page.keyboard.press("d");
+    await page.keyboard.down("d");
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 11" })).toHaveCount(1);
-    await page.keyboard.press("a");
+    await page.keyboard.up("d"); await page.keyboard.press('Escape');
+    await page.keyboard.down("a");
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
+    await page.keyboard.up("a"); await page.keyboard.press('Escape');
 
     const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
     await page.keyboard.press("e");

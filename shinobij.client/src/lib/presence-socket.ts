@@ -29,6 +29,7 @@ import { getSocketAuth, SAVE_VERSION_EVENT, type SaveVersionEventDetail } from '
 import { getFingerprintSync } from '../fingerprint';
 import { SECTOR_CHAT_EVENT } from '../../../shared/sector-chat';
 import type { PlayerRecord } from '../types/character';
+import type { WorldPosition } from '../../../shared/world-position';
 
 export type PresenceFrame = {
     sector: number;
@@ -42,11 +43,13 @@ export type PresenceFrame = {
     displayName?: string;
     /** Within-sector tile (0..143) for live peer rendering; display-only. */
     tile?: number;
+    continuousWorld?: boolean;
 };
 
 type SectorHandler = (sector: number, players: PlayerRecord[]) => void;
 type PlayerHandler = (sector: number, player: PlayerRecord) => void;
 type MoveHandler = (sector: number, name: string, tile: number, sequence: number) => void;
+type WorldMoveHandler = (data: { sector: number; name: string; sequence: number; worldPosition: WorldPosition }) => void;
 /** `sector` is the sector they left, when the server says (every leave does). */
 type GoneHandler = (names: string[], sector?: number) => void;
 type KickHandler = (reason: string) => void;
@@ -68,6 +71,7 @@ const sectorHandlers = new Set<SectorHandler>();
 const joinHandlers = new Set<PlayerHandler>();
 const updateHandlers = new Set<PlayerHandler>();
 const moveHandlers = new Set<MoveHandler>();
+const worldMoveHandlers = new Set<WorldMoveHandler>();
 const goneHandlers = new Set<GoneHandler>();
 const kickHandlers = new Set<KickHandler>();
 const towerKickHandlers = new Set<TowerKickHandler>();
@@ -167,6 +171,9 @@ export function connectRealtime(initialFrame: PresenceFrame): void {
         if (!data || typeof data.sector !== 'number' || typeof data.name !== 'string' || typeof data.tile !== 'number') return;
         moveHandlers.forEach((h) => h(data.sector!, data.name!, data.tile!, Number(data.sequence ?? 0)));
     });
+    socket.on('presence:world', (data: Parameters<WorldMoveHandler>[0] | null) => {
+        if (data && typeof data.name === 'string' && Number.isSafeInteger(data.sequence)) worldMoveHandlers.forEach(h => h(data));
+    });
     socket.on('presence:leave', (data: { names?: string[]; sector?: number } | null) => {
         if (!data?.names?.length) return;
         const sector = typeof data.sector === 'number' ? data.sector : undefined;
@@ -253,6 +260,14 @@ export function emitRealtime(event: string, payload?: unknown): boolean {
     return true;
 }
 
+/** An acknowledged movement request shares the existing authenticated socket. */
+export function requestRealtime(event: string, payload: unknown): Promise<unknown> | null {
+    if (!socket?.connected) return null;
+    return new Promise((resolve, reject) => {
+        socket!.timeout(1500).emit(event, payload, (error: Error | null, result: unknown) => error ? reject(error) : resolve(result));
+    });
+}
+
 /** Subscribe to an arbitrary server event on the shared connection. */
 export function onRealtime(event: string, fn: (payload: unknown) => void): () => void {
     socket?.on(event, fn);
@@ -274,6 +289,10 @@ export function onUpdate(fn: PlayerHandler): () => void {
 export function onMove(fn: MoveHandler): () => void {
     moveHandlers.add(fn);
     return () => { moveHandlers.delete(fn); };
+}
+export function onWorldMove(fn: WorldMoveHandler): () => void {
+    worldMoveHandlers.add(fn);
+    return () => { worldMoveHandlers.delete(fn); };
 }
 export function onGone(fn: GoneHandler): () => void {
     goneHandlers.add(fn);
