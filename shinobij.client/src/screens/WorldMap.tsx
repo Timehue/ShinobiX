@@ -1300,7 +1300,7 @@ function WorldMapContent({
             returnScreen: "worldMap",
             worldEncounter,
         });
-        if (launched) setWandererDialog(null);
+        if (launched) { setWandererDialog(null); setHuntToast(null); setTravelToast(null); }
         else {
             alert("The combat host is unavailable. Return to the encounter and try again.");
         }
@@ -4474,7 +4474,7 @@ function WorldMapContent({
                         onOpenSigns={handleOpenSectorSigns}
                         onOpenShrine={handleOpenSectorShrine}
                         contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
-                        onExplore={handleExploreSelectedSector}
+                        onExplore={handleExploreSelectedSector} dailyExplores={character.dailyTilesExplored ?? 0} exploreBusy={explorePresentationInFlight}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
                     />
@@ -4839,7 +4839,7 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>Explore Territory</button>
+                        <button disabled={(character.dailyTilesExplored ?? 0) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{(character.dailyTilesExplored ?? 0) >= 100 ? 'Daily exploration limit reached (100/100)' : 'Explore Territory'}</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         <div className="territory-guard-section">
