@@ -9,6 +9,8 @@ import { FORGED_ITEM_ID, forgedItemKey } from '../_forged-item-registry.js';
 import { kv } from '../_storage.js';
 import { petBusyReason, petBusyMessage } from '../pet/_pet-busy.js';
 import type { SettlementCatalogs } from '../shop/_catalog.js';
+import { NAMED_GEAR_EXCHANGE_BLOCK_MESSAGE } from '../../shared/named-gear-rules.js';
+import { wasEverEquipped } from '../save/_named-gear-equipped.js';
 
 type Obj = Record<string, unknown>;
 export type SealedExchangeAsset = { asset: ExchangeAsset; definition: Obj; stackable: boolean; attunement?: string };
@@ -97,6 +99,8 @@ export function unavailableReason(c: Obj, sealed: SealedExchangeAsset): string |
         if (pet.loadout && Object.values(pet.loadout as Obj).some(v => typeof v === 'string' && v)) return 'Remove this pet’s equipment before listing it.';
     }
     if (kind === 'card' && [...strings(c.savedTileDeck), ...strings(c.cardClashDeck)].includes(id)) return 'Remove this card from your saved decks before listing it.';
+    // Named gear that has been worn even once stays with its owner, or goes to the shop.
+    if (kind === 'item' && wasEverEquipped(c, id)) return NAMED_GEAR_EXCHANGE_BLOCK_MESSAGE;
     return undefined;
 }
 

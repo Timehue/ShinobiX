@@ -618,6 +618,10 @@
             "text": "At level 90, you can forge named weapons and armor. Each item costs exactly 200 Fate Shards, paid when you forge the revealed roll. Named gear accepts Fate Shards only. Inspect the stats in the roll pop-out, then continue to name and forge your item."
           },
           {
+            "type": "p",
+            "text": "Any named weapon or armor piece can be sold to the shop for 500 ryo. A named piece that you have never equipped can also be listed at Sunscar Exchange. Once you have equipped it even once, it can no longer be listed there, so decide where it goes before you wear it."
+          },
+          {
             "type": "callout",
             "tone": "warn",
             "label": "Inventory discipline",

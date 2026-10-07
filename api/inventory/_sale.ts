@@ -8,6 +8,7 @@ import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_S
 import { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 import { GEAR_STEP_SELL_RYO, isStepItemId } from '../../shared/gear-steps.js';
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { NAMED_GEAR_SELL_RYO, isNamedGearId } from '../../shared/named-gear-rules.js';
 export { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 
 export type InventorySaleSource = 'backpack' | 'equipped';
@@ -36,12 +37,15 @@ function normalizeSlot(slot: string): string {
 function unitSaleValue(item: SettlementItem): number {
     // Gear step drops cost 0 and sell for one flat price (shared/gear-steps.ts).
     if (isStepItemId(item.id) && ITEM_CATALOG[item.id]) return GEAR_STEP_SELL_RYO;
+    // So do player forged named pieces (shared/named-gear-rules.ts).
+    if (isNamedGearId(item.id)) return NAMED_GEAR_SELL_RYO;
     if (item.cost <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
     return Math.floor(item.cost / 2);
 }
 
 export function isSellableItem(item: SettlementItem): boolean {
     if (isStepItemId(item.id) && ITEM_CATALOG[item.id]) return true;
+    if (isNamedGearId(item.id)) return SELLABLE_SLOTS.has(normalizeSlot(item.slot)) || item.armorQuality != null;
     if (item.id in HUNT_MATERIAL_SELL_RYO) return true;
     return item.cost > 0 && (item.armorQuality != null || SELLABLE_SLOTS.has(normalizeSlot(item.slot)));
 }
