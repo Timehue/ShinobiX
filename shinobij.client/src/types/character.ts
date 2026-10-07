@@ -300,6 +300,10 @@ export type StoryEpilogueReceipt = {
 export type Character = {
     pendingGatherFinds?: PendingGatherFind[];
     gatherIntroSeen?: boolean;
+    /** Server owned: highest weapon and armor tier bought or crafted. A client write is discarded. */
+    gearTierUnlocks?: { weapon: number; armor: number };
+    /** Named weapon and armor ids that have been equipped at least once. Server owned; those pieces cannot be listed at the Sunscar Exchange. */
+    equippedNamedGear?: string[];
     name: string;
     /** Mutable public/login name. name remains the stable account ID. */
     accountName?: string;

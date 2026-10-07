@@ -31,7 +31,7 @@ import { startBootGateWatchdog } from "./lib/boot-gate-watchdog";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
-import { ToastStacks, type MissionToast } from "./components/ToastStacks";
+import { ToastStacks, type MissionToast } from "./components/ToastStacks"; import { GearDropHost } from "./components/GearDropHost";
 import { claimBountyOnWin, type BountyReceipt } from "./lib/pvp-bounty";
 import { reportPvpWin } from "./lib/pvp-win-report";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
@@ -117,7 +117,7 @@ import {
 import {
     getAllItems,
     getItemById,
-    addInventoryItems,
+    addInventoryItems, gearDropRewardLine,
 } from "./lib/items";
 import { ownsItem } from "./lib/inventory";
 import type { TileCard } from "./data/tile-cards";
@@ -4769,10 +4769,10 @@ export default function App() {
             alert("The dungeon reward could not be verified. Return to the map and discover a new seal.");
             return;
         }
-        dungeonActionRef.current = true;
+        dungeonActionRef.current = true; let gearFound: string | undefined;
         try {
             const result = await mutateDungeonRunServer(character.name, "settle", token);
-            commitVersionedCharacter(result.character, result._saveVersion);
+            commitVersionedCharacter(result.character, result._saveVersion); gearFound = result.gearDropItemId;
         } catch (error) {
             alert(error instanceof Error ? error.message : "The dungeon reward could not be verified.");
             return;
@@ -4780,7 +4780,7 @@ export default function App() {
             dungeonActionRef.current = false;
         }
         setActiveDungeonRunToken(null);
-        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.`);
+        alert(`${activeDungeonEvent.name} cleared. +10 Bone Charms, +5 Aura Stones, +5 Fate Shards, +1 Dungeon Legendary Relic.${gearFound ? `\n${gearDropRewardLine(gearFound) ?? ""}` : ""}`);
         setActiveDungeonEvent(null);
         setScreen(dungeonReturnScreen);
     }
@@ -6455,7 +6455,7 @@ export default function App() {
                 missionToasts={missionToasts}
                 onDismissAchievement={(achievement) => setAchievementToasts(prev => prev.filter(x => x !== achievement))}
                 onDismissMission={(id) => setMissionToasts(prev => prev.filter(x => x.id !== id))}
-            />
+            /><GearDropHost character={character} onVersionedCharacter={commitVersionedCharacter} saveIsClean={() => !charDirtyRef.current} />
         </AdaptiveGameShell>
         </MaintenanceOperatorBoundary>
     );

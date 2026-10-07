@@ -1,4 +1,5 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { withGearTierUnlock } from '../_gear-drops.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
@@ -84,7 +85,7 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const inventory = Array.isArray(character.inventory) ? character.inventory as string[] : [];
     return {
         ok: true as const,
-        character: { ...character, [currency]: balance - totalCost, inventory: [...inventory, ...Array.from({ length: qty }, () => id)] },
+        character: withGearTierUnlock({ ...character, [currency]: balance - totalCost, inventory: [...inventory, ...Array.from({ length: qty }, () => id)] }, item),
         item: { id, qty, currency, unitCost, totalCost },
     };
 }

@@ -227,6 +227,8 @@ export type AiFightReportResult = {
     worldContext?: WorldAiFightContext;
     /** Exact field-mission runs stamped by this sealed raid settlement. */
     fetchMissionsCredited?: string[];
+    /** The upgrade gear piece this settle granted (fresh settles only). */
+    gearDrop?: { itemId: string };
     raidProgression?: {
         fetchMissionsCredited?: string[];
         missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>;

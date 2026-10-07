@@ -53,6 +53,7 @@ function pickCombatFields(item) {
     if (item.serviceItem === true) out.serviceItem = true;
     if (stackableItemIds.has(item.id)) out.stackable = true;
     if (item.armorQuality != null) out.armorQuality = item.armorQuality;
+    if (item.armorReduction != null) out.armorReduction = item.armorReduction;
     if (item.weaponElement != null) out.weaponElement = item.weaponElement;
     if (item.weaponRange != null) out.weaponRange = item.weaponRange;
     if (item.weaponCooldown != null) out.weaponCooldown = item.weaponCooldown;
@@ -135,6 +136,7 @@ export type CatalogItem = {
     serviceItem?: boolean;
     stackable?: boolean;
     armorQuality?: string;
+    armorReduction?: number;
     weaponElement?: string;
     weaponRange?: number;
     weaponCooldown?: number;

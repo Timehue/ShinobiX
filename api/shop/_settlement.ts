@@ -8,6 +8,7 @@ import type { SettlementCard, SettlementItem } from './_catalog.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { isMarketplaceCard } from '../clan/war/_card-catalog.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../../shared/item-level-gate.js';
+import { withGearTierUnlock } from '../_gear-drops.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 
@@ -224,12 +225,12 @@ export function applyItemPurchase(
         for (let i = 0; i < quantity; i += 1) items.inventory.push(item.id);
     }
     const value: ShopSettlementValue = { kind: 'item-purchase', itemId: item.id, quantity, currency, totalCost };
-    return withReceipt({
+    return withReceipt(withGearTierUnlock({
         ...character,
         [currency]: balance - totalCost,
         inventory: items.inventory,
         itemStacks: [...items.stacks.entries()].map(([itemId, count]) => ({ itemId, count })),
-    }, prior.receipts, requestId, fingerprint, value, now);
+    }, item), prior.receipts, requestId, fingerprint, value, now);
 }
 
 export function applyCardPackPurchase(

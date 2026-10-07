@@ -1,4 +1,5 @@
 import { NON_STORY_RELICS } from '../../../shared/relics';
+import { buildGearSteps } from '../../../shared/gear-steps';
 /*
  * starterItems — the full catalog of canonical game items (armor / weapons /
  * consumables / event-specific drops / hunting materials).
@@ -38,7 +39,7 @@ function legendarySetBonuses(effect: LegendarySetEffect, value: number, offense 
     };
 }
 
-export const starterItems: GameItem[] = [
+const baseStarterItems: GameItem[] = [
     {
         id: "shinobi-vest",
         name: "Shinobi Vest",
@@ -500,7 +501,7 @@ export const starterItems: GameItem[] = [
         slot: "head",
         rarity: "common",
         cost: 120,
-        image: "/items/shop-cloth-hood-v1.webp",
+        image: "/items/shop-cloth-hood-v2.webp",
         description: "A simple cloth hood. Offers minimal protection.",
         armorQuality: "Standard", levelReq: 1,
         bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
@@ -511,7 +512,7 @@ export const starterItems: GameItem[] = [
         slot: "head",
         rarity: "uncommon",
         cost: 270,
-        image: "/items/shop-leather-headband-v1.webp",
+        image: "/items/shop-leather-headband-v2.webp",
         description: "Reinforced leather headband worn by field shinobi.",
         armorQuality: "Reinforced", levelReq: 5,
         bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
@@ -522,7 +523,7 @@ export const starterItems: GameItem[] = [
         slot: "head",
         rarity: "rare",
         cost: 400,
-        image: "/items/shop-iron-kabuto-v1.webp",
+        image: "/items/shop-iron-kabuto-v2.webp",
         description: "A fitted iron helmet offering solid protection.",
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
@@ -534,7 +535,7 @@ export const starterItems: GameItem[] = [
         slot: "body",
         rarity: "common",
         cost: 150,
-        image: "/items/shop-cloth-robe-v1.webp",
+        image: "/items/shop-cloth-robe-v2.webp",
         description: "A basic robe offering minimal defense.",
         armorQuality: "Standard", levelReq: 1,
         bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
@@ -545,7 +546,7 @@ export const starterItems: GameItem[] = [
         slot: "body",
         rarity: "uncommon",
         cost: 330,
-        image: "/items/shop-reinforced-vest-v1.webp",
+        image: "/items/shop-reinforced-vest-v2.webp",
         description: "Padded vest with metal plating sewn in.",
         armorQuality: "Reinforced", levelReq: 5,
         bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
@@ -556,7 +557,7 @@ export const starterItems: GameItem[] = [
         slot: "body",
         rarity: "rare",
         cost: 500,
-        image: "/items/shop-rare-chest-plate-v1.webp",
+        image: "/items/shop-rare-chest-plate-v2.webp",
         description: "Polished rare-alloy plate for veteran shinobi.",
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
@@ -568,7 +569,7 @@ export const starterItems: GameItem[] = [
         slot: "waist",
         rarity: "common",
         cost: 90,
-        image: "/items/shop-cloth-sash-v1.webp",
+        image: "/items/shop-cloth-sash-v2.webp",
         description: "A plain cloth sash worn around the waist.",
         armorQuality: "Standard", levelReq: 1,
         bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
@@ -579,7 +580,7 @@ export const starterItems: GameItem[] = [
         slot: "waist",
         rarity: "uncommon",
         cost: 210,
-        image: "/items/shop-leather-belt-v1.webp",
+        image: "/items/shop-leather-belt-v2.webp",
         description: "Sturdy leather belt reinforced at the core.",
         armorQuality: "Reinforced", levelReq: 5,
         bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
@@ -590,7 +591,7 @@ export const starterItems: GameItem[] = [
         slot: "waist",
         rarity: "rare",
         cost: 320,
-        image: "/items/shop-chain-obi-v1.webp",
+        image: "/items/shop-chain-obi-v2.webp",
         description: "A woven chain obi that absorbs impact at the midsection.",
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
@@ -602,7 +603,7 @@ export const starterItems: GameItem[] = [
         slot: "legs",
         rarity: "common",
         cost: 105,
-        image: "/items/shop-cloth-pants-v1.webp",
+        image: "/items/shop-cloth-pants-v2.webp",
         description: "Light cloth trousers offering basic leg coverage.",
         armorQuality: "Standard", levelReq: 1,
         bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
@@ -613,7 +614,7 @@ export const starterItems: GameItem[] = [
         slot: "legs",
         rarity: "uncommon",
         cost: 240,
-        image: "/items/shop-padded-leggings-v1.webp",
+        image: "/items/shop-padded-leggings-v2.webp",
         description: "Reinforced leggings for extended field missions.",
         armorQuality: "Reinforced", levelReq: 5,
         bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
@@ -624,7 +625,7 @@ export const starterItems: GameItem[] = [
         slot: "legs",
         rarity: "rare",
         cost: 360,
-        image: "/items/shop-rare-greaves-v1.webp",
+        image: "/items/shop-rare-greaves-v2.webp",
         description: "Fitted rare-metal greaves protecting the thighs and shins.",
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
@@ -636,7 +637,7 @@ export const starterItems: GameItem[] = [
         slot: "feet",
         rarity: "common",
         cost: 75,
-        image: "/items/shop-cloth-sandals-v1.webp",
+        image: "/items/shop-cloth-sandals-v2.webp",
         description: "Simple sandals offering minimal protection.",
         armorQuality: "Standard", levelReq: 1,
         bonuses: { ninjutsuOffense: 10, taijutsuOffense: 10, bukijutsuOffense: 10, genjutsuOffense: 10, ninjutsuDefense: 10, taijutsuDefense: 10, bukijutsuDefense: 10, genjutsuDefense: 10 },
@@ -647,7 +648,7 @@ export const starterItems: GameItem[] = [
         slot: "feet",
         rarity: "uncommon",
         cost: 195,
-        image: "/items/shop-shinobi-boots-v1.webp",
+        image: "/items/shop-shinobi-boots-v2.webp",
         description: "Reinforced boots worn by chuunin-rank shinobi.",
         armorQuality: "Reinforced", levelReq: 5,
         bonuses: { ninjutsuOffense: 14, taijutsuOffense: 14, bukijutsuOffense: 14, genjutsuOffense: 14, ninjutsuDefense: 14, taijutsuDefense: 14, bukijutsuDefense: 14, genjutsuDefense: 14 },
@@ -658,7 +659,7 @@ export const starterItems: GameItem[] = [
         slot: "feet",
         rarity: "rare",
         cost: 300,
-        image: "/items/shop-rare-tabi-v1.webp",
+        image: "/items/shop-rare-tabi-v2.webp",
         description: "Rare-crafted tabi with embedded guard plating.",
         armorQuality: "Rare", levelReq: 20,
         bonuses: { ninjutsuOffense: 20, taijutsuOffense: 20, bukijutsuOffense: 20, genjutsuOffense: 20, ninjutsuDefense: 20, taijutsuDefense: 20, bukijutsuDefense: 20, genjutsuDefense: 20 },
@@ -670,7 +671,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 225,
-        image: "/items/starter-rustfang-kunai-v2.webp",
+        image: "/items/starter-rustfang-kunai-v3.webp",
         description: "A chipped beginner kunai. Deals damage and boosts your striking force. [Damage 14 EP | Increase Damage Given 10% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 14, levelReq: 1, weaponEffect: "Increase Damage Given", weaponEffectValue: 10,
         bonuses: { bukijutsuOffense: 55 },
@@ -681,7 +682,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 240,
-        image: "/items/shop-training-katana-v1.webp",
+        image: "/items/shop-training-katana-v2.webp",
         description: "A dull academy blade. Deals damage and reduces incoming hits. [Damage 14 EP | Decrease Damage Taken 10% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 14, levelReq: 1, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 10,
         bonuses: { taijutsuOffense: 58 },
@@ -692,7 +693,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 220,
-        image: "/items/shop-ash-wrapped-tanto-v1.webp",
+        image: "/items/shop-ash-wrapped-tanto-v2.webp",
         description: "A blade wrapped in ash cloth. Deals damage and lowers enemy striking power. [Damage 14 EP | Decrease Damage Given 10% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 14, levelReq: 1, weaponEffect: "Decrease Damage Given", weaponEffectValue: 10,
         bonuses: { genjutsuOffense: 54 },
@@ -703,7 +704,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 210,
-        image: "/items/shop-rookie-chain-sickle-v1.webp",
+        image: "/items/shop-rookie-chain-sickle-v2.webp",
         description: "A chain-sickle that disrupts enemy momentum. Deals damage and increases damage the enemy takes. [Damage 14 EP | Increase Damage Taken 10% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 14, levelReq: 1, weaponEffect: "Increase Damage Taken", weaponEffectValue: 10,
         bonuses: { ninjutsuOffense: 52 },
@@ -714,7 +715,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "common",
         cost: 235,
-        image: "/items/shop-cracked-bone-dagger-v1.webp",
+        image: "/items/shop-cracked-bone-dagger-v2.webp",
         description: "A bone dagger that opens deep wounds. Deals damage and applies bleed. [Damage 14 EP | Wound 10% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 14, levelReq: 1, weaponEffect: "Wound", weaponEffectValue: 10,
         bonuses: { bukijutsuOffense: 53 },
@@ -726,7 +727,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 450,
-        image: "/items/shop-mistfang-tanto-v1.webp",
+        image: "/items/shop-mistfang-tanto-v2.webp",
         description: "An assassin blade wreathed in mist chakra. Deals damage and empowers your strikes. [Damage 17 EP | Increase Damage Given 15% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 17, levelReq: 10, weaponEffect: "Increase Damage Given", weaponEffectValue: 15,
         bonuses: { ninjutsuOffense: 88 },
@@ -737,7 +738,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 480,
-        image: "/items/shop-ashen-leaf-saber-v1.webp",
+        image: "/items/shop-ashen-leaf-saber-v2.webp",
         description: "A fire-forged sword from Ashen Leaf. Deals damage and reduces incoming hits. [Damage 17 EP | Decrease Damage Taken 15% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 17, levelReq: 10, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 15,
         bonuses: { bukijutsuOffense: 90 },
@@ -748,7 +749,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 430,
-        image: "/items/shop-riverbone-spear-v1.webp",
+        image: "/items/shop-riverbone-spear-v2.webp",
         description: "A long riverbone spear. Deals damage and weakens enemy attack power. [Damage 17 EP | Decrease Damage Given 15% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 17, levelReq: 10, weaponEffect: "Decrease Damage Given", weaponEffectValue: 15,
         bonuses: { taijutsuOffense: 86 },
@@ -759,7 +760,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 510,
-        image: "/items/shop-iron-fang-knuckles-v1.webp",
+        image: "/items/shop-iron-fang-knuckles-v2.webp",
         description: "Heavy iron knuckles. Deals damage and exposes the enemy to more punishment. [Damage 17 EP | Increase Damage Taken 15% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 17, levelReq: 10, weaponEffect: "Increase Damage Taken", weaponEffectValue: 15,
         bonuses: { genjutsuOffense: 93 },
@@ -770,7 +771,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "rare",
         cost: 420,
-        image: "/items/shop-blue-thread-dagger-v1.webp",
+        image: "/items/shop-blue-thread-dagger-v2.webp",
         description: "A dagger woven with blue chakra thread that tears through enemy defenses. [Damage 17 EP | Wound 15% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 17, levelReq: 10, weaponEffect: "Wound", weaponEffectValue: 15,
         bonuses: { ninjutsuOffense: 84 },
@@ -782,7 +783,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 950,
-        image: "/items/shop-stormcoil-kusarigama-v1.webp",
+        image: "/items/shop-stormcoil-kusarigama-v2.webp",
         description: "A chained sickle charged with storm chakra that tightens defense on every strike. [Damage 19 EP | Decrease Damage Taken 20% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 19, levelReq: 25, weaponEffect: "Decrease Damage Taken", weaponEffectValue: 20,
         bonuses: { taijutsuOffense: 113 },
@@ -793,7 +794,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 900,
-        image: "/items/shop-moonshadow-needleblade-v1.webp",
+        image: "/items/shop-moonshadow-needleblade-v2.webp",
         description: "A black blade coated in shadow chakra that leaves enemies vulnerable to punishment. [Damage 19 EP | Increase Damage Taken 20% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 19, levelReq: 25, weaponEffect: "Increase Damage Taken", weaponEffectValue: 20,
         bonuses: { genjutsuOffense: 109 },
@@ -804,7 +805,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 980,
-        image: "/items/shop-frostbite-cleaver-v1.webp",
+        image: "/items/shop-frostbite-cleaver-v2.webp",
         description: "A frozen heavy blade that seizes enemy fighting rhythm on a clean hit. [Damage 19 EP | Decrease Damage Given 20% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 19, levelReq: 25, weaponEffect: "Decrease Damage Given", weaponEffectValue: 20,
         bonuses: { ninjutsuOffense: 115 },
@@ -815,7 +816,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 1050,
-        image: "/items/shop-ashglass-katana-v1.webp",
+        image: "/items/shop-ashglass-katana-v2.webp",
         description: "A volcanic glass katana that sharpens the user's killing force on activation. [Damage 19 EP | Increase Damage Given 20% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 19, levelReq: 25, weaponEffect: "Increase Damage Given", weaponEffectValue: 20,
         bonuses: { bukijutsuOffense: 118 },
@@ -826,7 +827,7 @@ export const starterItems: GameItem[] = [
         slot: "hand",
         rarity: "epic",
         cost: 850,
-        image: "/items/shop-spirit-leech-wakizashi-v1.webp",
+        image: "/items/shop-spirit-leech-wakizashi-v2.webp",
         description: "A spirit blade that tears through enemy defenses leaving a festering wound. [Damage 19 EP | Wound 20% | 40 AP | Range 4 | CD 5]",
         weaponRange: 4, weaponCooldown: 5, weaponEp: 19, levelReq: 25, weaponEffect: "Wound", weaponEffectValue: 20,
         bonuses: { taijutsuOffense: 104 },
@@ -1035,10 +1036,16 @@ const catalogArtwork: Record<string, string> = {
     "legendary-war-crate": "/items/item-legendary-war-crate-v1.webp",
 };
 
-for (const item of starterItems) {
+for (const item of baseStarterItems) {
     const artwork = catalogArtwork[item.id];
     if (artwork) item.image = artwork;
 }
+
+/**
+ * Base items plus their gear step drops (shared/gear-steps.ts). Step items use
+ * the base item's art until their own art ships.
+ */
+export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems)];
 
 /** Canonical fallback for server-sealed fighters whose compact item rows omit art. */
 const starterItemArtworkById = new Map(

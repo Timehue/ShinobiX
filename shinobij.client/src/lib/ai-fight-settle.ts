@@ -50,6 +50,8 @@ export type AiFightSettleResult = {
     worldContext?: WorldAiFightContext;
     /** Exact field-mission ids stamped by this settlement. */
     fetchMissionsCredited: string[];
+    /** Upgrade gear piece the server granted with this win, shown with the other rewards. */
+    gearDropItemId?: string;
     raidProgression?: {
         missionsCompleted: Array<{ id: string; name: string; xpReward: number }>;
         xpAwarded: number;
@@ -158,6 +160,9 @@ export async function settleAiFight(params: {
         character: settledCharacter,
         _saveVersion: reported._saveVersion,
         fetchMissionsCredited,
+        ...(outcome === "win" && typeof reported.gearDrop?.itemId === "string" && reported.gearDrop.itemId
+            ? { gearDropItemId: reported.gearDrop.itemId }
+            : {}),
         ...(raidProgression ? { raidProgression } : {}),
         ...(reported.worldContext ? { worldContext: reported.worldContext } : {}),
     };
