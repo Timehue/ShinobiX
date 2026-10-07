@@ -14,6 +14,8 @@
  * preceded this module — no branch anywhere else has to care.
  */
 
+import { bundledAiPortrait } from './builtin-ai-portraits';
+
 export type ImageManifest = {
     /** Absent when the server could not read the counter, or on a legacy reply. */
     version?: string;
@@ -53,6 +55,8 @@ export function parseImageManifest(body: unknown): ImageManifest | null {
 
 /** Per-image URL. With a version the server serves it immutable for a year. */
 export function imageUrl(id: string, version?: string): string {
+    const replacement = id.startsWith('ai:') ? bundledAiPortrait(id.slice(3)) : undefined;
+    if (replacement) return replacement;
     const base = `/api/img?id=${encodeURIComponent(id)}`;
     return version ? `${base}&v=${encodeURIComponent(version)}` : base;
 }
