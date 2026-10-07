@@ -3,8 +3,8 @@ import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
 import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
 import { packedWorldData } from './scripts/packed-world-data.mjs';
 import { packStaticCatalog } from './scripts/pack-static-catalog.mjs';
-import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources';
-import { hollowRifts } from './src/data/hollow-rifts';
+import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
+import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
