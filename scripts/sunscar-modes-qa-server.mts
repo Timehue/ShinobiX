@@ -11,17 +11,29 @@ const { default: express } = await import('express');
 const app = express();
 app.use(express.json());
 const name = 'sunscar-qa';
-async function reset() {
+async function reset(rippleSeal = false) {
     for (const key of await kv.keys('*')) await kv.del(key);
-    const pets = ['starter-fire', 'standard-0', 'standard-3', 'rare-26', 'legendary-7', 'legendary-9', 'standard-1'].map(id => createOwnedPet(id, { origin: id.startsWith('starter-') ? 'starter' : 'wild' }));
+    const pets = [rippleSeal ? 'starter-water' : 'starter-fire', 'standard-0', 'standard-3', 'rare-26', 'legendary-7', 'legendary-9', 'standard-1'].map(id => createOwnedPet(id, { origin: id.startsWith('starter-') ? 'starter' : 'wild' }));
     await kv.set('save:' + name, { _saveVersion: 1, _saveAt: Date.now(), _regenAt: Date.now(), creatorItems: [], creatorJutsus: [], character: {
         name, nickname: 'Kaito', level: 30, village: 'Ashen Leaf Village', element: 'Fire', ryo: 25000, hp: 820, maxHp: 1000, chakra: 86, maxChakra: 100, stamina: 94, maxStamina: 100,
         stats: { strength: 70, intelligence: 70, agility: 70, defense: 70 }, equipment: {}, inventory: [], itemStacks: [], tileCards: [], pets, activePetId: pets[0].id, jutsus: [],
     } });
+    if (rippleSeal) {
+        const { prepareChampionship } = await import('../api/festival/_rally.js');
+        const save = await kv.get<any>('save:' + name);
+        save.character.level = 17;
+        save.character.village = 'Stormveil Village';
+        save.character = prepareChampionship(save.character, name, pets[0].id, Date.now());
+        // The saved partner must be selected even when it is not first in the yard.
+        save.character.pets = [...pets.slice(1), pets[0]];
+        // A faithful saved, unstarted race: no altered positions or time scale.
+        save.character.sunscarRally.current.tracks[0] = 'scorpions-spine';
+        await kv.set('save:' + name, save);
+    }
 }
 await reset();
 app.get('/__qa/session', (_req, res) => res.json({ name, token: issuePlayerToken(name) }));
-app.post('/__qa/reset', async (_req, res) => { await reset(); res.json({ ok: true }); });
+app.post('/__qa/reset', async (req, res) => { await reset(req.body.rippleSeal === true); res.json({ ok: true }); });
 app.post('/__qa/encounter', async (req, res) => {
     const { caravanEvent } = await import('../shared/sunscar/caravan-events.js');
     const event = caravanEvent(String(req.body.eventId));
