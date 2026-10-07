@@ -5,6 +5,7 @@ import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
 import { preserveGearStepItems } from './_gear-step-floor.js';
+import { recordEquippedNamedGear } from './_named-gear-equipped.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
 import { filterActiveBloodlineJutsuIds, hasRejectedBloodlineForgeAttempt, hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
 import { sanitizeChallengeProgress } from './_sanitize-challenges.js';
@@ -316,6 +317,7 @@ export function sanitizeCharacterSave(
     const finalChar = isFirstSave ? applyCanonicalFirstSave(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
     if (!isFirstSave && opts.allowGearStepRemoval !== true) preserveGearStepItems(finalChar, exChar);
+    if (!isFirstSave && !opts.adminContentSlot) recordEquippedNamedGear(finalChar, exChar);
 
     // ── Patreon subscriber perk caps (authoritative) ──────────────────────────
     // Runs AFTER the ledger boundary, so finalChar.patreon is the stored,

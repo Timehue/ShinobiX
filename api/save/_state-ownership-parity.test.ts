@@ -52,7 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
-        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks',
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks', 'equippedNamedGear',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',

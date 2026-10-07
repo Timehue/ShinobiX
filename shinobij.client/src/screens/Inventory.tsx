@@ -17,6 +17,7 @@ import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { HUNT_MATERIAL_SELL_RYO } from "../../../shared/hunt-material-sale";
 import { GEAR_STEP_SELL_RYO, isStepItemId } from "../../../shared/gear-steps";
+import { NAMED_GEAR_SELL_RYO, isNamedGearId } from "../../../shared/named-gear-rules";
 import {
     type Character,
     type EquipmentSlot,
@@ -117,6 +118,8 @@ export function Inventory({
     const [itemSearch, setItemSearch] = useState("");
     const [salePending, setSalePending] = useState<{ quantity: number; name: string } | null>(null);
     const saleBusyRef = useRef(false);
+    // A named piece is one of a kind, so its first Sell click only arms the sale.
+    const [namedSaleArmed, setNamedSaleArmed] = useState<string | null>(null);
     const [saleError, setSaleError] = useState<{ selection: NonNullable<typeof selectedInventoryItem>; message: string } | null>(null);
     const saleNoticeRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -503,6 +506,8 @@ export function Inventory({
     function sellValueForItem(item: GameItem) {
         // Gear step drops cost 0 and sell for one flat price, the same one the server pays.
         if (isStepItemId(item.id)) return GEAR_STEP_SELL_RYO;
+        // Player forged named gear costs 0 as well and sells for its own flat price.
+        if (isNamedGearId(item.id)) return NAMED_GEAR_SELL_RYO;
         // Hunt drop materials are cost:0 (un-buyable); their shared table gives
         // the preview and authoritative sale the same rarity-tiered ryo value.
         if ((item.cost ?? 0) <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
@@ -1293,9 +1298,15 @@ export function Inventory({
                                             disabled={!!salePending}
                                             aria-busy={!!salePending}
                                             aria-describedby={salePending ? "inventory-sale-pending" : selectedSaleError ? "inventory-sale-error" : undefined}
-                                            onClick={() => sellSelectedItem(1)}
+                                            onClick={() => {
+                                                if (isNamedGearId(selectedGameItem.id) && namedSaleArmed !== selectedGameItem.id) { setNamedSaleArmed(selectedGameItem.id); return; }
+                                                setNamedSaleArmed(null);
+                                                void sellSelectedItem(1);
+                                            }}
                                         >
-                                            Sell for {selectedSellValue} ryo
+                                            {isNamedGearId(selectedGameItem.id) && namedSaleArmed === selectedGameItem.id
+                                                ? `Confirm: sell this named piece for ${selectedSellValue} ryo`
+                                                : `Sell for ${selectedSellValue} ryo`}
                                         </button>
                                     )}
 
