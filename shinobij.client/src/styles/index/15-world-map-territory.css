@@ -75,35 +75,19 @@
     box-shadow: inset 0 0 0 2px rgba(250, 204, 21, 0.62), 0 0 14px rgba(250, 204, 21, 0.34) !important;
 }
 
-/* Exit tiles used to be flat orange squares with a hard 1px frame — a UI box
-   stamped onto a painting. They now read as trodden ground: a warm pool that
-   fades out before the tile edge, so the gate standing in it looks lit rather
-   than boxed. */
+/* Painted road mouths carry the route. Keep their hit targets accessible
+   without adding glowing squares or portal symbols to the landscape. */
 .map-instance .sector-image-map .sector-road-exit {
     position: relative;
     z-index: 5;
-    background:
-        radial-gradient(ellipse 78% 62% at 50% 74%, rgba(251, 191, 36, 0.4), transparent 70%),
-        linear-gradient(180deg, transparent 34%, rgba(217, 119, 6, 0.16)) !important;
-    box-shadow: inset 0 -1px 0 rgba(251, 191, 36, 0.34) !important;
+    background: transparent !important;
 }
-
-.map-instance .sector-image-map .sector-road-exit-ready {
-    animation: sector-road-ready 1.35s ease-in-out infinite;
-    background:
-        radial-gradient(ellipse 88% 72% at 50% 74%, rgba(253, 224, 71, 0.42), transparent 72%),
-        linear-gradient(180deg, transparent 28%, rgba(245, 158, 11, 0.26)) !important;
-    box-shadow: inset 0 -2px 0 rgba(253, 224, 71, 0.7), 0 0 18px rgba(245, 158, 11, 0.5) !important;
+.map-instance .sector-image-map .sector-road-exit:not(.sector-player-tile) {
+    box-shadow: none !important;
 }
-
-@keyframes sector-road-ready {
-    50% { filter: brightness(1.28); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .map-instance .sector-image-map .sector-road-exit-ready {
-        animation: none;
-    }
+.map-instance .sector-image-map .sector-road-exit:focus-visible {
+    outline: 2px solid #ffe1a0;
+    outline-offset: -2px;
 }
 
 /* ===== Village Stores signposts: what the explorer's intel bought =====

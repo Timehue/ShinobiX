@@ -16,6 +16,7 @@
 
 import { safeName } from '../_utils.js';
 import { SECTOR_CHAT_EVENT } from '../../shared/sector-chat.js';
+import type { WorldPosition } from '../../shared/world-position.js';
 
 type Emitter = (room: string, event: string, payload: unknown) => void;
 
@@ -50,6 +51,12 @@ let _emit: Emitter | null = null;
 /** socket.ts calls this once at attach; pass null to detach (tests). */
 export function setRealtimeEmitter(fn: Emitter | null): void {
     _emit = fn;
+}
+
+/** Accepted world movement is a compact delta, not a full character/roster. */
+export function pushWorldMovement(sector: number, name: string, tile: number | undefined, sequence: number, worldPosition: WorldPosition): void {
+    try { _emit?.(`sector:${sector}`, 'presence:world', { sector, name, tile, sequence, worldPosition }); }
+    catch { /* Presence delivery is best-effort; HTTP always carries authority. */ }
 }
 
 // Same safeName slug used for the socket's `user:<slug>` room join, so a kick

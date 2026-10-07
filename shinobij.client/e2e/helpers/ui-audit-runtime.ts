@@ -1,5 +1,6 @@
 import { expect, type Page, type Route } from "@playwright/test";
 import { PUBLIC_CAPABILITY_IDS } from "../../../shared/public-capabilities";
+import { worldPositionModel } from "../../../shared/continuous-world-layout";
 
 export type UiAuditSave = {
     character?: Record<string, unknown>;
@@ -110,6 +111,8 @@ export function uiAuditSave(): UiAuditSave {
 
 export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave = uiAuditSave(), showBriefing = false) {
     let save = structuredClone(initialSave);
+    const worldModel = worldPositionModel();
+    let worldCursor = worldModel.fallback(Number(save.currentSector ?? 0), Number(save.currentTile ?? 78)), worldSequence = 0;
     let saveVersion = 1;
     let acknowledgedVersion = 0;
     let saveConflictCount = 0;
@@ -140,6 +143,17 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             ? (url.searchParams.get("ver") === "1" ? { version: "1", ids: [] } : [])
             : {});
         if (path === "/api/player-auth") return json(route, { ok: true, token: "ui-audit-token" });
+        if (path === "/api/player/world-move") {
+            if (request.method() === 'POST') {
+                const body = request.postDataJSON(), cursor = worldModel.read(body.worldPosition);
+                if (!cursor || body.expectedSequence !== worldSequence) return json(route, { ok: false, reason: 'sequence', sequence: worldSequence, worldPosition: worldCursor,
+                    sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78) }, 409);
+                worldCursor = cursor; worldSequence++;
+                const location = worldModel.location(cursor); save.currentSector = location.sector; save.currentTile = location.tile;
+            }
+            if (!worldCursor || worldModel.location(worldCursor).sector !== Number(save.currentSector)) worldCursor = worldModel.fallback(Number(save.currentSector), Number(save.currentTile ?? 78));
+            return json(route, { ok: true, sector: Number(save.currentSector), tile: Number(save.currentTile ?? 78), sequence: worldSequence, worldPosition: worldCursor, players: [] });
+        }
         if (normalizedPath === "/api/save/auditninja") {
             if (request.method() === "GET") return json(route, { ...save, _saveVersion: saveVersion });
 
@@ -218,7 +232,12 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
                 daysUntilShardBonus: 3,
             });
         }
-        if (path === "/api/player/travel") return json(route, { arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 });
+        if (path === "/api/player/travel") {
+            const destinationSector = Number(request.postDataJSON().destinationSector);
+            worldCursor = worldModel.fallback(destinationSector, 78); worldSequence++;
+            save.currentSector = destinationSector; save.currentTile = worldCursor ? worldModel.location(worldCursor).tile : 78;
+            return json(route, { arrivalAt: Date.now(), travelMs: 0, arrivalTile: save.currentTile });
+        }
         if (path === "/api/world-state") return json(route, { territories: [], wars: [], standings: [] });
         if (path === "/api/game-state") return json(route, { villageStates: {}, arenaActiveFights: [] });
         if (path === "/api/weekly-boss") return json(route, { boss: null, fightEnabled: true });

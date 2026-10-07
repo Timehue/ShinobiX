@@ -25,6 +25,7 @@
  * both can appear at once — off each other.
  */
 import { sectorArtKey } from "../../../shared/sector-geo";
+import { sectorFloorLayout } from "../lib/sector-floor-layout";
 
 /** A marker's base point, in percent of the sector board. */
 export type BoardPoint = Readonly<{ left: number; top: number }>;
@@ -143,9 +144,9 @@ const FALLBACK_STRONGHOLD: BoardPoint = { left: 64, top: 70 };
 const FALLBACK_RIFT: BoardPoint = { left: 34, top: 76 };
 
 export function strongholdPlacement(sector: number): BoardPoint {
-    return STRONGHOLD_BY_ART[sectorArtKey(sector)] ?? FALLBACK_STRONGHOLD;
+    return sectorFloorLayout(sector)?.sites.stronghold ?? STRONGHOLD_BY_ART[sectorArtKey(sector)] ?? FALLBACK_STRONGHOLD;
 }
 
 export function riftPlacement(sector: number): BoardPoint {
-    return RIFT_BY_ART[sectorArtKey(sector)] ?? FALLBACK_RIFT;
+    return sectorFloorLayout(sector)?.sites.rift ?? RIFT_BY_ART[sectorArtKey(sector)] ?? FALLBACK_RIFT;
 }

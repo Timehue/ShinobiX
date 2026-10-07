@@ -45,7 +45,8 @@ import { setRealtimeEmitter } from './notify.js';
 import { clearSleeperCampOnBeat } from './sleeper-camps.js';
 import { getTravelLease, settleTravelLease, travelLeaseSectorAt } from './travel-lease.js';
 import { durablePresenceSectorForWrite } from './world-duel-engagement.js';
-import { readWalkedTile, resumeTileFor } from './walked-tile.js';
+import { readWalkedTile, resumeTileFor, resumeWorldPositionFor } from './walked-tile.js';
+import { applyWorldMovement } from './world-movement-service.js';
 // CORS origin predicate — single source of truth in api/_utils.ts, shared with
 // cors() and the Express middleware. Even when production serves the SPA and the
 // socket from the SAME origin (Railway), the browser still sends an Origin
@@ -234,13 +235,13 @@ function wireRealtime(io: IOServer): void {
         const applyPresence = async (payload: unknown): Promise<void> => {
             const p = (payload ?? {}) as {
                 sector?: unknown; character?: unknown; travelingUntil?: number;
-                inBattle?: boolean; displayName?: unknown; tile?: unknown;
+                inBattle?: boolean; displayName?: unknown; tile?: unknown; continuousWorld?: boolean;
                 enterTown?: boolean;
             };
             const prevSector: number = socket.data.sector;
             let previous = onlineStore.get(name);
             let [saved, persistedTravel, walkedTile] = previous ? [null, null, null] : await Promise.all([
-                kv.get<{ currentSector?: number; currentTile?: number }>(`save:${name}`),
+                kv.get<{ currentSector?: number; currentTile?: number; worldPosition?: unknown }>(`save:${name}`),
                 getTravelLease(name),
                 readWalkedTile(kv, name).catch(() => null),
             ]);
@@ -290,6 +291,9 @@ function wireRealtime(io: IOServer): void {
                     : normalizeTile(persistedTravel && now >= persistedTravel.arrivalAt
                         ? persistedTravel.arrivalTile : resumeTileFor(walkedTile, requestedSector, saved?.currentTile)),
                 tileSector: previous && !superseded ? normalizeSector(p.sector, previous.sector) : requestedSector,
+                restoredWorldPosition: !previous && p.continuousWorld === true
+                    ? persistedTravel && now >= persistedTravel.arrivalAt ? persistedTravel.worldPosition
+                        : resumeWorldPositionFor(walkedTile, requestedSector, saved?.worldPosition) : undefined,
             });
             if (!previous && persistedTravel) {
                 stored = onlineStore.restoreTravel(
@@ -298,6 +302,7 @@ function wireRealtime(io: IOServer): void {
                     persistedTravel.arrivalAt,
                     persistedTravel.originSector,
                     persistedTravel.arrivalTile,
+                    persistedTravel.worldPosition,
                 ) ?? stored;
             }
             if (onlineStore.consumeSettledTravel(name)) {
@@ -397,6 +402,9 @@ function wireRealtime(io: IOServer): void {
             if (tile === undefined || tile === current.tile) return;
             const moved = onlineStore.moveToTile(name, tile);
             if (!moved) return;
+            // A coalesced older frame must not undo a newer accepted tile intent.
+            const pending = socket.data.pendingPresence;
+            if (pending?.sector === moved.sector) socket.data.pendingPresence = { ...pending, tile: moved.tile };
             socket.to(sectorRoom(moved.sector)).emit('presence:move', {
                 sector: moved.sector,
                 name: moved.displayName,
@@ -424,6 +432,25 @@ function wireRealtime(io: IOServer): void {
             }
         };
         socket.on('presence:move', onMove);
+
+        // Dedicated cursor deltas share the HTTP admission service. Existing
+        // tile clients keep their established channel and pacing unchanged.
+        let lastWorldMoveAt = 0;
+        socket.on('world:move', async (payload: unknown, acknowledge?: (result: unknown) => void) => {
+            const now = Date.now();
+            if (now - lastWorldMoveAt < 80) {
+                if (typeof acknowledge === 'function') acknowledge({ ok: false, reason: 'throttled' });
+                return;
+            }
+            lastWorldMoveAt = now;
+            const result = await applyWorldMovement(name, payload);
+            if (result.ok && result.sector !== socket.data.sector) {
+                socket.leave(sectorRoom(socket.data.sector));
+                socket.join(sectorRoom(result.sector)); socket.data.sector = result.sector;
+                socket.emit('presence:sector', { sector: result.sector, players: sectorSnapshot(result.sector) });
+            }
+            if (typeof acknowledge === 'function') acknowledge(result);
+        });
 
         // On-demand snapshot (e.g. right after a reconnect).
         socket.on('presence:request', (payload: unknown) => {

@@ -6,6 +6,7 @@ import {
     getLiveSectorPlayers,
     getLiveSectorRoster,
     moveLiveSectorPlayer,
+    moveLiveWorldPlayer,
     presenceSignature,
     pushLiveSectorPlayers,
     removeLiveSectorPlayers,
@@ -31,6 +32,20 @@ function player(name: string, sector: number, patch: Partial<PlayerRecord> = {})
 
 beforeEach(() => {
     resetLiveSectorPlayers();
+});
+
+test('an older full roster cannot undo an accepted same-sector world delta', () => {
+    const position = { layoutVersion: 'test', from: 'road:9-15:1', to: 'road:9-15:2', progress: .6 };
+    setLiveSectorContext(9); pushLiveSectorPlayers([player('rill', 9, { movementSequence: 1 })], 9);
+    const roster = getLiveSectorRoster();
+    moveLiveWorldPlayer('rill', 9, position, 2);
+    assert.equal(getLiveSectorRoster(), roster);
+    pushLiveSectorPlayers([player('rill', 9, { movementSequence: 1 })], 9);
+    assert.deepEqual(getLiveSectorPlayers()[0]?.worldPosition, position);
+    moveLiveWorldPlayer('rill', 9, { ...position, progress: .2 }, 1);
+    assert.deepEqual(getLiveSectorPlayers()[0]?.worldPosition, position);
+    moveLiveWorldPlayer('rill', 15, { ...position, progress: .9 }, 3);
+    assert.deepEqual(getLiveSectorPlayers()[0]?.worldPosition, position);
 });
 
 test('server arrival corrections reach the mounted map without feeding normal walking back', () => {

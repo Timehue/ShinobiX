@@ -1,0 +1,31 @@
+/* Full-frame paintings and authored collision cells share the same coordinates. */
+.map-instance .instance-frame > main.tile-scene > .pixel-map[data-ground-floor="true"] { padding: 0; gap: 0; animation: none; }
+.sector-floor-pan { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.sector-floor-pan .sector-map-backdrop { position: absolute; inset: 0; background-size: 100% 100%; background-position: center; }
+.sector-floor-outgoing[hidden] { display: none; }
+.sector-ground-landmark, .sector-village-entrance {
+    position: absolute; z-index: 7; display: block; aspect-ratio: 1; min-width: 0; min-height: 0;
+    padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none;
+    transform: translate(-50%, -100%); touch-action: manipulation; cursor: pointer;
+}
+.sector-ground-landmark img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; image-rendering: auto; }
+.sector-ground-landmark:disabled, .sector-village-entrance:disabled { opacity: 1; cursor: default; }
+.sector-ground-landmark.is-dormant { pointer-events: none; }
+.sector-ground-landmark-label, .sector-village-entrance-name, .sector-village-entrance-action {
+    position: absolute; left: 50%; top: 100%; transform: translateX(-50%); width: max-content;
+    max-width: min(150px, 31vw); padding: 2px 6px; border-radius: 5px;
+    background: #141d20d9; color: #eee6cc; font: 600 clamp(9px, 1.15vw, 10px)/1.2 system-ui;
+    text-align: center; pointer-events: none; text-shadow: 0 1px 1px #000;
+}
+.sector-ground-landmark:focus-visible, .sector-village-entrance:focus-visible { outline: 2px solid #ffe1a0; outline-offset: 2px; }
+@media (hover: hover) { .sector-ground-landmark.is-active:hover img { filter: brightness(1.1); } }
+.sector-ground-shrine.shrine-tier-5 img { filter: drop-shadow(0 0 4px #f0d38066); }
+.sector-village-entrance { transform: translate(-50%, -50%); }
+.sector-village-entrance-name { top: -8%; }
+.sector-village-entrance-action { top: 99%; }
+.sector-village-entrance:not(:disabled) .sector-village-entrance-action { color: #ffe3a1; border: 1px solid #ceb66a77; }
+.sector-ground-cairn, button.atlas-landmark.sector-story-authored { position: absolute; z-index: 8; aspect-ratio: 1; min-width: 0; min-height: 0; transform: translate(-50%, -100%); }
+.sector-ground-cairn { pointer-events: none; }
+button.atlas-landmark.sector-story-authored span { font-size: 9px; padding: 2px 6px; border-radius: 5px; }
+@media (hover: hover) { button.atlas-landmark.sector-story-authored:hover { transform: translate(-50%, -100%); } }
+@media (prefers-reduced-motion: reduce) { .sector-floor-pan .sector-map-backdrop { animation: none; } }

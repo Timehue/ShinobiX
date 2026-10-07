@@ -1,0 +1,15 @@
+.pixel-map.continuous-world-map{position:relative;display:block;padding:0;gap:0;overflow:hidden;isolation:isolate;aspect-ratio:1;background:#394435;touch-action:none}
+.continuous-world-map>canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:none}
+.continuous-world-map>.day-night-sky{z-index:2;pointer-events:none}
+.pixel-map.continuous-world-chunk{position:absolute;left:0;top:0;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(12,1fr);padding:0;gap:0;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible;pointer-events:none;z-index:5;aspect-ratio:1;will-change:transform}
+.continuous-world-tile{border:0;padding:0;background:none;box-shadow:none;pointer-events:none;min-width:0;min-height:0}
+.continuous-world-chunk button:not(.continuous-world-tile):not(.is-dormant),.continuous-world-chunk [role=button]{pointer-events:auto}
+.continuous-world-tile:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px;background:#ffeeb51a}
+.continuous-world-peers{position:absolute;inset:0;pointer-events:none;overflow:visible}
+.continuous-world-peer{position:absolute;left:0;top:0;width:calc(var(--world-tile-px,30px)*.72);height:calc(var(--world-tile-px,30px)*.936);--marker-ring:#7dd3fc;pointer-events:none}
+.continuous-world-map .continuous-world-self{position:absolute;left:50%;top:50%;width:calc(var(--world-tile-px,30px)*.72);height:calc(var(--world-tile-px,30px)*.936);transform:translate(-50%,-100%);z-index:12;pointer-events:none;--marker-ring:rgba(250,204,21,.95)}
+.continuous-world-map[aria-busy=true] .continuous-world-self{visibility:hidden}
+.continuous-world-status{position:absolute;left:50%;top:12px;transform:translateX(-50%);max-width:90%;z-index:30;color:#eee9d7;font-size:12px;text-align:center;pointer-events:none;background:#111d25e8;border-radius:5px;padding:5px 9px}
+.continuous-world-status:empty{display:none}.continuous-world-status button{display:block;margin:7px auto 2px;pointer-events:auto}
+.continuous-world-map>canvas:focus-visible{outline:2px solid #e5d39a;outline-offset:-3px}
+@media(prefers-reduced-motion:reduce){.continuous-world-map .sector-avatar-body{animation:none}}

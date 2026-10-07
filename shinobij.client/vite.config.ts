@@ -1,4 +1,6 @@
 import { minifyRuntimeSource } from './scripts/runtime-asset-minifier.mjs';
+import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
+import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
@@ -165,7 +167,11 @@ function runtimePublicAssetsPlugin() {
             }
             return;
         }
-        fs.copyFileSync(sourcePath, destinationPath);
+        if (sourcePath.startsWith(path.join(PUBLIC_ROOT, 'pet-models') + path.sep) && sourcePath.endsWith('.glb')) {
+            fs.writeFileSync(destinationPath, compactGlbDelivery(fs.readFileSync(sourcePath)));
+        } else {
+            fs.copyFileSync(sourcePath, destinationPath);
+        }
     };
     return {
         name: 'runtime-public-assets',
@@ -445,6 +451,15 @@ setInterval(() => {
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
+        {
+            name: 'sector-runtime-data',
+            enforce: 'pre',
+            transform(source, id) {
+                const file = id.split('?')[0].replace(/\\/g, '/');
+                const registry = path.resolve(CLIENT_ROOT, '../shared/sector-floor-layout-data.json').replace(/\\/g, '/');
+                if (file === registry) return { code: sectorRuntimeData(source), map: null };
+            },
+        },
         plugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({

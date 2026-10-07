@@ -6,6 +6,7 @@ import type { PresenceFrame } from "./presence-socket";
 import {
     getLocalSectorTile,
     moveLiveSectorPlayer,
+    moveLiveWorldPlayer,
     pushLiveSectorPlayers,
     removeLiveSectorPlayers,
     resetLiveSectorPlayers,
@@ -75,7 +76,7 @@ export function usePresenceSocket({
             travelingUntil: 0,
             inBattle: getPresenceBattleActiveRef.current(),
             displayName: char.name,
-            tile: getLocalSectorTile(),
+            tile: getLocalSectorTile(), continuousWorld: true,
         };
         let alive = true;
         let cleanup = () => {};
@@ -96,6 +97,9 @@ export function usePresenceSocket({
             const offMove = api.onMove((sector, name, tile) => {
                 if (sector === currentSectorRef.current) moveLiveSectorPlayer(name, tile, sector);
             });
+            const offWorld = api.onWorldMove(data => {
+                if (data.sector === currentSectorRef.current) moveLiveWorldPlayer(data.name, data.sector, data.worldPosition, data.sequence);
+            });
             const offGone = api.onGone((names, sector) => {
                 removeLiveSectorPlayers(names, sector);
             });
@@ -108,6 +112,7 @@ export function usePresenceSocket({
                 offJoin();
                 offUpdate();
                 offMove();
+                offWorld();
                 offGone();
                 offKick();
                 api.disconnectRealtime();

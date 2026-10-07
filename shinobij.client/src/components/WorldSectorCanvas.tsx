@@ -3,19 +3,18 @@ import type { Biome, WeatherType } from "../types/core";
 import { sectorName } from "../../../shared/sector-geo";
 import type { SectorDirection, SectorExit } from "../../../shared/sector-links";
 import { DayNightSky } from "./DayNightSky";
-import { RegionSplash, SectorGateMarker } from "./WorldWalkFeel";
+import { RegionSplash } from "./WorldWalkFeel";
 import { SceneAmbience } from "./SceneAmbience";
-import { SceneAmbience3D } from "./SceneAmbience3D";
 import { SceneCritters } from "./SceneCritters";
 import { SectorAvatar } from "./SectorAvatar";
-import { SectorForeground } from "./SectorForeground";
 import { SectorMap } from "./SectorMap";
 import { SectorPeersLive, type SectorPeer } from "./SectorPeers";
-import { SectorScatter } from "./SectorScatter";
 import { SectorScene } from "./SectorScene";
-import { SectorScene3D } from "./SectorScene3D";
 import { playerNameTile } from "../lib/sector-tile";
 import { GameArtIcon } from "./GameArtIcon";
+import { isWalkableTile, nearestWalkableTile, sectorWalkMask } from "../../../shared/sector-walk-mask";
+import { safeSectorTile } from "../lib/sector-obstacles";
+import { ContinuousWorldSector } from "./ContinuousWorldSector";
 
 const GRID_SIZE = 12;
 const TILE_COUNT = GRID_SIZE * GRID_SIZE;
@@ -29,6 +28,7 @@ export type WorldSectorCanvasPlayer = {
 
 export type WorldSectorCanvasProps = {
     sector: number;
+    obstacles?: boolean;
     biome: Biome;
     weather: WeatherType;
     ambienceBiome: Biome;
@@ -51,8 +51,12 @@ export type WorldSectorCanvasProps = {
     sleeperPeers: SectorPeer[];
     onSelectTile: (tile: number) => void;
     onCrossExit: (exit: SectorExit) => void;
+    onWalkArrive?: (tile: number, sector: number | null) => void;
+    onWorldAuthority?: (sector: number, tile: number) => void;
+    worldMovementBlocked?: () => boolean;
     hudLayer: ReactNode;
     overlayLayer: ReactNode;
+    mapHudLayer?: ReactNode;
     encounterLayer: ReactNode;
 };
 
@@ -62,8 +66,9 @@ export type WorldSectorCanvasProps = {
  * WorldMap retains every controller, portal, and authority decision. The two
  * render slots preserve their original stacking order around the foreground.
  */
-export function WorldSectorCanvas({
+export function WorldSectorCanvas(props: WorldSectorCanvasProps) { const {
     sector,
+    obstacles = true,
     biome,
     weather,
     ambienceBiome,
@@ -77,7 +82,6 @@ export function WorldSectorCanvas({
     onRegionSplashDone,
     mapImage,
     sceneImage,
-    sceneDepthImage,
     roadExits,
     showLivePeers,
     players,
@@ -85,17 +89,19 @@ export function WorldSectorCanvas({
     sleeperPeers,
     onSelectTile,
     onCrossExit,
+    onWalkArrive,
     hudLayer,
     overlayLayer,
     encounterLayer,
-}: WorldSectorCanvasProps) {
+} = props;
+    if (!suspended && isCurrent && roadExits.length && props.onWorldAuthority) return <ContinuousWorldSector {...props} />;
     const mapMode = Boolean(mapImage);
     const fallbackMarkers = players.slice(0, 48);
     return (
         <main className="tile-scene sector-stage-panel">
             {!suspended && hudLayer}
 
-            <div className={`pixel-map walkable-sector-map sector-image-map${enterDirection ? ` sector-enter-${enterDirection}` : ""}`}>
+            <div data-ground-floor={sectorWalkMask(sector) ? "true" : undefined} className={`pixel-map walkable-sector-map sector-image-map${enterDirection ? ` sector-enter-${enterDirection}` : ""}`}>
                 {!suspended && <>
                 {regionSplash && (
                     <RegionSplash
@@ -107,7 +113,7 @@ export function WorldSectorCanvas({
                 )}
                 {mapMode ? (
                     <>
-                        <SectorMap image={mapImage} />
+                        <SectorMap image={mapImage} enterDirection={enterDirection} />
                         {/* The world's time of day, washed over the painted floor
                             and under the tile grid, so road exits and peer markers
                             stay readable after dark. It used to live only in the
@@ -119,12 +125,9 @@ export function WorldSectorCanvas({
                 ) : (
                     <>
                         <SectorScene image={sceneImage} biome={ambienceBiome} focus={playerTile} />
-                        <SectorScene3D image={sceneImage} biome={ambienceBiome} focus={playerTile} depth={sceneDepthImage} />
-                        <SectorScatter sector={sector} biome={ambienceBiome} />
                         <DayNightSky />
                     </>
                 )}
-                {!mapMode && <SceneAmbience3D biome={ambienceBiome} />}
                 <SceneAmbience biome={ambienceBiome} weather={weather} weatherSector={sector} weatherBiome={biome} />
                 <SceneCritters biome={ambienceBiome} />
 
@@ -133,7 +136,8 @@ export function WorldSectorCanvas({
                     const roadExit = roadExits.find((exit) => exit.tile === index);
                     const tileCol = (index % GRID_SIZE) + 1;
                     const tileRow = Math.floor(index / GRID_SIZE) + 1;
-                    const otherHere = showLivePeers ? [] : fallbackMarkers.filter((player) => playerNameTile(player.name) === index);
+                    const otherHere = showLivePeers ? [] : fallbackMarkers.filter((player) => safeSectorTile(sector, playerNameTile(player.name)) === index);
+                    const walkable = isWalkableTile(sector, index, obstacles);
 
                     return (
                         <button
@@ -144,21 +148,15 @@ export function WorldSectorCanvas({
                                 : otherHere.length > 0 ? otherHere.map((player) => `${player.name} (Lv ${player.level})`).join(", ") : undefined}
                             aria-label={roadExit
                                 ? `${isCurrent ? "Cross to" : "Road to"} ${sectorName(roadExit.destinationSector) ?? `Sector ${roadExit.destinationSector}`}`
-                                : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `Move to tile row ${tileRow} column ${tileCol}`}
-                            className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${roadExit && isCurrent ? "sector-road-exit-ready" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
+                                : isPlayer ? `Current tile row ${tileRow} column ${tileCol}` : `${walkable ? "Move to tile" : "Move near blocked tile"} row ${tileRow} column ${tileCol}`}
+                            className={`scene-tile walkable-tile transparent-sector-tile ${isPlayer ? "sector-player-tile" : ""} ${roadExit ? "sector-road-exit" : ""} ${otherHere.length > 0 ? "sector-other-tile" : ""}`}
+                            data-walkable={walkable}
                             disabled={!isCurrent}
                             onClick={() => {
                                 if (roadExit && isCurrent) onCrossExit(roadExit);
-                                else onSelectTile(index);
+                                else onSelectTile(nearestWalkableTile(sector, index, obstacles));
                             }}
                         >
-                            {roadExit && (
-                                <SectorGateMarker
-                                    destinationSector={roadExit.destinationSector}
-                                    direction={roadExit.direction}
-                                    ready={isCurrent}
-                                />
-                            )}
                             {otherHere.length > 0 ? (
                                 <div className="other-players-map-stack">
                                     {otherHere.map((player) => (
@@ -192,12 +190,14 @@ export function WorldSectorCanvas({
                         avatarImage={playerAvatarImage}
                         name={playerName}
                         biome={ambienceBiome}
+                        enterDirection={enterDirection}
+                        onArrive={onWalkArrive}
                     />
                 )}
                 </>}
 
                 {overlayLayer}
-                {!suspended && !mapMode && <SectorForeground biome={ambienceBiome} focus={playerTile} />}
+                {props.mapHudLayer}
                 {encounterLayer}
             </div>
         </main>

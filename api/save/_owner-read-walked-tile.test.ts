@@ -4,6 +4,7 @@ process.env.SESSION_SECRET = 'owner-read-walked-tile-player-session-secret';
 
 import { after, before, beforeEach, describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import { nearestWalkableTile } from '../../shared/sector-walk-mask.js';
 
 /*
  * F03 — the owner's restore pull resumes on the tile the player last stood
@@ -89,9 +90,9 @@ describe('save GET — the owner resumes on the tile they last stood on (F03)', 
 
     it('ignores a walk recorded in another sector, and answers the arrival tile when nothing was walked', async () => {
         await kv.set(walkedTileKey(PLAYER), { sector: 13, tile: 77, at: Date.now() });
-        assert.equal((await get(PLAYER)).body?.currentTile, 5, 'a walk elsewhere never wins');
+        assert.equal((await get(PLAYER)).body?.currentTile, nearestWalkableTile(12, 5), 'a walk elsewhere never wins; the arrival is grounded');
         await kv.del(walkedTileKey(PLAYER));
-        assert.equal((await get(PLAYER)).body?.currentTile, 5);
+        assert.equal((await get(PLAYER)).body?.currentTile, nearestWalkableTile(12, 5));
     });
 
     it('a foreign reader gets no tile at all, walked or not', async () => {

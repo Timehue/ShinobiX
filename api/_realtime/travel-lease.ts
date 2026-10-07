@@ -10,6 +10,8 @@ import { footfallKey, FOOTFALL_TTL_SEC } from '../sector/_traces.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { SECTOR_TILE_COUNT } from '../../shared/sector-links.js';
 import { randomUUID } from 'node:crypto';
+import { worldPositionModel } from '../../shared/continuous-world-layout.js';
+import type { WorldPosition } from '../../shared/world-position.js';
 
 const TRAVEL_LEASE_PREFIX = 'world:travel-lease:';
 // An admitted journey is an obligation, not expiring presence. Keep it until
@@ -20,6 +22,7 @@ export type TravelLease = {
     destinationSector: number;
     arrivalAt: number;
     arrivalTile?: number;
+    worldPosition?: WorldPosition;
     /** Identity of the exact movement that minted this lease. Cleanup compares
      *  it, so an older attempt's failure path can never delete a newer journey's
      *  lease (leases minted before the field existed simply have none). */
@@ -65,12 +68,15 @@ export function parseTravelLease(value: unknown): TravelLease | null {
     const rawTile = typeof input.arrivalTile === 'number' ? Math.floor(input.arrivalTile) : NaN;
     const arrivalTile = Number.isFinite(rawTile) && rawTile >= 0 && rawTile < SECTOR_TILE_COUNT ? rawTile : undefined;
     const moveId = typeof input.moveId === 'string' && MOVE_ID_PATTERN.test(input.moveId) ? input.moveId : undefined;
+    const position = input.worldPosition && worldPositionModel().read(input.worldPosition);
+    const worldPosition = position && worldPositionModel().location(position).sector === destinationSector ? position : undefined;
     return {
         originSector,
         destinationSector,
         arrivalAt,
         ...(arrivalTile === undefined ? {} : { arrivalTile }),
         ...(moveId === undefined ? {} : { moveId }),
+        ...(worldPosition ? { worldPosition } : {}),
     };
 }
 
@@ -212,6 +218,7 @@ export async function settleTravelLease(
                 currentBiome: sectorBiomeOf(lease.destinationSector),
                 pendingTravel: null,
                 currentTile: lease.arrivalTile ?? null,
+                worldPosition: lease.worldPosition ?? null,
                 worldTravelReceipt: receipt,
             },
         }));
@@ -227,7 +234,8 @@ export async function settleTravelLease(
         if (result.value) pushSaveVersion(name, result._saveVersion);
         // Refresh the walked-tile checkpoint only for a newly committed arrival.
         // A cleanup retry must preserve steps taken after that arrival.
-        if (result.value) await recordArrivalTile(kv, name, lease.destinationSector, lease.arrivalTile, now).catch(() => undefined);
+        if (result.value) await recordArrivalTile(kv, name, lease.destinationSector, lease.arrivalTile,
+            lease.worldPosition ? lease.arrivalAt : now, lease.worldPosition).catch(() => undefined);
         await clearTravelLeaseIfSame(name, lease);
         // Footfall is cosmetic and best-effort: recovery of an arrival never counts
         // again. It is deliberately not gameplay progression evidence.

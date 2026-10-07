@@ -35,6 +35,8 @@ import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from
 import { useLiveSectorPlayers } from "../lib/presence-store";
 import { sameSector } from "../lib/utils";
 import { playerNameTile } from "../lib/sector-tile";
+import { safeSectorTile } from "../lib/sector-obstacles";
+import { useSectorPeerWalking } from "../lib/sector-peer-walking";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_PEER, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID = 12;
@@ -76,11 +78,12 @@ function prefersReducedMotion(): boolean {
         && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 }
 
-export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
+export function SectorPeers({ peers, sector }: { peers: SectorPeer[]; sector?: number }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const [metrics, setMetrics] = useState({ w: 0, h: 0, padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
     // Render list = current peers plus any that just left (kept one fade cycle).
     const [items, setItems] = useState<Item[]>([]);
+    const bindPeer = useSectorPeerWalking(items, metrics, sector);
 
     // Measure the grid (our parent) so markers land on real tile centres.
     useLayoutEffect(() => {
@@ -160,13 +163,14 @@ export function SectorPeers({ peers }: { peers: SectorPeer[] }) {
                 return (
                     <div
                         key={it.name}
+                        ref={node => bindPeer(it.name, node)}
                         // .sector-avatar-figure IS the shared pin box (the same class your
                         // own marker uses); .sector-peer only adds the glide transition.
                         className="sector-avatar-figure sector-peer"
                         style={{
                             width: `${box.w}px`,
                             height: `${box.h}px`,
-                            transform: `translate(${cx}px, ${cy}px) translate(-50%, -${SECTOR_MARKER_ANCHOR}%)`,
+                            transform: `translate(var(--peer-x, ${cx}px), var(--peer-y, ${cy}px)) translate(-50%, -${SECTOR_MARKER_ANCHOR}%)`,
                             ["--marker-ring"]: SECTOR_RING_PEER,
                         } as CSSProperties}
                         title={`${it.name} (Lv ${it.level})`}
@@ -216,12 +220,12 @@ export function SectorPeersLive({ selectedSector, selfName, sharedImages, sleepe
         .filter((p) => sameSector(p.currentSector, selectedSector))
         .map((p) => ({
             name: p.name,
-            tile: typeof p.tile === "number" ? p.tile : playerNameTile(p.name),
+            tile: safeSectorTile(selectedSector, typeof p.tile === "number" ? p.tile : playerNameTile(p.name)),
             level: p.level,
             sleeping: false,
             avatar: sharedImages["avatar:" + p.name.toLowerCase()] || ((p.character?.avatarImage as string) || ""),
         }));
     const liveNames = new Set(liveMarkers.map((m) => m.name.toLowerCase()));
-    const peers = [...liveMarkers, ...sleepers.filter((s) => !liveNames.has(s.name.toLowerCase()))];
-    return <SectorPeers peers={peers} />;
+    const peers = [...liveMarkers, ...sleepers.filter((s) => !liveNames.has(s.name.toLowerCase())).map(s => ({ ...s, tile: safeSectorTile(selectedSector, s.tile) }))];
+    return <SectorPeers peers={peers} sector={selectedSector} />;
 }

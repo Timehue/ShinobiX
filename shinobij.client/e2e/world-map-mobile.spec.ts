@@ -933,7 +933,7 @@ test("integration: sector travel and atlas return restore landscape navigation",
     const destinations: number[] = [];
     await page.route("**/api/player/travel", async (route) => {
         destinations.push(Number(route.request().postDataJSON().destinationSector));
-        await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ arrivalAt: Date.now(), travelMs: 0, arrivalTile: 78 }) });
+        await route.fallback(); // The shared authority also updates the restored world cursor.
     });
     await chooseRegion(page, "storm");
     await page.getByRole("button", { name: /Travel to Harbor Gates \(Sector 1\)/ }).tap();

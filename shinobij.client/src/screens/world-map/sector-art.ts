@@ -6,6 +6,7 @@ import {
     villagePageImage,
 } from "../../lib/village-page-image";
 import iceSectorImg from "../../assets/sectors/ice.webp";
+import { sectorFloorImage } from "../../lib/sector-floor-layout";
 import darkSectorImg from "../../assets/sectors/dark.webp";
 import templeSectorImg from "../../assets/sectors/temple.webp";
 import waterSectorImg from "../../assets/sectors/water.webp";
@@ -95,7 +96,7 @@ function sectorDepthImage(sector: number): string | undefined {
  */
 function sectorMapUrl(_biome: Biome, seed: number): string | undefined {
     const artKey = sectorArtKey(seed);
-    return SECTOR_FLOOR_SECTORS.has(artKey) ? `/sector-map/s${artKey}.webp` : undefined;
+    return SECTOR_FLOOR_SECTORS.has(artKey) ? sectorFloorImage(seed) : undefined;
 }
 
 // Ambience biome (drives drifting particles + god-ray tint) chosen to match the

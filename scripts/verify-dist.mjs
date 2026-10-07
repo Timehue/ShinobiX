@@ -17,6 +17,7 @@ import { createHash } from 'node:crypto';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { findCollapsedPrefixes } from './lib/css-prefix-collapse.mjs';
+import { compactGlbDelivery } from '../shinobij.client/scripts/compact-glb-delivery.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const serverJs = join(root, 'dist', 'server.js');
@@ -149,9 +150,12 @@ if (expectedPetFiles.size !== 480) fail(`expected 480 selected pet assets, found
 for (const [relativePath, expected] of expectedPetFiles) {
     if (!clientRelativeFileSet.has(relativePath)) fail(`client dist is missing ${relativePath}`);
     const file = join(clientDist, relativePath);
-    if (statSync(file).size !== expected.bytes) fail(`${relativePath} has the wrong byte count`);
-    const hash = createHash('sha256').update(readFileSync(file)).digest('hex');
-    if (hash !== expected.sha256) fail(`${relativePath} differs from its certified manifest hash`);
+    const source = readFileSync(join(root, 'shinobij.client', 'public', relativePath));
+    if (source.length !== expected.bytes || createHash('sha256').update(source).digest('hex') !== expected.sha256) {
+        fail(`${relativePath} authoring source differs from its certified manifest`);
+    }
+    const delivery = relativePath.endsWith('.glb') ? compactGlbDelivery(source) : source;
+    if (!readFileSync(file).equals(delivery)) fail(`${relativePath} differs from its exact certified delivery bytes`);
 }
 const unexpectedPetFile = clientRelativeFiles.find((file) =>
     file.startsWith('pet-models/') && /\.(?:glb|webp)$/iu.test(file) && !expectedPetFiles.has(file));

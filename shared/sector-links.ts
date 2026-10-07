@@ -1,3 +1,6 @@
+import { nearestWalkableTile, sectorWalkMask } from './sector-walk-mask';
+import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
+import { sectorArtKey } from './sector-geo';
 /** Shared, reciprocal overworld road topology used by client and server. */
 export type SectorPoint = { id: number; x: number; y: number };
 export type SectorDirection = 'north' | 'east' | 'south' | 'west';
@@ -249,10 +252,13 @@ export function arrivalTileFromOrigin(origin: number, destination: number): numb
  * there is no direction to honour at all — leaving a village at sector 0, or an
  * unknown sector — and callers fall back to the centre tile.
  */
-export function travelArrivalTile(origin: number, destination: number): number | null {
+export function travelArrivalTile(origin: number, destination: number, obstaclesEnabled = true): number | null {
+    const village = obstaclesEnabled ? SECTOR_FLOOR_LAYOUTS[sectorArtKey(destination)]?.village : undefined;
+    if (origin === 0 && village) return village.approach;
     const road = sectorExits(origin).find((exit) => exit.destinationSector === destination);
-    if (road) return road.destinationTile;
-    return arrivalTileFromOrigin(origin, destination);
+    const tile = road ? road.destinationTile : arrivalTileFromOrigin(origin, destination);
+    if (tile === null && !sectorWalkMask(destination, obstaclesEnabled)) return null;
+    return nearestWalkableTile(destination, tile ?? 78, obstaclesEnabled);
 }
 
 /** `inwardTile` applied `steps` times, stopping early at the far edge. */

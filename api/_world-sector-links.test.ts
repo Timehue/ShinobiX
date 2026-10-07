@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { SECTOR_EXITS, SECTOR_POINTS, SECTOR_ROAD_PAIRS, NON_WALKABLE_SECTORS, WALK_IN_DEPTH, arrivalTileFromOrigin, sectorExitById, sectorExits, travelArrivalTile } from '../shared/sector-links.js';
 import { WILD_SECTOR_IDS } from '../shared/sector-geo.js';
+import { nearestWalkableTile } from '../shared/sector-walk-mask.js';
 
 test('sector roads cover the whole standard world with reciprocal bounded exits', () => {
     // 82 pre-reorg roads remapped + the approved Upper Terraces ↔ Canal Heart
@@ -154,7 +155,9 @@ test('travelArrivalTile is the ONE definition both trees arrive by', () => {
         const linked = new Set(sectorExits(from.id).map((exit) => exit.destinationSector));
         for (const to of SECTOR_POINTS) {
             if (from.id === to.id || linked.has(to.id)) continue;
-            assert.equal(travelArrivalTile(from.id, to.id), arrivalTileFromOrigin(from.id, to.id));
+            const geometricTile = arrivalTileFromOrigin(from.id, to.id);
+            assert.equal(travelArrivalTile(from.id, to.id, false), geometricTile, 'rollback preserves the geographic arrival');
+            assert.equal(travelArrivalTile(from.id, to.id), nearestWalkableTile(to.id, geometricTile!));
             assert.ok(travelArrivalTile(from.id, to.id) !== null);
             geometric++;
         }
@@ -163,5 +166,7 @@ test('travelArrivalTile is the ONE definition both trees arrive by', () => {
 
     // Leaving a village (sector 0 is not a map point) names no tile, and the
     // caller keeps its centre-tile fallback.
-    assert.equal(travelArrivalTile(0, 12), null);
+    assert.equal(travelArrivalTile(0, 12, false), null);
+    assert.equal(travelArrivalTile(0, 12), nearestWalkableTile(12, 78));
+    for (const sector of [1, 9, 17, 26]) assert.equal(travelArrivalTile(0, sector), 102, 'leave town at its centered entrance');
 });
