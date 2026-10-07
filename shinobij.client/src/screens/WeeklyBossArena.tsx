@@ -433,6 +433,7 @@ export function WeeklyBossArena({
                 <div>· Top 10 by damage → <strong style={{ color: "var(--gold)" }}>1 Weekly Boss Core</strong> each</div>
                 <div>· Top 25 by damage → <strong style={{ color: "var(--blue-400)" }}>1 Dungeon Key</strong> each</div>
                 <div>· Every contributor → a ryo share by damage + 10 stat points (MVP = top 1 gets <strong>×2</strong> ryo)</div>
+                <div>· Every contributor → a 5% chance of an <strong style={{ color: "var(--gold)" }}>upgrade gear piece</strong>, a weapon or armor a little stronger than your tier</div>
                 <div style={{ marginTop: 4, color: "var(--text-dim)" }}>
                     {roaming
                         ? "Find the boss roaming the World Map and challenge it where it stands — each fight adds your damage to the leaderboard. "
@@ -557,6 +558,7 @@ export function WeeklyBossArena({
                         <li>+{mySummary.ryo.toLocaleString()} ryo · +10 stat points{mySummary.isMvp ? " (MVP ×2 ryo)" : ""}</li>
                         {mySummary.gotCore && <li>+1 Weekly Boss Core (top 10)</li>}
                         {mySummary.gotKey && <li>+1 Dungeon Key (top 25)</li>}
+                        {mySummary.gotGear && <li>+1 upgrade gear piece (a lucky 5% drop, check your bag)</li>}
                     </ul>
                 </div>
             )}
@@ -577,6 +579,8 @@ type WeeklyBossRewardEntry = {
     xp: number;
     gotCore: boolean;
     gotKey: boolean;
+    /** Sealed by the server with the summary; absent on payouts made before gear drops. */
+    gotGear?: boolean;
     isMvp: boolean;
 };
 

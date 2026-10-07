@@ -225,6 +225,8 @@ export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
     // client write is discarded — otherwise the objective could be forged outright.
     f('relicRosterVersion', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'one-time retired relic conversion stamp'),
     f('relicRewardLedger', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'bounded daily PvP/tower relic rolls and exact outcomes'),
+    f('gearTierUnlocks', 'character', 'server-owned', 'inventory', ['server-mirror-char', 'combat-strip-char'], 'highest weapon and armor tier bought or crafted; unlocks that tier\'s gear step drops and only ever rises'),
+    f('equippedNamedGear', 'character', 'server-owned', 'inventory', ['combat-strip-char'], 'named weapon and armor ids that have been equipped at least once; rebuilt on every save by api/save/_named-gear-equipped.ts (stored list plus what is worn now), never taken from the client, and the Sunscar Exchange refuses to list them'),
     f('relicSurvey', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'biomes surveyed since accept; world/explore appends, wanderer-quest accept resets'),
     f('relicSurveyCount', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char'], 'length mirror of relicSurvey so the numeric quest completion check needs no survey-specific branch'),
     f('pendingGatherFinds', 'character', 'server-owned', 'exploration', ['server-mirror-char', 'combat-strip-char']),

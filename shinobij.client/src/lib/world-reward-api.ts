@@ -3,6 +3,7 @@ import { makeId } from './utils';
 import { noteSectorPoolView, type SectorPoolView } from './sector-pool';
 import { bumpSectorContractRevision } from './sector-contract';
 import { runSingleFlight } from './single-flight';
+import { expectGearDropReveal } from './gear-drop-store';
 
 /**
  * World-map reward settlement.
@@ -260,6 +261,9 @@ async function requestAncientChest(
             // is a delay, never a verdict, so this leg never retires a payout.
             return worldRewardFailure(data?.error || 'chest-failed', response.ok ? undefined : response.status, { committedReward: true, reason: data?.reason });
         }
+        // The chest opens its own reveal for this item, so the gear pop-up stays quiet
+        // for it. Asked before the caller adopts the character that holds the item.
+        if (data.loot.itemId) expectGearDropReveal(data.loot.itemId);
         return { loot: data.loot, character: data.character, saveVersion: data._saveVersion, ...(data.sectorPool ? { sectorPool: data.sectorPool } : {}) };
     } catch {
         return worldRewardFailure('offline', undefined, { committedReward: true });

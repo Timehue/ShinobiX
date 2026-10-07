@@ -101,6 +101,18 @@ test("raid mission presentation mirrors only exact server-credited ids", async (
     assert.deepEqual(apex.fired, [], "Apex has no sector or field-mission credit");
 });
 
+test("an upgrade gear piece the server granted reaches the result, on a win only", async () => {
+    const args = { playerName: "Rill", token: "tok", opponentId: "ai-guard", battleKind: "explore" as const };
+    respond = () => win({ gearDrop: { itemId: "cloth-hood-s1" } });
+    assert.equal((await settleAiFight(args)).gearDropItemId, "cloth-hood-s1");
+    respond = () => win();
+    assert.equal("gearDropItemId" in (await settleAiFight(args)), false);
+    respond = () => win({ outcome: "loss", gearDrop: { itemId: "cloth-hood-s1" } });
+    assert.equal("gearDropItemId" in (await settleAiFight(args)), false, "a loss never announces a piece");
+    respond = () => win({ gearDrop: { itemId: 12 } });
+    assert.equal("gearDropItemId" in (await settleAiFight(args)), false, "a malformed id is ignored");
+});
+
 test("an explore ambush never re-credits field progress from combat", async () => {
     const spy = hookSpy();
     await settleAiFight({

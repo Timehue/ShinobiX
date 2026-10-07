@@ -17,6 +17,9 @@
 // (the client re-asserts the treasury at the value returned here, so the
 // per-field save validators see a zero delta and leave it untouched).
 
+import { NAMED_GEAR_DONATE_BLOCK_MESSAGE } from '../shared/named-gear-rules.js';
+import { wasEverEquipped } from './save/_named-gear-equipped.js';
+
 export type TreasuryItemStack = { itemId: string; count: number };
 
 export type TreasuryDonation =
@@ -158,6 +161,9 @@ export function applyTreasuryDonation(
     if (count > rules.itemCountCap) {
         return { ok: false, status: 400, error: `count exceeds per-call cap of ${rules.itemCountCap}.` };
     }
+    // Named gear that has been worn cannot be sold at the Sunscar Exchange. Letting it into a
+    // treasury would let a leader gift it to a member whose account never recorded wearing it.
+    if (wasEverEquipped(donorChar, itemId)) return { ok: false, status: 400, error: NAMED_GEAR_DONATE_BLOCK_MESSAGE };
     const owned = countOwned(donorChar, itemId);
     if (owned < count) {
         return { ok: false, status: 400, error: `You do not own ${count} of that item (have ${owned}).` };

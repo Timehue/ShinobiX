@@ -179,7 +179,7 @@ import type { PendingPvpRecovery } from "../lib/pvp-pending-session";
 import type { OwnSaveReadCommit } from "../lib/own-save-read";
 const loadOwnSaveRead = () => import("../lib/own-save-read");
 import { requireServerSettlement } from "../lib/server-settlement-gate";
-import { getAllItems } from "../lib/items";
+import { getAllItems, itemRevealSub } from "../lib/items";
 import { getBloodlineMultiplier } from "../lib/combat-math";
 import { cwListWars } from "../lib/clan-war-api";
 import { fetchClanData } from "../lib/clan-api";
@@ -4159,7 +4159,7 @@ function WorldMapContent({
         const alreadyHaveCard = lootCard && character.tileCards.includes(lootCard.id);
         const rewards: { icon: ReactNode; label: string; sub: string }[] = [];
         if (activeChest.ryo) rewards.push({ icon: <GameIcon name="ryo" size={22} />, label: `+${activeChest.ryo} Ryo`, sub: "Ancient gold" });
-        if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: `${lootItem.rarity.charAt(0).toUpperCase() + lootItem.rarity.slice(1)} ${lootItem.slot} · ${lootItem.description.slice(0, 40)}` });
+        if (lootItem) rewards.push({ icon: <GameIcon name="bag" size={22} />, label: lootItem.name, sub: itemRevealSub(lootItem) });
         if (lootCard) rewards.push({ icon: <GiCardPickup size={22} />, label: `${lootCard.name}${alreadyHaveCard ? " (duplicate)" : ""}`, sub: `${lootCard.rarity.charAt(0).toUpperCase() + lootCard.rarity.slice(1)} · ${lootCard.element}` });
         if (activeChest.fateShards) rewards.push({ icon: <GameIcon name="shard" size={22} />, label: "+1 Fate Shard", sub: "Premium currency" });
         if (activeChest.boneCharms) rewards.push({ icon: <GameIcon name="bone" size={22} />, label: "+1 Bone Charm", sub: "Awakening Stone material" });

@@ -41,6 +41,8 @@ import { weekKey } from '../missions/_weekly-board.js';
 import type { TowerReward } from './_floor-catalog.js';
 import type { TowerSession } from './_tower-session.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from '../_settlement-receipts.js';
+import { GEAR_DROP_CHANCE_BP } from '../_gear-drops.js';
+import { settleGearDropForPlayer } from '../_gear-drop-settlement.js';
 
 // ─── minimal injectable interfaces ───────────────────────────────────────────
 export type TowerKv = {
@@ -287,7 +289,7 @@ function creditFloorClear(
     };
 }
 
-export type SettleResult = { paid: boolean; reason?: string; score?: number; relic?: { itemId?: string; fateShards?: number; reason?: string } };
+export type SettleResult = { paid: boolean; reason?: string; score?: number; relic?: { itemId?: string; fateShards?: number; reason?: string }; gearDrop?: { itemId?: string } };
 export type ConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 
 function embeddedTowerReceipt(kind: 'items' | 'spire', parts: unknown[]): { requestId: string; fingerprint: string } {
@@ -435,6 +437,25 @@ export async function settleFloorForMember(
     } catch {
         return { paid: false, reason: 'contended' };
     }
+}
+
+/**
+ * Gear step drop (api/_gear-drops.ts) for beating a tower boss floor. It rolls on
+ * every squad win, not only the first clear, and the hit comes from the run id so
+ * a retried settle answers the same. A busy save is retried a few times; if it is
+ * still busy this throws, the settle replies with an error, and the fight screen's
+ * "Retry settlement" runs it again. That is safe: the floor reward is receipt gated
+ * and the drop's receipt commits with the item, so nothing is paid twice.
+ */
+export async function settleTowerBossGearDrop(session: TowerSession, slug: string): Promise<{ itemId?: string }> {
+    if (!isClearedSquadWin(session) || !isSquadMember(session, slug) || !isPublicTowerRun(session)) return {};
+    if (!floorForSession(session)?.boss) return {};
+    return settleGearDropForPlayer({
+        playerName: slug,
+        eventId: `tower:${session.runId}:${slug}`,
+        chanceBp: GEAR_DROP_CHANCE_BP.boss,
+        notBefore: session.createdAt,
+    });
 }
 
 /**

@@ -3,6 +3,7 @@ import { gainXp } from '../_xp-engine.js';
 import { isWildSector, sectorBiomeOf } from '../../shared/sector-geo.js';
 import { canAppendPackableChronicleCards } from '../card-clash/_collection-cap.js';
 import { WILD_BINDING_CHEST_DROP_CHANCE } from '../../shared/wild-binding.js';
+import { isStepItemId } from '../../shared/gear-steps.js';
 
 export const DAILY_ANCIENT_CHEST_LIMIT = 23;
 export type AncientChestLoot = {
@@ -108,7 +109,8 @@ export function applyAncientChestLoot(character: Record<string, unknown>, loot: 
         boneCharms: Math.max(0, Number(leveled.boneCharms) || 0) + (loot.boneCharms ?? 0),
         auraStones: Math.max(0, Number(leveled.auraStones) || 0) + (loot.auraStones ?? 0),
         auraDust: Math.max(0, Number(leveled.auraDust) || 0) + (loot.auraDust ?? 0),
-        inventory: loot.itemId && !tempered && (stackable || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
+        // A gear step drop is always paid, even when a copy is already owned.
+        inventory: loot.itemId && !tempered && (stackable || isStepItemId(loot.itemId) || !inventory.includes(loot.itemId)) ? [...inventory, loot.itemId] : inventory,
         itemStacks: tempered
             ? existingTempered
                 ? itemStacks.map((stack) => stack === existingTempered ? { ...stack, count: Math.min(9999, stack.count + 1) } : stack)

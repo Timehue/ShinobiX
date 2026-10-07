@@ -121,6 +121,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 alreadyApplied: out.alreadyApplied,
                 ...('requestId' in out && out.requestId ? { requestId: out.requestId } : {}),
                 ...('resolved' in out ? { resolved: out.resolved } : {}),
+                ...('gearDropId' in out && out.gearDropId ? { gearDrop: { itemId: out.gearDropId } } : {}),
                 ...(activeAfter?.entry === 'free' && typeof activeAfter.exploreReceiptId === 'string'
                     ? { exploreReceiptId: activeAfter.exploreReceiptId }
                     : {}),

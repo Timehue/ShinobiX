@@ -12,6 +12,8 @@ import {
 } from './_storage.js';
 import { projectClanBossContributions } from './_contribution.js';
 import { awardOperationProfessionXp } from './_profession.js';
+import { GEAR_DROP_CHANCE_BP } from '../_gear-drops.js';
+import { settleGearDropForPlayer } from '../_gear-drop-settlement.js';
 import { applyOperationPressure } from './_sector-state.js';
 import { completeParty } from './_party.js';
 import { announce } from '../_announce.js';
@@ -108,6 +110,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const outcomeBody = outcome.body as Record<string, unknown>;
         const party = [...new Set(assault.party.map((name) => safeName(name)).filter(Boolean))].slice(0, 4);
         const others = party.filter((name) => name !== playerName);
+        // Gear step drop (api/_gear-drops.ts): each ACTIVE contributor rolls once per
+        // assault, so idling in a party earns nothing. It lands before the awards
+        // below so their character snapshots already hold it. The hit comes from the
+        // run id and member, and a receipt commits with the item, so a retried settle
+        // never pays it twice. A save that stays busy through the retries throws, the
+        // reply is an error, and the fight screen offers "Retry settlement": the bank
+        // above is idempotent, so the retry only finishes what is left.
+        let callerGearDropId: string | undefined;
+        for (const member of party) {
+            if (!contributions[member]?.active) continue;
+            const dropped = await settleGearDropForPlayer({
+                playerName: member,
+                eventId: `clanboss:${runId}:${member}`,
+                chanceBp: GEAR_DROP_CHANCE_BP.boss,
+                notBefore: session.createdAt,
+            });
+            // The caller's own piece rides in the reply so the result card can name it.
+            if (member === playerName) callerGearDropId = dropped.itemId;
+        }
         // These awards use stable event IDs, so retry them even after damage was
         // already settled. That heals a transient player-save failure without
         // double-crediting members whose first write succeeded.
@@ -231,6 +252,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             sectorState: sector?.state,
             sectorPressureReducedBy: sector?.reducedBy ?? 0,
             sectorPressureMilestone: sector?.crossedMilestone,
+            ...(callerGearDropId ? { gearDrop: { itemId: callerGearDropId } } : {}),
             character: awardedCharacter,
             _saveVersion: Number(finalPlayerRecord?._saveVersion) || undefined,
         });

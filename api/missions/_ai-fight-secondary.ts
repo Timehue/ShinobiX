@@ -17,6 +17,7 @@ export function applyAiFightSecondaryRewards(
     token: AiFightToken,
     rewardEligible: boolean,
     ironcladDrop = false,
+    gearDropId: string | null = null,
 ): Character {
     const battleKind = token.battleKind ?? 'practice';
     if (!rewardEligible || battleKind === 'practice') return character;
@@ -43,6 +44,8 @@ export function applyAiFightSecondaryRewards(
 
     return {
         ...character,
+        // A gear step drop (api/_gear-drops.ts) is an earned reward, so it never refuses on a full bag.
+        ...(gearDropId ? { inventory: [...stringList(character.inventory), gearDropId] } : {}),
         stamina: Math.min(whole(character.maxStamina), whole(character.stamina) + 15),
         honorSeals: whole(character.honorSeals) + honorSeals,
         auraDust: whole(character.auraDust) + auraDust,

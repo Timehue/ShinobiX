@@ -9,6 +9,7 @@ import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "..
 import { buildActionsFromTowerLog, makeBattleEntry } from "../lib/battle-log-history";
 import { cardArtBackdrop } from "../lib/card-art-backdrop";
 import { combatItemTooltip } from "../lib/combat-item-tooltip";
+import { gearDropRewardLine } from "../lib/items";
 import {
     submitTowerAction, submitTowerActionWithLostResponseRetry, settleTowerRun, fetchTowerState, joinTowerRun, towerPlayerSlug, TOWER_TURN_AFK_MS, withTowerRequestDeadline,
     type TowerSession, type TowerActor, type TowerStatus, type TowerSettleResponse, type TowerSettleResult, type TowerFeature, type TowerBoardObject, type TowerHostLoadout, type TowerActionInput, type TowerActionResponse,
@@ -105,6 +106,8 @@ type SettlementState = {
     response: TowerSettleResponse | null;
     message: string | null;
     attempts: number;
+    /** Set by a custom settle that grants an upgrade gear piece (Clan Boss). */
+    gearLine?: string | null;
 };
 
 const RETRYABLE_SETTLEMENT_REASONS = new Set(["contended", "no-save", "unknown", "invalid-receipt"]);
@@ -128,6 +131,14 @@ function isStableTowerSettlement(response: TowerSettleResponse): boolean {
 }
 
 function towerRewardReceiptText(result: TowerSettleResult, spire: boolean): string {
+    const text = towerClearReceiptText(result, spire);
+    // A boss floor can also drop an upgrade gear piece, on a replay as well as a first clear.
+    // It is named in the receipt so it sits with the rest of the winnings.
+    const gear = gearDropRewardLine(result.gearDrop?.itemId);
+    return gear ? `${text} · ${gear}` : text;
+}
+
+function towerClearReceiptText(result: TowerSettleResult, spire: boolean): string {
     if (result.paid) return spire
         ? `+${SPIRE_SHARDS_PER_TIER} Fate Shards`
         : result.score ? `First-clear reward paid · score +${result.score}` : "First-clear reward paid";
@@ -1103,15 +1114,20 @@ export function BattleTowerFight({
             try {
                 if (settleFn) {
                     const response = await withTowerRequestDeadline(() => settleFn(runId, me));
-                    if (!mountedRef.current) return;
-                    const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown };
+                    const mutation = (response ?? {}) as { character?: Character; _saveVersion?: unknown; gearDrop?: { itemId?: string } };
+                    // Adopt the paid character even if this screen closed while the request
+                    // was in flight: the commit is account and version checked by the App, and
+                    // the rewards (and any gear drop) are already paid on the server.
                     if (mutation.character) onVersionedCharacter?.(mutation.character, mutation._saveVersion);
-                    setSettlement(current => ({ ...current, phase: "settled", message: null }));
+                    if (!mountedRef.current) return;
+                    // A custom settle (the Clan Boss) has no per floor receipt, so name its gear piece here.
+                    setSettlement(current => ({ ...current, phase: "settled", message: null, gearLine: gearDropRewardLine(mutation.gearDrop?.itemId) }));
                     return;
                 }
                 const response = await settleTowerRun(runId, me);
-                if (!mountedRef.current) return;
+                // Same rule as above: a reply that lands after the screen closed is still adopted.
                 if (response.character) onVersionedCharacter?.(response.character, response._saveVersion);
+                if (!mountedRef.current) return;
                 if (!isStableTowerSettlement(response)) {
                     setSettlement(current => ({
                         ...current,
@@ -2538,6 +2554,7 @@ export function BattleTowerFight({
                                 ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
                                 : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
                         )}
+                        {settlement.gearLine && <p className="tower-completion-reward" data-testid="tower-gear-drop">{settlement.gearLine}</p>}
                         {newlyRecordedTowerMilestones.map(milestone => (
                             <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
                         ))}

@@ -8,6 +8,7 @@ import { cors, safeName } from '../_utils.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { loadSettlementCatalogs } from '../shop/_catalog.js';
 import { applyInventorySale, type InventorySaleSource } from './_sale.js';
+import { namedGearSaleItem } from './_named-sale-item.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -28,7 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (identityName !== playerName) return res.status(403).json({ error: 'You can only sell your own items.' });
         if (!(await enforceRateLimitKv(req, res, 'inventory-sale', 30, 60_000, identityName, { strict: true }))) return;
         const catalogs = await loadSettlementCatalogs();
-        const item = catalogs.items.get(itemId);
+        const item = catalogs.items.get(itemId) ?? await namedGearSaleItem(playerName, itemId);
         if (!item) return res.status(400).json({ error: 'Unknown sale item.' });
 
         const out = await mutatePlayerSave(playerName, ({ character }) => {

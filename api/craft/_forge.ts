@@ -3,6 +3,8 @@ import { villageStoresEnabled } from '../_release-flags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
 import { HUNTER_RANK_REQUIREMENTS } from '../hunter/_rank-up.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
+import { isStepItemId } from '../../shared/gear-steps.js';
+import { withGearTierUnlock } from '../_gear-drops.js';
 
 // Materials the Hunter Guild consumes to rank up. Derived from the rank-up table
 // so it can NEVER drift when those turn-ins change. consumeCraftPoints spares these
@@ -134,7 +136,8 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         if (recipe.currency) return { ...paid, [recipe.currency]: count(paid[recipe.currency]) + (recipe.amount ?? 0) * quantity };
         return addOwned(paid, recipeId, (recipe.count ?? 1) * quantity, true);
     }
-    const item = ITEM_CATALOG[recipeId]; if (!item || recipeId.startsWith('named-')) return null;
+    // Gear step drops cost 0 and are never a recipe: they only arrive as drops.
+    const item = ITEM_CATALOG[recipeId]; if (!item || recipeId.startsWith('named-') || isStepItemId(recipeId)) return null;
     const armor = kind === 'armor';
     const valid = armor
         ? ['body', 'head', 'waist', 'legs', 'feet'].includes(item.slot) && item.rarity === 'rare' && Boolean(item.armorQuality)
@@ -146,5 +149,5 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
     const ryo = ryoFor(item) * quantity; if (count(character.ryo) < ryo) return null;
     const exact = consumeGatherIngredients(character, recipeId, quantity); if (!exact) return null;
     const paid = consumeCraftPoints(exact, itemPoints(item, armor) * quantity); if (!paid) return null;
-    return addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, quantity, false);
+    return withGearTierUnlock(addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, quantity, false), item);
 }

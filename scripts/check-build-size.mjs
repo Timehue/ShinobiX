@@ -789,12 +789,34 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // (1,437,608 B / 394,491 B) and passes its own gate unchanged. Allow 9.15 MB,
 // leaving 15,768 B of measured headroom. Entry, startup raw/gzip, CSS and
 // chunk gates stay put.
+// 2026-10-06 GEAR STEP DROPS: the shared step builder (shared/gear-steps.ts), the
+// armor reduction helper, the drop watcher and its lazy pop-up (GearDropHost,
+// GearDropToasts), the 500 ryo sell price, the many drop summary card, the
+// announced drops memory (lib/gear-drop-store), the Weekly Boss payout sync and the
+// clan boss retry, and the upgrade wording shared by the pop-up and both reveals
+// measure 9,162,226 B with Production Image's VITE_* settings on ee85c880e. The
+// step builder alone was 9,150,497 B, 497 B over the old cap. The owner approved
+// raising the cap. Allow 9.17 MB for about 7.8 KB of headroom. The
+// step art ships as static WebP files, which this gate does not count. The
+// startup graph is 1,401,868 B raw, inside its gate. Entry, startup, CSS and chunk
+// gates stay put.
+// 2026-10-07 GEAR STEP NAMES: the 110 pieces got their own shinobi names
+// (shared/gear-step-names.ts, about 3.5 KB) and the own description text. With
+// Production Image style VITE_* values (analytics and Sentry on) the total is
+// 9,169,530 B, 470 B under the previous cap. The owner has said the cap can be
+// raised, so allow 9.18 MB for about 10 KB of headroom. The finished step art is
+// static WebP and is not counted here.
 // 2026-10-07 CONTINUOUS WORLD: the camera, bounded nearby-player presentation,
 // cursor validation and joined terrain replace board-pan presentation. Measured
 // candidate 9,153,747 B versus accepted baseline 9,141,422 B (+12,325 B).
 // Allow 9.18 MB for this intentional feature; initial graph is 1,401,390 B raw /
 // 388,704 B gzip (+315 / +92 B). Startup, chunk, CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_180_000;
+// 2026-10-07 MERGE OF THE TWO: the continuous world and the upgrade gear work each fit
+// under 9.18 MB alone, but together they measure 9,194,518 B with Production Image style
+// VITE_* values (the gear work is the larger share: pieces, names, pop-up, named gear
+// rules). The owner has said the cap can be raised, so allow 9.21 MB for about 15 KB of
+// headroom. Startup, chunk, CSS and asset limits stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_210_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

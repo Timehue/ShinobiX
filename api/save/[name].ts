@@ -4,6 +4,8 @@ import { sanitizeProgression } from './_sanitize-progression.js';
 import { unfundedStatGains } from './_stat-entitlement.js';
 import { sanitizePetRoster } from './_sanitize-pets.js';
 import { sanitizeInventory } from './_sanitize-inventory.js';
+import { preserveGearStepItems } from './_gear-step-floor.js';
+import { recordEquippedNamedGear } from './_named-gear-equipped.js';
 import { sanitizeExamProgress } from './_sanitize-exams.js';
 import { filterActiveBloodlineJutsuIds, hasRejectedBloodlineForgeAttempt, hasRejectedBloodlineSubmission, prepareBloodlineNormalization, preserveEquippedBloodline } from './_sanitize-bloodlines.js';
 import { sanitizeChallengeProgress } from './_sanitize-challenges.js';
@@ -284,7 +286,9 @@ export function sanitizeCharacterSave(
     // than preserved there: it is personal, and anything on those slots is
     // published to every client. Defaults false, so ordinary player saves are
     // unaffected.
-    opts: { adminContentSlot?: boolean; now?: number; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string } = {},
+    // allowGearStepRemoval: the admin editor may delete an upgrade gear piece;
+    // every player write keeps the stored ones (api/save/_gear-step-floor.ts).
+    opts: { adminContentSlot?: boolean; now?: number; bloodlineEquipIntent?: string; bloodlineWriteIntent?: string; allowGearStepRemoval?: boolean } = {},
 ): Record<string, unknown> {
     const isFirstSave = existing == null;
     const inChar = incoming.character as Record<string, unknown> | undefined;
@@ -312,6 +316,8 @@ export function sanitizeCharacterSave(
 
     const finalChar = isFirstSave ? applyCanonicalFirstSave(char) : char;
     enforceRawSaveLedgerBoundary(finalChar, exChar, isFirstSave, inChar);
+    if (!isFirstSave && opts.allowGearStepRemoval !== true) preserveGearStepItems(finalChar, exChar);
+    if (!isFirstSave && !opts.adminContentSlot) recordEquippedNamedGear(finalChar, exChar);
 
     // ── Patreon subscriber perk caps (authoritative) ──────────────────────────
     // Runs AFTER the ledger boundary, so finalChar.patreon is the stored,
@@ -1037,6 +1043,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             incoming as Record<string, unknown>,
                             (existing as Record<string, unknown> | null) ?? null,
                             { adminContentSlot: isAdminContentSlot(name),
+                                allowGearStepRemoval: identityName === null,
                                 bloodlineEquipIntent: typeof req.headers['x-bloodline-equip-intent'] === 'string'
                                     ? req.headers['x-bloodline-equip-intent'].slice(0, 128) : '',
                                 bloodlineWriteIntent: typeof req.headers['x-bloodline-write-intent'] === 'string'
