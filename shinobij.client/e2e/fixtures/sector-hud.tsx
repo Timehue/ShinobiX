@@ -38,6 +38,7 @@ export function Fixture() {
         attack:p=>action(p,'attack'),strike:p=>action(p,'strike'),spectate:async(p,isCurrent)=>{await action(p,'spectate');events.push(isCurrent()?'spectator-opened':'spectator-cancelled');}});
     const note = (name:string) => () => {events.push(name);};
     const props:WorldSectorCommandPanelProps = {
+        dailyExplores: new URLSearchParams(location.search).has('capped') ? 100 : 0,
         sector:settings.sector,present:settings.present,biome:'shadow',weather:'clear',
         territory:{isLive:true,isOwned:true,ownerLabel:'Northern Watch (Stormveil)',rebuildMinsLeft:0,controlScore:450,hp:900,breached:false,breachMinsLeft:0,rewardsSuspended:false,guards:['River Guard'],enemyControlled:true},
         gathering:{hydrated:true,exploresUsed:settings.depleted?1500:25,exploresCap:1500,chestsUsed:3,chestsCap:225},

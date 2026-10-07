@@ -65,7 +65,7 @@ export function HunterBoard({
     setMissionProgress: React.Dispatch<React.SetStateAction<Record<string, number>>>;
     setScreen: (s: Screen) => void;
 }) {
-    const hunterRank = character.hunterRank ?? 0;
+    const hunterRank = Math.max(0, Math.min(5, Math.floor(character.hunterRank ?? 0)));
     const huntCap = dailyHuntCap(character);
     const missionRewardBonus = getMissionRewardBonus(character) + getActiveAuraSphereBonuses(character).missionRewardPercent;
     const [authoritativeHuntStates, setAuthoritativeHuntStates] = useState<Record<string, WorldHuntTrailView>>({});
@@ -370,12 +370,13 @@ export function HunterBoard({
                 eyebrow="The Thousand Gates · Tracker Command"
                 icon={<GiDragonHead />}
                 onBack={() => setScreen("centralHub")}
-                statusLabel="Daily contracts"
+                statusLabel="Daily hunt rewards"
                 statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
                 subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
                 title="Hunter Guild"
                 tone="azure"
             />
+            {!hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}
             {lastClaim && <ClaimImpactNotice {...lastClaim} onClose={() => setLastClaim(null)} />}
 
             <div className="hunter-rank-banner">
@@ -506,10 +507,10 @@ export function HunterBoard({
                                             )}
                                             <div className="menu">
                                                 {!accepted
-                                                    ? <button onClick={() => acceptHunt(mission)}>Accept Hunt</button>
+                                                    ? <button disabled={character.level < mission.levelReq} onClick={() => acceptHunt(mission)}>{character.level < mission.levelReq ? `Requires level ${mission.levelReq}` : "Accept Hunt"}</button>
                                                     : <>
                                                         {complete
-                                                            ? <button disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claimingâ€¦" : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
+                                                            ? <button aria-busy={claimingHuntId === mission.id} disabled={claimingHuntId !== null || claimCooldownMs > 0} onClick={() => { void claimHunt(mission); }}>{claimingHuntId === mission.id ? "Claiming..." : claimCooldownMs > 0 ? `Retry in ${Math.max(1, Math.ceil(claimCooldownMs / 1000))}s` : "Claim Reward"}</button>
                                                             : null
                                                         }
                                                         <button className="danger-button" disabled={claimingHuntId !== null} onClick={() => void abandonHunt(mission)}>Give Up</button>
