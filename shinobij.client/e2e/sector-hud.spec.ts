@@ -482,14 +482,16 @@ test('a fresh outside touch consumes only the dismissal gesture',async({page},te
     test.skip(!testInfo.project.use.hasTouch);
     await page.setViewportSize({width:390,height:844});
     await boot(page);
+    await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
     await page.getByRole('button',{name:'Sector Info'}).tap();
     const original=await page.locator('.sector-player-tile').getAttribute('aria-label');
-    const tile=page.getByRole('button',{name:'Move to tile row 1 column 2',exact:true});
-    await tile.tap();
+    const canvas=page.locator('.continuous-world-map > canvas');
+    const bounds=await canvas.boundingBox();
+    await canvas.tap({position:{x:bounds!.width*.15,y:bounds!.height*.1}});
     await expect(page.getByRole('dialog',{name:'Sector Info',exact:true})).toHaveCount(0);
     await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label',original!);
-    await tile.tap();
-    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label','Current tile row 1 column 2');
+    await canvas.tap({position:{x:bounds!.width*7/12,y:bounds!.height/2}});
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label','Current tile row 7 column 8');
 });
 
 
