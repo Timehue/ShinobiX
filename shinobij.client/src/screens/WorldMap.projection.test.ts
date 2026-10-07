@@ -391,7 +391,7 @@ test("sector details retain all secondary content while the HUD owns primary act
     assertOrdered(commandPanelSource, ['{territory && (', '<SectorContractCard', '<SectorIntelCard', '<SectorOrderCard', '<SectorTracesCard', '{sectorContest && (', '{hunt && ('], "complete sector details");
     assert.doesNotMatch(commandPanelBody, /players\.map|onClick=\{onExplore\}|onClick=\{onLeave\}/u);
     assert.match(hudSource, /onClick=\{gatherDepleted \? onFindRicherGround : onExplore\}/u);
-    assert.match(hudSource, /disabled=\{!present && !gatherDepleted\}/u);
+    assert.match(hudSource, /disabled=\{!gatherDepleted && \(!present \|\| dailyCapped \|\| props\.exploreBusy\)\}/u);
     assert.match(hudSource, /onClick=\{onHunt\}/u);
     assert.doesNotMatch(hudSource, /Players Here|onRecover|onLeave/u);
     assert.match(hudSource, /Sector Info/u);

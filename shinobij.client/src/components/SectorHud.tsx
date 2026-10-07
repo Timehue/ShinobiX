@@ -42,6 +42,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     };
     const consumeTouchClick = useDismissGesture();
     const gatherDepleted = sectorGatherLineFor(props.gathering)?.depleted === true;
+    const dailyExplores = props.dailyExplores;
+    const dailyCapped = (dailyExplores ?? 0) >= 100;
     const close = (restore = false, touch = false) => {
         if (touch) consumeTouchClick();
         setOpen(false); if (restore) triggerRef.current?.focus({ preventScroll: true });
@@ -55,9 +57,10 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
             <div className="sector-hud-controls" aria-label="Sector actions">
                 <button type="button" className="sector-hud-explore" data-sector-explore=""
                     aria-label={gatherDepleted ? 'Find richer ground' : 'Explore'}
-                    disabled={!present && !gatherDepleted} onClick={gatherDepleted ? onFindRicherGround : onExplore}>
+                    aria-describedby={dailyCapped && !gatherDepleted ? `${id}-daily-exploration` : undefined}
+                    disabled={!gatherDepleted && (!present || dailyCapped || props.exploreBusy)} onClick={gatherDepleted ? onFindRicherGround : onExplore}>
                     <span>{gatherDepleted ? 'Find richer ground' : 'Explore'}</span>
-                    <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : 'Search this sector'}</small></button>
+                    <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring...' : 'Search this sector'}</small></button>
                 <button type="button" ref={triggerRef} className={`sector-hud-info${open ? ' is-open' : ''}`}
                     aria-label={`Sector Info${props.contract?.claimable ? ' · Claim ready' : ''}`}
                     aria-expanded={open} aria-controls={`${id}-info`} aria-haspopup="dialog" onClick={() => setOpen(!open)}>
@@ -67,7 +70,8 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
             </div>
         </div>
         <div className="sector-hud-context">
-            {props.gathering?.hydrated && <span className="sector-hud-summary">{gatherDepleted ? 'Gathering depleted' : `${Math.max(0, props.gathering.exploresCap - props.gathering.exploresUsed).toLocaleString()} explores left`}</span>}
+            {dailyExplores !== undefined && <span id={`${id}-daily-exploration`} className="sector-hud-summary">Your daily exploration: {dailyExplores}/100{dailyCapped ? ' · Resets at midnight UTC' : ''}</span>}
+            {props.gathering?.hydrated && <span className="sector-hud-summary">Shared sector pool: {gatherDepleted ? 'Gathering depleted' : `${Math.max(0, props.gathering.exploresCap - props.gathering.exploresUsed).toLocaleString()} explores left`}</span>}
             {territory?.isOwned && !territory.breached && <span className="sector-hud-summary">{territory.ownerLabel}</span>}
             {hunt && <button type="button" disabled={!present} onClick={onHunt}>
                 {hunt.ready ? 'Fight' : 'Track'} {hunt.targetName}</button>}
