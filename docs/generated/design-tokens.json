@@ -3100,7 +3100,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-world-map-territory.css",
-            "line": 179
+            "line": 163
           },
           {
             "source": "shinobij.client/src/styles/index/21-pet-arena-fx.css",
@@ -4139,7 +4139,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/02-world-map.css",
-            "line": 661
+            "line": 692
           },
           {
             "source": "shinobij.client/src/styles/index/10-layout-lock-herald.css",
