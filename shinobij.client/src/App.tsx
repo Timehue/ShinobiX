@@ -31,8 +31,7 @@ import { startBootGateWatchdog } from "./lib/boot-gate-watchdog";
 import { ScreenErrorBoundary } from "./components/ScreenErrorBoundary";
 import { ScreenLoadingFallback } from "./components/ScreenLoadingFallback";
 import { ScreenReadyProbe } from "./components/ScreenReadyProbe";
-import { ToastStacks, type MissionToast } from "./components/ToastStacks";
-import { GearDropHost } from "./components/GearDropHost";
+import { ToastStacks, type MissionToast } from "./components/ToastStacks"; import { GearDropHost } from "./components/GearDropHost";
 import { claimBountyOnWin, type BountyReceipt } from "./lib/pvp-bounty";
 import { reportPvpWin } from "./lib/pvp-win-report";
 import { useClaimOutboxDrain } from "./lib/claim-outbox";
@@ -71,6 +70,7 @@ import { imageCategoriesForScreen } from "./lib/screen-image-categories";
 import { useImageCategoryHydration } from "./lib/image-category-hydration";
 import { STUDIO_SCREEN_PRESENTATION } from "./lib/studio-screen-presentation";
 import { isRealtimePresenceLive, updateRealtimePresence, usePresenceSocket } from "./lib/use-presence-socket";
+import { observeRoadPosition, useRoadPositionHeartbeat } from "./lib/road-position-confirmation";
 import { heartbeatRosterFields } from "./lib/heartbeat-roster";
 import { useViewportContract } from "./lib/use-viewport-contract";
 import {
@@ -1762,6 +1762,7 @@ export default function App() {
     // Lets the socket "kick" handler trigger an off-cycle heartbeat without the
     // heartbeat being in scope (it's redefined each effect run).
     const heartbeatRef = useRef<() => void>(() => {});
+    useRoadPositionHeartbeat(character?.name, heartbeatRef);
     const [heartbeatGate] = useState(() => createHeartbeatGate(() => heartbeatRef.current()));
     const lastSocketConnectedRef = useRef(false);
     // Throttles the per-beat roster ingest (see heartbeat) so the cross-device
@@ -1920,7 +1921,7 @@ export default function App() {
                 character: presenceCharacter(char),
                 travelingUntil: isTraveling ? travelingUntil : 0,
                 inBattle: inBattleNow,
-                tile: getLocalSectorTile(), ...heartbeatNoticeAckFields(), ...heartbeatRosterFields({ socketLive: isRealtimePresenceLive(), sector: currentSector, tabVisible }),
+                tile: getLocalSectorTile(), continuousWorld: true, ...heartbeatNoticeAckFields(), ...heartbeatRosterFields({ socketLive: isRealtimePresenceLive(), sector: currentSector, tabVisible }),
             };
             // Mirror the same frame onto the Socket.IO presence channel (no-op when
             // the socket isn't connected). Because a sector change re-runs this
@@ -1933,7 +1934,7 @@ export default function App() {
                 travelingUntil: presenceBody.travelingUntil,
                 inBattle: inBattleNow,
                 displayName: char.name,
-                tile: presenceBody.tile,
+                tile: presenceBody.tile, continuousWorld: true,
             });
             if (!heartbeatGate.tryBegin()) return;
             try {
@@ -2064,6 +2065,7 @@ export default function App() {
                     const notices = data.pendingNotices;
                     await import("./lib/heartbeat-notices").then((m) => m.applyHeartbeatNotices(notices, { accountKey: heartbeatAccountKey, isCurrent: heartbeatIsCurrent, commit: commitVersionedCharacter }), () => withholdNoticeAck(notices));
                 }
+                if (heartbeatIsCurrent()) observeRoadPosition(char.name, data.sector, data.tile);
             } catch {
                 if (heartbeatIsCurrent()) markSectorRosterUnavailable(presenceBody.sector);
             } finally {
@@ -6453,8 +6455,7 @@ export default function App() {
                 missionToasts={missionToasts}
                 onDismissAchievement={(achievement) => setAchievementToasts(prev => prev.filter(x => x !== achievement))}
                 onDismissMission={(id) => setMissionToasts(prev => prev.filter(x => x.id !== id))}
-            />
-            <GearDropHost character={character} onVersionedCharacter={commitVersionedCharacter} saveIsClean={() => !charDirtyRef.current} />
+            /><GearDropHost character={character} onVersionedCharacter={commitVersionedCharacter} saveIsClean={() => !charDirtyRef.current} />
         </AdaptiveGameShell>
         </MaintenanceOperatorBoundary>
     );

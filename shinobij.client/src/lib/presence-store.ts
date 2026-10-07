@@ -80,6 +80,14 @@ let lingerTimer: ReturnType<typeof setTimeout> | null = null;
 // player key -> ms epoch of the socket's last word on them (see ROSTER_RACE_MS).
 const recentLeaves = new Map<string, number>();
 const recentConfirms = new Map<string, number>();
+const recentWorldMoves = new Map<string, number>();
+function retainNewerWorldPosition(player: PlayerRecord): PlayerRecord {
+    const key = playerKey(player.name), previous = liveArr.find(p => playerKey(p.name) === key);
+    if (previous?.worldPosition && Date.now() - (recentWorldMoves.get(key) ?? 0) < ROSTER_RACE_MS
+        && (previous.movementSequence ?? 0) > (player.movementSequence ?? -1))
+        return { ...player, tile: previous.tile, worldPosition: previous.worldPosition, movementSequence: previous.movementSequence };
+    return player;
+}
 // The newest complete roster adopted for the current sector, from either
 // channel. lib/heartbeat-roster.ts asks for another when this is missing or old.
 let lastFullRoster: { sector: number; at: number } | null = null;
@@ -157,6 +165,7 @@ function clearLiveSectorPlayers(notifySubscribers: boolean): void {
     // standing in the new one.
     recentLeaves.clear();
     recentConfirms.clear();
+    recentWorldMoves.clear();
     lastFullRoster = null;
     if (notifySubscribers && hadState) notify();
 }
@@ -229,7 +238,7 @@ export function presenceSignature(list: PlayerRecord[]): string {
 // Full live signature = membership signature + per-name tile, so the overlay
 // re-renders when a peer walks. Keep push/remove in sync via this one helper.
 function liveSignature(list: PlayerRecord[], memberSig: string): string {
-    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}`).sort().join(",");
+    return memberSig + "||" + list.map((p) => `${p.name.toLowerCase()}:${p.tile ?? ""}:${p.stronghold?.tile ?? ""}:${JSON.stringify(p.worldPosition ?? '')}`).sort().join(",");
 }
 
 function notify(): void {
@@ -243,7 +252,7 @@ function notify(): void {
  */
 export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): void {
     const snapshotSector = normalizedSector(sector);
-    next = next.map(normalizePlayerRecord);
+    next = next.map(normalizePlayerRecord).map(retainNewerWorldPosition);
     if (snapshotSector != null) {
         if (liveSector != null && snapshotSector !== liveSector) return;
         liveSector = snapshotSector;
@@ -301,7 +310,7 @@ export function pushLiveSectorPlayers(next: PlayerRecord[], sector?: number): vo
 export function upsertLiveSectorPlayer(player: PlayerRecord, sector: number): void {
     const snapshotSector = normalizedSector(sector);
     if (snapshotSector == null || (liveSector != null && liveSector !== snapshotSector)) return;
-    const normalized = normalizePlayerRecord(player);
+    const normalized = retainNewerWorldPosition(normalizePlayerRecord(player));
     if (playerSector(normalized) !== snapshotSector) return;
     liveSector = snapshotSector;
     const key = playerKey(normalized.name);
@@ -336,6 +345,17 @@ export function moveLiveSectorPlayer(name: string, tile: number, sector: number)
     liveSig = liveSignature(liveArr, rosterSig);
     // rosterArr intentionally remains unchanged: tile movement should only
     // re-render the peer overlay, not WorldMap's membership/status panels.
+    notify();
+}
+
+/** Existing same-sector presence, now placed on its accepted world edge. */
+export function moveLiveWorldPlayer(name: string, sector: number, position: PlayerRecord['worldPosition'], sequence: number): void {
+    if (normalizedSector(sector) !== liveSector || !position || !Number.isSafeInteger(sequence)) return;
+    const index = liveArr.findIndex(p => playerKey(p.name) === playerKey(name));
+    if (index < 0 || sequence <= (liveArr[index].movementSequence ?? -1)) return;
+    liveArr = liveArr.map((p, i) => i === index ? { ...p, worldPosition: position, movementSequence: sequence } : p);
+    recentWorldMoves.set(playerKey(name), Date.now());
+    liveSig = liveSignature(liveArr, rosterSig);
     notify();
 }
 
@@ -396,6 +416,7 @@ function expireLingering(): void {
 
 /** Clear everything (logout / account switch) so no roster bleeds across sessions. */
 export function resetLiveSectorPlayers(): void {
+    recentWorldMoves.clear();
     pendingLocalCorrection = null;
     liveSector = null;
     const stateChanged = rosterState !== "loading";

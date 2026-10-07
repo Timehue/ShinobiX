@@ -1,4 +1,10 @@
 import { minifyRuntimeSource } from './scripts/runtime-asset-minifier.mjs';
+import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
+import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
+import { packedWorldData } from './scripts/packed-world-data.mjs';
+import { packStaticCatalog } from './scripts/pack-static-catalog.mjs';
+import { CHRONICLE_LEGACY_SOURCES } from '../shared/legacy-card-sources.ts';
+import { hollowRifts } from './src/data/hollow-rifts.ts';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
@@ -165,7 +171,11 @@ function runtimePublicAssetsPlugin() {
             }
             return;
         }
-        fs.copyFileSync(sourcePath, destinationPath);
+        if (sourcePath.startsWith(path.join(PUBLIC_ROOT, 'pet-models') + path.sep) && sourcePath.endsWith('.glb')) {
+            fs.writeFileSync(destinationPath, compactGlbDelivery(fs.readFileSync(sourcePath)));
+        } else {
+            fs.copyFileSync(sourcePath, destinationPath);
+        }
     };
     return {
         name: 'runtime-public-assets',
@@ -445,6 +455,29 @@ setInterval(() => {
 // https://vitejs.dev/config/
 export default defineConfig({
     plugins: [
+        {
+            name: 'sector-runtime-data',
+            enforce: 'pre',
+            async resolveId(source, importer) {
+                if (!/\/(?:sector-floor-layout-data|continuous-world-layout)\.json$/.test(source)) return;
+                const resolved = await this.resolve(source, importer, { skipSelf: true });
+                if (resolved && path.dirname(path.resolve(resolved.id)) === path.resolve(CLIENT_ROOT, '../shared')) {
+                    return '\0packed-world:' + resolved.id + '.mjs';
+                }
+            },
+            load(id) {
+                if (!id.startsWith('\0packed-world:')) return;
+                const file = id.slice('\0packed-world:'.length, -'.mjs'.length);
+                this.addWatchFile(file);
+                const source = fs.readFileSync(file, 'utf8');
+                return packedWorldData(file.endsWith('sector-floor-layout-data.json') ? sectorRuntimeData(source) : source);
+            },
+            transform(source, id) {
+                const file = id.split('?')[0].replace(/\\/g, '/');
+                if (file.endsWith('/shared/legacy-card-sources.ts')) return { code: packStaticCatalog(source, 'CHRONICLE_LEGACY_SOURCES', CHRONICLE_LEGACY_SOURCES), map: null };
+                if (file.endsWith('/src/data/hollow-rifts.ts')) return { code: packStaticCatalog(source, 'hollowRifts', hollowRifts), map: null };
+            },
+        },
         plugin(),
         runtimePublicAssetsPlugin(),
         ViteImageOptimizer({

@@ -7,6 +7,8 @@ import { SectorShrineStandee, SectorTraceMarkers } from "./SectorTraces";
 import { SectorWanderer } from "./SectorWanderer";
 import { SectorWeeklyBossActor } from "./SectorWeeklyBossActor";
 import { SectorStoryFieldMarker, type SectorStoryFieldMarkerProps } from "./SectorStoryFieldMarker";
+import { SectorGroundLandmarks } from "./SectorGroundLandmarks";
+import { sectorFloorLayout } from "../lib/sector-floor-layout";
 
 export type WorldSectorRiftMarker = Readonly<{
     landmark: string;
@@ -70,33 +72,27 @@ export function WorldSectorOverlayLayer({
     onOpenTrace,
     onOpenShrine,
 }: WorldSectorOverlayLayerProps) {
-    // Per-sector, tuned to each sector's painted ground and validated clear of its
-    // gates, arrival tiles, shrine, and each other (sector-structure-placements.test).
     const riftAt = riftPlacement(sector);
     const strongholdAt = strongholdPlacement(sector);
+    const floorLayout = sectorFloorLayout(sector);
 
     return (
         <>
-            {fieldStory && <SectorStoryFieldMarker {...fieldStory} />}
+            {floorLayout && <SectorGroundLandmarks sector={sector} rift={rift} vault={vault} shrine={shrine} onOpenShrine={onOpenShrine} fieldPointId={fieldStory?.pointId} />}
+            {fieldStory && <SectorStoryFieldMarker {...fieldStory} sector={sector} />}
             {wanderers.map((wanderer) => (
                 <SectorWanderer
                     key={`${sector}:${wanderer.id}:${wanderer.homeTile}`}
                     wanderer={wanderer}
+                    sector={sector}
                     playerIndex={playerTile}
                     biome={biome}
                     onEngage={onEngageWanderer}
                 />
             ))}
 
-            {/* Also NOT .atlas-landmark, for the reason spelled out on the stronghold
-                below — but the rift cannot be a cutout standee like it. None of the six
-                rift landmarks has an alpha channel, and forgotten-shrine is a full-bleed
-                landscape with no object in it to cut out at all, so it is rendered as a
-                round rimmed aperture instead: a window onto somewhere else, which is
-                what a rift is and which suits every one of the six pictures. The board
-                already names things this way — the wanderer medallions are rimmed
-                circles with a name pill under them. */}
-            {rift && (
+            {/* Legacy floors retain their original portal markers. */}
+            {rift && !floorLayout && (
                 <button
                     type="button"
                     key="sector-rift-structure"
@@ -113,13 +109,7 @@ export function WorldSectorOverlayLayer({
                 </button>
             )}
 
-            {/* Deliberately NOT .atlas-landmark — same reasoning as SectorShrineStandee.
-                That class paints the world atlas' label-card chrome (dark plate, cream
-                border, gold sigil), which read as a UI card pasted onto the terrain and
-                sat a panel behind art that is already a painted 2.5D building. Here the
-                art IS the marker, standing on the ground, with a map nameplate at its
-                foot. */}
-            {vault && (
+            {vault && !floorLayout && (
                 <button
                     type="button"
                     key="sector-anbu-vault-structure"
@@ -135,10 +125,10 @@ export function WorldSectorOverlayLayer({
             )}
 
             {traceSigns.length > 0 && (
-                <SectorTraceMarkers signs={traceSigns} onOpen={onOpenTrace} />
+                <SectorTraceMarkers signs={traceSigns} onOpen={onOpenTrace} sector={sector} />
             )}
 
-            {shrine && (
+            {shrine && !floorLayout && (
                 <SectorShrineStandee
                     shrine={shrine.definition}
                     tier={shrine.tier}
@@ -148,6 +138,7 @@ export function WorldSectorOverlayLayer({
 
             {boss && (
                 <SectorWeeklyBossActor
+                    sector={sector}
                     playerIndex={playerTile}
                     biome={biome}
                     portrait={boss.portrait}

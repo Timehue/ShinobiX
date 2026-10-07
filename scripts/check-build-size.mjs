@@ -806,7 +806,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 9,169,530 B, 470 B under the previous cap. The owner has said the cap can be
 // raised, so allow 9.18 MB for about 10 KB of headroom. The finished step art is
 // static WebP and is not counted here.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_180_000;
+// 2026-10-07 CONTINUOUS WORLD: the camera, bounded nearby-player presentation,
+// cursor validation and joined terrain replace board-pan presentation. Measured
+// candidate 9,153,747 B versus accepted baseline 9,141,422 B (+12,325 B).
+// Allow 9.18 MB for this intentional feature; initial graph is 1,401,390 B raw /
+// 388,704 B gzip (+315 / +92 B). Startup, chunk, CSS and asset limits stay put.
+// 2026-10-07 MERGE OF THE TWO: the continuous world and the upgrade gear work each fit
+// under 9.18 MB alone, but together they measure 9,194,518 B with Production Image style
+// VITE_* values (the gear work is the larger share: pieces, names, pop-up, named gear
+// rules). The owner has said the cap can be raised, so allow 9.21 MB for about 15 KB of
+// headroom. Startup, chunk, CSS and asset limits stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_210_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

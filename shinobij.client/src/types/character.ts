@@ -925,6 +925,8 @@ export type Character = {
 // ── Player records ────────────────────────────────────────────────────────
 
 export type PlayerRecord = {
+    worldPosition?: import('../../../shared/world-position').WorldPosition;
+    movementSequence?: number;
     name: string;
     level: number;
     village: string;

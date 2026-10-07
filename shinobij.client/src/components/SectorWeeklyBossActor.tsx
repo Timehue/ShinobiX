@@ -14,9 +14,12 @@
  * <WorldMap>'s Stand & Fight prompt (lib/weekly-boss-launch.ts), so nothing
  * here touches combat.
  */
-import { type CSSProperties, useEffect, useLayoutEffect, useRef } from "react";
+import { type CSSProperties, useContext, useEffect, useLayoutEffect, useRef } from "react";
+import { WorldPlayerPosition } from '../lib/world-player-position';
 import { GameArtIcon } from "./GameArtIcon";
 import type { Biome } from "../types/core";
+import { safeSectorTile } from "../lib/sector-obstacles";
+import { createSectorNavigator } from "../lib/sector-path-waypoint";
 import { SECTOR_BOSS_SCALE, SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
@@ -53,12 +56,14 @@ const rowOf = (t: number) => Math.floor(t / GRID_W);
 const HOME_TILE = 5; // top-centre — it walks DOWN into the sector toward the player
 
 export function SectorWeeklyBossActor({
+    sector,
     playerIndex,
     biome,
     portrait,
     name,
     onEngage,
 }: {
+    sector?: number;
     playerIndex: number;
     biome: Biome;
     portrait?: string;
@@ -69,7 +74,8 @@ export function SectorWeeklyBossActor({
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
 
-    const posRef = useRef({ col: colOf(HOME_TILE), row: rowOf(HOME_TILE) });
+    const home = sector === undefined ? HOME_TILE : safeSectorTile(sector, HOME_TILE);
+    const posRef = useRef({ col: colOf(home), row: rowOf(home) });
     const facingRef = useRef(1);
     const sizeRef = useRef({ w: 0, h: 0 });
     const metricsRef = useRef({ padX: PAD, padY: PAD, gapX: GAP, gapY: GAP });
@@ -81,6 +87,7 @@ export function SectorWeeklyBossActor({
 
     // latest props for the long-lived RAF closure
     const playerRef = useRef(playerIndex);
+    const worldPlayer = useContext(WorldPlayerPosition);
     const onEngageRef = useRef(onEngage);
     useEffect(() => { playerRef.current = playerIndex; }, [playerIndex]);
     useEffect(() => { onEngageRef.current = onEngage; }, [onEngage]);
@@ -136,6 +143,7 @@ export function SectorWeeklyBossActor({
             else rafRef.current = requestAnimationFrame(tick);
         };
         armedAtRef.current = performance.now() + ARM_DELAY_MS;
+        const navigate = createSectorNavigator();
 
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
@@ -143,8 +151,10 @@ export function SectorWeeklyBossActor({
             lastTsRef.current = ts;
 
             const p = posRef.current;
-            const pcol = colOf(playerRef.current);
-            const prow = rowOf(playerRef.current);
+            const candidate = worldPlayer?.current;
+            const actual = candidate && candidate.sector === sector ? candidate : null;
+            const pcol = actual?.col ?? colOf(playerRef.current);
+            const prow = actual?.row ?? rowOf(playerRef.current);
             const distPlayer = Math.hypot(pcol - p.col, prow - p.row);
             const armed = ts >= armedAtRef.current;
             // Re-arm the lunge if the player breaks well away, so it confronts
@@ -164,6 +174,10 @@ export function SectorWeeklyBossActor({
                 tCol = p.col; tRow = p.row; // hold at spawn during the arm delay
             }
 
+            if (sector !== undefined) {
+                const next = navigate(sector, p, { col: tCol, row: tRow });
+                tCol = next.col; tRow = next.row;
+            }
             const dx = tCol - p.col, dy = tRow - p.row;
             const dist = Math.hypot(dx, dy);
             const step = WALK_TILES_PER_SEC * dt;
@@ -187,7 +201,7 @@ export function SectorWeeklyBossActor({
             cancelAnimationFrame(rafRef.current);
             window.clearTimeout(stepTimerRef.current);
         };
-    }, []);
+    }, [sector, worldPlayer]);
 
     return (
         <div className="sector-wanderer-overlay" ref={wrapRef} aria-hidden="true">

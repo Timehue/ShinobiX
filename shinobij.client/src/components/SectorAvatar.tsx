@@ -20,9 +20,13 @@ import { SectorPortrait } from "./SectorPortrait";
  * exact tile centres (padding + gap aware) so the avatar lands on the clicked
  * tile.
  */
-import { type CSSProperties, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import type { Biome } from "../types/core";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_SELF, sectorMarkerBox } from "../lib/sector-marker";
+import { nearestWalkableTile, sectorWalkMask, walkPath } from "../../../shared/sector-walk-mask";
+import { useSectorObstacles } from "../lib/sector-obstacles";
+import type { SectorDirection } from "../../../shared/sector-links";
+import { panSectorAvatar } from "../lib/sector-avatar-crossing";
 
 // .pixel-map is a 12×12 grid. Its padding + gap differ by breakpoint (8px/1px on
 // desktop, 4px on mobile), so the real values are read from getComputedStyle at
@@ -55,7 +59,8 @@ const AURA: Record<Biome, string> = {
 
 function prefersReducedMotion(): boolean {
     return typeof window !== "undefined"
-        && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        && (document.documentElement.classList.contains("lite-fx")
+            || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
 }
 
 // Centre (px) of grid cell `n` along an axis of length `size` with `count`
@@ -74,6 +79,8 @@ export function SectorAvatar({
     avatarImage,
     name,
     biome,
+    enterDirection,
+    onArrive,
 }: {
     targetIndex: number;
     /** Board the tile belongs to. A change means a new board, so the figure snaps
@@ -82,6 +89,8 @@ export function SectorAvatar({
     avatarImage?: string;
     name: string;
     biome: Biome;
+    enterDirection?: SectorDirection | null;
+    onArrive?: (tile: number, sector: number | null) => void;
 }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
@@ -96,6 +105,16 @@ export function SectorAvatar({
     const lastStepTileRef = useRef(-1);
     const puffIdRef = useRef(0);
     const [puffs, setPuffs] = useState<Puff[]>([]);
+    const obstacles = useSectorObstacles();
+    const onArriveRef = useRef(onArrive);
+    useLayoutEffect(() => { onArriveRef.current = onArrive; }, [onArrive]);
+    const panSectorRef = useRef(sector);
+    useLayoutEffect(() => {
+        const crossed = panSectorRef.current !== sector;
+        panSectorRef.current = sector;
+        if (crossed && enterDirection && wrapRef.current && figRef.current)
+            return panSectorAvatar(wrapRef.current, figRef.current);
+    }, [sector, enterDirection]);
 
     function tileSizePx(): number {
         const { padX, gapX } = metricsRef.current;
@@ -151,9 +170,16 @@ export function SectorAvatar({
     }, []);
 
     // Walk toward the target whenever it changes — but only WITHIN one board.
-    useEffect(() => {
-        const tCol = targetIndex % GRID_W;
-        const tRow = Math.floor(targetIndex / GRID_W);
+    useLayoutEffect(() => {
+        const destination = sector === null ? targetIndex : nearestWalkableTile(sector, targetIndex, obstacles);
+        let tCol = destination % GRID_W, tRow = Math.floor(destination / GRID_W);
+        const currentTile = Math.round(posRef.current.row) * 12 + Math.round(posRef.current.col);
+        const anchor = sector === null ? currentTile : nearestWalkableTile(sector, currentTile, obstacles);
+        if (anchor !== currentTile) posRef.current = { col: anchor % GRID_W, row: Math.floor(anchor / GRID_W) };
+        const path = sector !== null && sectorWalkMask(sector, obstacles)
+            ? walkPath(sector, anchor, destination, obstacles)
+            : null;
+        let leg = 0;
 
         // Crossing to another sector replaces the board underneath the figure, so
         // the tile you left and the tile you arrive on are not connected by any
@@ -169,6 +195,8 @@ export function SectorAvatar({
             paint();
             setWalkingClass(false);
             lastStepTileRef.current = targetIndex;
+            // Finish after the parent commits its new sector/target callbacks.
+            queueMicrotask(() => onArriveRef.current?.(destination, sector));
             return;
         }
 
@@ -181,6 +209,7 @@ export function SectorAvatar({
             lastTsRef.current = ts;
 
             const p = posRef.current;
+            if (path?.length) { tCol = path[leg]! % GRID_W; tRow = Math.floor(path[leg]! / GRID_W); }
             const dx = tCol - p.col;
             const dy = tRow - p.row;
             const dist = Math.hypot(dx, dy);
@@ -191,7 +220,9 @@ export function SectorAvatar({
             if (dist <= step || dist < 0.02) {
                 posRef.current = { col: tCol, row: tRow };
                 paint();
+                if (path && leg < path.length - 1) { leg++; rafRef.current = requestAnimationFrame(tick); return; }
                 setWalkingClass(false);
+                onArriveRef.current?.(destination, sector);
                 return;
             }
 
@@ -217,7 +248,7 @@ export function SectorAvatar({
 
         rafRef.current = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(rafRef.current);
-    }, [targetIndex, sector]);
+    }, [targetIndex, sector, obstacles]);
 
     const initials = name.slice(0, 2).toUpperCase();
 

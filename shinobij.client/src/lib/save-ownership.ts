@@ -143,7 +143,7 @@ export const SERVER_OWNED_TOPLEVEL_FIELDS: ReadonlySet<string> = new Set([
     'hollowGateEventConfig', 'pendingBloodlineForges', 'worldGeoV', '_saveVersion', '_saveAt',
     // Regeneration cursor and the travel-settled arrival tile: server-written,
     // never sent by a generic save (api/_elapsed-state.ts, _realtime/travel-lease.ts).
-    '_regenAt', 'currentTile', 'currentSector', 'pendingTravel', 'worldTravelReceipt',
+    '_regenAt', 'currentTile', 'currentSector', 'worldPosition', 'pendingTravel', 'worldTravelReceipt',
 ]);
 
 /**

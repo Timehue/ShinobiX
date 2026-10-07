@@ -1,0 +1,4149 @@
+{
+  "layouts": {
+    "1": {
+      "sector": 51,
+      "artKey": 1,
+      "region": "castle",
+      "biome": "central",
+      "name": "East Ring Road",
+      "mask": [
+        "#....#######",
+        "...........#",
+        "..T.....T..#",
+        ".TT....TTT.#",
+        ".TTT........",
+        "============",
+        ".T.T==......",
+        ".TTT==.....#",
+        ".TTT==.....#",
+        ".TTT==.....#",
+        ".T..==.....#",
+        "#...==..####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 93,
+          "footprint": [
+            9,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 46
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 44
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 49
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 43
+        }
+      ]
+    },
+    "2": {
+      "sector": 59,
+      "artKey": 2,
+      "region": "lavafront",
+      "biome": "volcano",
+      "name": "Northroad Saddle",
+      "mask": [
+        "#..........#",
+        "..T.........",
+        "..T.T.......",
+        ".TTTT.......",
+        ".TTTTT......",
+        "============",
+        ".....T......",
+        "...T.T.....#",
+        "#.TTTTT....#",
+        "#....T.....#",
+        "#..........#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 12.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 97,
+          "footprint": [
+            1,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 58
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 35
+        }
+      ]
+    },
+    "3": {
+      "sector": 35,
+      "artKey": 3,
+      "region": "frostborder",
+      "biome": "snow",
+      "name": "Glacier Bridge",
+      "mask": [
+        "##~..=.....#",
+        "#.~..==.T...",
+        "#.~...=TT...",
+        "#.~...=TTT..",
+        "..~...======",
+        "=======..T.=",
+        "..~......T..",
+        "#.~.....TTT.",
+        "#.~......T..",
+        "#.~.........",
+        "#.~.........",
+        "##~######..#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 91,
+          "footprint": [
+            7,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "river",
+        "waterTiles": [
+          2,
+          14,
+          26,
+          38,
+          50,
+          74,
+          86,
+          98,
+          110,
+          122,
+          134
+        ],
+        "bridgeTiles": [
+          62
+        ]
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 33
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 26
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 59
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 34
+        }
+      ]
+    },
+    "4": {
+      "sector": 20,
+      "artKey": 4,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Amethyst Canopy",
+      "mask": [
+        "#.......####",
+        "...........#",
+        "....#.~....#",
+        "...##~~....#",
+        "..###~~~....",
+        "============",
+        ".....#=.....",
+        ".....#=....#",
+        "....##=BB..#",
+        ".....#=BB..#",
+        "......===..#",
+        "#...########"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 128,
+          "footprint": [
+            7,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 99,
+          "footprint": [
+            3,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          54,
+          42,
+          53,
+          55,
+          30,
+          41
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 19
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 21
+        }
+      ]
+    },
+    "5": {
+      "sector": 21,
+      "artKey": 5,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Moonstone Rise",
+      "mask": [
+        "#..........#",
+        ".TTTTBB.....",
+        "...T.BB.....",
+        "......=.....",
+        "......=....#",
+        "=======....#",
+        "....==.T...#",
+        "#...==.T.~.#",
+        "#...==TT~~.#",
+        "#...==TT~~~#",
+        "#...==.....#",
+        "###.==.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 50,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 42,
+          "footprint": [
+            5,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 111,
+          "footprint": [
+            3,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          117,
+          105,
+          116,
+          118,
+          93,
+          104
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 20
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 24
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 22
+        }
+      ]
+    },
+    "6": {
+      "sector": 22,
+      "artKey": 6,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Moonlit Cove Cliffs",
+      "mask": [
+        "#....=.....#",
+        "###.~==.....",
+        "###~~~=.....",
+        "##..~~=.....",
+        "......=.....",
+        "=======.....",
+        "..####==BB..",
+        "#..##..=BB..",
+        "#......===..",
+        "#...........",
+        "#...........",
+        "############"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 66.66666666666666,
+          "width": 16.666666666666664,
+          "approach": 105,
+          "footprint": [
+            8,
+            6,
+            2
+          ]
+        },
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 16.666666666666664,
+          "width": 8.333333333333334,
+          "approach": 21,
+          "footprint": [
+            9,
+            1,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          29,
+          28,
+          41,
+          16,
+          27,
+          40
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 21
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 24
+        }
+      ]
+    },
+    "7": {
+      "sector": 58,
+      "artKey": 7,
+      "region": "lavafront",
+      "biome": "volcano",
+      "name": "Cinder Foothills",
+      "mask": [
+        "#.........##",
+        "..#.....#..#",
+        "..#....##..#",
+        ".###........",
+        "..#...======",
+        "...#..=....=",
+        ".###.==.....",
+        ".####=.....#",
+        "####.=.....#",
+        "##...=.....#",
+        "#....=.....#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 58.333333333333336,
+          "width": 8.333333333333334,
+          "approach": 81,
+          "footprint": [
+            9,
+            6,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 60
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 59
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 37
+        }
+      ]
+    },
+    "8": {
+      "sector": 24,
+      "artKey": 8,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Crystal Plaza",
+      "mask": [
+        "###.=.######",
+        "#...===....#",
+        "#....#=~...#",
+        "#...##=~~...",
+        "#..###=~~~..",
+        "#....#======",
+        "#....===....",
+        "#....=#=....",
+        "#....=#=BB..",
+        ".....=#=BB..",
+        ".....=#===..",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 129,
+          "footprint": [
+            8,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 37.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 100,
+          "footprint": [
+            4,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          55,
+          43,
+          56,
+          31,
+          44,
+          57
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 21
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 22
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 17
+        }
+      ]
+    },
+    "9": {
+      "sector": 43,
+      "artKey": 9,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Windmill Fields",
+      "mask": [
+        "####.=.#####",
+        "#....==.T..#",
+        "#.....=.T..#",
+        "......=TTT.#",
+        "=======.T...",
+        "=.....======",
+        ".T.....TTT..",
+        "#TT...TTTTT#",
+        ".TT....T.T.#",
+        ".T.........#",
+        "............",
+        "#..........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 37.5,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 40,
+          "footprint": [
+            4,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 51
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 55
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 49
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 18
+        }
+      ]
+    },
+    "10": {
+      "sector": 44,
+      "artKey": 10,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Watchruin Ridge",
+      "mask": [
+        "############",
+        "...........#",
+        "....#......#",
+        "....#.......",
+        "...###======",
+        "=======.....",
+        "......=..#.#",
+        ".#....=.##.#",
+        ".##...=BB###",
+        ".##...=BB#.#",
+        ".#....===..#",
+        "#..........#"
+      ],
+      "sites": {
+        "shrine": {
+          "left": 66.66666666666666,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 128,
+          "footprint": [
+            7,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 45.83333333333333,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 101,
+          "footprint": [
+            5,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 34
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 51
+        }
+      ]
+    },
+    "11": {
+      "sector": 17,
+      "artKey": 11,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Moonshadow Gates",
+      "mask": [
+        "####.=.#####",
+        "#..===.....#",
+        "#..=.......#",
+        "...=........",
+        "====BBBB....",
+        "====BBBB....",
+        "...=BBBB....",
+        "#..=BBBB....",
+        "#..====.T...",
+        "#......TTT..",
+        "#.......T...",
+        "###........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 114,
+          "footprint": [
+            6,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "village": {
+        "name": "Moonshadow Village",
+        "left": 50,
+        "top": 50,
+        "width": 33.333333333333336,
+        "approach": 102
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 24
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 25
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 23
+        }
+      ]
+    },
+    "12": {
+      "sector": 55,
+      "artKey": 12,
+      "region": "hollowroad",
+      "biome": "shadow",
+      "name": "Waymarker Road",
+      "mask": [
+        "############",
+        "#TT.........",
+        "#TTT........",
+        "#TTT........",
+        ".TTTT.======",
+        "=======....=",
+        "....T.......",
+        "#.T.T.......",
+        "#TTTTT......",
+        "#...T.......",
+        "#...........",
+        "#..........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 45,
+          "footprint": [
+            9,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 43
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 50
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 57
+        }
+      ]
+    },
+    "13": {
+      "sector": 56,
+      "artKey": 13,
+      "region": "hollowroad",
+      "biome": "shadow",
+      "name": "Lantern Approach",
+      "mask": [
+        "####.=.#####",
+        "#.BB.==....#",
+        "#.BB..=....#",
+        "#..====....#",
+        "####..=.....",
+        ".####.======",
+        ".###.==.....",
+        ".#..#=.....#",
+        "...##=.....#",
+        "...##=.....#",
+        "....#=......",
+        "#....=.....#"
+      ],
+      "sites": {
+        "shrine": {
+          "left": 25,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 39,
+          "footprint": [
+            2,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 110,
+          "footprint": [
+            2,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 57
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 64
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 52
+        }
+      ]
+    },
+    "14": {
+      "sector": 52,
+      "artKey": 14,
+      "region": "festival",
+      "biome": "central",
+      "name": "Festival Grounds",
+      "mask": [
+        "#....=.=...#",
+        ".###.===...#",
+        ".##...=....#",
+        ".##...=.....",
+        "..#...======",
+        ".###.......=",
+        "..#.........",
+        ".........#.#",
+        ".###.....#.#",
+        ".####......#",
+        "...#.......#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 103,
+          "footprint": [
+            7,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 56
+        },
+        {
+          "tile": 7,
+          "direction": "north",
+          "destination": 57
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 63
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 25
+        }
+      ]
+    },
+    "15": {
+      "sector": 19,
+      "artKey": 15,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Western Eaves",
+      "mask": [
+        "############",
+        "......~....#",
+        "...TTT~....#",
+        "...TT~~~...#",
+        "....T.~.....",
+        "============",
+        "....TT=.....",
+        "....TT=BB..#",
+        ".....T=BB..#",
+        "......===..#",
+        "...........#",
+        "#..........#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 116,
+          "footprint": [
+            7,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 38,
+          "footprint": [
+            2,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          42,
+          30,
+          41,
+          43,
+          54,
+          18
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 18
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 20
+        }
+      ]
+    },
+    "16": {
+      "sector": 23,
+      "artKey": 16,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Moongrotto",
+      "mask": [
+        "####.=.###.#",
+        "#....==~....",
+        "#...TT=~~...",
+        "#..TTT=~~...",
+        ".....T=~....",
+        "============",
+        "....==.=....",
+        "#.BB==T=BB..",
+        "#.BB==T=BB..",
+        "#..===.===..",
+        "#....=......",
+        "####.=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 117,
+          "footprint": [
+            8,
+            7,
+            2
+          ]
+        },
+        "shrine": {
+          "left": 25,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 111,
+          "footprint": [
+            2,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 37,
+          "footprint": [
+            1,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          43,
+          31,
+          44,
+          55,
+          19,
+          32
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 18
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 64
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 17
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 25
+        }
+      ]
+    },
+    "17": {
+      "sector": 25,
+      "artKey": 17,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Fallswood",
+      "mask": [
+        "###.==.#####",
+        "#TTT.==....#",
+        ".TTT..=....#",
+        "......=.....",
+        "......======",
+        "=======~~~..",
+        ".....=.~~..#",
+        ".....=.~T..#",
+        ".....=..T..#",
+        "....T=TTTT.#",
+        ".....=TTT..#",
+        "#....=...###"
+      ],
+      "sites": {
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 110,
+          "footprint": [
+            2,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          67,
+          68,
+          79,
+          69,
+          80,
+          91
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 57
+        },
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 23
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 17
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 52
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 63
+        }
+      ]
+    },
+    "18": {
+      "sector": 57,
+      "artKey": 18,
+      "region": "hollowroad",
+      "biome": "shadow",
+      "name": "Hollow Temple",
+      "mask": [
+        "#..#########",
+        "..TT..TTTT.#",
+        ".TTT...TT..#",
+        "..T........#",
+        ".........T.#",
+        "=======.TTT#",
+        ".TTT====...#",
+        "..TT==.=...#",
+        "...T==.=...#",
+        "....==.=....",
+        "....==.=....",
+        "#...==.=...#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 50,
+          "width": 8.333333333333334,
+          "approach": 67,
+          "footprint": [
+            7,
+            5,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 55
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 25
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 56
+        },
+        {
+          "tile": 139,
+          "direction": "south",
+          "destination": 52
+        }
+      ]
+    },
+    "19": {
+      "sector": 18,
+      "artKey": 19,
+      "region": "moonshadow",
+      "biome": "shadow",
+      "name": "Jade River Bridge",
+      "mask": [
+        "##~#########",
+        "#.~###.....#",
+        "#.~.##.....#",
+        "#.~.#......#",
+        "..~.........",
+        "============",
+        "..~#.==BB...",
+        "..~..==BB..#",
+        "..~..====...",
+        "..~..=......",
+        "..~..=......",
+        "#.~..=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 66.66666666666666,
+          "width": 16.666666666666664,
+          "approach": 104,
+          "footprint": [
+            7,
+            6,
+            2
+          ]
+        },
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 16.666666666666664,
+          "width": 8.333333333333334,
+          "approach": 20,
+          "footprint": [
+            8,
+            1,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "river",
+        "waterTiles": [
+          2,
+          14,
+          26,
+          38,
+          50,
+          74,
+          86,
+          98,
+          110,
+          122,
+          134
+        ],
+        "bridgeTiles": [
+          62
+        ]
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 43
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 19
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 23
+        }
+      ]
+    },
+    "20": {
+      "sector": 45,
+      "artKey": 20,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Southern Crossroads",
+      "mask": [
+        "#....=.#####",
+        ".....==TTTT#",
+        "......=.TT.#",
+        "......=.T..#",
+        "......=.T..#",
+        "=======TTT.#",
+        "........T..#",
+        "...........#",
+        ".......TTTT#",
+        "......TTTTT#",
+        "...........#",
+        "#.......####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 16.666666666666664,
+          "width": 8.333333333333334,
+          "approach": 15,
+          "footprint": [
+            3,
+            1,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 42
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 53
+        }
+      ]
+    },
+    "21": {
+      "sector": 2,
+      "artKey": 21,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "North Docks",
+      "mask": [
+        "#....=.....#",
+        ".....==.#...",
+        "......=.....",
+        ".#....=....#",
+        ".#....=.....",
+        ".#....======",
+        "##.BB==.....",
+        "~##BB=.....#",
+        "~~~.==.....#",
+        "~~~~.=.....#",
+        "~~~~~=.....#",
+        "~~~~~=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 66.66666666666666,
+          "width": 16.666666666666664,
+          "approach": 100,
+          "footprint": [
+            3,
+            6,
+            2
+          ]
+        },
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 116,
+          "footprint": [
+            8,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "harbor",
+        "waterTiles": [
+          84,
+          96,
+          97,
+          98,
+          108,
+          109,
+          110,
+          111,
+          120,
+          121,
+          122,
+          123,
+          124,
+          132,
+          133,
+          134,
+          135,
+          136
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 62
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 3
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 8
+        }
+      ]
+    },
+    "22": {
+      "sector": 3,
+      "artKey": 22,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Upper Terraces",
+      "mask": [
+        "###........#",
+        "#......TT...",
+        "#~~....TTT..",
+        "#~~~....T...",
+        "..~.........",
+        "============",
+        "...==..TTTT.",
+        "#BB==....T..",
+        "#BB==.......",
+        "#.===.......",
+        "#...=......#",
+        "###.=.######"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 16.666666666666664,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 110,
+          "footprint": [
+            1,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 30,
+          "footprint": [
+            6,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          38,
+          26,
+          37,
+          39,
+          50,
+          25
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 2
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 4
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 8
+        }
+      ]
+    },
+    "23": {
+      "sector": 39,
+      "artKey": 23,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Falls Overlook",
+      "mask": [
+        "#....=...###",
+        ".....==T...#",
+        ".....T=TTT.#",
+        "....TT=TTTT#",
+        ".....T=TTT..",
+        "============",
+        ".......TT...",
+        ".......TTT.#",
+        "........T..#",
+        "...........#",
+        "...........#",
+        "#..#########"
+      ],
+      "sites": {
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 90,
+          "footprint": [
+            6,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 38
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 40
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 47
+        }
+      ]
+    },
+    "24": {
+      "sector": 5,
+      "artKey": 24,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Reedmarsh Boardwalk",
+      "mask": [
+        "############",
+        "#BB........#",
+        "#BB.....T...",
+        "#.=====.T...",
+        "......=TTT..",
+        "=======.T...",
+        "....==......",
+        "#~..==...T..",
+        "#~~.==..TTT.",
+        "#~~B==......",
+        "..~===......",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 16.666666666666664,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 38,
+          "footprint": [
+            1,
+            1,
+            2
+          ]
+        },
+        "cairn": {
+          "left": 29.166666666666668,
+          "top": 83.33333333333334,
+          "width": 8.333333333333332,
+          "approach": 123,
+          "footprint": [
+            3,
+            9,
+            1
+          ]
+        },
+        "rift": {
+          "left": 62.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 103,
+          "footprint": [
+            7,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "cairnId": "sv-rain-split-cairn",
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          109,
+          97,
+          110,
+          85,
+          98,
+          122
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 6
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 53
+        }
+      ]
+    },
+    "25": {
+      "sector": 38,
+      "artKey": 25,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Great Bridge Gorge",
+      "mask": [
+        "#.~#.=.#####",
+        "..~..==#####",
+        "..~...=###.#",
+        "..~...=###.#",
+        "..~...=#...#",
+        "=======....#",
+        "..~..=.....#",
+        "..~..=.....#",
+        "..~..=.....#",
+        "..~..=.....#",
+        "..~..=.....#",
+        "#.~..=....##"
+      ],
+      "sites": {
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 58.333333333333336,
+          "width": 8.333333333333334,
+          "approach": 80,
+          "footprint": [
+            8,
+            6,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "river",
+        "waterTiles": [
+          2,
+          14,
+          26,
+          38,
+          50,
+          74,
+          86,
+          98,
+          110,
+          122,
+          134
+        ],
+        "bridgeTiles": [
+          62
+        ]
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 36
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 16
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 39
+        }
+      ]
+    },
+    "26": {
+      "sector": 7,
+      "artKey": 26,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Western Piers",
+      "mask": [
+        "#....#######",
+        "...........#",
+        "...........#",
+        "...BB.......",
+        "...BB.======",
+        "....===....=",
+        "............",
+        "~..........#",
+        "~~~........#",
+        "~~~~.......#",
+        "~~~~~......#",
+        "~~~~~.######"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 41.66666666666667,
+          "width": 16.666666666666664,
+          "approach": 64,
+          "footprint": [
+            3,
+            3,
+            2
+          ]
+        },
+        "rift": {
+          "left": 37.5,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 88,
+          "footprint": [
+            4,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "harbor",
+        "waterTiles": [
+          84,
+          96,
+          97,
+          98,
+          108,
+          109,
+          110,
+          111,
+          120,
+          121,
+          122,
+          123,
+          124,
+          132,
+          133,
+          134,
+          135,
+          136
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 8
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 1
+        }
+      ]
+    },
+    "27": {
+      "sector": 8,
+      "artKey": 27,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Canal Heart",
+      "mask": [
+        "#.~.==.....#",
+        "..~..==....#",
+        "..~...=..#.#",
+        "..~...=..#.#",
+        "=======.....",
+        "..~...======",
+        "..~.#===....",
+        "..~##=.=BB.#",
+        "..~##=.=BB.#",
+        "#.~.#=.===.#",
+        "#.~..=.....#",
+        "##~#.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 117,
+          "footprint": [
+            8,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 62.5,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 43,
+          "footprint": [
+            7,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "river",
+        "waterTiles": [
+          2,
+          14,
+          26,
+          38,
+          62,
+          74,
+          86,
+          98,
+          110,
+          122,
+          134
+        ],
+        "bridgeTiles": [
+          50
+        ]
+      },
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 3
+        },
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 2
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 7
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 6
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 1
+        }
+      ]
+    },
+    "28": {
+      "sector": 40,
+      "artKey": 28,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Goatstone Terraces",
+      "mask": [
+        "#..........#",
+        "............",
+        "...#.#......",
+        "#..####.....",
+        "..####======",
+        "=======....=",
+        ".....=..#...",
+        "#....=###..#",
+        "#....=####.#",
+        "#....=###..#",
+        "#....=#....#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 37.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 100,
+          "footprint": [
+            4,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 41
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 61
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 39
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 4
+        }
+      ]
+    },
+    "29": {
+      "sector": 41,
+      "artKey": 29,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Milestone Vale",
+      "mask": [
+        "#..........#",
+        "#.TTTTTTTT..",
+        "#..TT..TT...",
+        "............",
+        "=======.....",
+        "....TT======",
+        "#....T......",
+        "#.......T...",
+        "#.......T...",
+        "#......TTT..",
+        "#.......T...",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 114,
+          "footprint": [
+            6,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 40
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 42
+        }
+      ]
+    },
+    "30": {
+      "sector": 42,
+      "artKey": 30,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Teahouse Fields",
+      "mask": [
+        "########...#",
+        "#.....###...",
+        "#....#####..",
+        "#.......#...",
+        "............",
+        "============",
+        ".##..=.####.",
+        "####.=..##..",
+        "##...=......",
+        "#....=......",
+        "#....=......",
+        "####.=.....#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 37.5,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 28,
+          "footprint": [
+            4,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 41
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 50
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 45
+        }
+      ]
+    },
+    "31": {
+      "sector": 1,
+      "artKey": 31,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Harbor Gates",
+      "mask": [
+        "#....=.#####",
+        "...===.....#",
+        "...=.......#",
+        "...=.......#",
+        "...=BBBB...#",
+        "====BBBB...#",
+        "...=BBBB...#",
+        "...=BBBB...#",
+        "...====....#",
+        "..TTTT.....#",
+        "....T......#",
+        "#.......####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 57,
+          "footprint": [
+            9,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "village": {
+        "name": "Stormveil Village",
+        "left": 50,
+        "top": 50,
+        "width": 33.333333333333336,
+        "approach": 102
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 8
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 7
+        }
+      ]
+    },
+    "32": {
+      "sector": 6,
+      "artKey": 32,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Eastern Stilts",
+      "mask": [
+        "############",
+        "#~~....#####",
+        "#~~~.....#.#",
+        ".~.........#",
+        "............",
+        "============",
+        ".###BB=.....",
+        ".###BB=....#",
+        ".....==....#",
+        "............",
+        "............",
+        "#..........#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 41.66666666666667,
+          "top": 66.66666666666666,
+          "width": 16.666666666666664,
+          "approach": 101,
+          "footprint": [
+            4,
+            6,
+            2
+          ]
+        },
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 117,
+          "footprint": [
+            9,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          25,
+          13,
+          26,
+          37,
+          14,
+          27
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 8
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 5
+        }
+      ]
+    },
+    "33": {
+      "sector": 53,
+      "artKey": 33,
+      "region": "festival",
+      "biome": "central",
+      "name": "Boardwalk Scrub",
+      "mask": [
+        "#....=.....#",
+        ".TT..==TTTT.",
+        ".TTT..=.TT..",
+        ".T....=.....",
+        "......=.....",
+        ".TT...======",
+        ".TTT........",
+        "#.T.........",
+        "#........T.#",
+        "#.......TT.#",
+        "#..........#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 115,
+          "footprint": [
+            7,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 5
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 45
+        }
+      ]
+    },
+    "34": {
+      "sector": 4,
+      "artKey": 34,
+      "region": "stormveil",
+      "biome": "central",
+      "name": "Clocktower Hill",
+      "mask": [
+        "####.=.##..#",
+        "#....==.....",
+        "#.~...=.....",
+        "#~~...=.BB..",
+        ".~~~..=.BB..",
+        "==========..",
+        "..=..=..##..",
+        "#.=..=..###.",
+        "#B=BB=...#..",
+        "#==BB=......",
+        "#...==......",
+        "######.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 124,
+          "footprint": [
+            3,
+            8,
+            2
+          ]
+        },
+        "shrine": {
+          "left": 75,
+          "top": 41.66666666666667,
+          "width": 16.666666666666664,
+          "approach": 69,
+          "footprint": [
+            8,
+            3,
+            2
+          ]
+        },
+        "cairn": {
+          "left": 12.5,
+          "top": 75,
+          "width": 8.333333333333332,
+          "approach": 109,
+          "footprint": [
+            1,
+            8,
+            1
+          ]
+        },
+        "rift": {
+          "left": 62.5,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 91,
+          "footprint": [
+            7,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "cairnId": "sv-signal-cairn",
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          50,
+          38,
+          49,
+          51,
+          26,
+          37
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 40
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 3
+        }
+      ]
+    },
+    "36": {
+      "sector": 10,
+      "artKey": 36,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Cliffside Deepwood",
+      "mask": [
+        "####.......#",
+        "#.....####..",
+        "#.BB....#...",
+        "#.BB........",
+        "##.====.....",
+        "####..======",
+        "#####==.....",
+        "####.=......",
+        "##...=......",
+        "#....=......",
+        "#....=......",
+        "####.=.#...#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 25,
+          "top": 33.33333333333333,
+          "width": 16.666666666666664,
+          "approach": 51,
+          "footprint": [
+            2,
+            2,
+            2
+          ]
+        },
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 116,
+          "footprint": [
+            8,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 11
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 9
+        }
+      ]
+    },
+    "37": {
+      "sector": 11,
+      "artKey": 37,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Blossom Grove",
+      "mask": [
+        "############",
+        "#..TT.......",
+        "#.TTT.......",
+        "#.TTTT......",
+        "..TTT.......",
+        "============",
+        ".TT..=......",
+        "#TTBB=......",
+        "#T.BB=......",
+        "#...==......",
+        "#....=......",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 112,
+          "footprint": [
+            3,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 32,
+          "footprint": [
+            8,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 10
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 12
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 15
+        }
+      ]
+    },
+    "38": {
+      "sector": 9,
+      "artKey": 38,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Ashen Leaf Gates",
+      "mask": [
+        "#....=.....#",
+        "...===......",
+        "...=........",
+        "...=........",
+        "...=BBBB....",
+        "...=BBBB====",
+        "...=BBBB=...",
+        "#..=BBBB=...",
+        "#..======..#",
+        "#...TTTT...#",
+        "#.....T....#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 16.666666666666664,
+          "width": 8.333333333333334,
+          "approach": 14,
+          "footprint": [
+            2,
+            1,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "village": {
+        "name": "Ashen Leaf Village",
+        "left": 50,
+        "top": 50,
+        "width": 33.333333333333336,
+        "approach": 102
+      },
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 10
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 15
+        }
+      ]
+    },
+    "39": {
+      "sector": 12,
+      "artKey": 39,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Canopy Heights",
+      "mask": [
+        "############",
+        "#..........#",
+        "###.#......#",
+        "#####......#",
+        ".#####......",
+        "============",
+        ".......=....",
+        "...#...=...#",
+        "..###BB=....",
+        "...#.BB=....",
+        "......==....",
+        "#..........#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 50,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 126,
+          "footprint": [
+            5,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 97,
+          "footprint": [
+            1,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 11
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 13
+        }
+      ]
+    },
+    "40": {
+      "sector": 13,
+      "artKey": 40,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Headland Woods",
+      "mask": [
+        "#..#########",
+        ".T.BB......#",
+        ".T.BB......#",
+        ".T..===....#",
+        ".TTT..=....#",
+        "=======....#",
+        ".....=.....#",
+        ".....=.T...#",
+        "...T.=.T...#",
+        "..TTT=TTT..#",
+        "...T.=.T....",
+        "#....=.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 40,
+          "footprint": [
+            3,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 109,
+          "footprint": [
+            1,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 12
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 14
+        }
+      ]
+    },
+    "41": {
+      "sector": 14,
+      "artKey": 41,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Gorgeview Plateau",
+      "mask": [
+        "#....=....##",
+        ".##..==#####",
+        ".##BB.=.##.#",
+        ".##BB.=....#",
+        "....===.....",
+        "============",
+        "..###=......",
+        "...##=.....#",
+        "....#=.....#",
+        ".....=.....#",
+        "#....=.....#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 33.33333333333333,
+          "top": 33.33333333333333,
+          "width": 16.666666666666664,
+          "approach": 52,
+          "footprint": [
+            3,
+            2,
+            2
+          ]
+        },
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 117,
+          "footprint": [
+            9,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 13
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 15
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 36
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 16
+        }
+      ]
+    },
+    "42": {
+      "sector": 15,
+      "artKey": 42,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Heartwood Shrine",
+      "mask": [
+        "#....=.....#",
+        ".T...==.....",
+        ".TT.TT=..T..",
+        ".TTTTT=.....",
+        ".T...T=.....",
+        "============",
+        "....==......",
+        "..BB==BB...#",
+        "#.BB==BB...#",
+        "#..=====...#",
+        "#..........#",
+        "############"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 58.333333333333336,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 115,
+          "footprint": [
+            6,
+            7,
+            2
+          ]
+        },
+        "shrine": {
+          "left": 25,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 111,
+          "footprint": [
+            2,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 62.5,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 31,
+          "footprint": [
+            7,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 11
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 9
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 14
+        }
+      ]
+    },
+    "43": {
+      "sector": 16,
+      "artKey": 43,
+      "region": "ashenleaf",
+      "biome": "forest",
+      "name": "Fern Terraces",
+      "mask": [
+        "##...=.....#",
+        "#....==.....",
+        "#..#.#=.....",
+        "#.####=.....",
+        "#.####=.....",
+        "#..#.#======",
+        "#....==.....",
+        "#..##=......",
+        "#..##=BB....",
+        "#...#=BB....",
+        "#....===....",
+        "####.=.###.#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 58.333333333333336,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 127,
+          "footprint": [
+            6,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 49,
+          "footprint": [
+            1,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 14
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 38
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 61
+        }
+      ]
+    },
+    "44": {
+      "sector": 36,
+      "artKey": 44,
+      "region": "midlands",
+      "biome": "central",
+      "name": "North Reach",
+      "mask": [
+        "##########.#",
+        "#...........",
+        "#.....#.#...",
+        "#....####...",
+        "....######..",
+        "============",
+        ".....=...#..",
+        "#....=.#.#..",
+        "#....=#####.",
+        "#....=...#..",
+        "#....=......",
+        "##...=.....#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 50,
+          "footprint": [
+            2,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 14
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 37
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 38
+        }
+      ]
+    },
+    "45": {
+      "sector": 37,
+      "artKey": 45,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Crossway Hills",
+      "mask": [
+        "####.=.#####",
+        "#....==TTTT#",
+        "#.....=.TT.#",
+        "#.....=.T..#",
+        "......=.T..#",
+        "=======TTT.#",
+        "........T..#",
+        ".........T.#",
+        ".......T.T..",
+        "......TTTTT.",
+        ".........T..",
+        "#..........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 16.666666666666664,
+          "width": 8.333333333333334,
+          "approach": 15,
+          "footprint": [
+            3,
+            1,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 58
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 36
+        }
+      ]
+    },
+    "46": {
+      "sector": 27,
+      "artKey": 46,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Far Glacier Shelf",
+      "mask": [
+        "#....=.....#",
+        ".....==.....",
+        "....T.=....#",
+        "...TTT=.BB.#",
+        "....T.=.BB.#",
+        "==========.#",
+        ".....=.TTT.#",
+        ".....=TTTTT#",
+        ".....=TTTT.#",
+        ".....=.....#",
+        "#....=.....#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 41.66666666666667,
+          "width": 16.666666666666664,
+          "approach": 69,
+          "footprint": [
+            8,
+            3,
+            2
+          ]
+        },
+        "rift": {
+          "left": 20.833333333333336,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 38,
+          "footprint": [
+            2,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 32
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 31
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 65
+        }
+      ]
+    },
+    "47": {
+      "sector": 26,
+      "artKey": 47,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Frostfang Gates",
+      "mask": [
+        "#.....######",
+        "...........#",
+        "...........#",
+        "...........#",
+        "====BBBB....",
+        "====BBBB====",
+        "...=BBBB=##.",
+        "...=BBBB=###",
+        "...======#.#",
+        "...........#",
+        "...........#",
+        "#.....######"
+      ],
+      "sites": {
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 30,
+          "footprint": [
+            6,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "village": {
+        "name": "Frostfang Village",
+        "left": 50,
+        "top": 50,
+        "width": 33.333333333333336,
+        "approach": 102
+      },
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 35
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 33
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 31
+        }
+      ]
+    },
+    "48": {
+      "sector": 28,
+      "artKey": 48,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Needle Spires",
+      "mask": [
+        "#..........#",
+        "............",
+        "......#.#...",
+        "#....####...",
+        "#....#####..",
+        "#.....======",
+        "#....==..#..",
+        "#....==.##..",
+        "#....==BB##.",
+        "#....==BB#.#",
+        "#....====..#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 83.33333333333334,
+          "width": 16.666666666666664,
+          "approach": 128,
+          "footprint": [
+            7,
+            8,
+            2
+          ]
+        },
+        "rift": {
+          "left": 37.5,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 52,
+          "footprint": [
+            4,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 29
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 30
+        }
+      ]
+    },
+    "49": {
+      "sector": 29,
+      "artKey": 49,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Highpass Peaks",
+      "mask": [
+        "#########..#",
+        "#..TTTTBB...",
+        "#....T.BB...",
+        "#.....===...",
+        "......=TT...",
+        "=======TTT..",
+        "....==..T...",
+        "#...==...T..",
+        "#...==...T..",
+        "#...==..TTT.",
+        "#...==...T..",
+        "###.==.....#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 44,
+          "footprint": [
+            7,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 62.5,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 115,
+          "footprint": [
+            7,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 28
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 30
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 32
+        }
+      ]
+    },
+    "50": {
+      "sector": 30,
+      "artKey": 50,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Glacier Terraces",
+      "mask": [
+        "###.==.#####",
+        "#....==....#",
+        "#..###=BB...",
+        "#...##=BB...",
+        "#....#===...",
+        "#...#..#====",
+        "#..###.###..",
+        "#...#..##...",
+        "#...........",
+        "#...........",
+        "#...........",
+        "#..........#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 33.33333333333333,
+          "width": 16.666666666666664,
+          "approach": 56,
+          "footprint": [
+            7,
+            2,
+            2
+          ]
+        },
+        "rift": {
+          "left": 12.5,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 25,
+          "footprint": [
+            1,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 29
+        },
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 28
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 32
+        }
+      ]
+    },
+    "51": {
+      "sector": 33,
+      "artKey": 51,
+      "region": "frostfang",
+      "biome": "volcano",
+      "name": "Cinderfrost Divide",
+      "mask": [
+        "#....=.....#",
+        "..TTT==.BB.#",
+        "...TTT=.BB.#",
+        "......====.#",
+        "......=.....",
+        "============",
+        ".....=.T....",
+        ".....=TTT..#",
+        ".....=TTT..#",
+        "#....=TTTT.#",
+        "#....=..T..#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 25,
+          "width": 16.666666666666664,
+          "approach": 45,
+          "footprint": [
+            8,
+            1,
+            2
+          ]
+        },
+        "rift": {
+          "left": 37.5,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 112,
+          "footprint": [
+            4,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 66
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 60
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 26
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 35
+        }
+      ]
+    },
+    "52": {
+      "sector": 60,
+      "artKey": 52,
+      "region": "lavafront",
+      "biome": "volcano",
+      "name": "Obsidian Forecourt",
+      "mask": [
+        "##.........#",
+        "#####.......",
+        "#.##........",
+        "............",
+        "============",
+        "..####.....=",
+        "#..##.......",
+        "#....#......",
+        "#..#.#......",
+        "#.#####.....",
+        "#....#......",
+        "##########.#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 12.5,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 109,
+          "footprint": [
+            1,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 58
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 66
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 33
+        }
+      ]
+    },
+    "53": {
+      "sector": 31,
+      "artKey": 53,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Shrinefall Shelf",
+      "mask": [
+        "############",
+        "#..........#",
+        "#.....TTTT.#",
+        "#....TTTTTT#",
+        ".......T.T..",
+        "============",
+        "....=..=....",
+        "..BB=.T=BB.#",
+        "..BB=..=BB..",
+        "...==..===..",
+        "....=.......",
+        "#...=......#"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 75,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 117,
+          "footprint": [
+            8,
+            7,
+            2
+          ]
+        },
+        "shrine": {
+          "left": 25,
+          "top": 75,
+          "width": 16.666666666666664,
+          "approach": 111,
+          "footprint": [
+            2,
+            7,
+            2
+          ]
+        },
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 39,
+          "footprint": [
+            3,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 26
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 27
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 65
+        }
+      ]
+    },
+    "54": {
+      "sector": 32,
+      "artKey": 54,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Knife-Edge Summit",
+      "mask": [
+        "#....=.#####",
+        ".....==....#",
+        ".....#=..#.#",
+        "....##=.##.#",
+        "....##=BB###",
+        "=======BB#.#",
+        ".....====..#",
+        ".....=.##..#",
+        ".....=.###.#",
+        ".....=..#..#",
+        ".....=.....#",
+        "#....=..####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 66.66666666666666,
+          "top": 50,
+          "width": 16.666666666666664,
+          "approach": 80,
+          "footprint": [
+            7,
+            4,
+            2
+          ]
+        },
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 102,
+          "footprint": [
+            6,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 29
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 30
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 27
+        }
+      ]
+    },
+    "55": {
+      "sector": 34,
+      "artKey": 55,
+      "region": "frostborder",
+      "biome": "snow",
+      "name": "Icefall Cliffs",
+      "mask": [
+        "#..........#",
+        ".....##~~...",
+        "....###~~~..",
+        "......#.~...",
+        "=........#..",
+        "=......#.#..",
+        ".......####.",
+        ".......#.#.#",
+        "#..........#",
+        "#..........#",
+        "#..........#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 45.83333333333333,
+          "top": 58.333333333333336,
+          "width": 8.333333333333334,
+          "approach": 77,
+          "footprint": [
+            5,
+            6,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "hydrology": {
+        "kind": "pond",
+        "waterTiles": [
+          32,
+          20,
+          31,
+          33,
+          44,
+          19
+        ],
+        "bridgeTiles": []
+      },
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 44
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 35
+        }
+      ]
+    },
+    "56": {
+      "sector": 47,
+      "artKey": 56,
+      "region": "castle",
+      "biome": "central",
+      "name": "West Gardens",
+      "mask": [
+        "###........#",
+        "#........T..",
+        "#T.....T.T..",
+        "#TT...TTTTT.",
+        ".TTT.....T..",
+        "============",
+        "..T.=.......",
+        "#.T.=.......",
+        "#TTT=.......",
+        "#.T.=.......",
+        "#...=......#",
+        "###.=.######"
+      ],
+      "sites": {
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 66.66666666666666,
+          "width": 8.333333333333334,
+          "approach": 92,
+          "footprint": [
+            8,
+            7,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 39
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 46
+        },
+        {
+          "tile": 136,
+          "direction": "south",
+          "destination": 48
+        }
+      ]
+    },
+    "57": {
+      "sector": 46,
+      "artKey": 57,
+      "region": "castle",
+      "biome": "central",
+      "name": "North Gate Plaza",
+      "mask": [
+        "#..........#",
+        "......####..",
+        ".....######.",
+        "#......#.#.#",
+        "............",
+        "============",
+        ".##..=.###..",
+        "####.=.....#",
+        "#.#..=.....#",
+        "#....=.....#",
+        "#....=.....#",
+        "####.=.#####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 29.166666666666668,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 27,
+          "footprint": [
+            3,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 47
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 51
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 48
+        }
+      ]
+    },
+    "58": {
+      "sector": 48,
+      "artKey": 58,
+      "region": "castle",
+      "biome": "central",
+      "name": "Walled Garden",
+      "mask": [
+        "###.==.#...#",
+        "#....==#....",
+        "#.....=#.#..",
+        "##....=###..",
+        "###...=####.",
+        "###...======",
+        "##...==.....",
+        "#....=......",
+        "####.=......",
+        "####.=......",
+        "#....=......",
+        "####.=.....#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 75,
+          "width": 8.333333333333334,
+          "approach": 104,
+          "footprint": [
+            8,
+            8,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 47
+        },
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 46
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 49
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 50
+        }
+      ]
+    },
+    "59": {
+      "sector": 49,
+      "artKey": 59,
+      "region": "castle",
+      "biome": "central",
+      "name": "South Terraces",
+      "mask": [
+        "###.=.######",
+        "#...===TTTT#",
+        "#.....=TT..#",
+        "......=....#",
+        "=======.....",
+        "=.TTTT======",
+        ".TTT.T......",
+        "#TT.....T..#",
+        "#.......T...",
+        "#......TTT..",
+        "........T...",
+        "#..........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 54.166666666666664,
+          "top": 83.33333333333334,
+          "width": 8.333333333333334,
+          "approach": 114,
+          "footprint": [
+            6,
+            9,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 51
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 50
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 48
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 43
+        }
+      ]
+    },
+    "60": {
+      "sector": 50,
+      "artKey": 60,
+      "region": "castle",
+      "biome": "central",
+      "name": "Grand Esplanade",
+      "mask": [
+        "####.=.#####",
+        "#....==##..#",
+        "#.....=###.#",
+        "......=.#...",
+        "......======",
+        "=======..#.=",
+        ".###....###.",
+        ".####......#",
+        ".###.......#",
+        ".##........#",
+        "...........#",
+        "#.........##"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 58.333333333333336,
+          "width": 8.333333333333334,
+          "approach": 79,
+          "footprint": [
+            7,
+            6,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 48
+        },
+        {
+          "tile": 59,
+          "direction": "east",
+          "destination": 49
+        },
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 42
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 55
+        }
+      ]
+    },
+    "61": {
+      "sector": 61,
+      "artKey": 61,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Westfurrow Fields",
+      "mask": [
+        "####.=.##..#",
+        "#.TT.==.TT..",
+        "#.TTT.=..T..",
+        "#..T..=.....",
+        "#...T.=.....",
+        "#.TTT.======",
+        "#.TTT==.....",
+        "#.TTT=......",
+        "#.TT.=......",
+        "#....=......",
+        "#....=......",
+        "###..=.....#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 12.5,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 25,
+          "footprint": [
+            1,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 16
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 40
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 62
+        }
+      ]
+    },
+    "62": {
+      "sector": 62,
+      "artKey": 62,
+      "region": "midlands",
+      "biome": "central",
+      "name": "Greycliff Landing",
+      "mask": [
+        "####.=.#####",
+        "#..#.==....#",
+        "#..#..=....#",
+        "#.###.=....#",
+        "#..#..=....#",
+        "#...#.=.....",
+        "#.###==#....",
+        "..###=###...",
+        "..#.#=##....",
+        ".....=......",
+        ".....=......",
+        "#....=.....#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 12.5,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 37,
+          "footprint": [
+            1,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 61
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 2
+        }
+      ]
+    },
+    "63": {
+      "sector": 63,
+      "artKey": 63,
+      "region": "festival",
+      "biome": "central",
+      "name": "Tallgrass Bend",
+      "mask": [
+        "####.=.#####",
+        ".....==....#",
+        "......=..T.#",
+        "......=.TT.#",
+        "=======....#",
+        "...........#",
+        "..T.T......#",
+        ".TTTTTT....#",
+        ".TTTTTTT...#",
+        "..T.T.T....#",
+        "...........#",
+        "#..........#"
+      ],
+      "sites": {
+        "rift": {
+          "left": 62.5,
+          "top": 33.33333333333333,
+          "width": 8.333333333333334,
+          "approach": 43,
+          "footprint": [
+            7,
+            3,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 25
+        },
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 52
+        }
+      ]
+    },
+    "64": {
+      "sector": 64,
+      "artKey": 64,
+      "region": "hollowroad",
+      "biome": "shadow",
+      "name": "Lantern Vigil",
+      "mask": [
+        "#.......####",
+        "..####.....#",
+        "...##......#",
+        "...........#",
+        "............",
+        "============",
+        "............",
+        "....#.#....#",
+        "..#####....#",
+        ".#######...#",
+        "......#....#",
+        "#...########"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 41.66666666666667,
+          "width": 8.333333333333334,
+          "approach": 57,
+          "footprint": [
+            9,
+            4,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 60,
+          "direction": "west",
+          "destination": 56
+        },
+        {
+          "tile": 71,
+          "direction": "east",
+          "destination": 23
+        }
+      ]
+    },
+    "65": {
+      "sector": 65,
+      "artKey": 65,
+      "region": "frostfang",
+      "biome": "snow",
+      "name": "Eastwind Cirque",
+      "mask": [
+        "#...==.....#",
+        "...T...TTT..",
+        "..TTTT......",
+        "....T.......",
+        ".....T.....#",
+        "..TTTT.....#",
+        ".TTTTT.....#",
+        "...T.T.....#",
+        "...........#",
+        "...........#",
+        "...........#",
+        "############"
+      ],
+      "sites": {
+        "rift": {
+          "left": 79.16666666666666,
+          "top": 50,
+          "width": 8.333333333333334,
+          "approach": 69,
+          "footprint": [
+            9,
+            5,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 4,
+          "direction": "north",
+          "destination": 31
+        },
+        {
+          "tile": 5,
+          "direction": "north",
+          "destination": 27
+        }
+      ]
+    },
+    "66": {
+      "sector": 66,
+      "artKey": 66,
+      "region": "lavafront",
+      "biome": "volcano",
+      "name": "Emberspine Ridge",
+      "mask": [
+        "####.......#",
+        "#...#.......",
+        "#.###.......",
+        "..####......",
+        "=======.....",
+        "...#..=#....",
+        "#..#.==#....",
+        "#####=###...",
+        "#..#.=.#....",
+        "#....=......",
+        "#....=......",
+        "####.=.#####"
+      ],
+      "sites": {
+        "rift": {
+          "left": 70.83333333333334,
+          "top": 25,
+          "width": 8.333333333333334,
+          "approach": 32,
+          "footprint": [
+            8,
+            2,
+            1
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": [
+        {
+          "tile": 48,
+          "direction": "west",
+          "destination": 60
+        },
+        {
+          "tile": 137,
+          "direction": "south",
+          "destination": 33
+        }
+      ]
+    },
+    "99": {
+      "sector": 99,
+      "artKey": 99,
+      "region": "deathsgate",
+      "biome": "volcano",
+      "name": "The Lavafront Gate",
+      "mask": [
+        "###......###",
+        "#...BBB....#",
+        "#...BBB....#",
+        "....BBB.....",
+        ".....==.....",
+        "....====....",
+        "....====....",
+        "~....==.....",
+        "~..........#",
+        "~~..........",
+        "#~~~........",
+        "###~~~~~####"
+      ],
+      "sites": {
+        "stronghold": {
+          "left": 45.833333333333336,
+          "top": 33.333333333333336,
+          "width": 25,
+          "approach": 53,
+          "footprint": [
+            4,
+            1,
+            3
+          ]
+        }
+      },
+      "bakedLandmarks": true,
+      "exits": []
+    }
+  },
+  "floors": {
+    "1": "a3d0632aaf8ef10fa62bbe73c5c66c25569758330882b1f4c05f95e41e32f882",
+    "2": "d0ab225b593ee77da6dc22a04ebcfeec9c9a56522c746ceec11f0c47b40797e9",
+    "3": "22a2ff3983c14ee898cf06fb0a5fcf88f11da03af43757d7db8d8df8b01fbe8c",
+    "4": "5d1c20ea78355c0e26f5041e4897be6b92ddf63a67878bba7a66b3c6c11ba73b",
+    "5": "271d9e9c3dcf75b0d6ac12e9e4a20000ed155422d14baf3715bce03b9d42ca39",
+    "6": "7ce293a8a79b3c3d67391cd6255e72af88f8c60cb07ee639f375e27b33dc375a",
+    "7": "762ea10841fce051b59480e4a4fcb92f90739b4ab0b604d2e5909a2df0765116",
+    "8": "c67c91a53ad933922d666b1ccbbc3bd082088c5eaaf7e187f644de24232c46be",
+    "9": "207ab4bcefda58025770bb7cabd4ede3afec16237e3f64757bb38eaa258a9463",
+    "10": "ac9bb57e390f627cd0ddd183c1981439421eee07537fee39e0ff53c35f0886d4",
+    "11": "5a89b26a74311813f11e8f70d4281470971646e589ba981ded4667dbabe1c69b",
+    "12": "8eb6cbe2aab12834c6e954ab7c416b5255ae9d3215928a2b68e1fd49e7e76296",
+    "13": "e346a17ac75b4a7bb186f5c5512cc673cc2889c9e969825c3baa3f18f7a164c4",
+    "14": "2196272cd09821d043ce33fdb5af7b93e7d69672ccea41f549e7105fb537260f",
+    "15": "45417b977c65982a4bc058a36a8d941ab13d70e1150a23f50404421a94e609f5",
+    "16": "c3e90a8224692e36bcb4e98548a3bec10688b57b37cb8f1499c941e531db3feb",
+    "17": "fcae1d02f7e242a09510eff697de5532bec7de4ff8c226b55131ae00ec92ff62",
+    "18": "876cb4b6da1e20a779c914ba889114a6d480047c6e243f71801f3cdb3d2fa9ae",
+    "19": "53ddc52139cc73e0d74930db93236563a6b382b46bef65d5aa0cdc555d9e9954",
+    "20": "657c4ca266607d87f7b4f3cc9bc31dcd8b2eac612823f085c2a9a973f72039fe",
+    "21": "ee1a84dc179232dfceaa9a9c612cd1d89f5fba35d9f8af20fda7b526ebf7ad6c",
+    "22": "8e0c4b7464b5b1b1cdb6ea1438dd68a9fee31737ef4508353a8fab4a83295dab",
+    "23": "0060b86c4b57cd14a132ee5f059dd9cf1e5c14f3aebd5787943ca5e3a5e420cf",
+    "24": "5219e0125259655ccd40a7ebae200a3abaad5fec5ea3ca8d80dcfd8dfcd04976",
+    "25": "020a8a4160145dfdc6e2501a12731ae96ef7dbd246e977a138c1e922459391f3",
+    "26": "2af7b6447c3ea724147b7f02f7f8a8e33a9691a212a53729517a5dcca599e5e1",
+    "27": "35e6a77c62cf142bb994ca8bec19fabbb2107d772761175f582ce69dbac3135f",
+    "28": "f5a5b36ef70cb0cb3bc916d92f08e8516d1197cbddd3cef4426a04efec92ceae",
+    "29": "76dbb6be0744d2fe4803ae7fa65587379fc98c3b5fd86b875089e49ca40bd1f7",
+    "30": "5d6e272844cfa5a3640447f2cd4fcdbc45cd6f963dbaca795a2d7ef72ba0592e",
+    "31": "59c118e45c365751da2b50157da8042f00336ee1affc32719728368edf30b863",
+    "32": "07088d98ee722075a32f245585d3c9c63915cbb0be28a61b558e1aefefea62b5",
+    "33": "128f5c8a6f6a5f9872465749c5cd3a3c0fc716cd88dae98433eda94ca6ead608",
+    "34": "8ec543caa2385420c3be5aaf0f120aae56407db48498f200b9d530a780c3d380",
+    "36": "06232d0971f7618db696411733cbdb5c0d0b6f91f7a7568ec72447fba3a23a16",
+    "37": "cf6ad8dbb6f40c969a6466dce430d227d00e448dd5f546e29b759bc898de1ae1",
+    "38": "dd9fd18478093980eb14339f9c44347b248042479d46f1aaa7a942e5852c5f5b",
+    "39": "c4b57d51b59caaf837480b2fddee8897a6a8b7fd9acb092e3d52dda3d7943f2a",
+    "40": "06cb838d8464a61046c849d23fec2fcc4bf74448cc7f417a0241ad509653f604",
+    "41": "963c049736bf124b5ceca391b595434aaa96aa0abba3d810491d2690ac9b65d0",
+    "42": "4690023a96dcbde3354e0d23543a977b4131deaf11401d89482a3a276f909060",
+    "43": "7c080be2ea82f2b0e47cd6d70449d1609c6ad1857c8d0a577e2299cb1443111e",
+    "44": "7e6de4b1373b7a433e753a551066650153bd62409f11d77b135baf38f2f35014",
+    "45": "df9ed41094f6915cbfc2414cf27c9fbaf989ca707ca7d32ac941a5c6d84f50c2",
+    "46": "65ef4f54bf00b7ec10432bf3f54d6976df195c564660dc77955c763e0fd6f153",
+    "47": "d65ed87c2aee0878459a72f6e2da54606d0466e3ebcb9cb485a356e9212e8fa0",
+    "48": "84fdfc2d1ee23ea901554284d6dd5ffe82fdd91e8ff6bc214f0156b0acd01aca",
+    "49": "d138b75b98e865a5287426c46e3581c6594bec578969ad0f5fa2355baf552a6b",
+    "50": "64d3026b78672cb2769367b6855c5bd473940ce1588e84d4992524ca1c2f00eb",
+    "51": "2f21b1c1b7952921edce96a0009fb836ee5b8d2714944f7471cca1c10fab89c7",
+    "52": "b50db99617d5ba927a0450e4fa0adad0bf115480aa35aabd70795dc917b94e86",
+    "53": "3c0ba17584e8bfe5ed0e0d26f3436ba20b9027ac5d0db1a43035480b38ebe903",
+    "54": "5685f5495d4af8a10f7854e7f3375f9afd399873cc1360d9680d02bae29893f4",
+    "55": "48d8ce7f1db345b05ad4465a6f47dceaf08b9f9fdbd038f6086284b962c62bfe",
+    "56": "26ec10abfc85829a10c9b8b777b465c786ce882255adbb6cf9a22c217dec3daf",
+    "57": "6aab3dc91350f2829937ac5eafa2fcf78354dd537ba32253ce1057f3156b39cd",
+    "58": "5746a32c6395030a9ade8609473f1e96bd6e6726cdd8a8489a5931e7e986a1df",
+    "59": "0eede01469f8b225d1bd4f622c16beca31a9599e1a5bb5bca7d451394eed5603",
+    "60": "631cd94e6a2387b80ed7d8088e07dcd10807ddddf93c511766f9b4289e610d42",
+    "61": "d491ffbabe39624abc9cc4c37a866597ba13154eb37e5d010f25c07180ccf19a",
+    "62": "a94eb27f2021270bd2fa6930999571d886e86aa8d1b64648b3862b85175be6b0",
+    "63": "188db965485a5d7c3604967511b00e678196a08303c5238f1c987f66deb3e3ed",
+    "64": "c482f114438b608f9528a8a19559b8192e2542133d2bc490b16faf49910c2108",
+    "65": "99d5cf17b44f4d895241eccdf6aae33ca60a913638db4660b680cae81f957b1b",
+    "66": "fbc25352e9aa36f6d80a1bfe2da1f064da064c81dfe276604d1591f14826fda1",
+    "99": "f3c950ba27b79677bf9301bcfea3cd743fb445d9823113439db2b84d549404b1"
+  },
+  "landmarks": {
+    "stormveil:rift": "233e5a2e6d1becada167a886cdec84e6a7e02804c64ae362f0d2c1546b9951c0",
+    "ashenleaf:rift": "3a680268adce6bc433d15a3dc985ff55f4aea674a5d98ef0ecefac495974c5ab",
+    "moonshadow:rift": "b8077b0d08654702545ac33013d482c742230a5a58f108c0a83fb7aabf9a4510",
+    "midlands:rift": "a41f194efccaa11d1d5cfffc0543667d05f523f1a9a225fd4384b5be36dad5b7",
+    "castle:rift": "c78d1379272fc1265f2d7d1156dcdd7133728e4eede7f4abcd9b8a0c6dab4eef",
+    "festival:rift": "3c2e16cf876742f3bb27a02e1b615e55e4f549d0f62680a8dc2d90a627d52490",
+    "hollowroad:rift": "ff392a241c9a599e97d49f18da34c59f22a6dc91223335976856bf79ac1aee18",
+    "lavafront:rift": "361ecfdc2af7d9e218f97b3007c93c36ef4b09a6c5ece38bf209cf70c8744594",
+    "frostfang:rift": "5fb76efef4e5c75d070f0a284ac39f4151174750dfca2f6bd9d78fa872f38621",
+    "frostborder:rift": "5fb76efef4e5c75d070f0a284ac39f4151174750dfca2f6bd9d78fa872f38621"
+  }
+}

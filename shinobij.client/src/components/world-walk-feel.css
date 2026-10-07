@@ -1,49 +1,6 @@
-/* Walk-feel layer: gate markers on exit tiles, the region-name splash, and the
+/* Walk-feel layer: the region-name splash and the
  * hovered walking-route glow. Imported by screens/WorldMap.tsx (screens own
  * CSS imports; components never import CSS). */
-
-/* ── Gate markers ── replace the arrow+number chip with a torii silhouette
- * tinted by the destination region. The .sector-road-exit tile keeps its
- * interaction classes; this is purely the visual. */
-.sector-gate {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    pointer-events: none;
-}
-
-.sector-gate-svg {
-    width: 78%;
-    height: 78%;
-    filter: drop-shadow(0 2px 2px rgba(8, 6, 14, 0.65)) drop-shadow(0 0 4px rgba(8, 6, 14, 0.35));
-    opacity: 0.94;
-    transition: transform 0.18s ease, opacity 0.18s ease;
-}
-
-.sector-gate-chevron {
-    position: absolute;
-    bottom: -2px;
-    font-size: 9px;
-    line-height: 1;
-    font-weight: 700;
-    color: #f4e7c8;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
-    opacity: 0.85;
-}
-
-/* One more step crosses: the gate leans open — scale + beckoning pulse. */
-.sector-gate-ready .sector-gate-svg {
-    opacity: 1;
-    transform: scale(1.22);
-    animation: sector-gate-beckon 1.1s ease-in-out infinite alternate;
-}
-
-
-@keyframes sector-gate-beckon {
-    from { filter: drop-shadow(0 2px 2px rgba(8, 6, 14, 0.65)) drop-shadow(0 0 3px currentColor); }
-    to   { filter: drop-shadow(0 2px 2px rgba(8, 6, 14, 0.65)) drop-shadow(0 0 9px currentColor); }
-}
 
 /* ── Region splash ── once-per-session calligraphy card on entering a region. */
 .region-splash {
@@ -106,7 +63,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .sector-gate-ready .sector-gate-svg { animation: none; }
     .world-route-glow { animation: none; }
     .region-splash-name { animation-duration: 0.01s; opacity: 0; }
 }

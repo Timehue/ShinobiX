@@ -25,6 +25,7 @@
  * the world is dark. The daytime cast is untouched by it.
  */
 import { MAX_WILD_SECTOR, isPlayableWildSector } from "./sector-geo.js";
+import { nearestWalkableTile } from "./sector-walk-mask.js";
 import { isWorldNight } from "./world-phase.js";
 import { WORLD_DAY_MS, WORLD_HOUR_MS } from "./world-clock.js";
 
@@ -391,7 +392,7 @@ export const WANDERER_MAX_INDEX = 1;
  * identical roster, for EVERY player and for the server, so nothing flickers
  * and the server re-derives the exact cast before paying anything out.
  */
-export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
+function rollRawWanderers(sector: number, dayBucket: number): Wanderer[] {
     if (!isPlayableWildSector(sector)) return [];
     const rng = mulberry32(wandererSeedFrom(sector, dayBucket));
     const count = wandererCount(rng());
@@ -458,12 +459,23 @@ export function worldNightIndexFromMs(nowMs: number): number | null {
  * ninja, exactly as the daytime cast reshuffles, instead of the same ninja
  * returning under a new id with its cooldown forgotten.
  */
-export function rollNightWanderer(sector: number, nightIndex: number, dayBucket: number): Wanderer | null {
+export function rollWanderers(sector: number, dayBucket: number): Wanderer[] {
+    return rollRawWanderers(sector, dayBucket).map(w => placeWanderer(w, sector));
+}
+
+function placeWanderer(w: Wanderer, sector: number): Wanderer {
+    return { ...w, homeTile: nearestWalkableTile(sector, w.homeTile),
+        waypoints: Array.from(new Set(w.waypoints.map(tile => nearestWalkableTile(sector, tile)))) };
+}
+
+function rollRawNightWanderer(sector: number, nightIndex: number, dayBucket: number): Wanderer | null {
     if (!isPlayableWildSector(sector) || !Number.isSafeInteger(nightIndex)) return null;
     const rng = mulberry32(wandererHash32(`night:${sector}:${nightIndex}:${dayBucket}`));
     if (rng() >= NIGHT_WANDERER_CHANCE) return null;
     const meta = WANDERER_ARCHETYPES.nightblade;
-    const taken = new Set(rollWanderers(sector, dayBucket).map((w) => w.homeTile));
+    // Collision retries consume RNG. Keep the original coordinates for this roll;
+    // snapping happens only after every identity/reward-related draw is finished.
+    const taken = new Set(rollRawWanderers(sector, dayBucket).map((w) => w.homeTile));
     let home = interiorTile(rng);
     let guard = 0;
     while (taken.has(home) && guard++ < 8) home = interiorTile(rng);
@@ -487,6 +499,11 @@ export function rollNightWanderer(sector: number, nightIndex: number, dayBucket:
 
 /** The night ninja standing in `sector` at `nowMs`, or null (daylight, or no
  *  ninja in this sector tonight). Strict: gone at dawn. */
+export function rollNightWanderer(sector: number, nightIndex: number, dayBucket: number): Wanderer | null {
+    const w = rollRawNightWanderer(sector, nightIndex, dayBucket);
+    return w ? placeWanderer(w, sector) : null;
+}
+
 export function nightWandererAt(sector: number, dayBucket: number, nowMs: number): Wanderer | null {
     const night = worldNightIndexFromMs(nowMs);
     return night === null ? null : rollNightWanderer(sector, night, dayBucket);
@@ -563,5 +580,5 @@ export function relocateWandererInto(w: Wanderer, sector: number): Wanderer {
     const waypoints = [home];
     const legs = 2 + Math.floor(rng() * 2);
     for (let i = 0; i < legs; i++) waypoints.push(nearbyTile(home, rng));
-    return { ...w, homeTile: home, waypoints: Array.from(new Set(waypoints)) };
+    return placeWanderer({ ...w, homeTile: home, waypoints: Array.from(new Set(waypoints)) }, sector);
 }

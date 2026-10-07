@@ -1,0 +1,10 @@
+{
+  "pilotSector": 31,
+  "referenceRoadPair": [27, 31],
+  "roadBandDepth": 0.041666666666666664,
+  "maxRoadRmsDelta": 30,
+  "maxInteriorMismatches": 4,
+  "standingSampleInset": 0.28,
+  "standingSampleEnd": 0.72,
+  "method": "RGB root-mean-square difference of mean road-mouth colors, sampling one road lane and half a tile inward. The pilot's 27-31 pair measures 26.94; visibly different 26-31 and 31-65 mouths measure 35.03 and 44.40. The fixed threshold flags those stronger discontinuities. Color evidence remains paired with semantic review of hatched standing-area overlays."
+}
