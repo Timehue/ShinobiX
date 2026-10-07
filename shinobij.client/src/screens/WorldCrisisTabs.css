@@ -1,0 +1,3 @@
+.crisis-chronicle-tabs{display:flex;gap:8px;max-width:1240px;margin:0 auto 14px;padding:6px;border:1px solid rgba(148,163,184,.2);border-radius:9px;background:rgba(3,7,15,.76)}
+.crisis-chronicle-tabs button{flex:1;min-height:38px;padding:8px 12px;color:#94a3b8;border:1px solid transparent;border-radius:6px;background:transparent;font-size:.72rem;font-weight:900;letter-spacing:.05em;cursor:pointer}.crisis-chronicle-tabs button.is-active{color:#fff1bd;border-color:rgba(250,204,21,.52);background:linear-gradient(180deg,rgba(120,53,15,.7),rgba(40,18,8,.84));box-shadow:inset 0 0 18px rgba(245,158,11,.1)}
+@media(max-width:620px){.crisis-chronicle-tabs{flex-direction:column}}

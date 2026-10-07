@@ -13,8 +13,6 @@
 
     .arena-fullscreen .combat-layout {
         display: grid !important;
-        grid-template-columns: minmax(150px, 190px) minmax(0, 1fr) minmax(150px, 190px) !important;
-        gap: clamp(6px, 1vw, 12px) !important;
         align-items: start !important;
     }
 
@@ -31,11 +29,6 @@
 
     /* The App.tsx positions hexes with left/top, so stop CSS grid and row-shift rules from fighting it. */
     .arena-fullscreen .hex-battlefield {
-        width: 100% !important;
-        height: clamp(520px, 68vh, 720px) !important;
-        min-height: clamp(520px, 68vh, 720px) !important;
-        max-height: none !important;
-        padding: clamp(6px, 1vw, 12px) !important;
         margin: 0 auto 12px auto !important;
         overflow: hidden !important;
         display: grid !important;

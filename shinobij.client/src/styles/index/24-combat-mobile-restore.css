@@ -117,10 +117,6 @@
     margin-left: 3px !important;
     color: var(--text-dim) !important;
   }
-  .arena-fullscreen .combat-side-hud .hud-bar {
-    height: 6px !important;
-    margin: 0 !important;
-  }
 
   /* One authoritative SQUARE avatar for the mobile side HUD. Several older
      .combat-avatar size rules disagree (width from a 64px rule, height from a
@@ -148,11 +144,7 @@
   /* Hex battlefield — block layout so JS margin-centering works reliably */
   .arena-fullscreen .hex-battlefield {
     display: block !important;      /* override CSS-grid centering; JS handles it */
-    height: clamp(280px, 46dvh, 420px) !important;
-    min-height: 260px !important;
-    max-height: 420px !important;
     overflow: hidden !important;
-    padding: 0 !important;
   }
 
   /* JS sets transform-origin: top left and left/top — don't fight it */
@@ -232,9 +224,6 @@
   /* AP panel — single row instead of 3-stack, compact bars */
   .arena-fullscreen .dual-ap-panel {
     grid-template-columns: 1fr auto 1fr !important;
-    gap: 6px !important;
-    padding: 4px 6px !important;
-    margin-bottom: 4px !important;
   }
   .arena-fullscreen .dual-ap-panel .hud-bar {
     height: 8px !important;
@@ -303,8 +292,6 @@
 
 @media (max-width: 520px) {
   .arena-fullscreen .hex-battlefield {
-    height: clamp(250px, 42dvh, 360px) !important;
-    min-height: 240px !important;
     max-height: 360px !important;
     padding: 0 !important;
   }
@@ -341,10 +328,6 @@
 @media (max-width: 1023px) {
     /* Fix the whole arena to the viewport height */
     .arena-fullscreen {
-        height: 100dvh !important;
-        max-height: 100dvh !important;
-        overflow: hidden !important;
-        display: flex !important;
         flex-direction: column !important;
         padding: 0 !important;
         border: none !important;
@@ -354,31 +337,19 @@
     /* The combat-layout fills remaining height */
     .arena-fullscreen .combat-layout {
         flex: 1 1 0 !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
     }
 
     /* combat-main-area fills the remaining grid row */
     .arena-fullscreen .combat-layout > .combat-main-area {
-        display: flex !important;
         flex-direction: column !important;
-        min-height: 0 !important;
-        overflow: hidden !important;
     }
 
     /* Battlefield grows to fill remaining space in the flex column */
-    .arena-fullscreen .hex-battlefield {
-        flex: 1 1 0 !important;
-        height: auto !important;
-        min-height: 200px !important;
-        max-height: none !important;
-    }
 
     /* Jutsu bar stays compact and scrollable */
     .arena-fullscreen .jutsu-layout-card,
     .arena-fullscreen .combat-jutsu-bar {
         flex-shrink: 0 !important;
-        max-height: 120px !important;
         overflow-y: auto !important;
     }
 
@@ -528,9 +499,6 @@
       total non-field  358px  → leave 360 as a safe round number
   */
   .arena-fullscreen .hex-battlefield {
-    height: calc(100dvh - 360px) !important;
-    min-height: 260px !important;
-    max-height: none !important;
     padding: 0 !important;
   }
 
