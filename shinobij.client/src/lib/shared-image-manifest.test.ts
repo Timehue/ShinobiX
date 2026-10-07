@@ -1,8 +1,14 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { imageEntries, imageUrl, parseImageManifest } from "./shared-image-manifest";
+import { SHADOW_WEAVER_PORTRAIT } from './builtin-ai-portraits';
 
 describe("shared image manifest", () => {
+    it("replaces the malformed Shadow Weaver mission portrait while retaining other published AI art", () => {
+        assert.equal(imageUrl('ai:builtin-ai-shadow-weaver', '7'), SHADOW_WEAVER_PORTRAIT);
+        assert.equal(imageUrl('ai:builtin-ai-frost-sealer', '7'), '/api/img?id=ai%3Abuiltin-ai-frost-sealer&v=7');
+        assert.equal(imageEntries({ version: '8', ids: ['ai:builtin-ai-shadow-weaver'] })['ai:builtin-ai-shadow-weaver'], SHADOW_WEAVER_PORTRAIT);
+    });
     it("reads the versioned shape", () => {
         const manifest = parseImageManifest({ version: "7", ids: ["jutsu:fireball", "jutsu:spiral-core"] });
         assert.deepEqual(manifest, { version: "7", ids: ["jutsu:fireball", "jutsu:spiral-core"] });
