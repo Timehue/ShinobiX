@@ -11,6 +11,8 @@ import { isPlayableWildSector } from '../../shared/sector-geo.js';
 import { clearTravelLeaseIfSame, setTravelLease, TravelLeaseHeldError, type TravelLease } from '../_realtime/travel-lease.js';
 import { engagedInWorldDuel } from '../_realtime/world-duel-engagement.js';
 import { kv } from '../_storage.js';
+import { sectorObstaclesEnabled } from '../_release-flags.js';
+import { serverWalkTile } from '../_sector-obstacles.js';
 
 // Intentional UX contract: travel is a short loading mask, not a distance tax.
 // The server mints the timer so clients cannot claim an arbitrary destination
@@ -131,7 +133,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!exit || !edgeOriginTileAllowed(player.tile, exit.tile)) {
             return res.status(409).json({ error: 'Move onto that road exit before crossing sectors.' });
         }
-        arrivalTile = exit.destinationTile;
+        arrivalTile = serverWalkTile(destinationSector, exit.destinationTile);
         edgeOriginSector = exit.sector;
     } else {
         // A MAP jump arrives on the edge facing the sector it came from, same as
@@ -144,7 +146,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // traveller's screen and every observer in the destination must place
         // them on the same tile. Null — no origin to honour, e.g. leaving a
         // village at sector 0 — keeps the old behaviour of naming no tile.
-        arrivalTile = travelArrivalTile(player.sector, destinationSector) ?? undefined;
+        arrivalTile = travelArrivalTile(player.sector, destinationSector, sectorObstaclesEnabled()) ?? undefined;
     }
     if (player.sector === destinationSector) {
         return res.status(200).json({ ok: true, destinationSector, arrivalAt: Date.now(), travelMs: 0, arrivalTile });

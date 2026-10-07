@@ -1,5 +1,7 @@
 import { kv as realKv, type KvLike } from '../_storage.js';
 import { safeName } from '../_utils.js';
+import type { WorldPosition } from '../../shared/world-position.js';
+import { worldPositionModel } from '../../shared/continuous-world-layout.js';
 
 /*
  * The tile a player last STOOD ON inside a sector (F03).
@@ -23,10 +25,11 @@ import { safeName } from '../_utils.js';
  * whenever the sector matches; nothing else reads it.
  */
 
+import { serverWalkTile } from '../_sector-obstacles.js';
 export const WALKED_TILE_TTL_SECONDS = 24 * 60 * 60;
 export const WALKED_TILE_MIN_INTERVAL_MS = 5_000;
 
-export type WalkedTile = { sector: number; tile: number; at: number };
+export type WalkedTile = { sector: number; tile: number; at: number; worldPosition?: WorldPosition };
 
 export type WalkedTileStore = Pick<KvLike, 'get' | 'set' | 'del'>;
 
@@ -44,20 +47,40 @@ export function isWalkedTile(value: unknown): value is WalkedTile {
 
 export async function readWalkedTile(store: Pick<KvLike, 'get'>, playerName: string): Promise<WalkedTile | null> {
     const value = await store.get<unknown>(walkedTileKey(playerName));
-    return isWalkedTile(value) ? value : null;
+    if (!isWalkedTile(value)) return null;
+    const position = value.worldPosition && worldPositionModel().read(value.worldPosition);
+    return { sector: value.sector, tile: serverWalkTile(value.sector, value.tile)!, at: value.at,
+        ...(position && worldPositionModel().location(position).sector === value.sector ? { worldPosition: position } : {}) };
+}
+
+/** A newer legacy checkpoint deliberately clears an older continuous cursor. */
+export function resumeWorldPositionFor(walked: WalkedTile | null | undefined, sector: number, saved: unknown): WorldPosition | undefined {
+    const candidate = walked?.sector === sector ? walked.worldPosition : saved;
+    if (!candidate) return undefined;
+    const model = worldPositionModel(), position = model.read(candidate);
+    return position && model.location(position).sector === sector ? position : undefined;
 }
 
 /** The tile to resume on for `sector`: the walked tile when it is for that sector, else the arrival tile. */
 export function resumeTileFor(walked: WalkedTile | null | undefined, sector: number, arrivalTile: unknown): number | undefined {
-    if (walked && walked.sector === sector) return walked.tile;
+    if (walked && walked.sector === sector) return serverWalkTile(sector, walked.tile);
     const arrival = Number(arrivalTile);
-    return Number.isInteger(arrival) && arrival >= 0 && arrival <= 143 ? arrival : undefined;
+    return Number.isInteger(arrival) && arrival >= 0 && arrival <= 143 ? serverWalkTile(sector, arrival) : undefined;
 }
 
 // Per-process throttle state. Presence itself is per-process, so this needs no
 // more durability than the heartbeat's own memory of the player.
-type Throttle = { sector: number; tile: number; writtenAt: number; dirty: boolean };
+type Throttle = { sector: number; tile: number; writtenAt: number; dirty: boolean; worldSignature?: string };
 const throttles = new Map<string, Throttle>();
+const writes = new WeakMap<object, Map<string, Promise<void>>>();
+function orderedWrite(store: WalkedTileStore, slug: string, write: () => Promise<unknown>): Promise<void> {
+    let pending = writes.get(store);
+    if (!pending) { pending = new Map(); writes.set(store, pending); }
+    const next = (pending.get(slug) ?? Promise.resolve()).catch(() => undefined).then(write).then(() => undefined);
+    pending.set(slug, next);
+    void next.finally(() => { if (pending.get(slug) === next) pending.delete(slug); }).catch(() => undefined);
+    return next;
+}
 
 export function resetWalkedTileThrottleForTests(): void {
     throttles.clear();
@@ -75,24 +98,29 @@ export function noteWalkedTile(
     sector: number,
     tile: number | undefined,
     now: number = Date.now(),
+    worldPosition?: WorldPosition,
 ): Promise<boolean> {
     const slug = safeName(playerName);
     if (!slug || !Number.isInteger(sector) || sector < 1 || tile === undefined || !Number.isInteger(tile)) return Promise.resolve(false);
+    tile = serverWalkTile(sector, tile)!;
+    const parsed = worldPosition && worldPositionModel().read(worldPosition);
+    const position = parsed && worldPositionModel().location(parsed).sector === sector ? parsed : undefined;
+    const worldSignature = position ? JSON.stringify(position) : undefined;
     const prior = throttles.get(slug);
-    const changed = !prior || prior.sector !== sector || prior.tile !== tile;
+    const changed = !prior || prior.sector !== sector || prior.tile !== tile || prior.worldSignature !== worldSignature;
     if (!changed && !prior?.dirty) return Promise.resolve(false);
     if (prior && now - prior.writtenAt < WALKED_TILE_MIN_INTERVAL_MS) {
-        throttles.set(slug, { sector, tile, writtenAt: prior.writtenAt, dirty: true });
+        throttles.set(slug, { sector, tile, writtenAt: prior.writtenAt, dirty: true, worldSignature });
         return Promise.resolve(false);
     }
-    throttles.set(slug, { sector, tile, writtenAt: now, dirty: false });
-    const row: WalkedTile = { sector, tile, at: now };
-    return store.set(walkedTileKey(slug), row, { ex: WALKED_TILE_TTL_SECONDS })
+    throttles.set(slug, { sector, tile, writtenAt: now, dirty: false, worldSignature });
+    const row: WalkedTile = { sector, tile, at: now, ...(position ? { worldPosition: position } : {}) };
+    return orderedWrite(store, slug, () => store.set(walkedTileKey(slug), row, { ex: WALKED_TILE_TTL_SECONDS }))
         .then(() => true)
         .catch(() => {
             // A failed write is retried by the next beat that sees the tile.
             const current = throttles.get(slug);
-            if (current && current.sector === sector && current.tile === tile) throttles.set(slug, { ...current, dirty: true });
+            if (current && current.writtenAt === now && current.sector === sector && current.tile === tile) throttles.set(slug, { ...current, dirty: true });
             return false;
         });
 }
@@ -108,16 +136,26 @@ export async function recordArrivalTile(
     sector: number,
     tile: number | undefined,
     now: number = Date.now(),
+    worldPosition?: WorldPosition,
 ): Promise<void> {
     const slug = safeName(playerName);
     if (!slug) return;
     if (tile === undefined || !Number.isInteger(tile) || !Number.isInteger(sector) || sector < 1) {
         throttles.delete(slug);
-        await store.del(walkedTileKey(slug));
+        await orderedWrite(store, slug, () => store.del(walkedTileKey(slug)));
         return;
     }
-    throttles.set(slug, { sector, tile, writtenAt: now, dirty: false });
-    await store.set(walkedTileKey(slug), { sector, tile, at: now } satisfies WalkedTile, { ex: WALKED_TILE_TTL_SECONDS });
+    tile = serverWalkTile(sector, tile)!;
+    const parsed = worldPosition && worldPositionModel().read(worldPosition);
+    const position = parsed && worldPositionModel().location(parsed).sector === sector ? parsed : undefined;
+    // Continuous travel can keep walking before the crossing lease settles.
+    // Its arrival timestamp must not replace a checkpoint already accepted later.
+    if (position && (throttles.get(slug)?.writtenAt ?? -Infinity) > now) return;
+    throttles.set(slug, { sector, tile, writtenAt: now, dirty: false, worldSignature: position ? JSON.stringify(position) : undefined });
+    await orderedWrite(store, slug, async () => {
+        if (position && ((await readWalkedTile(store, slug))?.at ?? -Infinity) > now) return;
+        await store.set(walkedTileKey(slug), { sector, tile, at: now, ...(position ? { worldPosition: position } : {}) } satisfies WalkedTile, { ex: WALKED_TILE_TTL_SECONDS });
+    });
 }
 
 /** Production store, for callers that do not inject one. */

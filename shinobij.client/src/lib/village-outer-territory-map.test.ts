@@ -4,6 +4,7 @@ import test from "node:test";
 import { SECTOR_FLOOR_SECTORS } from "../data/sector-art-manifest";
 import { sectorArtKey, VILLAGE_OUTSKIRTS } from "../../../shared/sector-geo";
 import { villageOuterTerritoryMapUrl } from "./village-outer-territory-map";
+import { sectorFloorLayout, sectorFloorImage } from "./sector-floor-layout";
 
 const expectedUrls: Readonly<Record<string, string>> = {
     "Stormveil Village": "/sector-map/stormveil-outskirts.webp",
@@ -15,9 +16,10 @@ const expectedUrls: Readonly<Record<string, string>> = {
 test("every village outskirts resolves to an existing painted outer-territory board", () => {
     for (const [village, outskirtsSector] of Object.entries(VILLAGE_OUTSKIRTS)) {
         const url = villageOuterTerritoryMapUrl(village, outskirtsSector + 4);
-        assert.equal(url, expectedUrls[village], village);
-        assert.match(url, /\.webp$/u, village);
-        assert.equal(existsSync(new URL(`../../public${url}`, import.meta.url)), true, `${village}: ${url}`);
+        assert.equal(url, sectorFloorLayout(outskirtsSector + 4) ? sectorFloorImage(outskirtsSector + 4) : expectedUrls[village], village);
+        const pathname = url.split('?')[0];
+        assert.match(pathname, /\.webp$/u, village);
+        assert.equal(existsSync(new URL(`../../public${pathname}`, import.meta.url)), true, `${village}: ${url}`);
     }
 });
 
@@ -27,7 +29,7 @@ test("Ashen Leaf's generic board stays pinned to its manifest-backed historical 
 
     assert.equal(virtualSector, 13);
     assert.equal(artKey, 40);
-    assert.equal(villageOuterTerritoryMapUrl("Ashen Leaf Village", virtualSector), `/sector-map/s${artKey}.webp`);
+    assert.equal(villageOuterTerritoryMapUrl("Ashen Leaf Village", virtualSector).split('?')[0], `/sector-map/s${artKey}.webp`);
     assert.equal(SECTOR_FLOOR_SECTORS.has(artKey), true);
     assert.equal(existsSync(new URL(`../../public/sector-map/s${artKey}.webp`, import.meta.url)), true);
 });

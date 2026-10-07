@@ -15,6 +15,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { nearestWalkableTile } from "../../../shared/sector-walk-mask";
+import { useSectorObstacles } from "../lib/sector-obstacles";
 import { GameArtIcon } from "./GameArtIcon";
 import { SHRINE_TIERS, shrineForSector, type ShrineDef } from "../../../shared/shrines";
 import { parseScars, pruneScars, scarAgeLabel, scarLine } from "../../../shared/sector-scars";
@@ -46,16 +48,21 @@ function tierName(tier: number): string {
 
 /* ————— board markers ————— */
 
-export function SectorTraceMarkers({ signs, onOpen }: {
+export function SectorTraceMarkers({ signs, onOpen, sector }: {
     signs: TrailSignView[];
+    sector?: number;
     onOpen: (signId: string) => void;
 }) {
-    // Group by tile so stacked signs render one marker with a count badge.
+    const obstacles = useSectorObstacles();
+    // Preserve stored sign coordinates; group their safe visual locations.
     const byTile = useMemo(() => {
         const map = new Map<number, TrailSignView[]>();
-        for (const sign of signs) map.set(sign.tile, [...(map.get(sign.tile) ?? []), sign]);
+        for (const sign of signs) {
+            const tile = sector === undefined ? sign.tile : nearestWalkableTile(sector, sign.tile, obstacles);
+            map.set(tile, [...(map.get(tile) ?? []), sign]);
+        }
         return [...map.entries()];
-    }, [signs]);
+    }, [signs, sector, obstacles]);
     if (byTile.length === 0) return null;
 
     return (

@@ -7,6 +7,7 @@ import { SHRINE_DEFS } from "../../../shared/shrines";
 import { riftTargetSector } from "../lib/hollow-rifts";
 import { hollowRifts } from "./hollow-rifts";
 import { HOME_SECTORS } from "./war-map-sectors";
+import { sectorFloorLayout } from "../lib/sector-floor-layout";
 import {
     RIFT_BY_ART,
     STRONGHOLD_BY_ART,
@@ -83,8 +84,14 @@ const footprint = (point: BoardPoint, width: number, anchor: number, nameplate: 
     const y = point.top / 100;
     return { x0: x - width / 2, x1: x + width / 2, y0: y - anchor * width, y1: y + (1 - anchor) * width + nameplate };
 };
-const strongholdBox = (scale: Scale, sector: number) => footprint(strongholdPlacement(sector), scale.stronghold, 0.78, scale.nameplate);
-const riftBox = (scale: Scale, sector: number) => footprint(riftPlacement(sector), scale.rift, 0.62, scale.nameplate);
+// Authored markers use the exact cell footprint at every viewport, with their
+// base anchored at 100%; legacy standees retain their original pixel minimums.
+const authoredBox = (sector: number, kind: "stronghold" | "rift" | "shrine") => {
+    const site = sectorFloorLayout(sector)?.sites[kind];
+    return site ? footprint(site, site.width / 100, 1, 0) : undefined;
+};
+const strongholdBox = (scale: Scale, sector: number) => authoredBox(sector, "stronghold") ?? footprint(strongholdPlacement(sector), scale.stronghold, 0.78, scale.nameplate);
+const riftBox = (scale: Scale, sector: number) => authoredBox(sector, "rift") ?? footprint(riftPlacement(sector), scale.rift, 0.62, scale.nameplate);
 const shrineBox = (scale: Scale, left: number, top: number): Box => ({
     x0: left / 100 - scale.shrineWidth / 2, x1: left / 100 + scale.shrineWidth / 2,
     y0: top / 100 - 0.62 * scale.shrineHeight, y1: top / 100 + 0.38 * scale.shrineHeight,
@@ -97,29 +104,32 @@ const grow = (box: Box, by: number): Box => ({ x0: box.x0 - by, y0: box.y0 - by,
 // 16.7%, which is exactly the side a marker approaches it from.
 const GRID_PAD_PX = 4;
 const GRID_GAP_PX = 1;
-const tileBox = (scale: Scale, tile: number): Box => {
-    const size = (scale.boardPx - 2 * GRID_PAD_PX - 11 * GRID_GAP_PX) / 12;
-    const x0 = (GRID_PAD_PX + (tile % 12) * (size + GRID_GAP_PX)) / scale.boardPx;
-    const y0 = (GRID_PAD_PX + Math.floor(tile / 12) * (size + GRID_GAP_PX)) / scale.boardPx;
+const tileBox = (scale: Scale, tile: number, sector: number): Box => {
+    const authored = !!sectorFloorLayout(sector), pad = authored ? 0 : GRID_PAD_PX, gap = authored ? 0 : GRID_GAP_PX;
+    const size = (scale.boardPx - 2 * pad - 11 * gap) / 12;
+    const x0 = (pad + (tile % 12) * (size + gap)) / scale.boardPx;
+    const y0 = (pad + Math.floor(tile / 12) * (size + gap)) / scale.boardPx;
     return { x0, y0, x1: x0 + size / scale.boardPx, y1: y0 + size / scale.boardPx };
 };
 const overlaps = (a: Box, b: Box) =>
-    Math.min(a.x1, b.x1) > Math.max(a.x0, b.x0) && Math.min(a.y1, b.y1) > Math.max(a.y0, b.y0);
+    // Percentage-to-fraction conversion can put a shared cell edge 1e-16 apart.
+    Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0) > 1e-9 && Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0) > 1e-9;
 
 /** Everything fixed on a sector's board that a marker must not stand on. */
 function keepOut(scale: Scale, sector: number): { label: string; box: Box }[] {
     const zones: { label: string; box: Box }[] = [];
+    const authored = !!sectorFloorLayout(sector);
     for (const exit of sectorExits(sector)) {
-        zones.push({ label: `road-exit gate (tile ${exit.tile})`, box: grow(tileBox(scale, exit.tile), scale.margin.gate) });
+        zones.push({ label: `road-exit gate (tile ${exit.tile})`, box: grow(tileBox(scale, exit.tile, sector), authored ? 0 : scale.margin.gate) });
     }
     // Where arriving players ACTUALLY stand: the destinationTile of every exit, from
     // any sector, that leads here — the game's own value (one tile in), not a guess.
     for (const exit of SECTOR_EXITS) {
         if (exit.destinationSector !== sector) continue;
-        zones.push({ label: `arrival tile ${exit.destinationTile} (from ${exit.sector})`, box: grow(tileBox(scale, exit.destinationTile), scale.margin.arrival) });
+        zones.push({ label: `arrival tile ${exit.destinationTile} (from ${exit.sector})`, box: grow(tileBox(scale, exit.destinationTile, sector), authored ? 0 : scale.margin.arrival) });
     }
     for (const shrine of SHRINE_DEFS) {
-        if (shrine.sector === sector) zones.push({ label: `shrine ${shrine.id}`, box: grow(shrineBox(scale, shrine.left, shrine.top), scale.margin.shrine) });
+        if (shrine.sector === sector) zones.push({ label: `shrine ${shrine.id}`, box: authoredBox(sector, "shrine") ?? grow(shrineBox(scale, shrine.left, shrine.top), scale.margin.shrine) });
     }
     return zones;
 }
@@ -176,7 +186,8 @@ test("no placement is left over for art that no eligible sector shows", () => {
 
 for (const scale of SCALES) {
     test(`[${scale.label}] every Stronghold stands on the board, off its gates, arrival tiles and shrine`, () => {
-        const problems = STRONGHOLD_SECTORS.flatMap((sector) => placementProblems(scale, sector, "Stronghold", strongholdBox(scale, sector)));
+        const problems = STRONGHOLD_SECTORS.filter(sector => !sectorFloorLayout(sector) || sectorFloorLayout(sector)?.sites.stronghold)
+            .flatMap((sector) => placementProblems(scale, sector, "Stronghold", strongholdBox(scale, sector)));
         assert.deepEqual(problems, [], report(scale, problems));
     });
 
@@ -186,7 +197,7 @@ for (const scale of SCALES) {
     });
 
     test(`[${scale.label}] where both can appear at once, the Rift and the Stronghold never touch`, () => {
-        const both = STRONGHOLD_SECTORS.filter((sector) => RIFT_SECTORS.includes(sector));
+        const both = STRONGHOLD_SECTORS.filter((sector) => RIFT_SECTORS.includes(sector) && (!sectorFloorLayout(sector) || sectorFloorLayout(sector)?.sites.stronghold));
         assert.ok(both.length > 0, "expected sectors that can host both");
         const problems = both
             .filter((sector) => overlaps(grow(strongholdBox(scale, sector), scale.margin.pair), riftBox(scale, sector)))

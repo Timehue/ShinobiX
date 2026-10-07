@@ -789,7 +789,12 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // (1,437,608 B / 394,491 B) and passes its own gate unchanged. Allow 9.15 MB,
 // leaving 15,768 B of measured headroom. Entry, startup raw/gzip, CSS and
 // chunk gates stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_150_000;
+// 2026-10-07 CONTINUOUS WORLD: the camera, bounded nearby-player presentation,
+// cursor validation and joined terrain replace board-pan presentation. Measured
+// candidate 9,153,747 B versus accepted baseline 9,141,422 B (+12,325 B).
+// Allow 9.18 MB for this intentional feature; initial graph is 1,401,390 B raw /
+// 388,704 B gzip (+315 / +92 B). Startup, chunk, CSS and asset limits stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_180_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

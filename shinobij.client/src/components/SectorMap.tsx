@@ -1,6 +1,6 @@
 /*
- * SectorMap — the new sector look: a single hand-painted top-down ADVENTURE MAP
- * (Pokémon-route / tactical-overworld style) drawn full-bleed behind the 12×12
+ * SectorMap — a single hand-painted overhead adventure map,
+ * drawn full-bleed behind the 12×12
  * movement grid. The whole sector is one cohesive painted board — paths, terrain
  * features and small points of interest, no empty centre — and the orb + gameplay
  * markers render on top (the existing grid overlay is untouched).
@@ -15,16 +15,15 @@
  * back to the old SectorScene vista). All layers pointer-events:none + behind the
  * tiles, so click-to-move and the avatar/markers overlays are untouched.
  */
-import type { CSSProperties } from "react";
+import type { SectorDirection } from "../../../shared/sector-links";
 
 // isSectorMapEnabled moved to ./sector-map-flag so this file only exports
 // components (keeps react-refresh fast-refresh clean). Importers read it there.
 
-export function SectorMap({ image }: { image?: string }) {
-    const style: CSSProperties = { backgroundImage: image ? `url(${image})` : undefined };
+export function SectorMap({ image }: { image?: string; enterDirection?: SectorDirection | null }) {
     return (
         <>
-            <div className="sector-map-backdrop" style={style} aria-hidden="true" />
+            <div className="sector-floor-pan" aria-hidden="true"><div className="sector-map-backdrop" style={{ backgroundImage: image ? `url("${image}")` : undefined }} /></div>
             <div className="sector-map-vignette" aria-hidden="true" />
         </>
     );
