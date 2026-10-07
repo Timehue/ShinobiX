@@ -30,7 +30,7 @@
 .sx-refined .sx-filters > .sx-search { grid-column: 1/-1; }
 .sx-refined .sx-filters > label:last-child { grid-column: auto; }
 .sx-refined .sx-filters-inventory { grid-template-columns: repeat(2,minmax(0,1fr)); }
-.sx-refined .sx-affordable { min-height: 38px; margin-bottom: 12px; color: #aab5b3; }
+.sx-refined .sx-affordable { margin-bottom: 12px; color: #aab5b3; }
 .sx-refined .sx-listings { gap: 10px; }
 .sx-hall.sx-refined .sx-listing { position: relative; min-height: 115px; padding: 15px 12px; gap: 15px; border-radius: 4px; background: linear-gradient(115deg,#17232b,#111a20); border-color: #8b978b30; box-shadow: inset 0 1px #ffffff03; }
 .sx-refined .sx-listing-name > strong { font: 400 18px/1.35 var(--font-display,Georgia,serif); color: #f0e7d5; }

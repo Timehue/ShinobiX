@@ -360,7 +360,6 @@
     text-transform: uppercase;
     color: #f0a28d;
 }
-.wfr-scout-body { display: flex; align-items: center; gap: 12px; }
 .wfr-scout-body strong { display: block; font-size: 1rem; }
 .wfr-scout-note { margin: 10px 0 0; font-size: 0.78rem; color: #9fb6c2; }
 
@@ -559,7 +558,6 @@
     box-shadow: none;
 }
 .wfr-roster.is-blue li { border-left-color: rgba(76, 201, 240, 0.5); }
-.wfr-roster.is-red li { border-right-color: rgba(255, 84, 112, 0.5); }
 .wfr-roster li[data-fallen="true"] {
     background: linear-gradient(90deg, rgba(41, 17, 22, 0.82), rgba(7, 12, 16, 0.48));
     animation: wfr-roster-fall 650ms ease-out both;
@@ -934,7 +932,7 @@
 /* ── Formation ─────────────────────────────────────────────────────────── */
 
 .wfr-scout-body { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.wfr-scout-pet { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.wfr-scout-pet { display: flex; gap: 4px; }
 .wfr-scout-pet strong { max-width: 132px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
 .wfr-scout-job { color: #ff9aab; font-size: 0.58rem; font-weight: 900; letter-spacing: 0.12em; }
 

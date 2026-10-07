@@ -1027,108 +1027,108 @@ export function PetColiseumDuel({ playerPet, enemyPet, playerReservePet, enemyRe
     return createPortal((
         <div data-testid="pet-duel-root" data-pet-visual-audit={visualAudit} className={mobileQa ? "pet-duel-mobile-qa" : "pet-combat-takeover"} style={{ position: "fixed", inset: mobileQa ? undefined : 0, top: mobileQa ? 0 : undefined, left: mobileQa ? "50%" : undefined, transform: mobileQa ? "translateX(-50%)" : undefined, zIndex: "var(--z-combat)", width: mobileQa ? 390 : undefined, height: mobileQa ? "min(844px,100dvh)" : undefined, overflow: "hidden", background: "linear-gradient(#1a1206, #0a0703 70%)" }}>
             <style>{`
-                @keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
-                @keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
-                @keyframes petDuelCombo { 0% { opacity: 0; transform: scale(1.6); } 25% { opacity: 1; transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
-                @keyframes petDuelCritPop { 0% { transform: scale(0.4); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
-                @keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
-                @keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
-                @keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
-                @keyframes petDuelCmdEcho { 0% { opacity: 0; transform: translateY(10px) scale(0.82); } 16% { opacity: 1; transform: translateY(0) scale(1.06); } 30% { transform: translateY(0) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px) scale(0.98); } }
-                @keyframes petDuelBriefIn { 0% { opacity: 0; transform: translateY(18px) scale(.96); } 65% { opacity: 1; transform: translateY(-3px) scale(1.01); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
-                @keyframes petDuelMoveScene {
-                    0% { opacity: 0; transform: translate3d(var(--move-entry),8px,0) scale(.94); filter: blur(5px); }
-                    15% { opacity: 1; transform: translate3d(0,0,0) scale(1.015); filter: blur(0); }
-                    24%,76% { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
-                    100% { opacity: 0; transform: translate3d(var(--move-exit),-5px,0) scale(1.01); filter: blur(1px); }
-                }
-                @keyframes petDuelMoveRail { 0% { transform: scaleX(0); opacity: 0; } 16% { transform: scaleX(1); opacity: 1; } 78% { opacity: 1; } 100% { transform: scaleX(.72); opacity: 0; } }
-                @keyframes petDuelMoveStreak { 0% { opacity: 0; transform: translateX(var(--streak-start)) skewX(-18deg); } 22% { opacity: .58; } 100% { opacity: 0; transform: translateX(var(--streak-end)) skewX(-18deg); } }
-                @keyframes petDuelMoveWord { 0% { opacity: 0; transform: translateY(9px); letter-spacing: .16em; } 20% { opacity: 1; transform: translateY(0); letter-spacing: .035em; } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-3px); } }
-                @keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
-                @keyframes petClashResult {
-                    0% { opacity: 0; transform: translate(-50%,-50%) scale(1.65); filter: blur(4px); }
-                    16% { opacity: 1; transform: translate(-50%,-50%) scale(0.92); filter: blur(0); }
-                    25%,72% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
-                    100% { opacity: 0; transform: translate(-50%,-58%) scale(1.04); }
-                }
-                @keyframes petBattleResult {
-                    0% { opacity: 0; transform: translateY(26px) scale(0.86); }
-                    20% { opacity: 1; transform: translateY(0) scale(1.04); }
-                    32%,100% { opacity: 1; transform: translateY(0) scale(1); }
-                }
-                @keyframes petBroadcastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
-                @keyframes petWeatherGradeIn { from { opacity: 0; } to { opacity: .58; } }
-                @keyframes petWeatherReadIn { 0% { opacity: 0; transform: translateX(-28px); filter: blur(7px); } 28% { opacity: 1; transform: translateX(0); filter: blur(0); } 100% { opacity: 1; transform: translateX(0); } }
-                @keyframes petWinnerHold { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 28% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 42%,100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
-                @keyframes petFinisherFrame { 0% { opacity:0; transform:scaleY(.15); } 18% { opacity:1; transform:scaleY(1); } 78% { opacity:1; } 100% { opacity:0; transform:scaleY(.82); } }
-                @keyframes petFinisherTitle { 0% { opacity:0; transform:translateY(12px) scale(1.3); letter-spacing:.32em; } 24% { opacity:1; transform:translateY(0) scale(1); letter-spacing:.16em; } 78% { opacity:1; } 100% { opacity:0; transform:translateY(-5px) scale(1.02); } }
-                @keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
-                @keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
-                @keyframes petHeroMotif { 0% { opacity: 0; transform: scale(1.65) rotate(-22deg); } 24% { opacity: .2; transform: scale(.94) rotate(4deg); } 100% { opacity: .08; transform: scale(1.08) rotate(0deg); } }
-                @keyframes petCutinSlab { 0% { opacity: 0; transform: scaleX(.72) skewX(-7deg); } 13% { opacity: 1; transform: scaleX(1.02) skewX(-7deg); } 22%,82% { opacity: 1; transform: scaleX(1) skewX(-7deg); } 100% { opacity: 0; transform: scaleX(.86) skewX(-7deg); } }
-                @keyframes petCutinPortrait { 0% { opacity: 0; transform: translateX(var(--portrait-entry)) scale(1.12); filter: contrast(1.8) brightness(1.7) blur(3px); } 18% { opacity: 1; transform: translateX(0) scale(.98); filter: contrast(1.08) brightness(1.08) blur(0); } 28%,82% { opacity: 1; transform: translateX(0) scale(1); filter: contrast(1.04) brightness(1.02) blur(0); } 100% { opacity: 0; transform: translateX(var(--portrait-exit)) scale(1.025); } }
-                @keyframes petCutinTitle { 0%,10% { opacity: 0; transform: translateY(18px) scale(.94); letter-spacing: .13em; } 24% { opacity: 1; transform: translateY(0) scale(1.025); letter-spacing: .025em; } 34%,82% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: .025em; } 100% { opacity: 0; transform: translateY(-6px) scale(1.01); } }
-                @keyframes petCutinChromatic { 0%,100% { opacity: 0; transform: translateX(-8%); } 17% { opacity: .62; } 72% { opacity: .2; transform: translateX(8%); } }
-                .pet-duel-hero-cutin { z-index: 16; padding-inline: clamp(22px,8vw,120px); gap: clamp(20px,4vw,64px); background: transparent; clip-path: none; animation-duration: var(--cutin-duration); }
-                .pet-duel-hero-cutin::before { clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); animation-duration: var(--cutin-duration); z-index: 1; }
-                .pet-duel-hero-cutin .pet-cutin-slab { position: absolute; inset: 0; z-index: 0; clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); background: linear-gradient(100deg,rgba(2,6,23,.12) 0%,rgba(2,6,23,.97) 18%,rgba(8,12,28,.98) 78%,rgba(2,6,23,.12) 100%); box-shadow: inset 0 0 110px var(--hero-base); transform-origin: center; animation: petCutinSlab var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
-                .pet-duel-hero-cutin .pet-cutin-slab::after { content:""; position:absolute; inset:22% 0 18%; border-block:1px solid color-mix(in srgb,var(--hero-glow) 72%,transparent); box-shadow:0 0 22px var(--hero-glow),inset 0 0 32px rgba(255,255,255,.04); }
-                .pet-duel-hero-cutin .pet-cutin-chroma { position:absolute; z-index:1; inset:18% -12%; opacity:0; background:linear-gradient(94deg,transparent 18%,var(--hero-base) 38%,transparent 48%,var(--hero-glow) 62%,transparent 82%); mix-blend-mode:screen; filter:blur(18px); animation:petCutinChromatic var(--cutin-duration) ease both; }
-                .pet-duel-hero-cutin .pet-cutin-motif { position: absolute; z-index: 1; top: 50%; translate: 0 -50%; color: var(--hero-glow); font: 900 clamp(180px,34vw,470px)/.72 Georgia,serif; text-shadow: 0 0 36px var(--hero-glow); opacity: .08; animation: petHeroMotif 920ms cubic-bezier(.16,.84,.24,1) both; pointer-events: none; }
-                .pet-duel-hero-cutin.player .pet-cutin-motif { left: 3%; }
-                .pet-duel-hero-cutin.enemy .pet-cutin-motif { right: 3%; }
-                .pet-duel-hero-cutin .pet-cutin-portrait { --portrait-entry:-90px; --portrait-exit:16px; position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); animation:petCutinPortrait var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
-                .pet-duel-hero-cutin.enemy .pet-cutin-portrait { --portrait-entry:90px; --portrait-exit:-16px; }
-                .pet-duel-hero-cutin .pet-cutin-portrait::after { content:""; position:absolute; z-index:-1; left:8%; right:8%; bottom:5%; height:24%; border-radius:50%; background:var(--hero-glow); filter:blur(22px); opacity:.32; transform:perspective(150px) rotateX(68deg); }
-                .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-model { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
-                .pet-duel-hero-cutin .pet-cutin-portrait > img { display: block; width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); object-fit: contain; }
-                .pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; animation:petCutinTitle var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
-                .pet-duel-hero-cutin .pet-cutin-text::before { content:""; width:clamp(78px,12vw,170px); height:3px; margin-bottom:4px; background:linear-gradient(90deg,var(--hero-glow),transparent); box-shadow:0 0 12px var(--hero-glow); }
-                .pet-duel-hero-cutin.enemy .pet-cutin-text::before { background:linear-gradient(270deg,var(--hero-glow),transparent); }
-                .pet-duel-hero-cutin .pet-cutin-pet { font-size: clamp(12px,1.5vw,19px); color: var(--hero-glow); text-shadow: 0 0 16px var(--hero-glow); }
-                .pet-duel-hero-cutin .pet-cutin-move { font-size: clamp(30px,5.4vw,68px); white-space: normal; text-wrap: balance; text-shadow: 0 0 18px var(--hero-glow),0 5px 14px #000; }
-                .pet-duel-hero-cutin .pet-cutin-kicker { width:max-content; padding:4px 8px; border:1px solid color-mix(in srgb,var(--hero-glow) 70%,transparent); border-radius:3px; background:rgba(2,6,23,.72); color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; box-shadow:0 0 14px color-mix(in srgb,var(--hero-glow) 22%,transparent); }
-                .pet-duel-hero-cutin.enemy .pet-cutin-kicker { align-self:flex-end; }
-                .pet-duel-hero-cutin .pet-cutin-release { color:rgba(226,232,240,.6); font:800 9px/1 Inter,system-ui,sans-serif; letter-spacing:.32em; text-transform:uppercase; }
-                .pet-move-scene { --move-entry:-72px; --move-exit:16px; position:absolute; z-index:12; top:12%; left:4.5%; width:min(560px,58vw); pointer-events:none; color:var(--move-text); animation:petDuelMoveScene var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
-                .pet-move-scene.enemy { --move-entry:72px; --move-exit:-16px; left:auto; right:4.5%; text-align:right; }
-                .pet-move-scene .pet-move-atmosphere { position:absolute; inset:-38px -60px; z-index:-2; background:radial-gradient(ellipse at 32% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); filter:blur(10px); opacity:.78; }
-                .pet-move-scene.enemy .pet-move-atmosphere { background:radial-gradient(ellipse at 68% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); }
-                .pet-move-scene .pet-move-streaks { --streak-start:-34%; --streak-end:24%; position:absolute; z-index:-1; inset:-26px -11vw; overflow:hidden; mask-image:linear-gradient(90deg,transparent,#000 20% 80%,transparent); }
-                .pet-move-scene.enemy .pet-move-streaks { --streak-start:34%; --streak-end:-24%; }
-                .pet-move-scene .pet-move-streaks::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(173deg,transparent 0 13px,color-mix(in srgb,var(--move-color) 58%,transparent) 14px 16px,transparent 17px 28px); animation:petDuelMoveStreak var(--move-duration) ease-out both; }
-                .pet-move-scene .pet-move-card { position:relative; overflow:hidden; padding:12px 18px 13px 20px; border-left:4px solid var(--move-color); background:linear-gradient(100deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(0 0,94% 0,100% 50%,94% 100%,0 100%); box-shadow:0 12px 34px rgba(0,0,0,.58),inset 0 0 32px color-mix(in srgb,var(--move-color) 10%,transparent); }
-                .pet-move-scene.enemy .pet-move-card { padding:12px 20px 13px 18px; border-left:0; border-right:4px solid var(--move-color); background:linear-gradient(260deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(6% 0,100% 0,100% 100%,6% 100%,0 50%); }
-                .pet-move-scene .pet-move-card::after { content:""; position:absolute; inset:0; background:linear-gradient(110deg,transparent 22%,rgba(255,255,255,.13) 47%,transparent 61%); transform:translateX(-120%); animation:petDuelMoveStreak var(--move-duration) ease-out both; mix-blend-mode:screen; }
-                .pet-move-scene .pet-move-meta { display:flex; align-items:center; gap:8px; color:color-mix(in srgb,var(--move-text) 76%,#94a3b8); font:900 9px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; text-transform:uppercase; }
-                .pet-move-scene.enemy .pet-move-meta { justify-content:flex-end; }
-                .pet-move-scene .pet-move-glyph { display:grid; place-items:center; width:19px; height:19px; border:1px solid var(--move-color); border-radius:50%; color:var(--move-color); box-shadow:0 0 12px color-mix(in srgb,var(--move-color) 55%,transparent); }
-                .pet-move-scene .pet-move-title { margin-top:5px; color:var(--move-text); font:900 clamp(23px,3.5vw,46px)/.94 var(--font-display); letter-spacing:.035em; text-transform:uppercase; text-shadow:0 3px 10px #000,0 0 20px color-mix(in srgb,var(--move-color) 48%,transparent); text-wrap:balance; animation:petDuelMoveWord var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
-                .pet-move-scene.tactical .pet-move-title { font-size:clamp(18px,2.3vw,28px); }
-                .pet-move-scene .pet-move-rail { width:78%; height:2px; margin-top:9px; transform-origin:left; background:linear-gradient(90deg,var(--move-color),transparent); box-shadow:0 0 10px var(--move-color); animation:petDuelMoveRail var(--move-duration) ease both; }
-                .pet-move-scene.enemy .pet-move-rail { margin-left:auto; transform-origin:right; background:linear-gradient(270deg,var(--move-color),transparent); }
-                .pet-duel-mobile-qa .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; }
-                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; }
-                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; }
-                .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; }
-                .pet-duel-mobile-qa .pet-move-scene { top:15%; left:12px; right:12px; width:auto; }
-                .pet-duel-mobile-qa .pet-move-scene .pet-move-card { padding-block:9px 10px; }
-                .pet-duel-mobile-qa .pet-move-scene .pet-move-title { font-size:25px; }
-                .pet-duel-weather-grade { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.58; mix-blend-mode:color; background:radial-gradient(ellipse at 50% 46%,transparent 24%,color-mix(in srgb,var(--weather-color) 18%,transparent) 68%,color-mix(in srgb,var(--weather-color) 42%,#03050b) 100%); animation:petWeatherGradeIn 680ms ease-out both; }
-                .pet-duel-weather-grade.thunderstorm,.pet-duel-weather-grade.eclipse { mix-blend-mode:multiply; background:radial-gradient(ellipse at 50% 44%,transparent 22%,rgba(8,6,20,.2) 58%,rgba(4,3,12,.72) 100%); }
-                .pet-duel-weather-grade.blizzard { mix-blend-mode:screen; opacity:.24; background:linear-gradient(155deg,rgba(219,243,255,.12),transparent 52%,rgba(172,220,255,.34)); }
-                .pet-duel-weather-read { --weather-color:#9d7cff; position:absolute; z-index:10; top:76px; left:18px; display:grid; grid-template-columns:auto auto; align-items:end; gap:3px 9px; max-width:min(360px,42vw); padding:9px 14px 10px 13px; border-left:3px solid var(--weather-color); background:linear-gradient(100deg,rgba(2,6,18,.9),rgba(2,6,18,.52),transparent); box-shadow:-8px 0 28px color-mix(in srgb,var(--weather-color) 18%,transparent); pointer-events:none; animation:petWeatherReadIn 620ms cubic-bezier(.16,.84,.24,1) both; text-transform:uppercase; }
-                .pet-duel-weather-read span { color:#94a3b8; font:900 8px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; }
-                .pet-duel-weather-read strong { color:#f8fafc; font:900 16px/.95 var(--font-display); letter-spacing:.07em; text-shadow:0 0 16px var(--weather-color); }
-                .pet-duel-weather-read em { grid-column:1/-1; color:color-mix(in srgb,var(--weather-color) 76%,#fff); font:800 9px/1.2 Inter,system-ui,sans-serif; font-style:normal; letter-spacing:.12em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-                .pet-duel-weather-read small { grid-column:1/-1; color:#d7e1f2; font:700 9px/1.35 Inter,system-ui,sans-serif; letter-spacing:.02em; text-transform:none; }
-                @media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } .pet-duel-weather-read { top:92px;left:10px;max-width:56vw;padding:7px 10px; } .pet-duel-weather-read strong { font-size:13px; } .pet-duel-weather-read span { font-size:7px; } }
-                @media (prefers-reduced-motion: reduce) {
-                    .pet-duel-hero-cutin,.pet-duel-hero-cutin::before,.pet-duel-hero-cutin .pet-cutin-slab,.pet-duel-hero-cutin .pet-cutin-chroma,.pet-duel-hero-cutin .pet-cutin-portrait,.pet-duel-hero-cutin .pet-cutin-text,.pet-move-scene,.pet-move-scene .pet-move-title,.pet-move-scene .pet-move-rail { animation:none !important; opacity:1; transform:none; filter:none; }
-                    .pet-move-scene .pet-move-streaks { display:none; }
-                    .pet-duel-weather-grade,.pet-duel-weather-read { animation:none !important; }
-                }
+@keyframes petDuelFlash { 0% { opacity: 0; } 14% { opacity: var(--fp, 0.4); } 100% { opacity: 0; } }
+@keyframes petDuelCallout { 0% { opacity: 0; transform: scale(0.5); } 18% { opacity: 1; transform: scale(1.12); } 70% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.95); } }
+@keyframes petDuelCombo { 0% { opacity: 0; transform: scale(1.6); } 25% { opacity: 1; transform: scale(1); } 78% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes petDuelCritPop { 0% { transform: scale(0.4); } 40% { transform: scale(1.35); } 100% { transform: scale(1); } }
+@keyframes petDuelVs { 0% { opacity: 0; transform: scale(2.2) rotate(-8deg); } 45% { opacity: 1; transform: scale(0.92) rotate(0deg); } 60% { transform: scale(1.04); } 100% { transform: scale(1); } }
+@keyframes petDuelVsName { 0% { opacity: 0; transform: translateY(14px); } 100% { opacity: 1; transform: translateY(0); } }
+@keyframes petDuelAnnounce { 0% { opacity: 0; transform: translateX(-50%) translateY(16px) scale(0.96); } 12% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 82% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-6px); } }
+@keyframes petDuelCmdEcho { 0% { opacity: 0; transform: translateY(10px) scale(0.82); } 16% { opacity: 1; transform: translateY(0) scale(1.06); } 30% { transform: translateY(0) scale(1); } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-6px) scale(0.98); } }
+@keyframes petDuelBriefIn { 0% { opacity: 0; transform: translateY(18px) scale(.96); } 65% { opacity: 1; transform: translateY(-3px) scale(1.01); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes petDuelMoveScene {
+    0% { opacity: 0; transform: translate3d(var(--move-entry),8px,0) scale(.94); filter: blur(5px); }
+    15% { opacity: 1; transform: translate3d(0,0,0) scale(1.015); filter: blur(0); }
+    24%,76% { opacity: 1; transform: translate3d(0,0,0) scale(1); filter: blur(0); }
+    100% { opacity: 0; transform: translate3d(var(--move-exit),-5px,0) scale(1.01); filter: blur(1px); }
+}
+@keyframes petDuelMoveRail { 0% { transform: scaleX(0); opacity: 0; } 16% { transform: scaleX(1); opacity: 1; } 78% { opacity: 1; } 100% { transform: scaleX(.72); opacity: 0; } }
+@keyframes petDuelMoveStreak { 0% { opacity: 0; transform: translateX(var(--streak-start)) skewX(-18deg); } 22% { opacity: .58; } 100% { opacity: 0; transform: translateX(var(--streak-end)) skewX(-18deg); } }
+@keyframes petDuelMoveWord { 0% { opacity: 0; transform: translateY(9px); letter-spacing: .16em; } 20% { opacity: 1; transform: translateY(0); letter-spacing: .035em; } 78% { opacity: 1; } 100% { opacity: 0; transform: translateY(-3px); } }
+@keyframes petDuelTacticalMove { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.9); } 18% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 76% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
+@keyframes petClashResult {
+    0% { opacity: 0; transform: translate(-50%,-50%) scale(1.65); filter: blur(4px); }
+    16% { opacity: 1; transform: translate(-50%,-50%) scale(0.92); filter: blur(0); }
+    25%,72% { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%,-58%) scale(1.04); }
+}
+@keyframes petBattleResult {
+    0% { opacity: 0; transform: translateY(26px) scale(0.86); }
+    20% { opacity: 1; transform: translateY(0) scale(1.04); }
+    32%,100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes petBroadcastIn { from { opacity: 0; transform: translateX(-50%) translateY(-10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+@keyframes petWeatherGradeIn { from { opacity: 0; } to { opacity: .58; } }
+@keyframes petWeatherReadIn { 0% { opacity: 0; transform: translateX(-28px); filter: blur(7px); } 28% { opacity: 1; transform: translateX(0); filter: blur(0); } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes petWinnerHold { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.72); } 28% { opacity: 1; transform: translate(-50%,-50%) scale(1.08); } 42%,100% { opacity: 1; transform: translate(-50%,-50%) scale(1); } }
+@keyframes petFinisherFrame { 0% { opacity:0; transform:scaleY(.15); } 18% { opacity:1; transform:scaleY(1); } 78% { opacity:1; } 100% { opacity:0; transform:scaleY(.82); } }
+@keyframes petFinisherTitle { 0% { opacity:0; transform:translateY(12px) scale(1.3); letter-spacing:.32em; } 24% { opacity:1; transform:translateY(0) scale(1); letter-spacing:.16em; } 78% { opacity:1; } 100% { opacity:0; transform:translateY(-5px) scale(1.02); } }
+@keyframes petSignatureFocus { 0% { opacity: 0; } 18% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes petSignatureCue { 0% { opacity: 0; transform: translateX(-50%) translateY(8px) scale(0.92); } 20% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } 72% { opacity: 1; } 100% { opacity: 0; transform: translateX(-50%) translateY(-5px) scale(0.98); } }
+@keyframes petHeroMotif { 0% { opacity: 0; transform: scale(1.65) rotate(-22deg); } 24% { opacity: .2; transform: scale(.94) rotate(4deg); } 100% { opacity: .08; transform: scale(1.08) rotate(0deg); } }
+@keyframes petCutinSlab { 0% { opacity: 0; transform: scaleX(.72) skewX(-7deg); } 13% { opacity: 1; transform: scaleX(1.02) skewX(-7deg); } 22%,82% { opacity: 1; transform: scaleX(1) skewX(-7deg); } 100% { opacity: 0; transform: scaleX(.86) skewX(-7deg); } }
+@keyframes petCutinPortrait { 0% { opacity: 0; transform: translateX(var(--portrait-entry)) scale(1.12); filter: contrast(1.8) brightness(1.7) blur(3px); } 18% { opacity: 1; transform: translateX(0) scale(.98); filter: contrast(1.08) brightness(1.08) blur(0); } 28%,82% { opacity: 1; transform: translateX(0) scale(1); filter: contrast(1.04) brightness(1.02) blur(0); } 100% { opacity: 0; transform: translateX(var(--portrait-exit)) scale(1.025); } }
+@keyframes petCutinTitle { 0%,10% { opacity: 0; transform: translateY(18px) scale(.94); letter-spacing: .13em; } 24% { opacity: 1; transform: translateY(0) scale(1.025); letter-spacing: .025em; } 34%,82% { opacity: 1; transform: translateY(0) scale(1); letter-spacing: .025em; } 100% { opacity: 0; transform: translateY(-6px) scale(1.01); } }
+@keyframes petCutinChromatic { 0%,100% { opacity: 0; transform: translateX(-8%); } 17% { opacity: .62; } 72% { opacity: .2; transform: translateX(8%); } }
+.pet-duel-hero-cutin { z-index: 16; padding-inline: clamp(22px,8vw,120px); gap: clamp(20px,4vw,64px); background: transparent; clip-path: none; animation-duration: var(--cutin-duration); }
+.pet-duel-hero-cutin::before { clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); animation-duration: var(--cutin-duration); z-index: 1; }
+.pet-duel-hero-cutin .pet-cutin-slab { position: absolute; inset: 0; z-index: 0; clip-path: polygon(0 22%,100% 8%,100% 78%,0 92%); background: linear-gradient(100deg,rgba(2,6,23,.12) 0%,rgba(2,6,23,.97) 18%,rgba(8,12,28,.98) 78%,rgba(2,6,23,.12) 100%); box-shadow: inset 0 0 110px var(--hero-base); transform-origin: center; animation: petCutinSlab var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+.pet-duel-hero-cutin .pet-cutin-slab::after { content:""; position:absolute; inset:22% 0 18%; border-block:1px solid color-mix(in srgb,var(--hero-glow) 72%,transparent); box-shadow:0 0 22px var(--hero-glow),inset 0 0 32px rgba(255,255,255,.04); }
+.pet-duel-hero-cutin .pet-cutin-chroma { position:absolute; z-index:1; inset:18% -12%; opacity:0; background:linear-gradient(94deg,transparent 18%,var(--hero-base) 38%,transparent 48%,var(--hero-glow) 62%,transparent 82%); mix-blend-mode:screen; filter:blur(18px); animation:petCutinChromatic var(--cutin-duration) ease both; }
+.pet-duel-hero-cutin .pet-cutin-motif { position: absolute; z-index: 1; top: 50%; translate: 0 -50%; color: var(--hero-glow); font: 900 clamp(180px,34vw,470px)/.72 Georgia,serif; text-shadow: 0 0 36px var(--hero-glow); opacity: .08; animation: petHeroMotif 920ms cubic-bezier(.16,.84,.24,1) both; pointer-events: none; }
+.pet-duel-hero-cutin.player .pet-cutin-motif { left: 3%; }
+.pet-duel-hero-cutin.enemy .pet-cutin-motif { right: 3%; }
+.pet-duel-hero-cutin .pet-cutin-portrait { --portrait-entry:-90px; --portrait-exit:16px; position: relative; z-index: 2; filter: drop-shadow(0 14px 20px rgba(0,0,0,.68)); animation:petCutinPortrait var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+.pet-duel-hero-cutin.enemy .pet-cutin-portrait { --portrait-entry:90px; --portrait-exit:-16px; }
+.pet-duel-hero-cutin .pet-cutin-portrait::after { content:""; position:absolute; z-index:-1; left:8%; right:8%; bottom:5%; height:24%; border-radius:50%; background:var(--hero-glow); filter:blur(22px); opacity:.32; transform:perspective(150px) rotateX(68deg); }
+.pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-model { width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); overflow: visible; }
+.pet-duel-hero-cutin .pet-cutin-portrait > img { display: block; width: clamp(170px,28vw,390px); height: clamp(170px,28vw,390px); object-fit: contain; }
+.pet-duel-hero-cutin .pet-cutin-text { position: relative; z-index: 2; max-width: min(52vw,760px); gap: 8px; animation:petCutinTitle var(--cutin-duration) cubic-bezier(.16,.84,.24,1) both; }
+.pet-duel-hero-cutin .pet-cutin-text::before { content:""; width:clamp(78px,12vw,170px); height:3px; margin-bottom:4px; background:linear-gradient(90deg,var(--hero-glow),transparent); box-shadow:0 0 12px var(--hero-glow); }
+.pet-duel-hero-cutin.enemy .pet-cutin-text::before { background:linear-gradient(270deg,var(--hero-glow),transparent); }
+.pet-duel-hero-cutin .pet-cutin-pet { font-size: clamp(12px,1.5vw,19px); color: var(--hero-glow); text-shadow: 0 0 16px var(--hero-glow); }
+.pet-duel-hero-cutin .pet-cutin-move { font-size: clamp(30px,5.4vw,68px); white-space: normal; text-wrap: balance; text-shadow: 0 0 18px var(--hero-glow),0 5px 14px #000; }
+.pet-duel-hero-cutin .pet-cutin-kicker { width:max-content; padding:4px 8px; border:1px solid color-mix(in srgb,var(--hero-glow) 70%,transparent); border-radius:3px; background:rgba(2,6,23,.72); color: #fff4c7; font: 900 clamp(10px,1.1vw,14px)/1 var(--font-display); letter-spacing: .24em; text-transform: uppercase; box-shadow:0 0 14px color-mix(in srgb,var(--hero-glow) 22%,transparent); }
+.pet-duel-hero-cutin.enemy .pet-cutin-kicker { align-self:flex-end; }
+.pet-duel-hero-cutin .pet-cutin-release { color:rgba(226,232,240,.6); font:800 9px/1 Inter,system-ui,sans-serif; letter-spacing:.32em; text-transform:uppercase; }
+.pet-move-scene { --move-entry:-72px; --move-exit:16px; position:absolute; z-index:12; top:12%; left:4.5%; width:min(560px,58vw); pointer-events:none; color:var(--move-text); animation:petDuelMoveScene var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
+.pet-move-scene.enemy { --move-entry:72px; --move-exit:-16px; left:auto; right:4.5%; text-align:right; }
+.pet-move-scene .pet-move-atmosphere { position:absolute; inset:-38px -60px; z-index:-2; background:radial-gradient(ellipse at 32% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); filter:blur(10px); opacity:.78; }
+.pet-move-scene.enemy .pet-move-atmosphere { background:radial-gradient(ellipse at 68% 50%,color-mix(in srgb,var(--move-color) 34%,transparent),transparent 66%); }
+.pet-move-scene .pet-move-streaks { --streak-start:-34%; --streak-end:24%; position:absolute; z-index:-1; inset:-26px -11vw; overflow:hidden; mask-image:linear-gradient(90deg,transparent,#000 20% 80%,transparent); }
+.pet-move-scene.enemy .pet-move-streaks { --streak-start:34%; --streak-end:-24%; }
+.pet-move-scene .pet-move-streaks::before { content:""; position:absolute; inset:0; background:repeating-linear-gradient(173deg,transparent 0 13px,color-mix(in srgb,var(--move-color) 58%,transparent) 14px 16px,transparent 17px 28px); animation:petDuelMoveStreak var(--move-duration) ease-out both; }
+.pet-move-scene .pet-move-card { position:relative; overflow:hidden; padding:12px 18px 13px 20px; border-left:4px solid var(--move-color); background:linear-gradient(100deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(0 0,94% 0,100% 50%,94% 100%,0 100%); box-shadow:0 12px 34px rgba(0,0,0,.58),inset 0 0 32px color-mix(in srgb,var(--move-color) 10%,transparent); }
+.pet-move-scene.enemy .pet-move-card { padding:12px 20px 13px 18px; border-left:0; border-right:4px solid var(--move-color); background:linear-gradient(260deg,rgba(2,6,18,.94),rgba(5,9,22,.82) 72%,transparent); clip-path:polygon(6% 0,100% 0,100% 100%,6% 100%,0 50%); }
+.pet-move-scene .pet-move-card::after { content:""; position:absolute; inset:0; background:linear-gradient(110deg,transparent 22%,rgba(255,255,255,.13) 47%,transparent 61%); transform:translateX(-120%); animation:petDuelMoveStreak var(--move-duration) ease-out both; mix-blend-mode:screen; }
+.pet-move-scene .pet-move-meta { display:flex; align-items:center; gap:8px; color:color-mix(in srgb,var(--move-text) 76%,#94a3b8); font:900 9px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; text-transform:uppercase; }
+.pet-move-scene.enemy .pet-move-meta { justify-content:flex-end; }
+.pet-move-scene .pet-move-glyph { display:grid; place-items:center; width:19px; height:19px; border:1px solid var(--move-color); border-radius:50%; color:var(--move-color); box-shadow:0 0 12px color-mix(in srgb,var(--move-color) 55%,transparent); }
+.pet-move-scene .pet-move-title { margin-top:5px; color:var(--move-text); font:900 clamp(23px,3.5vw,46px)/.94 var(--font-display); letter-spacing:.035em; text-transform:uppercase; text-shadow:0 3px 10px #000,0 0 20px color-mix(in srgb,var(--move-color) 48%,transparent); text-wrap:balance; animation:petDuelMoveWord var(--move-duration) cubic-bezier(.16,.84,.24,1) both; }
+.pet-move-scene.tactical .pet-move-title { font-size:clamp(18px,2.3vw,28px); }
+.pet-move-scene .pet-move-rail { width:78%; height:2px; margin-top:9px; transform-origin:left; background:linear-gradient(90deg,var(--move-color),transparent); box-shadow:0 0 10px var(--move-color); animation:petDuelMoveRail var(--move-duration) ease both; }
+.pet-move-scene.enemy .pet-move-rail { margin-left:auto; transform-origin:right; background:linear-gradient(270deg,var(--move-color),transparent); }
+.pet-duel-mobile-qa .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; }
+.pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; }
+.pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; }
+.pet-duel-mobile-qa .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; }
+.pet-duel-mobile-qa .pet-move-scene { top:15%; left:12px; right:12px; width:auto; }
+.pet-duel-mobile-qa .pet-move-scene .pet-move-card { padding-block:9px 10px; }
+.pet-duel-mobile-qa .pet-move-scene .pet-move-title { font-size:25px; }
+.pet-duel-weather-grade { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.58; mix-blend-mode:color; background:radial-gradient(ellipse at 50% 46%,transparent 24%,color-mix(in srgb,var(--weather-color) 18%,transparent) 68%,color-mix(in srgb,var(--weather-color) 42%,#03050b) 100%); animation:petWeatherGradeIn 680ms ease-out both; }
+.pet-duel-weather-grade.thunderstorm,.pet-duel-weather-grade.eclipse { mix-blend-mode:multiply; background:radial-gradient(ellipse at 50% 44%,transparent 22%,rgba(8,6,20,.2) 58%,rgba(4,3,12,.72) 100%); }
+.pet-duel-weather-grade.blizzard { mix-blend-mode:screen; opacity:.24; background:linear-gradient(155deg,rgba(219,243,255,.12),transparent 52%,rgba(172,220,255,.34)); }
+.pet-duel-weather-read { --weather-color:#9d7cff; position:absolute; z-index:10; top:76px; left:18px; display:grid; grid-template-columns:auto auto; align-items:end; gap:3px 9px; max-width:min(360px,42vw); padding:9px 14px 10px 13px; border-left:3px solid var(--weather-color); background:linear-gradient(100deg,rgba(2,6,18,.9),rgba(2,6,18,.52),transparent); box-shadow:-8px 0 28px color-mix(in srgb,var(--weather-color) 18%,transparent); pointer-events:none; animation:petWeatherReadIn 620ms cubic-bezier(.16,.84,.24,1) both; text-transform:uppercase; }
+.pet-duel-weather-read span { color:#94a3b8; font:900 8px/1 Inter,system-ui,sans-serif; letter-spacing:.2em; }
+.pet-duel-weather-read strong { color:#f8fafc; font:900 16px/.95 var(--font-display); letter-spacing:.07em; text-shadow:0 0 16px var(--weather-color); }
+.pet-duel-weather-read em { grid-column:1/-1; color:color-mix(in srgb,var(--weather-color) 76%,#fff); font:800 9px/1.2 Inter,system-ui,sans-serif; font-style:normal; letter-spacing:.12em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.pet-duel-weather-read small { grid-column:1/-1; color:#d7e1f2; font:700 9px/1.35 Inter,system-ui,sans-serif; letter-spacing:.02em; text-transform:none; }
+@media (max-width: 600px) { .pet-duel-hero-cutin { padding-inline: 12px; gap: 8px; } .pet-duel-hero-cutin .pet-cutin-portrait .pet-battle-avatar, .pet-duel-hero-cutin .pet-cutin-portrait > img, .pet-duel-hero-cutin .pet-cutin-model { width: 145px; height: 145px; } .pet-duel-hero-cutin .pet-cutin-text { flex: 1; min-width: 0; max-width: 213px; } .pet-duel-hero-cutin .pet-cutin-move { font-size: 26px; } .pet-duel-hero-cutin .pet-cutin-release { letter-spacing:.18em; } .pet-move-scene { top:15%; left:12px; right:12px; width:auto; } .pet-move-scene .pet-move-card { padding-block:9px 10px; } .pet-move-scene .pet-move-title { font-size:25px; } .pet-duel-mode-badge { display: none; } .pet-duel-top-controls button { padding: 5px 7px !important; font-size: 10px !important; } .pet-duel-weather-read { top:92px;left:10px;max-width:56vw;padding:7px 10px; } .pet-duel-weather-read strong { font-size:13px; } .pet-duel-weather-read span { font-size:7px; } }
+@media (prefers-reduced-motion: reduce) {
+    .pet-duel-hero-cutin,.pet-duel-hero-cutin::before,.pet-duel-hero-cutin .pet-cutin-slab,.pet-duel-hero-cutin .pet-cutin-chroma,.pet-duel-hero-cutin .pet-cutin-portrait,.pet-duel-hero-cutin .pet-cutin-text,.pet-move-scene,.pet-move-scene .pet-move-title,.pet-move-scene .pet-move-rail { animation:none !important; opacity:1; transform:none; filter:none; }
+    .pet-move-scene .pet-move-streaks { display:none; }
+    .pet-duel-weather-grade,.pet-duel-weather-read { animation:none !important; }
+}
             `}</style>
             {/* Vignette — darkens the screen edges so the eye stays on the fight. */}
             {visualLayers.post && <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 50% 46%, transparent 42%, rgba(0,0,0,0.55) 100%)" }} />}

@@ -832,7 +832,6 @@ html body.ui-scroll-locked {
 
 .app-shell:not(.screen-start) .center-game > :where(.profile-page-card, .inventory-page, .card) {
   width: 100%;
-  max-width: 1280px !important;
   margin-inline: auto;
 }
 
@@ -1390,7 +1389,6 @@ html body.ui-scroll-locked {
 
 @media (max-width: 800px) {
   html.wm-zoom .world-map-scroll {
-    height: clamp(330px, calc(100dvh - 214px), 620px) !important;
     border-width: 2px !important;
     border-color: rgba(230, 196, 119, 0.58) !important;
   }

@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { after, before, describe, it } from "node:test";
-import { retryDynamicImport } from "./lazyWithRetry";
+import { cacheDynamicImport, retryDynamicImport } from "./lazyWithRetry";
 import { isChunkLoadError } from "./chunk-load-recovery";
 
 const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -13,6 +13,33 @@ after(() => {
 });
 
 describe("lazy screen import recovery", () => {
+    it("shares a pending warm-up with activation and repeated entry", async () => {
+        let attempts = 0;
+        let complete!: (value: string) => void;
+        const load = cacheDynamicImport(() => {
+            attempts += 1;
+            return new Promise<string>(resolve => { complete = resolve; });
+        });
+        const warm = load();
+        assert.equal(load(), warm);
+        complete("ready");
+        assert.equal(await retryDynamicImport(load), "ready");
+        assert.equal(await load(), "ready");
+        assert.equal(attempts, 1);
+    });
+
+    it("retains a failed CSS warm-up so activation cannot skip its stylesheet", async () => {
+        let attempts = 0;
+        const load = cacheDynamicImport(async () => {
+            attempts += 1;
+            if (attempts === 1) throw new Error("Unable to preload CSS for /assets/optional.css");
+            return "unstyled feature";
+        });
+        await assert.rejects(load());
+        await assert.rejects(retryDynamicImport(load, 3, 0, 1000), /Unable to preload CSS/);
+        assert.equal(attempts, 1);
+    });
+
     it("fails into reload recovery before Vite can skip a failed screen stylesheet", async () => {
         let attempts = 0;
         await assert.rejects(retryDynamicImport(async () => {

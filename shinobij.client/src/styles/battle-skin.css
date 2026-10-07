@@ -17,7 +17,6 @@
 /* The archive is shown outside the live combat shell, so give its readable
    category colors their own dark surface and explicit contrast. */
 .battle-log-screen {
-    color: #e9eef6;
     background: linear-gradient(155deg, rgba(12, 23, 36, 0.98), rgba(5, 11, 20, 0.98));
     border: 1px solid rgba(196, 162, 90, 0.28);
     border-radius: 14px;
@@ -1397,11 +1396,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         align-self: stretch;
         display: flex !important;
         flex-direction: column;
-        background:
-            linear-gradient(180deg, rgba(8, 14, 24, 0.96), rgba(3, 7, 14, 0.98)) !important;
         border: 1px solid var(--combat-frame) !important;
         border-radius: 8px !important;
-        padding: 22px 22px 18px !important;
         overflow: hidden auto !important;
         box-shadow:
             inset 0 0 0 1px rgba(255, 255, 255, 0.035),
@@ -1423,7 +1419,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .arena-fullscreen.pvp-battle-layout .combat-main-area {
         position: relative;
         display: grid !important;
-        grid-template-rows: auto auto minmax(300px, 1fr) auto minmax(120px, 0.22fr) minmax(96px, 0.18fr);
         min-width: 0;
         min-height: 0;
         gap: 8px;
@@ -1438,9 +1433,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     /* Rookie Explore/mission fights add the First Fight Plan as a real grid
        child. Give it its own row so it cannot shift the terrain strip into the
        battlefield row and collapse the actual hex board to a thin sliver. */
-    .arena-fullscreen.pvp-battle-layout .combat-layout.has-action-notice .combat-main-area {
-        grid-template-rows: auto auto auto minmax(300px, 1fr) auto minmax(120px, 0.22fr) minmax(96px, 0.18fr);
-    }
 
     .arena-fullscreen.pvp-battle-layout .arena-top-panel {
         display: none !important;
@@ -1451,11 +1443,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
         align-items: center;
-        gap: 18px;
         min-height: 94px;
         margin: 0 !important;
-        padding: 12px 28px !important;
-        background: rgba(4, 8, 14, 0.88) !important;
         border: 1px solid var(--combat-frame-faint) !important;
         border-radius: 7px !important;
         box-shadow: inset 0 0 28px rgba(0, 0, 0, 0.38);
@@ -1465,7 +1454,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         display: block;
         margin-bottom: 8px;
         color: #b9dce5 !important;
-        font: 700 12px/1 var(--font-display) !important;
         letter-spacing: 0.08em;
         text-transform: uppercase;
     }
@@ -1476,14 +1464,10 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
 
     .arena-fullscreen.pvp-battle-layout .dual-ap-panel small {
         display: block;
-        margin-top: 7px;
-        color: rgba(232, 237, 245, 0.82) !important;
-        font: 700 13px/1 Inter, sans-serif !important;
         letter-spacing: 0;
     }
 
     .arena-fullscreen.pvp-battle-layout .dual-ap-panel .hud-bar {
-        height: 20px !important;
         border-radius: 999px !important;
         border-color: rgba(96, 165, 250, 0.72) !important;
     }
@@ -1492,15 +1476,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         border-color: rgba(239, 68, 68, 0.72) !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .round-timer-display {
-        min-width: 88px;
-    }
-
     .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-ring {
-        width: 70px !important;
-        height: 70px !important;
         border-width: 4px !important;
-        background: radial-gradient(circle, rgba(232, 212, 150, 0.18), rgba(0, 0, 0, 0.72) 68%) !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .round-timer-display .round-timer-num {
@@ -1512,7 +1489,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         justify-content: center;
         min-height: 26px;
         margin: -20px auto 0 !important;
-        padding: 4px 24px !important;
         /* fit-content, not a fixed 72%: short strips stay a tight centered
            pill, long ones (weather buffs, weekly-boss guard cue) widen before
            wrapping into a multi-line blob. */
@@ -1573,8 +1549,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button,
     html[data-vp="xl"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button,
     html[data-vp="lg"] .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
-        min-height: 52px !important;
-        padding: 8px 12px !important;
         text-align: left;
     }
 
@@ -1616,11 +1590,9 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .arena-fullscreen.pvp-battle-layout .combat-text-log {
         order: 6;
         display: block !important;
-        max-height: 120px !important;
         min-height: 0 !important;
         margin: 0 !important;
         overflow: hidden auto !important;
-        background: rgba(4, 8, 14, 0.88) !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .battle-chat-col,
@@ -1642,11 +1614,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         padding: 16px 14px !important;
     }
 
-    .arena-fullscreen.pvp-battle-layout .combat-avatar {
-        width: 88px !important;
-        height: 88px !important;
-    }
-
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar {
         grid-template-columns: repeat(4, minmax(96px, 1fr));
     }
@@ -1666,8 +1633,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
 
     .arena-fullscreen.pvp-battle-layout .combat-layout {
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) 72px minmax(0, 1fr) !important;
-        grid-template-rows: auto auto minmax(260px, 42dvh) auto auto !important;
         gap: 6px !important;
         align-items: stretch !important;
         width: 100% !important;
@@ -1931,8 +1896,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         grid-column: 1 / -1 !important;
         grid-row: 3 !important;
         order: initial !important;
-        height: 100% !important;
-        min-height: 260px !important;
         max-height: none !important;
         margin: 0 !important;
         padding: 4px !important;
@@ -1989,7 +1952,6 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
         grid-column: 1 / -1 !important;
         grid-row: 5 !important;
         display: grid !important;
-        grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
         gap: 5px !important;
         margin: 0 !important;
         padding: 7px !important;
@@ -1999,10 +1961,8 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     }
 
     .arena-fullscreen.pvp-battle-layout .shinobi-command-bar button {
-        min-height: 58px !important;
         padding: 5px 2px !important;
         justify-content: center !important;
-        text-align: center !important;
         gap: 2px !important;
     }
 
@@ -2019,22 +1979,13 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .arena-fullscreen.pvp-battle-layout .combat-jutsu-bar {
         grid-column: 1 / -1 !important;
         grid-row: 6 !important;
-        max-height: 240px !important;
-        min-height: 148px !important;
         margin: 0 !important;
         padding: 7px !important;
         border-radius: 8px !important;
-        overflow: hidden auto !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .combat-equipped-jutsu-grid {
         display: grid !important;
-        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-        gap: 6px !important;
-    }
-
-    .arena-fullscreen.pvp-battle-layout .combat-jutsu-card-wrap {
-        min-height: 118px !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .combat-jutsu-button {
@@ -2049,12 +2000,9 @@ body > .combat-detail-backdrop .combat-item-detail-popover .combat-jutsu-detail-
     .arena-fullscreen.pvp-battle-layout .combat-text-log {
         grid-column: 1 / -1 !important;
         grid-row: 5 / span 2 !important;
-        max-height: 360px !important;
-        min-height: 250px !important;
         margin: 0 !important;
         padding: 0 !important;
         border-radius: 8px !important;
-        overflow: hidden auto !important;
     }
 
     .arena-fullscreen.pvp-battle-layout .combat-main-area.bt-actions .combat-text-log,

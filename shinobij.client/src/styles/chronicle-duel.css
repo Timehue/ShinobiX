@@ -739,7 +739,6 @@ button.chronicle-card {
 .chronicle-table {
   max-width: 1580px;
   margin: auto;
-  padding: clamp(8px, 1.4vw, 18px);
   border: 1px solid #3b4651;
   border-radius: 14px;
   /* Neutral arena art keeps the table painted even before a Field Card
@@ -770,7 +769,6 @@ button.chronicle-card {
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: 12px;
-  margin: -2px -2px 12px;
   border: 1px solid rgba(212, 172, 101, 0.34);
   border-radius: 8px;
   background: linear-gradient(
@@ -779,7 +777,6 @@ button.chronicle-card {
     rgba(30, 34, 30, 0.91),
     rgba(8, 15, 22, 0.94)
   );
-  padding: 8px 12px;
   box-shadow: inset 0 0 24px rgba(218, 176, 100, 0.06);
 }
 .chronicle-room-banner span,
@@ -861,17 +858,9 @@ button.chronicle-card {
   min-width: 0;
 }
 .chronicle-combatant b {
-  min-width: 86px;
   border: 1px solid rgba(238, 190, 105, 0.44);
   border-radius: 999px;
-  background: rgba(6, 11, 17, 0.82);
-  padding: 5px 9px;
   text-align: center;
-}
-.chronicle-combatant b small {
-  color: #9fb2c2;
-  font-size: 0.58rem;
-  letter-spacing: 0.12em;
 }
 .chronicle-health-meter {
   position: relative;
@@ -897,14 +886,11 @@ button.chronicle-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 60px;
-  margin: -4px auto 8px;
   padding-inline: 28px;
   overflow: hidden;
 }
 .chronicle-opponent-hand__card {
   width: 48px;
-  margin-left: -23px;
   filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.65));
 }
 .chronicle-opponent-hand__card:first-child {
@@ -950,9 +936,7 @@ button.chronicle-card {
   text-align: center;
 }
 .chronicle-turn span {
-  color: #9fc6d7;
   font-size: 0.7rem;
-  letter-spacing: 0.15em;
 }
 .chronicle-turn em {
   color: #e8a4ff;
@@ -961,8 +945,6 @@ button.chronicle-card {
 .chronicle-phase-rail {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 5px;
-  margin: 0 0 12px;
   padding: 0;
   list-style: none;
 }
@@ -975,7 +957,6 @@ button.chronicle-card {
   border: 1px solid rgba(102, 120, 137, 0.34);
   border-radius: 5px;
   background: rgba(5, 11, 17, 0.72);
-  padding: 5px 7px;
   color: #657487;
 }
 .chronicle-phase-rail li.passed {
@@ -990,7 +971,6 @@ button.chronicle-card {
     rgba(20, 30, 36, 0.94)
   );
   color: #ffe0a3;
-  box-shadow: 0 0 14px rgba(222, 178, 95, 0.16);
 }
 .chronicle-phase-rail b {
   font:
@@ -1000,7 +980,6 @@ button.chronicle-card {
 }
 .chronicle-phase-rail span {
   overflow: hidden;
-  font-size: 0.56rem;
   white-space: nowrap;
   text-overflow: ellipsis;
 }
@@ -1010,10 +989,7 @@ button.chronicle-card {
   letter-spacing: 0.16em;
 }
 .chronicle-duel-stage {
-  display: grid;
-  grid-template-columns: minmax(248px, 286px) minmax(0, 1fr) minmax(92px, 122px);
   align-items: stretch;
-  gap: clamp(7px, 1vw, 14px);
 }
 .chronicle-card-detail-panel,
 .chronicle-pile-rail {
@@ -1043,7 +1019,6 @@ button.chronicle-card {
   display: grid;
   width: 100%;
   justify-items: center;
-  gap: 8px;
   border: 0;
   background: transparent;
   padding: 0;
@@ -1051,7 +1026,6 @@ button.chronicle-card {
   cursor: zoom-in;
 }
 .chronicle-card-detail-panel__zoom > .chronicle-card {
-  width: 100%;
   max-width: 266px;
   cursor: default;
 }
@@ -1096,7 +1070,6 @@ button.chronicle-card {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  justify-content: center;
   overflow: hidden;
   border: 1px solid rgba(87, 154, 172, 0.38);
   border-radius: 12px;
@@ -1111,10 +1084,6 @@ button.chronicle-card {
       rgba(75, 151, 166, 0.05) 19% 20%
     ),
     url("/chronicle/fields/neutral.webp") center / cover no-repeat;
-  padding: 8px clamp(5px, 1vw, 12px);
-  box-shadow:
-    inset 0 0 60px rgba(0, 0, 0, 0.66),
-    inset 0 0 0 3px rgba(85, 142, 157, 0.06);
 }
 .chronicle-table.has-field .chronicle-playmat {
   background-image:
@@ -1126,12 +1095,8 @@ button.chronicle-card {
 .chronicle-side-label {
   align-self: center;
   color: rgba(132, 169, 185, 0.58);
-  font-size: 0.52rem;
   font-weight: 900;
   letter-spacing: 0.22em;
-}
-.chronicle-side-label.opponent {
-  transform: rotate(180deg);
 }
 .chronicle-playmat .chronicle-zone-row {
   grid-template-columns: repeat(5, minmax(48px, var(--chron-zone-w)));
@@ -1141,19 +1106,14 @@ button.chronicle-card {
 .chronicle-pile-rail {
   display: grid;
   grid-template-rows: auto auto minmax(18px, 1fr) auto auto;
-  gap: 8px;
-  padding: 8px;
 }
 .chronicle-pile-zone {
   position: relative;
   display: grid;
-  min-height: 94px;
   place-items: center;
-  gap: 4px;
   border: 1px solid rgba(115, 144, 162, 0.28);
   border-radius: 7px;
   background: rgba(2, 7, 11, 0.62);
-  padding: 6px;
   color: #8092a2;
   text-align: center;
 }
@@ -1186,24 +1146,18 @@ button.chronicle-card {
   }
 }
 .chronicle-pile-zone > span {
-  font-size: 0.45rem;
   font-weight: 800;
   letter-spacing: 0.08em;
 }
 .chronicle-pile-zone > b {
   position: absolute;
-  right: 5px;
-  bottom: 5px;
-  min-width: 24px;
   border-radius: 999px;
   background: #09131d;
-  padding: 3px 5px;
   color: #f0ca82;
   font-size: 0.58rem;
 }
 .chronicle-pile-card-back,
 .chronicle-pile-mark {
-  width: 48px;
   aspect-ratio: 5 / 7;
   border: 2px solid #705b38;
   border-radius: 4px;
@@ -1223,9 +1177,6 @@ button.chronicle-card {
     900 1rem/1 Georgia,
     serif;
   box-shadow: inset 0 0 14px #000;
-}
-.chronicle-pile-zone.opponent {
-  transform: rotate(180deg);
 }
 .chronicle-zone-row {
   display: grid;
@@ -1298,17 +1249,7 @@ button.chronicle-card {
 }
 .chronicle-playmat .chronicle-zone {
   position: relative;
-  min-height: calc(var(--chron-zone-w) * 1.22);
   overflow: hidden;
-  border-color: rgba(89, 164, 177, 0.38);
-  background:
-    linear-gradient(145deg, rgba(9, 21, 29, 0.45), rgba(2, 7, 11, 0.66)),
-    repeating-linear-gradient(
-      135deg,
-      transparent 0 10px,
-      rgba(89, 157, 169, 0.04) 10px 11px
-    );
-  box-shadow: inset 0 0 18px rgba(42, 101, 117, 0.08);
 }
 .chronicle-playmat .chronicle-zone.inspectable {
   cursor: zoom-in;
@@ -1336,16 +1277,7 @@ button.chronicle-card {
 .chronicle-playmat .chronicle-zone > small {
   position: absolute;
   z-index: 4;
-  right: 3px;
-  bottom: 3px;
-  left: 3px;
-  border-radius: 3px;
-  background: rgba(2, 7, 11, 0.84);
-  padding: 3px;
   text-align: center;
-}
-.chronicle-zone-row.opponent .chronicle-card {
-  transform: rotate(180deg);
 }
 .chronicle-zone-row.player
   .chronicle-zone.monster-zone.defense-position
@@ -1360,16 +1292,9 @@ button.chronicle-card {
 .chronicle-zone-row.backrow .chronicle-zone {
   min-height: clamp(54px, 8vw, 105px);
 }
-.chronicle-playmat .chronicle-zone-row.backrow .chronicle-zone {
-  min-height: calc(var(--chron-zone-w) * 0.84);
-}
 .chronicle-field-divider {
   display: grid;
-  grid-template-columns: minmax(190px, 0.9fr) minmax(160px, 1fr);
   align-items: center;
-  gap: 10px;
-  min-height: 94px;
-  margin: 9px -4px;
   border-block: 1px solid rgba(189, 153, 91, 0.32);
   background:
     radial-gradient(
@@ -1378,7 +1303,6 @@ button.chronicle-card {
       transparent 32%
     ),
     rgba(3, 7, 11, 0.58);
-  padding: 7px;
   color: #aeb8c4;
   font-size: 0.75rem;
   text-align: left;
@@ -1388,11 +1312,9 @@ button.chronicle-card {
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
   gap: 8px;
-  min-height: 78px;
   border: 1px dashed rgba(91, 151, 121, 0.5);
   border-radius: 8px;
   background: rgba(6, 18, 16, 0.62);
-  padding: 7px;
   box-shadow: inset 0 0 24px rgba(58, 127, 93, 0.08);
 }
 .chronicle-field-zone.active {
@@ -1428,7 +1350,6 @@ button.chronicle-card {
 }
 .chronicle-field-zone__empty {
   display: grid;
-  min-height: 58px;
   place-items: center;
   border: 1px solid rgba(96, 151, 120, 0.22);
   border-radius: 5px;
@@ -1446,7 +1367,6 @@ button.chronicle-card {
 .chronicle-active-field {
   display: flex;
   align-items: center;
-  gap: 10px;
 }
 .chronicle-active-field .chronicle-card {
   flex: 0 0 auto;
@@ -1462,7 +1382,6 @@ button.chronicle-card {
 }
 .chronicle-active-field small {
   display: block;
-  margin-top: 4px;
   color: #9bb6a2;
   font-size: 0.52rem;
   line-height: 1.3;
@@ -1471,9 +1390,7 @@ button.chronicle-card {
   display: flex;
   min-width: 0;
   flex-direction: column;
-  gap: 5px;
   border-left: 2px solid rgba(190, 152, 84, 0.42);
-  padding: 8px 10px;
 }
 .chronicle-battle-message strong {
   overflow: hidden;
@@ -1759,9 +1676,6 @@ button.chronicle-card {
   pointer-events: none;
   animation: chronicle-splash-fade 2.1s ease forwards;
 }
-.chronicle-splash.outcome {
-  animation-duration: 2.6s;
-}
 .chronicle-splash b {
   color: #f3d79f;
   font:
@@ -1782,18 +1696,6 @@ button.chronicle-card {
   text-transform: uppercase;
   text-shadow: 0 2px 6px #000;
   animation: chronicle-splash-sub 0.8s ease 0.25s backwards;
-}
-.chronicle-splash.outcome.defeat b {
-  color: #ff9d94;
-  text-shadow:
-    0 4px 18px #000,
-    0 0 48px rgba(216, 98, 89, 0.6);
-}
-.chronicle-splash.outcome.draw b {
-  color: #bcc8d4;
-  text-shadow:
-    0 4px 18px #000,
-    0 0 40px rgba(150, 170, 190, 0.5);
 }
 @keyframes chronicle-splash-slam {
   0% {
@@ -1842,20 +1744,12 @@ button.chronicle-card {
       0 0 22px rgba(216, 106, 92, 0.6);
   }
 }
-.chronicle-player-bar {
-  grid-template-columns: 1fr 1fr;
-  margin: 10px 0;
-}
 .chronicle-hand {
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 7px;
   margin-top: 8px;
   border: 1px solid rgba(114, 91, 151, 0.28);
   border-radius: 9px;
   background: rgba(11, 7, 18, 0.44);
-  padding: 12px 8px 7px;
   overflow-x: auto;
   scrollbar-color: #765c82 #0a1118;
   scrollbar-width: thin;
@@ -1873,13 +1767,9 @@ button.chronicle-card {
 }
 .chronicle-hand .chronicle-card {
   flex: 0 0 auto;
-  width: clamp(88px, 12vmin, 148px);
   transition: transform 0.15s ease;
 }
 @media (hover: hover) {
-  .chronicle-hand .chronicle-card:hover:not(:disabled):not(.selected) {
-    transform: translateY(-4px);
-  }
 }
 .chronicle-actions {
   display: flex;
@@ -2684,7 +2574,6 @@ button.chronicle-card {
     font-weight: 800;
   }
   .chronicle-room-banner {
-    grid-template-columns: 1fr;
     gap: 4px;
     text-align: center;
   }
@@ -2834,7 +2723,6 @@ button.chronicle-card {
   }
 }
 .chronicle-graveyards {
-  display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
   margin-top: 12px;
@@ -3878,20 +3766,12 @@ button.chronicle-card {
 
 /* ── Release integration: focus shell, typed replay, and priority feedback ── */
 .chronicle-shell--duel-active {
-  width: 100%;
-  height: 100dvh;
-  min-height: 100dvh;
-  overflow: hidden;
   padding: 4px;
 }
 .chronicle-shell--duel-active > .chronicle-header,
 .chronicle-shell--duel-active > .chronicle-tabs,
 .chronicle-shell--duel-active > .chronicle-scribe-note {
   display: none;
-}
-.chronicle-shell--duel-active .chronicle-table {
-  height: calc(100dvh - 8px);
-  max-height: none;
 }
 .chronicle-room-banner__actions {
   display: flex;
@@ -4714,21 +4594,11 @@ button.chronicle-card {
   .chronicle-playmat .chronicle-zone:has(> .chronicle-card:not(.back))::after {
     content: "";
     position: absolute;
-    left: 8%;
-    right: 8%;
     bottom: 1px;
-    height: 13px;
     pointer-events: none;
-    background: radial-gradient(50% 100% at 50% 50%, rgba(0, 0, 0, 0.58), transparent 72%);
     filter: blur(2px);
   }
   /* Elemental rim light so a summoned monster reads lit, not flat. */
-  .chronicle-playmat .monster-zone .chronicle-card:not(.back) {
-    box-shadow:
-      0 14px 18px -8px rgba(0, 0, 0, 0.82),
-      0 3px 6px rgba(0, 0, 0, 0.5),
-      0 0 24px -4px color-mix(in srgb, var(--chronicle-element, #f0c463) 55%, transparent);
-  }
 }
 
 /* Opponent pile labels (deck/graveyard rail) read right-side up. */
@@ -4747,7 +4617,6 @@ button.chronicle-card {
   /* A summoned attack-position monster rises past its socket with
      real presence instead of sitting inside it as a thumbnail. */
   .chronicle-playmat .chronicle-zone.monster-zone.attack-position .chronicle-card:not(.back) {
-    transform: rotateX(-16deg) scale(1.16);
     filter: saturate(1.07) contrast(1.04);
   }
 }
@@ -4816,9 +4685,6 @@ button.chronicle-card {
      re-rasterizes it every frame instead of compositing a cached texture.
      Measured 2026-09-07 on a board whose monsters have no figure asset (so the
      card standee is what shows): 19fps with the breath, 60fps without. */
-  .chronicle-playmat .chronicle-zone.monster-zone.attack-position .chronicle-card:not(.back) {
-    transform: rotateX(-16deg) scale(1.3);
-  }
   /* An occupied zone paints above its empty neighbors so a standee
      is never sliced by the next socket's border. */
   .chronicle-playmat .chronicle-zone:has(> .chronicle-card:not(.back)) {
@@ -4872,10 +4738,6 @@ button.chronicle-card {
   }
 
   /* Vitals with mass: LP numerals dominate their plates. */
-  .chronicle-combatant b {
-    min-width: 118px;
-    font-size: 1.44rem;
-  }
   /* The live phase chip is a lit medallion, not a strip entry. */
   .chronicle-phase-rail li.active {
     transform: scale(1.07);

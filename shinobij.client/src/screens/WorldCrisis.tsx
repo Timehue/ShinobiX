@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, useTransition, type CSSProperties } from "react";
+import { cacheDynamicImport, lazyWithRetry } from "../lib/lazyWithRetry";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
 import { visiblePoll } from "../lib/poll";
 import type { Screen } from "../types/core";
 import type { TowerHostLoadout } from "../lib/towers-api";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { fetchWorldCrisis } from "../lib/world-crisis";
-import { WorldCrisis80 } from "./WorldCrisis80";
 import stormveilArt from "../assets/map-landmarks/stormveil.webp";
 import ashenLeafArt from "../assets/map-landmarks/ashen-leaf.webp";
 import frostfangArt from "../assets/map-landmarks/frostfang.webp";
@@ -19,7 +19,12 @@ import {
     type WorldCrisisProjection,
     type WorldCrisisVillage,
 } from "../../../shared/world-crisis";
+import "./WorldCrisisTabs.css";
 import "./WorldCrisis.css";
+
+const loadWorldCrisis80 = cacheDynamicImport(() => import("./WorldCrisis80").then(m => ({ default: m.WorldCrisis80 })));
+const WorldCrisis80 = lazyWithRetry(loadWorldCrisis80);
+const warmWorldCrisis80 = () => { void loadWorldCrisis80().catch(() => undefined); };
 
 const VILLAGE_ART: Record<WorldCrisisVillage, string> = {
     "Stormveil Village": stormveilArt,
@@ -34,6 +39,7 @@ function openWorldNews(setScreen: (screen: Screen) => void) {
 }
 
 export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, onVersionedCharacter, onRecordBattle }: { character: Character; setScreen: (screen: Screen) => void; sharedImages: Record<string, string>; hostLoadout?: TowerHostLoadout; onVersionedCharacter?: VersionedCharacterCommit; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+    const [chroniclePending, startChronicleTransition] = useTransition();
     const [chronicle, setChronicle] = useState<"37" | "80">(() => {
         try { return sessionStorage.getItem("worldCrisis.focus") === "80" ? "80" : "37"; }
         catch { return "37"; }
@@ -94,7 +100,7 @@ export function WorldCrisis({ character, setScreen, sharedImages, hostLoadout, o
         <section className={`world-crisis world-crisis--${crisis?.status ?? "loading"}`} aria-labelledby="world-crisis-title">
             <nav className="crisis-chronicle-tabs" aria-label="World crisis chronicle">
                 <button type="button" className="is-active" aria-current="page">Level 37 · Fourfold Breach</button>
-                <button type="button" onClick={() => setChronicle("80")}>Level 80 · Hollow Gate Reckoning</button>
+                <button type="button" aria-busy={chroniclePending} onPointerDown={warmWorldCrisis80} onFocus={warmWorldCrisis80} onClick={() => startChronicleTransition(() => setChronicle("80"))}>Level 80 · Hollow Gate Reckoning</button>
             </nav>
             <header className="world-crisis__header">
                 <button type="button" className="world-crisis__back" onClick={() => setScreen("village")}>← Village</button>

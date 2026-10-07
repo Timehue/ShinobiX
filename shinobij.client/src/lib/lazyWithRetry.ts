@@ -1,5 +1,15 @@
 import { lazy, type ComponentType, type LazyExoticComponent } from "react";
 
+/** Share an optional module's warm-up with its real load, including rejection.
+ * Vite skips an already-linked stylesheet on a second factory call even when
+ * that stylesheet failed. Keeping the first promise lets retryDynamicImport
+ * recognise that failure instead of accepting an unstyled feature. The page's
+ * module map already retains failed JS imports until reload. */
+export function cacheDynamicImport<T>(factory: () => Promise<T>): () => Promise<T> {
+    let pending: Promise<T> | undefined;
+    return () => pending ??= factory();
+}
+
 /**
  * Drop-in replacement for React.lazy that keeps a HUNG chunk load from
  * stranding a screen.

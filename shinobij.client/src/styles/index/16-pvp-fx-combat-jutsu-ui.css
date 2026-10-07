@@ -445,13 +445,10 @@
 /* ===== Combat jutsu help popup ===== */
 
 .combat-jutsu-card-wrap {
-    position: relative !important;
     min-width: 0 !important;
 }
 
 .combat-jutsu-help {
-    position: absolute !important;
-    left: 4px !important;
     bottom: 26px !important;
     width: 18px !important;
     height: 18px !important;
@@ -469,7 +466,6 @@
     line-height: 1 !important;
     font-weight: 900 !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.65) !important;
-    z-index: 4 !important;
 }
 
     @media (hover: hover) {
