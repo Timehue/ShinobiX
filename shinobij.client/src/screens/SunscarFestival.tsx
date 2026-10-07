@@ -5,7 +5,7 @@ import type { CaravanCombatCatalogs } from '../features/sunscar/CaravanBattle';
 import { SunscarExchange, SunscarExchangeEntrance } from '../components/SunscarExchange';
 import { BlackMarketCrate } from '../components/BlackMarketCrate';
 import { pullBlackMarket, describeReward, useBlackMarketUsage, BLACK_MARKET_COST, BLACK_MARKET_DAILY_CAP, type BlackMarketReward } from '../lib/black-market';
-import { rallyRank } from '../../../shared/sunscar/rally-championship';
+import { rallyActive as activeRally, rallyRank } from '../../../shared/sunscar/rally-championship';
 import { caravanRank } from '../../../shared/sunscar/caravan-types';
 import { serverNow } from '../lib/server-clock';
 import festBg from '../assets/festival/sunscar-festival-v2.webp';
@@ -77,7 +77,7 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         ? <PetRally key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>
         : <CaravanRun {...catalogs} key={character.name} character={character} onVersionedCharacter={onVersionedCharacter} onBack={() => setMode('hub')}/>}</FestivalDestination></Suspense>;
     const rally = character.sunscarRally, caravan = character.sunscarCaravan;
-    const rallyActive = rally?.current && rally.current.status !== 'complete';
+    const rallyActive = activeRally(rally?.current, today);
     const caravanActive = caravan?.current && !caravan.current.result;
     const rallyUsed = rally?.lastEntryDay === today;
     const caravanUsed = caravan?.lastEntryDay === today;
@@ -92,7 +92,7 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         <div className="sunscar-attractions">
             <section className="sunscar-attraction sunscar-attraction-rally sunscar-poster"><div className="sunscar-attraction-art sunscar-poster-art"><img src={festBg} className="sunscar-racing-art" alt="The racing court beneath Sunscar’s pennants"/></div><div className="sunscar-attraction-copy sunscar-poster-copy">
                 <p className="sunscar-eyebrow">01 / Kael’s race grounds</p><h2>Pet Rally</h2><p>Race your companion through desert circuits. Master every leap, turn and burst.</p>
-                <div className="sunscar-attraction-status sunscar-poster-meta">{rallyActive ? 'Grand Prix in progress · ' + rally.current!.results.length + '/3 races' : rallyUsed ? 'Grand Prix complete · ' + (rally?.current?.reward?.ryo ?? 0).toLocaleString() + ' Ryo' : 'Entry available · ' + rallyRank(rally?.reputation ?? 0).name}<span>{rally?.reputation ?? 0} reputation</span></div>
+                <div className="sunscar-attraction-status sunscar-poster-meta">{rallyActive ? 'Grand Prix in progress · ' + rally!.current!.results.length + '/3 races' : rallyUsed ? 'Grand Prix complete · ' + (rally?.current?.reward?.ryo ?? 0).toLocaleString() + ' Ryo' : 'Entry available · ' + rallyRank(rally?.reputation ?? 0).name}<span>{rally?.reputation ?? 0} reputation</span></div>
                 <button onClick={() => openDestination('rally')}>{rallyActive ? 'Resume Grand Prix' : 'Visit the race grounds'} <span aria-hidden="true">↗</span></button><small>Bring your own companion · Skill-based racing</small>
             </div></section>
             <section className="sunscar-attraction sunscar-attraction-caravan sunscar-poster"><div className="sunscar-attraction-art sunscar-poster-art"><img src={festBg} className="sunscar-dispatch-art" alt="A caravan leaving the Sunscar gate"/></div><div className="sunscar-attraction-copy sunscar-poster-copy">
