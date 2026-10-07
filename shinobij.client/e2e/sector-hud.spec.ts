@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
-const evidence = '../docs/sector-hud-layout-2026-09-19';
+const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layout-2026-09-19';
 mkdirSync(evidence, { recursive: true });
 
 async function boot(page: Page, count = 8, configure?: () => Promise<void>, sector = 22) {
@@ -135,7 +135,10 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
     await boot(page);
     const trigger = page.getByRole('button', {name: 'Sector Info'});
     await expect(trigger).toBeVisible();
-    const map = await page.locator('.sector-image-map').elementHandle();
+    const world = page.locator('.continuous-world-map');
+    await expect(world).toHaveAttribute('aria-busy', 'false');
+    const canvas = world.locator(':scope > canvas');
+    const map = await canvas.elementHandle();
     const tile = page.locator('.sector-player-tile');
     const original = await tile.getAttribute('aria-label');
     await trigger.click();
@@ -146,25 +149,51 @@ test('dismissal consumes the gesture, isolates shortcuts and keeps the canvas mo
     await expect(trigger).toBeFocused();
     await expect(page.getByRole('dialog', {name:'Sector Info',exact:true})).toHaveCount(0);
     await trigger.click();
-    const freshTile = page.getByRole('button', {name:'Move to tile row 10 column 3',exact:true});
-    await freshTile.click();
+    // The camera follows the avatar. Pointer destinations belong to the canvas;
+    // semantic tile buttons remain available to keyboard/assistive navigation.
+    const bounds = await canvas.boundingBox();
+    const east = {x: bounds!.width * 7 / 12, y: bounds!.height / 2};
+    await canvas.click({position:east});
+    await expect(page.getByRole('dialog', {name:'Sector Info',exact:true})).toHaveCount(0);
     await expect(tile).toHaveAttribute('aria-label', original!);
-    await freshTile.click();
-    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 3');
-    await page.keyboard.press('d');
-    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 4');
+    await canvas.click({position:east});
+    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 7 column 8');
+    await expect(page.locator('.continuous-world-self')).not.toHaveClass(/is-walking/);
+    const authorityCaughtUp = async () => {
+        await expect.poll(async () => {
+            const current = await tile.boundingBox(), viewport = await canvas.boundingBox();
+            return Math.hypot(current!.x + current!.width / 2 - viewport!.x - viewport!.width / 2,
+                current!.y + current!.height / 2 - viewport!.y - viewport!.height / 2);
+        }).toBeLessThan(1);
+    };
+    // Continuous controls require a held direction, rather than a one-frame tap.
+    const holdUntilMoved = async (key: string) => {
+        const before = await tile.getAttribute('aria-label');
+        await page.keyboard.down(key);
+        try { await expect(tile).not.toHaveAttribute('aria-label', before!); }
+        finally { await page.keyboard.up(key); }
+        await expect(page.locator('.continuous-world-self')).not.toHaveClass(/is-walking/);
+        await authorityCaughtUp();
+    };
+    const beforeNorth = Number(await canvas.getAttribute('data-world-y'));
+    await holdUntilMoved('w');
+    expect(Number(await canvas.getAttribute('data-world-y'))).toBeLessThan(beforeNorth);
     // Android can forward an unhandled controller D-pad press as an arrow
     // key. It should move the sector avatar when the world owns input, while
     // leaving arrow keys alone when a native control owns focus.
     await page.evaluate(() => {
         if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     });
-    await page.keyboard.press('ArrowRight');
-    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 5');
+    const beforeWest = Number(await canvas.getAttribute('data-world-x'));
+    await holdUntilMoved('ArrowLeft');
+    expect(Number(await canvas.getAttribute('data-world-x'))).toBeLessThan(beforeWest);
+    const settled = await tile.getAttribute('aria-label');
     const info = page.getByRole('button', {name: 'Sector Info'});
     await info.focus();
-    await page.keyboard.press('ArrowRight');
-    await expect(tile).toHaveAttribute('aria-label', 'Current tile row 10 column 5');
+    await page.keyboard.down('ArrowRight');
+    await page.waitForTimeout(350);
+    await page.keyboard.up('ArrowRight');
+    await expect(tile).toHaveAttribute('aria-label', settled!);
     for (let i=0; i<10; i++) { await trigger.click(); await page.getByRole('button',{name:'Close Sector Info'}).click(); }
     expect(await map!.evaluate(element => element.isConnected)).toBe(true);
 });
@@ -371,10 +400,16 @@ for(const [hour,opacity] of [[12,'0'],[21,'0.44']] as const) {
     test(`the painted sector floor carries the world's ${hour===12?'noon':'night'} sky under the tiles`,async({page})=>{
         await page.addInitScript(value=>{localStorage.setItem('dayCycle.hour',String(value));},hour);
         await boot(page);
-        await expect(page.locator('.sector-image-map .sector-map-backdrop')).toHaveCount(1);
+        await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy','false');
+        await expect(page.locator('.continuous-world-map > canvas')).toHaveCount(1);
         await expect(page.locator('.sector-image-map .day-night-tint')).toHaveCSS('opacity',opacity);
-        // The floor's own slot, under the tile grid, so road exits stay crisp.
-        await expect(page.locator('.sector-image-map .day-night-sky')).toHaveCSS('z-index','-1');
+        // The wash stays above the painted terrain and below actors/landmarks.
+        const layers = await page.locator('.continuous-world-map').evaluate(element => {
+            const z = (selector: string) => Number(getComputedStyle(element.querySelector(selector)!).zIndex);
+            return {terrain:z(':scope > canvas'),sky:z(':scope > .day-night-sky'),actors:z('.continuous-world-chunk')};
+        });
+        expect(layers.sky).toBeGreaterThan(layers.terrain);
+        expect(layers.sky).toBeLessThan(layers.actors);
     });
 }
 
@@ -658,7 +693,9 @@ test('on a phone the chat opens as a sheet over the board and shares the slot wi
     await openChat(page);
     const tile = page.locator('.sector-player-tile');
     const original = await tile.getAttribute('aria-label');
-    await page.getByRole('button',{name:'Move to tile row 1 column 2',exact:true}).click();
+    const canvas = page.locator('.continuous-world-map > canvas');
+    const mapBounds = await canvas.boundingBox();
+    await canvas.click({position:{x:mapBounds!.width * .15,y:mapBounds!.height * .1}});
     await expect(sheet).toHaveCount(0);
     await expect(tile).toHaveAttribute('aria-label', original!);
 });
