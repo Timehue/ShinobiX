@@ -22,7 +22,8 @@ test('built map separates capped personal allowance from shared gathering pool',
     await expectUiAuditBoot(page, runtime, 'worldMap');
     await page.getByRole('button', { name: /Return to Sector 22/ }).click();
     await expect(page.getByRole('button', { name: 'Explore', exact: true })).toBeDisabled();
-    await expect(page.getByText('Your daily exploration: 100/100 · Resets at midnight UTC', { exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toContainText('Daily 100/100');
+    await expect(page.getByRole('button', { name: 'Explore', exact: true })).toHaveAccessibleDescription('Your daily exploration: 100/100 · Resets at midnight UTC');
     await expect(page.getByText(/Shared sector pool:/).first()).toBeVisible();
     await page.screenshot({ path: info.outputPath('daily-cap-built.png') });
 });
