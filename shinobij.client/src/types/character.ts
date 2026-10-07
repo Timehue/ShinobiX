@@ -300,6 +300,8 @@ export type StoryEpilogueReceipt = {
 export type Character = {
     pendingGatherFinds?: PendingGatherFind[];
     gatherIntroSeen?: boolean;
+    /** Server owned: highest weapon and armor tier bought or crafted. A client write is discarded. */
+    gearTierUnlocks?: { weapon: number; armor: number };
     name: string;
     /** Mutable public/login name. name remains the stable account ID. */
     accountName?: string;

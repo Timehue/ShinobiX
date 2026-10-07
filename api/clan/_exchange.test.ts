@@ -108,6 +108,34 @@ test('weapon and armor caches roll eligible catalog items', () => {
     }
 });
 
+// The cache draws, in order: rarity, pool index, then the gear step roll, then its pick.
+const draws = (...values: number[]) => { let i = 0; return () => values[Math.min(i++, values.length - 1)]; };
+
+test('one cache in five pays a gear step drop of its own kind, using the real catalog', () => {
+    const weapon = buyClanExchangeItem({ character: character(7000), clanData: clan(25), itemId: 'weaponCache', rng: draws(0.9, 0, 0.1, 0) });
+    assert.equal(weapon.ok, true);
+    if (weapon.ok) {
+        assert.match(String(weapon.reveal?.itemId), /-s[1-5]$/);
+        assert.equal(weapon.reveal?.slot, 'hand');
+        assert.deepEqual(weapon.character.inventory, [weapon.reveal?.itemId]);
+    }
+    const armor = buyClanExchangeItem({ character: character(9000), clanData: clan(40), itemId: 'armorCache', rng: draws(0.9, 0, 0.1, 0) });
+    assert.equal(armor.ok, true);
+    if (armor.ok) {
+        assert.match(String(armor.reveal?.itemId), /-s[1-5]$/);
+        assert.notEqual(armor.reveal?.slot, 'hand');
+    }
+});
+
+test('the other four caches in five still pay an Epic or Legendary piece', () => {
+    const weapon = buyClanExchangeItem({ character: character(7000), clanData: clan(25), itemId: 'weaponCache', rng: draws(0.9, 0, 0.5, 0) });
+    assert.equal(weapon.ok, true);
+    if (weapon.ok) {
+        assert.doesNotMatch(String(weapon.reveal?.itemId), /-s[1-5]$/);
+        assert.equal(weapon.reveal?.rarity, 'legendary');
+    }
+});
+
 test('locked and empty exchange items fail closed', () => {
     const locked = buyClanExchangeItem({ character: character(1000), clanData: clan(1), itemId: 'clanBannerFrame' });
     assert.equal(locked.ok, false);

@@ -8,6 +8,7 @@ import {
 } from '../api/village/_war-mission.ts';
 import { readFileSync } from 'node:fs';
 import { shinobiTileCards } from '../shared/tile-cards.ts';
+import { isStepItemId } from '../shared/gear-steps.ts';
 import { starterItems } from '../shinobij.client/src/data/starter-items.ts';
 
 /*
@@ -48,8 +49,9 @@ describe('ancient chest pools mirror the client catalogs', () => {
 
     it('can drop every chest-eligible common and rare gear item', () => {
         // Mirrors the client's old filter: rarity match, excluding the `item` slot.
+        // Gear step drops are not chest stock; they have their own roll.
         const eligible = (rarity: string) => starterItems
-            .filter((item) => item.rarity === rarity && item.slot !== 'item')
+            .filter((item) => item.rarity === rarity && item.slot !== 'item' && !isStepItemId(item.id))
             .map((item) => item.id).sort();
         assert.deepEqual(poolFor(0.3, 'itemId'), eligible('common'));
         assert.deepEqual(poolFor(0.6, 'itemId'), eligible('rare'));

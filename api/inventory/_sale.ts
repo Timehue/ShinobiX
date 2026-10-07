@@ -6,6 +6,8 @@ import {
 import type { SettlementItem } from '../shop/_catalog.js';
 import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
 import { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
+import { GEAR_STEP_SELL_RYO, isStepItemId } from '../../shared/gear-steps.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 export { HUNT_MATERIAL_SELL_RYO } from '../../shared/hunt-material-sale.js';
 
 export type InventorySaleSource = 'backpack' | 'equipped';
@@ -32,11 +34,14 @@ function normalizeSlot(slot: string): string {
 /** Ryo a single unit of this item sells for. Hunt materials use the rarity-tiered
  *  table (they're cost:0); everything else is the standard half-cost. */
 function unitSaleValue(item: SettlementItem): number {
+    // Gear step drops cost 0 and sell for one flat price (shared/gear-steps.ts).
+    if (isStepItemId(item.id) && ITEM_CATALOG[item.id]) return GEAR_STEP_SELL_RYO;
     if (item.cost <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
     return Math.floor(item.cost / 2);
 }
 
 export function isSellableItem(item: SettlementItem): boolean {
+    if (isStepItemId(item.id) && ITEM_CATALOG[item.id]) return true;
     if (item.id in HUNT_MATERIAL_SELL_RYO) return true;
     return item.cost > 0 && (item.armorQuality != null || SELLABLE_SLOTS.has(normalizeSlot(item.slot)));
 }

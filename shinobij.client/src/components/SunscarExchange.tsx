@@ -4,6 +4,7 @@ import type { Character, VersionedCharacterCommit } from '../types/character';
 import type { GameItem } from '../types/combat';
 import { Modal } from './ui/Modal';
 import { getAllItems } from '../lib/items';
+import { expectGearDropReveal } from '../lib/gear-drop-store';
 import { ExchangeRequestError, pendingExchangeRequest, requestExchange, requestExchangeMarket, requestExchangeReadiness, savePendingExchangeRequest, type ExchangeRequest, type ExchangeSnapshot } from '../lib/sunscar-exchange';
 import { clearExchangeReturnContext, peekExchangeReturnContext, saveExchangeReturnContext } from '../lib/exchange-return';
 import { setPetHomeTabHint } from './PetHomeTabs';
@@ -193,6 +194,9 @@ export function SunscarExchange({ character, onVersionedCharacter, setCreatorIte
         const mutation = action.action !== 'browse';
         if (mutation) { setPendingRequest(action); savePendingExchangeRequest(character.name, action); }
         const requestedKey = marketWantedRef.current;
+        // Buying or cancelling delivers goods the Exchange announces itself, so the
+        // gear pop-up stays quiet for that item.
+        if ((action.action === 'buy' || action.action === 'cancel') && selected?.asset.kind === 'item') expectGearDropReveal(selected.asset.id);
         try {
             const data = await requestExchange(character.name, action, signal, marketQuery);
             if (signal?.aborted) return;

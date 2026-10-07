@@ -9,6 +9,8 @@ import type { Character, VersionedCharacterCommit } from "../types/character";
 import type { ClanTreasury, EnhancedClanData } from "../types/clan";
 import type { GameItem } from "../types/combat";
 import { cleanClanTreasury, enhanceClanData } from "../lib/clan-math";
+import { expectGearDropReveal } from "../lib/gear-drop-store";
+import { gearStepSummaryById } from "../lib/items";
 import { postClanExchangePurchase, type ClanExchangePurchaseResponse } from "../lib/player-api";
 import { paidPendingClanExchangeRequests, recoverPaidClanExchangePurchase, type PaidClanExchangeRequest } from "../lib/clan-exchange-recovery";
 
@@ -57,9 +59,9 @@ const EXCHANGE_ITEMS: ExchangeItem[] = [
     { id: "honorSealBundle", tier: 2, hall: "compound", requiredClanLevel: 15, name: "Rite of Honor Seals", description: "Ten ceremonial Honor Seals for high-value shinobi development.", cost: 1000, limit: { kind: "weekly", count: 1 }, rarity: "epic", reward: { kind: "currency", currency: "honorSeals", amount: 10 } },
     { id: "premiumFateShardCrate", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Fate Reliquary", description: "A grand reliquary packed with thirty-five Fate Shards.", cost: 1200, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "fateShards", amount: 35 } },
     { id: "greaterWarSupplyGrant", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Grand Quartermaster Requisition", description: "Requisition fifteen hundred War Supply to the clan stores.", cost: 1750, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "treasury", currency: "warSupply", amount: 1500 } },
-    { id: "weaponCache", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Forbidden Armory Scroll", description: "A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog.", cost: 6000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "weapon" } },
+    { id: "weaponCache", tier: 3, hall: "fortress", requiredClanLevel: 25, name: "Forbidden Armory Scroll", description: "A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog. About one scroll in five instead holds an upgrade weapon with extra EP, for the best gear tier you have bought or crafted.", cost: 6000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "weapon" } },
     { id: "auraStoneBundle", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kaguya Aura Trove", description: "A trove of three Kaguya aura stones bound in a clan scroll.", cost: 1500, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "auraStones", amount: 3 } },
-    { id: "armorCache", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Vault of the Fallen", description: "A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
+    { id: "armorCache", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Vault of the Fallen", description: "A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog. About one vault in five instead holds an upgrade armor piece with extra damage reduction, for the best gear tier you have bought or crafted.", cost: 8000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "cache", cache: "armor" } },
     { id: "kageCoffer", tier: 3, hall: "citadel", requiredClanLevel: 40, name: "Kage's Coffer", description: "The kage's own coffer — fifty thousand ryō for the clan's finest.", cost: 4000, limit: { kind: "weekly", count: 1 }, rarity: "legendary", reward: { kind: "currency", currency: "ryo", amount: 50000 } },
 ];
 
@@ -116,7 +118,7 @@ function rewardSummary(item: ExchangeItem, allItems: GameItem[]): string {
     if (reward.kind === "currency") return `${reward.amount.toLocaleString()} ${currencyLabel(reward.currency)}`;
     if (reward.kind === "treasury") return `${reward.amount.toLocaleString()} War Supply to clan`;
     if (reward.kind === "item") return `${reward.count}x ${allItems.find((entry) => entry.id === reward.itemId)?.name ?? item.name}`;
-    if (reward.kind === "cache") return reward.cache === "weapon" ? "Epic/Legendary weapon roll" : "Epic/Legendary armor roll";
+    if (reward.kind === "cache") return reward.cache === "weapon" ? "Epic/Legendary weapon roll, or 1 in 5 an upgrade weapon" : "Epic/Legendary armor roll, or 1 in 5 an upgrade armor piece";
     return reward.reason;
 }
 
@@ -174,6 +176,8 @@ function applyExchangeResponse(
     onVersionedCharacter: VersionedCharacterCommit,
     setClanData: Dispatch<SetStateAction<EnhancedClanData | null>>,
 ): boolean {
+    // The cache opens its own reveal, so the gear pop-up stays quiet for that item.
+    if (result.reveal?.itemId) expectGearDropReveal(result.reveal.itemId);
     if (!onVersionedCharacter(result.character, result._saveVersion)) return false;
     if (!result.clan) return true;
     setClanData((prev) => {
@@ -208,6 +212,8 @@ export function ClanExchange({
     const [confirming, setConfirming] = useState<ExchangeItem | null>(null);
     const [busyItem, setBusyItem] = useState<string | null>(null);
     const [reveal, setReveal] = useState<ClanExchangePurchaseResponse["reveal"] | null>(null);
+    // Set when the cache paid an upgrade gear piece (one in five) instead of an Epic or Legendary one.
+    const revealUpgrade = reveal ? gearStepSummaryById(reveal.itemId) : null;
     const purchaseBusyRef = useRef(false);
     const recoveryCommit = useRef({onVersionedCharacter, setClanData});
     useEffect(() => { recoveryCommit.current = {onVersionedCharacter, setClanData}; }, [onVersionedCharacter, setClanData]);
@@ -390,9 +396,10 @@ export function ClanExchange({
                 {reveal && (
                     <>
                         <CloseButton className="modal-close" onClick={closeReveal} />
-                        <span className={`clan-exchange-rarity ${reveal.rarity.toLowerCase()}`}>{reveal.rarity}</span>
+                        {/* An upgrade piece says so, and by how much, instead of borrowing its base's rarity. */}
+                        <span className={`clan-exchange-rarity ${reveal.rarity.toLowerCase()}`}>{revealUpgrade ? "Upgrade" : reveal.rarity}</span>
                         <h3>{reveal.name}</h3>
-                        <p>{reveal.slot} cache item added to inventory.</p>
+                        <p>{revealUpgrade ? `${revealUpgrade}. Added to your bag.` : `${reveal.slot} cache item added to inventory.`}</p>
                         <div className="clan-exchange-reveal-mark">{reveal.slot === "hand" || reveal.slot === "weapon" ? <GameIcon name="sword" size={58} /> : <GameIcon name="shield" size={58} />}</div>
                         <button onClick={closeReveal}>Claimed</button>
                     </>

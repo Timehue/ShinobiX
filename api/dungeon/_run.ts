@@ -1,3 +1,4 @@
+import { GEAR_DROP_CHANCE_BP, gearRoll, pickGearDrop } from '../_gear-drops.js';
 import { dungeonWardenWasDefeated } from './_ai-fight.js';
 import { dungeonCardWasWon, dungeonPetWasWon } from './_encounter-proof.js';
 import { dungeonPresentationId } from '../../shared/dungeon-presentation.js';
@@ -230,7 +231,14 @@ export function mutateDungeonRun(
     if (now - Math.max(0, Number(active.startedAt) || 0) < DUNGEON_MIN_RUN_MS) return { ok: false as const, reason: 'dungeon-run-too-short' as const };
     const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
     inventory.push(DUNGEON_RELIC_ID);
-    return { ok: true as const, alreadyApplied: false, token, character: {
+    // Gear step drop (api/_gear-drops.ts). The hit comes from the run token, so a
+    // retried settle gives the same answer; the receipt above already stops a second pay.
+    let gearDropId: string | null = null;
+    if (gearRoll(`dungeon:${token}`) < GEAR_DROP_CHANCE_BP.boss / 10_000) {
+        gearDropId = pickGearDrop(character);
+        if (gearDropId) inventory.push(gearDropId);
+    }
+    return { ok: true as const, alreadyApplied: false, token, ...(gearDropId ? { gearDropId } : {}), character: {
         ...character, activeDungeonRun: null, redeemedDungeonRuns: [...receipts, token], inventory,
         serverFreeDungeonProbeReceipts: probeReceipts(character).map((entry) => entry.token === token ? { ...entry, resolvedAt: now } : entry),
         boneCharms: Math.max(0, Math.floor(Number(character.boneCharms) || 0)) + 10,

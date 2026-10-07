@@ -52,7 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
-        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
+        'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
         'clanExchangeSettlements', 'clanMissionPointReceipts', 'mentorRewardReceipts',
@@ -199,6 +199,7 @@ const FROZEN = {
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
         'professionChosenAt', // Scroll retry fencing must survive all generic saves.
+        'gearTierUnlocks', // Only a shop purchase or a craft raises it.
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',
         'battleTowerRecords', // Tower settlement is the only writer.
         'accountName',

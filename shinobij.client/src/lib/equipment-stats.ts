@@ -4,7 +4,7 @@
  * with no behavior change. Pure functions: character + item catalog in,
  * number / loadout out.
  */
-import { armorReductionForQuality } from "./equipment";
+import { armorReductionForItem } from "./equipment";
 import type { Character } from "../types/character";
 import type { PetTrait } from "../types/pet";
 import type { GameItem, EquipmentSlot } from "../types/combat";
@@ -20,7 +20,7 @@ export function getCharacterArmorFactor(character: Character, allItems: GameItem
         const id = character.equipment?.[slot];
         if (!id) continue;
         const item = allItems.find((i) => i.id === id);
-        if (item?.armorQuality) totalReduction += armorReductionForQuality(item.armorQuality);
+        if (item?.armorQuality) totalReduction += armorReductionForItem(item);
     }
     if (getActivePetTrait(character) === "Guardian") totalReduction += 0.08;
     return Math.max(0.25, 1 - totalReduction);
@@ -37,7 +37,7 @@ export function getCharacterArmorRawDR(character: Character, allItems: GameItem[
         const id = character.equipment?.[slot];
         if (!id) continue;
         const item = allItems.find((i) => i.id === id);
-        if (item?.armorQuality) totalReduction += armorReductionForQuality(item.armorQuality);
+        if (item?.armorQuality) totalReduction += armorReductionForItem(item);
     }
     // No pet Guardian bonus here — pets do not affect PvP combat.
     return Math.min(1.5, totalReduction);

@@ -22,6 +22,7 @@ import { PVE_SPECIALIST_FIELDS, type PveSpecialistField } from '../../shared/rel
  */
 import { ITEM_CATALOG, BUILTIN_BLOODLINE_IDS, type CatalogItem } from './_item-catalog.js';
 import { budgetItemBonuses } from '../_item-budget.js';
+import { isStepItemId } from '../../shared/gear-steps.js';
 
 // Armor damage-reduction per quality tier — mirrors armorQualityTiers in
 // shinobij.client/src/lib/equipment.ts. Keep in sync with that table.
@@ -122,7 +123,12 @@ function sumArmorReduction(equipment: unknown, getItem: (id: string) => ItemLike
         const id = eq[slot];
         if (typeof id !== 'string') continue;
         const item = getItem(id) as Record<string, unknown> | undefined;
-        if (item && item.armorQuality != null) total += armorReductionForQuality(item.armorQuality);
+        if (item && item.armorQuality != null) {
+            // A gear step drop carries an exact reduction. Only the built in catalog
+            // may set it, so a forged custom item cannot claim one.
+            const stepReduction = isStepItemId(id) ? ITEM_CATALOG[id]?.armorReduction : undefined;
+            total += typeof stepReduction === 'number' ? stepReduction : armorReductionForQuality(item.armorQuality);
+        }
     }
     return total;
 }

@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { usePublicBloodlines } from "../lib/use-public-bloodlines";
 import { serverNow } from "../lib/server-clock";
 import { NAMED_ITEM_LEVEL_REQ } from "../../../shared/item-level-gate";
+import { isStepItemId } from "../../../shared/gear-steps";
 import {
     canPayNamedForge,
     NAMED_FORGE_FATE_SHARD_COST,
@@ -669,8 +670,10 @@ export function CentralHub({
         }
     }
 
+    // Gear step drops copy their base's rarity and EP but are never a recipe; the
+    // server refuses them, so listing one would be a payable button that errors.
     const craftableWeapons = allHubItems
-        .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-"))
+        .filter((item) => item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity) && !item.id.startsWith("named-weapon-") && !isStepItemId(item.id))
         .sort((a, b) => {
             const rank = { common: 0, uncommon: 0.5, rare: 1, epic: 2, legendary: 3, mythic: 4 } as Record<string, number>;
             return (rank[a.rarity] ?? 0) - (rank[b.rarity] ?? 0) || a.name.localeCompare(b.name);
@@ -682,7 +685,7 @@ export function CentralHub({
     // rarity allowlist.
     const ARMOR_SLOTS = new Set(["body", "head", "waist", "legs", "feet"]);
     const craftableArmor = allHubItems
-        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare")
+        .filter((item) => ARMOR_SLOTS.has(normalizeEquipmentSlot(item.slot)) && item.armorQuality && item.rarity === "rare" && !isStepItemId(item.id))
         .sort((a, b) => a.name.localeCompare(b.name));
 
     const awakenedElements = getCharacterElements(character);

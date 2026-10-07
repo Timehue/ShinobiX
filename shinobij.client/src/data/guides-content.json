@@ -603,6 +603,14 @@
           },
           {
             "type": "h",
+            "text": "Upgrade gear"
+          },
+          {
+            "type": "p",
+            "text": "Weapons and armor can also drop as upgrade pieces. Each one is a little stronger than the item it upgrades: a weapon gains half a point of EP per step and armor gains half a percent of damage reduction per step, but never enough to match the next tier up. Upgrades drop from Ancient Chests (5%), bosses (5%), Clan Exchange caches (1 in 5), and ordinary fights (0.5%). They come from the highest gear tier you have bought or crafted, so buying or crafting a better tier unlocks stronger upgrades. They cannot be bought or crafted, and any spare sells for 500 ryo."
+          },
+          {
+            "type": "h",
             "text": "Named equipment"
           },
           {
@@ -843,7 +851,7 @@
           },
           {
             "type": "p",
-            "text": "Prepare supplies in the Crafter, agree on roles, and confirm loadouts before entering. A smaller coordinated group can be more effective than a full party without assigned roles. Weekly rewards scale with recorded contribution."
+            "text": "Prepare supplies in the Crafter, agree on roles, and confirm loadouts before entering. A smaller coordinated group can be more effective than a full party without assigned roles. Weekly rewards scale with recorded contribution. Each contributor also has a 5% chance of an upgrade gear piece from every assault."
           }
         ]
       }
@@ -1271,7 +1279,7 @@
           },
           {
             "type": "p",
-            "text": "After its health reaches zero, the boss becomes Broken but remains fightable until despawn. Rewards are distributed at despawn based on contribution and placement, so players can continue contributing after Broken."
+            "text": "After its health reaches zero, the boss becomes Broken but remains fightable until despawn. Rewards are distributed at despawn based on contribution and placement, so players can continue contributing after Broken. Every contributor also has a 5% chance of an upgrade gear piece, and it appears in your bag once rewards are paid."
           }
         ]
       },
