@@ -56,6 +56,7 @@ import { publicErrorPayload, securityHeaders } from './api/_http-security.js';
 import { evaluateLaunchControl, presenceStateJobsDisabled } from './api/_launch-controls.js';
 import { captureExpressException } from './api/_sentry-context.js';
 import { sanitizeSentryEvent } from './shared/observability-sanitize.js';
+import { LEGACY_ITEM_ART } from './shared/legacy-item-art.js';
 import {
     canonicalRedirectLocation,
     isLegacyDuplicateHost,
@@ -909,6 +910,16 @@ app.get('/:slug', (req, res, next) => {
     if (!page) { next(); return; }
     res.setHeader('Cache-Control', 'no-cache');
     res.type('html').send(page);
+});
+
+// Refreshed base weapon and armor pictures were renamed and the old files deleted.
+// An old name still requested from somewhere (an admin override, a custom item, a tab
+// opened before the deploy) lands on the new picture, not a broken image.
+app.get(/^\/items\/([^/]+)$/, (req, res, next) => {
+    const renamed = Object.hasOwn(LEGACY_ITEM_ART, req.params[0]) ? LEGACY_ITEM_ART[req.params[0]] : undefined;
+    if (!renamed) { next(); return; }
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.redirect(302, `/items/${renamed}`);
 });
 
 app.use(express.static(staticDir, {
