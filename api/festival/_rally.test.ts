@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { PET_CATALOG } from '../pet/_catalog.js';
 import { beginChampionshipRace, checkpointChampionship, ownedRallyPet, prepareChampionship, rallyDaily, rallyProgress } from './_rally.js';
-import { rallyStandings } from '../../shared/sunscar/rally-championship.js';
+import { rallyActive, rallyStandings } from '../../shared/sunscar/rally-championship.js';
 import { rallyProfile } from '../../shared/sunscar/rally-profiles.js';
 
 const now = Date.UTC(2026, 8, 15, 12);
@@ -58,6 +58,8 @@ test('three verified races form one championship and pay exactly once', () => {
     }
     const progress = rallyProgress(c);
     assert.equal(progress.current!.status, 'complete');
+    assert.equal(rallyActive(progress.current, rallyDaily('racer', clock).day), false);
+    assert.equal(rallyActive(progress.current, rallyDaily('racer', clock + 86400000).day), false);
     assert.equal(rallyStandings(progress.current!.results).length, 4);
     assert.equal(progress.championships, 1);
     assert.equal(c.ryo, 1000 + progress.current!.reward!.ryo);
@@ -65,6 +67,43 @@ test('three verified races form one championship and pay exactly once', () => {
     assert.deepEqual(checkpointChampionship(c, finalBody, clock).character, c);
     assert.throws(() => prepareChampionship(c, 'racer', 'my-fire', clock), /daily Grand Prix/);
     assert.ok(prepareChampionship(c, 'racer', 'my-fire', clock + 86400000));
+});
+test('ready reservations expire by the authoritative festival day and permit another owned companion', () => {
+    const c = character();
+    c.pets.push({ ...PET_CATALOG['starter-water'], id: 'my-water', templateId: 'starter-water' });
+    const prepared = prepareChampionship(c, 'racer', 'my-fire', now);
+    const old = rallyProgress(prepared).current!;
+    assert.equal(rallyActive(old, rallyDaily('racer', now).day), true);
+    assert.equal(rallyActive(old, rallyDaily('racer', now + 86400000).day), false);
+    assert.throws(() => beginChampionshipRace(prepared, old.id, now + 86400000), /new festival day/);
+    const refreshed = prepareChampionship(prepared, 'racer', 'my-water', now + 86400000);
+    const fresh = rallyProgress(refreshed).current!;
+    assert.notEqual(fresh.id, old.id);
+    assert.equal(fresh.pet.id, 'my-water');
+    assert.equal(rallyActive(fresh, rallyDaily('racer', now + 86400000).day), true);
+    assert.equal(rallyProgress(beginChampionshipRace(refreshed, fresh.id, now + 86400000)).current!.status, 'racing');
+});
+test('started racing and between runs remain resumable across the day boundary', () => {
+    let c = prepareChampionship(character(), 'racer', 'my-fire', now);
+    const id = rallyProgress(c).current!.id;
+    c = beginChampionshipRace(c, id, now);
+    const nextDay = now + 86400000;
+    assert.equal(rallyActive(rallyProgress(c).current, rallyDaily('racer', nextDay).day), true);
+    assert.deepEqual(beginChampionshipRace(c, id, nextDay), c);
+    assert.throws(() => prepareChampionship(c, 'racer', 'my-fire', nextDay), /Resume/);
+    let clock = now;
+    while (rallyProgress(c).current!.status === 'racing') {
+        const fromTick = rallyProgress(c).current!.race!.tick;
+        clock += 5000;
+        c = checkpointChampionship(c, { runId: id, raceIndex: 0, fromTick, toTick: fromTick + 300, actions: [] }, clock).character;
+    }
+    assert.equal(rallyProgress(c).current!.status, 'between');
+    assert.equal(rallyActive(rallyProgress(c).current, rallyDaily('racer', nextDay).day), true);
+    assert.throws(() => prepareChampionship(c, 'racer', 'my-fire', nextDay), /Resume/);
+    const resumed = rallyProgress(beginChampionshipRace(c, id, nextDay)).current!;
+    assert.equal(resumed.id, id);
+    assert.equal(resumed.raceIndex, 1);
+    assert.equal(resumed.status, 'racing');
 });
 test('clock acceleration, rewinds, altered stats and client placement are not accepted as authority', () => {
     let c = prepareChampionship(character(), 'racer', 'my-fire', now);

@@ -5,7 +5,7 @@ import { petCardImage } from '../../lib/pet-battle-anim';
 import { RALLY_TRACKS, rallyTrack } from '../../../../shared/sunscar/rally-tracks';
 import { RALLY_ATTACK_NAMES, RALLY_STAT_HELP, RALLY_TECHNIQUES, rallyProfile } from '../../../../shared/sunscar/rally-profiles';
 import { RALLY_RIVALS } from '../../../../shared/sunscar/rally-rivals';
-import { rallyRank, rallyStandings } from '../../../../shared/sunscar/rally-championship';
+import { rallyActive, rallyRank, rallyStandings } from '../../../../shared/sunscar/rally-championship';
 import { rallyResult } from '../../../../shared/sunscar/rally-simulation';
 import type { RallyAction, RallyElement, RallyState, RallyTrack } from '../../../../shared/sunscar/rally-types';
 import { RallyRace } from './RallyRace';
@@ -86,7 +86,7 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
     const adopt = useCallback((data: RallyResponse) => {
         setResponse(data);
         responseRef.current = data;
-        if (data.progress.current && ['racing', 'between'].includes(data.progress.current.status)) setPetId(data.progress.current.pet.id);
+        if (rallyActive(data.progress.current, data.daily.day)) setPetId(data.progress.current!.pet.id);
         if (data.character) commitCharacter.current(data.character, data._saveVersion);
         return data;
     }, []);
@@ -119,8 +119,7 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         try {
             setBusy(true); setError('');
             if (official) {
-                const active = response?.progress.current;
-                const data = active && ['racing', 'between'].includes(active.status) ? response! : adopt(await requestRally(character.name, { action: 'prepare', petId }));
+                const data = active ? response! : adopt(await requestRally(character.name, { action: 'prepare', petId }));
                 openOfficial(data);
             } else {
                 const data = adopt(await requestRally(character.name, { action: 'practice', petId, trackId: courseId }));
@@ -137,8 +136,8 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
     const profile = pet ? rallyProfile({ id: pet.templateId ?? pet.id, name: pet.name }, pet) : null;
     const technique = RALLY_TECHNIQUES[(pet?.element ?? 'Fire') as RallyElement];
     const progress = response?.progress;
-    const active = progress?.current && progress.current.status !== 'complete' && progress.current.status !== 'ready';
-    const dailyComplete = progress?.lastEntryDay === response?.daily.day && !active;
+    const active = rallyActive(progress?.current, response?.daily.day);
+    const dailyComplete = !!response && progress?.lastEntryDay === response.daily.day && !active;
     if (race) return <RallySession>
         <RallyRace key={race.key} initial={race.state} difficulty={race.difficulty} official={race.official} title={race.official ? `Sunscar Grand Prix · Race ${race.index + 1} of 3` : 'Open practice'}
             onBegin={race.official ? async () => { adopt(await requestRally(character.name, { action: 'begin', runId: race.runId })); } : undefined}
@@ -147,7 +146,7 @@ export default function PetRally({ character, onVersionedCharacter, onBack }: { 
         {finished && <RaceResults state={finished} response={response} official={race.official} onContinue={() => { if (responseRef.current) openOfficial(responseRef.current); }} onDesk={() => { setRace(null); setFinished(null); void refresh(); }} />}
     </RallySession>;
     return <div className="sunscar-mode sunscar-rally" ref={desk} tabIndex={-1} aria-label="Pet Rally race desk">
-        <header className="sunscar-mode-heading"><button className="sunscar-back" onClick={onBack}>← Festival</button><p className="sunscar-eyebrow">The sport of Sunscar</p><h1>Pet Rally</h1><p>Your companion. Four courses. One clean line through the dust.</p><div className="sunscar-status-pills"><span>{rallyRank(progress?.reputation ?? 0).name} · {progress?.reputation ?? 0} reputation</span><span>{dailyComplete ? 'Grand Prix complete today' : active ? 'Grand Prix in progress' : 'Daily Grand Prix available'}</span><span>Practice always open</span></div></header>
+        <header className="sunscar-mode-heading"><button className="sunscar-back" onClick={onBack}>← Festival</button><p className="sunscar-eyebrow">The sport of Sunscar</p><h1>Pet Rally</h1><p>Your companion. Four courses. One clean line through the dust.</p><div className="sunscar-status-pills"><span>{rallyRank(progress?.reputation ?? 0).name} · {progress?.reputation ?? 0} reputation</span><span>{!response ? 'Checking Grand Prix entry' : dailyComplete ? 'Grand Prix complete today' : active ? `Grand Prix in progress · ${progress?.current?.results.length ?? 0}/3 races` : 'Daily Grand Prix available'}</span><span>Practice always open</span></div></header>
         {error && <div className="sunscar-error" role="alert"><p>{error}</p><button disabled={busy} onClick={() => void refresh()}>Retry connection</button></div>}
         {!response && !error && <div className="sunscar-loading" role="status">Opening the race desk…</div>}
         <SunscarPrestige mode="rally" reputation={progress?.reputation ?? 0}/>
