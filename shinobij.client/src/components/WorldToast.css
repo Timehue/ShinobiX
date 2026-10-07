@@ -1,0 +1,56 @@
+.world-toast {
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    top: max(14px, env(safe-area-inset-top, 0px));
+    z-index: 1000000;
+    width: max-content;
+    max-width: min(460px, calc(100vw - 28px));
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: linear-gradient(160deg, rgba(17,24,39,.97), rgba(2,6,23,.97));
+    border: 1px solid rgba(250,204,21,.52);
+    box-shadow: 0 8px 30px rgba(0,0,0,.55), 0 0 24px rgba(250,204,21,.2);
+    animation: world-toast-in .34s ease-out;
+}
+.world-toast > [aria-hidden] {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    color: var(--gold-300);
+    background: rgba(120,53,15,.55);
+    border: 1px solid rgba(250,204,21,.45);
+    flex-shrink: 0;
+}
+.world-toast > div { min-width: 0; }
+.world-toast > div > div:first-child {
+    font-size: .72rem;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: var(--gold-300);
+    font-weight: 800;
+    margin-bottom: 2px;
+}
+.world-toast > div > div:last-child { font-size: .82rem; color: var(--slate-200); line-height: 1.45; }
+.world-toast > button {
+    min-width: 44px;
+    min-height: 44px;
+    flex-shrink: 0;
+    color: #fff;
+    background: transparent;
+    border: 1px solid #b39166;
+    border-radius: 6px;
+    cursor: pointer;
+}
+@keyframes world-toast-in {
+    from { opacity: 0; transform: translateX(-50%) translateY(-8px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .world-toast { animation: none; }
+}
