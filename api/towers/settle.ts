@@ -9,6 +9,7 @@ import { kv } from '../_storage.js';
 import {
     readSession,
     settleFloorForMember,
+    settleTowerBossGearDrop,
     settleAssistForAlly,
     settleSpireForMember,
     settleConsumedItemsForMember,
@@ -117,6 +118,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!spire && !a.ai && session.winner === 'squad') {
                 const relic = await settleTowerRelicReward(session, slug);
                 results[slug] = { ...results[slug], relic };
+                // Reported with the result so the receipt can mention it; the client also gets the item itself.
+                const gearDrop = await settleTowerBossGearDrop(session, slug);
+                if (gearDrop.itemId) results[slug] = { ...results[slug], gearDrop };
             }
             const reward = results[slug];
             if (!a.ai && (reward.paid || reward.reason === 'already-paid' || reward.reason === 'already-first-cleared') && session.winner === 'squad') {

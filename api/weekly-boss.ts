@@ -1,6 +1,7 @@
 import { ownsRelic, RELICS_BY_ID, DUPLICATE_RELIC_SHARDS } from '../shared/relics.js';
 import type { VercelRequest, VercelResponse } from './_vercel.js';
 import { kv } from './_storage.js';
+import { GEAR_DROP_CHANCE_BP, gearRoll, pickGearDrop } from './_gear-drops.js';
 import { cors } from './_utils.js';
 import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { LockContendedError, withKvLock } from './_lock.js';
@@ -99,6 +100,10 @@ function weeklyBossRelicRoll(weekKey: string, aiId: string, name: string): boole
     return digest.readUInt32BE(0) / 0x1_0000_0000 < WEEKLY_BOSS_RELIC_CHANCE;
 }
 
+function weeklyBossGearRoll(weekKey: string, aiId: string, name: string): boolean {
+    return gearRoll(`weekly:${weekKey}:${aiId}:${name}`) < GEAR_DROP_CHANCE_BP.boss / 10_000;
+}
+
 type WeeklyBossRewardEntry = {
     name: string;
     damage: number;
@@ -108,6 +113,8 @@ type WeeklyBossRewardEntry = {
     gotCore: boolean;
     gotKey: boolean;
     gotRelic: boolean;
+    /** Sealed with the summary so the arena can list it. Older summaries omit it; the same roll is recomputed. */
+    gotGear?: boolean;
     isMvp: boolean;
 };
 
@@ -115,7 +122,7 @@ export function applyWeeklyBossReward(
     character: Record<string, unknown>,
     weekKey: string,
     aiId: string,
-    entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey' | 'gotRelic'>,
+    entry: Pick<WeeklyBossRewardEntry, 'name' | 'ryo' | 'gotCore' | 'gotKey' | 'gotRelic' | 'gotGear'>,
     now = Date.now(),
 ): { character: Record<string, unknown>; alreadyApplied: boolean } {
     // The event can be administratively respawned, but its economy authority
@@ -140,6 +147,12 @@ export function applyWeeklyBossReward(
     // Fate Shards instead of vanishing (same rule as the chest faucet).
     const duplicateRelic = entry.gotRelic && ownsRelic(character, WEEKLY_BOSS_RELIC_ID);
     if (entry.gotRelic && !duplicateRelic) inventory.push(WEEKLY_BOSS_RELIC_ID);
+    // Gear step drop (api/_gear-drops.ts). The hit is decided from the same inputs
+    // as the relic, so it is the same on every retry; once per week like the rest.
+    if (entry.gotGear ?? weeklyBossGearRoll(weekKey, aiId, entry.name)) {
+        const gearDrop = pickGearDrop(character);
+        if (gearDrop) inventory.push(gearDrop);
+    }
     const leveled = applyDerivedLevel({
         ...character,
         unspentStats: Math.max(0, Math.floor(Number(character.unspentStats) || 0)) + WEEKLY_BOSS_STAT_POINTS,
@@ -609,6 +622,9 @@ async function distributeRewardsIfExpired(boss: WeeklyBossState): Promise<Weekly
                 gotCore: i < TOP_CORE_COUNT,
                 gotKey: i < TOP_KEY_COUNT,
                 gotRelic: i < TOP_CORE_COUNT && weeklyBossRelicRoll(fresh.weekKey, fresh.aiId, name),
+                // Every contributor rolls. Sealed here so the arena can list it, and so the
+                // credit later pays exactly what the summary promised.
+                gotGear: weeklyBossGearRoll(fresh.weekKey, fresh.aiId, name),
                 isMvp,
             };
         });

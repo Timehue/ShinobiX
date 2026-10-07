@@ -18,6 +18,8 @@ import { starterItems } from "../data/starter-items";
 import type { GameItem, EquipmentSlot } from "../types/combat";
 import type { Character } from "../types/character";
 import { addItems, unifiedItemStacks } from "./inventory";
+import { armorReductionForItem } from "./equipment";
+import { parseStepItemId } from "../../../shared/gear-steps";
 
 export function isArmorOrGloveItem(item: GameItem) {
     const armorSlots: EquipmentSlot[] = ["head", "body", "armor", "waist", "legs", "feet"];
@@ -88,6 +90,48 @@ export function getAllItems(creatorItems: GameItem[], weaponElements?: Record<st
         const el = weaponElements[item.id];
         return el ? { ...item, weaponElement: el as GameItem["weaponElement"] } : item;
     });
+}
+
+const percentText = (piece: GameItem) => Math.round(armorReductionForItem(piece) * 1000) / 10;
+
+/**
+ * One line saying what a gear step item is: its own number, and what it improves on
+ * ("Damage 15 EP, up from 14 on the Training Katana"). Null for any other item, so a
+ * caller can fall back to its usual text. Shared by the pop-up and both reveals so
+ * they always read the same.
+ */
+export function gearStepSummary(item: GameItem): string | null {
+    const step = parseStepItemId(item.id);
+    if (!step) return null;
+    const base = starterItems.find((candidate) => candidate.id === step.baseId);
+    if (item.weaponEp != null) {
+        return `Damage ${item.weaponEp} EP${base?.weaponEp != null ? `, up from ${base.weaponEp} on the ${base.name}` : ""}`;
+    }
+    return `${percentText(item)}% damage reduction${base ? `, up from ${percentText(base)}% on the ${base.name}` : ""}`;
+}
+
+/** The same line, looked up by item id. Null when the id is not a gear step item. */
+export function gearStepSummaryById(itemId: string): string | null {
+    const item = starterItems.find((candidate) => candidate.id === itemId);
+    return item ? gearStepSummary(item) : null;
+}
+
+/**
+ * The line a results card shows for an upgrade gear piece the fight, run or
+ * assault just granted, so the player finds it with the rest of the winnings.
+ * Null when the id is not a gear step item.
+ */
+export function gearDropRewardLine(itemId: string | null | undefined): string | null {
+    const item = itemId ? starterItems.find((candidate) => candidate.id === itemId) : undefined;
+    const summary = item ? gearStepSummary(item) : null;
+    return item && summary ? `Upgrade gear found: ${item.name} · ${summary}` : null;
+}
+
+/** The sub line a reveal shows under an item's name. A step item says it is an upgrade and by how much. */
+export function itemRevealSub(item: GameItem): string {
+    const summary = gearStepSummary(item);
+    if (summary) return `Upgrade gear · ${summary}`;
+    return `${item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1)} ${item.slot} · ${item.description.slice(0, 40)}`;
 }
 
 export function getItemById(items: GameItem[], id?: string) {

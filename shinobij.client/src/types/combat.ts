@@ -108,6 +108,8 @@ export type GameItem = {
     /** Priced utility item, not gear; keeps its authored level gate despite rarity. */
     serviceItem?: boolean;
     armorQuality?: ArmorQuality;
+    /** Exact damage reduction (a fraction) for gear step drops; otherwise the quality table decides. */
+    armorReduction?: number;
     levelReq?: number;
     image?: string;
     weaponElement?: JutsuElement;

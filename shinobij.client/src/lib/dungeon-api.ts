@@ -30,11 +30,12 @@ export function dungeonProbeFailureMessage(error: unknown): string {
     return error.message + ' Try exploring again; your saved attempt will be reused.';
 }
 
-export async function mutateDungeonRunServer(playerName: string, action: 'start' | 'settle' | 'abandon', token = '', presentationEventId?: string): Promise<{ character: Character; token: string; _saveVersion?: number }> {
+export async function mutateDungeonRunServer(playerName: string, action: 'start' | 'settle' | 'abandon', token = '', presentationEventId?: string): Promise<{ character: Character; token: string; _saveVersion?: number; gearDropItemId?: string }> {
     const response = await fetch('/api/dungeon/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName, action, token, ...(action === 'start' && presentationEventId ? { presentationEventId } : {}) }) });
-    const data = await response.json().catch(() => null) as { character?: Character; token?: string; error?: string; _saveVersion?: number } | null;
+    const data = await response.json().catch(() => null) as { character?: Character; token?: string; error?: string; _saveVersion?: number; gearDrop?: { itemId?: string } } | null;
     if (!response.ok || !data?.character || !data.token) throw new Error(data?.error || 'Dungeon run could not be verified.');
-    return { character: data.character, token: data.token, _saveVersion: data._saveVersion };
+    const gearDropItemId = typeof data.gearDrop?.itemId === 'string' && data.gearDrop.itemId ? data.gearDrop.itemId : undefined;
+    return { character: data.character, token: data.token, _saveVersion: data._saveVersion, ...(gearDropItemId ? { gearDropItemId } : {}) };
 }
 
 type DungeonProbeResult = {

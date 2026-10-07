@@ -533,7 +533,7 @@ function HallOfLegends({ character, setScreen, playerRoster, onVersionedCharacte
                                         })()}
                                     </div>
                                     <p className="hint" style={{ fontSize: "0.78rem", margin: "0 0 0.4rem" }}>
-                                        Top 10 receive a Weekly Boss Core · Top 25 receive a Dungeon Key · Every contributor banks 10 stat points · MVP also gets 2× ryo.
+                                        Top 10 receive a Weekly Boss Core · Top 25 receive a Dungeon Key · Every contributor banks 10 stat points and has a 5% chance of an upgrade gear piece · MVP also gets 2× ryo.
                                     </p>
                                     {Object.entries(weeklyBoss.damageByPlayer ?? {})
                                         .sort(([, a], [, b]) => (b as number) - (a as number))

@@ -23,6 +23,7 @@ import {
 } from './_ai-fight-token.js';
 import { settleRaidAiToken } from './_generic-ai-fight-authority.js';
 import { applyAiFightSecondaryRewards } from './_ai-fight-secondary.js';
+import { GEAR_DROP_CHANCE_BP, rollGearDrop } from '../_gear-drops.js';
 import { compareWriteSoloPveSession, readSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSession } from '../solo-pve/_session.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
@@ -200,7 +201,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const paysReward = aiFightPaysReward(outcome, sealedBattleKind) && !sealedRaidMissionId;
         const requestedDailyDate = utcDateKey();
         let dailyCounterKey = aiFightDailyCounterKey(playerName, requestedDailyDate);
+        // The upgrade gear piece this settle granted, for the result card. Reset
+        // on every attempt, and unset on a replay (the pop-up still announces it).
+        let grantedGearDropId = null as string | null;
         const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
+            grantedGearDropId = null;
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number; statPoints?: number } =>
                     !!entry && typeof entry === 'object' && typeof (entry as { token?: unknown }).token === 'string')
@@ -381,11 +386,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     unspentStats: Math.max(0, Math.floor(Number(paid.unspentStats) || 0)) + growth.unspentGain,
                 }) as Record<string, unknown>;
             }
+            // Gear step drop: bosses 5 percent, ordinary fights 0.5 percent, and none
+            // for mission or hunt fights or inside a dungeon run. A win whose rewards are
+            // already reduced for the day (past the soft cap) rolls nothing, so grinding
+            // past the cap cannot farm gear and the result card stays truthful.
+            const worldKind = sealedWorldContext?.kind;
+            const bossFight = worldKind === 'questbook-boss' || worldKind === 'story-reckoning';
+            const noDrop = tokenData.battleKind === 'mission' || tokenData.battleKind === 'dungeon' || worldKind === 'hunt-target' || worldKind === 'hunt-pack';
+            const gearDropId = dailyCount <= AI_FIGHT_HARD_CAP_PER_DAY && !reward.capped && (bossFight || !noDrop)
+                ? rollGearDrop(paid, bossFight ? GEAR_DROP_CHANCE_BP.boss : GEAR_DROP_CHANCE_BP.normalFight)
+                : null;
+            grantedGearDropId = gearDropId && (tokenData.battleKind ?? 'practice') !== 'practice' ? gearDropId : null;
             const rewarded = applyAiFightSecondaryRewards(
                 paid,
                 tokenData,
                 dailyCount <= AI_FIGHT_HARD_CAP_PER_DAY,
                 randomInt(100) < 15,
+                gearDropId,
             );
             // The surviving HP rides in the SAME mutation as the payout, so a win
             // can never bank the reward while losing the damage it cost (or the
@@ -679,6 +696,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             capped: reward.capped,
             dailyCount,
             fetchMissionsCredited,
+            ...(grantedGearDropId ? { gearDrop: { itemId: grantedGearDropId } } : {}),
             ...(raidProgression ? { raidProgression: {
                 fetchMissionsCredited: raidProgression.fetchMissionsCredited,
                 missionsCompleted: raidProgression.missionsCompleted,

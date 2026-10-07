@@ -7,6 +7,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { DAILY_ANCIENT_CHEST_LIMIT, rollAncientChestLoot, settleAncientChestLoot } from './_chest.js';
 import { kv } from '../_storage.js';
+import { GEAR_DROP_CHANCE_BP, rollGearDrop } from '../_gear-drops.js';
 import {
     cleanWorldExploreAuthorityReceipt,
     WORLD_EXPLORE_RECEIPT_TTL_SECONDS,
@@ -134,6 +135,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!reserved && count >= DAILY_ANCIENT_CHEST_LIMIT) return { ok: false as const, status: 409, error: 'daily-limit' };
             const loot = rollAncientChestLoot(body.sector, () => randomInt(1_000_000_000) / 1_000_000_000);
             if (!loot) return { ok: false as const, status: 400, error: 'invalid-sector' };
+            // A gear step drop takes the place of the usual item, card or shard roll.
+            // It is stored in the loot, so a retried open replays it and never re-rolls.
+            const gearDrop = rollGearDrop(character, GEAR_DROP_CHANCE_BP.ancientChest);
+            if (gearDrop) Object.assign(loot, { itemId: gearDrop, cardId: undefined, fateShards: undefined, boneCharms: undefined, auraStones: undefined });
             // Legacy discoveries only (see the pool comment above). Never a
             // refusal: this chest is already the player's, and the discovery
             // that minted it already cost them a daily chest slot.

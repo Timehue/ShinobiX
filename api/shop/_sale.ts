@@ -1,11 +1,14 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 import { removeOwned, countOwned } from '../craft/_forge.js';
 import { canonicalEquipmentSlot, resolvedEquipmentEntries, REFERENCE_EQUIPMENT_SLOTS } from '../_equipment-ownership.js';
+import { GEAR_STEP_SELL_RYO, isStepItemId } from '../../shared/gear-steps.js';
 
 const whole = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 export function sellCatalogItem(character: Record<string, unknown>, itemIdRaw: unknown, qtyRaw: unknown, equipmentSlotRaw?: unknown) {
     const itemId = typeof itemIdRaw === 'string' ? itemIdRaw : ''; const item = ITEM_CATALOG[itemId];
-    if (!item || whole(item.cost) <= 0) return { ok: false as const, reason: 'item-not-sellable' as const };
+    // Gear step drops cost 0 and sell for one flat price (shared/gear-steps.ts).
+    const stepDrop = !!item && isStepItemId(itemId);
+    if (!item || (whole(item.cost) <= 0 && !stepDrop)) return { ok: false as const, reason: 'item-not-sellable' as const };
     const slot = String(item.slot ?? '');
     if (!item.armorQuality && !['head', 'body', 'waist', 'legs', 'feet', 'hand', 'gloves', 'thrown', 'item', 'potion'].includes(slot)) return { ok: false as const, reason: 'item-not-sellable' as const };
     const equipmentSlot = typeof equipmentSlotRaw === 'string' ? equipmentSlotRaw : '';
@@ -26,6 +29,6 @@ export function sellCatalogItem(character: Record<string, unknown>, itemIdRaw: u
         if (qty <= 0) return { ok: false as const, reason: 'item-not-owned' as const };
         next = removeOwned(character, itemId, qty);
     }
-    const unitValue = Math.floor(whole(item.cost) / 2);
+    const unitValue = stepDrop ? GEAR_STEP_SELL_RYO : Math.floor(whole(item.cost) / 2);
     return { ok: true as const, character: { ...next, ryo: whole(next.ryo) + unitValue * qty }, sale: { itemId, qty, unitValue, totalValue: unitValue * qty } };
 }

@@ -1,5 +1,5 @@
 import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
-import { armorReductionForQuality, consolidateItemBonuses } from "../lib/equipment";
+import { armorReductionForItem, consolidateItemBonuses } from "../lib/equipment";
 import { getAllItems, getItemById } from "../lib/items";
 import { weaponTagCombatPercent } from "../lib/tags";
 import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
@@ -16,6 +16,7 @@ import { Modal } from "../components/ui/Modal";
 import { ChronicleCardInspector } from "../components/ChronicleCardInspector";
 import { effectiveItemLevelReq, meetsItemLevelReq } from "../../../shared/item-level-gate";
 import { HUNT_MATERIAL_SELL_RYO } from "../../../shared/hunt-material-sale";
+import { GEAR_STEP_SELL_RYO, isStepItemId } from "../../../shared/gear-steps";
 import {
     type Character,
     type EquipmentSlot,
@@ -500,6 +501,8 @@ export function Inventory({
     }
 
     function sellValueForItem(item: GameItem) {
+        // Gear step drops cost 0 and sell for one flat price, the same one the server pays.
+        if (isStepItemId(item.id)) return GEAR_STEP_SELL_RYO;
         // Hunt drop materials are cost:0 (un-buyable); their shared table gives
         // the preview and authoritative sale the same rarity-tiered ryo value.
         if ((item.cost ?? 0) <= 0 && item.id in HUNT_MATERIAL_SELL_RYO) return HUNT_MATERIAL_SELL_RYO[item.id];
@@ -1089,7 +1092,7 @@ export function Inventory({
                                             <p><strong>Type:</strong> {selectedPresentation?.category}</p>
                                             <p><strong>Use:</strong> {selectedPresentation?.use}</p>
                                             {selectedPresentation?.showPlayerSlot && <p><strong>Slot:</strong> {equipmentSlotLabel(equipSlotForItem(selectedGameItem))}</p>}
-                                            {selectedPresentation?.showPlayerSlot && <p><strong>Level:</strong> {selectedGameItem.levelReq ?? 1}+</p>}
+                                            {selectedPresentation?.showPlayerSlot && <p><strong>Level:</strong> {effectiveItemLevelReq(selectedGameItem)}+</p>}
                                             {selectedActionCost > 0 && <p><strong>Action Cost:</strong> {selectedActionCost} AP</p>}
                                             {(selectedGameItem.weaponRange ?? 0) > 0 && <p><strong>Range:</strong> {selectedGameItem.weaponRange}</p>}
                                             {selectedGameItem.weaponEp != null && <p><strong>Damage:</strong> {selectedGameItem.weaponEp} EP</p>}
@@ -1141,7 +1144,7 @@ export function Inventory({
                                                 <h4>While Equipped</h4>
                                                 <div className="item-popup-effect-grid">
                                                     {selectedGameItem.armorQuality && (
-                                                        <p><strong>Damage Reduction:</strong> {Math.round(armorReductionForQuality(selectedGameItem.armorQuality) * 100)}%</p>
+                                                        <p><strong>Damage Reduction:</strong> {Math.round(armorReductionForItem(selectedGameItem) * 1000) / 10}%</p>
                                                     )}
                                                     {selectedPassiveBonuses.map((bonus) => (
                                                         <p key={bonus.stat}><strong>{bonus.stat}:</strong> {formatItemBonus(bonus.stat, bonus.value)}</p>

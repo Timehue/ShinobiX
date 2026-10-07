@@ -181,6 +181,11 @@ export function armorReductionForQuality(quality?: ArmorQuality): number {
     return armorQualityTiers.find((t) => t.quality === quality)?.reduction ?? 0;
 }
 
+/** A gear step drop carries its own exact reduction; every other piece uses its quality tier. */
+export function armorReductionForItem(item: { armorQuality?: ArmorQuality; armorReduction?: number }): number {
+    return typeof item.armorReduction === "number" ? item.armorReduction : armorReductionForQuality(item.armorQuality);
+}
+
 // ── Item bonus display consolidation ─────────────────────────────────────
 // Items can grant up to 8 specialty stats (Ninjutsu/Taijutsu/Bukijutsu/
 // Genjutsu × Offense/Defense). Without consolidation, an endgame relic

@@ -3,6 +3,7 @@ import { maybeRequestPlayReview } from "../lib/native-play";
 import type { Character, BattleHistoryEntry } from "../types/character";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 import { aiFightExitScreen, aiFightNonWinMessage } from "../lib/ai-fight-result";
+import { gearDropRewardLine } from "../lib/items";
 import { beginAiFightClose, consumeCommittedAiFightClose, type AiFightCloseHandoff } from '../lib/ai-fight-close-handoff';
 import type { SavedBloodline, Jutsu, GameItem } from "../types/combat";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
@@ -575,6 +576,12 @@ export function AiFightHost({
                     stampWandererFightSettlement({ outcome: settled.outcome, worldContext: settled.worldContext, character: settled.character, _saveVersion: settled._saveVersion });
                 }
                 currentFight.request.onResolved?.(settled);
+            } else if (activePlayerKeyRef.current === originatingPlayerKey) {
+                // The fight screen closed (or another fight began) while the reply was in
+                // flight, but the rewards, and any gear drop, are already paid on the server.
+                // Hand the reply to the App, which adopts it only if it is this account's
+                // newest save. The fight specific steps above stay skipped.
+                latestOnSettled.current(settled);
             }
             return settled;
         })();
@@ -667,7 +674,7 @@ export function AiFightHost({
 }
 
 /** Result presentation for the already token-settled canonical fight. */
-function AiFightResultCard({
+export function AiFightResultCard({
     won,
     draw,
     settleState,
@@ -718,6 +725,10 @@ function AiFightResultCard({
     // prediction, because the daily soft cap and a profession payout can both
     // change what is actually granted.
     const grantedNothing = settleResult && settleResult.outcome === "win" && settleResult.ryo <= 0;
+    // An upgrade gear piece belongs with the rest of the winnings (the global pop-up still fires).
+    const gearLine = settleState === "settled" && settleResult?.settled && !settleResult.replayed
+        ? gearDropRewardLine(settleResult.gearDropItemId)
+        : null;
     return (
         <div className="story-fight-complete" role="dialog" aria-label="Fight won">
             <div className="story-fight-complete-card">
@@ -745,6 +756,7 @@ function AiFightResultCard({
                                         <span className="story-fight-complete-title">Win PvE and PvP fights for stat growth, and train or complete daily missions for more.</span>
                                     </p>
                                     )}
+                {gearLine && <p className="story-fight-complete-rewards" data-testid="ai-fight-gear-drop">{gearLine}</p>}
                 {/* Same escape hatch as the defeat branch above: a failed
                     settlement offers Retry AND a way out, never Retry alone. */}
                 {settleState === "failed" && <button onClick={onRetry}>Retry</button>}

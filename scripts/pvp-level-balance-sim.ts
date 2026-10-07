@@ -78,6 +78,7 @@ import {
     type PvpGroundEffect,
 } from '../api/pvp/session.js';
 import { effectiveItemLevelReq, meetsItemLevelReq } from '../shared/item-level-gate.js';
+import { isStepItemId } from '../shared/gear-steps.js';
 
 export type BloodlineRank = 'A Rank' | 'B Rank';
 export type Seat = 'p1' | 'p2';
@@ -559,8 +560,9 @@ function itemCombatScore(item: CatalogItem, discipline: Discipline): number {
 }
 
 function bestEligibleArmor(level: number, slot: typeof ARMOR_SLOTS[number], discipline: Discipline): CatalogItem {
+    // The sim models the gear a player buys or crafts; step drops are not part of that ladder.
     const candidates = Object.values(ITEM_CATALOG).filter((item) =>
-        item.slot === slot && item.armorQuality && meetsItemLevelReq(item, level),
+        item.slot === slot && item.armorQuality && !isStepItemId(item.id) && meetsItemLevelReq(item, level),
     );
     candidates.sort((a, b) =>
         ((ARMOR_DR[String(b.armorQuality)] ?? 0) - (ARMOR_DR[String(a.armorQuality)] ?? 0)) * 100_000
@@ -585,7 +587,7 @@ function weaponEffectBias(item: CatalogItem, archetype: Archetype): number {
 function bestEligibleWeapon(level: number, archetype: Archetype): CatalogItem {
     const discipline = PROFILE[archetype].discipline;
     const candidates = Object.values(ITEM_CATALOG).filter((item) =>
-        Number(item.weaponEp ?? 0) > 0 && item.slot === 'hand' && meetsItemLevelReq(item, level),
+        Number(item.weaponEp ?? 0) > 0 && item.slot === 'hand' && !isStepItemId(item.id) && meetsItemLevelReq(item, level),
     );
     candidates.sort((a, b) =>
         (itemCombatScore(b, discipline) + weaponEffectBias(b, archetype))

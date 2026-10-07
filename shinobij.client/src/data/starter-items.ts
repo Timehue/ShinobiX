@@ -1,4 +1,5 @@
 import { NON_STORY_RELICS } from '../../../shared/relics';
+import { buildGearSteps } from '../../../shared/gear-steps';
 /*
  * starterItems — the full catalog of canonical game items (armor / weapons /
  * consumables / event-specific drops / hunting materials).
@@ -38,7 +39,7 @@ function legendarySetBonuses(effect: LegendarySetEffect, value: number, offense 
     };
 }
 
-export const starterItems: GameItem[] = [
+const baseStarterItems: GameItem[] = [
     {
         id: "shinobi-vest",
         name: "Shinobi Vest",
@@ -1035,10 +1036,16 @@ const catalogArtwork: Record<string, string> = {
     "legendary-war-crate": "/items/item-legendary-war-crate-v1.webp",
 };
 
-for (const item of starterItems) {
+for (const item of baseStarterItems) {
     const artwork = catalogArtwork[item.id];
     if (artwork) item.image = artwork;
 }
+
+/**
+ * Base items plus their gear step drops (shared/gear-steps.ts). Step items use
+ * the base item's art until their own art ships.
+ */
+export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems)];
 
 /** Canonical fallback for server-sealed fighters whose compact item rows omit art. */
 const starterItemArtworkById = new Map(

@@ -1,5 +1,7 @@
 import { ITEM_CATALOG, EVENT_ITEM_IDS, type CatalogItem } from '../pvp/_item-catalog.js';
 import { clanPointMonthKey, clanPointWeekKey } from '../_clan-points.js';
+import { GEAR_DROP_CHANCE_BP, pickGearDrop } from '../_gear-drops.js';
+import { isStepItemId } from '../../shared/gear-steps.js';
 
 export const CLAN_EXCHANGE_WEEKLY_CAP = 1_000;
 
@@ -248,7 +250,7 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         hall: 'fortress',
         requiredClanLevel: 25,
         name: 'Forbidden Armory Scroll',
-        description: 'A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog.',
+        description: 'A forbidden armory scroll — unseals one Epic or Legendary weapon from the live catalog. About one scroll in five instead holds an upgrade weapon with extra EP, for the best gear tier you have bought or crafted.',
         cost: 6_000,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
@@ -273,7 +275,7 @@ export const CLAN_EXCHANGE_ITEMS: ClanExchangeItemDef[] = [
         hall: 'citadel',
         requiredClanLevel: 40,
         name: 'Vault of the Fallen',
-        description: 'A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog.',
+        description: 'A vault of the fallen — unseals one Epic or Legendary armor piece from the live catalog. About one vault in five instead holds an upgrade armor piece with extra damage reduction, for the best gear tier you have bought or crafted.',
         cost: 8_000,
         limit: { kind: 'weekly', count: 1 },
         rarity: 'legendary',
@@ -428,6 +430,8 @@ export function eligibleCacheItems(
         // Story-event gear is in the catalog so equipped pieces resolve in
         // combat, but it is earned from its event — never re-rolled from caches.
         if (EVENT_ITEM_IDS.has(item.id)) return false;
+        // Gear step drops have their own roll (see applyReward); they are not cache stock.
+        if (isStepItemId(item.id)) return false;
         const rarity = String(item.rarity ?? '').toLowerCase();
         if (rarity !== 'epic' && rarity !== 'legendary') return false;
         return cache === 'weapon' ? isWeapon(item) : isArmor(item);
@@ -476,7 +480,13 @@ function applyReward(
         };
     }
     if (reward.kind === 'cache') {
-        const rolled = rollCacheItem(catalog, reward.cache, rng);
+        const stock = rollCacheItem(catalog, reward.cache, rng);
+        // One more draw, after the two above, so seeded tests keep their sequence:
+        // some caches hold a gear step drop of the cache's own kind instead.
+        const stepId = stock && rng() * 10_000 < GEAR_DROP_CHANCE_BP.clanCache
+            ? pickGearDrop(character, (max) => Math.floor(rng() * max), reward.cache)
+            : null;
+        const rolled = (stepId ? catalog[stepId] : null) ?? stock;
         if (!rolled) {
             return {
                 character,

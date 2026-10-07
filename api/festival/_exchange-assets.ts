@@ -64,6 +64,8 @@ export function sealAsset(record: Obj, catalogs: SettlementCatalogs, kind: Excha
     for (const key of ['attack', 'defense', 'hp', 'speed', 'element', 'trait', 'breedingUsesRemaining', 'generation', 'weaponElement', 'weaponEp', 'weaponRange', 'weaponCooldown', 'apCost', 'armorQuality']) {
         if (typeof definition[key] === 'number' || typeof definition[key] === 'string') stats.push({ label: title(key), value: String(definition[key]) });
     }
+    // A gear step armor piece carries its own exact reduction; "Armor Quality" alone would show its base tier.
+    if (typeof definition.armorReduction === 'number') stats.push({ label: 'Damage Reduction', value: `${Math.round(definition.armorReduction * 1000) / 10}%` });
     if (definition.bonuses && typeof definition.bonuses === 'object') {
         for (const [key, value] of Object.entries(definition.bonuses)) if (typeof value === 'number' && value) stats.push({ label: title(key), value: `${value > 0 ? '+' : ''}${value}` });
     }

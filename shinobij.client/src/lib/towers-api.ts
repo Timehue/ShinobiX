@@ -269,7 +269,7 @@ export type TowerActionResponse = {
     replayed?: boolean;
 };
 export type TowerActionCommandMeta = { moveToken: string; expectedVersion?: number };
-export type TowerSettleResult = { paid: boolean; reason?: string; score?: number };
+export type TowerSettleResult = { paid: boolean; reason?: string; score?: number; gearDrop?: { itemId?: string } };
 export type TowerConsumedItemsResult = { consumed: boolean; reason?: string; used?: Record<string, number> };
 export type TowerSettleResponse = {
     personalBest?: TowerClearComparison;

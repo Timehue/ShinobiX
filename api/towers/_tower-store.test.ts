@@ -15,7 +15,9 @@ import {
     type RunTokenData,
     MAX_ASSISTS_PER_DAY,
     isPublicTowerRun,
+    settleTowerBossGearDrop,
 } from './_tower-store.js';
+import { gearDropHit } from '../_gear-drop-settlement.js';
 import { computeFloorReward, computeFloorClearScore } from './_tower-rewards.js';
 import { getFloor, type TowerFloor } from './_floor-catalog.js';
 import type { TowerSession, TowerActor } from './_tower-session.js';
@@ -479,5 +481,43 @@ describe('the tower reward channels pay CATALOG floors only', { concurrency: fal
         const res = await settleFloorForMember({ session, slug: 'climber' }, deps);
         assert.equal(res.reason, 'not-a-catalog-floor');
         assert.equal(isPublicTowerRun(session), false);
+    });
+});
+
+describe('Battle Towers boss gear drop', { concurrency: false }, () => {
+    const BOSS_FLOOR = 5;
+    const runWhere = (slug: string, hit: boolean) => {
+        for (let i = 0; i < 5000; i += 1) if (gearDropHit(`tower:boss-run-${i}:${slug}`, 500) === hit) return `boss-run-${i}`;
+        throw new Error('no run id found');
+    };
+
+    it('uses a floor that really has a boss', () => {
+        assert.ok(getFloor(BOSS_FLOOR)?.boss);
+        assert.ok(!getFloor(1)?.boss);
+    });
+
+    it('drops one step item on a boss floor win, and a retry adds nothing more', async () => {
+        await seedSave('dana', { inventory: ['kept'] });
+        const session = makeSession(runWhere('dana', true), BOSS_FLOOR, 'dana');
+        const first = await settleTowerBossGearDrop(session, 'dana');
+        assert.match(first.itemId ?? '', /-s[1-5]$/);
+        assert.deepEqual((await charOf('dana')).inventory, ['kept', first.itemId]);
+        assert.deepEqual(await settleTowerBossGearDrop(session, 'dana'), {});
+        assert.deepEqual((await charOf('dana')).inventory, ['kept', first.itemId]);
+    });
+
+    it('does not drop when the run did not hit', async () => {
+        await seedSave('erin', { inventory: ['kept'] });
+        assert.deepEqual(await settleTowerBossGearDrop(makeSession(runWhere('erin', false), BOSS_FLOOR, 'erin'), 'erin'), {});
+        assert.deepEqual((await charOf('erin')).inventory, ['kept']);
+    });
+
+    it('never drops on an ordinary floor, a lost run, or for a non member', async () => {
+        await seedSave('fay', { inventory: ['kept'] });
+        const runId = runWhere('fay', true);
+        assert.deepEqual(await settleTowerBossGearDrop(makeSession(runId, 1, 'fay'), 'fay'), {});
+        assert.deepEqual(await settleTowerBossGearDrop(makeSession(runId, BOSS_FLOOR, 'fay', { winner: 'enemy' }), 'fay'), {});
+        assert.deepEqual(await settleTowerBossGearDrop(makeSession(runId, BOSS_FLOOR, 'someoneelse'), 'fay'), {});
+        assert.deepEqual((await charOf('fay')).inventory, ['kept']);
     });
 });
