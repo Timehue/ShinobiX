@@ -70,7 +70,7 @@ jobs:
         run: |
           for attempt in $(seq 1 30); do
             if curl --fail --silent --show-error http://127.0.0.1:3000/health >/dev/null; then
-              curl --fail --silent --show-error http://127.0.0.1:3000/shinobi-journey-mark-48-v3.png >/dev/null
+              curl --fail --silent --show-error http://127.0.0.1:3000/shinobi-journey-mark-48-v4.png >/dev/null
               exit 0
             fi
             sleep 2
