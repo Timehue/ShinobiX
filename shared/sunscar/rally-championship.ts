@@ -6,6 +6,10 @@ export type RallyChampionship = {
     reward: { ryo: number; reputation: number; place: number } | null; rewardBase: number;
 };
 export type RallyProgress = { reputation: number; championships: number; wins: number; lastEntryDay: string | null; current: RallyChampionship | null; best: Record<string, number> };
+// Unstarted reservations expire with their festival day; started runs retain their entry.
+export function rallyActive(run: RallyChampionship | null | undefined, day: string | undefined): boolean {
+    return !!run && (run.status === 'ready' ? run.day === day : run.status !== 'complete');
+}
 export const RALLY_RANKS = [
     { name: 'Rookie', at: 0 }, { name: 'Bronze', at: 60 }, { name: 'Silver', at: 180 },
     { name: 'Gold', at: 420 }, { name: 'Elite', at: 850 }, { name: 'Sunscar Champion', at: 1500 },
