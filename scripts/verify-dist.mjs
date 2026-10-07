@@ -61,7 +61,11 @@ const forbiddenClientExtensions = new Set([
 // artifact to 548,713,084 B (523.3 MiB). Reserve 528 MiB for the shipped runtime
 // art, leaving 4.7 MiB of headroom. JavaScript/CSS startup and product budgets
 // remain independently gated by sizecheck.
-const maxClientArtifactBytes = 528 * 1024 * 1024;
+// 2026-10-07: the 110 upgrade gear pictures (public/items/step-*-v1.webp, 1.16 MiB
+// in all, 11 KB each on average) took the production artifact to 528.9 MiB, 0.9 MiB
+// over. They land in the small catch all Docker layer, so the layer split is
+// unaffected. Reserve 530 MiB, leaving about 1.1 MiB of headroom.
+const maxClientArtifactBytes = 530 * 1024 * 1024;
 const maxRallyAtlasBytes = 4 * 1024 * 1024;
 
 function fail(msg) {
