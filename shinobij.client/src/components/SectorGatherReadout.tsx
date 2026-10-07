@@ -13,7 +13,7 @@ import type { SectorGatherLine } from "../lib/sector-pool";
 export function SectorGatherReadout({ gather }: { gather: SectorGatherLine }) {
     return (
         <div className="sector-gather-block">
-            <small className={`sector-gather-line${gather.depleted ? " is-depleted" : ""}${gather.pending ? " is-pending" : ""}`}>{gather.text}</small>
+            <small className={`sector-gather-line${gather.depleted ? " is-depleted" : ""}${gather.pending ? " is-pending" : ""}`}>Shared sector pool: {gather.text}</small>
             {gather.note && <small className="sector-gather-note">{gather.note}</small>}
         </div>
     );
