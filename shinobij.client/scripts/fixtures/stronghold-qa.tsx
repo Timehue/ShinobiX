@@ -38,7 +38,7 @@ export function Fixture() {
     const present = (content: React.ReactNode) => params.has('backdrop') ? <WorldSectorCanvas sector={99} biome="volcano" ambienceBiome="volcano" weather="clear"
         playerTile={50} playerName="scout" playerAvatarImage="/anbu/frostfang.webp" isCurrent suspended={!exited}
         enterDirection={null} regionSplash={null} onRegionSplashDone={() => {}} sceneImage="/anbu/moonshadow.webp"
-        mapImage={params.get('backdrop') === '3d' ? undefined : '/anbu/moonshadow.webp'} roadExits={[]} showLivePeers={false}
+        mapImage={params.get('backdrop') === 'fallback' ? undefined : '/anbu/moonshadow.webp'} roadExits={[]} showLivePeers={false}
         players={[]} sharedImages={{}} sleeperPeers={[]} onSelectTile={() => {}} onCrossExit={() => {}} overlayLayer={content} encounterLayer={null} /> : content;
     if (exited) return present(<><h1>Returned to sector</h1>{params.has('lifecycle') && <button onClick={() => setExited(false)}>Enter preview</button>}</>);
     return present(<LiveCapabilitiesContext.Provider value={store}>
