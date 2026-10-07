@@ -141,41 +141,41 @@ Reference image paths are relative to `shinobij.client/public`.
 
 | Base item | Tier | Pieces | Values | Reference image |
 | --- | --- | --- | --- | --- |
-| Rustfang Kunai | Common weapons | 5 | 14.5 to 16.5 EP | `/items/starter-rustfang-kunai-v2.webp` |
-| Training Katana | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-training-katana-v1.webp` |
-| Ash Wrapped Tanto | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-ash-wrapped-tanto-v1.webp` |
-| Rookie Chain Sickle | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-rookie-chain-sickle-v1.webp` |
-| Cracked Bone Dagger | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-cracked-bone-dagger-v1.webp` |
-| Mistfang Tanto | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-mistfang-tanto-v1.webp` |
-| Ashen Leaf Saber | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-ashen-leaf-saber-v1.webp` |
-| Riverbone Spear | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-riverbone-spear-v1.webp` |
-| Iron Fang Knuckles | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-iron-fang-knuckles-v1.webp` |
-| Blue Thread Dagger | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-blue-thread-dagger-v1.webp` |
-| Stormcoil Kusarigama | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-stormcoil-kusarigama-v1.webp` |
-| Moonshadow Needleblade | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-moonshadow-needleblade-v1.webp` |
-| Frostbite Cleaver | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-frostbite-cleaver-v1.webp` |
-| Ashglass Katana | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-ashglass-katana-v1.webp` |
-| Spirit Leech Wakizashi | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-spirit-leech-wakizashi-v1.webp` |
+| Rustfang Kunai | Common weapons | 5 | 14.5 to 16.5 EP | `/items/starter-rustfang-kunai-v3.webp` |
+| Training Katana | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-training-katana-v2.webp` |
+| Ash Wrapped Tanto | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-ash-wrapped-tanto-v2.webp` |
+| Rookie Chain Sickle | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-rookie-chain-sickle-v2.webp` |
+| Cracked Bone Dagger | Common weapons | 5 | 14.5 to 16.5 EP | `/items/shop-cracked-bone-dagger-v2.webp` |
+| Mistfang Tanto | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-mistfang-tanto-v2.webp` |
+| Ashen Leaf Saber | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-ashen-leaf-saber-v2.webp` |
+| Riverbone Spear | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-riverbone-spear-v2.webp` |
+| Iron Fang Knuckles | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-iron-fang-knuckles-v2.webp` |
+| Blue Thread Dagger | Rare weapons | 3 | 17.5 to 18.5 EP | `/items/shop-blue-thread-dagger-v2.webp` |
+| Stormcoil Kusarigama | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-stormcoil-kusarigama-v2.webp` |
+| Moonshadow Needleblade | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-moonshadow-needleblade-v2.webp` |
+| Frostbite Cleaver | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-frostbite-cleaver-v2.webp` |
+| Ashglass Katana | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-ashglass-katana-v2.webp` |
+| Spirit Leech Wakizashi | Epic weapons | 5 | 19.5 to 21.5 EP | `/items/shop-spirit-leech-wakizashi-v2.webp` |
 
 ### Armor (head, body, waist, legs, feet in each quality)
 
 | Base item | Tier | Pieces | Values | Reference image |
 | --- | --- | --- | --- | --- |
-| Cloth Hood | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-hood-v1.webp` |
-| Cloth Robe | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-robe-v1.webp` |
-| Cloth Sash | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-sash-v1.webp` |
-| Cloth Pants | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-pants-v1.webp` |
-| Cloth Sandals | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-sandals-v1.webp` |
-| Leather Headband | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-leather-headband-v1.webp` |
-| Reinforced Vest | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-reinforced-vest-v1.webp` |
-| Leather Belt | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-leather-belt-v1.webp` |
-| Padded Leggings | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-padded-leggings-v1.webp` |
-| Shinobi Boots | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-shinobi-boots-v1.webp` |
-| Iron Kabuto | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-iron-kabuto-v1.webp` |
-| Rare Chest Plate | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-chest-plate-v1.webp` |
-| Chain Obi | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-chain-obi-v1.webp` |
-| Rare Greaves | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-greaves-v1.webp` |
-| Rare Tabi | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-tabi-v1.webp` |
+| Cloth Hood | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-hood-v2.webp` |
+| Cloth Robe | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-robe-v2.webp` |
+| Cloth Sash | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-sash-v2.webp` |
+| Cloth Pants | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-pants-v2.webp` |
+| Cloth Sandals | Standard armor | 3 | 1.5% to 2.5% | `/items/shop-cloth-sandals-v2.webp` |
+| Leather Headband | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-leather-headband-v2.webp` |
+| Reinforced Vest | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-reinforced-vest-v2.webp` |
+| Leather Belt | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-leather-belt-v2.webp` |
+| Padded Leggings | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-padded-leggings-v2.webp` |
+| Shinobi Boots | Reinforced armor | 3 | 3.5% to 4.5% | `/items/shop-shinobi-boots-v2.webp` |
+| Iron Kabuto | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-iron-kabuto-v2.webp` |
+| Rare Chest Plate | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-chest-plate-v2.webp` |
+| Chain Obi | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-chain-obi-v2.webp` |
+| Rare Greaves | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-greaves-v2.webp` |
+| Rare Tabi | Rare armor | 3 | 5.5% to 6.5% | `/items/shop-rare-tabi-v2.webp` |
 
 (The real item is spelled Ash-Wrapped Tanto in the game. The table drops the
 hyphen only to keep this document's wording hyphen free; use the manifest's
