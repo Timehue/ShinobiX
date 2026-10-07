@@ -102,7 +102,7 @@ test("no magenta is left on the item", async () => {
 });
 
 test("real item art on magenta comes out without a pink fringe", async () => {
-    for (const file of ["starter-rustfang-kunai-v2", "shop-reinforced-vest-v1", "shop-ashglass-katana-v1", "shop-iron-kabuto-v1"]) {
+    for (const file of ["starter-rustfang-kunai-v3", "shop-reinforced-vest-v2", "shop-ashglass-katana-v2", "shop-iron-kabuto-v2"]) {
         const subject = await sharp(join(ITEMS_DIR, `${file}.webp`)).resize(900, 900, { fit: "inside" }).png().toBuffer();
         const onMagenta = await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff00ff" } })
             .composite([{ input: subject, gravity: "center" }]).png().toBuffer();
