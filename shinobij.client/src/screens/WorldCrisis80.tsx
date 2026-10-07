@@ -36,6 +36,7 @@ import hollowGateMark from "../assets/map-landmarks/hollow-gate.webp";
 import reckoningOutskirtsArt from "../assets/world-crisis-80/reckoning-outskirts.webp";
 import collectionCellArt from "../assets/world-crisis-80/collection-cell-lineup.webp";
 import pursuitPackArt from "../assets/world-crisis-80/pursuit-pack.webp";
+import "./WorldCrisisTabs.css";
 import "./WorldCrisis80.css";
 
 const VILLAGE_ART: Record<WorldCrisis80Village, string> = {

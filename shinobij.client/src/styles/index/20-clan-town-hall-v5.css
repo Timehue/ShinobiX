@@ -116,7 +116,6 @@
 }
 
     .elder-seat-grid .elder-card {
-        display: grid;
         justify-items: center;
         text-align: center;
     }

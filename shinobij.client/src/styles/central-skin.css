@@ -1898,7 +1898,6 @@
 }
 
 .app-shell[data-screen="shinobiCouncil"] .council-screen {
-    gap: 18px;
     border-color: rgba(183, 137, 255, 0.27);
 }
 

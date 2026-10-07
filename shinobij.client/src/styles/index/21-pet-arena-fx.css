@@ -270,15 +270,6 @@
 }
 
 /* ── Momentum bar ──────────────────────────────── */
-.pet-momentum-bar {
-    position: relative;
-    height: 6px;
-    border-radius: 4px;
-    margin: 6px 0;
-    background: rgba(239, 68, 68, 0.38);
-    overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-}
 
 /* ── Status badges ─────────────────────────────── */
 .pet-status-badges {

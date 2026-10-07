@@ -17,7 +17,6 @@
 .caravan-resource.is-low meter::-webkit-meter-suboptimum-value,
 .caravan-resource.is-low meter::-webkit-meter-even-less-good-value { background: #e6a17e; }
 .caravan-mode .caravan-travel-cost { color: #dce2b9; font-size: 13px; }
-.caravan-mode .caravan-travel-cost.is-warning { color: #ffc2a2; }
 .caravan-next-stop { outline: 0; scroll-margin: 20px; }
 .caravan-next-stop:focus-visible { outline: 2px solid #a7dfdf; outline-offset: 3px; }
 .caravan-journal summary { min-height: 44px; }
