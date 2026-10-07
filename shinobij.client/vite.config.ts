@@ -458,7 +458,7 @@ export default defineConfig({
             async resolveId(source, importer) {
                 if (!/\/(?:sector-floor-layout-data|continuous-world-layout)\.json$/.test(source)) return;
                 const resolved = await this.resolve(source, importer, { skipSelf: true });
-                if (resolved && path.dirname(resolved.id) === path.resolve(CLIENT_ROOT, '../shared')) {
+                if (resolved && path.dirname(path.resolve(resolved.id)) === path.resolve(CLIENT_ROOT, '../shared')) {
                     return '\0packed-world:' + resolved.id;
                 }
             },
