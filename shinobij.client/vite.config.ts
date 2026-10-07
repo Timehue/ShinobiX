@@ -1,6 +1,7 @@
 import { minifyRuntimeSource } from './scripts/runtime-asset-minifier.mjs';
 import { compactGlbDelivery } from './scripts/compact-glb-delivery.mjs';
 import { sectorRuntimeData } from './scripts/sector-runtime-data.mjs';
+import { packedWorldData } from './scripts/packed-world-data.mjs';
 import { fileURLToPath, URL } from 'node:url';
 
 import { defineConfig } from 'vite';
@@ -454,10 +455,19 @@ export default defineConfig({
         {
             name: 'sector-runtime-data',
             enforce: 'pre',
-            transform(source, id) {
-                const file = id.split('?')[0].replace(/\\/g, '/');
-                const registry = path.resolve(CLIENT_ROOT, '../shared/sector-floor-layout-data.json').replace(/\\/g, '/');
-                if (file === registry) return { code: sectorRuntimeData(source), map: null };
+            async resolveId(source, importer) {
+                if (!/\/(?:sector-floor-layout-data|continuous-world-layout)\.json$/.test(source)) return;
+                const resolved = await this.resolve(source, importer, { skipSelf: true });
+                if (resolved && path.dirname(resolved.id) === path.resolve(CLIENT_ROOT, '../shared')) {
+                    return '\0packed-world:' + resolved.id;
+                }
+            },
+            load(id) {
+                if (!id.startsWith('\0packed-world:')) return;
+                const file = id.slice('\0packed-world:'.length);
+                this.addWatchFile(file);
+                const source = fs.readFileSync(file, 'utf8');
+                return packedWorldData(file.endsWith('sector-floor-layout-data.json') ? sectorRuntimeData(source) : source);
             },
         },
         plugin(),
