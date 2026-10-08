@@ -253,6 +253,6 @@ export function storesSpendAuthorityLine(input: { loaded: boolean; provisions: n
     if (!input.loaded) return null;
     const stocked = nonNeg(input.provisions) > 0 || nonNeg(input.materialPoints) > 0;
     return stocked
-        ? "Stocked and ready for the Kage. Only the Kage spends the stores — on sieges, mercenary bands and level 6+ structures — and ANBU appointees may order a garrison fed. Everyone else stocks them."
-        : "The stores stand empty. Only the Kage spends them — on sieges, mercenary bands and level 6+ structures — so anything you donate is waiting for the next war, not for you.";
+        ? "Stocked and ready for the Kage. The Kage spends the stores on sieges and level 6+ structures, the mercenary bands the Kage and Elders hire eat from them, and ANBU appointees may order a garrison fed. Everyone else stocks them."
+        : "The stores stand empty. They feed sieges, mercenary bands and level 6+ structures, so anything you donate is waiting for the next war, not for you.";
 }

@@ -31,6 +31,7 @@ import { revealedIntelForSector } from "../lib/village-intel";
 import { DEPOT_CONVERSION_POINTS_PER_WR, GARRISON_RATIONS_PER_DAY, expectedDeclareCost, intelTierLabel, structureMaterialsCost } from "../lib/village-stores";
 import {
     GARRISON_POINTS_CAP,
+    GARRISON_POINTS_CAP_DEFENDED,
     GARRISON_POINTS_CAP_FED,
     WAR_RATIONS_PER_DAY,
     NO_WAR_MAP_ERROR,
@@ -38,7 +39,9 @@ import {
     declareEstimateNote,
     depotConversionNote,
     garrisonFedCapLine,
+    garrisonFeedButtonTitle,
     garrisonFeedStatusLine,
+    type GarrisonFeedSide,
     provisionsMeaningLine,
     structureUpgradeNotice,
     warMapErrorAfterAction,
@@ -193,6 +196,8 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             // the round-trip.
             declareAfford: wrAffordability(declareCost, myView?.warResources ?? 0, { verb: "Declare War", estimate: true }),
             participant,
+            // A feed is worth the same to either side, in opposite directions.
+            feedSide: (contest?.attackerVillage === myVillage ? "attacker" : "defender") as GarrisonFeedSide,
             canFeed: participant && (isKage || isAnbu),
             // Only MY village's feed entry — the enemy's paid feed is never shown as ours.
             myFeed: contest ? contestGarrisonFeed(contest, myVillage) : { on: false, covered: false },
@@ -271,10 +276,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                         <div className="vwm-info-grid">
                             <div><b><GameArtIcon kind="attack" size={17} /> Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Showdown). Every fight is server-decided — no faking a win.</span></div>
                             <div><b><GameArtIcon kind="crown" size={17} /> Most points in 72h wins</b><span>Every win scores kill points for your side and the tally counts up. Highest score when the clock runs out takes the sector — <b>a tie means the defender holds</b>. Rank is the score: felling a Kage is worth far more than a villager.</span></div>
-                            <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
+                            <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>A sector's rules belong to the village that holds it: its Kage picks the win-condition, and its Kage (3 sectors) and Elders (1 each) pick the terrain. The defender gets +10% on that ground (Combat &amp; Pet), locked in when a war is declared. Central is neutral.</span></div>
                             <div><b><GameArtIcon kind="vanguard" size={17} /> Mercenaries</b><span>Hired with War Resources for one war at a time: in an all-out village war the Kage hires 3 bands and each Elder 1, and a village defending a Combat sector hires 3. A band hunts the enemy on its own; in a sector war only the defender fields one.</span></div>
                             <div><b><GameArtIcon kind="clanHall" size={17} /> Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
-                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison as well, raising what it can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}.</span></div>
+                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison fight as well. The attacker's feed raises what its garrison assaults can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}; the defender's lowers it to {GARRISON_POINTS_CAP_DEFENDED}. When both sides feed, they cancel out.</span></div>
                             <div><b><GameArtIcon kind="crown" size={17} /> Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest — Elders may also hire mercenaries. Anyone can fight in a sector that's already contested.</span></div>
                         </div>
                     </div>
@@ -371,7 +376,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     // only the countdown below reads the 1Hz clock.
                                     const view = sectorViews.get(sectorViewKey(v.village, sec.sector));
                                     if (!view) return null;
-                                    const { owner, contest, mine, protectedCore, canDeclare, pct, intelTier, declareAfford, participant, canFeed, myFeed } = view;
+                                    const { owner, contest, mine, protectedCore, canDeclare, pct, intelTier, declareAfford, participant, feedSide, canFeed, myFeed } = view;
                                     const hoursLeft = contest ? Math.max(0, Math.ceil((contest.endsAt - nowTick) / 3_600_000)) : 0;
                                     return (
                                         <div key={sec.sector} className="vwm-sector" style={{ borderColor: villageAccent(owner) }}>
@@ -396,7 +401,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                             className="vwm-feed-toggle"
                                                             aria-pressed={myFeed.on}
                                                             disabled={!!busy}
-                                                            title={`Spend ${GARRISON_RATIONS_PER_DAY} rations a day from the Town Hall stores to keep the sector garrison fed — while covered it holds ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}. Kage / ANBU only.`}
+                                                            title={garrisonFeedButtonTitle(feedSide, GARRISON_RATIONS_PER_DAY)}
                                                             onClick={() => act(`feed-${sec.sector}`, async () => {
                                                                 const r = await setGarrisonFeed(character.name, contest.id, !myFeed.on);
                                                                 gameToast(r.garrisonFed
@@ -410,7 +415,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     ) : (
                                                         <small className="hint"><GiBowlOfRice aria-hidden="true" /> {garrisonFeedStatusLine({ feeding: myFeed.on, sector: sec.sector })}</small>
                                                     )}
-                                                    {myFeed.on && <small className="hint">{garrisonFedCapLine(myVillage, myFeed.covered)}</small>}
+                                                    {myFeed.on && <small className="hint">{garrisonFedCapLine(myVillage, myFeed.covered, feedSide)}</small>}
                                                 </div>
                                             )}
                                             {canDeclare && (

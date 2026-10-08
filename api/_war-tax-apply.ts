@@ -68,9 +68,10 @@ const VILLAGE_STATE_PREFIX = 'game:village-state:';
  * nothing until someone takes the seat.
  *
  * This is not a loophole worth farming: an unseated village also cannot declare a
- * village war or a sector war, set terrain or win-conditions, upgrade a structure,
- * or hire a mercenary — every one of those is Kage-gated. Dodging the tax means
- * forfeiting the entire war toolkit.
+ * village war or a sector war, set win-conditions, or upgrade a structure — every
+ * one of those is Kage-gated — and its Elders keep only their own small share (one
+ * terrain pick, one mercenary hire per war). Dodging the tax means forfeiting
+ * almost the entire war toolkit.
  */
 export async function isVillageKageSeated(village: string): Promise<boolean> {
     try {

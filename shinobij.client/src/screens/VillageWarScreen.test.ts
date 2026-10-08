@@ -51,4 +51,18 @@ describe("War Hall: no fightless raids or client captures", () => {
         assert.match(screen, /villageWarHpMax\(war, village\)/);
         assert.doesNotMatch(screen, /VILLAGE_WAR_HP_MAX/);
     });
+
+    // Ramparts lift a village's war HP past the 5,000 base. The other war HP
+    // readouts divided by the fixed 5,000, so a walled village read over 100%.
+    it("so does every other screen that shows village-war HP", () => {
+        const council = readFileSync(new URL("./ShinobiCouncilHall.tsx", import.meta.url), "utf8");
+        assert.match(council, /villageWarHpMax\(war, vA\)/);
+        assert.match(council, /villageWarHpMax\(war, vB\)/);
+        assert.doesNotMatch(council, /VILLAGE_WAR_HP_MAX/);
+        const townHall = readFileSync(new URL("./TownHall.tsx", import.meta.url), "utf8");
+        assert.doesNotMatch(townHall, /\/ VILLAGE_WAR_HP_MAX \* 100/, "no bar divides by the fixed base");
+        assert.match(townHall, /villageWarHpMax\(primaryVillageWar, character\.village\)/);
+        const worldMap = readFileSync(new URL("./WorldMap.tsx", import.meta.url), "utf8");
+        assert.match(worldMap, /enemyVillageHpMax: villageWarEnemy \? villageWarHpMax\(villageWar, villageWarEnemy\)/);
+    });
 });

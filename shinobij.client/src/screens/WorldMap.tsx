@@ -207,7 +207,7 @@ import {
 } from "../App";
 
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadVillageState, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadVillageState, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
@@ -4293,7 +4293,7 @@ function WorldMapContent({
                     warGroundHp: villageWar.warGroundHp,
                     warGroundHpMax: VILLAGE_WAR_GROUND_HP_MAX,
                     enemyVillageHp: villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0,
-                    enemyVillageHpMax: VILLAGE_WAR_HP_MAX,
+                    enemyVillageHpMax: villageWarEnemy ? villageWarHpMax(villageWar, villageWarEnemy) : VILLAGE_WAR_HP_MAX,
                     ended: Boolean(villageWar.endedAt),
                 },
             } : {}),

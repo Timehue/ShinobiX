@@ -239,7 +239,9 @@ test("a stocked storehouse reads as ready for the Kage", () => {
     const line = storesSpendAuthorityLine({ loaded: true, provisions: 900, materialPoints: 0 });
     assert.ok(line);
     assert.match(line, /^Stocked and ready for the Kage\./u);
-    assert.ok(line.includes("Only the Kage spends the stores"), line);
+    assert.ok(line.includes("The Kage spends the stores on sieges"), line);
+    // Elders hire mercenary bands too since the 2026-10-08 redesign.
+    assert.ok(line.includes("the Kage and Elders hire"), line);
     assert.ok(line.includes("ANBU appointees may order a garrison fed"), line);
     assert.equal(storesSpendAuthorityLine({ loaded: true, provisions: 0, materialPoints: 12 }), line);
 });
@@ -248,7 +250,7 @@ test("an empty storehouse says so instead of implying a broken screen", () => {
     const line = storesSpendAuthorityLine({ loaded: true, provisions: 0, materialPoints: 0 });
     assert.ok(line);
     assert.match(line, /^The stores stand empty\./u);
-    assert.ok(line.includes("Only the Kage spends them"), line);
+    assert.ok(line.includes("They feed sieges, mercenary bands"), line);
 });
 
 test("the authority copy never re-permissions the stores", () => {
