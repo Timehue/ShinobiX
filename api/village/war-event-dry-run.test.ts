@@ -513,6 +513,23 @@ describe('war event: cancelling a war and correcting a sector leave an audit tra
         assert.equal((await row(w.id)).attackerPoints, 4);
     });
 
+    // A settled war burns both sides' intel on its sector. Calling a war off
+    // used to keep it, so a losing siege could be conceded instead of settled
+    // and declared again at the intel discount once the cooldown ran out.
+    it('calling a war off ends the scouting on that sector for both sides', async () => {
+        const { villageIntelKey, readVillageIntel } = await import('../_village-intel.js');
+        const now = Date.now();
+        const live = { lastAt: now, expiresAt: now + 7 * 24 * 60 * 60_000 };
+        await kv.set(villageIntelKey(ATTACKER), { village: ATTACKER, sectors: { [SECTOR]: { points: 500, ...live }, 30: { points: 120, ...live } } });
+        await kv.set(villageIntelKey(DEFENDER), { village: DEFENDER, sectors: { [SECTOR]: { points: 250, ...live } } });
+        await contest({ attackerPoints: 1, defenderPoints: 6 });
+
+        const out = await asAdmin(sectorWar, { action: 'abandon', playerName: 'ops', sector: SECTOR });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.deepEqual(Object.keys((await readVillageIntel(ATTACKER, now)).sectors), ['30'], 'only that sector\'s intel burns');
+        assert.deepEqual((await readVillageIntel(DEFENDER, now)).sectors, {});
+    });
+
     it('an admin territory correction is audited with the owner before and after', async () => {
         const sector = 40;
         await kv.set(`world:territory:${sector}`, {
