@@ -260,6 +260,8 @@ export function Logbook({
     // every counter it awards is frozen by the save sanitizer, so the old inline
     // claim burned the day's stamp and paid nothing. Commit the reward FIRST,
     // then apply the war damage, so a refused claim leaves the war untouched.
+    // The damage is announced only once the server has accepted it: the note
+    // says "HP -30" only on success and carries the server's refusal otherwise.
     async function claimWarMission(index: number) {
         if (warMissionPending) return;
         setWarMissionPending(true);
@@ -275,7 +277,7 @@ export function Logbook({
                             : "The mission could not be claimed right now. Try again in a moment.");
             }
             if (!onVersionedCharacter(settled.character, settled.saveVersion)) return;
-            const war = applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
+            const war = await applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
             alert(war.note);
         } finally {
             setWarMissionPending(false);
