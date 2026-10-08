@@ -56,6 +56,58 @@ export interface MercLease {
     /** Set by the daily stores pass when the band went UNFED: api/_merc-auto.ts
      *  skips exactly one auto-deploy tick, then clears it. */
     skipNextAutoDeploy?: boolean;
+    /** Band id (its hire's id) and the war it serves — always set together on a
+     *  band hired since the redesign. A LEGACY band has neither: it keeps its
+     *  (tierId, player) identity and fights only in village wars until it lapses. */
+    id?: string;
+    context?: MercLeaseContext;
+}
+
+/** The one war a hired band serves (owner redesign 2026-10-08): the band acts
+ *  only there, and only while that exact war instance is live. */
+export type MercLeaseContext =
+    | { kind: 'village'; warId: string; generation: number }
+    | { kind: 'sector'; contestId: string; instance: string; sector: number };
+
+/** One War Map hire, kept while its war could still be live. The per-war hire
+ *  allowances count these (a lease lapses after 2 days, a village war runs up
+ *  to 14), and a retried request replays its receipt instead of paying twice. */
+export interface MercHireReceipt {
+    id: string;
+    context: string;    // mercContextKey of the war it was hired for
+    seat: string;       // the allowance it spent: 'kage' | 'elder-1..3'
+    player: string;
+    tierId: string;
+    cost: number;
+    at: number;
+    expiresAt: number;
+    keepUntil: number;
+}
+/** Hard backstop on stored hire receipts (newest kept). The hire route prunes
+ *  receipts whose war is over and refuses — never evicts — before this fills. */
+export const MERC_HIRE_RECEIPTS_MAX = 128;
+
+export function mercContextKey(context: MercLeaseContext): string {
+    return context.kind === 'village'
+        ? `village:${context.warId}:g${context.generation}`
+        : `sector:${context.contestId}:${context.instance}`;
+}
+
+function normalizeMercLeaseContext(raw: unknown): MercLeaseContext | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const c = raw as Record<string, unknown>;
+    if (c.kind === 'village') {
+        const warId = String(c.warId ?? '').trim();
+        const generation = Math.floor(Number(c.generation));
+        return warId && generation >= 1 ? { kind: 'village', warId, generation } : null;
+    }
+    if (c.kind === 'sector') {
+        const contestId = String(c.contestId ?? '').trim();
+        const instance = String(c.instance ?? '').trim();
+        const sector = Math.floor(Number(c.sector));
+        return contestId && instance && sector >= 1 ? { kind: 'sector', contestId, instance, sector } : null;
+    }
+    return null;
 }
 
 export interface VillageWarRecord {
@@ -63,6 +115,7 @@ export interface VillageWarRecord {
     structures: Record<StructureKey, number>;   // level 0..MAX each
     sectors: Record<string, SectorWarState>;    // key = String(worldSectorNumber)
     mercLeases: MercLease[];
+    mercHires?: MercHireReceipt[];              // War Map hire receipts (see MercHireReceipt)
     dormant: boolean;                           // structures suspended (upkeep unpaid)
     lastWarPassDate: string;                    // 'YYYY-MM-DD' UTC daily-pass stamp
     terrainSetBy: Record<string, string>;       // sectorKey → player who set its terrain (§17.3 quota)
@@ -215,12 +268,41 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             const player = String((l as MercLease).player ?? '');
             const expiresAt = Math.floor(Number((l as MercLease).expiresAt) || 0);
             if (!tierId || !player || expiresAt <= 0) continue;
-            const dedupeKey = `${tierId}:${player}`;
+            // A bound band carries its id and war together. A damaged binding is
+            // dropped rather than read as a legacy band, which may fight in any
+            // village war: it must never act outside the war it was hired for.
+            const bound = (l as MercLease).id !== undefined || (l as MercLease).context !== undefined;
+            const id = String((l as MercLease).id ?? '').trim().slice(0, 80);
+            const context = normalizeMercLeaseContext((l as MercLease).context);
+            if (bound && (!id || !context)) continue;
+            const dedupeKey = bound ? `id:${id}` : `${tierId}:${player}`;
             if (seen.has(dedupeKey)) continue;
             seen.add(dedupeKey);
             const count = clampInt((l as MercLease).count ?? mercBandSize(tierId), 0, MERC_BAND_MAX);
-            base.mercLeases.push({ tierId, player, expiresAt, count, ...((l as MercLease).skipNextAutoDeploy === true ? { skipNextAutoDeploy: true } : {}) });
+            base.mercLeases.push({
+                tierId, player, expiresAt, count,
+                ...((l as MercLease).skipNextAutoDeploy === true ? { skipNextAutoDeploy: true } : {}),
+                ...(bound && context ? { id, context } : {}),
+            });
         }
+    }
+    if (Array.isArray(raw.mercHires)) {
+        const hires: MercHireReceipt[] = [];
+        const seenHires = new Set<string>();
+        for (const h of raw.mercHires as unknown[]) {
+            if (!h || typeof h !== 'object' || Array.isArray(h)) continue;
+            const r = h as Record<string, unknown>;
+            const id = String(r.id ?? '').trim().slice(0, 80);
+            const context = String(r.context ?? '').trim();
+            const seat = String(r.seat ?? '').trim();
+            const player = String(r.player ?? '').trim();
+            const tierId = String(r.tierId ?? '').trim();
+            const nums = [r.cost, r.at, r.expiresAt, r.keepUntil].map((v) => Math.max(0, Math.floor(Number(v) || 0)));
+            if (!id || !context || !seat || !player || !tierId || seenHires.has(id) || nums[1] <= 0 || nums[3] <= 0) continue;
+            seenHires.add(id);
+            hires.push({ id, context, seat, player, tierId, cost: nums[0], at: nums[1], expiresAt: nums[2], keepUntil: nums[3] });
+        }
+        base.mercHires = hires.sort((a, b) => a.at - b.at).slice(-MERC_HIRE_RECEIPTS_MAX);
     }
 
     if (raw.terrainSetBy && typeof raw.terrainSetBy === 'object') {

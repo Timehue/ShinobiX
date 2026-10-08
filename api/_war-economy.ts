@@ -163,3 +163,11 @@ const MERC_BAND_SIZES: Record<string, number> = {
 export function mercBandSize(tierId: string): number {
     return MERC_BAND_SIZES[tierId] ?? 0;
 }
+
+// ── Mercenary hire allowances (owner ruling 2026-10-08) ──
+// A band is hired FOR one war. In an all-out village war the Kage seat may hire
+// 3 bands and each Elder seat 1. In a Combat sector war only the DEFENDING
+// village hires, 3 bands per contest in all (Kage or any Elder).
+export const MERC_HIRES_PER_VILLAGE_WAR_KAGE = 3;
+export const MERC_HIRES_PER_VILLAGE_WAR_ELDER = 1;
+export const MERC_HIRES_PER_SECTOR_CONTEST = 3;
