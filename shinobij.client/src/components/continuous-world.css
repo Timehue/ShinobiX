@@ -1,4 +1,7 @@
-.pixel-map.continuous-world-map{position:relative;display:block;padding:0;gap:0;overflow:hidden;isolation:isolate;aspect-ratio:1;background:#394435;touch-action:none}
+/* The camera owns translation; focus/scrollIntoView must never scroll this viewport. */
+.pixel-map.continuous-world-map{position:relative;display:block;padding:0;gap:0;overflow:clip;isolation:isolate;aspect-ratio:1;background:#394435;touch-action:none}
+/* Override the adaptive tile-scene rule without making other maps non-scrollable. */
+.map-instance .instance-frame>main.tile-scene>.pixel-map.continuous-world-map{overflow:clip}
 .continuous-world-map>canvas{position:absolute;inset:0;width:100%;height:100%;z-index:1;touch-action:none}
 .continuous-world-map>.day-night-sky{z-index:2;pointer-events:none}
 .pixel-map.continuous-world-chunk{position:absolute;left:0;top:0;display:grid;grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(12,1fr);padding:0;gap:0;border:0;border-radius:0;background:none;box-shadow:none;overflow:visible;pointer-events:none;z-index:5;aspect-ratio:1;will-change:transform}
