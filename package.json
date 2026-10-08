@@ -53,7 +53,7 @@
         "check:tooling-handoffs": "node --import tsx scripts/export-tooling-handoffs.mjs --check"
     },
     "dependencies": {
-        "@sentry/node": "^10.74.0",
+        "@sentry/node": "^11.4.0",
         "@supabase/supabase-js": "^2.116.0",
         "compression": "^1.8.2",
         "dotenv": "^17.0.0",
