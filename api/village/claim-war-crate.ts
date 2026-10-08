@@ -45,7 +45,32 @@ const CLAN_CRATE_ID_RE = /^clan-war-crate-([a-z0-9]+-vs-[a-z0-9]+)$/;
 
 /** Normalized winner-bearing shape of either war record (winner = winnerVillage or
  *  winnerClan). Only the fields the crate decision needs. */
-export type WarWinnerLite = { endedAt?: number; warCrateId?: string; winner?: string };
+export type WarWinnerLite = {
+    endedAt?: number;
+    warCrateId?: string;
+    winner?: string;
+    /** VILLAGE wars only (owner ruling 2026-10-08): the winner's crate is for
+     *  members of the winning village who FOUGHT — war damage on the server's
+     *  contribution ledger (keyed by safeName slug), or the side's MVP. Winning
+     *  alone used to be enough, so a member who never fought (or a player who
+     *  transferred in after the war) could claim a Legendary War Crate. */
+    fighters?: {
+        contributions?: Record<string, { damage?: unknown; side?: unknown } | undefined>;
+        mvpName?: string;
+    };
+};
+
+/** Whether `claimant` fought for `winner` in a village war (see WarWinnerLite). */
+export function foughtForWinner(
+    fighters: NonNullable<WarWinnerLite['fighters']>,
+    winner: string,
+    claimant: { slug: string; name: string },
+): boolean {
+    const entry = fighters.contributions?.[claimant.slug];
+    if (entry && Number(entry.damage) > 0 && (!entry.side || String(entry.side) === winner)) return true;
+    const mvp = String(fighters.mvpName ?? '').trim().toLowerCase();
+    return !!mvp && mvp === String(claimant.name ?? '').trim().toLowerCase();
+}
 
 /** Parse a crate id into its war kind + warId, or null if malformed. Pure. */
 export function parseWarCrate(crateId: string): { kind: 'village' | 'clan'; warId: string } | null {
@@ -66,6 +91,7 @@ export function warCrateClaimDecision(
     claimantSide: string,
     claimedIds: readonly string[],
     now: number,
+    claimant?: { slug: string; name: string },
 ): { granted: boolean; reason: string } {
     if (!parseWarCrate(crateId)) return { granted: false, reason: 'bad-crate-id' };
     if (!war || !war.endedAt || !war.winner || war.warCrateId !== crateId) {
@@ -73,13 +99,24 @@ export function warCrateClaimDecision(
     }
     if (now - Number(war.endedAt) > WAR_CRATE_EXPIRY_MS) return { granted: false, reason: 'expired' };
     if (String(claimantSide).trim() !== war.winner) return { granted: false, reason: 'not-winner' };
+    // A crate already claimed stays claimed (and can still finish its Legacy
+    // delivery), whatever the participation rule says today.
     if (claimedIds.includes(crateId)) return { granted: false, reason: 'already-claimed' };
+    if (war.fighters && !(claimant && foughtForWinner(war.fighters, war.winner, claimant))) {
+        return { granted: false, reason: 'did-not-fight' };
+    }
     return { granted: true, reason: 'granted' };
 }
 
 // Village + clan war records carry the same crate-bearing fields under different
 // winner keys; normalize whichever we read to WarWinnerLite.
-type VillageWarRow = { endedAt?: number; warCrateId?: string; winnerVillage?: string };
+type VillageWarRow = {
+    endedAt?: number;
+    warCrateId?: string;
+    winnerVillage?: string;
+    contributions?: Record<string, { damage?: unknown; side?: unknown } | undefined>;
+    mvpByVillage?: Record<string, string>;
+};
 type ClanWarRow = { endedAt?: number; warCrateId?: string; winnerClan?: string };
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -109,7 +146,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         let war: WarWinnerLite | null;
         if (parsed.kind === 'village') {
             const v = await kv.get<VillageWarRow>(`${VILLAGE_WAR_KEY_PREFIX}${parsed.warId}`);
-            war = v ? { endedAt: v.endedAt, warCrateId: v.warCrateId, winner: v.winnerVillage } : null;
+            war = v ? {
+                endedAt: v.endedAt,
+                warCrateId: v.warCrateId,
+                winner: v.winnerVillage,
+                fighters: {
+                    contributions: v.contributions,
+                    mvpName: v.winnerVillage ? v.mvpByVillage?.[v.winnerVillage] : undefined,
+                },
+            } : null;
         } else {
             const c = await kv.get<ClanWarRow>(`${CLAN_WAR_KEY_PREFIX}${parsed.warId}`);
             war = c ? { endedAt: c.endedAt, warCrateId: c.warCrateId, winner: c.winnerClan } : null;
@@ -126,7 +171,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const committed = await retryOnSaveVersionConflict(() => mutatePlayerSave<Outcome>(playerName, ({ character: c }) => {
             const side = String((parsed.kind === 'village' ? c.village : c.clan) ?? '').trim();
             const claimed = Array.isArray(c.claimedWarCrateIds) ? (c.claimedWarCrateIds as unknown[]).map(String) : [];
-            const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now());
+            const decision = warCrateClaimDecision(war, warCrateId, side, claimed, Date.now(), {
+                slug: playerName,
+                name: String(c.name ?? playerName),
+            });
             if (!decision.granted) return {
                 ok: true,
                 write: false,
