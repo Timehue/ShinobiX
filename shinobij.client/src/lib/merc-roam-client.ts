@@ -15,9 +15,12 @@ import type { SectorWarContestView } from "./sector-war-engagement";
 
 export interface RoamingMercView {
     id: string;            // merc-<villageSlug>-<tierId>-<index>
-    village: string;       // the attacking village (hostile to the viewer)
+    village: string;       // the band's own village (hostile to the viewer)
     tierId: string;
     level: number;
+    /** "sector": a DEFENDING village's band in its contested Combat sector — the
+     *  viewer is one of the attackers (owner redesign 2026-10-08). "village": a
+     *  band of the all-out village war, which follows the viewer anywhere. */
     context: "sector" | "village";
 }
 
@@ -63,6 +66,22 @@ export async function fetchSectorRoster(playerName: string, village: string, sec
  *  contest. Same request; the wrapper just drops the second half. */
 export async function fetchMercRoster(playerName: string, village: string, sector: number): Promise<RoamingMercView[]> {
     return (await fetchSectorRoster(playerName, village, sector)).mercs;
+}
+
+/** What the player reads after a roaming-merc clash. A sector band belongs to
+ *  the village DEFENDING that sector, so the reader is an attacker there: a
+ *  merc win scores the defence; cutting it down scores the attack a little. */
+export function mercEngageMessage(r: MercEngageResult): string {
+    if (r.error) return r.error;
+    if (r.winner === "player") {
+        return r.context === "sector" ? "You cut the mercenary down. Your siege gains a little ground." : "You cut the mercenary down.";
+    }
+    if (r.winner === "merc") {
+        return r.context === "village"
+            ? "The mercenary overwhelmed you. Your village pays for it."
+            : "The mercenary overwhelmed you. The defenders gain ground in this sector.";
+    }
+    return "You traded blows; the mercenary broke off.";
 }
 
 /** Resolve an encounter with a roaming merc SERVER-SIDE. Never throws on a normal
