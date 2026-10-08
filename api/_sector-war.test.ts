@@ -552,14 +552,19 @@ describe('sector-war: Village Stores (garrison feed cap + unfed Watchtower)', ()
         assert.equal(garrisonPointsCapFor(base(), MOON, DAY), 150);
         assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, false) } }, MOON, DAY), 150, 'toggle alone (rations not yet covered) stays 150');
         assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true) } }, MOON, DAY), 200);
-        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 150, 'the OTHER side\'s feed does not raise this village\'s cap');
+        // Owner ruling 2026-10-08: the defender's covered feed is worth as much
+        // to the defence as the attacker's is to the attack.
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 100, 'the defender\'s feed LOWERS what the attacker can bank');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, false) } }, MOON, DAY), 150, 'an uncovered defender feed does nothing');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true), [FROST]: entry(true, true) } }, MOON, DAY), 150, 'both fed cancel out');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: YESTERDAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 150, 'a stale defender verdict expires too');
         const fed = { ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true) } };
         const r = applySectorWarBattle(fed, true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
         assert.equal(r.awarded, 200, 'a garrison run is the attacker\'s run');
         const unfed = applySectorWarBattle(base(), true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
         assert.equal(unfed.awarded, 150);
         const defenderOnly = applySectorWarBattle({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
-        assert.equal(defenderOnly.awarded, 150);
+        assert.equal(defenderOnly.awarded, 100, 'a fed defence yields the attacker 50 fewer garrison points');
     });
     it('a STALE covered:true no longer grants the raised cap for free', () => {
         // The daily pass throwing once (or the stores kill switch) must not
