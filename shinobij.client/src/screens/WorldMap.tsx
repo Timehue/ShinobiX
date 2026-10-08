@@ -216,7 +216,7 @@ import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent 
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
-import { fetchSectorRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { fetchSectorRoster, engageMerc, mercEngageMessage, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
 import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, type SectorWarContestView } from "../lib/sector-war-engagement";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { contractHunterLevel } from "../../../shared/contract-hunter";
@@ -2086,11 +2086,7 @@ function WorldMapContent({
         coolWanderer(w.id, MERC_CLIENT_HIDE_MS);
         setWandererDialog({ w, busy: true, msg: "⚔ A mercenary closes in…" });
         try {
-            const r = await engageMerc(character.name, village, sec, w.id);
-            const msg = r.error ? r.error
-                : r.winner === "player" ? "You cut the mercenary down."
-                : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you. Your village pays for it." : "The mercenary overwhelmed you. Your hold on the sector slips.")
-                : "You traded blows; the mercenary broke off.";
+            const msg = mercEngageMessage(await engageMerc(character.name, village, sec, w.id));
             setWandererDialog({ w, msg });
             if (village) void fetchSectorRoster(character.name, village, sec).then(r => setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest })).catch(() => { /* best-effort refresh */ });
         } catch {

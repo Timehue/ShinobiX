@@ -348,22 +348,102 @@ export function upgradeWarStructure(playerName: string, village: string, structu
     return postJson("/api/village/war-structure", { playerName, village, structure, ...(toLevel ? { toLevel } : {}) });
 }
 
-// ── Mercenaries (Phase 5) ──
-export interface WrMercTierView { id: string; level: number; costWr: number; }
-export interface MercLeaseView { tierId: string; player: string; expiresAt: number; count: number; }
+// ── Mercenaries (Phase 5; owner redesign 2026-10-08) ──
+// A band is hired FOR one war: the village's all-out village war (the Kage seat
+// hires 3, each Elder seat 1) or a Combat sector war the village DEFENDS (3 per
+// contest). It acts only in that war, only while it is live.
+export interface WrMercTierView {
+    id: string;
+    level: number;
+    /** The undiscounted base price. */
+    costWr: number;
+    /** What the server charges right now (comeback × Barracks applied). */
+    cost?: number;
+    /** Mercs in one band of this tier. */
+    band?: number;
+}
+export interface MercLeaseView {
+    /** The band's id — null for a legacy band hired before the redesign. */
+    id?: string | null;
+    tierId: string;
+    player: string;
+    expiresAt: number;
+    count: number;
+    contextKey?: string | null;
+    contextKind?: "village" | "sector" | null;
+    sector?: number | null;
+    /** Hired before wars were named at hire: fights in village wars only. */
+    legacy?: boolean;
+    /** Its war is live, so it acts. */
+    live?: boolean;
+    /** A defender's sector band the viewer may send at a player. */
+    deployable?: boolean;
+}
+export interface MercContextView {
+    kind: "village" | "sector";
+    key: string;
+    enemy: string;
+    endsAt: number;
+    /** Village war still in its pre-war window: bands start acting then. */
+    startsAt?: number;
+    contestId?: string;
+    sector?: number;
+    acting: boolean;
+    hiresUsed: number;
+    hiresLimit: number;
+    callerHiresLeft: number;
+    seats?: Array<{ seat: string; used: number; limit: number }>;
+}
+export interface MercListView {
+    ok?: boolean;
+    warResources?: number;
+    tiers?: WrMercTierView[];
+    contexts?: MercContextView[];
+    /** Sieges this village runs — it can no longer hire for those. */
+    attacking?: Array<{ contestId: string; sector: number; enemy: string; endsAt: number }>;
+    leases?: MercLeaseView[];
+    viewer?: { role: "kage" | "elder" | "none"; seats: string[]; canHire: boolean; canDeploy: boolean };
+}
+export type MercHireContext = { kind: "village" } | { kind: "sector"; contestId: string };
+export interface MercHireResult {
+    ok?: boolean;
+    replayed?: boolean;
+    hireId?: string;
+    tierId?: string;
+    cost?: number;
+    expiresAt?: number;
+    band?: number;
+    hiresLeft?: number;
+}
 
-/** Hire a merc tier — the seated Kage spends village WR to field a 2-day band of
- *  3-5 AI mercs. Returns { cost, band, expiresAt }. */
-export function hireMerc(playerName: string, village: string, tierId: string) {
-    return postJson("/api/village/war-merc", { action: "hire", playerName, village, tierId });
+/** One id per hire CLICK. A retry of the same click reuses it, so a lost
+ *  response replays the first hire instead of paying for a second. */
+export function newMercRequestId(): string {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    if (uuid) return uuid;
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
-/** Read this village's WR pool + the merc tier menu + the active bands. */
-export function listMercs(playerName: string, village: string) {
-    return postJson("/api/village/war-merc", { action: "list", playerName, village });
+
+/** Hire a merc band FOR one war: a Kage or Elder spends village WR (the server
+ *  recomputes the price). `requestId` comes from newMercRequestId — the same id
+ *  on a retry. */
+export function hireMerc(playerName: string, village: string, tierId: string, context: MercHireContext, requestId: string): Promise<MercHireResult> {
+    return postJson("/api/village/war-merc", {
+        action: "hire", playerName, village, tierId, requestId,
+        context: context.kind,
+        ...(context.kind === "sector" ? { contestId: context.contestId } : {}),
+    }) as Promise<MercHireResult>;
 }
-/** Deploy one merc from the band at an enemy-village defender on a contested
- *  sector. The fight resolves SERVER-SIDE (auto, deterministic, can't be faked);
- *  returns { winner, attackerPoints, defenderPoints, mercsRemaining }. */
-export function deployMerc(playerName: string, village: string, tierId: string, sector: number, targetPlayer: string) {
-    return postJson("/api/village/war-merc", { action: "attack", playerName, village, tierId, sector, targetPlayer });
+/** Read this village's WR pool, the tier menu (with the live price), the wars it
+ *  can hire for (with the allowance left) and its bands. */
+export function listMercs(playerName: string, village: string): Promise<MercListView> {
+    return postJson("/api/village/war-merc", { action: "list", playerName, village }) as Promise<MercListView>;
+}
+/** Send one merc of a defender's sector band at an attacking-village player,
+ *  wherever they are. The fight resolves SERVER-SIDE (auto, deterministic, can't
+ *  be faked); returns { winner, attackerPoints, defenderPoints, mercsRemaining }. */
+export function deployMerc(playerName: string, village: string, bandId: string, targetPlayer: string) {
+    return postJson("/api/village/war-merc", { action: "attack", playerName, village, bandId, targetPlayer }) as Promise<{
+        ok?: boolean; winner?: "merc" | "player" | "stall"; attackerPoints?: number; defenderPoints?: number; mercsRemaining?: number;
+    }>;
 }

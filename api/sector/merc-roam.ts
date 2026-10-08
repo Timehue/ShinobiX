@@ -5,12 +5,20 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage } from '../_war-map-sectors.js';
-import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey, type MercLeaseContext } from '../_war-state.js';
 import { wrMercTierById } from '../_war-economy.js';
 import { activeContestOnSector } from '../_sector-war-store.js';
 import { contestGarrisonReady, type SectorWarSession } from '../_sector-war.js';
-import { mutableVillageWarEnemiesOf } from '../world-state.js';
 import { deployOneMerc, deployMercVillageWar } from '../_merc-auto.js';
+import { bandsServing, mercBandKey } from '../_war-merc.js';
+import {
+    combatContestLive,
+    listVillageWarInstances,
+    sectorContestContext,
+    villageWarActing,
+    villageWarContext,
+    villageWarFor,
+} from '../_merc-context.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import { sectorPresenceBlock } from '../_sector-presence-gate.js';
 import {
@@ -23,63 +31,84 @@ import {
 
 /*
  * /api/sector/merc-roam — POST only. The roaming-mercenary encounter surface
- * (Phase 5 — roaming rebuild).
+ * (Phase 5 — roaming rebuild; owner redesign 2026-10-08).
  *
- * A hired merc band roams the enemy's territory as visible wanderer-style NPCs that
- * pick fights with the enemy village's players. WHERE they roam keys off which war
- * is live (the two are mutually exclusive):
- *   - sector war : the band patrols the CONTESTED sector (attacker W vs defender V,
- *                  Combat win-condition).
- *   - village war: the band FOLLOWS V's players — present in whatever sector V is in.
+ * A hired merc band roams as visible wanderer-style NPCs that pick fights with
+ * its enemy's players. Every band serves the ONE war it was hired for
+ * (api/_merc-context.ts), and WHERE it roams follows that war:
+ *   - sector war : the DEFENDING village's band patrols its contested Combat
+ *                  sector and is hostile to the ATTACKING village's players there.
+ *   - village war: the band FOLLOWS the enemy village's players — present in
+ *                  whatever sector they are in (legacy, unbound bands included).
  *
  * Actions (body.action):
  *   - roster : read-only — the merc NPCs roaming `sector` that are hostile to the
  *              caller's village, so the client can render them like wanderers.
- *   - engage : the caller (a defender) ran into merc `mercId` → resolve the fight
- *              SERVER-SIDE (deployOneMerc / deployMercVillageWar) and apply it. The
- *              outcome is never trusted from the client, and a defender can't dodge a
- *              loss by not reporting it (the autonomous cron is the backstop).
+ *   - engage : the caller ran into merc `mercId` → resolve the fight SERVER-SIDE
+ *              (deployOneMerc / deployMercVillageWar) and apply it. The outcome is
+ *              never trusted from the client, and a player can't dodge a loss by
+ *              not reporting it (the autonomous cron is the backstop).
  *
  * Server-gated: 404 when the default-on Sector Map campaign is disabled.
  */
 
 type Identity = NonNullable<Awaited<ReturnType<typeof authedPlayerOrAdmin>>>;
 
-/** Active, non-empty merc leases for a village (the bands it has fielded). */
-async function activeBandsOf(village: string, now: number) {
+type RoamingBand = HostileBand & {
+    hirer: string;
+    bandKey: string;
+    contestId?: string;
+    instance?: string;
+    war?: { id: string; generation: number };
+};
+
+/** The bands of `village` that serve `context` right now. */
+async function bandsOf(village: string, context: MercLeaseContext, now: number) {
     const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
-    return rec.mercLeases.filter((l) => l.expiresAt > now && l.count > 0);
+    return bandsServing(rec.mercLeases, context, now);
 }
 
-/** The bands hostile to `viewerVillage` that roam `sector` right now: village-war
- *  enemies (whose mercs follow the viewer anywhere) + the Combat sector-war attacker
- *  besieging THIS sector. Mutual exclusion means a village is in one mode or the
- *  other, so the two branches never double-count the same attacker. */
+/** The bands hostile to `viewerVillage` that roam `sector` right now: the enemy's
+ *  bands for the viewer's live village war (they follow the viewer anywhere), and
+ *  — when the viewer's village ATTACKS this Combat sector — the defender's bands
+ *  hired for that contest. A band serves one war, so the two never double-count. */
 async function hostileBandsFor(
     sector: number,
     viewerVillage: string,
     now: number,
     preloadedContest?: SectorWarSession | null,
-): Promise<Array<HostileBand & { hirer: string; contestId?: string }>> {
-    const out: Array<HostileBand & { hirer: string; contestId?: string }> = [];
+): Promise<RoamingBand[]> {
+    const out: RoamingBand[] = [];
 
-    // 1. Village-war enemies — their mercs follow the viewer's players everywhere.
-    const enemies = await mutableVillageWarEnemiesOf(viewerVillage);
-    for (const enemy of enemies) {
-        for (const band of await activeBandsOf(enemy, now)) {
-            const tier = wrMercTierById(band.tierId);
-            if (!tier) continue;
-            out.push({ village: enemy, tierId: band.tierId, level: tier.level, count: band.count, context: 'village', hirer: band.player });
+    // 1. Village war — the enemy's bands follow the viewer's players everywhere,
+    // but only once the war is hot and not frozen by a settling strike.
+    const war = villageWarFor(await listVillageWarInstances(now), viewerVillage);
+    if (war && villageWarActing(war)) {
+        const enemy = war.villages.find((v) => v !== viewerVillage);
+        if (enemy) {
+            for (const band of await bandsOf(enemy, villageWarContext(war), now)) {
+                const tier = wrMercTierById(band.tierId);
+                if (!tier) continue;
+                out.push({
+                    village: enemy, tierId: band.tierId, level: tier.level, count: band.count, context: 'village',
+                    hirer: band.player, bandKey: mercBandKey(band), war: { id: war.id, generation: war.generation },
+                });
+            }
         }
     }
 
-    // 2. The Combat sector-war attacker besieging THIS sector (defender == viewer).
+    // 2. Sector war — the viewer's village ATTACKS this Combat sector, so the
+    // DEFENDER's bands hired for this contest patrol it.
     const contest = preloadedContest === undefined ? await activeContestOnSector(sector) : preloadedContest;
-    if (contest && contest.winCondition === 'combat' && contest.defenderVillage === viewerVillage && !enemies.includes(contest.attackerVillage)) {
-        for (const band of await activeBandsOf(contest.attackerVillage, now)) {
+    if (combatContestLive(contest, now) && contest.attackerVillage === viewerVillage) {
+        const context = sectorContestContext(contest);
+        for (const band of await bandsOf(contest.defenderVillage, context, now)) {
             const tier = wrMercTierById(band.tierId);
-            if (!tier) continue;
-            out.push({ village: contest.attackerVillage, tierId: band.tierId, level: tier.level, count: band.count, context: 'sector', hirer: band.player, contestId: contest.id });
+            if (!tier || context.kind !== 'sector') continue;
+            out.push({
+                village: contest.defenderVillage, tierId: band.tierId, level: tier.level, count: band.count, context: 'sector',
+                hirer: band.player, bandKey: mercBandKey(band), contestId: contest.id, instance: context.instance,
+            });
         }
     }
     return out;
@@ -167,14 +196,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 }
 
-// ── engage (a defender ran into a roaming merc → resolve server-side) ──────────
+// ── engage (a player ran into a roaming merc → resolve server-side) ────────────
 async function doEngage(req: VercelRequest, res: VercelResponse, identity: Identity, playerName: string, viewerVillage: string, sector: number, body: Record<string, unknown>) {
     const parsed = parseMercNpcId(String(body.mercId ?? ''));
     if (!parsed) return res.status(400).json({ error: 'Bad mercenary id.' });
     if (!identity.admin && !(await enforceRateLimitKv(req, res, 'merc-roam-engage', 30, 60_000, identity.name))) return;
 
     const now = Date.now();
-    // A defender a merc just fought is off-limits for 15 min — clean message before
+    // A player a merc just fought is off-limits for 15 min — clean message before
     // we try to spend one (deploy* also re-checks this atomically).
     if (await isMercTargetOnCooldown(playerName, now)) {
         return res.status(429).json({ error: 'You just fought off a mercenary — they keep their distance for a few minutes.' });
@@ -187,13 +216,20 @@ async function doEngage(req: VercelRequest, res: VercelResponse, identity: Ident
     if (!band) return res.status(409).json({ error: 'That mercenary is no longer here.' });
 
     if (band.context === 'sector') {
-        if (!band.contestId) return res.status(409).json({ error: 'No active siege on this sector.' });
-        const r = await deployOneMerc({ village: band.village, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, targetVillage: viewerVillage, contestId: band.contestId, mercLevel: band.level, now });
+        if (!band.contestId || !band.instance) return res.status(409).json({ error: 'No active sector war here.' });
+        const r = await deployOneMerc({
+            village: band.village, tierId: band.tierId, hirer: band.hirer, bandKey: band.bandKey,
+            sector, targetPlayer: playerName, targetVillage: viewerVillage,
+            contestId: band.contestId, instance: band.instance, mercLevel: band.level, now,
+        });
         if (!r) return res.status(409).json({ error: 'That mercenary band is spent or just attacked you.' });
         return res.status(200).json({ ok: true, context: 'sector', winner: r.winner, attackerPoints: r.attackerPoints, defenderPoints: r.defenderPoints, mercsRemaining: r.mercsRemaining });
     }
 
-    const r = await deployMercVillageWar({ village: band.village, enemyVillage: viewerVillage, tierId: band.tierId, hirer: band.hirer, sector, targetPlayer: playerName, mercLevel: band.level, now });
+    const r = await deployMercVillageWar({
+        village: band.village, enemyVillage: viewerVillage, tierId: band.tierId, hirer: band.hirer, bandKey: band.bandKey,
+        ...(band.war ? { war: band.war } : {}), sector, targetPlayer: playerName, mercLevel: band.level, now,
+    });
     if (!r) return res.status(409).json({ error: 'That mercenary band is spent or just attacked you.' });
     return res.status(200).json({ ok: true, context: 'village', winner: r.winner, enemyWarHp: r.enemyWarHp, mercsRemaining: r.mercsRemaining });
 }

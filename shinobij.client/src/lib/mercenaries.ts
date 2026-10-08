@@ -1,25 +1,21 @@
 /*
- * War Mercenaries — client DISPLAY mirror of the server-sealed tier table
- * (api/village/_mercenaries.ts owns the authoritative cost/damage; the hire is
- * recomputed there). Same mirror pattern as the wanderer quest catalog. Keep the
- * five tiers + costs in sync with the server module.
+ * War Mercenaries — what is left of the Town Hall Honor-Seal hire, RETIRED
+ * 2026-10-08 (owner ruling): village-war mercenaries are now hired as AI bands
+ * from the Sector War Map, paid in War Resources (lib/village-war-map.ts
+ * hireMerc). The Honor-Seal tier catalog that only the Town Hall hire buttons
+ * read is gone with them; what remains reads the player's own history —
+ * `character.warMercs`, the server-sealed list of bands they hired with seals
+ * in a war (api/_war-mercenary-hire.ts writes it).
  */
-export interface MercenaryTier {
-    id: string;
-    level: number;
-    name: string;
-    blurb: string;
-    costSeals: number;
-    warDamage: number;
-}
 
-export const MERCENARY_TIERS: MercenaryTier[] = [
-    { id: "merc-ronin",   level: 75,  name: "Rōnin Blade",       blurb: "A masterless sword for hire — cheap, reliable, gone by morning.", costSeals: 150,  warDamage: 120 },
-    { id: "merc-reaver",  level: 80,  name: "Border Reaver",     blurb: "Raiders who know the enemy's supply lines better than their Kage.", costSeals: 250,  warDamage: 200 },
-    { id: "merc-shadow",  level: 85,  name: "Shadow-for-Hire",   blurb: "Nukenin who strike from the dark and never sign a name.",        costSeals: 400,  warDamage: 320 },
-    { id: "merc-oni",     level: 95,  name: "Oni Mercenary",     blurb: "A demon-masked killer the enemy will feel before they see.",     costSeals: 650,  warDamage: 500 },
-    { id: "merc-warlord", level: 100, name: "Mercenary Warlord", blurb: "An entire warband under one banner — the price of a small army.", costSeals: 1000, warDamage: 750 },
-];
+/** The id a seal hire was filed under for this war: its pair-row id plus the
+ *  declaration generation (mirror of api/village/hire-mercenary.ts
+ *  villageWarGenerationToken). */
+export function villageWarHireToken(war: { id: string; declarationGeneration?: number } | null | undefined): string | null {
+    if (!war?.id) return null;
+    const generation = Math.floor(Number(war.declarationGeneration) || 0);
+    return Number.isSafeInteger(generation) && generation > 0 ? `${war.id}-g${generation}` : war.id;
+}
 
 /** Tiers already hired for the given active war (resets when warId changes). */
 export function hiredTiersForWar(
