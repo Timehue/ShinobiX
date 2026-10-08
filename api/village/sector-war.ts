@@ -107,7 +107,7 @@ import { pvpSessionMayGrantProgress, type PvpSession } from '../pvp/session.js';
 import { loadPvpRewardRecoverySnapshot } from '../pvp/_reward-recovery.js';
 import { pvpSessionPublicationTombstoneFor } from '../pvp/_session-publication-tombstone.js';
 import { SESSION_TTL } from '../combat-core/constants.js';
-import { settlePvpSectorWarContinuation } from '../pvp/_sector-war-continuation.js';
+import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from '../pvp/_sector-war-continuation.js';
 
 /*
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
@@ -826,7 +826,7 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
     // sector is refused by the terminal continuation, which used to leave both
     // fighters unable to finish the battle, claim, or start another for the
     // token's whole life. Not this sector's battle, so a no-op, like any other.
-    if (Math.floor(Number(battle.rewardSector)) !== sector) {
+    if (pvpWorldBattleSector(battle) !== sector) {
         return res.status(200).json({ ok: true, registered: false, battleId, noContest: true, reason: 'other-sector' });
     }
     const p1 = safeName(battle.p1?.name ?? '');

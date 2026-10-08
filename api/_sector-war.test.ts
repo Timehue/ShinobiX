@@ -168,6 +168,13 @@ describe('sector-war: scoring (the tally counts UP)', () => {
         assert.equal(merc.lastLiveBattleAt, undefined);
     });
 
+    it('a battle that reaches the contest late never moves the live clock backwards', () => {
+        const recent = applySectorWarBattle(fresh(), true, { now: NOW + 3 * 60 * 60 * 1000, roleSwing: 5, by: 'a' }).session;
+        // Its terminal step was retried on a reconnect: it ended hours earlier.
+        const late = applySectorWarBattle(recent, false, { now: NOW + 60 * 1000, roleSwing: 5, by: 'd' }).session;
+        assert.equal(late.lastLiveBattleAt, NOW + 3 * 60 * 60 * 1000, 'the garrison stays locked by the recent fight');
+    });
+
     it('draw in a card/pet contest scores nothing (null outcome)', () => {
         assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW + 1, roleSwing: 10 }), null);
         const p1 = applyContestBattleByWinner(fresh(), 'p1', { now: NOW + 1, roleSwing: 10, by: 'a' });
