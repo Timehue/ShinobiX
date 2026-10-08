@@ -166,7 +166,8 @@ export const SECTOR_WAR_LEDGER_PENDING_CAP = 32;
  * PVP_TERMINAL_REPLAY_TTL (~48h) from registration, and the terminal recovery
  * snapshot and the resolution receipt 48h from the end of the fight. A
  * battle can only score while its contest is unsettled, and settlement runs
- * on every war-map poll plus the daily pass. Seven days past `endsAt` covers
+ * on the 5-minute sector-war tick once the 10-minute grace has passed (the
+ * daily pass is the backstop). Seven days past `endsAt` covers
  * all of that several times over, and replays of an already-applied PvP
  * battle can still prove their receipt after a defended war's row expires
  * (that row lives only 24h past settlement).

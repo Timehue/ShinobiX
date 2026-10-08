@@ -87,7 +87,9 @@ describe('Village War Map feedback contract', () => {
 
     it('3e / 3f — the read-only feed lines say who is feeding what, and what it buys', () => {
         assert.match(screen, /garrisonFeedStatusLine\(\{ feeding: myFeed\.on, sector: sec\.sector \}\)/);
-        assert.match(screen, /garrisonFedCapLine\(myVillage, myFeed\.covered\)/);
+        // The line and the toggle's tooltip both speak for THIS village's side.
+        assert.match(screen, /garrisonFedCapLine\(myVillage, myFeed\.covered, feedSide\)/);
+        assert.match(screen, /title=\{garrisonFeedButtonTitle\(feedSide, GARRISON_RATIONS_PER_DAY\)\}/);
         assert.doesNotMatch(screen, /Garrison feed: \{/, 'the "on"/"off" status line is gone');
         assert.doesNotMatch(screen, /cap 200/, 'the design-doc shorthand is gone');
     });

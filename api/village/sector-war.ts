@@ -114,15 +114,18 @@ import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from '../pvp/_se
  * /api/village/sector-war — POST only. The sector-war battle-wiring (Phase 4c).
  *
  * Actions (body.action):
- *   - declare : the seated Kage opens a sector war on an enemy-held sector — debits
- *               250 WR (× comeback discount) from the attacking village's WR pool and
- *               opens the Control-HP siege. Mutually exclusive with a village war.
+ *   - declare : the seated Kage opens a 72-hour scored sector war on an
+ *               enemy-held sector — debits 250 WR (intel and comeback discounts
+ *               applied) from the attacking village's WR pool, and seals the
+ *               holder's win-condition and terrain into the contest. Mutually
+ *               exclusive with a village war.
  *   - attack  : after the launcher fights the sector's defender through the existing
  *               sector-attack → PvP flow, this mints a SINGLE-USE token sealing the
  *               contest context for the resulting pvp:<battleId>.
- *   - resolve : reads the AUTHORITATIVE finished pvp:<battleId> (never a client claim),
- *               applies the win/loss to Control HP (War-Academy-boosted), and on
- *               capture flips world:territory:<sector>.ownerVillage to the attacker.
+ *   - resolve : reads the AUTHORITATIVE finished pvp:<battleId> (never a client claim)
+ *               and adds its role-weighted kill points to the winner's tally. It
+ *               never flips a sector: settlement compares the tallies when the 72
+ *               hours close (api/_sector-war-settle.ts).
  *   - garrison-start   : the LIVENESS fallback — once a Combat contest has gone
  *               GARRISON_UNLOCK_IDLE_MS without a live-player battle, an attacker may
  *               assault the sector's ANBU garrison instead of being blocked by an
@@ -142,16 +145,16 @@ import { pvpWorldBattleSector, settlePvpSectorWarContinuation } from '../pvp/_se
  *               appointee of a participant. Sets/clears ONLY the caller's own
  *               village's entry in the war's per-village `garrisonFeed` map (the
  *               enemy side can never switch a village's paid feed off); while on
- *               AND the day's rations were covered, that village's garrison-run
- *               cap is GARRISON_POINTS_CAP_FED instead of GARRISON_POINTS_CAP
- *               (api/_sector-war.ts garrisonPointsCapFor). A toggle inside the
- *               UTC day the pass already paid for KEEPS that coverage.
+ *               AND the day's rations were covered, the attacker's garrison cap
+ *               moves by GARRISON_FEED_SWING: up for the attacker's feed, down for
+ *               the defender's (api/_sector-war.ts garrisonPointsCapFor). A toggle
+ *               inside the UTC day the pass already paid for KEEPS that coverage.
  *   - status  : read-only — the owner + active contest for a sector (or all contests).
  *   - seed    : admin — one-time idempotent seed of home-sector ownership (Phase 4d).
  *
  * Server-gated: 404 when the default-on Sector Map campaign is disabled. Combat
  * battles run here (attack/resolve); Card battles run via /village/sector-card and
- * Pet duels via /village/sector-pet — all three settle the same contest Control HP
+ * Pet duels via /village/sector-pet — all three score the same contest's tallies
  * server-authoritatively. A client-claimed result never flips territory.
  */
 

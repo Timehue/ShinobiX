@@ -18,12 +18,18 @@
  * sites that already reach for it here working. Do NOT redeclare the literal. */
 import { WAR_RATIONS_PER_DAY } from "./village-stores";
 export { WAR_RATIONS_PER_DAY };
-/** Kill points a war's garrison can bank when nobody is feeding it. Mirrors
- *  api/_sector-war.ts GARRISON_POINTS_CAP — KEEP IN SYNC. */
+/** Kill points the attacker can bank from a war's garrison when nobody is
+ *  feeding it. Mirrors api/_sector-war.ts GARRISON_POINTS_CAP — KEEP IN SYNC. */
 export const GARRISON_POINTS_CAP = 150;
-/** …and when a village IS feeding it. Mirrors api/_village-stores.ts
+/** …when the ATTACKER is feeding it. Mirrors api/_village-stores.ts
  *  GARRISON_POINTS_CAP_FED — KEEP IN SYNC. */
 export const GARRISON_POINTS_CAP_FED = 200;
+/** …and when the DEFENDER is. A covered feed is worth the same to either side
+ *  (api/_sector-war.ts GARRISON_FEED_SWING), so the defender's lowers the cap
+ *  by as much as the attacker's raises it; both fed cancel out. */
+export const GARRISON_POINTS_CAP_DEFENDED = GARRISON_POINTS_CAP - (GARRISON_POINTS_CAP_FED - GARRISON_POINTS_CAP);
+/** Which side of a sector war the viewer's village is on. */
+export type GarrisonFeedSide = "attacker" | "defender";
 
 // ── C5: never render "raised to L?" ─────────────────────────────────────────
 
@@ -94,11 +100,26 @@ export function garrisonFeedStatusLine(opts: { feeding: boolean; sector: number 
         : "Nobody is feeding this garrison — your Kage or ANBU can.";
 }
 
-/** The line under an ON feed: what the rations actually buy, in points. */
-export function garrisonFedCapLine(village: string, covered: boolean): string {
+/** What a covered feed does for `side`, in points (one sentence). */
+function garrisonFeedEffect(side: GarrisonFeedSide): string {
+    return side === "attacker"
+        ? `your garrison assaults here can bank up to ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}`
+        : `the attackers' garrison assaults here can bank at most ${GARRISON_POINTS_CAP_DEFENDED} points instead of ${GARRISON_POINTS_CAP}`;
+}
+
+/** The line under an ON feed: what the rations actually buy, in points. A feed
+ *  is worth the same to either side: the attacker's raises what its garrison
+ *  assaults can bank, the defender's lowers it. */
+export function garrisonFedCapLine(village: string, covered: boolean, side: GarrisonFeedSide): string {
     return covered
-        ? `Fed by ${village} — the garrison holds ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}.`
-        : `Feed ordered by ${village} — it takes effect after tonight's supply run, then the garrison holds ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}.`;
+        ? `Fed by ${village}: ${garrisonFeedEffect(side)}.`
+        : `Feed ordered by ${village}. From tonight's supply run, ${garrisonFeedEffect(side)}.`;
+}
+
+/** The feed toggle's tooltip for `side`. */
+export function garrisonFeedButtonTitle(side: GarrisonFeedSide, rationsPerDay: number): string {
+    const effect = garrisonFeedEffect(side);
+    return `Spend ${rationsPerDay} rations a day from the Town Hall stores to feed this sector's garrison fight. While it is covered, ${effect}. Kage or ANBU only.`;
 }
 
 /** The always-visible Provisions one-liner under the resources stat row (C2). */
