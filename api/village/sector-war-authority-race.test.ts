@@ -112,6 +112,40 @@ describe('sector-war declaration territory authority race', { concurrency: false
             assert.notEqual(row?.status, 'reserved', `${key} must not retain a live reservation`);
         }
     });
+
+    // The hidden `funding` row is published before the two village rows are
+    // promoted. When the promotion lost its race, the route answered "conflict"
+    // and walked away from that row: it kept both villages blocked, from village
+    // wars and from every other sector war on the defender, until this exact
+    // attacker happened to declare on this sector again.
+    it('aborts its unpaid declaration row when the village rows cannot be bound to it', async () => {
+        const { villageWarReservationBlocks } = await import('../_war-village-reservation.js');
+        const originalCompareSet = kv.compareSet.bind(kv);
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: unknown) => {
+            if (key.startsWith('world:village-war-reservation:')
+                && (value as { state?: string } | null)?.state === 'reserved') {
+                return false; // a competing writer wins every promotion attempt
+            }
+            return originalCompareSet(key, expected as never, value as never, options as never);
+        }) as typeof kv.compareSet;
+
+        let response: ResponseOut;
+        try {
+            response = await declare();
+        } finally {
+            kv.compareSet = originalCompareSet as typeof kv.compareSet;
+        }
+
+        assert.notEqual(response.statusCode, 200, JSON.stringify(response.body));
+        const row = await kv.get<{ declarationFunding?: { status?: string } }>(OLD_CONTEST_KEY);
+        assert.equal(row?.declarationFunding?.status, 'aborted', 'the unpaid row is aborted, not left funding');
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await villageWarReservationBlocks(kv, ATTACKER, Date.now()), false, 'the attacker is free');
+        assert.equal(await villageWarReservationBlocks(kv, OLD_DEFENDER, Date.now()), false, 'and so is the defender');
+
+        const retry = await declare();
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    });
 });
 
 /*
