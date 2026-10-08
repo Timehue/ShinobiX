@@ -399,6 +399,12 @@ async function continueSectorDeclaration(context: SectorFundingContext): Promise
     try {
         return await withKvLock(sectorDeclareLockKey(session.sector), async () => {
             return withKvLock(territoryKey(session.sector), async () => {
+            // The debit lands on the attacker's War Resource record. Every other
+            // writer of that record (merc hires and ticks, the daily stores pass,
+            // intel, ANBU skims) rewrites it whole under this lock, so a debit
+            // CAS'd past them without it could be erased by the rewrite, receipt
+            // and all. The village-war declaration already holds it.
+            return withKvLock(fundingPlan.source.recordKey, async () => {
             // Territory ownership is declaration authority, not an advisory
             // pre-read. Share the exact writer lock and bind the owner again
             // across publication, debit, and activation. A due older contest is
@@ -481,6 +487,7 @@ async function continueSectorDeclaration(context: SectorFundingContext): Promise
                 chargedNow,
                 cost: funded.receipt.amount,
             };
+            }, { failClosed: true });
             }, { failClosed: true });
         }, { failClosed: true });
     } finally {

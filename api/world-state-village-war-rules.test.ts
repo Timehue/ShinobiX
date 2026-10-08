@@ -90,7 +90,7 @@ before(async () => {
     ({ kv } = await import('./_storage.js'));
     ({ issuePlayerToken } = await import('./_auth.js'));
     ({ raidProgressionReceiptId } = await import('./missions/_raid-progression.js'));
-    world = await import('./world-state.js');
+    world = (await import('./world-state.js')) as unknown as typeof world;
     handler = world.default as unknown as typeof handler;
 });
 
@@ -374,6 +374,23 @@ describe('mercenaries and Ramparts', { concurrency: false }, () => {
         assert.equal((await kv.get<Record<string, any>>(WAR_KEY))?.hp?.[MIST], 0);
         await kv.set(WAR_KEY, liveWar({ hp: { [LEAF]: 5_000, [MIST]: 120 } }));
         assert.equal((await world.applyMercVillageWarDamage(LEAF, MIST, 50))?.enemyHp, 70);
+    });
+
+    it('a merc never chips a war past its 14-day limit: the war ends instead', async () => {
+        const startedAt = Date.now() - 15 * 24 * 60 * 60 * 1_000;
+        await kv.set(WAR_KEY, liveWar({
+            startedAt,
+            pendingUntil: startedAt + 60 * 60 * 1_000,
+            updatedAt: startedAt,
+            // Decay is paid up, so only the time limit can end this war.
+            lastDecayDate: new Date().toISOString().slice(0, 10),
+            hp: { [LEAF]: 5_000, [MIST]: 3_000 },
+        }));
+        assert.equal(await world.applyMercVillageWarDamage(LEAF, MIST, 50), null);
+        const war = await kv.get<Record<string, any>>(WAR_KEY);
+        assert.ok(war?.endedAt, 'the timed-out war is ended');
+        assert.equal(war?.winnerVillage, undefined, 'a timeout has no winner');
+        assert.equal(war?.hp?.[MIST], 3_000, 'and the merc chipped nothing');
     });
 
     it('Ramparts bought mid-war raise that village\'s max and current war HP once', async () => {

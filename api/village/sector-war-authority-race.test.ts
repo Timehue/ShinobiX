@@ -146,6 +146,27 @@ describe('sector-war declaration territory authority race', { concurrency: false
         const retry = await declare();
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
     });
+
+    // The debit lands on the attacker's War Resource record, which merc hires
+    // and ticks, the daily stores pass and ANBU skims rewrite whole under that
+    // record's lock. A declaration that debited without the lock could have its
+    // debit, and the receipt that proves it, erased by such a rewrite.
+    it('debits only while holding the lock every other War Resource writer uses', async () => {
+        const lockKey = `lock:${ATTACKER_WR_KEY}`;
+        await kv.set(lockKey, 'a-merc-hire-in-progress', { nx: true, ex: 30 });
+        let blocked: ResponseOut;
+        try {
+            blocked = await declare();
+        } finally {
+            await kv.del(lockKey);
+        }
+        assert.equal(blocked.statusCode, 503, JSON.stringify(blocked.body));
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await kv.get(OLD_CONTEST_KEY), null, 'nothing was published');
+
+        const retry = await declare();
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    });
 });
 
 /*
