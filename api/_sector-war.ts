@@ -546,12 +546,20 @@ export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: 
         ?? null;
 }
 
+/** Whether a receipt makes its winner a capture contributor: an attacker-side
+ *  win that put points on the board. A 0-point win (a garrison beaten after
+ *  its cap, a merc repelled for a fraction that rounds to nothing) scores
+ *  nothing, so it earns no Legacy capture credit either. */
+function receiptContributes(r: Pick<SectorWarBattleReceipt, 'attackerWon' | 'by' | 'points'>): boolean {
+    return r.attackerWon && !!r.by && nonNeg(r.points) > 0;
+}
+
 /** Distinct attacker-side winners among `receipts`, newest casing kept.
  *  Receipts are walked newest-first, matching the in-row mirror's order. */
 function contributorsOf(receipts: readonly SectorWarBattleReceipt[]): string[] {
     const seen = new Map<string, string>();
     for (const r of receipts) {
-        if (!r.attackerWon || !r.by) continue;
+        if (!receiptContributes(r)) continue;
         const k = r.by.toLowerCase();
         if (!seen.has(k)) seen.set(k, r.by);
     }
@@ -750,7 +758,7 @@ export function recordSectorWarBattleOutcome(
     const ledger = sectorWarLedgerOf(outcome.session);
     const nextMirror = mirror.length < SECTOR_WAR_BATTLE_RECEIPT_CAP ? [receipt, ...mirror] : mirror;
     // Newest casing wins, as the full-ledger walk did.
-    const contributors = receipt.attackerWon && receipt.by
+    const contributors = receiptContributes(receipt)
         ? [receipt.by, ...ledger.contributors.filter((name) => name.toLowerCase() !== receipt.by.toLowerCase())]
         : ledger.contributors;
     const battleLedger: SectorWarBattleLedger = {

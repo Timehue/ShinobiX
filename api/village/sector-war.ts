@@ -97,7 +97,7 @@ import {
     type VillageWarReservationPlan,
 } from '../_war-village-reservation.js';
 import { settleDueSectorWars } from '../_sector-war-settle.js';
-import { intelDeclareCost, sectorIntelFor, type IntelTier } from '../_village-intel.js';
+import { intelDeclareCost, sectorIntelFor, zeroSectorIntel, type IntelTier } from '../_village-intel.js';
 import { SECTOR_WAR_WR } from '../_war-economy.js';
 import { recordWarEcoEvent } from '../_war-telemetry.js';
 import { logWarEvent } from '../_war-event-log.js';
@@ -1208,6 +1208,11 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
             after: { expiredReason: out.session.expiredReason, expiredAt: out.session.expiredAt },
             meta: { sector: out.session.sector, attackerVillage: out.session.attackerVillage, defenderVillage: out.session.defenderVillage },
         });
+        // A called-off war ends the scouting on that sector for both sides, as
+        // a settled one does. Calling it off used to keep the attacker's intel,
+        // so a losing siege could be conceded instead of settled and declared
+        // again at the intel discount once the cooldown ran out.
+        await zeroSectorIntel(out.session.sector, [out.session.attackerVillage, out.session.defenderVillage], Date.now());
     }
     // The WR spent declaring is NOT refunded — a called-off siege still cost the
     // village, which is what keeps declare-spam from being free.
