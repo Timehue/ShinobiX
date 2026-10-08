@@ -244,7 +244,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { receiptId: `structure-raised:${villageWarSlug(village)}:${structure}:${result.newLevel}` });
         }
         // Telemetry (best-effort): the currency spent upgrading a war structure.
-        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}`, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
+        // The id is unique per PURCHASE: Ramparts and Watchtower reset at peace and
+        // are bought again in the next war, and an id of village/structure/level
+        // alone made that second purchase read as a replay and dropped its spend.
+        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}:${Date.now()}`, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     } catch (err) {
         // A reserved/debited-but-unfinished purchase is parked for the economy

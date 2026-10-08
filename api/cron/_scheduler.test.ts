@@ -25,6 +25,21 @@ test('sector wars settle on their own leased 5-minute tick, not only at 03:00', 
     assert.match(source, /clearInterval\(_sectorWarSettleInterval\)/);
 });
 
+test('the village-war daily pass releases its lease on an unfinished day and is caught up after restarts', () => {
+    // The day's lease used to be held for 20 hours after ANY run, so a village
+    // that failed (a contended lock, a storage blip) waited a whole day, and a
+    // restart spanning 03:00 UTC skipped the day outright. Behaviour is covered in
+    // api/cron/_scheduler-village-war.integration.test.ts; this pins the wiring.
+    const source = readFileSync('api/cron/_scheduler.ts', 'utf8');
+    assert.match(source, /villageWar: 30 \* 60,/);
+    assert.match(source, /runLeasedJob\(\s*'village-war-daily',\s*LEASE_TTL\.villageWar,[\s\S]{0,200}?\(result\) => result\.complete,?\s*\)/);
+    assert.match(source, /const w = await runLeasedVillageWarDailyPass\(\);/);
+    assert.match(source, /setInterval\(\(\) => void fireVillageWarDailyCatchUp\(\), VILLAGE_WAR_CATCHUP_TICK_MS\)/);
+    assert.match(source, /_villageWarCatchUpBootTimeout = setTimeout\(\(\) => \{\s*_villageWarCatchUpBootTimeout = null;\s*void fireVillageWarDailyCatchUp\(\);\s*\}, VILLAGE_WAR_CATCHUP_BOOT_DELAY_MS\)/);
+    assert.match(source, /clearInterval\(_villageWarCatchUpInterval\)/);
+    assert.match(source, /clearTimeout\(_villageWarCatchUpBootTimeout\)/);
+});
+
 test('stuck player trades are recovered on the leased settlement tick', () => {
     // Behaviour is covered through recoverPendingPlayerTrades in
     // api/player/_trade-settlement.test.ts; this pins that the always-on server

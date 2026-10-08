@@ -8,17 +8,21 @@
  * WHY AN ENDPOINT AND NOT A CRON OR THE SAVE PATH:
  *   - A cron would write every player's save every day (the write-storm §8.2
  *     explicitly rules out).
- *   - Ryo is CLIENT-OWNED in the save ledger, so a silent server-side debit would
- *     simply be re-asserted by the player's next autosave. A currency change has
- *     to come back in a response the client adopts — the same contract
- *     /api/player/daily-login and /api/village/claim-daily-agenda already use.
+ *   - The player has to SEE the debit. Ryo itself is server-owned now (a generic
+ *     save re-asserts the stored balance and refuses increases — see
+ *     clientRyoDecreaseAllowed in api/_release-flags.ts), but the balance the
+ *     client shows is its own, so a currency change comes back in a response the
+ *     client adopts — the same contract /api/player/daily-login and
+ *     /api/village/claim-daily-agenda already use.
  * So the debit is lazy and idempotent: it runs at most once per UTC day per
  * player, keyed on the server-owned `character.lastTaxDate` stamp read INSIDE the
  * save lock.
  *
- * Rate: taxRateForSectors(sectors the player's village actually holds) × the
- * village's Treasury-Vault discount — the identical inputs api/_war-map-view.ts
- * shows on the War Map, so the rate charged always matches the rate displayed.
+ * Rate: taxRateForSectors(WAR sectors the player's village actually holds, by the
+ * one definition in api/_war-held-sectors.ts) × the village's Treasury-Vault
+ * discount — the identical inputs api/_war-map-view.ts shows on the War Map, so
+ * the rate charged always matches the rate displayed. A failed territory scan
+ * charges and stamps nothing; the next session start assesses the day again.
  *
  * Split: TAX_BURN_SHARE is destroyed (the actual anti-inflation sink) and the rest
  * is credited to the village treasury.
@@ -172,9 +176,17 @@ async function finishPendingTaxCredit(name: string, village: string, today: stri
  * Safe to call on every session start: the same-day stamp makes a repeat call a
  * no-op that does not even write. Never throws — a tax failure must never block
  * whatever the caller was actually doing.
+ *
+ * SWITCHED OFF (DISABLE_VILLAGE_TAX=1, or the whole campaign's kill switch): no
+ * ryo moves, but the day is still STAMPED as untaxed, exactly as a day with an
+ * empty Kage seat is. The call used to return before stamping anything, so
+ * switching the tax back on billed every returning player up to
+ * TAX_CATCHUP_DAYS_MAX days of arrears for days it had been off. The stamp is a
+ * server-owned save field the client cannot overwrite, and no ryo changes, so the
+ * client has nothing to adopt — the same as any other untaxed day.
  */
 export async function assessVillageTax(playerName: string, now: number = Date.now()): Promise<VillageTaxResult> {
-    if (!villageTaxEnabled()) return NOT_APPLIED();
+    const taxOn = villageTaxEnabled();
     const name = String(playerName ?? '').trim().toLowerCase();
     if (!name) return NOT_APPLIED();
 
@@ -188,22 +200,26 @@ export async function assessVillageTax(playerName: string, now: number = Date.no
         const today = utcDateString(now);
         const village = String(peekChar.village ?? '').trim();
         if (String(peekChar.lastTaxDate ?? '') === today) {
-            await finishPendingTaxCredit(name, village, today);
+            if (taxOn) await finishPendingTaxCredit(name, village, today);
             return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
         }
         if (!isWarVillage(village)) return NOT_APPLIED(Number(peekChar.ryo) || 0, Number(peekChar.bankRyo) || 0);
 
-        // Village-scoped inputs, read once before taking the save lock.
-        const [sectorsControlled, warRaw, kageSeated] = await Promise.all([
-            heldSectorsForVillage(village),
-            kv.get<Record<string, unknown>>(villageWarKey(village)),
-            isVillageKageSeated(village),
-        ]);
+        // Village-scoped inputs, read once before taking the save lock. A switched-off
+        // day reads none of them: its rate is zero whatever they say.
+        const [sectorsControlled, warRaw, kageSeated]: [number, Record<string, unknown> | null, boolean] = taxOn
+            ? await Promise.all([
+                heldSectorsForVillage(village),
+                kv.get<Record<string, unknown>>(villageWarKey(village)),
+                isVillageKageSeated(village),
+            ])
+            : [0, null, false];
         const record = normalizeVillageWarRecord(village, warRaw ?? undefined);
-        // No seated Kage forces the rate to zero. applyPlayerTax still STAMPS the
-        // day, so a leaderless stretch accrues no arrears the village gets billed
-        // for the moment someone finally takes the seat.
-        const rateMultiplier = kageSeated ? taxRateMultiplier(record) : 0;
+        // No seated Kage, or the tax switched off, forces the rate to zero.
+        // applyPlayerTax still STAMPS the day, so neither a leaderless stretch nor
+        // a switched-off one accrues arrears that get billed the moment someone
+        // takes the seat or the tax comes back on.
+        const rateMultiplier = taxOn && kageSeated ? taxRateMultiplier(record) : 0;
         const assess = (char: Record<string, unknown>) => applyPlayerTax(
             {
                 ryo: Number(char.ryo) || 0,
