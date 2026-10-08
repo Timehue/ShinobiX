@@ -305,13 +305,19 @@ describe("world-map reward settlement", () => {
         const damage = logbook.indexOf("applyVillageWarMissionDamage(", call);
         assert.ok(damage > adopt,
             "war damage must follow the reward, not precede it");
+        // The Logbook may only announce the damage once the server accepted it,
+        // so it has to wait for the write instead of firing and forgetting.
+        assert.ok(logbook.includes("await applyVillageWarMissionDamage("),
+            "the war-damage note must come from the server's answer");
 
         const worldState = source("./world-state.ts");
         assert.ok(
             !worldState.includes("claimVillageWarDailyMission"),
             "the inline claim must be gone — it consumed the day's stamp and paid nothing",
         );
-        const fn = worldState.slice(worldState.indexOf("export function applyVillageWarMissionDamage"));
+        const fnStart = worldState.indexOf("export async function applyVillageWarMissionDamage");
+        assert.notEqual(fnStart, -1, "the war-damage half must still exist where this test reads it");
+        const fn = worldState.slice(fnStart);
         const fnBody = fn.slice(0, fn.indexOf("\n}"));
         assert.ok(
             !fnBody.includes("villageWarMissionsCompleted") && !fnBody.includes("clanMissionContrib"),
