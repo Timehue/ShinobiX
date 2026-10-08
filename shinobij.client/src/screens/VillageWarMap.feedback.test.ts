@@ -21,6 +21,8 @@ import { describe, it } from 'node:test';
 const screen = readFileSync(new URL('./VillageWarMap.tsx', import.meta.url), 'utf8');
 const skin = readFileSync(new URL('../styles/village-war-map-skin.css', import.meta.url), 'utf8');
 const client = readFileSync(new URL('../lib/village-war-map.ts', import.meta.url), 'utf8');
+// The mercenary panel moved into its own component (owner redesign 2026-10-08).
+const mercPanel = readFileSync(new URL('../components/VillageWarMercPanel.tsx', import.meta.url), 'utf8');
 
 describe('Village War Map feedback contract', () => {
     it('3a — success is a transient toast, not a notice that sits in the card forever', () => {
@@ -62,7 +64,17 @@ describe('Village War Map feedback contract', () => {
         assert.match(screen, /disabled=\{!!busy \|\| !declareAfford\.affordable\}/);
         // The "~" is explained in VISIBLE text, not a tooltip.
         assert.match(screen, /className="hint vwm-declare-note">\{declareEstimateNote\(/);
-        assert.match(screen, /const hireCost = wrAffordability\(t\.costWr, myView\?\.warResources \?\? 0, \{ verb: "Hire" \}\)/);
+        // A merc hire is priced at what the server will CHARGE (the quoted,
+        // discounted `cost`), against the live pool — the base `costWr` used to
+        // disable a hire the village could afford.
+        assert.match(mercPanel, /const afford = wrAffordability\(mercTierCost\(t\), pool, \{ verb: "Hire" \}\)/);
+        assert.match(mercPanel, /const pool = data\.warResources \?\? 0;/);
+        assert.doesNotMatch(mercPanel, /wrAffordability\(t\.costWr/);
+    });
+
+    it('the mercenary panel lives in its own component', () => {
+        assert.match(screen, /<VillageWarMercPanel character=\{character\} onChanged=\{refresh\} \/>/);
+        assert.doesNotMatch(screen, /hireMerc|deployMerc|listMercs|mercData/, 'no merc state is left behind on the screen');
     });
 
     it('3d — feeding a garrison is a secondary toggle, not the Declare War treatment', () => {
@@ -81,9 +93,13 @@ describe('Village War Map feedback contract', () => {
     });
 
     it('3g — the button that was pressed relabels; the rest merely disable', () => {
-        for (const [id, label] of [['feed-\\$\\{sec\\.sector\\}', 'Feeding…'], ['dec-\\$\\{sec\\.sector\\}', 'Declaring…'], ['hire-\\$\\{t\\.id\\}', 'Hiring…'], ['aband-\\$\\{sec\\.sector\\}', 'Conceding…'], ['deploy-\\$\\{t\\.id\\}', 'Deploying…']]) {
+        for (const [id, label] of [['feed-\\$\\{sec\\.sector\\}', 'Feeding…'], ['dec-\\$\\{sec\\.sector\\}', 'Declaring…'], ['aband-\\$\\{sec\\.sector\\}', 'Conceding…']]) {
             assert.match(screen, new RegExp(`busyLabel\\(busy, \`${id}\`, "${label}"`), `expected a "${label}" in-flight label`);
         }
+        // The merc panel keeps the same rule for its own buttons.
+        assert.match(mercPanel, /const id = `hire-\$\{c\.key\}-\$\{t\.id\}`;/);
+        assert.match(mercPanel, /busyLabel\(busy, id, "Hiring…"/);
+        assert.match(mercPanel, /busyLabel\(busy, `deploy-\$\{band\.id\}`, "Deploying…"/);
         assert.match(screen, /busy === `up-\$\{s\.key\}`/);
         assert.match(screen, /Raising \$\{s\.name\}…/);
     });
