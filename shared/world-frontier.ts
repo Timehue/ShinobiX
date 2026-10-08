@@ -17,10 +17,13 @@ const APRON = 4, VERGE = 2, CLEAR = 3;
 const STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]] as const;
 const AROUND = [-1, 0, 1].flatMap(dy => [-1, 0, 1].map(dx => [dx, dy] as const));
 const NONE: readonly WorldNode[] = [];
+/** Yield roughly every this many units of work, so a browser can paint between slices. */
+const SLICE = 2048;
 /** Ground kinds on the frontier grid: 0 closed cliff, 1 walkable land or road, 2 painted sector. */
 export type WorldTerrain = { kind(x: number, y: number): number };
 /** Midpoint of a cell edge where walking ground changes sector. `horizontal` lines run along x. */
 export type WorldBoundary = WorldPoint & { horizontal: boolean };
+export type WorldFrontier = { terrain: WorldTerrain; boundaries: WorldBoundary[]; walls: WorldBoundary[] };
 
 function hash(x: number, y: number) {
     let h = (Math.imul(x, 374761393) + Math.imul(y, 668265263)) | 0;
@@ -34,7 +37,9 @@ function wobble(x: number, y: number) {
     return (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy - .5) * 2.4;
 }
 
-export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string, WorldNode>) {
+/** The frontier build as resumable steps; the result is identical however it is driven. */
+export function* frontierSteps(space: ContinuousWorldSpace, nodes: Map<string, WorldNode>): Generator<void, WorldFrontier> {
+    let work = 0;
     const x0 = Math.min(...space.chunks.map(c => c.x)) - 10, y0 = Math.min(...space.chunks.map(c => c.y)) - 10;
     const w = Math.max(...space.chunks.map(c => c.x + c.size)) + 10 - x0, h = Math.max(...space.chunks.map(c => c.y + c.size)) + 10 - y0;
     const at = (x: number, y: number) => x < x0 || y < y0 || x >= x0 + w || y >= y0 + h ? -1 : (y - y0) * w + x - x0;
@@ -51,6 +56,7 @@ export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string,
         const i = at(Math.floor(node.x), Math.floor(node.y));
         if (slot[i]! < 0) { slot[i] = lists.length; lists.push([]); listCells.push(i); }
         lists[slot[i]!]!.push(node);
+        if (++work % SLICE === 0) yield;
     }
     // Open land keeps clear of each overpass; only the deck's own road cells refuse side steps.
     for (const c of worldRoadCrossings(space.roads)) for (let dy = -CLEAR; dy <= CLEAR; dy++) for (let dx = -CLEAR; dx <= CLEAR; dx++) {
@@ -65,15 +71,18 @@ export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string,
             const r = APRON + wobble(x, y);
             if (r > 0 && dx * dx + dy * dy <= r * r) claim(at(x, y));
         }
+        yield;
     }
-    for (const node of nodes.values()) if (node.road) for (let dy = -VERGE; dy <= VERGE; dy++) for (let dx = -VERGE; dx <= VERGE; dx++) {
-        claim(at(Math.floor(node.x) + dx, Math.floor(node.y) + dy));
+    for (const node of nodes.values()) {
+        if (node.road) for (let dy = -VERGE; dy <= VERGE; dy++) for (let dx = -VERGE; dx <= VERGE; dx++) claim(at(Math.floor(node.x) + dx, Math.floor(node.y) + dy));
+        if (++work % SLICE === 0) yield;
     }
     const xOf = (i: number) => i % w + x0, yOf = (i: number) => Math.floor(i / w) + y0;
     for (const i of cells) {
         // Overpasses stay grade-separated, and a painted obstacle on a sector's
         // edge continues one step outward instead of ending in open grass.
         if (cleared[i] || STEPS.some(([dx, dy]) => { const j = at(xOf(i) + dx, yOf(i) + dy); return j >= 0 && painted[j] === 1 && slot[j]! < 0; })) land[i] = 0;
+        if (++work % SLICE === 0) yield;
     }
     // Nearest owner by breadth-first growth from every sector tile and road half.
     const queue = listCells.slice();
@@ -84,17 +93,23 @@ export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string,
             const j = at(xOf(i) + dx, yOf(i) + dy);
             if (j >= 0 && land[j] && owner[j]! < 0) { owner[j] = owner[i]!; queue.push(j); }
         }
+        if (++work % SLICE === 0) yield;
     }
     const clash = (sector: number, j: number) => slot[j]! >= 0 ? nodesAt(j).some(n => !linked(sector, n.sector))
         : land[j] === 1 && owner[j]! >= 0 && !linked(sector, owner[j]!);
     // Unlinked neighbours meet at a closed cliff line, never an open seam.
-    const close = cells.filter(i => land[i] && (owner[i]! < 0
-        || AROUND.some(([dx, dy]) => { const j = at(xOf(i) + dx, yOf(i) + dy); return j >= 0 && clash(owner[i]!, j); })));
+    const close: number[] = [];
+    for (const i of cells) {
+        if (land[i] && (owner[i]! < 0
+            || AROUND.some(([dx, dy]) => { const j = at(xOf(i) + dx, yOf(i) + dy); return j >= 0 && clash(owner[i]!, j); }))) close.push(i);
+        if (++work % SLICE === 0) yield;
+    }
     for (const i of close) land[i] = 0;
 
     const chunks = new Map(space.chunks.map(c => [c.sector, c])), anchors = new Map<number, number>();
     const index = new Int32Array(w * h).fill(-1), created: WorldNode[] = [];
     for (const i of cells) {
+        if (++work % SLICE === 0) yield;
         if (!land[i]) continue;
         const x = xOf(i), y = yOf(i), sector = owner[i]!, chunk = chunks.get(sector)!;
         const key = sector * 144 + Math.max(0, Math.min(11, y - chunk.y)) * 12 + Math.max(0, Math.min(11, x - chunk.x));
@@ -111,8 +126,8 @@ export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string,
         a.neighbors.push(b.id); b.neighbors.push(a.id); edges.push(a, b);
     };
     const isolated = (n: WorldNode) => n.road !== undefined && cleared[at(Math.floor(n.x), Math.floor(n.y))] === 2;
-    created.forEach((node, k) => {
-        const x = Math.floor(node.x), y = Math.floor(node.y);
+    for (let k = 0; k < created.length; k++) {
+        const node = created[k]!, x = Math.floor(node.x), y = Math.floor(node.y);
         for (const [dx, dy] of STEPS) {
             const j = at(x + dx, y + dy), next = j < 0 ? -1 : index[j]!;
             if (next >= 0) {
@@ -121,41 +136,54 @@ export function addWorldFrontier(space: ContinuousWorldSpace, nodes: Map<string,
             }
             for (const other of nodesAt(j)) if (!isolated(other) && linked(node.sector, other.sector)) { join(node, other, true); near[k]!.push(other); }
         }
-    });
+        if (++work % SLICE === 0) yield;
+    }
     // A road that runs beside a painting, or beside another road, can be stepped onto.
     // Corridors only meet away from overpasses, so a bridge never becomes a junction.
-    for (const i of listCells) for (const node of lists[slot[i]!]!) {
-        if (!node.road || isolated(node)) continue;
-        for (const [dx, dy] of STEPS) {
-            const j = at(xOf(i) + dx, yOf(i) + dy);
-            for (const other of nodesAt(j)) if (!other.road || (!cleared[i] && !cleared[j])) join(node, other, false);
+    for (const i of listCells) {
+        for (const node of lists[slot[i]!]!) {
+            if (!node.road || isolated(node)) continue;
+            for (const [dx, dy] of STEPS) {
+                const j = at(xOf(i) + dx, yOf(i) + dy);
+                for (const other of nodesAt(j)) if (!other.road || (!cleared[i] && !cleared[j])) join(node, other, false);
+            }
         }
+        if (++work % SLICE === 0) yield;
     }
     // Drop pockets that touch no sector tile or road.
     const kept = new Uint8Array(created.length), stack: number[] = [];
-    near.forEach((list, k) => { if (list.some(m => !m.land)) { kept[k] = 1; stack.push(k); } });
-    while (stack.length) for (const next of near[stack.pop()!]!) {
-        const k = next.land ? index[at(Math.floor(next.x), Math.floor(next.y))]! : -1;
-        if (k >= 0 && !kept[k]) { kept[k] = 1; stack.push(k); }
+    for (let k = 0; k < created.length; k++) if (near[k]!.some(m => !m.land)) { kept[k] = 1; stack.push(k); }
+    while (stack.length) {
+        for (const next of near[stack.pop()!]!) {
+            const k = next.land ? index[at(Math.floor(next.x), Math.floor(next.y))]! : -1;
+            if (k >= 0 && !kept[k]) { kept[k] = 1; stack.push(k); }
+        }
+        if (++work % SLICE === 0) yield;
     }
     const live = (n: WorldNode) => !n.land || kept[index[at(Math.floor(n.x), Math.floor(n.y))]!] === 1;
-    created.forEach((node, k) => { if (!kept[k]) { nodes.delete(node.id); land[at(Math.floor(node.x), Math.floor(node.y))] = 0; } });
+    for (let k = 0; k < created.length; k++) if (!kept[k]) { nodes.delete(created[k]!.id); land[at(Math.floor(created[k]!.x), Math.floor(created[k]!.y))] = 0; }
+    yield;
     const boundaries: WorldBoundary[] = [];
     const mark = (a: WorldNode, b: WorldNode) => { if (a.sector !== b.sector) boundaries.push({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, horizontal: a.y !== b.y }); };
     for (let k = 0; k < edges.length; k += 2) {
         const a = edges[k]!, b = edges[k + 1]!;
         if ((a.land || b.land) && live(a) && live(b)) mark(a, b);
+        if (++work % SLICE === 0) yield;
     }
     // Corridors change owner between two road nodes, or at a very short road's mouth.
-    for (const node of nodes.values()) if (node.road) for (const id of node.neighbors) {
-        const next = nodes.get(id)!;
-        if (!next.land && (!next.road || node.sector < next.sector)) mark(node, next);
+    for (const node of nodes.values()) {
+        if (node.road) for (const id of node.neighbors) {
+            const next = nodes.get(id)!;
+            if (!next.land && (!next.road || node.sector < next.sector)) mark(node, next);
+        }
+        if (++work % SLICE === 0) yield;
     }
     // Where two walkable cells touch without a step between them (a corridor beside an
     // unlinked sector, or beside a bridge approach), the renderer draws a rock line.
     const walls: WorldBoundary[] = [];
     const walkable = (i: number) => i >= 0 && (land[i] === 1 || slot[i]! >= 0);
     for (const i of [...listCells, ...cells]) {
+        if (++work % SLICE === 0) yield;
         if (!walkable(i) || cleared[i] === 2) continue;
         const here = land[i] ? [nodes.get(`l:${xOf(i)}:${yOf(i)}`)!] : nodesAt(i);
         for (const [dx, dy] of [[1, 0], [0, 1]] as const) {
