@@ -72,6 +72,10 @@ export type Scene = {
     externalChoiceCompletion?: boolean;
     /** Runtime alternatives of one logical scene count once for repetition review. */
     variantGroup?: string;
+    /** Players see this scene's titles and captions (VN reader, tutorial
+     * kicker, caravan card, NPC name plate), although its family mostly holds
+     * review annotations in those fields. */
+    readerCaptions?: boolean;
 };
 const data = (file: string) => `shinobij.client/src/data/${file}.ts`;
 const lib = (file: string) => `shinobij.client/src/lib/${file}.ts`;
@@ -182,7 +186,7 @@ export function buildCorpus(): Scene[] {
                     { externalChoiceCompletion: true, variantGroup: `gathering/${biome}` });
             }
     for (const l of PET_TUTORIAL_LESSONS)
-        add('tutorial', lib('pet-tutorial'), l.id, l.pages.map(p => ({ title: p.title, scene: p.kicker, speaker: 'Tutorial', dialogue: [p.body, ...p.points, ...(p.callout ? [p.callout] : [])] })), `L${l.minLevel}, ${l.minPets} pets; {pet} is personalized by the runtime.`);
+        add('tutorial', lib('pet-tutorial'), l.id, l.pages.map(p => ({ title: p.title, scene: p.kicker, speaker: 'Tutorial', dialogue: [p.body, ...p.points, ...(p.callout ? [p.callout] : [])] })), `L${l.minLevel}, ${l.minPets} pets; {pet} is personalized by the runtime.`, false, { readerCaptions: true });
     for (const vow of ACADEMY_VOWS) {
         prose('academy', lib('academy-narrative'), vow.id, vow, 'Vow choice and callbacks');
         for (const village of Object.keys(storylines)) {
@@ -220,7 +224,7 @@ export function buildCorpus(): Scene[] {
                     if (seen.has(signature))
                         continue;
                     seen.add(signature);
-                    add('first-pact', 'shinobij.client/src/screens/first-pact/narrative.ts', `${step}/${vow.id}/${resolved}/${npc.id}`, d.lines.map((text, i) => ({ title: npc.name, scene: npc.title, speaker: d.narrationStartsAt !== undefined && i >= d.narrationStartsAt ? 'Narrator' : npc.name, dialogue: [text], ...(i === d.lines.length - 1 && d.choices ? { choices: d.choices.map(c => ({ text: c.label })) } : {}) })), `${step}; vow ${vow.id}; ${resolved ? 'completed writs, known companions, revisited aftermath' : 'no side quest or companion record'}; action ${JSON.stringify(d.action ?? null)}`);
+                    add('first-pact', 'shinobij.client/src/screens/first-pact/narrative.ts', `${step}/${vow.id}/${resolved}/${npc.id}`, d.lines.map((text, i) => ({ title: npc.name, scene: npc.title, speaker: d.narrationStartsAt !== undefined && i >= d.narrationStartsAt ? 'Narrator' : npc.name, dialogue: [text], ...(i === d.lines.length - 1 && d.choices ? { choices: d.choices.map(c => ({ text: c.label })) } : {}) })), `${step}; vow ${vow.id}; ${resolved ? 'completed writs, known companions, revisited aftermath' : 'no side quest or companion record'}; action ${JSON.stringify(d.action ?? null)}`, false, { readerCaptions: true });
                 }
                 if (step === 'complete')
                     prose('first-pact', 'shinobij.client/src/screens/first-pact/narrative.ts', `epilogue/${vow.id}/${resolved}`, firstPactEpilogue(p, resolved ? companions : []));
@@ -230,7 +234,7 @@ export function buildCorpus(): Scene[] {
     for (const d of LEGACY_DEFS)
         prose('legacy', 'api/_legacy-defs.ts', `path/${d.id}`, { name: d.name, flavor: d.flavor }, 'Earned deed description; no inherited identity.');
     const sage = buildSageVnEvent({ status: 'spawned', sector: 25, spawnedAt: 1, expiresAt: 2, offers: LEGACY_DEFS.slice(0, 3).map(d => ({ legacyId: d.id, name: d.name, category: d.category, flavor: d.flavor, title: d.title, villageAffinity: d.villageAffinity ?? null })) }, 'Traveler');
-    add('legacy', lib('legacy-sage-vn'), sage.id, sage.vnPages ?? [], 'Offer preview; permanent acceptance is handled by the following modal.', true);
+    add('legacy', lib('legacy-sage-vn'), sage.id, sage.vnPages ?? [], 'Offer preview; permanent acceptance is handled by the following modal.', true, { readerCaptions: true });
     for (const category of RUMOR_CATEGORIES)
         add('legacy', lib('legacy-rumors'), `rumor/${category}`, (rumorArc(category) ?? []).map((lines, i) => ({ title: `Milestone ${i + 1}`, scene: 'Rumor variants; one line is selected per milestone', speaker: 'Tavern rumor', dialogue: lines })), category);
     add('legacy', lib('legacy-rumors'), 'gossip', [{ title: 'Tavern gossip', scene: 'One rotating overheard exchange per day', speaker: 'Narrator', dialogue: [...TAVERN_GOSSIP] }]);
@@ -241,7 +245,7 @@ export function buildCorpus(): Scene[] {
     for (const [id, q] of Object.entries(QUEST_BOOK))
         prose('quest', lib('questbook'), id, q, 'Complete quest stages and decision alternatives');
     for (const e of CARAVAN_EVENTS)
-        add('caravan', 'shared/sunscar/caravan-events.ts', e.id, [{ title: e.title, scene: e.scene, speaker: 'Narrator', dialogue: [e.scene], choices: e.choices.map(c => ({ text: `${c.label} (${c.hint})`, conclusion: c.result })) }], `requires ${e.requiresFlag ?? 'none'}; excludes ${e.excludesFlag ?? 'none'}`);
+        add('caravan', 'shared/sunscar/caravan-events.ts', e.id, [{ title: e.title, scene: e.scene, speaker: 'Narrator', dialogue: [e.scene], choices: e.choices.map(c => ({ text: `${c.label} (${c.hint})`, conclusion: c.result })) }], `requires ${e.requiresFlag ?? 'none'}; excludes ${e.excludesFlag ?? 'none'}`, false, { readerCaptions: true });
     for (const c of CARAVAN_CONTRACTS)
         prose('caravan', 'shared/sunscar/caravan-contracts.ts', `contract/${c.id}`, c);
     for (const r of RALLY_RIVALS)
