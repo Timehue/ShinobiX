@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { CONTINUOUS_WORLD_SPACE } from './continuous-world-layout';
-import { buildWorldNavigation, worldRoute } from './continuous-world-navigation';
+import { buildWorldNavigation, buildWorldNavigationInSlices, worldRoute } from './continuous-world-navigation';
 import { sectorExits } from './sector-links';
 import { walkableTiles } from './sector-walk-mask';
 import { worldRoadCrossings } from './world-road-crossings';
@@ -92,6 +92,19 @@ test('no invisible walls: walkable ground either steps across or shows a rock li
     }
     assert.equal(navigation.walls.length, seams);
     assert(seams < 20, `${seams} walled seams`);
+});
+
+test('the browser build pauses often and still returns the identical graph', async () => {
+    let pauses = 0;
+    const sliced = await buildWorldNavigationInSlices(CONTINUOUS_WORLD_SPACE, async () => { pauses++; }, 0);
+    // Each step does at most a couple of thousand cells of work, so a phone gets
+    // frequent chances to paint instead of one long freeze.
+    assert(pauses > 150, `${pauses} slices`);
+    assert.deepEqual(sliced.nodes.map(n => [n.id, n.sector, n.tile, n.neighbors]), navigation.nodes.map(n => [n.id, n.sector, n.tile, n.neighbors]));
+    assert.deepEqual(sliced.boundaries, navigation.boundaries);
+    assert.deepEqual(sliced.walls, navigation.walls);
+    assert.equal(sliced.byId.size, sliced.nodes.length);
+    for (const node of sliced.nodes) assert.equal(sliced.byId.get(node.id), node);
 });
 
 test('the frontier is derived identically on every build', () => {

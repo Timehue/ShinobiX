@@ -7,7 +7,6 @@ export const WORLD_LAYOUT_VERSION = worldGraphVersion(layout.layoutVersion);
 export const CONTINUOUS_WORLD_SPACE = { ...layout, layoutVersion: WORLD_LAYOUT_VERSION } as ContinuousWorldSpace & { layoutVersion: string };
 let model: ReturnType<typeof createWorldPositionModel> | undefined;
 export function worldPositionModel() {
-    model ??= createWorldPositionModel(WORLD_LAYOUT_VERSION,
-        new Map(buildWorldNavigation(CONTINUOUS_WORLD_SPACE).nodes.map(n => [n.id, n])), CONTINUOUS_WORLD_SPACE.roads);
+    model ??= createWorldPositionModel(WORLD_LAYOUT_VERSION, buildWorldNavigation(CONTINUOUS_WORLD_SPACE).byId, CONTINUOUS_WORLD_SPACE.roads);
     return model;
 }
