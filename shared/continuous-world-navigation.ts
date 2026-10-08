@@ -1,12 +1,33 @@
 import { paintedTilePoint, worldDistance, type ContinuousWorldSpace, type WorldPoint } from './continuous-world-space';
 import { tileNeighbors, walkableTiles } from './sector-walk-mask';
 import type { WorldPosition } from './world-position';
+import { frontierSteps, WORLD_FRONTIER_VERSION, type WorldFrontier } from './world-frontier';
 
-export type WorldNode = WorldPoint & { id: string; sector: number; tile?: number; road?: string; neighbors: string[] };
-export type WorldNavigation = { nodes: WorldNode[] };
+export type WorldNode = WorldPoint & { id: string; sector: number; tile?: number; road?: string; land?: true; neighbors: string[] };
+export type WorldNavigation = WorldFrontier & { nodes: WorldNode[]; byId: ReadonlyMap<string, WorldNode> };
+/** Cursors name graph nodes, so a graph rule change must retire every older cursor. */
+export const worldGraphVersion = (layoutVersion: string) => `${layoutVersion}.${WORLD_FRONTIER_VERSION}`;
 
-/** Prototype navigation: corridor positions are explicit, never squeezed into a sector tile. */
+/** Corridor positions are explicit, never squeezed into a sector tile; open land surrounds both. */
 export function buildWorldNavigation(space: ContinuousWorldSpace): WorldNavigation {
+    const steps = navigationSteps(space);
+    for (;;) { const step = steps.next(); if (step.done) return step.value; }
+}
+
+/**
+ * The same graph, built between paints: control returns to the browser whenever a
+ * slice has run for `budgetMs`, so a phone never freezes while the world loads.
+ */
+export async function buildWorldNavigationInSlices(space: ContinuousWorldSpace, pause: () => Promise<void>, budgetMs = 8): Promise<WorldNavigation> {
+    const steps = navigationSteps(space);
+    for (let started = performance.now(); ;) {
+        const step = steps.next();
+        if (step.done) return step.value;
+        if (performance.now() - started >= budgetMs) { await pause(); started = performance.now(); }
+    }
+}
+
+function* navigationSteps(space: ContinuousWorldSpace): Generator<void, WorldNavigation> {
     const nodes = new Map<string, WorldNode>();
     const tileId = (sector: number, tile: number) => `${sector}:${tile}`;
     for (const chunk of space.chunks) {
@@ -16,8 +37,10 @@ export function buildWorldNavigation(space: ContinuousWorldSpace): WorldNavigati
             nodes.set(id, { id, sector: chunk.sector, tile, ...paintedTilePoint(chunk, tile),
                 neighbors: tileNeighbors(tile).filter(t => tiles.has(t)).map(t => tileId(chunk.sector, t)) });
         }
+        yield;
     }
     for (const road of space.roads) {
+        yield;
         const key = `${road.a.sector}-${road.b.sector}`;
         let prior = nodes.get(tileId(road.a.sector, road.a.tile));
         if (!prior) throw new Error(`Blocked road mouth ${key}`);
@@ -38,31 +61,44 @@ export function buildWorldNavigation(space: ContinuousWorldSpace): WorldNavigati
             distance += length;
         }
     }
-    return { nodes: [...nodes.values()] };
+    const frontier = yield* frontierSteps(space, nodes);
+    return { ...frontier, nodes: [...nodes.values()], byId: nodes };
 }
 
+/** A* over the world graph. Open land costs a little more, so routes keep to roads where they can. */
 export function worldRoute(nodes: ReadonlyMap<string, WorldNode>, from: string, to: string): string[] | null {
     const start = nodes.get(from), goal = nodes.get(to);
     if (!start || !goal) return null;
-    const cost = new Map([[from, 0]]), parent = new Map<string, string>(), open = new Set([from]);
-    while (open.size) {
-        let id = '', rank = Infinity;
-        for (const candidate of open) {
-            const score = cost.get(candidate)! + worldDistance(nodes.get(candidate)!, goal);
-            if (score < rank) { rank = score; id = candidate; }
+    const cost = new Map([[from, 0]]), parent = new Map<string, string>();
+    const heap: { id: string; rank: number }[] = [{ id: from, rank: worldDistance(start, goal) }];
+    while (heap.length) {
+        const top = heap[0]!, tail = heap.pop()!;
+        if (heap.length) {
+            let i = 0;
+            for (let child = 1; child < heap.length; child = i * 2 + 1) {
+                if (child + 1 < heap.length && heap[child + 1]!.rank < heap[child]!.rank) child++;
+                if (heap[child]!.rank >= tail.rank) break;
+                heap[i] = heap[child]!; i = child;
+            }
+            heap[i] = tail;
         }
-        open.delete(id);
+        const id = top.id;
         if (id === to) {
             const route = [id];
             while (parent.has(route[0]!)) route.unshift(parent.get(route[0]!)!);
             return route;
         }
         const node = nodes.get(id)!;
+        if (top.rank > cost.get(id)! + worldDistance(node, goal) + 1e-9) continue;
         for (const neighbor of node.neighbors) {
             const next = nodes.get(neighbor)!;
-            const distance = cost.get(id)! + worldDistance(node, next);
+            const distance = cost.get(id)! + worldDistance(node, next) * (node.land || next.land ? 1.2 : 1);
             if (distance >= (cost.get(neighbor) ?? Infinity)) continue;
-            cost.set(neighbor, distance); parent.set(neighbor, id); open.add(neighbor);
+            cost.set(neighbor, distance); parent.set(neighbor, id);
+            const entry = { id: neighbor, rank: distance + worldDistance(next, goal) };
+            let i = heap.push(entry) - 1;
+            while (i) { const up = (i - 1) >> 1; if (heap[up]!.rank <= entry.rank) break; heap[i] = heap[up]!; i = up; }
+            heap[i] = entry;
         }
     }
     return null;

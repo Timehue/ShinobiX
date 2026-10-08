@@ -1,6 +1,28 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { loiterPositionAt } from "./wanderer-loiter";
+import { sectorWandererHomeTile } from "./wanderer-placement";
+import { isWalkableTile, nearestWalkableTile } from "../../../shared/sector-walk-mask";
+import { WILD_SECTOR_IDS } from "../../../shared/sector-geo";
+
+describe("loitering on authored collision", () => {
+    it("never crosses ground a player cannot stand on, in any sector", () => {
+        for (const sector of WILD_SECTOR_IDS) for (const id of ["chronicle-scribe", "legacy-sage", "story-one", "pet-mentor-tomoe:1"]) {
+            const walkable = (tile: number) => isWalkableTile(sector, tile);
+            const home = nearestWalkableTile(sector, sectorWandererHomeTile(id, sector));
+            let previous = loiterPositionAt(id, home, 0, walkable);
+            for (let time = 0; time <= 40_000; time += 100) {
+                const pose = loiterPositionAt(id, home, time, walkable);
+                // Both tiles a pose straddles must be walkable, not just its rounded tile.
+                for (const col of [Math.floor(pose.col + 1e-9), Math.ceil(pose.col - 1e-9)]) for (const row of [Math.floor(pose.row + 1e-9), Math.ceil(pose.row - 1e-9)]) {
+                    assert(walkable(row * 12 + col), `${id} in sector ${sector} crosses tile ${row * 12 + col} at ${time}ms`);
+                }
+                assert(Math.hypot(pose.col - previous.col, pose.row - previous.row) <= 0.081);
+                previous = pose;
+            }
+        }
+    });
+});
 
 describe("passive wanderer loitering", () => {
     it("is repeatable at the same world time but changes across visits", () => {
