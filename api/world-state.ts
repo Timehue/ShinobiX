@@ -2650,6 +2650,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     // already passed Kage authorization; the helper
                                     // cannot alter its identity/source.
                                     const blockingReservation = villageWarReservationFromRow(claims.row);
+                                    // A SECTOR declaration's row is a sector
+                                    // contest, not a village-war pair row: this
+                                    // helper cannot fund it (it read `villages`
+                                    // off a row that has none, and the request
+                                    // died as a 500). Its own endpoint resumes it
+                                    // when that Kage declares again.
+                                    if (blockingReservation?.declarationId.startsWith('sector:')) {
+                                        return { status: 409 as const, body: { error: `${claims.village} is opening a sector war right now. Try again in a minute.` } };
+                                    }
                                     const blockingWar = blockingReservation
                                         ? await kv.get<VillageWar>(blockingReservation.warKey)
                                         : null;

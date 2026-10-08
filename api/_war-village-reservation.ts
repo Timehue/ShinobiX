@@ -273,8 +273,21 @@ async function reservationBlocksRow(
         return endedAt === null;
     }
     if (row.state === 'claiming') return row.leaseExpiresAt > now;
+    // A SECTOR contest row is published before any debit (row-first) and is
+    // only ever removed by the TTL it is given once its war is over: a day
+    // after a hold, a week after a capture. So a reserved sector reservation
+    // whose row is gone belongs to a finished war, whatever its debit receipt
+    // says. The receipt is permanent and reads `committed` forever, so the
+    // proof check below used to keep both villages "in a village war" for good
+    // once the best-effort release after activation had failed — and a
+    // declaration that activated past its window never released at all.
+    if (isSectorReservation(row) && row.state === 'reserved') return false;
     const proof = await warDeclarationFundingSourceProofState(store, row);
     return proof !== 'aborted';
+}
+
+function isSectorReservation(row: Pick<VillageWarReservationRow, 'declarationId'>): boolean {
+    return row.declarationId.startsWith('sector:');
 }
 
 /** Fail-closed occupation predicate used by sector-war/village-war exclusion. */
@@ -406,6 +419,9 @@ async function releaseIsSafe(store: ReservationStore, row: VillageWarReservation
     const war = await store.get<Record<string, unknown>>(row.warKey);
     if (!war) {
         if (row.state === 'claiming') return true;
+        // See reservationBlocksRow: a reserved sector reservation whose contest
+        // row has expired belongs to a finished war.
+        if (isSectorReservation(row)) return true;
         return (await warDeclarationFundingSourceProofState(store, row)) === 'aborted';
     }
     const marker = warDeclarationFundingMarkerFromRow(war);

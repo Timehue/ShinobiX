@@ -291,6 +291,62 @@ describe('world-state village-war declaration authority', { concurrency: false }
         assert.equal((await kv.get<Record<string, unknown>>(LEAF_WAR_KEY))?.warResources, 300);
     });
 
+    // A village-war declaration that meets a SECTOR declaration mid-saga used to
+    // "help it forward" as if the sector contest were a village-war pair row,
+    // read `villages` off a row that has none, and die as a 500.
+    it('answers 409, not 500, when a settling sector declaration holds the village', async () => {
+        const now = Date.now();
+        const contestId = '40:ashenleafvillage-vs-moonshadowvillage';
+        const declarationId = `sector:${contestId}:g1`;
+        const warKey = `shared:sector-war:${contestId}`;
+        const source = { kind: 'war-resources' as const, recordKey: LEAF_WAR_KEY, accountId: LEAF, amount: 250 };
+        const fingerprint = fundingFingerprint({ declarationId, contestId, source });
+        const reservationPlan = {
+            pairId: PAIR_ID,
+            warKey,
+            villages: [LEAF, MIST] as [string, string],
+            generation: 1,
+            declarationId,
+            fingerprint,
+            source,
+            ownerId: 'sector-owner',
+            now,
+            leaseMs: 30_000,
+        };
+        assert.equal((await claimReservations(kv, reservationPlan)).status, 'acquired');
+        assert.equal((await reserveFunding(kv, {
+            warKey,
+            declarationId,
+            fingerprint,
+            source,
+            ownerId: 'sector-owner',
+            now,
+            leaseMs: 30_000,
+            war: {
+                id: contestId,
+                sector: 40,
+                attackerVillage: LEAF,
+                defenderVillage: MIST,
+                winCondition: 'combat',
+                attackerPoints: 0,
+                defenderPoints: 0,
+                startedAt: now,
+                endsAt: now + 72 * 60 * 60 * 1_000,
+                updatedAt: now,
+                flipped: false,
+                declarationGeneration: 1,
+            },
+        })).status, 'acquired');
+        assert.equal((await promoteReservations(kv, reservationPlan)).status, 'reserved');
+
+        const declared = await invoke('leafkage', [LEAF, MIST]);
+        assert.equal(declared.statusCode, 409, JSON.stringify(declared.body));
+        assert.match(String(declared.body?.error), /sector war/i);
+        assert.equal((await kv.get<Record<string, any>>(warKey))?.declarationFunding?.status, 'funding',
+            'the sector saga is left to the sector endpoint');
+        assert.equal(await kv.get(PAIR_KEY), null, 'no village war was published');
+    });
+
     // A player can never move a sector's owner through the territory route —
     // only a settled sector war does (owner ruling 2026-10-08). This used to be
     // refused only while a contest bound the sector (409); any other 0-HP

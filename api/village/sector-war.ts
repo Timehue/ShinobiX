@@ -446,7 +446,18 @@ async function continueSectorDeclaration(context: SectorFundingContext): Promise
             if (reservation.status === 'busy') return { status: 'busy' as const };
             if (reservation.status === 'conflict') return { status: 'conflict' as const };
             const promoted = await reserveClaimedVillageWarReservations(kv, reservationPlan);
-            if (promoted.status !== 'reserved') return { status: 'conflict' as const };
+            if (promoted.status !== 'reserved') {
+                // The non-playable row was just published, but the two village
+                // rows could not be bound to it. No debit has run, so abort the
+                // row (as the village-war declaration does) instead of leaving a
+                // hidden `funding` row that blocks both villages until this exact
+                // declaration happens to be retried.
+                if (reservation.status === 'acquired') {
+                    await abortWarDeclarationFunding(kv, fundingPlan.warKey, reservation.row, 'source-fenced', Date.now())
+                        .catch((error) => console.warn('[village/sector-war] could not abort an unbound declaration row', safeLogValue(error)));
+                }
+                return { status: 'conflict' as const };
+            }
             const settlementNow = Date.now();
             const funded = await settleReservedSectorWarDeclarationFunding(
                 kv,
