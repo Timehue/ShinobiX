@@ -91,6 +91,15 @@ export function captureContributors(session: Pick<SectorWarSession, 'appliedBatt
     return [...sectorWarLedgerOf(session).contributors];
 }
 
+/**
+ * The contest lease one settlement pass holds. Capture credit is one Legacy
+ * write per contributor, each a fenced transaction while the lease is held, and
+ * a big war's pass overran the default 5 seconds: LockOwnershipLostError after
+ * the flip, before the verdict was stamped. The lease only bounds how long a
+ * crashed pass keeps the war locked, so a minute costs nothing.
+ */
+const SETTLEMENT_LEASE_SEC = 60;
+
 export interface SectorWarSettlement {
     id: string;
     sector: number;
@@ -170,7 +179,7 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
                     await saveSectorWar(verdict.session, SECTOR_RESIEGE_COOLDOWN_SEC);
                 }
                 return verdict;
-            }, { failClosed: true });
+            }, { failClosed: true, ttlSec: SETTLEMENT_LEASE_SEC });
             if (!outcome) continue;
             verdictDurable = true;
             // Logged as soon as the verdict is durable, before the best-effort

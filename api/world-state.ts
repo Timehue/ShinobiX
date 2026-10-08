@@ -852,6 +852,14 @@ export async function captureSectorForVillage(
     const key = `${TERRITORY_KEY_PREFIX}${s}`;
     return await withKvLock(key, async () => {
         const prev = await kv.get<SectorTerritory>(key);
+        // Already this village's: a settlement pass that flipped the sector but
+        // failed before stamping its war is being retried. Sectors change hands
+        // only through settlement, so this can only be that war's own earlier
+        // pass. Running the capture again reset the sector's HP to full and
+        // dropped any clan claim made on it since.
+        if (prev && String(prev.ownerVillage ?? '').trim() === ownerVillage) {
+            return normalizeSectorTerritory(prev as Partial<SectorTerritory>);
+        }
         // Strict: an unreadable contest row could be this sector's pending
         // declaration, so it blocks the capture until it is repaired.
         const pendingDeclaration = (await listFundingSectorWars(kv, { strict: true }))

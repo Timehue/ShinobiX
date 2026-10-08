@@ -83,6 +83,37 @@ describe('sector-war settlement grace', { concurrency: false }, () => {
     });
 });
 
+describe('sector-war settlement retried after its flip landed', { concurrency: false }, () => {
+    // A pass flips the sector, then fails before stamping its war (a storage
+    // error, or a lease overrun on a big war's capture credit). The war stays
+    // due and the next pass runs again. It used to run the CAPTURE again too,
+    // resetting the sector to full HP and dropping a clan claim made since.
+    it('does not capture the sector a second time', async (t) => {
+        const now = Date.now();
+        await kv.set(CONTEST_KEY, dueWar(now, { attacker: 5, defender: 2 }));
+        const originalSet = kv.set.bind(kv);
+        let failed = false;
+        t.mock.method(kv, 'set', async (key: string, ...rest: unknown[]) => {
+            if (key === CONTEST_KEY && !failed) {
+                failed = true;
+                throw new Error('injected: the war stamp was lost');
+            }
+            return (originalSet as (...args: unknown[]) => Promise<unknown>)(key, ...rest);
+        });
+        assert.deepEqual(await settle.settleDueSectorWars(now), [], 'the first pass failed after the flip');
+        t.mock.restoreAll();
+        assert.equal((await kv.get<Record<string, unknown>>(TERRITORY_KEY))?.ownerVillage, ATTACKER);
+
+        // Before the retry, a clan of the new owner claims it and it takes a hit.
+        await kv.set(TERRITORY_KEY, { ...(await kv.get<Record<string, unknown>>(TERRITORY_KEY)), ownerClan: 'Moon Wolves', hp: 12_000 });
+        const [verdict] = await settle.settleDueSectorWars(now + 1_000);
+        assert.equal(verdict?.attackerWon, true, 'the retry stamps the verdict');
+        const territory = await kv.get<Record<string, unknown>>(TERRITORY_KEY);
+        assert.equal(territory?.ownerClan, 'Moon Wolves', 'and leaves the clan claim alone');
+        assert.equal(territory?.hp, 12_000, 'without resetting the sector to full HP');
+    });
+});
+
 describe('sector-war settlement World Herald', { concurrency: false }, () => {
     it('heralds a flip exactly once across repeated settlement passes', async () => {
         const now = Date.now();
