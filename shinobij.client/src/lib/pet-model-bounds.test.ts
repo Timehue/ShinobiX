@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import * as THREE from "three";
+import { clone as cloneSkeleton } from "three/examples/jsm/utils/SkeletonUtils.js";
 import { petModelPresentationBounds, stablePetModelPresentationBounds } from "./pet-model-bounds";
 
 function pointMesh(points: readonly [number, number, number][]): THREE.Mesh {
@@ -81,4 +82,35 @@ test("stable bounds preserve ordinary unskinned meshes", () => {
     const stable = stablePetModelPresentationBounds(root);
     assert.deepEqual(stable.fit.min.toArray(), direct.fit.min.toArray());
     assert.deepEqual(stable.fit.max.toArray(), direct.fit.max.toArray());
+});
+
+test("cloned rotated rigs are grounded from the rendered skin, not a stale bind inverse", () => {
+    const source = new THREE.Group();
+    const geometry = pointMesh(Array.from({ length: 200 }, (_, index) => [
+        (index % 10) / 5 - 1,
+        (index % 20) / 10,
+        (index % 8) / 8 - 0.5,
+    ])).geometry;
+    const count = geometry.getAttribute("position").count;
+    geometry.setAttribute("skinIndex", new THREE.Uint16BufferAttribute(new Uint16Array(count * 4), 4));
+    geometry.setAttribute("skinWeight", new THREE.Float32BufferAttribute(
+        Array.from({ length: count }, () => [1, 0, 0, 0]).flat(), 4,
+    ));
+    const mesh = new THREE.SkinnedMesh(geometry, new THREE.MeshBasicMaterial());
+    mesh.rotation.x = Math.PI / 2;
+    const bone = new THREE.Bone();
+    source.add(mesh, bone);
+    source.updateMatrixWorld(true);
+    // GLTFLoader binds to identity; the attached mesh refreshes its inverse
+    // during rendering. SkeletonUtils.bind resets that inverse on the clone.
+    mesh.bind(new THREE.Skeleton([bone]), new THREE.Matrix4());
+    source.updateMatrixWorld(true);
+    const expected = stablePetModelPresentationBounds(source);
+    const cloned = cloneSkeleton(source);
+    const actual = stablePetModelPresentationBounds(cloned);
+
+    assert.ok(Math.abs(actual.groundY - expected.groundY) < 1e-6);
+    assert.ok(actual.fit.min.distanceTo(expected.fit.min) < 1e-6);
+    assert.ok(actual.fit.max.distanceTo(expected.fit.max) < 1e-6);
+    assert.ok(Math.abs(actual.groundY) < 1e-6, "the soles stay at zero after cloning");
 });

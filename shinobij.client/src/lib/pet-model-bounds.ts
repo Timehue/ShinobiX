@@ -43,7 +43,13 @@ export function petModelPresentationBounds(root: THREE.Object3D, deformed = fals
     const zs: number[] = [];
     const point = new THREE.Vector3();
 
-    root.updateWorldMatrix(true, true);
+    root.updateWorldMatrix(true, false);
+    // SkeletonUtils clones retain the source bind matrix but start with a stale
+    // bindMatrixInverse. updateWorldMatrix only refreshes Object3D matrices;
+    // SkinnedMesh.updateMatrixWorld also refreshes the attached skin's inverse.
+    // Measure after both, or rotated rigs (Celestial Lion) are grounded on the
+    // wrong axis and lifted above the floor when their skin first renders.
+    root.updateMatrixWorld(true);
     root.traverse((node) => {
         if (!(node instanceof THREE.Mesh)) return;
         const position = node.geometry.getAttribute("position");
