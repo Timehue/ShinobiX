@@ -1,4 +1,5 @@
 import type { ContinuousWorldSpace, WorldChunk, WorldPoint } from '../../../shared/continuous-world-space';
+import type { WorldNavigation } from '../../../shared/continuous-world-navigation';
 import { sectorWalkMask } from '../../../shared/sector-walk-mask';
 import { sectorBiomeOf } from '../../../shared/sector-geo';
 import { sectorFloorImage } from './sector-floor-layout';
@@ -8,7 +9,14 @@ const colors: Record<string, string> = { forest: '#495338', central: '#747052', 
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
 
 /** Nearby-only painted terrain. No simulation, authority, timers or DOM HUD live here. */
-export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: ContinuousWorldSpace) {
+export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: ContinuousWorldSpace,
+    navigation: Pick<WorldNavigation, 'terrain' | 'boundaries' | 'walls'> = { terrain: { kind: () => 0 }, boundaries: [], walls: [] }) {
+    const { terrain, boundaries, walls } = navigation;
+    /** True when no walkable or painted ground lies within `r` cells: safe to draw closed terrain. */
+    const closedAround = (x: number, y: number, r: number) => {
+        for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (terrain.kind(x + dx, y + dy)) return false;
+        return true;
+    };
     const ctx = canvas.getContext('2d')!;
     const images = new Map<number, HTMLImageElement>(), ground = new Map<string, HTMLCanvasElement>(), rock = new Map<string, HTMLCanvasElement>();
     const roadTextures = new Map<number, CanvasPattern>(), chunks = new Map(space.chunks.map(c => [c.sector, c]));
@@ -20,16 +28,15 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
     const material = (name: string) => { let image = materials.get(name); if (!image) { image = new Image(); image.onload = () => { revision++; }; image.src = `/sector-map/world-terrain/${name}.webp`; materials.set(name, image); } return image; };
     const roads = space.roads.map(r => ({ ...r, left: Math.min(...r.points.map(p => p.x)), right: Math.max(...r.points.map(p => p.x)),
         top: Math.min(...r.points.map(p => p.y)), bottom: Math.max(...r.points.map(p => p.y)) }));
-    const corridorCells = new Set<string>();
     const nearestChunk = (x: number, y: number) => space.chunks.reduce((best, chunk) =>
         Math.hypot(chunk.x + 6 - x, chunk.y + 6 - y) < Math.hypot(best.x + 6 - x, best.y + 6 - y) ? chunk : best, space.chunks[0]!);
-    for (const road of roads) for (let i = 1; i < road.points.length; i++) {
-        const a = road.points[i - 1]!, b = road.points[i]!, length = Math.hypot(b.x - a.x, b.y - a.y);
-        for (let step = 0; step <= length; step++) {
-            const x = Math.floor(a.x + (b.x - a.x) * step / (length || 1)), y = Math.floor(a.y + (b.y - a.y) * step / (length || 1));
-            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) corridorCells.add(`${x + dx}:${y + dy}`);
-        }
-    }
+    const blockBiome = new Map<number, string>();
+    const biomeNear = (x: number, y: number) => {
+        const key = Math.floor(x / 4) * 4096 + Math.floor(y / 4);
+        let biome = blockBiome.get(key);
+        if (!biome) { biome = sectorBiomeOf(nearestChunk(Math.floor(x / 4) * 4 + 2, Math.floor(y / 4) * 4 + 2).sector); blockBiome.set(key, biome); }
+        return biome;
+    };
     const imageFor = (sector: number) => {
         let image = images.get(sector);
         if (!image) { image = new Image(); image.onload = () => { revision++; }; image.src = sectorFloorImage(sector); images.set(sector, image); }
@@ -107,12 +114,20 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             if (field) ctx.drawImage(field, x - 8, y - 8, 16, 16);
             else { const fade = ctx.createRadialGradient(x, y, 5.5, x, y, 8); fade.addColorStop(0, colors[biome]!); fade.addColorStop(1, `${colors[biome]}00`); ctx.fillStyle = fade; ctx.fillRect(x - 8, y - 8, 16, 16); }
         }
-        // Closed terrain is visible as organic cliff clusters, with a clear road corridor.
+        // Closed terrain is visible as organic cliff clusters; open land and roads stay clear.
         for (let y = Math.floor(top / 3) * 3 - 3; y < bottom + 3; y += 3) for (let x = Math.floor(left / 3) * 3 - 3; x < right + 3; x += 3) {
             const n = hash(x, y), px = x + n * 1.3, py = y + hash(y, x) * 1.3;
-            if (corridorCells.has(`${Math.floor(px)}:${Math.floor(py)}`) || space.chunks.some(c => px > c.x - 1 && px < c.x + 13 && py > c.y - 1 && py < c.y + 13)) continue;
-            const sprite = rock.get(sectorBiomeOf(nearestChunk(px, py).sector)); if (!sprite) continue;
+            if (!closedAround(Math.floor(px), Math.floor(py), 2)) continue;
+            const sprite = rock.get(biomeNear(px, py)); if (!sprite) continue;
             const size = 3.6 + n * .5; ctx.save(); ctx.translate(px, py); ctx.rotate(Math.floor(n * 4) * Math.PI / 2); ctx.drawImage(sprite, -size / 2, -size / 2, size, size); ctx.restore();
+        }
+        // A rocky rim on closed ground beside open land, so every edge reads as a wall.
+        for (let y = Math.floor(top) - 1; y < bottom + 1; y++) for (let x = Math.floor(left) - 1; x < right + 1; x++) {
+            if (terrain.kind(x, y) || closedAround(x, y, 1)) continue;
+            const sprite = rock.get(biomeNear(x, y)); if (!sprite) continue;
+            const n = hash(x, y), size = 1.55 + n * .45;
+            ctx.save(); ctx.translate(x + .5 + (n - .5) * .3, y + .5 + (hash(y, x) - .5) * .3); ctx.rotate(Math.floor(n * 4) * Math.PI / 2);
+            ctx.drawImage(sprite, -size / 2, -size / 2, size, size); ctx.restore();
         }
         for (const road of roads) {
             if (road.left > right + 2 || road.right < left - 2 || road.top > bottom + 2 || road.bottom < top - 2) continue;
@@ -135,10 +150,29 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             ctx.restore();
         }
         for (const chunk of visible) { const image = imageFor(chunk.sector); if (image.complete && image.naturalWidth) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
+        // A low rock line where two walkable-looking strips touch without a step between them.
+        for (const wall of walls) {
+            if (wall.x < left - 1 || wall.x > right + 1 || wall.y < top - 1 || wall.y > bottom + 1) continue;
+            const sprite = rock.get(biomeNear(wall.x, wall.y)); if (!sprite) continue;
+            for (const offset of [-.25, .25]) {
+                const x = wall.horizontal ? wall.x + offset : wall.x, y = wall.horizontal ? wall.y : wall.y + offset;
+                ctx.drawImage(sprite, x - .38, y - .38, .76, .76);
+            }
+        }
+        // A small dotted line wherever walkable ground passes into another sector.
+        const seams = boundaries.filter(b => b.x > left - 1 && b.x < right + 1 && b.y > top - 1 && b.y < bottom + 1);
+        if (seams.length) {
+            ctx.save(); ctx.lineCap = 'round'; ctx.setLineDash([.001, .249]); ctx.beginPath();
+            for (const b of seams) {
+                if (b.horizontal) { ctx.moveTo(b.x - .5, b.y); ctx.lineTo(b.x + .5, b.y); } else { ctx.moveTo(b.x, b.y - .5); ctx.lineTo(b.x, b.y + .5); }
+            }
+            ctx.strokeStyle = '#120e08a6'; ctx.lineWidth = .17; ctx.stroke();
+            ctx.strokeStyle = '#fff0c8f0'; ctx.lineWidth = .09; ctx.stroke(); ctx.restore();
+        }
         const keep = new Set(visible.map(c => c.sector)); keep.add(sector);
         for (const id of images.keys()) if (!keep.has(id) && images.size > 4) { images.delete(id); paintings.delete(id); roadTextures.delete(id); }
         lastDraw = signature;
         return lastView = { tilePx, chunk: current, crossings, x: width / 2 + (current.x - position.x) * tilePx, y: height / 2 + (current.y - position.y) * tilePx };
     }
-    return { draw, chunks, get imageCount() { return images.size; }, dispose() { images.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); } };
+    return { draw, chunks, get imageCount() { return images.size; }, dispose() { images.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); blockBiome.clear(); } };
 }

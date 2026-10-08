@@ -22,7 +22,9 @@ export function SectorGroundLandmarks({ sector, rift, vault, shrine, onOpenShrin
     return <>{entries.map(entry => {
         const site = layout.sites[entry.kind];
         if (!site) return null;
-        return <button type="button" key={entry.kind}
+        const [left, top, size] = site.footprint;
+        const footprint = Array.from({ length: size! * size! }, (_, k) => (top! + Math.floor(k / size!)) * 12 + left! + k % size!).join(" ");
+        return <button type="button" key={entry.kind} data-footprint={footprint}
             className={`sector-ground-landmark sector-ground-${entry.kind}${entry.kind === "shrine" ? ` shrine-tier-${shrine?.tier ?? 0}` : ""}${entry.onOpen ? " is-active" : " is-dormant"}`}
             style={{ left: `${site.left}%`, top: `${site.top}%`, width: `${site.width}%` }}
             title={entry.title} aria-label={entry.title} disabled={!entry.onOpen} onClick={entry.onOpen}>

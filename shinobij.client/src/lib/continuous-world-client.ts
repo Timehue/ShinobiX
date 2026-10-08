@@ -1,5 +1,5 @@
 import layoutUrl from '../../../shared/continuous-world-layout.json?url';
-import { buildWorldNavigation } from '../../../shared/continuous-world-navigation';
+import { buildWorldNavigation, worldGraphVersion } from '../../../shared/continuous-world-navigation';
 import { createWorldPositionModel, type WorldPosition } from '../../../shared/world-position';
 import type { ContinuousWorldSpace } from '../../../shared/continuous-world-space';
 import type { PlayerRecord } from '../types/character';
@@ -9,9 +9,10 @@ let loaded: Promise<Awaited<ReturnType<typeof readLayout>>> | undefined;
 async function readLayout() {
     const response = await fetch(layoutUrl);
     if (!response.ok) throw new Error('World layout unavailable');
-    const space = await response.json() as ContinuousWorldSpace & { layoutVersion: string };
-    const nodes = new Map(buildWorldNavigation(space).nodes.map(n => [n.id, n]));
-    return { space, nodes, model: createWorldPositionModel(space.layoutVersion, nodes, space.roads) };
+    const raw = await response.json() as ContinuousWorldSpace & { layoutVersion: string };
+    const space = { ...raw, layoutVersion: worldGraphVersion(raw.layoutVersion) };
+    const navigation = buildWorldNavigation(space), nodes = new Map(navigation.nodes.map(n => [n.id, n]));
+    return { space, nodes, navigation, model: createWorldPositionModel(space.layoutVersion, nodes, space.roads) };
 }
 export function loadContinuousWorld() {
     loaded ??= readLayout().catch(error => { loaded = undefined; throw error; });

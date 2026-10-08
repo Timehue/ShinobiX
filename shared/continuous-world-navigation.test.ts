@@ -2,6 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildContinuousWorldSpace, worldDistance } from './continuous-world-space';
 import { buildWorldNavigation, createWorldWalker, worldRoute } from './continuous-world-navigation';
+import { sectorExits } from './sector-links';
+import { worldRoadCrossings } from './world-road-crossings';
 
 const space = buildContinuousWorldSpace();
 const nodes = new Map(buildWorldNavigation(space).nodes.map(node => [node.id, node]));
@@ -46,9 +48,16 @@ test('pause and cancel halt travel; unreachable requests do not replace a valid 
 });
 
 test('crossing roads never invent an adjacency between unrelated sector pairs', () => {
+    const crossings = worldRoadCrossings(space.roads);
+    const nearDeck = (n: { x: number; y: number }) => crossings.some(c => Math.abs(c.x - n.x) <= 3 && Math.abs(c.y - n.y) <= 3);
     for (const node of nodes.values()) for (const id of node.neighbors) {
         const next = nodes.get(id)!;
-        if (node.road && next.road) assert.equal(node.road, next.road);
+        // Side-by-side corridors may be stepped between, but never at an overpass,
+        // and only where the two sectors already share a road.
+        if (node.road && next.road && node.road !== next.road) {
+            assert(!nearDeck(node) && !nearDeck(next), `${node.id} joins ${id} at an overpass`);
+            assert(node.sector === next.sector || sectorExits(node.sector).some(e => e.destinationSector === next.sector), `${node.id} -> ${id}`);
+        }
         assert(next.neighbors.includes(node.id));
     }
 });
