@@ -1023,14 +1023,17 @@ export async function applyMercVillageWarDamage(
     return withKvLock(warKey, async () => {
         let war = await kv.get<VillageWar>(warKey);
         if (!warIsMutableGameplayActive(war) || war.endedAt) return null;
-        // Settle stale daily decay first so we chip the live HP (mirrors the raid path).
-        const decayed = applyWarDecay(war, now);
-        if (decayed.changed) {
-            const publication = await commitWarBattleSettlement(kv, warKey, war, decayed.war);
+        // Bring the war current first, like every other war writer: its 14-day
+        // limit, any owed decay, a zero-HP ending. Decay alone let a merc chip a
+        // war that had already timed out but that nobody had polled since.
+        const current = bringVillageWarCurrent(war, now);
+        if (current.changed) {
+            const publication = await commitWarBattleSettlement(kv, warKey, war, current.war);
             if (publication.status === 'conflict') return null;
             war = publication.row;
+            if (war.endedAt) await ensureWarRematchCooldown(war);
         }
-        if (war.endedAt || warIsPending(war)) return null; // ended by decay, or pre-war window (HP frozen)
+        if (war.endedAt || warIsPending(war)) return null; // over, or pre-war window (HP frozen)
         if (!war.villages.includes(enemyVillage)) return null;
         const before = villageWarHpOf(war, enemyVillage);
         const enemyHpMax = Number(war.hpMax?.[enemyVillage]) || VILLAGE_WAR_HP_MAX;
