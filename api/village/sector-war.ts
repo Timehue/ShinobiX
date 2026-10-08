@@ -538,9 +538,15 @@ async function sendSectorFundingOutcome(
             endsAt: outcome.session.endsAt,
         });
     }
+    // Receipts below are keyed on the contest INSTANCE (sectorWarInstanceTag), not
+    // the bare generation: a defended war's record ages out a day after it
+    // settles, and the next siege of that sector starts again at generation 1,
+    // so a `:g1` receipt still sitting in the capped herald feed, the clan's
+    // notices or the telemetry list silently swallowed the new war's.
+    const instance = sectorWarInstanceTag(outcome.session);
     if (outcome.cost > 0) {
         void recordWarEcoEvent({
-            eventId: `declare:${session.id}:g${session.declarationGeneration}`,
+            eventId: `declare:${session.id}:${instance}`,
             village: session.attackerVillage,
             kind: 'wr.spend.declare',
             amount: outcome.cost,
@@ -548,11 +554,10 @@ async function sendSectorFundingOutcome(
         });
     }
     // World Herald: the declaration is durable, so let every village hear the
-    // drums. The receipt is keyed on the contest's declaration generation, so a
-    // replayed/recovered declaration never re-announces. Best-effort.
+    // drums. A replayed/recovered declaration has the same instance, so it never
+    // re-announces. Best-effort.
     {
         const live = outcome.session;
-        const generation = Math.floor(Number(live.declarationGeneration ?? session.declarationGeneration) || 0);
         try {
             await announce({
                 type: 'sector_war_declared',
@@ -561,7 +566,7 @@ async function sendSectorFundingOutcome(
                 message: `${live.attackerVillage} has declared war on Sector ${live.sector}, held by ${live.defenderVillage}. The contest runs 72 hours.`,
                 village: live.attackerVillage,
                 meta: { sector: live.sector, contestId: live.id, attackerVillage: live.attackerVillage, defenderVillage: live.defenderVillage, endsAt: live.endsAt },
-            }, { receiptId: `sector-war-declared:${live.id}:g${generation}` });
+            }, { receiptId: `sector-war-declared:${live.id}:${instance}` });
         } catch { /* announcements never fail the declaration */ }
     }
     // The world-wide herald above is the public drumbeat; this is the private
@@ -603,8 +608,8 @@ async function notifyTerritoryClanOfSectorWar(session: SectorWarSession): Promis
     const territory = await kv.get<Record<string, unknown>>(territoryKey(session.sector));
     const ownerClan = String(territory?.ownerClan ?? '').trim();
     if (!ownerClan) return;
-    const generation = Math.max(1, Math.floor(Number(session.declarationGeneration) || 1));
-    const noticeId = `sector-war:${session.id}:g${generation}`;
+    // Keyed on the instance, not the bare generation (see sendSectorFundingOutcome).
+    const noticeId = `sector-war:${session.id}:${sectorWarInstanceTag(session)}`;
     const clanKey = clanRecordKey(ownerClan);
     await withKvLock(clanKey, async () => {
         const clan = await kv.get<Record<string, unknown>>(clanKey);

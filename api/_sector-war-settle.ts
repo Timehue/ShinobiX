@@ -204,7 +204,9 @@ export async function settleDueSectorWars(now: number = Date.now()): Promise<Sec
             } catch { /* best-effort */ }
             if (outcome.attackerWon) {
                 void recordWarEcoEvent({
-                    eventId: `capture:${war.id}`,
+                    // The instance, not the bare id: the id repeats on every
+                    // re-siege, so a second capture was dropped as a duplicate.
+                    eventId: `capture:${war.id}:${sectorWarInstanceTag(outcome.session)}`,
                     village: war.attackerVillage,
                     kind: 'sector.capture',
                     amount: 1,
