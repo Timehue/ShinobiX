@@ -26,16 +26,16 @@ import { runBackgroundWork } from './_background-work.js';
 //                         (survive list rollover; the supply trend)
 
 export type WarEcoKind =
-    | 'wr.earn'              // WR accrued — held-sector income on the daily pass (faucet)
+    | 'wr.earn'              // WR credited on the daily pass — held-war-sector income (after the pool cap) and Supply Depot conversion (faucet)
     | 'wr.spend.declare'     // WR spent declaring a (sector/village) war (sink)
     | 'wr.spend.maintenance' // WR upkeep charged on the daily pass (sink)
-    | 'wr.spend.merc'        // WR spent hiring mercenaries (sink; wired when WR-mercs land)
+    | 'wr.spend.merc'        // WR spent hiring mercenaries (sink; api/village/war-merc.ts)
     | 'wr.spend.structure'   // WR spent upgrading a per-war structure (sink)
-    | 'seals.earn'           // treasury Honor Seals accrued from held sectors (faucet)
+    | 'seals.earn'           // treasury Honor Seals accrued from held war sectors (faucet)
     | 'seals.spend.structure'// treasury seals spent upgrading a war structure (sink)
     | 'tax.collect'          // ryo taxed off a player (the per-player debit)
     | 'tax.burn'             // taxed ryo burned (real inflation sink)
-    | 'tax.treasury'         // taxed ryo converted to treasury seals
+    | 'tax.treasury'         // taxed ryo credited to the village treasury (as ryo, not seals)
     | 'dormancy.enter'       // village fell dormant (couldn't pay upkeep)
     | 'dormancy.exit'        // village recovered from dormancy
     | 'sector.capture';      // a sector flipped owner (count, amount = 1)
@@ -61,7 +61,10 @@ export const SEAL_SINK_KINDS: readonly WarEcoKind[] = [
 
 export interface WarEcoEvent {
     ts: number;
-    eventId: string;     // idempotency id, e.g. `declare:<sector>:<day>` (dup detection)
+    // Idempotency id, e.g. `declare:<contestId>:g<generation>`. An id already in
+    // the recent list is DROPPED as a replay, so it must name one real instance
+    // (a war generation, a day, a purchase) — never just a pairing or a level.
+    eventId: string;
     village: string;     // display name, e.g. 'Stormveil Village'
     kind: WarEcoKind;
     amount: number;      // server-computed magnitude (always >= 0; the kind carries the sign)
@@ -94,7 +97,7 @@ export function applyEventToAgg(agg: WarEcoAgg, kind: WarEcoKind, amount: number
 // Pure: derived view of a village's aggregate for the admin panel / tuning.
 export interface WarEcoVillageView {
     wrIn: number;          // total WR faucet
-    wrOut: number;         // total WR sink (declare + maintenance + merc)
+    wrOut: number;         // total WR sink (declare + maintenance + merc + per-war structures)
     wrNet: number;         // wrIn - wrOut (positive = accumulating, negative = bleeding)
     sealsIn: number;       // total treasury-seal faucet
     sealsOut: number;      // total treasury-seal sink (structures)
