@@ -49,16 +49,33 @@ export type PetDuelReplayConfig<S> = {
     waiting: (session: S) => { headline: string; detail: string } | null;
     submitLabel: string;
     submitErrorText: string;
+    /**
+     * Optional: the label of a control that leaves a DECIDED duel for the next
+     * one (back to the picker), or null when this viewer has none. A screen
+     * that sets it shows a duel that was already decided when the viewer
+     * arrived as a result card (watch it, or move on) rather than replaying
+     * it on every visit — the server keeps a decided Sector War duel for half
+     * an hour and accepts the next one over it, but the screen only replayed
+     * it, so the table read as locked. Absent → the shell behaves as it always
+     * has (the Clan War pet challenge leaves it unset).
+     */
+    nextDuel?: (session: S) => string | null;
 };
 
 export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: PetDuelReplayConfig<S> }) {
-    const { ready, fetchState, submit, resolved: isResolved, watch, banner, waiting, onBack } = config;
+    const { ready, fetchState, submit, resolved: isResolved, watch, banner, waiting, onBack, nextDuel } = config;
     const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? "");
     const [session, setSession] = useState<S | null>(null);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     /** undefined = not fetched yet · null = decided but unwatchable · script = play it */
     const [script, setScript] = useState<ShowdownReplayScript | null | undefined>(undefined);
+    /** The duel was ALREADY decided when this screen opened (only tracked when
+     *  `nextDuel` is configured): show its result card, not an automatic replay. */
+    const [arrivedDecided, setArrivedDecided] = useState(false);
+    /** The replay on screen was opened from that result card: leaving it goes
+     *  back to the card, not off the screen. */
+    const [replayFromCard, setReplayFromCard] = useState(false);
 
     const resolved = session ? isResolved(session) : false;
 
@@ -79,7 +96,11 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
     useEffect(() => {
         if (!ready) return;
         let alive = true;
-        void fetchState().then((s) => { if (alive && s) setSession(s); }).catch(() => { /* none yet */ });
+        void fetchState().then((s) => {
+            if (!alive || !s) return;
+            setSession(s);
+            if (nextDuel && isResolved(s) && nextDuel(s)) setArrivedDecided(true);
+        }).catch(() => { /* none yet */ });
         return () => { alive = false; };
     }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -105,6 +126,17 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         finally { setBusy(false); }
     }, [ready, selectedPetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // Leave a decided duel for the next one: back to the picker. The decided
+    // session is dropped locally; the server replaces it when the next duel
+    // opens (or, for a defender, answers one an attacker has opened).
+    const startNextDuel = useCallback(() => {
+        setSession(null);
+        setScript(undefined);
+        setArrivedDecided(false);
+        setReplayFromCard(false);
+        setError("");
+    }, []);
+
     const card = (body: React.ReactNode) => (
         <div className="card" style={{ maxWidth: 480, margin: "2rem auto", textAlign: "center" }}>{body}</div>
     );
@@ -115,6 +147,28 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
 
     // Resolved → play the server's own script through the Showdown arena.
     if (session && resolved) {
+        const nextLabel = nextDuel ? nextDuel(session) : null;
+        // A configured screen shows a duel that was decided before the viewer
+        // arrived (or one that cannot be replayed) as a result card with a way
+        // on to the next duel. One decided while the viewer watched still plays.
+        if (nextLabel && (arrivedDecided || script === null)) {
+            return card(
+                <>
+                    <h3>{config.title}</h3>
+                    <p style={{ fontWeight: 700 }}>{banner(session)}</p>
+                    {script === null && <p className="hint">This battle cannot be replayed, but its result is recorded above.</p>}
+                    <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
+                        {script !== null && (
+                            <button onClick={() => { setArrivedDecided(false); setReplayFromCard(true); }} disabled={script === undefined}>
+                                {script === undefined ? "Loading the duel…" : "Watch the duel"}
+                            </button>
+                        )}
+                        <button onClick={startNextDuel}>{nextLabel}</button>
+                        <button onClick={onBack}>{config.backLabel}</button>
+                    </div>
+                </>,
+            );
+        }
         if (script === undefined) {
             return card(<><h3>{config.title}</h3><p className="hint">Recovering the battle…</p></>);
         }
@@ -133,7 +187,7 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         return (
             <div>
                 <div style={{ textAlign: "center", padding: 8, fontWeight: 700 }}>{banner(session)}</div>
-                <PetShowdownReplay script={script} playerPets={pets} onExit={onBack} />
+                <PetShowdownReplay script={script} playerPets={pets} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack} />
             </div>
         );
     }
