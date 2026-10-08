@@ -15,8 +15,6 @@ import {
     villageWarKey,
     type WinCondition,
 } from '../_war-state.js';
-import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
-import { sectorControlSwing, sectorWarRoleOf, ROLE_VILLAGER } from '../_war-role.js';
 import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js';
 import { GARRISON_RATIONS_PER_DAY, utcDay } from '../_village-stores.js';
 import {
@@ -25,7 +23,6 @@ import {
     projectSectorWarForClient,
     newSectorWarSession,
     normalizeSectorWarSession,
-    applySectorWarBattle,
     canDeclareSectorWar,
     newSectorWarBattleToken,
     sectorDeclareLockKey,
@@ -49,7 +46,6 @@ import {
     mintSectorWarToken,
     loadSectorWarToken,
     loadSectorWarResolutionReceipt,
-    commitSectorWarBattle,
     drainSectorWarLedger,
     externalizeSectorWarLedger,
     getSectorOwnerVillage,
