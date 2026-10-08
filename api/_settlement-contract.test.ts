@@ -169,7 +169,9 @@ describe('reward-settlement contract inventory', () => {
         // that could forge or clear one could skip a debit or repeat a credit
         // (api/village/treasury/transfer-receipt-forgery.test.ts drives both).
         const village = read('_village-state-validate.ts');
-        assert.match(village, /for \(const journal of \['settlementReceipts', 'agendaClaimReceipts'\] as const\)/);
+        // warSpoilsReceipts: the won-war spoils journal (api/world-state.ts
+        // settleVillageWarSpoils) — a cleared receipt would debit a loser twice.
+        assert.match(village, /for \(const journal of \['settlementReceipts', 'agendaClaimReceipts', 'warSpoilsReceipts'\] as const\)/);
         assert.match(read('_clan-save-validate.ts'), /'settlementReceipts'/);
     });
 });
