@@ -6,15 +6,15 @@
  * permanent-lock transaction, never a VN trait).
  *
  * Speaker "Wandering Sage" auto-resolves to /portraits/wandering-sage.webp;
- * the event id resolves the scene to /scenes/legacy-sage-offer.png
- * (both generated — docs/legacy-assets.md).
+ * the event id resolves the backdrop to /scenes/legacy-sage-offer.png
+ * (both generated — docs/legacy-assets.md). A page's `scene` is the caption
+ * the reader prints, so it holds prose, never an image path.
  */
 import type { CreatorEvent } from "../types/vn";
 import { type SageOfferView } from "./legacy";
 
 export const SAGE_VN_EVENT_ID = "legacy-sage-offer";
 const SPEAKER = "Wandering Sage";
-const SCENE = "/scenes/legacy-sage-offer.png";
 
 export function buildSageVnEvent(offer: SageOfferView, playerName: string): CreatorEvent {
     // The Sage names each path in-character, weaving in its favored village and
@@ -29,7 +29,7 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
     const pages: NonNullable<CreatorEvent["vnPages"]> = [
         {
             title: "A Stranger on the Road",
-            scene: SCENE,
+            scene: "Moonlight lies across the village road. A robed stranger in a wide straw hat leans on his staff beside a carved waystone.",
             speaker: SPEAKER,
             dialogue: [
                 `${SPEAKER}: I walked a long way checking the reports tied to your name, ${playerName}. The witnesses disagree about what your choices mean. Good.`,
@@ -39,7 +39,7 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
         },
         {
             title: "The Paths Before You",
-            scene: SCENE,
+            scene: "He names each path slowly, one at a time, and watches your face while you hear it.",
             speaker: SPEAKER,
             dialogue: [
                 `${SPEAKER}: These are the names your deeds can honestly carry. Hear them before you decide:`,
@@ -48,7 +48,7 @@ export function buildSageVnEvent(offer: SageOfferView, playerName: string): Crea
         },
         {
             title: "The Weight of the Choice",
-            scene: SCENE,
+            scene: "The paper seals on his staff hang still. He waits for your answer and does not press for one.",
             speaker: SPEAKER,
             dialogue: [
                 `${SPEAKER}: Before you touch a seal, hear the terms plainly. You may accept one Legacy in your lifetime. It names a pattern in your deeds; no ancestor, soul, or Bloodline enters you.`,

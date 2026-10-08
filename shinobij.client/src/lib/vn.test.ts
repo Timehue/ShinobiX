@@ -9,7 +9,7 @@
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, parseDialogueString, resolveVnActorBaseImage, resolveVnAuthoredActorImage, serializeDialogueLines, splitDialogueLine, type VnFlowPage } from "./vn";
+import { applyVnTextVars, vnTextVarsFor, hidePlayerPortraitDuringNarration, isChoiceAvailable, analyzeVnFlow, assetReferenceInText, parseDialogueString, resolveVnActorBaseImage, resolveVnAuthoredActorImage, serializeDialogueLines, splitDialogueLine, vnSceneCaption, type VnFlowPage } from "./vn";
 import { addStoryTrait } from "./story-choice-mutations";
 import type { Character } from "../types/character";
 
@@ -150,6 +150,39 @@ test("analyzeVnFlow: an out-of-range choice target warns", () => {
 test("analyzeVnFlow: an empty page warns", () => {
     const r = analyzeVnFlow([flowPage(), flowPage({ scene: "", dialogue: "  " })]);
     assert.ok(r.warnings.some((w) => w.includes("Page 2 has no dialogue or scene text")));
+});
+
+test("analyzeVnFlow: an image path typed into a text field warns", () => {
+    const r = analyzeVnFlow([flowPage(), flowPage({ scene: "/scenes/legacy-sage-offer.png" })]);
+    assert.ok(r.warnings.some((w) => w.includes('Page 2 would show "/scenes/legacy-sage-offer.png"')));
+    assert.deepEqual(analyzeVnFlow([flowPage({ choices: [{ text: "see https://example.com", nextPage: 0 }] })]).warnings.length, 1);
+});
+
+test("assetReferenceInText finds paths, URLs and media files but not prose", () => {
+    for (const [text, token] of [
+        ["/scenes/legacy-sage-offer.png", "/scenes/legacy-sage-offer.png"],
+        ["Moonlight. (/portraits/wandering-sage.webp?v=1)", "/portraits/wandering-sage.webp?v=1"],
+        ["scenes/forest.png.", "scenes/forest.png"],
+        ["/scenes/story/", "/scenes/story/"],
+        ["data:image/webp;base64,abc", "data:image/webp;base64,abc"],
+        ["Open https://example.com now", "https://example.com"],
+        ["the pet model rig.glb", "rig.glb"],
+    ] as const) assert.equal(assetReferenceInText(text), token, text);
+    for (const prose of [
+        "Moonlight lies across the village road.",
+        "He waits... and/or leaves at 24/7 pace, e.g. now.",
+        "Twelve km/h, a 1/2 share, and the data: none.",
+        "",
+        undefined,
+    ]) assert.equal(assetReferenceInText(prose), undefined, String(prose));
+});
+
+test("vnSceneCaption keeps the old fallthrough and skips a caption that is an asset path", () => {
+    assert.equal(vnSceneCaption("A road at dusk", "Event scene"), "A road at dusk");
+    assert.equal(vnSceneCaption("", "Event scene"), "Event scene");
+    assert.equal(vnSceneCaption("/scenes/legacy-sage-offer.png", "Event scene"), "Event scene");
+    assert.equal(vnSceneCaption("/scenes/legacy-sage-offer.png", undefined), "");
+    assert.equal(vnSceneCaption("/scenes/legacy-sage-offer.png", undefined) || "Fallback", "Fallback");
 });
 
 test("dialogue parse: first colon splits speaker from text; no colon = narration", () => {

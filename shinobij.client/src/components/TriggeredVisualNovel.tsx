@@ -12,7 +12,7 @@ import type { Character, StoryChoiceReceipt, StoryCursor } from "../types/charac
 import type { CreatorEvent } from "../types/vn";
 import { AURA_SPHERE_VN_ID } from "../constants/game";
 import { rewardSummary } from "../lib/currency";
-import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, resolveVnActorBaseImage, resolveVnAuthoredActorImage, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnPortrait, defaultVnScene, hidePlayerPortraitDuringNarration, isChoiceAvailable, resolveVnActorBaseImage, resolveVnAuthoredActorImage, splitDialogueLine, vnSceneCaption } from "../lib/vn";
 import { claimVnAction } from "../lib/vn-action-gate";
 import { biomeLabel } from "../data/world";
 import { isLowEndMobile, prefersReducedMotion } from "../lib/device-tier";
@@ -42,7 +42,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
     const pages = event.vnPages && event.vnPages.length > 0 ? event.vnPages : [{ title: event.vnTitle || event.name, scene: event.vnScene || "", speaker: event.vnSpeaker || "Narrator", dialogue: event.dialogue, image: event.image }];
     const page = pages[Math.min(pageIndex, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
-    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The scene begins.";
+    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? (vnSceneCaption(page.scene) || "The scene begins.");
     // Typed-dialogue storage: prefer a structured `lines[lineIndex]` when the page
     // has them; otherwise parse the legacy "Speaker: text" string. Existing VNs
     // carry no `lines`, so this resolves identically for them.
@@ -453,7 +453,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             eventId={event.id}
             eventLabel="Scene Complete"
             pageTitle={event.name}
-            scene={page.scene || event.vnScene || "The scene reaches its end."}
+            scene={vnSceneCaption(page.scene, event.vnScene) || "The scene reaches its end."}
             speaker="Chronicle"
             spoken={finaleText}
             pageIndex={pages.length - 1}
@@ -545,7 +545,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
             eventId={event.id}
             eventLabel={eventLabel}
             pageTitle={page.title || event.vnTitle || event.name}
-            scene={page.scene || event.vnScene || "An event interrupts your path."}
+            scene={vnSceneCaption(page.scene, event.vnScene) || "An event interrupts your path."}
             speaker={speaker}
             spoken={spokenText}
             pageIndex={pageIndex}
@@ -643,7 +643,7 @@ export function TriggeredVisualNovel({ event: sourceEvent, character, pageIndex,
                             <span className="vn-character-initials">{rightInitials}</span>
                         </div>
                     )}
-                    <div className="vn-scene-card">{page.scene || event.vnScene || "An event interrupts your path."}</div>
+                    <div className="vn-scene-card">{vnSceneCaption(page.scene, event.vnScene) || "An event interrupts your path."}</div>
                     </div>{/* end vn-picture */}
                     <div className="vn-dialogue">
                         <div className="vn-speaker">{speaker}</div>

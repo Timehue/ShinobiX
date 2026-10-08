@@ -1148,9 +1148,12 @@
    stop portraits above the dialogue card, and carry scene context inside that
    card so captions never sit across character art. */
 @media (max-width: 800px) and (orientation: portrait) {
+    /* Portraits run a size smaller than the band so a listener's card and a
+       speaker whose framed art spills past its box (staffs, raised hands) no
+       longer touch on a ~400px phone. */
     .cvn-root:is(.shot-wide, .shot-medium, .shot-close) {
         --cvn-stage-floor: min(41dvh, 340px);
-        --cvn-actor-height: min(40dvh, 360px);
+        --cvn-actor-height: min(35dvh, 315px);
     }
 
     .cvn-topbar {
@@ -1199,7 +1202,7 @@
 
     .cvn-actor {
         bottom: min(41dvh, 340px);
-        width: min(51vw, 230px);
+        width: min(44vw, 200px);
     }
 
     .cvn-actor.is-left {
@@ -1211,7 +1214,7 @@
     }
 
     .cvn-actor.is-player:has(img.cvn-avatar-square, img.cvn-avatar-wide) {
-        width: min(43vw, 210px, calc(var(--cvn-actor-height) * .84));
+        width: min(37vw, 182px, calc(var(--cvn-actor-height) * .84));
         bottom: calc(var(--cvn-stage-floor) + 18px);
     }
 
