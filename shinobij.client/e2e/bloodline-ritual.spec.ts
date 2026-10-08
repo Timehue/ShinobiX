@@ -43,7 +43,10 @@ test.beforeEach(async ({ page }) => {
 for (const rank of ["B Rank", "A Rank", "S Rank"]) {
     test(`${rank} reveals its relic then opens the builder once`, async ({ page }, info) => {
         await page.goto(`http://ritual.local/?rank=${encodeURIComponent(rank)}`);
-        await page.clock.install();
+        await page.clock.install({ time: new Date("2026-01-01T00:00:00Z") });
+        // Installing the clock alone still advances it during artwork decoding
+        // and assertions. Keep the ceremony at the phase the test selects.
+        await page.clock.pauseAt(new Date("2026-01-01T00:00:01Z"));
         await page.getByRole("button", { name: "Begin ritual" }).click();
         const dialog = page.getByRole("dialog", { name: `${rank} Attuned` });
         await expect(dialog).toBeVisible();
@@ -59,7 +62,8 @@ for (const rank of ["B Rank", "A Rank", "S Rank"]) {
         // so the screenshot depicts the same point in the real ceremony.
         await page.evaluate(() => document.getAnimations().forEach(animation => { animation.currentTime = 1800; }));
         await page.screenshot({ path: info.outputPath(`${rank[0]}-ritual.png`) });
-        await page.clock.fastForward(2300);
+        // Run through the exit timer and its nested completion timer in order.
+        await page.clock.runFor(2300);
         await expect(dialog).toHaveCount(0);
         await expect(page.getByLabel("Builder opens")).toHaveText("1");
         await page.clock.fastForward(5000);
