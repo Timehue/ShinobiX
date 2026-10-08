@@ -325,24 +325,37 @@ export const GARRISON_POINTS_CAP = 150;
 export function garrisonFeedFor(session: Pick<SectorWarSession, 'garrisonFeed'>, village: string): GarrisonFeedEntry | undefined {
     return session.garrisonFeed?.[village];
 }
+/** What a covered garrison feed is worth, to either side: the ATTACKER's feed
+ *  raises what its garrison assaults can bank by this much, the DEFENDER's
+ *  lowers it by the same. Feeding used to help only the attacker (owner ruling
+ *  2026-10-08: it must be worth as much to the defence, or the war is not
+ *  balanced). */
+export const GARRISON_FEED_SWING = GARRISON_POINTS_CAP_FED - GARRISON_POINTS_CAP;
 /** The garrison cap for a run by `village` (the attacker making the garrison
- *  assault): 200 while THAT village's garrison-feed entry is on AND the day's
- *  rations were covered (api/_village-stores.ts), else 150. Pure.
+ *  assault): 150, +50 while THAT village's feed entry is on AND the day's
+ *  rations were covered (api/_village-stores.ts), −50 while the DEFENDER's is.
+ *  Attacker fed 200, defender fed 100, both 150. Pure.
  *
  *  `today` is the UTC day the caller is resolving for, and the `covered` verdict
  *  only counts while `storesDate` still matches it. Without that check a stale
  *  `covered: true` kept granting the raised cap for free forever — the daily
  *  pass need only throw once, or the Village Stores kill switch be flipped, and
  *  the last day's verdict would freeze in the player's favour. A day with no
- *  pass now reads as UNCOVERED. */
+ *  pass now reads as UNCOVERED, for both sides. */
 export function garrisonPointsCapFor(
-    session: Pick<SectorWarSession, 'garrisonFeed' | 'storesDate'>,
+    session: Pick<SectorWarSession, 'garrisonFeed' | 'storesDate' | 'defenderVillage'>,
     village: string,
     today: string,
 ): number {
     if (!today || session.storesDate !== today) return GARRISON_POINTS_CAP;
-    const e = garrisonFeedFor(session, village);
-    return e?.on === true && e.covered === true ? GARRISON_POINTS_CAP_FED : GARRISON_POINTS_CAP;
+    const fed = (side: string) => {
+        const e = garrisonFeedFor(session, side);
+        return e?.on === true && e.covered === true;
+    };
+    let cap = GARRISON_POINTS_CAP;
+    if (fed(village)) cap += GARRISON_FEED_SWING;
+    if (session.defenderVillage !== village && fed(session.defenderVillage)) cap -= GARRISON_FEED_SWING;
+    return Math.max(0, cap);
 }
 /** Legacy-tolerant reader: the per-village map, with the retired single
  *  `garrisonFed/garrisonFedBy/garrisonCovered` trio folded in as a fallback so
