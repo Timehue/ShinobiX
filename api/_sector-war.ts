@@ -25,7 +25,7 @@
  */
 
 import { isDeepStrictEqual } from 'node:util';
-import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
+import { TERRAINS, WIN_CONDITIONS, type Terrain, type WinCondition } from './_war-state.js';
 import { GARRISON_POINTS_CAP_FED, unfedStructureMultiplier, utcDay } from './_village-stores.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
@@ -47,6 +47,11 @@ export interface SectorWarSession {
     defenderVillage: string;
     /** the defender's chosen contest type for this sector */
     winCondition: WinCondition;
+    /** The defender's terrain for this sector (its +10% home-ground school
+     *  buff), sealed at declaration like the win-condition, so every battle of
+     *  this war fights on it and a mid-war change cannot move it. A war declared
+     *  before it was sealed has none and reads the defender's current setting. */
+    terrain?: Terrain;
     /** Kill-point tallies. Count UP; compared at settlement. */
     attackerPoints: number;
     defenderPoints: number;
@@ -398,6 +403,9 @@ function nonNeg(n: unknown): number {
 function asWinCondition(v: unknown): WinCondition {
     return (WIN_CONDITIONS as readonly string[]).includes(v as string) ? (v as WinCondition) : 'combat';
 }
+function asTerrain(v: unknown): Terrain | null {
+    return (TERRAINS as readonly string[]).includes(v as string) ? (v as Terrain) : null;
+}
 function slug(v: string): string {
     return String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -421,14 +429,18 @@ export function newSectorWarSession(args: {
     attackerVillage: string;
     defenderVillage: string;
     winCondition: WinCondition;
+    /** The defender's terrain for the sector, sealed for the whole war. */
+    terrain?: Terrain;
     now: number;
 }): SectorWarSession {
+    const terrain = asTerrain(args.terrain);
     return {
         id: sectorWarId(args.sector, args.attackerVillage, args.defenderVillage),
         sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         winCondition: asWinCondition(args.winCondition),
+        ...(terrain ? { terrain } : {}),
         attackerPoints: 0,
         defenderPoints: 0,
         startedAt: args.now,
@@ -476,12 +488,14 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
     }
     const garrisonFeed = normalizeGarrisonFeed(raw);
     const legacyReason = raw.expiredReason as unknown;
+    const terrain = asTerrain(raw.terrain);
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
         sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: String(raw.attackerVillage),
         defenderVillage: String(raw.defenderVillage),
         winCondition: asWinCondition(raw.winCondition),
+        ...(terrain ? { terrain } : {}),
         attackerPoints: legacy ? legacyDamage : nonNeg(raw.attackerPoints),
         defenderPoints: nonNeg(raw.defenderPoints),
         startedAt,

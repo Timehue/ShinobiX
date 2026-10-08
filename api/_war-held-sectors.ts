@@ -131,20 +131,39 @@ export async function loadHeldSectorCounts(
     store?: HeldSectorStore,
     options: { now?: number } = {},
 ): Promise<HeldSectorCounts> {
+    return (await loadHeldSectors(store, options)).counts;
+}
+
+/** The territory rows, each stamped with the sector its key stores. */
+async function scanTerritoryRows(store: HeldSectorStore): Promise<HeldTerritoryRow[]> {
+    const keys = await store.keys(`${TERRITORY_KEY_PREFIX}*`);
+    const rows = keys.length ? await store.mget(...keys) : [];
+    const out: HeldTerritoryRow[] = [];
+    keys.forEach((key, i) => {
+        const row = rows[i];
+        if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+        out.push({ ...(row as HeldTerritoryRow), sector: sectorFromTerritoryKey(key) });
+    });
+    return out;
+}
+
+/** Counts (loadHeldSectorCounts) and lists (loadHeldSectorLists) from ONE scan
+ *  of the territory rows, for a caller that needs both. */
+export async function loadHeldSectors(
+    store?: HeldSectorStore,
+    options: { now?: number } = {},
+): Promise<{ counts: HeldSectorCounts; lists: HeldSectorLists }> {
     const src: HeldSectorStore = store ?? (kv as unknown as HeldSectorStore);
     const now = options.now ?? Date.now();
-    const keys = await src.keys(`${TERRITORY_KEY_PREFIX}*`);
-    const rows = keys.length ? await src.mget(...keys) : [];
-    const territories: (HeldTerritoryRow | null)[] = keys.map((key, i) => {
-        const row = rows[i];
-        if (!row || typeof row !== 'object' || Array.isArray(row)) return null;
-        return { ...(row as HeldTerritoryRow), sector: sectorFromTerritoryKey(key) };
-    });
-    if (looksUnseeded(tallyHeldSectors(territories, { now, includeSuspended: true }))) {
+    const territories = await scanTerritoryRows(src);
+    const unseeded = looksUnseeded(tallyHeldSectors(territories, { now, includeSuspended: true }));
+    if (unseeded) {
         console.warn('[village-war] no war sector in world:territory:* has an ownerVillage — falling back to the home-sector baseline. Run the admin sector-war "seed" action.');
-        return homeSectorBaseline();
     }
-    return tallyHeldSectors(territories, { now });
+    return {
+        counts: unseeded ? homeSectorBaseline() : tallyHeldSectors(territories, { now }),
+        lists: heldSectorListsOf(territories, now, unseeded),
+    };
 }
 
 /** Held WAR sector count for ONE village, same rules (and the same throw on a
@@ -152,4 +171,54 @@ export async function loadHeldSectorCounts(
 export async function heldSectorsForVillage(village: string, store?: HeldSectorStore): Promise<number> {
     const counts = await loadHeldSectorCounts(store);
     return counts[String(village).trim()] ?? 0;
+}
+
+export type HeldSectorLists = Record<string, number[]>;
+
+/**
+ * WHICH war sectors each village holds right now: its own home sectors still in
+ * its hands (home-table order), then the sectors it captured (ascending). These
+ * are the sectors a village configures, win-condition and terrain, and the ones
+ * the War Map lists under it: the current holder sets a sector's rules (owner
+ * ruling 2026-10-08).
+ *
+ * Rules 1 and 2 of the header apply; rule 3 does not, because a suspension pauses
+ * a sector's benefits, not who holds it. An unseeded world falls back to the home
+ * table, as the counts do, and a failed scan throws.
+ */
+export async function loadHeldSectorLists(
+    store?: HeldSectorStore,
+    options: { now?: number } = {},
+): Promise<HeldSectorLists> {
+    return (await loadHeldSectors(store, options)).lists;
+}
+
+/** The pure core of loadHeldSectorLists over already-stamped territory rows. */
+export function heldSectorListsOf(
+    territories: Iterable<HeldTerritoryRow | null | undefined>,
+    now: number,
+    unseeded: boolean,
+): HeldSectorLists {
+    const held: Record<string, Set<number>> = {};
+    for (const v of WAR_VILLAGES) setSafeRecordValue(held, v, new Set<number>());
+    for (const row of territories) {
+        const owner = heldWarSectorOwner(row, now, { includeSuspended: true });
+        if (owner && Object.prototype.hasOwnProperty.call(held, owner)) held[owner].add(Number(row!.sector));
+    }
+    const lists: HeldSectorLists = {};
+    for (const v of WAR_VILLAGES) {
+        const home = homeSectorsForVillage(v);
+        if (unseeded) {
+            setSafeRecordValue(lists, v, [...home]);
+            continue;
+        }
+        const captured = [...held[v]].filter((s) => !home.includes(s)).sort((a, b) => a - b);
+        setSafeRecordValue(lists, v, [...home.filter((s) => held[v].has(s)), ...captured]);
+    }
+    return lists;
+}
+
+/** The war sectors ONE village holds, same rules as loadHeldSectorLists. */
+export async function heldSectorListForVillage(village: string, store?: HeldSectorStore): Promise<number[]> {
+    return (await loadHeldSectorLists(store))[String(village).trim()] ?? [];
 }

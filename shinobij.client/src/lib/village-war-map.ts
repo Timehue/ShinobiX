@@ -29,6 +29,9 @@ export interface VillageWarMapView {
     taxRatePct: number;
     /** No seated Kage → the rate is forced to 0 (mirrors api/_war-tax-apply.ts). */
     kageSeated?: boolean;
+    /** The sectors this village HOLDS (its home sectors still in its hands, then
+     *  those it captured), with the settings it chose: the current holder sets a
+     *  sector's rules. `homeSectors` keeps the static home table. */
     sectors: SectorConfigView[];
     // ── Village Stores (api/_village-stores.ts; optional while the switch is off) ──
     /** Rations in the treasury. */

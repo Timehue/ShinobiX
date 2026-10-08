@@ -6,7 +6,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
 import { useSharedNow } from "../lib/use-shared-now";
-import { isProtectedHomeSector } from "../data/war-map-sectors";
+import { homeVillageForSector, isProtectedHomeSector } from "../data/war-map-sectors";
 import {
     fetchWarMap,
     declareSectorWar,
@@ -55,9 +55,10 @@ import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../d
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
-// war village's WR/seal pools + structures + tax tier, every home sector's owner
-// + win-condition + terrain + the live 72h war score, and the Kage actions (declare
-// a sector war, set win-conditions/terrain, upgrade structures). The on-map banner
+// war village's WR/seal pools + structures + tax tier, the sectors it holds (home
+// and captured, each under its holder) with their win-condition + terrain + the
+// live 72h war score, and the Kage actions (declare a sector war, set the
+// win-conditions/terrain of held sectors, upgrade structures). The on-map banner
 // overlay and the battle-launch flows layer on separately. View data comes from
 // /api/village/war-map + /api/world-state (ownership); all actions are server-auth.
 
@@ -182,7 +183,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             contest,
             mine: v.village === myVillage && isKage,
             protectedCore: isProtectedHomeSector(sec.sector),
-            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || v.village === myVillage),
+            // Each card lists the sectors its village HOLDS, so a gate's right of
+            // reclaim follows the sector's home village, not the card it sits on.
+            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || homeVillageForSector(sec.sector) === myVillage),
             pct: contest ? (totalPts > 0 ? Math.round((contest.attackerPoints / totalPts) * 100) : 50) : 0,
             intelTier,
             // Affordability against the LIVE pool, matching the merc tiers: a Kage

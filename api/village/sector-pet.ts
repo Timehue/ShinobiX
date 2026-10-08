@@ -4,7 +4,7 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
+import { normalizeVillageWarRecord, sectorConfigFor, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
 import { applyContestBattleByWinner, contestGarrisonReady, isSectorWarActive, lastGarrisonBattleAt, sectorWarGarrisonIdle, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
@@ -377,8 +377,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const defender = fielded.defender;
                 const garrisonTeam = fielded.fielded;
 
-                const defRec = normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined);
-                const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
+                // The terrain sealed into the contest at declaration (the
+                // holder's current setting for a war declared before that).
+                const terrain = contest.terrain ?? sectorConfigFor(
+                    normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined),
+                    contest.sector,
+                ).terrain;
                 const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
                 // The garrison fights under the defence's MASKED name, as the
                 // Combat garrison does: it represents the village, not a callout
@@ -457,8 +461,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // AI over their own sealed kits — symmetric by construction. The old
             // doctrine briefing was a legacy-sim concept and retires with it: a
             // garrison's plan is now its KIT, not a side-channel order.
-            const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
-            const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
+            const terrain = contest.terrain ?? sectorConfigFor(
+                normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined),
+                contest.sector,
+            ).terrain;
             // Fixed by the table, not this request: a retry after a lost session
             // write fights the duel the contest already scored (petDuelSeed).
             const seed = petDuelSeed(sectorWarId, existing.createdAt);
