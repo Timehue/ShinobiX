@@ -255,10 +255,31 @@ describe('sector-war declaration World Herald', { concurrency: false }, () => {
             drums[0].message,
             `${ATTACKER} has declared war on Sector ${SECTOR}, held by ${OLD_DEFENDER}. The contest runs 72 hours.`,
         );
-        assert.equal(drums[0].receiptId, 'sector-war-declared:23:moonshadowvillage-vs-frostfangvillage:g1');
+        assert.match(String(drums[0].receiptId), /^sector-war-declared:23:moonshadowvillage-vs-frostfangvillage:g1\.s\d+$/);
 
         // High importance also lands as one herald line per village chat.
         const chat = (await kv.get<Array<Record<string, unknown>>>('chat:village:stormveil-village')) ?? [];
         assert.equal(chat.filter((m) => m.receiptId === drums[0].receiptId).length, 1);
+    });
+
+    // A defended war's record ages out a day after it settles, and the next
+    // siege of that sector starts again at generation 1. Its drums (and the
+    // holding clan's siege notice) used to be keyed `:g1` too, so the old war's
+    // entries still in the capped feeds silently swallowed the new war's.
+    it('beats the drums again for a new siege once the last war record has aged out', async () => {
+        await kv.set(TERRITORY_KEY, { sector: SECTOR, ownerVillage: OLD_DEFENDER, ownerClan: 'Frost Wolves', hp: 20_000, updatedAt: Date.now() });
+        const clanKey = 'save:clan-frostwolves';
+        await kv.set(clanKey, { name: 'Frost Wolves', notices: [] });
+
+        const first = await declare();
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        await kv.del(OLD_CONTEST_KEY); // fought, settled, and expired
+        const second = await declare();
+        assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+
+        const feed = (await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? [];
+        assert.equal(feed.filter((a) => a.type === 'sector_war_declared').length, 2, 'each siege gets its own drums');
+        const notices = ((await kv.get<Record<string, unknown>>(clanKey))?.notices ?? []) as Array<Record<string, unknown>>;
+        assert.equal(notices.filter((n) => String(n.title).includes('under siege')).length, 2, 'and its own clan warning');
     });
 });
