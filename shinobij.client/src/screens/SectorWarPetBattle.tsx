@@ -7,6 +7,12 @@ import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract
 import { garrisonSectorPet, joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
 import { stashedContestBackScreen, stashedContestIsGarrison } from "../lib/sector-war-engagement";
 import { activeCarriedPets } from "../lib/entitlements";
+import {
+    sectorPetBanner,
+    sectorPetNextDuelLabel,
+    sectorPetWaiting,
+    type SectorWarResult,
+} from "../lib/sector-war-tables";
 
 /*
  * Sector War "Pet" win-condition screen (Phase 7). The player sends a pet; the
@@ -21,17 +27,24 @@ import { activeCarriedPets } from "../lib/entitlements";
  * the engine call below differ.
  */
 
+/** A session as the server projects it to THIS viewer (api/village/sector-pet.ts
+ *  projectPetSession): the opener's pet is present only for the opener until
+ *  the duel resolves, and `viewerSide` / `canAnswer` say which seat is ours. */
 type PetSession = {
     sectorWarId: string;
     sector: number;
     attackerVillage: string;
     defenderVillage: string;
-    p1: { name: string; pet: Pet };
-    p2?: { name: string; pet: Pet };
+    p1: { name: string; pet?: Pet };
+    p2?: { name: string; pet?: Pet };
     status: "awaiting-defender" | "done";
     seed?: number;
     winner?: "p1" | "p2" | "draw";
     terrain?: string | null;   // sealed by the server → the replay applies the same home-ground element bonus
+    garrison?: boolean;
+    viewerSide?: "p1" | "p2" | null;
+    canAnswer?: boolean;
+    warResult?: SectorWarResult;
 };
 
 export function SectorWarPetBattle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
@@ -45,7 +58,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
     // sealed team holds the sector instead. Resolves in the same one call.
     const garrison = stashedContestIsGarrison("sectorWarPet.v1");
     const back = useCallback(() => setScreen(backScreen), [setScreen, backScreen]);
-    const me = character.name.toLowerCase();
+    const me = character.name;
 
     return (
         <PetDuelReplayScreen<PetSession>
@@ -71,20 +84,12 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                     const r = await sectorPetWatch(character.name, sectorWarId, garrison) as { script?: ShowdownReplayScript };
                     return r.script ?? null;
                 },
-                banner: (s) => {
-                    const mine = me === s.p1.name.toLowerCase() ? "p1"
-                        : s.p2 && me === s.p2.name.toLowerCase() ? "p2" : null;
-                    return s.winner === "draw" ? "The pet duel ended in a draw — the sector holds."
-                        : mine && s.winner === mine ? "Your pet won the sector duel!"
-                        : mine ? "Your pet was defeated."
-                        : `${s.winner === "p1" ? s.attackerVillage : s.defenderVillage} took the duel.`;
-                },
-                waiting: (s) => s.status === "awaiting-defender"
-                    ? {
-                        headline: "Waiting for a defender to answer with their pet…",
-                        detail: `Your pet ${s.p1.pet?.name} stands ready.`,
-                    }
-                    : null,
+                banner: (s) => sectorPetBanner(s, me),
+                // Only the attacker who opened the duel waits on it; a defender
+                // gets the picker and answers. Everyone used to get the waiting card.
+                waiting: (s) => sectorPetWaiting(s, me),
+                // A decided duel is not the end of the table.
+                nextDuel: (s) => sectorPetNextDuelLabel(s, garrison),
             }}
         />
     );

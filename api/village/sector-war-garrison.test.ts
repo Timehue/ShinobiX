@@ -363,6 +363,188 @@ describe('Sector Combat garrison assault (rebuilt on Solo PvE)', { concurrency: 
     });
 });
 
+// A garrison assault's result used to settle only when the attacker's client
+// reported it. Every case below is a way that report never came — or came too
+// late — and what the server does about it now.
+describe('Sector Combat garrison — a fight always settles, and never heals', { concurrency: false }, () => {
+    let fightOutcome: Handler;
+    let soloPveAction: Handler;
+    let resetRateLimits: () => void;
+
+    before(async () => {
+        fightOutcome = (await import('../pve/fight-outcome.js')).default as unknown as Handler;
+        soloPveAction = (await import('../solo-pve/action.js')).default as unknown as Handler;
+        ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
+    });
+    beforeEach(() => resetRateLimits());
+
+    async function callHandler(target: Handler, body: Record<string, unknown>): Promise<ResponseOut> {
+        const { res, out } = fakeRes();
+        const playerName = String(body.playerName ?? '');
+        const req = {
+            method: 'POST',
+            body,
+            headers: { 'x-player-name': playerName, 'x-player-token': issuePlayerToken(playerName) ?? '' },
+            socket: { remoteAddress: '127.0.0.1' },
+        } as never;
+        await target(req, res);
+        return out;
+    }
+
+    async function setAttackerHp(hp: number) {
+        const save = await kv.get<Record<string, unknown>>(`save:${ATTACKER_PLAYER}`);
+        await kv.set(`save:${ATTACKER_PLAYER}`, { ...save, character: { ...(save!.character as Record<string, unknown>), hp } });
+    }
+    const attackerSave = async () => (await kv.get<{ character: Record<string, unknown> }>(`save:${ATTACKER_PLAYER}`))!.character;
+    const contestRow = async () => (await kv.get<{ attackerPoints: number; defenderPoints: number; appliedBattles?: unknown[] }>(CONTEST_KEY))!;
+
+    /** Run `fn` with the wall clock `aheadMs` in the future (the memory store
+     *  expires keys against Date.now, so this is how an hour passes). */
+    async function later<T>(aheadMs: number, fn: () => Promise<T>): Promise<T> {
+        const realNow = Date.now;
+        Date.now = () => realNow() + aheadMs;
+        try { return await fn(); } finally { Date.now = realNow; }
+    }
+
+    it('a wounded attacker who starts an assault and walks out is never healed by it', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        await setAttackerHp(3_000); // of 9 000
+        const started = await startGarrison();
+        assert.equal(started.statusCode, 200, JSON.stringify(started.body));
+        const { runId, session } = started.body as { runId: string; session: { player: { hp: number } } };
+        assert.equal(session.player.hp, 3_000, 'the attacker enters with the HP their save holds');
+
+        // Walk out through the generic physical-settlement endpoint: an abandon.
+        const walked = await callHandler(fightOutcome, { playerName: ATTACKER_PLAYER, runId });
+        assert.equal(walked.statusCode, 200, JSON.stringify(walked.body));
+        // The abandon costs 10% of max HP, from where the attacker stood — it
+        // used to start from a full 9 000 pool and write 8 100 back.
+        assert.equal((await attackerSave()).hp, 2_100);
+    });
+
+    it('a finished assault nobody reported is settled by the next garrison-start — once, and shown', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        await terminateSession(runId, 'win');
+
+        // No garrison-resolve: the client never reported it.
+        const again = await startGarrison();
+        assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+        const body = again.body as { settledPrevious?: boolean; runId: string; result: { outcome: string; points: number; attackerPoints: number } };
+        assert.equal(body.settledPrevious, true, 'the unreported assault comes back settled, not resumed or orphaned');
+        assert.equal(body.runId, runId);
+        assert.equal(body.result.outcome, 'attacker');
+        assert.equal(body.result.points, 2);
+        assert.equal((await contestRow()).attackerPoints, 2);
+        assert.equal(potionCount((await attackerSave())), 2, 'and its item cost landed');
+
+        // Exactly once: the client's own late report replays it...
+        const late = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.deepEqual(late.body, body.result);
+        // ...and the NEXT start is a genuinely new assault.
+        const next = await startGarrison();
+        assert.equal(next.statusCode, 200, JSON.stringify(next.body));
+        assert.notEqual((next.body as { runId: string }).runId, runId);
+        assert.equal((next.body as { replayed: boolean }).replayed, false);
+        assert.equal((await contestRow()).attackerPoints, 2, 'scored once');
+    });
+
+    it('an assault fought past the old one-hour record still settles', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        // Two hours of play (every action slides the fight's idle window), then
+        // the result: the run record used to have expired at the hour mark.
+        const resolved = await later(2 * 60 * 60 * 1000, async () => {
+            await terminateSession(runId, 'win');
+            return call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        });
+        assert.equal(resolved.statusCode, 200, JSON.stringify(resolved.body));
+        assert.equal((resolved.body as { outcome: string }).outcome, 'attacker');
+        assert.equal((await contestRow()).attackerPoints, 2);
+    });
+
+    it('an assault left idle past its window counts as a walk-out, and settles on the next start', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        assert.equal(started.statusCode, 200, JSON.stringify(started.body));
+        const again = await later(46 * 60 * 1000, () => startGarrison());
+        assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+        const body = again.body as { settledPrevious?: boolean; result: { outcome: string; lapsed?: boolean; defenderPoints: number } };
+        assert.equal(body.settledPrevious, true, 'a lapsed assault is ended and settled, not resumed');
+        assert.equal(body.result.outcome, 'garrison', 'walking away is a loss: the garrison held');
+        assert.equal(body.result.lapsed, true);
+        assert.equal((await contestRow()).defenderPoints, 1, 'the defence gets its hold');
+        assert.equal((await attackerSave()).hp, 8_100, 'the walk-out cost its 10%');
+    });
+
+    it('the request that ENDS the fight settles it — no client report needed', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const { runId, session } = started.body as { runId: string; session: { version: number } };
+        const acted = await callHandler(soloPveAction, {
+            playerName: ATTACKER_PLAYER, sessionId: runId, type: 'abandon',
+            expectedVersion: session.version, moveToken: 'garrison-hook-abandon-1',
+        });
+        assert.equal(acted.statusCode, 200, JSON.stringify(acted.body));
+        assert.equal((acted.body as { session: { status: string } }).session.status, 'done');
+
+        const run = await kv.get<{ settlement?: { response: Record<string, unknown> } }>(`sector-war-garrison:${runId}`);
+        assert.ok(run?.settlement, 'settled by the fight\'s own final request');
+        assert.equal((await contestRow()).defenderPoints, 1);
+        assert.equal((await attackerSave()).hp, 8_100);
+
+        // The client's report is now a replay of that settlement.
+        const reported = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.deepEqual(reported.body, run!.settlement!.response);
+        assert.equal((await contestRow()).defenderPoints, 1);
+    });
+
+    it('a late settle never re-heals: the generic walk-out path and the garrison settle share one body', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        await terminateSession(runId, 'win'); // ends at 40% = 3 600
+        const resolved = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.equal(resolved.statusCode, 200, JSON.stringify(resolved.body));
+        assert.equal((await attackerSave()).hp, 3_600);
+
+        // Hurt elsewhere afterwards, then the same fight reported again through
+        // the generic endpoint: it must not set HP back up to the fight's end.
+        await setAttackerHp(1_000);
+        const again = await callHandler(fightOutcome, { playerName: ATTACKER_PLAYER, runId });
+        assert.equal(again.statusCode, 200, JSON.stringify(again.body));
+        assert.equal((await attackerSave()).hp, 1_000);
+    });
+
+    it('scores by the battle\'s own clock: a fight that ended inside the war counts when settled after it', async () => {
+        const now = Date.now();
+        await seedBaseState(now);
+        const started = await startGarrison();
+        const runId = (started.body as { runId: string }).runId;
+        await terminateSession(runId, 'win'); // finished now, inside the war
+        // The war's window closes (not yet settled) before anyone reports it.
+        const row = await kv.get<Record<string, unknown>>(CONTEST_KEY);
+        await kv.set(CONTEST_KEY, { ...row, endsAt: Date.now() + 50 });
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        const resolved = await call({ action: 'garrison-resolve', playerName: ATTACKER_PLAYER, runId });
+        assert.equal(resolved.statusCode, 200, JSON.stringify(resolved.body));
+        assert.equal((resolved.body as { outcome: string }).outcome, 'attacker');
+        assert.equal((await contestRow()).attackerPoints, 2);
+    });
+});
+
+function potionCount(character: Record<string, unknown>): number | undefined {
+    return (character.itemStacks as Array<{ itemId: string; count: number }> | undefined)?.find((s) => s.itemId === 'potion')?.count;
+}
+
 // The garrison stands in for a human sector-war duel, and that duel seals the
 // sector's sky (api/pvp/session.ts). The stand-in must fight under the same one,
 // on the defender's terrain, or the two halves of one contest score differently.
