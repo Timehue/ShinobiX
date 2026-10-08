@@ -229,7 +229,9 @@ export function fetchWarMap(): Promise<WarMapResponse> {
     const pending = (async () => {
         const r = await fetch("/api/village/war-map", { method: "GET" });
         const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-        if (!r.ok) throw new Error(String(data.error ?? `HTTP ${r.status}`));
+        // Typed, so a caller can tell 404 (the war system is switched off) from
+        // an outage. The message is unchanged: this GET never sends `message`.
+        if (!r.ok) throw new WarMapRequestError(r.status, data);
         return data as unknown as WarMapResponse;
     })();
     warMapInFlight = pending;
