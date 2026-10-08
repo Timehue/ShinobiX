@@ -5,9 +5,14 @@ import { worldPositionModel, WORLD_LAYOUT_VERSION, CONTINUOUS_WORLD_SPACE } from
 import { buildWorldNavigation } from '../../shared/continuous-world-navigation.js';
 import type { OnlinePlayer } from './types.js';
 const model = worldPositionModel(), nodes = buildWorldNavigation(CONTINUOUS_WORLD_SPACE).nodes;
-const a = nodes.find(n => n.road && n.neighbors.length === 2)!;
-const b = a.neighbors[0]!;
+// Road nodes are numbered along their corridor, so a long road gives a straight walk.
+const road = CONTINUOUS_WORLD_SPACE.roads.find(r => r.length > 12)!, key = `${road.a.sector}-${road.b.sector}`;
+const nodeAt = (serial: number) => nodes.find(n => n.id === `road:${key}:${serial}`)!;
+const a = nodeAt(4);
+const b = nodeAt(5).id;
 const position = { layoutVersion: WORLD_LAYOUT_VERSION, from: a.id, to: b, progress: 0 };
+/** A resting cursor `steps` road nodes beyond `a`. */
+const along = (steps: number) => ({ layoutVersion: WORLD_LAYOUT_VERSION, from: nodeAt(4 + steps).id, to: nodeAt(4 + steps).id, progress: 0 });
 function actor(): OnlinePlayer {
     const location = model.location(position);
     return { name: 'rill', displayName: 'Rill', ...location, worldPosition: position, character: null,
@@ -16,11 +21,23 @@ function actor(): OnlinePlayer {
 
 test('admission uses server time and consumes one shared movement budget', () => {
     const gate = createWorldMovementGate(), player = actor();
-    const first = gate.admit(player, { ...position, progress: .2 }, 0, 1000);
-    assert(first.ok); player.worldPosition = first.position; player.movementSeq = 1;
-    assert.deepEqual(gate.admit(player, { ...position, progress: .8 }, 1, 1000), { ok: false, reason: 'speed' });
-    const later = gate.admit(player, { ...position, progress: .8 }, 1, 1100);
+    const burst = gate.admit(player, along(2), 0, 1000);
+    assert(burst.ok); assert(Math.abs(burst.distance - 2) < 1e-8);
+    player.worldPosition = burst.position; player.movementSeq = 1;
+    const onward = { ...along(2), to: along(3).from, progress: .6 };
+    assert.deepEqual(gate.admit(player, onward, 1, 1000), { ok: false, reason: 'speed' });
+    const later = gate.admit(player, onward, 1, 1100);
     assert(later.ok); assert(Math.abs(later.distance - .6) < 1e-8);
+});
+
+test('the first step after the idle sweep keeps the walk instead of snapping back', () => {
+    const gate = createWorldMovementGate(), player = actor();
+    assert(gate.admit(player, position, 0, 1000).ok);
+    // 256 requests after a 90 s rest prune every idle clock, including this one.
+    const bystander = { ...actor(), name: 'bystander' };
+    for (let i = 0; i < 256; i++) gate.admit(bystander, position, 99, 200_000);
+    const resumed = gate.admit(player, { ...position, progress: .9 }, 0, 200_000);
+    assert(resumed.ok, JSON.stringify(resumed));
 });
 
 test('stale/replayed sequence and locked players cannot move', () => {

@@ -23,7 +23,19 @@ function hashId(id: string): number {
 
 const clampInterior = (n: number) => Math.max(1, Math.min(10, n));
 
-function routeFor(id: string, homeTile: number): readonly Point[] {
+/** Walk a straight cardinal leg one tile at a time, stopping before blocked ground. */
+function reach(from: Point, to: Point, walkable: (tile: number) => boolean): Point {
+    const dc = Math.sign(to.col - from.col), dr = Math.sign(to.row - from.row);
+    let at = from;
+    while (at.col !== to.col || at.row !== to.row) {
+        const next = { col: at.col + dc, row: at.row + dr };
+        if (!walkable(next.row * GRID + next.col)) break;
+        at = next;
+    }
+    return at;
+}
+
+function routeFor(id: string, homeTile: number, walkable?: (tile: number) => boolean): readonly Point[] {
     const hash = hashId(id);
     const home = { col: homeTile % GRID, row: Math.floor(homeTile / GRID) };
     const horizontal = (hash & 1) === 0 ? 1 : -1;
@@ -34,12 +46,19 @@ function routeFor(id: string, homeTile: number): readonly Point[] {
     const second = (hash & 4) === 0
         ? { col: first.col, row: clampInterior(first.row + vertical * 2) }
         : { col: clampInterior(first.col + horizontal * 2), row: first.row };
-    return [home, first, second, home];
+    if (!walkable) return [home, first, second, home];
+    // On authored collision the loop retraces its cardinal legs: the diagonal
+    // shortcut home could cut through a rock the player cannot cross.
+    const near = reach(home, first, walkable);
+    const turn = (hash & 4) === 0 ? { col: near.col, row: second.row } : { col: second.col, row: near.row };
+    const far = reach(near, turn, walkable);
+    return [home, near, far, near, home];
 }
 
-/** Position at an absolute time; consecutive calls and sector remounts agree. */
-export function loiterPositionAt(id: string, homeTile: number, nowMs: number): LoiterPosition {
-    const route = routeFor(id, homeTile);
+/** Position at an absolute time; consecutive calls and sector remounts agree.
+ *  With `walkable`, every point of the loop stays on ground a player can stand on. */
+export function loiterPositionAt(id: string, homeTile: number, nowMs: number, walkable?: (tile: number) => boolean): LoiterPosition {
+    const route = routeFor(id, homeTile, walkable);
     const legs = route.slice(1).map((target, index) => {
         const start = route[index];
         return { start, target, travel: Math.hypot(target.col - start.col, target.row - start.row) / TILES_PER_SECOND };

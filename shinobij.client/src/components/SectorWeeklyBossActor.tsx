@@ -143,7 +143,7 @@ export function SectorWeeklyBossActor({
             else rafRef.current = requestAnimationFrame(tick);
         };
         armedAtRef.current = performance.now() + ARM_DELAY_MS;
-        const navigate = createSectorNavigator();
+        const navigate = createSectorNavigator(worldPlayer !== null);
 
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;

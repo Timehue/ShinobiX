@@ -2,6 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import AxeBuilder from '@axe-core/playwright';
 import { installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
+import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
 const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layout-2026-09-19';
 mkdirSync(evidence, { recursive: true });
@@ -9,6 +10,11 @@ mkdirSync(evidence, { recursive: true });
 async function boot(page: Page, count = 8, configure?: () => Promise<void>, sector = 22) {
     const save = uiAuditSave();
     save.currentSector = sector;
+    // Wanderers are shared world state rolled per 6h window. When the window puts a
+    // hunter in this sector, its Fight/Flee encounter covers the HUD under test
+    // (2026-10-08 12:00-18:00 UTC rolled one into sector 22). Its own anti-farm
+    // cooldown is the supported way to keep it off the road.
+    save.character = { ...save.character, wandererCooldowns: quietRoadCooldowns([sector]) };
     await installUiAuditRuntime(page, save);
     await page.route('**/api/img?**', route => {
         const id = new URL(route.request().url()).searchParams.get('id');

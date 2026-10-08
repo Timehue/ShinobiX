@@ -22,6 +22,8 @@ import { wandererAvatar } from "../lib/wanderer-art";
 import { loiterPositionAt } from "../lib/wanderer-loiter";
 import { serverNow } from "../lib/server-clock";
 import { createSectorNavigator } from "../lib/sector-path-waypoint";
+import { safeSectorTile, sectorObstaclesOn } from "../lib/sector-obstacles";
+import { isWalkableTile } from "../../../shared/sector-walk-mask";
 import { SECTOR_MARKER_ANCHOR, SECTOR_RING_AI, sectorMarkerBox } from "../lib/sector-marker";
 
 const GRID_W = 12;
@@ -106,9 +108,13 @@ export function SectorWanderer({
     const figRef = useRef<HTMLDivElement | null>(null);
     const spriteRef = useRef<HTMLSpanElement | null>(null);
 
+    // Story and service characters are placed by id, not by the board, so ground
+    // them here: an actor standing in rock or a building is one nobody can reach.
+    const homeTile = safeSectorTile(sector, wanderer.homeTile);
+    const walkable = (tile: number) => isWalkableTile(sector, tile, sectorObstaclesOn());
     const initialPose = wanderer.movement === "stationary"
-        ? loiterPositionAt(wanderer.id, wanderer.homeTile, serverNow())
-        : { col: colOf(wanderer.homeTile), row: rowOf(wanderer.homeTile) };
+        ? loiterPositionAt(wanderer.id, homeTile, serverNow(), walkable)
+        : { col: colOf(homeTile), row: rowOf(homeTile) };
     const posRef = useRef({ col: initialPose.col, row: initialPose.row });
     const facingRef = useRef(1);
     const sizeRef = useRef({ w: 0, h: 0 });
@@ -185,14 +191,15 @@ export function SectorWanderer({
     // The movement loop.
     useEffect(() => {
         const reduced = prefersReducedMotion();
-        const navigate = createSectorNavigator();
+        // In the connected world an actor may follow you onto its sector's open land.
+        const navigate = createSectorNavigator(worldPlayer !== null);
         const maxDt = reduced ? REDUCED_STEP_MS / 1000 : SMOOTH_MAX_DT;
         const schedule = () => {
             if (reduced) stepTimerRef.current = window.setTimeout(() => tick(performance.now()), REDUCED_STEP_MS);
             else rafRef.current = requestAnimationFrame(tick);
         };
         armedAtRef.current = performance.now() + ARM_DELAY_MS;
-        const wps = wanderer.waypoints.length ? wanderer.waypoints : [wanderer.homeTile];
+        const wps = (wanderer.waypoints.length ? wanderer.waypoints : [wanderer.homeTile]).map(tile => safeSectorTile(sector, tile));
 
         const tick = (ts: number) => {
             if (!lastTsRef.current) lastTsRef.current = ts;
@@ -227,8 +234,8 @@ export function SectorWanderer({
                 // returning does not reset a passive actor to its home tile.
                 // Quantize reduced motion to the same 200ms cadence as other AI.
                 const now = serverNow();
-                const pose = loiterPositionAt(wanderer.id, wanderer.homeTile,
-                    reduced ? Math.floor(now / REDUCED_STEP_MS) * REDUCED_STEP_MS : now);
+                const pose = loiterPositionAt(wanderer.id, homeTile,
+                    reduced ? Math.floor(now / REDUCED_STEP_MS) * REDUCED_STEP_MS : now, walkable);
                 posRef.current = { col: pose.col, row: pose.row };
                 facingRef.current = pose.facing;
                 applyFacing();
