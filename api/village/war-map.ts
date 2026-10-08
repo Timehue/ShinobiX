@@ -4,7 +4,7 @@ import { cors } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_war-state.js';
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
-import { loadHeldSectorCounts } from '../_war-held-sectors.js';
+import { loadHeldSectors } from '../_war-held-sectors.js';
 import { isVillageKageSeated } from '../_war-tax-apply.js';
 import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
@@ -19,9 +19,9 @@ import { viewerVillageOf } from '../_viewer-village.js';
  * ownership + village wars, and this for the WR-economy layer world-state doesn't
  * carry: each war village's WR + treasury-seal pools, its 6 structures + daily
  * upkeep + dormancy, the Supply-Depot WR rate, the effective tax tier (from how
- * many sectors it currently holds), each home sector's win-condition / terrain /
- * Control-HP cap, plus every active sector-war contest. View-only — all actions
- * call the dedicated server-auth endpoints.
+ * many sectors it currently holds), the win-condition / terrain of each sector
+ * it holds (the holder sets them), plus every active sector-war contest.
+ * View-only — all actions call the dedicated server-auth endpoints.
  *
  * Server-gated by the default-on Sector Map campaign switch. Requires a logged-in player.
  */
@@ -50,11 +50,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Held-sector counts come from the SHARED helper (api/_war-held-sectors.ts)
         // that the daily WR faucet and the comeback discount also read, so the count
         // this screen displays can never drift from the one the server charges on.
-        const [warRaws, stateRaws, contests, heldCount, kageSeats, resolvedViewerVillage] = await Promise.all([
+        // The same scan also says WHICH sectors each village holds: each sector
+        // is listed under its holder, with the holder's settings (owner ruling
+        // 2026-10-08).
+        const [warRaws, stateRaws, contests, { counts: heldCount, lists: heldLists }, kageSeats, resolvedViewerVillage] = await Promise.all([
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(villageWarKey(v)))),
             Promise.all(WAR_VILLAGES.map((v) => kv.get<Record<string, unknown>>(`${VILLAGE_STATE_PREFIX}${villageWarSlug(v)}`))),
             listActiveSectorWars(),
-            loadHeldSectorCounts(),
+            loadHeldSectors(),
             // The seat drives the tax rate (no Kage → 0%), so it has to be read here
             // too or the displayed rate would diverge from the charged one.
             Promise.all(WAR_VILLAGES.map((v) => isVillageKageSeated(v))),
@@ -75,6 +78,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return villageWarMapView({
                 village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0, kageSeated: kageSeats[i],
                 provisions: Number(treasury.provisions) || 0, materialPoints: Number(treasury.materialPoints) || 0,
+                heldSectors: heldLists[v] ?? [],
             });
         });
 

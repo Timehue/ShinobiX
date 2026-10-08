@@ -12,6 +12,7 @@ import { isWarVillage } from '../_war-map-sectors.js';
 import { heldSectorsForVillage } from '../_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
+    sectorConfigFor,
     villageWarKey,
     type WinCondition,
 } from '../_war-state.js';
@@ -731,7 +732,11 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     const priorFailedSiegeActive = !!storedSession && !storedSession.flipped && !!storedSession.expiredAt;
     const attackerRecord = normalizeVillageWarRecord(village, atkRecord ?? undefined);
     const defenderRecord = isWarVillage(defender) ? normalizeVillageWarRecord(defender, defRaw ?? undefined) : null;
-    const winCondition = (defenderRecord?.sectors[String(sector)]?.winCondition ?? 'combat') as WinCondition;
+    // The HOLDER's rules for the sector decide the war, home sector or captured
+    // (owner ruling 2026-10-08), and both are sealed into the contest now: a
+    // mid-war change of win-condition or terrain moves nothing for this war.
+    const sectorRules = sectorConfigFor(defenderRecord ?? normalizeVillageWarRecord(defender, undefined), sector);
+    const winCondition: WinCondition = sectorRules.winCondition;
 
     const check = canDeclareSectorWar({
         attackerVillage: village,
@@ -765,7 +770,7 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
     }
     const now = Date.now();
     const session: SectorWarSession = {
-        ...newSectorWarSession({ sector, attackerVillage: village, defenderVillage: defender, winCondition, now }),
+        ...newSectorWarSession({ sector, attackerVillage: village, defenderVillage: defender, winCondition, terrain: sectorRules.terrain, now }),
         declarationGeneration: generation,
     };
     const source: WarDeclarationFundingSource = {
@@ -901,8 +906,12 @@ async function doAttack(req: VercelRequest, res: VercelResponse, identity: Ident
             return res.status(409).json({ error: 'Register the sector-war battle before either fighter makes a move.' });
         }
 
-        const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
-        const terrain = defRec.sectors[String(sector)]?.terrain;
+        // The terrain sealed into the contest at declaration; a war declared
+        // before that reads the holder's current setting.
+        const terrain = contest.terrain ?? sectorConfigFor(
+            normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined),
+            sector,
+        ).terrain;
         if (terrain && fresh.biome !== terrain) {
             const intended = { ...fresh, biome: terrain };
             try {
@@ -1051,8 +1060,12 @@ async function doGarrisonStart(req: VercelRequest, res: VercelResponse, identity
         }
         const snapshot = fielded.fielded;
 
-        const defRec = normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined);
-        const terrain = String(defRec.sectors[String(sector)]?.terrain ?? 'central');
+        // The terrain sealed into the contest at declaration (the holder's
+        // current setting for a war declared before that).
+        const terrain: string = contest.terrain ?? sectorConfigFor(
+            normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined),
+            sector,
+        ).terrain;
         const attackerCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
 
         const runId = `garrison-${randomUUID().replace(/-/g, '')}`;

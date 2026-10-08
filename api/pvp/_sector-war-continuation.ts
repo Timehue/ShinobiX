@@ -2,6 +2,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import {
     normalizeVillageWarRecord,
+    sectorConfigFor,
     villageWarKey,
 } from '../_war-state.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
@@ -182,11 +183,15 @@ export async function ensurePvpSectorWarRegistration(
         const biome = existing.biome || session.biome;
         return { registered: true, sectorWarId: contest.id, ...(biome ? { biome } : {}) };
     }
-    const defenderState = normalizeVillageWarRecord(
-        contest.defenderVillage,
-        (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined,
-    );
-    const biome = defenderState.sectors[String(sector)]?.terrain || session.biome || 'central';
+    // The terrain sealed into the contest at declaration; a war declared before
+    // that reads the holder's current setting.
+    const biome = contest.terrain ?? sectorConfigFor(
+        normalizeVillageWarRecord(
+            contest.defenderVillage,
+            (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined,
+        ),
+        sector,
+    ).terrain;
     const registeredBy = safeName(session.worldAttacker?.name ?? '');
     if (!registeredBy) throw new Error('sector-war-world-attacker-invalid');
     await mintSectorWarToken(newSectorWarBattleToken({

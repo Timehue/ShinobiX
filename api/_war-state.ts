@@ -23,6 +23,8 @@ import { parseStoresLedger, type StoresLedgerEntry } from './_village-stores.js'
 import {
     HOME_SECTORS,
     VILLAGE_BIOME,
+    homeVillageForSector,
+    isWarSector,
     isWarVillage,
     type WarVillage,
 } from './_war-map-sectors.js';
@@ -248,14 +250,19 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
         }
     }
 
-    // Only the village's own home sectors are tracked; fill defaults, clamp present.
+    // Home sectors are always present (defaults filled). A war sector the
+    // village CAPTURED keeps its entry too: the current holder configures a
+    // sector (owner ruling 2026-10-08), so its settings live in the holder's
+    // record. Any other key is dropped.
     if (raw.sectors && typeof raw.sectors === 'object') {
-        for (const key of Object.keys(base.sectors)) {
-            const r = (raw.sectors as Record<string, Partial<SectorWarState>>)[key];
+        for (const [key, r] of Object.entries(raw.sectors as Record<string, Partial<SectorWarState>>)) {
             if (!r || typeof r !== 'object') continue;
+            const home = Object.prototype.hasOwnProperty.call(base.sectors, key);
+            const sector = Number(key);
+            if (!home && (!Number.isSafeInteger(sector) || String(sector) !== key || !isWarSector(sector))) continue;
             base.sectors[key] = {
                 winCondition: asWinCondition(r.winCondition),
-                terrain: asTerrain(r.terrain, base.sectors[key].terrain),
+                terrain: asTerrain(r.terrain, home ? base.sectors[key].terrain : landTerrainOf(sector)),
             };
         }
     }
@@ -331,35 +338,68 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
     return base;
 }
 
-/** Count how many sectors use each win-condition. */
-export function winConditionCounts(record: VillageWarRecord): Record<WinCondition, number> {
+/** A war sector's own terrain: the biome of the village whose home it is. */
+function landTerrainOf(sector: number): Terrain {
+    const home = homeVillageForSector(sector);
+    return home ? VILLAGE_BIOME[home] : 'central';
+}
+
+/**
+ * A village's settings for `sector`: its stored entry, or the defaults (Combat,
+ * the land's own biome) for a sector it captured and has not configured yet.
+ * The HOLDER's settings are the ones a war on the sector uses (owner ruling
+ * 2026-10-08). Pure.
+ */
+export function sectorConfigFor(record: VillageWarRecord, sector: number): SectorWarState {
+    const key = String(Math.floor(Number(sector) || 0));
+    return Object.prototype.hasOwnProperty.call(record.sectors, key)
+        ? record.sectors[key]
+        : { winCondition: 'combat', terrain: landTerrainOf(Number(key)) };
+}
+
+/** Count how many sectors use each win-condition: the sectors in `heldSectors`
+ *  when given (what the max-7 rule counts), else every entry in the record. */
+export function winConditionCounts(record: VillageWarRecord, heldSectors?: readonly number[]): Record<WinCondition, number> {
     const counts: Record<WinCondition, number> = { combat: 0, card: 0, pet: 0 };
-    for (const s of Object.values(record.sectors)) counts[s.winCondition]++;
+    const configs = heldSectors ? heldSectors.map((s) => sectorConfigFor(record, s)) : Object.values(record.sectors);
+    for (const s of configs) counts[s.winCondition]++;
     return counts;
 }
 
 /** Whether `sector` may be (re)assigned to `wc` without breaking the max-7 rule.
- *  Re-assigning a sector already on `wc` is always allowed (no-op). */
-export function canAssignWinCondition(record: VillageWarRecord, sector: number, wc: WinCondition): boolean {
-    const cur = record.sectors[String(Math.floor(Number(sector) || 0))];
-    if (!cur) return false;            // not a home sector of this village
-    if (cur.winCondition === wc) return true;
-    return winConditionCounts(record)[wc] < MAX_SECTORS_PER_WIN_CONDITION;
+ *  Re-assigning a sector already on `wc` is always allowed (no-op).
+ *
+ *  With `heldSectors` (the sectors the village holds right now) the village may
+ *  configure exactly those, home or captured, and the rule counts only them: a
+ *  sector it lost is no longer its to set, and no longer counts. Without it,
+ *  the record's own entries (its home sectors) are the scope, as before. */
+export function canAssignWinCondition(record: VillageWarRecord, sector: number, wc: WinCondition, heldSectors?: readonly number[]): boolean {
+    const s = Math.floor(Number(sector) || 0);
+    if (heldSectors ? !heldSectors.includes(s) : !record.sectors[String(s)]) return false;
+    if (sectorConfigFor(record, s).winCondition === wc) return true;
+    return winConditionCounts(record, heldSectors)[wc] < MAX_SECTORS_PER_WIN_CONDITION;
 }
 
-/** How many sectors' terrain a given player currently owns the pick for. */
-export function terrainSetCountFor(record: VillageWarRecord, player: string): number {
-    return Object.values(record.terrainSetBy).filter((p) => p === player).length;
+/** How many sectors' terrain a given player currently owns the pick for. With
+ *  `heldSectors`, only picks on sectors the village still holds count: a lost
+ *  sector frees its pick. */
+export function terrainSetCountFor(record: VillageWarRecord, player: string, heldSectors?: readonly number[]): number {
+    return Object.entries(record.terrainSetBy)
+        .filter(([sector, p]) => p === player && (!heldSectors || heldSectors.includes(Number(sector))))
+        .length;
 }
 
 /** Keep terrain itself, but release offices held by former leaders. A demoted
- * Kage retains at most the current role's quota, in stable sector order. */
-export function reconcileTerrainLeadership(record: VillageWarRecord, kage: string, elders: string[]): void {
+ * Kage retains at most the current role's quota, in stable sector order. With
+ * `heldSectors`, the pick on a sector the village no longer holds is released
+ * too: a lost sector frees its pick (owner ruling 2026-10-08). */
+export function reconcileTerrainLeadership(record: VillageWarRecord, kage: string, elders: string[], heldSectors?: readonly number[]): void {
     const leader = leadershipNameKey(kage);
     const council = new Set(elders.map(leadershipNameKey).filter(Boolean));
     const counts = new Map<string, number>();
     const assignments: Record<string, string> = {};
     for (const [sector, owner] of Object.entries(record.terrainSetBy).sort(([a], [b]) => Number(a) - Number(b))) {
+        if (heldSectors && !heldSectors.includes(Number(sector))) continue;
         const name = leadershipNameKey(owner);
         const quota = name && name === leader ? TERRAIN_QUOTA_KAGE : council.has(name) ? TERRAIN_QUOTA_ELDER : 0;
         const used = counts.get(name) ?? 0;
@@ -374,16 +414,19 @@ export function reconcileTerrainLeadership(record: VillageWarRecord, kage: strin
  *  §17.3 quota: Kage 3 / elder 1. Re-setting a sector you already own is free; an
  *  elder cannot override a sector another leader picked; the Kage may override. */
 export function canSetTerrain(
-    record: VillageWarRecord, sector: number, player: string, role: TerrainRole,
+    record: VillageWarRecord, sector: number, player: string, role: TerrainRole, heldSectors?: readonly number[],
 ): { ok: boolean; error?: 'not-authorized' | 'not-home-sector' | 'set-by-another' | 'quota-reached' } {
     if (role === 'none') return { ok: false, error: 'not-authorized' };
-    const key = String(Math.floor(Number(sector) || 0));
-    if (!record.sectors[key]) return { ok: false, error: 'not-home-sector' };
+    const s = Math.floor(Number(sector) || 0);
+    const key = String(s);
+    // With `heldSectors`, the village sets exactly the sectors it holds (see
+    // canAssignWinCondition); the error keeps its old name for the callers.
+    if (heldSectors ? !heldSectors.includes(s) : !record.sectors[key]) return { ok: false, error: 'not-home-sector' };
     const current = record.terrainSetBy[key];
     if (current && current !== player && role !== 'kage') return { ok: false, error: 'set-by-another' };
     const alreadyMine = current === player;
     const limit = role === 'kage' ? TERRAIN_QUOTA_KAGE : TERRAIN_QUOTA_ELDER;
-    if (!alreadyMine && terrainSetCountFor(record, player) >= limit) return { ok: false, error: 'quota-reached' };
+    if (!alreadyMine && terrainSetCountFor(record, player, heldSectors) >= limit) return { ok: false, error: 'quota-reached' };
     return { ok: true };
 }
 
