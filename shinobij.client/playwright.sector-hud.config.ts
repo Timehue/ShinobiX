@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-    testDir: './e2e', testMatch: '**/sector-hud.spec.ts', timeout: 90_000,
+    testDir: './e2e', testMatch: ['**/sector-hud.spec.ts', '**/compact-map-notice.spec.ts'], timeout: 90_000,
     expect: { timeout: 15_000 }, workers: 1, reporter: 'line',
     outputDir: 'test-results/sector-hud',
     use: { baseURL: 'http://127.0.0.1:5187', serviceWorkers: 'block',
