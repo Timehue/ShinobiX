@@ -8,7 +8,7 @@
 
 import { useId, useMemo, useState } from "react";
 import type { Character } from "../types/character";
-import { applyVnTextVars, vnTextVarsFor } from "../lib/vn";
+import { applyVnTextVars, vnSceneCaption, vnTextVarsFor } from "../lib/vn";
 import { buildCompletedStoryArchive, storyArchiveGuidance, type CompletedStoryArchiveEntry } from "../lib/story-archive";
 import { isStoryContentVillage } from "../lib/story-content-contract";
 import { readStoryContent } from "../lib/story-content-loader";
@@ -183,7 +183,7 @@ function StoryJourneyContent({ character, onReturnToVillage, onResumeStory, shar
                                             )}
                                             <div className="story-archive-copy">
                                                 <h4>{page.title}</h4>
-                                                <p className="story-archive-scene">{applyVnTextVars(page.scene, textVars)}</p>
+                                                <p className="story-archive-scene">{applyVnTextVars(vnSceneCaption(page.scene), textVars)}</p>
                                                 <div className="story-archive-transcript">
                                                     {page.lines.map((line, lineIndex) => (
                                                         <p key={lineIndex}>

@@ -2278,7 +2278,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1308
+            "line": 1311
           },
           {
             "source": "shinobij.client/src/styles/sector-hud.css",
@@ -3032,7 +3032,7 @@
         "occurrences": [
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1320
+            "line": 1323
           }
         ]
       },
@@ -3394,7 +3394,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1314
+            "line": 1317
           }
         ]
       },
@@ -3413,7 +3413,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1494
+            "line": 1497
           },
           {
             "source": "shinobij.client/src/styles/landing-skin.css",
@@ -3962,7 +3962,7 @@
           },
           {
             "source": "shinobij.client/src/styles/cinematic-vn.css",
-            "line": 1314
+            "line": 1317
           },
           {
             "source": "shinobij.client/src/styles/index/11-sector-explore-village-themes.css",
