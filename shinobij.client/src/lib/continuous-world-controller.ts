@@ -5,23 +5,33 @@ import { createContinuousWorldRenderer } from './continuous-world-renderer';
 import { loadContinuousWorld, worldMovementRequest, type WorldMovementReply } from './continuous-world-client';
 import { bindContinuousWorldControl } from './continuous-world-control';
 import { isRealtimePresenceLive } from './use-presence-socket';
+import { worldRoadCrossings } from '../../../shared/world-road-crossings';
+import { tapCandidates } from './world-tap';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
     onPosition?: (sector: number, col: number, row: number) => void;
+    /** A tap on painted ground of the current sector; true when a landmark there took it. */
+    onTapTile?: (tile: number) => boolean;
     blocked: () => boolean; onAuthority: (sector: number, tile: number) => void; onStatus: (status: string) => void; signal: AbortSignal };
+/** The server walks a newer world graph than this tab loaded; only a reload can follow it. */
+export const STALE_WORLD_STATUS = 'The world map was updated. Reload to keep exploring.';
+const staleReply = (reply: WorldMovementReply, version: string) => Boolean(reply.worldPosition && reply.worldPosition.layoutVersion !== version);
 const directions: Record<string, WorldPoint> = { w:{x:0,y:-1}, a:{x:-1,y:0}, s:{x:0,y:1}, d:{x:1,y:0}, arrowup:{x:0,y:-1}, arrowleft:{x:-1,y:0}, arrowdown:{x:0,y:1}, arrowright:{x:1,y:0} };
 export async function mountContinuousWorld(host: Host) {
     const [world, initial] = await Promise.all([loadContinuousWorld(), worldMovementRequest(undefined, undefined, host.signal)]);
+    if (staleReply(initial, world.space.layoutVersion)) throw new Error(STALE_WORLD_STATUS);
     const initialPosition = world.model.read(initial.worldPosition);
     if (!initial.ok || !initialPosition) throw new Error('World presence is not ready. Try again.');
     const walker = createWorldWalker(world.nodes, initialPosition.from);
     walker.restore(initialPosition);
-    const renderer = createContinuousWorldRenderer(host.canvas, world.space);
+    const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
+    const crossings = worldRoadCrossings(world.space.roads);
     let sequence = initial.sequence ?? 0, sector = initial.sector!, tile = initial.tile!;
     let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0, movingTime = 0, acknowledgedTime = 0;
-    let inFlight = false, disposed = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
+    let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
     let requestedSector = sector, retryAfter = 0;
     function accept(reply: WorldMovementReply, sampleTime: number) {
+        if (staleReply(reply, world.space.layoutVersion)) { stale = true; walker.stop(); held = null; host.onStatus(STALE_WORLD_STATUS); return false; }
         const cursor = world.model.read(reply.worldPosition);
         if (!cursor || reply.sequence === undefined || reply.sector === undefined || reply.tile === undefined) return false;
         sequence = reply.sequence; sector = reply.sector; tile = reply.tile;
@@ -30,7 +40,7 @@ export async function mountContinuousWorld(host: Host) {
         host.onAuthority(sector, tile); return true;
     }
     async function send(force = false) {
-        if (inFlight || resyncing || disposed || host.signal.aborted) return false;
+        if (inFlight || resyncing || disposed || stale || host.signal.aborted) return false;
         const cursor = walker.cursor(world.space.layoutVersion), signature = JSON.stringify(cursor);
         if (!force && signature === sentCursor) return true;
         inFlight = true; const sampleTime = movingTime, sentSector = sector;
@@ -75,8 +85,9 @@ export async function mountContinuousWorld(host: Host) {
             const rect = host.canvas.getBoundingClientRect(), scale = rect.width / 12;
             const point = { x: walker.position.x + (event.clientX - rect.left - rect.width / 2) / scale,
                 y: walker.position.y + (event.clientY - rect.top - rect.height / 2) / scale };
-            const candidates = [...world.nodes.values()].map(node => ({ node, distance: worldDistance(node, point) }))
-                .filter(item => item.distance < 2).sort((a, b) => a.distance - b.distance);
+            const chunk = renderer.chunks.get(sector)!, col = Math.floor(point.x - chunk.x), row = Math.floor(point.y - chunk.y);
+            if (col >= 0 && col < 12 && row >= 0 && row < 12 && host.onTapTile?.(row * 12 + col)) { drag = null; held = null; return; }
+            const candidates = tapCandidates(world.nodes.values(), point, crossings);
             const cursor = walker.cursor(world.space.layoutVersion);
             const closest = candidates.find(({ node }) => world.model.distanceWithin(cursor,
                 { layoutVersion: cursor.layoutVersion, from: node.id, to: node.id, progress: 0 }, 32) !== null);
@@ -93,7 +104,8 @@ export async function mountContinuousWorld(host: Host) {
         resyncing = true; walker.stop(); held = null;
         try {
             const reply = await worldMovementRequest(undefined, undefined, host.signal), cursor = world.model.read(reply.worldPosition);
-            if (reply.ok && cursor && !disposed) {
+            if (staleReply(reply, world.space.layoutVersion)) { stale = true; host.onStatus(STALE_WORLD_STATUS); }
+            else if (reply.ok && cursor && !disposed) {
                 walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!;
                 requestedSector = sector; movingTime = acknowledgedTime = 0; sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
             } else retryAfter = performance.now() + 1000;
@@ -103,7 +115,7 @@ export async function mountContinuousWorld(host: Host) {
     function tick(now: number) {
         const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
         if (requestedSector !== sector && now >= retryAfter) void resync();
-        const blocked = host.blocked() || document.hidden || requestedSector !== sector;
+        const blocked = stale || host.blocked() || document.hidden || requestedSector !== sector;
         if (blocked) { held = null; walker.stop(); }
         if (held && !walker.moving && !blocked) {
             let best = '', score = .35;
@@ -117,7 +129,9 @@ export async function mountContinuousWorld(host: Host) {
         walker.pause(blocked || resyncing || movingTime - acknowledgedTime > 1.4 / 6.5);
         const before = walker.travelled; walker.tick(dt);
         movingTime += (walker.travelled - before) / 6.5;
-        if (!blocked && now - lastSend > (isRealtimePresenceLive() ? 100 : 250)) { lastSend = now; void send(); }
+        // Each update must cover less ground than the 1.4-tile unacknowledged allowance
+        // above, or HTTP-only walking stalls between replies (125 ms = 0.8 tile).
+        if (!blocked && now - lastSend > (isRealtimePresenceLive() ? 100 : 125)) { lastSend = now; void send(); }
         const view = renderer.draw(walker.position, sector), size = view.tilePx * 12;
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
         host.chunk.style.width = host.chunk.style.height = `${size}px`;

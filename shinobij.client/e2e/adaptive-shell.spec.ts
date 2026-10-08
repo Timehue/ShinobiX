@@ -1254,9 +1254,24 @@ test("selected-sector projection keeps controls, receipts, traces, and responsiv
     await page.keyboard.down("d");
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 11" })).toHaveCount(1);
     await page.keyboard.up("d"); await page.keyboard.press('Escape');
+    // Take exactly one step west: holding would keep going, because open land continues
+    // past the painting's west edge into sector 51. Start from a tile centre (Escape can
+    // stop mid-step) and release as soon as the walk begins; the step then completes.
+    const terrain = page.locator(".continuous-world-map > canvas");
+    const resting = () => terrain.evaluate((canvas) => {
+        const { worldX, worldY } = (canvas as HTMLCanvasElement).dataset;
+        return Number.isInteger(Number(worldX) - .5) && Number.isInteger(Number(worldY) - .5);
+    });
+    if (!await resting()) {
+        await page.keyboard.down("d"); await expect.poll(resting, { intervals: [16] }).toBe(true); await page.keyboard.up("d");
+    }
+    await expect(stage.getByRole("button", { name: "Current tile row 2 column 11" })).toHaveCount(1);
+    const startX = await terrain.getAttribute("data-world-x");
     await page.keyboard.down("a");
+    await expect.poll(() => terrain.getAttribute("data-world-x"), { intervals: [16] }).not.toBe(startX);
+    await page.keyboard.up("a");
     await expect(stage.getByRole("button", { name: "Current tile row 2 column 10" })).toHaveCount(1);
-    await page.keyboard.up("a"); await page.keyboard.press('Escape');
+    await page.keyboard.press('Escape');
 
     const noticeDialog = page.getByRole("alertdialog", { name: "Notice" });
     await page.keyboard.press("e");
