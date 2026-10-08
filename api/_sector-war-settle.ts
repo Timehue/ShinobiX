@@ -13,10 +13,12 @@
  *   · hold  → the record is stamped 'defended' and saved WITH the re-siege
  *             cooldown TTL, so the lingering record IS the attacker's cooldown.
  *
- * Called LAZILY from the endpoint's hot paths (the war-map status poll, declare)
- * so a finished war settles within seconds of a player looking at it, and from
- * the daily village-war pass as the backstop for wars nobody is watching. Both
- * paths converge on the same per-war lock, so double-settlement is impossible.
+ * Called by the scheduler's 5-minute sector-war tick, lazily by the sector-war
+ * endpoint (declare, status), and by the 03:00 UTC daily pass as the backstop.
+ * (The war map's own GET does not settle.) A war is settled once its whistle is
+ * SECTOR_WAR_SETTLEMENT_GRACE_MS behind us, so a battle that ended in time but
+ * reports late still counts. Every path converges on the same per-war lock, so
+ * double-settlement is impossible.
  *
  * Lives in its own module because of an import cycle: world-state.ts imports the
  * sector-war STORE (activeSectorWarsForVillage, for the village-war mutual
@@ -34,6 +36,7 @@ import {
     sectorWarInstanceTag,
     SECTOR_CAPTURED_RECORD_TTL_SEC,
     SECTOR_RESIEGE_COOLDOWN_SEC,
+    SECTOR_WAR_SETTLEMENT_GRACE_MS,
     type SectorWarSession,
 } from './_sector-war.js';
 import {
@@ -109,7 +112,10 @@ export interface SectorWarSettlement {
 export async function settleDueSectorWars(now: number = Date.now()): Promise<SectorWarSettlement[]> {
     let due;
     try {
-        due = await listUnsettledDueSectorWars(now);
+        // Due as of the grace before now: a war is settled only once its
+        // whistle is SECTOR_WAR_SETTLEMENT_GRACE_MS behind us, so a battle that
+        // ended in time but reports late still counts (see the constant).
+        due = await listUnsettledDueSectorWars(now - SECTOR_WAR_SETTLEMENT_GRACE_MS);
     } catch (error) {
         logWarEvent('settlement-deferred', { reason: 'scan-failed', error: warEventError(error) }, 'error');
         return [];

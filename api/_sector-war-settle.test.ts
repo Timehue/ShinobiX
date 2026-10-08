@@ -40,6 +40,9 @@ after(async () => {
     delete process.env.SHINOBIX_QA_MEMORY_KV;
 });
 
+// The whistle and the 10-minute settlement grace are both behind us.
+const PAST_GRACE = 11 * 60_000;
+
 function dueWar(now: number, points: { attacker: number; defender: number }) {
     return {
         id: CONTEST_ID,
@@ -50,8 +53,8 @@ function dueWar(now: number, points: { attacker: number; defender: number }) {
         attackerPoints: points.attacker,
         defenderPoints: points.defender,
         startedAt: now - 73 * 60 * 60_000,
-        endsAt: now - 60_000,
-        updatedAt: now - 60_000,
+        endsAt: now - PAST_GRACE,
+        updatedAt: now - PAST_GRACE,
         declarationGeneration: 1,
         flipped: false,
         appliedBattles: [],
@@ -62,6 +65,23 @@ async function heraldFeed() {
     const feed = (await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? [];
     return feed.filter((a) => a.type === 'sector_war_resolved');
 }
+
+describe('sector-war settlement grace', { concurrency: false }, () => {
+    // A battle that ended inside the 72 hours can report a little late (a
+    // terminal step retried by the claim). Whether it counted used to depend on
+    // whether the 5-minute settlement tick got there first; the war now waits
+    // out SECTOR_WAR_SETTLEMENT_GRACE_MS after its whistle before it settles.
+    it('stamps no verdict until the grace after the whistle has passed', async () => {
+        const { SECTOR_WAR_SETTLEMENT_GRACE_MS: grace } = await import('./_sector-war.js');
+        const now = Date.now();
+        const whistle = now - 60_000;
+        await kv.set(CONTEST_KEY, { ...dueWar(now, { attacker: 0, defender: 0 }), endsAt: whistle });
+        assert.deepEqual(await settle.settleDueSectorWars(now), [], 'a minute after the whistle late results can still land');
+        assert.equal((await kv.get<Record<string, unknown>>(CONTEST_KEY))?.expiredAt, undefined);
+        const [verdict] = await settle.settleDueSectorWars(whistle + grace);
+        assert.equal(verdict?.attackerWon, false, 'once the grace has passed it settles (a 0-0 hold)');
+    });
+});
 
 describe('sector-war settlement World Herald', { concurrency: false }, () => {
     it('heralds a flip exactly once across repeated settlement passes', async () => {
@@ -176,7 +196,7 @@ describe('sector-war settlement World Herald', { concurrency: false }, () => {
                 assert.equal(r.status, 'applied');
             }
             const row = await kv.get<Record<string, unknown>>(CONTEST_KEY);
-            await kv.set(CONTEST_KEY, { ...row, endsAt: now - 60_000 }); // now due
+            await kv.set(CONTEST_KEY, { ...row, endsAt: now - PAST_GRACE }); // now due
 
             const [verdict] = await settle.settleDueSectorWars(now);
             assert.equal(verdict.attackerWon, true);

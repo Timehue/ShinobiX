@@ -402,7 +402,8 @@ describe('war event: one unreadable contest row does not take the war down', { c
 
     it('settlement still settles a due war beside it', async () => {
         const now = Date.now();
-        const w = await contest({ startedAt: now - 73 * 3600_000, endsAt: now - 60_000, attackerPoints: 2, defenderPoints: 5 });
+        // Past the whistle AND the 10-minute settlement grace.
+        const w = await contest({ startedAt: now - 73 * 3600_000, endsAt: now - 11 * 60_000, attackerPoints: 2, defenderPoints: 5 });
         await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER, hp: 20_000, updatedAt: now });
         await breakAnotherRow();
         const { result } = await warEvents(() => settlement.settleDueSectorWars(now));
@@ -418,7 +419,7 @@ describe('war event: settlement flips or holds exactly once', { concurrency: fal
         await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER, hp: 20_000, updatedAt: now });
         return contest({
             startedAt: now - 73 * 3600_000,
-            endsAt: now - 60_000,
+            endsAt: now - 11 * 60_000, // past the whistle and the settlement grace
             attackerPoints: points.attacker,
             defenderPoints: points.defender,
         });
