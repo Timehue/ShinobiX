@@ -250,8 +250,13 @@ export function applyAiFightOutcomeToCharacter(
     // That was shipped on 2026-09-08 and reverted the same day.
     //
     // Clamped DECREASE-ONLY as a second line of defence, so even a mislabelled
-    // encounter can only ever cost a player vitals, never mint them. HP needs no
-    // such guard: it is seeded from currentHp in every mode.
+    // encounter can only ever cost a player vitals, never mint them. HP carries
+    // no such guard, and that is safe ONLY while every encounter seeds the
+    // player's actor from the save's current HP: buildSoloPveAiEncounter does,
+    // and so do the two Solo-PvE builders that bypass it
+    // (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-encounter.ts).
+    // Those two used to seed a full pool, which made "start the fight, then
+    // walk out" a free heal. A new builder that seeds a full pool reopens it.
     const carry = (actorValue: unknown, storedValue: unknown): number | undefined => {
         if (!continuousVitals) return undefined;
         if (typeof actorValue !== 'number' || !Number.isFinite(actorValue)) return undefined;
