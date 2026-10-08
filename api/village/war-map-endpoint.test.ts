@@ -127,4 +127,17 @@ describe('GET /api/village/war-map', { concurrency: false }, () => {
         assert.ok(Array.isArray(out.body?.villages));
         assert.ok((out.body?.villages as unknown[]).length > 0);
     });
+
+    it('shows the held count the daily pass pays: war sectors only, suspended ones excluded', async () => {
+        // Every central, special or wilderness row stamped with a village used to
+        // count, and the screen showed suspended sectors the faucet did not pay.
+        await seedSave('frostrunner', VIEWER);
+        for (const sector of [26, 27, 28, 29, 30, 31, 32, 33]) await kv.set(`world:territory:${sector}`, { sector, ownerVillage: VIEWER });
+        for (const sector of [25, 40, 47, 99]) await kv.set(`world:territory:${sector}`, { sector, ownerVillage: VIEWER });
+        await kv.set('world:territory:27', { sector: 27, ownerVillage: VIEWER, ownerClan: 'Frost', rewardSuspendedAt: Date.now() - 1 });
+        const out = await get('frostrunner');
+        assert.equal(out.statusCode, 200);
+        const frost = (out.body?.villages as Array<{ village: string; sectorsHeld: number }>).find((v) => v.village === VIEWER);
+        assert.equal(frost?.sectorsHeld, 7);
+    });
 });
