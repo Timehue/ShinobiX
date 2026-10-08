@@ -19,6 +19,7 @@ import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js
 import { appendStoresLedger, readStores, structureMaterialsCost, STRUCTURE_HERALD_MIN_LEVEL } from '../_village-stores.js';
 import { announce } from '../_announce.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx, type EconomyTxState } from '../_economy-tx.js';
+import { raiseVillageWarRampartsHp } from '../world-state.js';
 
 /*
  * /api/village/war-structure — POST only
@@ -220,6 +221,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 cost: result.cost,
                 ...('need' in result ? { need: result.need, have: result.have } : {}),
                 ...(level !== undefined ? { currentLevel: level } : {}),
+            });
+        }
+        // Ramparts bought during an all-out village war raise this village's war
+        // HP straight away (api/world-state.ts raiseVillageWarRampartsHp). The
+        // level is already granted, so a contended war row must not fail the
+        // purchase; the raise is recomputed from the live level, so the next
+        // Ramparts purchase catches up whatever this one could not land.
+        if (structure === 'ramparts') {
+            await raiseVillageWarRampartsHp(village).catch((error) => {
+                console.warn('[village/war-structure] ramparts war-HP raise deferred', safeLogValue(error));
             });
         }
         // World Herald for a major (L8+) permanent structure. Receipt = village/structure/level.

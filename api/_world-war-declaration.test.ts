@@ -6,6 +6,15 @@ process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'world-war-declaration-test-secret';
 delete process.env.DISABLE_VILLAGE_WAR;
 
+// Real war villages: a declaration naming anything else is refused.
+const LEAF = 'Ashen Leaf Village';
+const MIST = 'Moonshadow Village';
+const SAND = 'Stormveil Village';
+const LEAF_WAR_KEY = 'shared:village-war:ashenleafvillage';
+const LEAF_KAGE_KEY = 'village:kage:ashen-leaf-village';
+const PAIR_ID = 'ashenleafvillage-vs-moonshadowvillage';
+const PAIR_KEY = `world:war:${PAIR_ID}`;
+
 let kv: typeof import('./_storage.js').kv;
 let handler: typeof import('./world-state.js').default;
 let issuePlayerToken: typeof import('./_auth.js').issuePlayerToken;
@@ -88,17 +97,17 @@ beforeEach(async () => {
     if (keys.length) await kv.del(...keys);
     // A non-Leaf owned row prevents the held-sector loader from treating the
     // world as unseeded, so Leaf authoritatively holds zero sectors/costs 0 WR.
-    await kv.set('world:territory:1', { sector: 1, ownerVillage: 'Mist' });
-    await kv.set('shared:village-war:leaf', { warResources: 0, structures: {} });
-    await kv.set('save:leafkage', { character: { name: 'Leaf Kage', village: 'Leaf' } });
-    await kv.set('village:kage:leaf', { seatedKage: 'leafkage' });
+    await kv.set('world:territory:1', { sector: 1, ownerVillage: MIST });
+    await kv.set(LEAF_WAR_KEY, { warResources: 0, structures: {} });
+    await kv.set('save:leafkage', { character: { name: 'Leaf Kage', village: LEAF } });
+    await kv.set(LEAF_KAGE_KEY, { seatedKage: 'leafkage' });
 });
 
 describe('world-state village-war declaration authority', { concurrency: false }, () => {
     it('lets only one of concurrent A-B / A-C declarations activate and records a zero-WR receipt', async () => {
         const [ab, ac] = await Promise.all([
-            invoke('leafkage', ['Leaf', 'Mist']),
-            invoke('leafkage', ['Leaf', 'Sand']),
+            invoke('leafkage', [LEAF, MIST]),
+            invoke('leafkage', [LEAF, SAND]),
         ]);
         const successes = [ab, ac].filter(result => result.statusCode === 200);
         const declines = [ab, ac].filter(result => result.statusCode !== 200);
@@ -112,7 +121,7 @@ describe('world-state village-war declaration authority', { concurrency: false }
         assert.equal(active.length, 1);
         assert.equal(active[0].declarationFunding.source.amount, 0);
         assert.equal(active[0].declarationFunding.declarationId, `v2:${active[0].id}:g1`);
-        const source = await kv.get<Record<string, any>>('shared:village-war:leaf');
+        const source = await kv.get<Record<string, any>>(LEAF_WAR_KEY);
         assert.equal(source?.warResources, 0);
         const receipts = Object.values(source?.warDeclarationFundingReceipts ?? {}) as Array<Record<string, unknown>>;
         assert.equal(receipts.length, 1);
@@ -130,12 +139,12 @@ describe('world-state village-war declaration authority', { concurrency: false }
         await kv.set('save:leafkage', {
             _saveVersion: 4,
             _saveAt: Date.now() - 1_000,
-            character: { name: 'Leaf Kage', village: 'Leaf', honorSeals: 800 },
+            character: { name: 'Leaf Kage', village: LEAF, honorSeals: 800 },
         });
         process.env.DISABLE_VILLAGE_WAR = '1';
         let declared;
         try {
-            declared = await invoke('leafkage', ['Leaf', 'Mist']);
+            declared = await invoke('leafkage', [LEAF, MIST]);
         } finally {
             delete process.env.DISABLE_VILLAGE_WAR;
         }
@@ -153,11 +162,11 @@ describe('world-state village-war declaration authority', { concurrency: false }
         // A war-resources declaration versions no save, so it must NOT invent one.
         const keys = await kv.keys('*');
         if (keys.length) await kv.del(...keys);
-        await kv.set('world:territory:1', { sector: 1, ownerVillage: 'Mist' });
-        await kv.set('shared:village-war:leaf', { warResources: 0, structures: {} });
-        await kv.set('save:leafkage', { _saveVersion: 4, character: { name: 'Leaf Kage', village: 'Leaf' } });
-        await kv.set('village:kage:leaf', { seatedKage: 'leafkage' });
-        const wrDeclared = await invoke('leafkage', ['Leaf', 'Mist']);
+        await kv.set('world:territory:1', { sector: 1, ownerVillage: MIST });
+        await kv.set(LEAF_WAR_KEY, { warResources: 0, structures: {} });
+        await kv.set('save:leafkage', { _saveVersion: 4, character: { name: 'Leaf Kage', village: LEAF } });
+        await kv.set(LEAF_KAGE_KEY, { seatedKage: 'leafkage' });
+        const wrDeclared = await invoke('leafkage', [LEAF, MIST]);
         assert.equal(wrDeclared.statusCode, 200, wrDeclared.body?.error);
         assert.equal(wrDeclared.body?._saveVersion, undefined);
         assert.equal((await kv.get<Record<string, any>>('save:leafkage'))?._saveVersion, 4);
@@ -171,12 +180,12 @@ describe('world-state village-war declaration authority', { concurrency: false }
     it('echoes the committed save version when Honor Seals are too few to declare', async () => {
         await kv.set('save:leafkage', {
             _saveVersion: 4,
-            character: { name: 'Leaf Kage', village: 'Leaf', honorSeals: 100 },
+            character: { name: 'Leaf Kage', village: LEAF, honorSeals: 100 },
         });
         process.env.DISABLE_VILLAGE_WAR = '1';
         let refused;
         try {
-            refused = await invoke('leafkage', ['Leaf', 'Mist']);
+            refused = await invoke('leafkage', [LEAF, MIST]);
         } finally {
             delete process.env.DISABLE_VILLAGE_WAR;
         }
@@ -194,47 +203,47 @@ describe('world-state village-war declaration authority', { concurrency: false }
     });
 
     it('exact-CAS replaces an ended pair after cooldown with a unique funded generation', async () => {
-        const first = await invoke('leafkage', ['Leaf', 'Mist']);
+        const first = await invoke('leafkage', [LEAF, MIST]);
         assert.equal(first.statusCode, 200, first.body?.error);
-        const firstRow = await kv.get<Record<string, any>>('world:war:leaf-vs-mist');
+        const firstRow = await kv.get<Record<string, any>>(PAIR_KEY);
         assert.equal(firstRow?.declarationGeneration, 1);
         const endedAt = Date.now() - 8 * 24 * 60 * 60 * 1_000;
-        const ended = { ...firstRow, endedAt, winnerVillage: 'Leaf', updatedAt: endedAt };
-        await kv.set('world:war:leaf-vs-mist', ended);
+        const ended = { ...firstRow, endedAt, winnerVillage: LEAF, updatedAt: endedAt };
+        await kv.set(PAIR_KEY, ended);
 
-        const rematch = await invoke('leafkage', ['Leaf', 'Mist']);
+        const rematch = await invoke('leafkage', [LEAF, MIST]);
         assert.equal(rematch.statusCode, 200, rematch.body?.error);
-        const successor = await kv.get<Record<string, any>>('world:war:leaf-vs-mist');
+        const successor = await kv.get<Record<string, any>>(PAIR_KEY);
         assert.equal(successor?.declarationGeneration, 2);
-        assert.equal(successor?.declarationFunding?.declarationId, 'v2:leaf-vs-mist:g2');
+        assert.equal(successor?.declarationFunding?.declarationId, `v2:${PAIR_ID}:g2`);
         assert.equal(successor?.endedAt, undefined);
         assert.equal(successor?.winnerVillage, undefined);
-        assert.equal(successor?.warCrateId, 'war-crate-leaf-vs-mist-g2');
-        const source = await kv.get<Record<string, any>>('shared:village-war:leaf');
+        assert.equal(successor?.warCrateId, `war-crate-${PAIR_ID}-g2`);
+        const source = await kv.get<Record<string, any>>(LEAF_WAR_KEY);
         const receipts = Object.values(source?.warDeclarationFundingReceipts ?? {}) as Array<Record<string, unknown>>;
         assert.equal(receipts.length, 2, 'permanent g1 receipt cannot fund g2 for free');
         assert.deepEqual(receipts.map(receipt => receipt.declarationId).sort(), [
-            'v2:leaf-vs-mist:g1',
-            'v2:leaf-vs-mist:g2',
+            `v2:${PAIR_ID}:g1`,
+            `v2:${PAIR_ID}:g2`,
         ]);
     });
 
     it('help-forwards a crashed funded row after the declaring Kage is dethroned', async () => {
-        await kv.set('shared:village-war:leaf', { warResources: 500, structures: {} });
-        await kv.set('save:helper', { character: { name: 'Helper', village: 'Leaf' } });
+        await kv.set(LEAF_WAR_KEY, { warResources: 500, structures: {} });
+        await kv.set('save:helper', { character: { name: 'Helper', village: LEAF } });
         const now = Date.now() - 60_000;
-        const pairId = 'leaf-vs-mist';
+        const pairId = PAIR_ID;
         const declarationId = `v2:${pairId}:g1`;
         const source = {
             kind: 'war-resources' as const,
-            recordKey: 'shared:village-war:leaf',
-            accountId: 'Leaf',
+            recordKey: LEAF_WAR_KEY,
+            accountId: LEAF,
             amount: 200,
         };
         const war = {
             id: pairId,
-            villages: ['Leaf', 'Mist'] as [string, string],
-            hp: { Leaf: 5_000, Mist: 5_000 },
+            villages: [LEAF, MIST] as [string, string],
+            hp: { [LEAF]: 5_000, [MIST]: 5_000 },
             warGroundSector: 40,
             warGroundHp: 1_000,
             startedAt: now,
@@ -242,7 +251,7 @@ describe('world-state village-war declaration authority', { concurrency: false }
             pendingUntil: now + 3_600_000,
             declaredBy: 'oldkage',
             declarationGeneration: 1,
-            warCrateId: 'war-crate-leaf-vs-mist-g1',
+            warCrateId: `war-crate-${PAIR_ID}-g1`,
         };
         const fingerprint = fundingFingerprint({ declarationId, pairId, source, villages: war.villages });
         const ownerId = 'crashed-owner';
@@ -273,31 +282,43 @@ describe('world-state village-war declaration authority', { concurrency: false }
         assert.equal((await promoteReservations(kv, reservationPlan)).status, 'reserved');
         // Process crashes before debit. Original Kage loses the seat; an ordinary
         // authenticated participant safely triggers takeover/help-forward.
-        await kv.set('village:kage:leaf', { seatedKage: 'someoneelse' });
+        await kv.set(LEAF_KAGE_KEY, { seatedKage: 'someoneelse' });
 
-        const helped = await invoke('helper', ['Leaf', 'Mist']);
+        const helped = await invoke('helper', [LEAF, MIST]);
         assert.equal(helped.statusCode, 200, helped.body?.error);
         assert.equal(helped.body?.replayed, true);
         assert.equal(helped.body?.war?.declarationFunding?.status, 'active');
-        assert.equal((await kv.get<Record<string, unknown>>('shared:village-war:leaf'))?.warResources, 300);
+        assert.equal((await kv.get<Record<string, unknown>>(LEAF_WAR_KEY))?.warResources, 300);
     });
 
-    it('blocks a direct HP-zero territory owner flip while an active sector contest binds the defender', async () => {
+    // A player can never move a sector's owner through the territory route —
+    // only a settled sector war does (owner ruling 2026-10-08). This used to be
+    // refused only while a contest bound the sector (409); any other 0-HP
+    // sector could be taken by writing your own village in.
+    it('refuses a player territory owner flip even at 0 HP, and while a contest binds it', async () => {
         const now = Date.now();
         await kv.set('world:territory:40', {
             sector: 40,
-            ownerVillage: 'Mist',
+            ownerVillage: MIST,
             hp: 0,
             updatedAt: now - 1,
         });
         await kv.set('save:sandcaptain', {
-            character: { name: 'Sand Captain', village: 'Sand' },
+            character: { name: 'Sand Captain', village: SAND },
         });
+        const flip = await invokeTerritory('sandcaptain', {
+            sector: 40,
+            ownerVillage: SAND,
+            hp: 20_000,
+            updatedAt: now,
+        });
+        assert.equal(flip.statusCode, 403, 'no contest: still refused');
+        assert.equal((await kv.get<Record<string, unknown>>('world:territory:40'))?.ownerVillage, MIST);
         await kv.set('shared:sector-war:40:leaf-vs-mist', {
             id: '40:leaf-vs-mist',
             sector: 40,
-            attackerVillage: 'Leaf',
-            defenderVillage: 'Mist',
+            attackerVillage: LEAF,
+            defenderVillage: MIST,
             winCondition: 'combat',
             attackerPoints: 0,
             defenderPoints: 0,
@@ -313,8 +334,8 @@ describe('world-state village-war declaration authority', { concurrency: false }
                 fingerprint: 'a'.repeat(64),
                 source: {
                     kind: 'war-resources',
-                    recordKey: 'shared:village-war:leaf',
-                    accountId: 'Leaf',
+                    recordKey: LEAF_WAR_KEY,
+                    accountId: LEAF,
                     amount: 200,
                 },
                 createdAt: now - 1_000,
@@ -328,11 +349,11 @@ describe('world-state village-war declaration authority', { concurrency: false }
 
         const capture = await invokeTerritory('sandcaptain', {
             sector: 40,
-            ownerVillage: 'Sand',
+            ownerVillage: SAND,
             hp: 20_000,
             updatedAt: now,
         });
-        assert.equal(capture.statusCode, 409);
-        assert.equal((await kv.get<Record<string, unknown>>('world:territory:40'))?.ownerVillage, 'Mist');
+        assert.equal(capture.statusCode, 403);
+        assert.equal((await kv.get<Record<string, unknown>>('world:territory:40'))?.ownerVillage, MIST);
     });
 });
