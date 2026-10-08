@@ -21,7 +21,11 @@ export function createWorldMovementGate() {
             const model = worldPositionModel(), position = model.read(rawPosition);
             const prior = model.read(player.worldPosition) ?? model.fallback(player.sector, player.tile ?? 78);
             if (!position || !prior || model.location(prior).sector !== player.sector) return { ok: false, reason: 'position' };
-            const clock = clocks.get(player.name) ?? { at: now, credit: .25 };
+            // A missing clock means the player has rested at least since the idle sweep
+            // (or just connected), so they hold the same capped credit as any rested
+            // walker. A quarter tile here refused the first step after every rest and
+            // snapped the player back. The cap still bounds the burst to two tiles.
+            const clock = clocks.get(player.name) ?? { at: now, credit: WORLD_WALK_MAX_CREDIT };
             const credit = Math.min(WORLD_WALK_MAX_CREDIT, clock.credit + Math.max(0, now - clock.at) / 1000 * WORLD_WALK_SPEED);
             const distance = model.distanceWithin(prior, position, credit);
             if (distance === null) {

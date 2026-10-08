@@ -116,8 +116,9 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // lease to confirm arrival. These handlers add the mission target and
         // confirmed-location gate without restoring a retired map layer.
         // The Find adds resume/settlement wiring; its VN, choice UI and claim logic remain separate.
-        lineCount(worldMapSource) <= 5318,
-        `WorldMap.tsx grew past 5,318 lines; retired overview layers must stay retired.`,
+        // 5,306 (-12): sector traces loading moved to lib/use-sector-traces.ts.
+        lineCount(worldMapSource) <= 5306,
+        `WorldMap.tsx grew past 5,306 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { WorldSectorCanvasProps } from './WorldSectorCanvas';
-import { mountContinuousWorld } from '../lib/continuous-world-controller';
+import { mountContinuousWorld, STALE_WORLD_STATUS } from '../lib/continuous-world-controller';
 import { SectorPortrait } from './SectorPortrait';
 import { ContinuousWorldPeers } from './ContinuousWorldPeers';
 import { DayNightSky } from './DayNightSky';
@@ -18,6 +18,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
     const [status, setStatus] = useState('Connecting to world…'), [retry, setRetry] = useState(0), [ready, setReady] = useState(false);
     const name = props.playerName;
     const position = useRef<{ sector: number; col: number; row: number } | null>(null);
+    // Off the painting, the server's tile is only the nearest painted anchor; don't mark it as underfoot.
+    const [onPainting, setOnPainting] = useState(true);
     useLayoutEffect(() => { latest.current = props; });
     useEffect(() => {
         const abort = new AbortController(); let alive = true;
@@ -25,7 +27,15 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             blocked: () => Boolean(latest.current.suspended || latest.current.worldMovementBlocked?.()
                 || document.querySelector('[aria-modal=true],dialog[open]')),
             onAuthority: (sector, tile) => latest.current.onWorldAuthority?.(sector, tile), onStatus: setStatus,
-            onPosition: (sector, col, row) => { position.current = { sector, col, row }; },
+            onPosition: (sector, col, row) => {
+                position.current = { sector, col, row };
+                setOnPainting(col > -.5 && col < 11.5 && row > -.5 && row < 11.5);
+            },
+            // The painted building is the landmark, even where its overlay button is not under the tap.
+            onTapTile: tile => {
+                const landmark = chunk.current?.querySelector<HTMLButtonElement>(`[data-footprint~="${tile}"]:not(:disabled)`);
+                landmark?.click(); return Boolean(landmark);
+            },
         }).then(value => { if (!alive) { value.dispose(); return; } engine.current = value; value.externalSector(latest.current.sector); setStatus(''); setReady(true); })
             .catch(error => { if (alive && !abort.signal.aborted) setStatus(error instanceof Error ? error.message : 'World connection unavailable.'); });
         return () => { alive = false; abort.abort(); engine.current?.dispose(); engine.current = null; };
@@ -40,7 +50,7 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             {props.regionSplash && <RegionSplash {...props.regionSplash} onDone={props.onRegionSplashDone} />}
             <div className="pixel-map continuous-world-chunk" ref={chunk} data-world-chunk={props.sector}>
                 {Array.from({ length: 144 }, (_, tile) => <button key={tile} type="button" tabIndex={tile === props.playerTile ? 0 : -1}
-                    className={`scene-tile continuous-world-tile${tile === props.playerTile ? ' sector-player-tile' : ''}`}
+                    className={`scene-tile continuous-world-tile${tile === props.playerTile && onPainting ? ' sector-player-tile' : ''}`}
                     disabled={!ready} aria-label={props.roadExits.some(e => e.tile === tile)
                         ? `Cross to ${sectorName(props.roadExits.find(e => e.tile === tile)!.destinationSector)}`
                         : `${tile === props.playerTile ? 'Current tile' : isWalkableTile(props.sector, tile) ? 'Move to tile' : 'Move near blocked tile'} row ${Math.floor(tile / 12) + 1} column ${tile % 12 + 1}`}
@@ -58,7 +68,8 @@ export function ContinuousWorldSector(props: WorldSectorCanvasProps) {
             </div>
             {props.mapHudLayer}
             <div className="continuous-world-status" role="status" aria-live="polite">{status}
-                {!ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
+                {status === STALE_WORLD_STATUS ? <button type="button" onClick={() => window.location.reload()}>Reload</button>
+                    : !ready && status !== 'Connecting to world…' && <button type="button" onClick={() => { setStatus('Connecting to world…'); setRetry(value => value + 1); }}>Retry</button>}
             </div>
         </div>
     </main>;

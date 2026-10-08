@@ -243,8 +243,9 @@ import { WorldRoadsOverlay, WorldPoiPlates } from "../components/WorldRoadsOverl
 import "../components/world-map-charting.css";
 import { RouteGlowOverlay, regionSplashLabelFor, regionTintForSector } from "../components/WorldWalkFeel";
 import "../components/world-walk-feel.css";
-import { SectorTracesModal, type TracesModalState } from "../components/SectorTraces";
-import { fetchSectorTraces, isSectorTracesEnabled, type SectorTracesView } from "../lib/sector-traces";
+import { SectorTracesModal } from "../components/SectorTraces";
+import { isSectorTracesEnabled } from "../lib/sector-traces";
+import { useSectorTraces } from "../lib/use-sector-traces";
 
 // Middle of the 12x12 sector board (row 6, col 6). Where a player lands after a
 // map jump that has no direction to preserve, and the initial standing tile.
@@ -2112,20 +2113,7 @@ function WorldMapContent({
         dismissWandererDialog();
     }
 
-    // Sector traces — footfall + trail signs + shrine (server-authoritative snapshot,
-    // refetched on sector change; action responses patch it in place).
-    const [sectorTraces, setSectorTraces] = useState<SectorTracesView | null>(null);
-    const [tracesModal, setTracesModal] = useState<TracesModalState | null>(null);
-    useEffect(() => {
-        setSectorTraces(null);
-        setTracesModal(null);
-        if (!isSectorTracesEnabled() || selectedSector == null || selectedSector < 1 || selectedSector > 60) return;
-        let cancelled = false;
-        void fetchSectorTraces(selectedSector, character.name).then((view) => {
-            if (!cancelled && view && view.sector === selectedSector) setSectorTraces(view);
-        });
-        return () => { cancelled = true; };
-    }, [selectedSector, character.name]);
+    const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces } = useSectorTraces(selectedSector, character.name);
     async function claimWandererGift(w: Wanderer) {
         setWandererDialog({ w, busy: true });
         try {
@@ -3835,11 +3823,11 @@ function WorldMapContent({
     }
 
     function handleOpenSectorSigns() {
-        setTracesModal({ view: "signs" });
+        openSectorTraces({ view: "signs" });
     }
 
     function handleOpenSectorShrine() {
-        setTracesModal({ view: "shrine" });
+        openSectorTraces({ view: "shrine" });
     }
 
     function handleExploreSelectedSector() {
@@ -4492,8 +4480,8 @@ function WorldMapContent({
                                     onOpen: () => setFieldScene({ questId: fieldObjective.questId, pointId: fieldObjective.pointId! }),
                                 } : null}
                                 onEngageWanderer={handleWandererEngage}
-                                onOpenTrace={(signId) => setTracesModal({ view: "signs", focusSignId: signId })}
-                                onOpenShrine={() => setTracesModal({ view: "shrine" })}
+                                onOpenTrace={(signId) => openSectorTraces({ view: "signs", focusSignId: signId })}
+                                onOpenShrine={handleOpenSectorShrine}
                             />}
                             </>
                         }

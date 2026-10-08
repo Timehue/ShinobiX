@@ -1,5 +1,16 @@
 # Connected sector world — continuous travel implemented and locally verified
 
+## Open frontier — 2026-10-08
+
+This supersedes the corridor-only walking described below. Owner report: "excessive collision, sector 14". Two audits listed the same causes. The sector masks were correct. The walls came from walking being limited to the paintings plus a one-cell road line, so every road verge and open painting edge was an invisible wall.
+
+- **Open land:** `shared/world-frontier.ts` adds walkable `l:x:y` nodes, about 23k: an apron of radius 4±1.2 around each painting and a ±2 verge along each road. A step between sectors exists only where `sectorExits` links them. Unlinked neighbours meet at a closed rocky rim. Adjacent corridors are stepped between, except within 3 cells of an overpass. Remaining seams get a drawn rock line. Cursor versions are `cw1-<hash>.f1` (`worldGraphVersion`), so older cursors fall back to sector and tile.
+- **Seams and bridge taps:** a dotted line marks every step that changes sector. A tap on a bridge deck picks the upper road.
+- **Movement fixes:** HTTP-only walking sends every 125 ms, under the 1.4-tile allowance. A pruned movement clock starts at full credit, so a rested player no longer snaps back. A stale graph version shows a Reload status.
+- **NPCs:** NPCs are grounded on walkable tiles and loiter only on walkable ground. They chase onto their own sector's land without turning back mid-step.
+- **Shrine:** shrine and sign data retry and load on open.
+- **Measured:** 1,472 of 1,496 outward painting-edge steps are open. The only remaining no-step seams are 12 on overpass decks (by design) and 7 drawn rock lines. Wanderer placement and paths were checked over 24,930 rosters with 0 problems.
+
 ## Continuous-world scope — 2026-10-07
 
 Publication update: the owner has now authorized checking live `main` and pushing this feature to live `main`. The verified feature is committed on `codex/connected-sector-world-release`; current upstream `32f110e2c6635e293ae3887ae0ef17ddbea49945` merged cleanly, preserving the exploration quota and rally fixes. Release checks and publication are in progress. Previous local-only statements below describe the pre-publication verification checkpoint. Production `/health` currently reports `ee85c880eb939d128e906e2413f0785e1dc4864a`; the newer upstream commit has green GitHub CI but a failed Railway deployment status, so successful publication must be confirmed against the eventual deployed commit.
