@@ -663,7 +663,10 @@ export function applySectorWarBattle(
     const next: SectorWarSession = {
         ...session,
         updatedAt: opts.now,
-        ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
+        // Never backwards: `now` is the battle's own end, and a battle whose
+        // terminal step was retried can reach the contest hours late. Taking
+        // its clock as-is re-opened a garrison the defenders were holding.
+        ...(aiBattle ? {} : { lastLiveBattleAt: Math.max(opts.now, Math.floor(Number(session.lastLiveBattleAt) || 0)) }),
     };
 
     // Village Stores: an unfed defender's Watchtower bonus is halved for the day.
