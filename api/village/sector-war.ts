@@ -686,6 +686,14 @@ async function doDeclare(req: VercelRequest, res: VercelResponse, identity: Iden
         return sendSectorFundingOutcome(res, await continueSectorDeclaration(resumed), pendingSession);
     }
 
+    // The last war on this sector is past its whistle but still inside the
+    // settlement grace: its verdict may yet flip the sector, so it still owns
+    // it. (The locked check in continueSectorDeclaration would refuse this
+    // too, but as "changed owners", which is not what happened.)
+    if ((await listUnsettledDueSectorWars(Date.now(), kv, { strict: true })).some((due) => due.sector === sector)) {
+        return res.status(409).json({ error: 'The last war on this sector is still being settled. Try again in a few minutes.' });
+    }
+
     const contestId = sectorWarId(sector, village, defender);
     const contestKey = sectorWarKey(contestId);
     const rawContest = await kv.get<Record<string, unknown>>(contestKey);

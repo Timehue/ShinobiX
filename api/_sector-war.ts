@@ -924,6 +924,18 @@ export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'bat
 // ── Settlement ─────────────────────────────────────────────────────────────────
 
 /**
+ * How long settlement waits after the whistle. A battle that ENDED inside the
+ * 72 hours scores by its own clock, but its result can reach the contest a
+ * little late: a terminal step that failed once and is retried by the claim, a
+ * Card/Pet table or garrison fight reported after the fact. Without a grace,
+ * whether such a battle counted depended on whether the 5-minute settlement
+ * tick got there first, and a one-point capture could become a hold. Nothing
+ * NEW can score in the grace: a battle that ends after the whistle is refused
+ * by its own clock, as before.
+ */
+export const SECTOR_WAR_SETTLEMENT_GRACE_MS = 10 * 60 * 1000;
+
+/**
  * Settle a war whose 72 hours are up. Attacker STRICTLY ahead → the sector flips;
  * defender ahead OR TIED → the defence held (holding ground beats matching it).
  * The territory flip itself is IO and lives in api/_sector-war-settle.ts — this

@@ -147,6 +147,25 @@ describe('sector-war declaration territory authority race', { concurrency: false
         assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
     });
 
+    // A war past its whistle waits out the settlement grace before its verdict
+    // is stamped, and that verdict may still flip the sector. Until it lands,
+    // the sector is not open to a new declaration.
+    it('refuses a new declaration while the last war on the sector awaits its verdict', async () => {
+        const now = Date.now();
+        const settlingId = `${SECTOR}:stormveilvillage-vs-frostfangvillage`;
+        await kv.set(`shared:sector-war:${settlingId}`, {
+            id: settlingId, sector: SECTOR, attackerVillage: NEW_DEFENDER, defenderVillage: OLD_DEFENDER,
+            winCondition: 'combat', attackerPoints: 9, defenderPoints: 0,
+            startedAt: now - 72 * 60 * 60 * 1000 - 60_000, endsAt: now - 60_000, updatedAt: now - 60_000,
+            flipped: false, declarationGeneration: 1,
+        });
+        const blocked = await declare();
+        assert.equal(blocked.statusCode, 409, JSON.stringify(blocked.body));
+        assert.match(String(blocked.body?.error), /still being settled/);
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await kv.get(OLD_CONTEST_KEY), null, 'nothing was published');
+    });
+
     // The debit lands on the attacker's War Resource record, which merc hires
     // and ticks, the daily stores pass and ANBU skims rewrite whole under that
     // record's lock. A declaration that debited without the lock could have its
