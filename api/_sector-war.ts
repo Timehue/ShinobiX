@@ -626,7 +626,16 @@ export function garrisonPointsInWar(session: Pick<SectorWarSession, 'appliedBatt
  * Fractions and caps (AI only — player scoring is uncapped, see the Score caps
  * note above):
  *   · garrisonBattle → GARRISON_POINTS_FRACTION, then the war-wide GARRISON cap.
- *   · mercBattle + defender win → MERC_REPEL_POINTS_FRACTION.
+ *   · mercBattle → MERC_REPEL_POINTS_FRACTION on one outcome, chosen by
+ *     `mercSide`:
+ *       - 'attacker' (the default): a DEFENDER win scores at repel weight. That
+ *         is the attacker-hired band of earlier releases being repelled, and
+ *         also how a garrison HOLD is scored (callers pass
+ *         `mercBattle: !attackerWon` — an AI holding ground is worth less to
+ *         the defence than a real defender winning).
+ *       - 'defender': a defending village's hired band. An ATTACKER win (the
+ *         band repelled) scores at repel weight; a band win scores the defence
+ *         in full.
  *
  * A terminal or past-end session scores nothing. A live-player battle refreshes
  * `lastLiveBattleAt` (re-locks the garrison); AI battles refresh `updatedAt` only.
@@ -643,6 +652,8 @@ export function applySectorWarBattle(
         by?: string;
         garrisonBattle?: boolean;
         mercBattle?: boolean;
+        /** Which side the merc/AI fought FOR (default 'attacker'). */
+        mercSide?: 'attacker' | 'defender';
     },
 ): SectorBattleOutcome {
     if (session.flipped || session.expiredAt || opts.now >= session.endsAt) {
@@ -668,8 +679,11 @@ export function applySectorWarBattle(
         points = Math.floor(points * GARRISON_POINTS_FRACTION);
         points = Math.min(points, Math.max(0, garrisonPointsCapFor(session, session.attackerVillage, today) - garrisonPointsInWar(session)));
     }
-    if (opts.mercBattle && !attackerWon) {
-        points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
+    if (opts.mercBattle) {
+        // The side that beat the AI scores at repel weight; an AI that won
+        // scores its own side in full.
+        const aiSideWon = (opts.mercSide === 'defender') === !attackerWon;
+        if (!aiSideWon) points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
     }
     if (points <= 0) return { session: next, awarded: 0, side: 'none' };
 
