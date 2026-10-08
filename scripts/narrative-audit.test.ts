@@ -42,6 +42,23 @@ test('short dialogue stays advisory; unresolved variables and duplicate identiti
     assert.ok(errors(s).includes('unknown-variable'));
     assert.ok(auditScenes([s, s]).some(f => f.code === 'duplicate-scene'));
 });
+test('an asset path shown as a caption or line fails; review annotations do not', () => {
+    const shown = (family: string, extra: Partial<Scene>, p: Partial<Page>) => auditScenes([{ ...scene([{ ...page(undefined), ...p }]), family, ...extra }]).filter(f => f.code === 'asset-path');
+    // The live bug: the Sage VN printed its backdrop path as the scene caption.
+    assert.equal(shown('legacy', { readerCaptions: true }, { scene: '/scenes/legacy-sage-offer.png' }).length, 1);
+    assert.equal(shown('road', {}, { title: 'scenes/road.webp' }).length, 1);
+    assert.equal(shown('tutorial', {}, { dialogue: ['Narrator: Look at https://example.com/art.png'] }).length, 1);
+    // A catalog family's scene field is an inventory note, not reader text.
+    assert.deepEqual(shown('hollow-gate', {}, { scene: '/scenes/hollow-gate-intro.png' }), []);
+    const corpus = buildCorpus();
+    assert.equal(corpus.find(s => s.id === 'legacy/legacy-sage-offer')?.readerCaptions, true, 'the Sage captions are reader text');
+    // Tutorial kickers, caravan cards and First Pact name plates are shown too.
+    for (const family of ['tutorial', 'caravan', 'first-pact']) {
+        const scenes = corpus.filter(s => s.family === family && !s.catalog);
+        assert.ok(scenes.length && scenes.every(s => s.readerCaptions), `${family} titles and captions are player text`);
+    }
+    assert.deepEqual(auditScenes(corpus).filter(f => f.code === 'asset-path'), []);
+});
 test('whole corpus passes structural checks; sampling is repeatable and spans families and villages', () => {
     const corpus = buildCorpus();
     assert.deepEqual(auditScenes(corpus).filter(f => f.severity === 'error'), []);

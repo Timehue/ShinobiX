@@ -7,7 +7,7 @@ import { type TileCard } from "../data/tile-cards";
 import { isPetOnExpedition, petDisplayName } from "../lib/pet";
 import { primePetSfx } from "../lib/pet-sfx";
 import { startBattleMusic } from "../lib/pet-music";
-import { applyVnTextVars, vnTextVarsFor, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine } from "../lib/vn";
+import { applyVnTextVars, vnTextVarsFor, defaultVnScene, hidePlayerPortraitDuringNarration, splitDialogueLine, vnSceneCaption } from "../lib/vn";
 import { rewardSummary } from "../lib/currency";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { CinematicVisualNovelStage } from "../components/CinematicVisualNovelStage";
@@ -91,7 +91,7 @@ export function DungeonEncounter({
     const stagePage = stage === "pet" ? 2 : stage === "tile" ? 1 : 0;
     const page = pages[Math.min(stagePage, pages.length - 1)];
     const pageDialogue = page.dialogue.length > 0 ? page.dialogue : event.dialogue;
-    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? page.scene ?? "The dungeon waits.";
+    const activeLine = pageDialogue[lineIndex] ?? pageDialogue[0] ?? (vnSceneCaption(page.scene) || "The dungeon waits.");
     const textVars = vnTextVarsFor(character);
     const parsedLine = page.lines?.[lineIndex] ?? splitDialogueLine(activeLine, page.speaker || event.vnSpeaker || "Narrator");
     const speaker = applyVnTextVars(parsedLine.speaker, textVars);
@@ -165,7 +165,7 @@ export function DungeonEncounter({
             eventId={event.id}
             eventLabel={`Hidden relic vault · ${event.biome}`}
             pageTitle={page.title || event.vnTitle || event.name}
-            scene={page.scene || event.vnScene || 'A hidden dungeon opens underfoot.'}
+            scene={vnSceneCaption(page.scene, event.vnScene) || 'A hidden dungeon opens underfoot.'}
             speaker={speaker} spoken={spoken}
             pageIndex={stagePage} pageCount={3} progressLabel="Seal"
             lineIndex={lineIndex} lineCount={Math.max(1, pageDialogue.length)}
