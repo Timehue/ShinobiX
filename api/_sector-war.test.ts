@@ -616,13 +616,22 @@ describe('sector-war: Village Stores (garrison feed cap + unfed Watchtower)', ()
         const plain = projectSectorWarForClient(s) as Record<string, unknown>;
         assert.equal(plain.fed, false);
         assert.equal(plain.garrisonFed, undefined, 'no viewer -> no flat mirror');
-        assert.deepEqual(plain.garrisonFeed, s.garrisonFeed);
+        assert.equal(plain.garrisonFeed, undefined, 'no viewer -> no village\'s feed entry at all');
         const frost = projectSectorWarForClient(s, FROST) as Record<string, unknown>;
         assert.equal(frost.garrisonFed, true);
         assert.equal(frost.garrisonFedBy, FROST);
         assert.equal(frost.garrisonCovered, true);
+        assert.deepEqual(frost.garrisonFeed, s.garrisonFeed, 'a village sees its own entry');
         const moon = projectSectorWarForClient(s, MOON) as Record<string, unknown>;
         assert.equal(moon.garrisonFed, undefined, 'the other side never sees the enemy feed as its own');
+        // Owner ruling 2026-10-09: a village's internals are for its members, so
+        // the enemy's feed (and who ordered it) is not in the map either.
+        assert.equal(moon.garrisonFeed, undefined, 'the other side never sees the enemy\'s feed entry');
+        assert.deepEqual(
+            (projectSectorWarForClient(s, MOON, { admin: true }) as Record<string, unknown>).garrisonFeed,
+            s.garrisonFeed,
+            'an admin sees every entry',
+        );
         // A per-village map wins over a stale legacy trio on the same row.
         const both = normalizeSectorWarSession({ ...raw, garrisonFeed: { [FROST]: { on: false, covered: false, updatedAt: 5, by: 'k' } } } as unknown as Record<string, unknown>)!;
         assert.deepEqual(both.garrisonFeed, { [FROST]: { on: false, covered: false, updatedAt: 5, by: 'k' } });

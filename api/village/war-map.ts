@@ -6,7 +6,7 @@ import { normalizeVillageWarRecord, villageWarKey, villageWarSlug } from '../_wa
 import { WAR_VILLAGES } from '../_war-map-sectors.js';
 import { loadHeldSectors } from '../_war-held-sectors.js';
 import { isVillageKageSeated } from '../_war-tax-apply.js';
-import { villageWarMapView, type VillageWarMapView } from '../_war-map-view.js';
+import { publicVillageWarMapView, villageWarMapView, type VillageWarMapPublicView, type VillageWarMapView } from '../_war-map-view.js';
 import { listActiveSectorWars } from '../_sector-war-store.js';
 import { projectSectorWarForClient } from '../_sector-war.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
@@ -17,10 +17,12 @@ import { viewerVillageOf } from '../_viewer-village.js';
  *
  * The client's War-Map command panel reuses /api/world-state for sector
  * ownership + village wars, and this for the WR-economy layer world-state doesn't
- * carry: each war village's WR + treasury-seal pools, its 6 structures + daily
- * upkeep + dormancy, the Supply-Depot WR rate, the effective tax tier (from how
- * many sectors it currently holds), the win-condition / terrain of each sector
- * it holds (the holder sets them), plus every active sector-war contest.
+ * carry. For the VIEWER's own village: its WR + treasury-seal pools, its 6
+ * structures + daily upkeep + dormancy, the Supply-Depot WR rate, the effective
+ * tax tier, its stores and their ledger. For every village: the sectors it holds
+ * and their win-condition / terrain (the holder sets them). Another village's
+ * internals are for its members only (owner ruling 2026-10-09). Plus every
+ * active sector-war contest, with only the viewer's own garrison feed.
  * View-only — all actions call the dedicated server-auth endpoints.
  *
  * Server-gated by the default-on Sector Map campaign switch. Requires a logged-in player.
@@ -71,18 +73,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ]);
         const viewerVillage = resolvedViewerVillage || undefined;
 
-        const villages: VillageWarMapView[] = WAR_VILLAGES.map((v, i) => {
+        // A village's war chest, structures, stores and tax are for its own
+        // members (owner ruling 2026-10-09). Everyone else gets the public view:
+        // who holds what, and the rules of each held sector. Admins see all.
+        const villages: Array<VillageWarMapView | VillageWarMapPublicView> = WAR_VILLAGES.map((v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);
             const treasury = (stateRaws[i]?.treasury ?? {}) as Record<string, unknown>;
             const treasurySeals = Number(treasury.honorSeals) || 0;
-            return villageWarMapView({
+            const view = villageWarMapView({
                 village: v, record, treasurySeals, sectorsHeld: heldCount[v] ?? 0, kageSeated: kageSeats[i],
                 provisions: Number(treasury.provisions) || 0, materialPoints: Number(treasury.materialPoints) || 0,
                 heldSectors: heldLists[v] ?? [],
             });
+            return identity.admin || v === viewerVillage ? view : publicVillageWarMapView(view);
         });
 
-        return res.status(200).json({ ok: true, enabled: true, villages, contests: contests.map((c) => projectSectorWarForClient(c, viewerVillage)) });
+        return res.status(200).json({
+            ok: true, enabled: true, villages,
+            contests: contests.map((c) => projectSectorWarForClient(c, viewerVillage, { admin: identity.admin })),
+        });
     } catch (err) {
         console.error('[village/war-map]', err);
         return res.status(500).json({ error: 'Internal server error.' });

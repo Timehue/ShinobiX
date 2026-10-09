@@ -140,5 +140,31 @@ export function villageWarMapView(args: {
     };
 }
 
+/**
+ * What every player may see about ANOTHER village on the War Map: who it is,
+ * where it stands, whether it has a Kage, and the rules of the sectors it holds
+ * (an attacker must know what kind of battle a sector is). Its war chest,
+ * treasury seals, structures, upkeep, dormancy, tax, stores and ledger are its
+ * members' business (owner ruling 2026-10-09); other villages learn them only
+ * through intel (api/village/intel.ts).
+ */
+export type VillageWarMapPublicView = Pick<VillageWarMapView, 'village' | 'biome' | 'homeSectors' | 'sectorsHeld' | 'kageSeated' | 'sectors'> & {
+    /** Set on every view of a village that is not the viewer's own. */
+    restricted: true;
+};
+
+/** The view a non-member gets of a village. Pure. */
+export function publicVillageWarMapView(view: VillageWarMapView): VillageWarMapPublicView {
+    return {
+        village: view.village,
+        biome: view.biome,
+        homeSectors: [...view.homeSectors],
+        sectorsHeld: view.sectorsHeld,
+        kageSeated: view.kageSeated,
+        sectors: view.sectors.map((sector) => ({ ...sector })),
+        restricted: true,
+    };
+}
+
 /** The structure keys, in display order, for the client (mirror of STRUCTURE_KEYS). */
 export const WAR_MAP_STRUCTURE_KEYS: readonly StructureKey[] = STRUCTURE_KEYS;

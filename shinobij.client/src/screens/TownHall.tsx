@@ -351,7 +351,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         void fetchWarMap().then((wm) => {
             if (!alive) return;
             const mine = wm.villages.find((v) => v.village === character.village);
-            setWarStructures(mine ? mine.structures : null);
+            setWarStructures(mine?.structures ?? null);
         }).catch(() => { if (alive) setWarStructures(null); });
         return () => { alive = false; };
     }, [tab, character.village]);
@@ -472,7 +472,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             await upgradeWarStructure(character.name, character.village, key, warStructures ? (warStructures[key] ?? 0) + 1 : undefined);
             const wm = await fetchWarMap();
             const mine = wm.villages.find((v) => v.village === character.village);
-            setWarStructures(mine ? mine.structures : null);
+            setWarStructures(mine?.structures ?? null);
             // An L6+ build spends materials, and this read is newer than the
             // stores snapshot. Without it the Treasury tab opens on the pre-build
             // figure until its own read lands.

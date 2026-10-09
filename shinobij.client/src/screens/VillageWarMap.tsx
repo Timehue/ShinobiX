@@ -168,7 +168,9 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
 
     useEffect(() => visiblePoll(refresh, 15000, 0.1, { immediate: true }), [refresh]);
 
-    const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
+    // Only the viewer's own village carries its war chest and structures; a
+    // restricted view of it (the server could not tell who is asking) shows none.
+    const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage && !v.restricted) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
         const m: Record<number, SectorWarContest> = {};
         for (const c of data?.contests ?? []) m[c.sector] = c;
@@ -350,7 +352,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     <div className="vwm-structures">
                                         {WAR_STRUCTURES.map((s) => {
                                             const perWar = s.key === "ramparts" || s.key === "watchtower";
-                                            const level = myView.structures[s.key] ?? 0;
+                                            const level = myView.structures?.[s.key] ?? 0;
                                             // Village Stores: raising a PERMANENT structure to L6+ also
                                             // debits materials (400 / 700 / 1,100 / 1,600 / 2,400).
                                             const materialsNeed = perWar ? 0 : structureMaterialsCost(level + 1);

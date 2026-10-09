@@ -941,13 +941,23 @@ export function sectorWarBattleReceiptTtlSeconds(session: Pick<SectorWarSession,
  *  rows plus per-player attribution the war-map's 15s poll would otherwise
  *  ship to every viewer. Keep responses on this projection; never return a raw
  *  session. Pure. */
-export function projectSectorWarForClient(session: SectorWarSession, viewerVillage?: string): SectorWarClientView {
-    const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, ...view } = session;
-    if (!viewerVillage) return view;
-    // Compatibility mirror of the VIEWER's own per-village entry only — the
-    // other side's feed is never surfaced through these flat fields.
-    const mine = garrisonFeedFor(session, viewerVillage);
+export function projectSectorWarForClient(
+    session: SectorWarSession,
+    viewerVillage?: string,
+    opts: { admin?: boolean } = {},
+): SectorWarClientView {
+    const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, garrisonFeed, ...rest } = session;
+    if (opts.admin) return garrisonFeed ? { ...rest, garrisonFeed } : rest;
+    // A village's garrison feed is its own business: whether it pays rations,
+    // and which member ordered it (owner ruling 2026-10-09, village internals
+    // are for members only). The viewer sees its own entry, nobody else's, and
+    // a caller that names no viewer gets none.
+    const mine = viewerVillage ? garrisonFeedFor(session, viewerVillage) : undefined;
+    const view: SectorWarClientView = mine && viewerVillage && garrisonFeed?.[viewerVillage]
+        ? { ...rest, garrisonFeed: { [viewerVillage]: garrisonFeed[viewerVillage] } }
+        : rest;
     if (!mine?.on) return view;
+    // Compatibility mirror of the VIEWER's own per-village entry.
     return { ...view, garrisonFed: true, garrisonFedBy: viewerVillage, garrisonCovered: mine.covered };
 }
 export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'battleLedger' | 'declarationFunding'> & {

@@ -46,7 +46,9 @@ export type WarDeclareQuote =
  *  held-sector count from the same helper the server charges with. */
 export function warDeclareQuoteFromMap(map: Pick<WarMapResponse, "villages"> | null | undefined, village: string): WarDeclareQuote {
     const view = Array.isArray(map?.villages) ? map.villages.find(candidate => candidate.village === village) : undefined;
-    if (!view) return { mode: "unknown" };
+    // A restricted view carries no war chest (the server shows a village's pool
+    // to its own members only), so the price cannot be checked against it.
+    if (!view || view.restricted) return { mode: "unknown" };
     const sectorsHeld = Math.max(0, Math.floor(Number(view.sectorsHeld) || 0));
     return {
         mode: "war-resources",
