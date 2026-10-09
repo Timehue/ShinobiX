@@ -649,6 +649,10 @@ jobs:
         if: ${{ matrix.shard == 3 }}
         working-directory: shinobij.client
         run: node node_modules/@playwright/test/cli.js test --config playwright.profession-change.config.ts 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/profession-change.log
+      - name: Fishing and Fracture Chain interaction
+        if: ${{ matrix.shard == 5 }}
+        working-directory: shinobij.client
+        run: node node_modules/@playwright/test/cli.js test --config playwright.resource-gathering.config.ts --retries=1 --forbid-only 2>&1 | tee ../.ci-evidence/e2e-responsive-${{ matrix.shard }}-of-5/resource-gathering.log
       - name: Named forge purchase and recovery
         if: ${{ matrix.shard == 4 }}
         working-directory: shinobij.client
@@ -958,6 +962,10 @@ jobs:
         env:
           LIVE_E2E_REALTIME: '1'
         run: npm run test:e2e:live --prefix shinobij.client -- pvp-lifecycle-express.spec.ts ranked-queue-express.spec.ts kage-challenge-express.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --output=test-results/pvp-lifecycle-ci 2>&1 | tee .ci-evidence/e2e-village-stores/pvp-lifecycle.log
+      - name: Live Express gathering, recipes and crafting settlement
+        env:
+          LIVE_E2E_REALTIME: '1'
+        run: npm run test:e2e:live --prefix shinobij.client -- resource-gathering.spec.ts recipes.spec.ts crafting-lifecycle.spec.ts --project=chromium-desktop-live --project=chromium-mobile-live --workers=1 --retries=0 --forbid-only --output=test-results/fieldwork-crafting-ci 2>&1 | tee .ci-evidence/e2e-village-stores/fieldwork-crafting.log
       - name: Live Express Exchange and sector-war player journeys
         run: npm run test:e2e:live --prefix shinobij.client -- sunscar-exchange-express.spec.ts sector-war-express.spec.ts --project=chromium-desktop-live --retries=1 --output=test-results/economy-war-journeys-ci 2>&1 | tee .ci-evidence/e2e-village-stores/economy-war-journeys.log
       - name: Retain Village Stores browser evidence

@@ -96,7 +96,7 @@ export type WorldSectorCommandPanelProps = Readonly<{
     onFightSectorGarrison: () => void;
     onClaimContract: () => void;
     onExplore: () => void;
-    /** Personal daily limit, separate from the shared sector gathering pool. */
+    /** Combined Explore/Fishing/Mining usage; independent of the communal sector pool. */
     dailyExplores?: number;
     exploreBusy?: boolean;
     /** Depleted-pool replacement for Explore — points at the nearest richer sector. */

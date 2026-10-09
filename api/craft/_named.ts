@@ -1,6 +1,8 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { debitNamedForgeWallet } from '../../shared/named-forge-economy.js';
+import { namedForgeOreCount } from '../../shared/resource-forging.js';
+import { countOwned, removeOwned } from './_forge.js';
 import {
     NAMED_WEAPON_EP_VALUES, NAMED_WEAPON_TAGS as WEAPON_TAGS,
     NAMED_WEAPON_RANGES, NAMED_WEAPON_OFFENSE, NAMED_WEAPON_TAG_STRENGTH, NAMED_WEAPON_TAG_COUNTS,
@@ -94,8 +96,12 @@ export function rollNamedForge(kind: 'weapon' | 'armor', slotRaw?: unknown): Nam
     return { kind, slot, armorQuality: pick(NAMED_ARMOR_QUALITIES), offenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), defenseVal: randomInt(NAMED_ARMOR_STATS.min, NAMED_ARMOR_STATS.max + 1), special: { kind: special.kind, bonusKey: special.bonusKey, value: Number(raw.toFixed(special.decimals)) } };
 }
 
-export function debitNamedForge(character: Record<string, unknown>): Record<string, unknown> | null {
-    return debitNamedForgeWallet(character);
+export function debitNamedForge(character: Record<string, unknown>, kind?: 'weapon' | 'armor'): Record<string, unknown> | null {
+    const paid = debitNamedForgeWallet(character);
+    if (!paid || !kind) return paid;
+    const amount = namedForgeOreCount(kind);
+    if (countOwned(character, 'gather-iron-sand-pristine') < amount) return null;
+    return removeOwned(paid, 'gather-iron-sand-pristine', amount);
 }
 
 export function buildNamedItem(roll: NamedRoll, nameRaw: string, flavorRaw: string) {

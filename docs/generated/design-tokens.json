@@ -2468,6 +2468,17 @@
         ]
       },
       {
+        "direction": "max",
+        "axis": "width",
+        "valuePx": 450,
+        "occurrences": [
+          {
+            "source": "shinobij.client/src/components/resource-gathering.css",
+            "line": 81
+          }
+        ]
+      },
+      {
         "direction": "min",
         "axis": "height",
         "valuePx": 451,
@@ -2547,6 +2558,14 @@
           {
             "source": "shinobij.client/src/components/StoryFieldWork.css",
             "line": 76
+          },
+          {
+            "source": "shinobij.client/src/components/craft-material-picker.css",
+            "line": 35
+          },
+          {
+            "source": "shinobij.client/src/components/crafting-sequence.css",
+            "line": 57
           },
           {
             "source": "shinobij.client/src/screens/WorldCrisis.css",
@@ -3079,6 +3098,14 @@
         "valuePx": 600,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 55
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 57
+          },
+          {
             "source": "shinobij.client/src/styles/bloodline-ritual.css",
             "line": 67
           },
@@ -3100,7 +3127,7 @@
           },
           {
             "source": "shinobij.client/src/styles/index/15-world-map-territory.css",
-            "line": 163
+            "line": 169
           },
           {
             "source": "shinobij.client/src/styles/index/21-pet-arena-fx.css",
@@ -3354,6 +3381,10 @@
         "valuePx": 650,
         "occurrences": [
           {
+            "source": "shinobij.client/src/components/resource-gathering.css",
+            "line": 30
+          },
+          {
             "source": "shinobij.client/src/features/dojo-circuit/dojo-circuit.css",
             "line": 50
           },
@@ -3461,6 +3492,18 @@
         "axis": "height",
         "valuePx": 700,
         "occurrences": [
+          {
+            "source": "shinobij.client/src/components/crafting-sequence.css",
+            "line": 58
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 56
+          },
+          {
+            "source": "shinobij.client/src/components/resource-minigames.css",
+            "line": 57
+          },
           {
             "source": "shinobij.client/src/features/character-creator/character-creator.css",
             "line": 805
@@ -3860,11 +3903,11 @@
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 163
+            "line": 173
           },
           {
             "source": "shinobij.client/src/styles/index/17-shop-inventory-loadout.css",
-            "line": 268
+            "line": 278
           },
           {
             "source": "shinobij.client/src/styles/index/18-mobile-safe-adaptive.css",

@@ -11,7 +11,7 @@ const initial = {
     hp: 1000, maxHp: 1000, chakra: 1000, maxChakra: 1000, stamina: 1000, maxStamina: 1000,
     ryo: 10000, fateShards: Number(new URLSearchParams(location.search).get('shards') ?? 200),
     boneCharms: 5000, auraStones: 5000, mythicSeals: 5000,
-    inventory: [], itemStacks: [], equipment: {}, stats: {}, jutsuMastery: [], claimedAwakenings: [],
+    inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 100 }], equipment: {}, stats: {}, jutsuMastery: [], claimedAwakenings: [],
     equippedJutsuIds: [], learnedJutsuIds: [], completedMissions: [], onboardingStep: 'done',
 } as Character;
 

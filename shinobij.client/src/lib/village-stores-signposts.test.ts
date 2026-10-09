@@ -28,7 +28,8 @@ test("every cookable material carries a signpost naming its recipe and yield", (
         assert.ok(recipe);
         assert.equal(sign.screen, "cafeteria");
         assert.equal(sign.actionLabel, "Cook at the Noodle Den");
-        assert.match(sign.line, new RegExp(`^Cooks into ${recipe.name} at the Noodle Den — `, "u"));
+        const purpose = id === 'gather-heartwood-bark' ? 'Fuel for' : 'Cooks into';
+        assert.match(sign.line, new RegExp(`^${purpose} ${recipe.name} at the Noodle Den — `, "u"));
         assert.ok(sign.line.includes(`${recipe.rations} rations`), sign.line);
         // Cooking is not free (Field 30 ryo, Campaign 80) — the signpost must
         // say so, or it reads as a costless conversion.
@@ -41,10 +42,15 @@ test("every cookable material carries a signpost naming its recipe and yield", (
 test("the Beast Meat signpost reads as a sentence a hunter can act on", () => {
     assert.deepEqual(storesItemSignpost("hunt-beast-meat"), {
         itemId: "hunt-beast-meat",
-        line: "Cooks into Field Rations at the Noodle Den — 5 rations for your village's stores, 30 ryo a batch.",
+        line: "Cooks into Field Rations at the Noodle Den — 5 rations, 30 ryo a batch.",
         actionLabel: "Cook at the Noodle Den",
         screen: "cafeteria",
     });
+});
+test('Heartwood Bark points at cooking as fuel rather than food', () => {
+    const sign = storesItemSignpost('gather-heartwood-bark');
+    assert.equal(sign?.screen, 'cafeteria');
+    assert.match(sign?.line ?? '', /^Fuel for Common Fish Rations/);
 });
 
 test("a cooked ration pack points at the Town Hall, not back at the kitchen", () => {
@@ -62,11 +68,13 @@ test("items with no place in the stores loop stay silent", () => {
     assert.equal(cookRecipeForMaterial("hunt-titan-bone"), null);
 });
 
-test("the frost pelt and ash scale share one recipe, first-listed wins", () => {
+test("pelts and scales no longer send players to the kitchen", () => {
     const pelt = cookRecipeForMaterial("hunt-frost-pelt");
     const scale = cookRecipeForMaterial("hunt-ash-scale");
-    assert.equal(pelt?.id, "campaign-rations");
-    assert.equal(scale?.id, "campaign-rations");
+    assert.equal(pelt, null);
+    assert.equal(scale, null);
+    assert.equal(storesItemSignpost('hunt-frost-pelt'), null);
+    assert.equal(storesItemSignpost('hunt-ash-scale'), null);
     assert.equal(COOK_RECIPES.find((r) => r.id === "campaign-rations")?.rations, 20);
 });
 

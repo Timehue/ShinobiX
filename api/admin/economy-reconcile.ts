@@ -14,6 +14,7 @@ import { SAVE_DEBIT_SAGAS } from '../_save-debit-kinds.js';
 import { BOUNTY_KEY, normalizeBoard, type BountyBoard } from '../pvp/_bounty.js';
 import { sweepPendingBountyClaims } from '../pvp/_bounty-claim.js';
 import { reconcilePlayerTrade } from '../player/_trade-settlement.js';
+import { reconcileResourceAdmission } from '../world/_resource-reconcile.js';
 
 function num(v: unknown): number {
     const n = Number(v);
@@ -75,6 +76,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!txId) return res.status(400).json({ error: 'Missing txId.' });
 
         const sagaTx = await kv.get<EconomyTxRecord>(economyTxKey(txId));
+        if (sagaTx?.kind === 'resource-gathering') {
+            const result = await reconcileResourceAdmission(txId);
+            return res.status(result.ok ? 200 : 409).json(result);
+        }
         if (sagaTx && SAVE_DEBIT_SAGAS[sagaTx.kind] && typeof sagaTx.meta?.fingerprint === 'string') {
             const outcome = await resumeSaveDebitSaga(txId, SAVE_DEBIT_SAGAS);
             console.log('[admin/economy-reconcile] save-debit settlement', txId, outcome.status);

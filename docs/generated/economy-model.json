@@ -1789,6 +1789,42 @@
     },
     {
       "system": "shop",
+      "id": "tool-basic-fishing-pole",
+      "currency": "ryo",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common fishingPole"
+    },
+    {
+      "system": "shop",
+      "id": "tool-basic-pickaxe",
+      "currency": "ryo",
+      "amount": 150,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "common pickaxe"
+    },
+    {
+      "system": "shop",
+      "id": "tool-golden-fishing-pole",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary fishingPole"
+    },
+    {
+      "system": "shop",
+      "id": "tool-golden-pickaxe",
+      "currency": "fateShards",
+      "amount": 50,
+      "cadence": "per unit",
+      "authority": "api/pvp/_item-catalog.ts",
+      "notes": "legendary pickaxe"
+    },
+    {
+      "system": "shop",
       "id": "training-katana",
       "currency": "ryo",
       "amount": 240,
@@ -3156,6 +3192,42 @@
       "levelReq": 1,
       "baseCost": 400,
       "currency": "ryo"
+    },
+    {
+      "id": "tool-basic-fishing-pole",
+      "name": "Basic Fishing Pole",
+      "rarity": "common",
+      "slot": "fishingPole",
+      "levelReq": 1,
+      "baseCost": 150,
+      "currency": "ryo"
+    },
+    {
+      "id": "tool-basic-pickaxe",
+      "name": "Basic Pickaxe",
+      "rarity": "common",
+      "slot": "pickaxe",
+      "levelReq": 1,
+      "baseCost": 150,
+      "currency": "ryo"
+    },
+    {
+      "id": "tool-golden-fishing-pole",
+      "name": "Golden Fishing Pole",
+      "rarity": "legendary",
+      "slot": "fishingPole",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
+    },
+    {
+      "id": "tool-golden-pickaxe",
+      "name": "Golden Pickaxe",
+      "rarity": "legendary",
+      "slot": "pickaxe",
+      "levelReq": 1,
+      "baseCost": 50,
+      "currency": "fateShards"
     },
     {
       "id": "training-katana",

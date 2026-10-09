@@ -162,13 +162,14 @@ test('correct-length illegal, unowned and unknown decks navigate to preparation 
 });
 
 test('supplies are craftable only when the real immutable forge decision accepts owned materials', () => {
-    for (const inventory of [[], ['hunt-torn-hide'], ['hunt-shadow-pelt'], ['hunt-shadow-pelt', 'gather-binding-fiber']]) {
+    for (const inventory of [[], ['hunt-torn-hide'], ['hunt-shadow-pelt'], ['hunt-shadow-pelt', 'gather-binding-fiber'],
+        ['gather-heartwood-bark', 'gather-heartwood-bark', 'gather-field-herb', 'gather-binding-fiber']]) {
         const c = { ...character, inventory };
         const before = structuredClone(c);
         assert.equal(activitySaveFacts(c, now).supplies?.craftable, !!applyForge(c, 'supply', 'item-smoke-bomb', 1));
         const today = buildActivitySpine(input('village-chronicle', { inventory })).horizons.today.find(a => a.id === 'prepare-supplies')!;
         assert.equal(today.section, 'crafter');
-        assert.equal(/Prepare an optional/.test(today.title), inventory.includes('hunt-shadow-pelt') && inventory.includes('gather-binding-fiber'));
+        assert.equal(/Prepare an optional/.test(today.title), !!applyForge(c, 'supply', 'item-smoke-bomb', 1));
         assert.deepEqual(c, before);
     }
 });

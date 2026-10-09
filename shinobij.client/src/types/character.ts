@@ -298,6 +298,8 @@ export type StoryEpilogueReceipt = {
 // ── Character ─────────────────────────────────────────────────────────────
 
 export type Character = {
+    resourceGathering?: import('../../../shared/resource-gathering').ResourceGatheringState;
+    gatheringToolUses?: Record<string, number>;
     pendingGatherFinds?: PendingGatherFind[];
     gatherIntroSeen?: boolean;
     /** Server owned: highest weapon and armor tier bought or crafted. A client write is discarded. */

@@ -52,6 +52,40 @@ test('holding a key moves continuously and Escape cancels a route', async ({ pag
         const stopped = next === previous; previous = next; return stopped; }, { intervals: [300] }).toBe(true);
     await expect(page.locator('[data-world-self].is-walking')).toHaveCount(0);
 });
+
+test('semantic tile reveal and focus cannot scroll the camera viewport on either axis', async ({ page }, info) => {
+    await boot(page, 1, nearestWalkableTile(1, 13));
+    const viewport = page.locator('.continuous-world-map');
+    const canvas = viewport.locator(':scope > canvas');
+    const marker = page.locator('[data-world-self]');
+    for (const size of [{ width: 320, height: 568 }, { width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1366, height: 768 }]) {
+        await page.setViewportSize(size);
+        expect(await viewport.evaluate(element => {
+            const style = getComputedStyle(element);
+            return [style.overflowX, style.overflowY];
+        })).toEqual(['clip', 'clip']);
+        // A chunk extending right and below the viewport reproduces the native-scroll bug.
+        const chunk = page.locator('.continuous-world-chunk').first();
+        const viewportBounds = await viewport.boundingBox(), chunkBounds = await chunk.boundingBox();
+        expect(chunkBounds!.x + chunkBounds!.width).toBeGreaterThan(viewportBounds!.x + viewportBounds!.width + 20);
+        expect(chunkBounds!.y + chunkBounds!.height).toBeGreaterThan(viewportBounds!.y + viewportBounds!.height + 20);
+        for (const tile of [0, 143, 12, 131]) {
+            const target = page.locator('.continuous-world-tile').nth(tile);
+            await target.focus();
+            await target.evaluate(element => element.scrollIntoView({ block: 'nearest', inline: 'nearest' }));
+            await viewport.evaluate(element => { element.scrollLeft = 38; element.scrollTop = 38; });
+            expect(await viewport.evaluate(element => [element.scrollLeft, element.scrollTop])).toEqual([0, 0]);
+            const bounds = await viewport.boundingBox(), floor = await canvas.boundingBox(), avatar = await marker.boundingBox();
+            expect(floor!.x).toBeCloseTo(bounds!.x, 0);
+            expect(floor!.y).toBeCloseTo(bounds!.y, 0);
+            expect(avatar!.x + avatar!.width / 2).toBeCloseTo(bounds!.x + bounds!.width / 2, 0);
+            expect(avatar!.y + avatar!.height).toBeCloseTo(bounds!.y + bounds!.height / 2, 0);
+        }
+        await canvas.focus();
+        await expect(canvas).toBeFocused();
+        await page.screenshot({ path: info.outputPath(`camera-viewport-focus-${size.width}x${size.height}.png`), fullPage: true });
+    }
+});
 test('an old saved position inside a building initializes on accessible ground', async ({ page }) => {
     await boot(page, 31, 86);
     await expect(page.getByRole('button', { name: 'Current tile row 7 column 3', exact: true })).toBeVisible();

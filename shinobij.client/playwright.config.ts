@@ -16,6 +16,7 @@ const previewRoot = previewRootFor(port);
 // Source fixtures run through their dedicated Vite configs in CI.
 // They are source fixtures, so the immutable production-preview server cannot serve them.
 const SOURCE_FIXTURE_SPECS = ['**/village-transfer.spec.ts', '**/profession-change.spec.ts', '**/named-forge.spec.ts', '**/sector-hud.spec.ts', '**/wild-binding.spec.ts', '**/chronicle-packs.spec.ts', '**/tournaments.spec.ts', '**/tournaments-live.spec.ts', '**/pet-gauntlet-board.spec.ts', '**/world-eras.spec.ts', '**/rally-recovery.spec.ts', '**/player-friction-source.spec.ts', '**/dojo-circuit-gamepad.spec.ts'];
+SOURCE_FIXTURE_SPECS.push('**/compact-map-notice.spec.ts', '**/resource-gathering.spec.ts');
 const SCREEN_WALK_SPEC = ['**/non-combat-ui-audit.spec.ts', ...SOURCE_FIXTURE_SPECS];
 
 export default defineConfig({
