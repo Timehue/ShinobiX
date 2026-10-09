@@ -196,7 +196,8 @@ export function genericExploreOpponentId(params: {
     return pool[hash(`${params.playerName.toLowerCase()}:${params.sector}:${params.receiptId}`) % pool.length]!.id;
 }
 
-async function ownsExploreReceipt(
+/** The exploration receipt is this player's, in this sector, still fightable, and rolled a battle. */
+export async function ownsExploreReceipt(
     store: Pick<KvLike, 'get'>,
     playerName: string,
     character: Record<string, unknown>,

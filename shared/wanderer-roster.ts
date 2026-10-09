@@ -274,11 +274,11 @@ const ARCHETYPE_IDS = Object.keys(WANDERER_ARCHETYPES) as WandererArchetypeId[];
 
 /** Natural-road movement is authored by role instead of inferred from the verb.
  *  Service NPCs loiter near a recognizable spot; field actors keep the road alive;
- *  bandits remain the intrusive threat that actively hunts the player. */
+ *  every hostile (bandits by day, night ninjas after dark) hunts the player and
+ *  stops them with Fight/Flee (owner, 2026-10-09). */
 function naturalWandererMovement(archetype: WandererArchetypeId): WandererMovement {
-    if (archetype === "bandit") return "pursue";
-    // Night ninjas prowl rather than charge: the player chooses to engage.
-    if (archetype === "beast" || archetype === "patrol" || archetype === "tracker" || archetype === "nightblade") return "patrol";
+    if (archetype === "bandit" || archetype === "nightblade") return "pursue";
+    if (archetype === "beast" || archetype === "patrol" || archetype === "tracker") return "patrol";
     return "stationary";
 }
 
