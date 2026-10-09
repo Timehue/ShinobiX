@@ -1,0 +1,59 @@
+.ui-modal-card.craft-material-picker.craft-material-picker--working { background: linear-gradient(120deg, #231e1d, #13151c 55%); border-color: #8f7149; border-radius: 8px; }
+/* Transient receipts wait behind the material dialog so its controls stay clear. */
+body:has(.craft-material-picker) .game-toast-stack { z-index: calc(var(--z-modal) - 1); }
+.craft-material-picker.craft-material-picker--working header { padding: 18px 22px; border-color: #bd955d30; }
+.craft-material-picker.craft-material-picker--working h2 { color: #f0e2c8; font-family: Georgia, serif; font-size: 1.4rem; }
+.craft-sequence { overflow-y: auto; min-height: 0; }
+.craft-workbench { position: relative; isolation: isolate; height: 274px; overflow: hidden; background: #121316; border-bottom: 1px solid #bd955d40; }
+.craft-workshop-scene { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 65% 58%; opacity: .55; filter: saturate(.7); }
+.craft-workbench::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, #15151a77, transparent 30%, #15151a11 60%, #15151aee), linear-gradient(90deg, #13151c99, transparent 45%, #13151c55); }
+.craft-bench-caption { position: absolute; inset: 14px 22px auto; z-index: 3; display: flex; align-items: center; justify-content: space-between; color: #e3cfac; font-size: .58rem; letter-spacing: .16em; }
+.craft-bench-caption i { font-style: normal; color: #b7a58b; font-size: .54rem; }
+.craft-workpiece-stage { position: absolute; inset: 28px 0 10px; display: grid; place-items: center; z-index: 2; }
+.craft-workpiece-light { position: absolute; width: 270px; height: 200px; border-radius: 50%; background: radial-gradient(ellipse, #d0923a38, transparent 68%); }
+.craft-workpiece { position: relative; width: 222px; height: 222px; transform: rotate(-3deg); filter: drop-shadow(0 15px 12px #000b); animation: craft-workpiece-arrive .5s ease-out both; }
+.craft-workpiece > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.craft-workpiece-glint { position: absolute; inset: 0; mask-size: contain; mask-repeat: no-repeat; mask-position: center; background: linear-gradient(115deg, transparent 35%, #ffe7bc66 48%, #fff4d4aa 50%, transparent 63%); background-size: 350% 100%; animation: craft-polish 2.1s ease-in-out both; mix-blend-mode: screen; }
+.craft-sequence--forge .craft-workpiece { animation: craft-metalwork .7s ease-out 3; }
+.craft-sequence--prepare .craft-workpiece { animation: craft-binding 2.1s ease-in-out both; }
+.craft-embers { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.craft-embers i { position: absolute; left: calc(29% + var(--n) * 5%); bottom: 12%; width: 2px; height: 3px; background: #ffce83; border-radius: 50%; box-shadow: 0 0 5px #f5ad62; opacity: 0; animation: craft-ember 1.2s calc(var(--n) * .09s) ease-out 2; }
+.craft-sequence--stitch .craft-embers i, .craft-sequence--prepare .craft-embers i { width: 1px; height: 1px; animation-duration: 1.8s; opacity: .2; }
+.craft-order-mark { position: absolute; z-index: 3; bottom: 13px; right: 22px; display: flex; align-items: center; gap: 9px; color: #c3ad8b; letter-spacing: .12em; font-size: .55rem; }
+.craft-order-mark b { color: #f4e6c9; font-size: 1rem; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.craft-sequence-copy { padding: 20px 22px 12px; text-align: center; }
+.craft-sequence-copy small { color: #c2a173; font-size: .6rem; font-weight: 600; letter-spacing: .17em; }
+.craft-sequence-copy h3 { margin: 7px 0 0; color: #f1e4cd; font-family: Georgia, serif; font-size: 1.5rem; font-weight: 500; }
+.craft-sequence-copy p { margin: 9px 0 0; color: #bcb6a9; font-size: .82rem; }
+.craft-work-stages { display: flex; gap: 12px; padding: 0 22px; margin: 5px 0 20px; list-style: none; }
+.craft-work-stages li { flex: 1; display: flex; align-items: center; gap: 7px; color: #96928b; font-size: .68rem; line-height: 1.4; }
+.craft-work-stages li span { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border: 1px solid #77674c66; border-radius: 50%; font-size: .6rem; }
+.craft-work-stages .current { color: #edd7ae; }
+.craft-work-stages .current span { border-color: #c09a5e; background: #aa794522; box-shadow: 0 0 10px #be8b4020; }
+.craft-work-stages .done span { color: #cfaf7e; border-color: #b5915866; }
+.craft-bench-materials { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 22px; padding: 11px 0; border-top: 1px solid #bd955d25; }
+.craft-bench-materials > span { color: #b3a38b; font-size: .72rem; }
+.craft-bench-materials > div { display: flex; align-items: center; gap: 8px; }
+.craft-bench-materials small { color: #aca397; font-size: .62rem; }
+.craft-bench-material { position: relative; display: grid; place-items: center; width: 44px; height: 40px; background: #ffffff04; border: 1px solid #bd955d26; border-radius: 4px; }
+.craft-bench-material img { width: 34px; height: 34px; object-fit: contain; }
+.craft-bench-material > span { font-size: .48rem; overflow-wrap: anywhere; }
+.craft-bench-material b { position: absolute; bottom: -3px; right: -4px; padding: 1px 3px; color: #e9d9b7; background: #17171d; font-size: .58rem; font-weight: 500; }
+.craft-material-picker--working .craft-sequence footer { padding: 14px 22px 18px; border-color: #bd955d25; }
+.craft-settlement-note { margin: 0 0 12px; color: #a8a195; font-size: .72rem; line-height: 1.5; }
+.craft-sequence .craft-picker-actions button { background: #ffffff04; border: 1px solid #ad8d5738; box-shadow: none; color: #d6c8b0; }
+.craft-sequence .craft-picker-actions .craft-skip { background: transparent; border-color: transparent; color: #b9a584; }
+.craft-sequence footer > .craft-picker-confirm { width: 100%; min-height: 46px; color: #f5e6c5; background: linear-gradient(180deg, #6a4d2c, #3f3021); border: 1px solid #b38c53; box-shadow: inset 0 1px #e9c58b26, 0 3px 7px #0004; }
+.craft-sequence.is-finished .craft-workpiece, .craft-sequence.is-finished .craft-workpiece-glint, .craft-sequence.is-finished .craft-embers i { animation: none; }
+.craft-sequence.is-finished .craft-workpiece-glint, .craft-sequence.is-finished .craft-embers { opacity: 0; }
+.craft-sequence.is-revealed .craft-workpiece { transform: none; animation: craft-item-reveal .4s ease-out both; }
+.craft-sequence.is-revealed .craft-workpiece-light { background: radial-gradient(ellipse, #d6aa5855, transparent 68%); }
+@keyframes craft-workpiece-arrive { from { opacity: .2; transform: translateY(8px) rotate(-3deg); } to { opacity: 1; transform: rotate(-3deg); } }
+@keyframes craft-metalwork { 0%, 55%, 100% { transform: rotate(-7deg); } 62% { transform: translateY(3px) rotate(-5deg); } 72% { transform: translateY(-2px) rotate(-7deg); } }
+@keyframes craft-polish { from { background-position: 110% 0; } to { background-position: -10% 0; } }
+@keyframes craft-binding { 0% { opacity: .4; transform: translateY(8px) rotate(3deg); } 45% { opacity: 1; transform: rotate(-3deg); } 70% { transform: scale(.97) rotate(-3deg); } 100% { transform: rotate(-3deg); } }
+@keyframes craft-ember { 0% { opacity: 0; transform: translate(0, 0); } 20% { opacity: .7; } 100% { opacity: 0; transform: translate(calc((var(--n) - 4) * 8px), -120px); } }
+@keyframes craft-item-reveal { from { opacity: .65; transform: translateY(5px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (max-width: 480px) { .craft-workbench { height: 240px; } .craft-workpiece { width: 196px; height: 196px; } .craft-bench-caption { inset-inline: 16px; font-size: .52rem; } .craft-bench-caption i { font-size: .47rem; } .craft-sequence-copy { padding: 16px 16px 12px; } .craft-work-stages { padding: 0 16px; gap: 7px; } .craft-work-stages li { gap: 5px; font-size: .62rem; } .craft-work-stages li span { width: 18px; height: 18px; } .craft-bench-materials { margin-inline: 16px; } .craft-bench-materials > div { gap: 6px; } .craft-bench-material { width: 34px; height: 34px; } .craft-bench-material img { width: 29px; height: 29px; } .craft-sequence footer { padding: 12px 16px 16px; } }
+@media (max-height: 700px) { .craft-workbench { height: 200px; } .craft-workpiece { width: 164px; height: 164px; } .craft-sequence-copy { padding-top: 14px; } .craft-bench-materials { padding-block: 8px; } }
+@media (prefers-reduced-motion: reduce) { .craft-sequence *, .craft-sequence *::before, .craft-sequence *::after { animation: none !important; } }

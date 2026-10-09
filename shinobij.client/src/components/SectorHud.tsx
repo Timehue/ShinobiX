@@ -42,9 +42,9 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
     };
     const consumeTouchClick = useDismissGesture();
     const gatherDepleted = sectorGatherLineFor(props.gathering)?.depleted === true;
-    const dailyExplores = props.dailyExplores;
-    const dailyCapped = (dailyExplores ?? 0) >= 100;
-    const dailyLabel = dailyExplores !== undefined ? `Your daily exploration: ${dailyExplores}/100${dailyCapped ? ' · Resets at midnight UTC' : ''}` : undefined;
+    const dailyActions = props.dailyExplores;
+    const dailyCapped = (dailyActions ?? 0) >= 100;
+    const dailyLabel = dailyActions !== undefined ? `Explore, fishing and mining: ${dailyActions}/100 shared daily actions${dailyCapped ? ' · Resets at midnight UTC' : ''}` : undefined;
     const close = (restore = false, touch = false) => {
         if (touch) consumeTouchClick();
         setOpen(false); if (restore) triggerRef.current?.focus({ preventScroll: true });
@@ -60,7 +60,7 @@ export function SectorHud(props: WorldSectorCommandPanelProps & {
                     aria-label={gatherDepleted ? 'Find richer ground' : 'Explore'}
                     aria-description={dailyLabel}
                     disabled={!gatherDepleted && (!present || dailyCapped || props.exploreBusy)} onClick={gatherDepleted ? onFindRicherGround : onExplore}>
-                    <span>{gatherDepleted ? 'Find richer ground' : dailyExplores !== undefined ? `Explore · Daily ${dailyExplores}/100` : 'Explore'}</span>
+                    <span>{gatherDepleted ? 'Find richer ground' : dailyActions !== undefined ? `Explore · Shared ${dailyActions}/100` : 'Explore'}</span>
                     <small aria-hidden="true">{gatherDepleted ? 'Follow a richer trail' : dailyCapped ? 'Daily limit reached' : props.exploreBusy ? 'Exploring...' : 'Search this sector'}</small></button>
                 <button type="button" ref={triggerRef} className={`sector-hud-info${open ? ' is-open' : ''}`}
                     aria-label={`Sector Info${props.contract?.claimable ? ' · Claim ready' : ''}`}

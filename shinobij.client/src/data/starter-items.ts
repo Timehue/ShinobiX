@@ -1,4 +1,5 @@
 import { NON_STORY_RELICS } from '../../../shared/relics';
+import { outpostItems } from './outpost-items';
 import { buildGearSteps } from '../../../shared/gear-steps';
 /*
  * starterItems — the full catalog of canonical game items (armor / weapons /
@@ -277,15 +278,15 @@ const baseStarterItems: GameItem[] = [
     { id: "hunt-small-fang", name: "Small Fang", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-small-fang-v1.webp", description: "A sharp fang from a minor beast. Crafting material.", bonuses: {} },
     { id: "hunt-cracked-horn", name: "Cracked Horn", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-cracked-horn-v1.webp", description: "A broken horn from a wild animal. Crafting material.", bonuses: {} },
     { id: "hunt-wild-feather", name: "Wild Feather", slot: "item", rarity: "common", cost: 0, image: "/items/hunt-wild-feather-v1.webp", description: "A large feather from a forest bird of prey. Crafting material.", bonuses: {} },
-    { id: "hunt-wolf-fang", name: "Wolf Fang", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-wolf-fang-v1.webp", description: "A serrated fang from a Frost Wolf. Worth 10 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-wolf-fang", name: "Wolf Fang", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-wolf-fang-v1.webp", description: "A serrated fang from a Frost Wolf. Crafting material for fang charms and pet gear; also used for Hunter rank turn-ins.", bonuses: {} },
     { id: "hunt-frost-pelt", name: "Frost Pelt", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-frost-pelt-v1.webp", description: "Ice-laced pelt from a snow-region beast. Crafting material.", bonuses: {} },
-    { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-ash-scale-v1.webp", description: "A heat-blackened scale from a volcanic lizard. Worth 15 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-ash-scale", name: "Ash Scale", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-ash-scale-v1.webp", description: "A heat-blackened scale from a volcanic lizard. Crafting material for armor and protective pet gear; also used for Hunter rank turn-ins.", bonuses: {} },
     { id: "hunt-shadow-claw", name: "Shadow Claw", slot: "item", rarity: "rare", cost: 0, image: "/items/hunt-shadow-claw-v1.webp", description: "A razor-sharp claw from a shadow-region predator. Crafting material.", bonuses: {} },
-    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-shadow-pelt-v1.webp", description: "Dark, chakra-absorbing pelt from the Shadow Panther. Worth 25 craft points in the Crafter.", bonuses: {} },
+    { id: "hunt-shadow-pelt", name: "Shadow Pelt", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-shadow-pelt-v1.webp", description: "Dark, chakra-absorbing pelt from the Shadow Panther. Crafting material for stealth armor and pet harnesses; also used for Hunter rank turn-ins.", bonuses: {} },
     { id: "hunt-ember-scale", name: "Ember Scale", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ember-scale-v1.webp", description: "A glowing scale from the Ember Drake, still warm to the touch. Crafting material.", bonuses: {} },
     { id: "hunt-ancient-beast-core", name: "Ancient Beast Core", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-ancient-beast-core-v1.webp", description: "The crystallized chakra core of an ancient beast. Extremely rare crafting material.", bonuses: {} },
     { id: "hunt-titan-bone", name: "Titan Bone", slot: "item", rarity: "epic", cost: 0, image: "/items/hunt-titan-bone-v1.webp", description: "A massive bone fragment from the Worldstorm Dragon. Near-indestructible.", bonuses: {} },
-    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare drop from S-rank beasts. Worth 50 craft points in the Crafter. Required for max hunter rank.", bonuses: {} },
+    { id: "hunt-legendary-material", name: "Legendary Material", slot: "item", rarity: "legendary", cost: 0, image: "/items/hunt-legendary-material-v1.webp", description: "A rare trophy from S-rank beasts. Required for the highest Hunter rank; surplus trophies can supply the Village Stores.", bonuses: {} },
     // Village Stores: cooked at the Noodle Den from hunt materials, donated 1:1 into
     // the village's Provisions (api/_village-stores.ts). cost 0 — never a ryo faucet.
     { id: "gather-field-herb", name: "Field Herb", slot: "item", rarity: "common", cost: 0, image: "/items/gather-field-herb-v1.webp", description: "Gathered while exploring. An exact ingredient for crafting and village supplies.", bonuses: {} },
@@ -352,7 +353,7 @@ const baseStarterItems: GameItem[] = [
         rarity: "rare",
         cost: 400,
         image: "/items/shop-serpent-dust-v1.webp",
-        description: "Toxic powder distilled from serpent venom. Poisons the target for 2 rounds with a potent toxin.",
+        description: "A toxic herbal powder stabilized with shadow-thread chakra. Poisons the target for 2 rounds with a potent toxin.",
         weaponEp: 0,
         weaponEffect: "Poison",
         // Poison potency, not the amp scale: 55 made one 20-AP throw cost the victim
@@ -1045,7 +1046,7 @@ for (const item of baseStarterItems) {
  * Base items plus their gear step drops (shared/gear-steps.ts). Step items use
  * the base item's art until their own art ships.
  */
-export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems)];
+export const starterItems: GameItem[] = [...baseStarterItems, ...buildGearSteps(baseStarterItems), ...outpostItems];
 
 /** Canonical fallback for server-sealed fighters whose compact item rows omit art. */
 const starterItemArtworkById = new Map(

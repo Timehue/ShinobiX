@@ -53,7 +53,7 @@ export const SECTOR_POOL_TTL_SECONDS = 2 * 24 * 60 * 60;
 export const SECTOR_POOL_KEY_PREFIX = 'world:sector-pool:';
 
 export type SectorPoolKind = 'explores' | 'chests';
-export type SectorPoolRow = { explores: number; chests: number };
+export type SectorPoolRow = { explores: number; chests: number; resourceReservations?: Record<string, 'reserved' | 'committed'> };
 export type SectorPoolView = {
     exploresUsed: number;
     exploresCap: number;
@@ -72,7 +72,9 @@ export function sectorPoolKey(sector: number, now: number): string {
 export function cleanSectorPoolRow(value: unknown): SectorPoolRow {
     const raw = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
     const count = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
-    return { explores: count(raw.explores), chests: count(raw.chests) };
+    return { explores: count(raw.explores), chests: count(raw.chests),
+        ...(raw.resourceReservations && typeof raw.resourceReservations === 'object'
+            ? { resourceReservations: raw.resourceReservations as SectorPoolRow['resourceReservations'] } : {}) };
 }
 
 /** Pool size for one gatherer: base cap, +50% when their village owns the sector. */

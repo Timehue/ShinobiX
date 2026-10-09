@@ -24,16 +24,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const result = await mutatePlayerSave(playerName, ({ character }) => {
             const receipts = Array.isArray(character.redeemedCrafts) ? character.redeemedCrafts as string[] : [];
             if (receipts.includes(id)) return { ok: true as const, character, value: { replayed: true } };
+            if (kind !== 'relic' && !Array.isArray(body.materials))
+                return { ok: false as const, status: 400, error: 'Choose the exact materials for this craft first.' };
             if (isVillageSupplyGood(recipeId) && !villageStoresEnabled())
                 return { ok: false as const, status: 409, error: 'Village Stores are unavailable. Keep your ingredients and try again when the stores reopen.' };
-            const next = applyForge(character, kind, recipeId, body.quantity);
-            if (!next) return { ok: false as const, status: 409, error: 'invalid-or-unaffordable-recipe' };
-            // Judge the RESULT, not the starting bag. A weapon craft is hugely
-            // net-negative on slots — it burns 150-800 craft points' worth of
-            // `hunt-*` materials, none of which stack, to add one item — and a bag
-            // full of hunt materials is precisely how a bag reaches the cap. A
-            // naive "is the bag full?" check would refuse the very action that
-            // frees the space (MMORPG behavior audit F7 step 2).
+            const next = applyForge(character, kind, recipeId, body.quantity, body.materials);
+            if (!next) return { ok: false as const, status: 409, error: 'This craft could not be completed. Check your selected quantities, stock, ryo and carry limit.' };
+            // Judge the result, not the starting bag: consuming the recipe's
+            // exact ingredients can free enough space for its output.
             //
             // `applyForge` is pure and `next` is discarded on refusal, so nothing
             // is spent either way: the "refuse before the spend" property holds.

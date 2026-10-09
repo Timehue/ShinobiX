@@ -2541,7 +2541,7 @@ export function BattleTowerFight({
                             title={isCaravanAmbush ? (session.winner === 'squad' ? 'The road is open' : 'The escort has ended') : isHunt ? (session.winner === 'squad' ? 'Hunt encounter cleared' : 'Hunt encounter ended') : isTeamPvp
                                 ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
                                 : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
-                            chapter={isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Hunter Guild' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
+                            chapter={isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Shinobi Outpost' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
                             encounter={isCaravanAmbush ? combatFloor?.name : !isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
                             art={storyTheme?.backdropImage} />
                         <div className="tower-completion-body">

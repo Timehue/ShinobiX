@@ -47,4 +47,21 @@ describe("item detail presentation", () => {
         assert.equal(formatItemBonus("Increase Damage", 10), "+10%");
         assert.equal(formatItemBonus("Taijutsu Defense", 20), "+20");
     });
+
+    it('routes gathering tools, fish and graded ore to their actual uses', () => {
+        for (const slot of ['fishingPole', 'pickaxe'] as const) {
+            const tool = presentItem(item({ slot }));
+            assert.equal(tool.category, 'Gathering Tool');
+            assert.match(tool.use, /world map/);
+            assert.equal(tool.showPlayerSlot, true);
+            assert.doesNotMatch(tool.use, /passive|battle/);
+        }
+        const fish = presentItem(item({ id: 'gather-river-fish-superior' }));
+        assert.equal(fish.category, 'Cooking Ingredient');
+        assert.equal(fish.use, 'Cook at the Cafeteria');
+        const ore = presentItem(item({ id: 'gather-iron-sand-pristine' }));
+        assert.equal(ore.category, 'Crafting Material');
+        assert.match(ore.use, /Crafter.*Shinobi Outpost/);
+        assert.equal(ore.showPlayerSlot, false);
+    });
 });

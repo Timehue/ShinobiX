@@ -74,7 +74,7 @@ async function seed(character: Json = {}) {
             hp: 100, maxHp: 100, chakra: 50, maxChakra: 50, stamina: 50, maxStamina: 50,
             ryo: 100_000, fateShards: 500,
             petBreedingMigrationVersion: PET_BREEDING_MIGRATION_VERSION,
-            stats: {}, inventory: [], itemStacks: [],
+            stats: {}, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }],
             ...character,
         },
     });

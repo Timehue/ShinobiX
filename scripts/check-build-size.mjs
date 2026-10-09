@@ -816,7 +816,17 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // VITE_* values (the gear work is the larger share: pieces, names, pop-up, named gear
 // rules). The owner has said the cap can be raised, so allow 9.21 MB for about 15 KB of
 // headroom. Startup, chunk, CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_210_000;
+// 2026-10-08 EXACT CRAFT MATERIALS: the lazy material picker, per-grade quantity
+// controls and shared selection validation measure 9,215,323 B (+5,412 B over
+// the accepted recipe baseline). Allow 9.23 MB for this requested crafting
+// feature and build variance. Startup, chunk, CSS and asset limits stay put.
+// 2026-10-08 FIELDWORK PRESENTATION: replace the prototype fishing/mining
+// artwork and duplicate styles with themed scenes, chakra seals, accessible
+// instruments and responsive controls. Candidate measures 9,238,884 B versus
+// 9,227,909 B before this requested redesign (+10,975 B). Allow 9.245 MB;
+// startup remains 1,419,992 B raw / 394,470 B gzip. Startup, chunk, CSS and
+// asset gates are unchanged. Illustrated scenery reuses existing assets.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_245_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
