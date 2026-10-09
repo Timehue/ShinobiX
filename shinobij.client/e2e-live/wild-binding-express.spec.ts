@@ -30,10 +30,15 @@ async function seedWildExplorer(request: APIRequestContext) {
         pendingCombatMissionClaims: [], seenHints: ['worldMap'], dailyTilesExplored: 0, totalTilesExplored: 0,
         wandererCooldowns: quietRoadCooldowns([44]),
     };
+    // Every story scene a level-24 Moonshadow shinobi can be offered is already
+    // seen, as in uiAuditSave(). Skip dismisses a scene only for the session, so
+    // after the reload one came back, sometimes more than 12 s later, and
+    // covered Pet Home in the mobile menu.
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': ADMIN },
         data: { character, worldGeoV: WORLD_GEO_VERSION, currentSector: 44, currentTile: 78,
-            acceptedMissionIds: [], missionProgress: {}, triggeredEvents: [] },
+            acceptedMissionIds: [], missionProgress: {},
+            triggeredEvents: ['builtin-awakening-lv2', 'builtin-aura-sphere-lv9', 'story-interlude-moonshadow-village-20'] },
     });
     expect(seeded.status(), await seeded.text()).toBe(200);
     expect((await request.post(`/api/save/${name}?ack=1`, { headers })).status()).toBe(200);
@@ -125,13 +130,6 @@ test('real World Map discovery binds a wild companion and survives refresh', asy
     expect(state.character.pets).toEqual(expect.arrayContaining([expect.objectContaining({ name: petName, origin: 'wild' })]));
     expect(state.character.itemStacks.some(stack => stack.itemId === 'beast-seal-reinforced' && stack.count > 0)).toBe(false);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    // The saved World Map can resume a pending story scene after its state
-    // hydrates. It may appear a few seconds after DOMContentLoaded and cover
-    // the mobile menu, so allow it to mount before navigating to Pet Home.
-    await scene.waitFor({ state: 'visible', timeout: 12_000 }).catch(() => undefined);
-    for (let i = 0; i < 8 && await scene.isVisible(); i++) {
-        await scene.getByRole('button', { name: 'Skip', exact: true }).click();
-    }
     if (info.project.name !== 'chromium-desktop-live') {
         await page.locator('.mobile-bottom-nav').getByRole('button', { name: 'Menu', exact: true }).click();
     }
