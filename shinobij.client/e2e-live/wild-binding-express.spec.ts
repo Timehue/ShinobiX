@@ -3,6 +3,7 @@ import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 const ADMIN = 'live-express-e2e-admin';
 
@@ -27,6 +28,7 @@ async function seedWildExplorer(request: APIRequestContext) {
         ryo: 1000, inventory: [], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }],
         equipment: {}, pets: [], tileCards: [], jutsuMastery: [], equippedJutsuIds: [],
         pendingCombatMissionClaims: [], seenHints: ['worldMap'], dailyTilesExplored: 0, totalTilesExplored: 0,
+        wandererCooldowns: quietRoadCooldowns([44]),
     };
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': ADMIN },
@@ -77,7 +79,16 @@ test('real World Map discovery binds a wild companion and survives refresh', asy
         else break;
     }
     await expect(stage).toBeVisible();
-    await stage.getByRole('button', { name: 'Move to tile row 2 column 10' }).click();
+    // The sector is the continuous world: its canvas owns pointer input, and the
+    // tile buttons are keyboard stand-ins that enable once the world is ready.
+    // Walk the way the road-crossing specs do, through real world-move, and
+    // wait for Express to accept the arrival before exploring.
+    await expect(page.locator('.continuous-world-map')).toHaveAttribute('aria-busy', 'false');
+    const destination = stage.getByRole('button', { name: 'Move to tile row 2 column 10', exact: true });
+    await destination.focus(); await destination.press('Enter');
+    await expect.poll(async () => (await (await request.get('/api/player/world-move', { headers: account.headers })).json()).tile,
+        { timeout: 30_000 }).toBe(21);
+    await expect(page.locator('.sector-player-tile')).toHaveAttribute('aria-label', 'Current tile row 2 column 10');
     const discoveryResponse = page.waitForResponse(response =>
         response.url().includes('/api/pet/encounter-start') && response.request().method() === 'POST');
     if (info.project.name === 'chromium-desktop-live') await page.keyboard.press('e');
