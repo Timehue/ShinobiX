@@ -68,7 +68,7 @@ export function SectorWeeklyBossActor({
     biome: Biome;
     portrait?: string;
     name: string;
-    onEngage: () => void;
+    onEngage: () => boolean | void;
 }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
@@ -165,7 +165,7 @@ export function SectorWeeklyBossActor({
             if (armed) {
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
-                    if (!greetedRef.current) { greetedRef.current = true; onEngageRef.current(); }
+                    if (!greetedRef.current) greetedRef.current = onEngageRef.current() !== false; // refused = retry next tick
                     schedule(); // hold adjacent
                     return;
                 }

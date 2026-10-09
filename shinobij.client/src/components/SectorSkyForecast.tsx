@@ -50,7 +50,7 @@ export function SectorSkyForecast({
     const night = isWorldNight(now);
 
     if (variant === "effect") {
-        return <p>{entry?.effect ?? ""}{night ? `${entry?.effect ? " " : ""}Night: some wild pets only come out now, and night ninjas prowl the roads.` : ""}</p>;
+        return <p>{entry?.effect ?? ""}{night ? `${entry?.effect ? " " : ""}Night: some wild pets only come out now, and night ninjas hunt the roads.` : ""}</p>;
     }
     if (variant === "name") return <>{entry?.name ?? "Weather unavailable"}</>;
 
