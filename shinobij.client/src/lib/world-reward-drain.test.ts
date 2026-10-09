@@ -16,7 +16,7 @@ function callbacks(overrides: Partial<WorldRewardDrainCallbacks>): WorldRewardDr
     return {
         continueWorldDiscovery: unexpected,
         recoverPendingExternalDiscovery: unexpected,
-        launchResolvedExploreBattle: unexpected,
+        presentExploreAmbush: unexpected,
         recordMissionExplore: unexpected,
         settleDiscoveredChest: unexpected,
         onDungeonFound: unexpected,
@@ -133,7 +133,7 @@ test("a pending battle retires only the refused request and resumes the server's
     const launches: unknown[] = [];
     await withReply({ error: "pending-battle-discovery", requestId: "authoritativebattle", sector: 27 }, async () => {
         const result = await drainPendingWorldRewardOperations(player, callbacks({
-            launchResolvedExploreBattle: (sector, id) => { launches.push([sector, id]); return true; },
+            presentExploreAmbush: (sector, id) => { launches.push([sector, id]); return true; },
         }));
         assert.equal(result.state, "recovered");
         assert.deepEqual(launches, [[27, "authoritativebattle"]]);
@@ -147,7 +147,7 @@ test("WorldMap coalesces the complete drain and passes its screen callbacks to t
     assert.match(screen, /runSingleFlight\(worldRecoveryInFlight\.current, character\.name, drainPendingWorldRewards\)/);
     const wrapper = screen.slice(screen.indexOf("async function drainPendingWorldRewards"), screen.indexOf("\n    useEffect", screen.indexOf("async function drainPendingWorldRewards")));
     assert.match(wrapper, /return drainPendingWorldRewardOperations\(character\.name, \{/);
-    for (const callback of ["continueWorldDiscovery", "recoverPendingExternalDiscovery", "launchResolvedExploreBattle", "recordMissionExplore", "settleDiscoveredChest", "onDungeonFound", "onVersionedCharacter"]) {
+    for (const callback of ["continueWorldDiscovery", "recoverPendingExternalDiscovery", "presentExploreAmbush", "recordMissionExplore", "settleDiscoveredChest", "onDungeonFound", "onVersionedCharacter"]) {
         assert.ok(wrapper.includes(`${callback},`), `${callback} must remain connected to the screen`);
     }
 });

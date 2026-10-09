@@ -30,7 +30,7 @@ export type WorldSectorShrineMarker = Readonly<{
 export type WorldSectorBossMarker = Readonly<{
     name: string;
     portrait: string;
-    onEngage: () => void;
+    onEngage: () => boolean | void;
 }>;
 
 export type WorldSectorOverlayLayerProps = Readonly<{
@@ -45,7 +45,7 @@ export type WorldSectorOverlayLayerProps = Readonly<{
     shrine: WorldSectorShrineMarker | null;
     boss: WorldSectorBossMarker | null;
     fieldStory?: SectorStoryFieldMarkerProps | null;
-    onEngageWanderer: (wanderer: Wanderer) => void;
+    onEngageWanderer: (wanderer: Wanderer) => boolean | void;
     onOpenTrace: (signId: string) => void;
     onOpenShrine: () => void;
 }>;

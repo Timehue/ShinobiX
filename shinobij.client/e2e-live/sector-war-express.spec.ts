@@ -2,6 +2,7 @@ import { expect, type APIRequestContext, type BrowserContext, type Page, type Te
 import { openLandingLogin } from '../e2e/helpers/landing-navigation';
 import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 
 // Real handler responses span save, war-map, contest and replay schemas in this
@@ -36,7 +37,7 @@ function character(name: string, village: string, companion: Json) {
             'genjutsuDefense', 'ninjutsuOffense', 'ninjutsuDefense'].map(key => [key, 100])),
         ryo: 10_000, fateShards: 100, inventory: [], itemStacks: [], equipment: {},
         pets: [companion], activePetId: companion.id, tileCards: [], jutsuMastery: [],
-        equippedJutsuIds: [], pendingCombatMissionClaims: [],
+        equippedJutsuIds: [], pendingCombatMissionClaims: [], wandererCooldowns: quietRoadCooldowns([SECTOR]),
     };
 }
 

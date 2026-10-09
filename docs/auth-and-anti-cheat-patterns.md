@@ -390,6 +390,13 @@ token deletion for exactly-once semantics.
   "lose, never duplicate" stance: it zeroes sectors first, then credits the
   treasury; on a credit failure it records an unreconciled-loss audit key and
   returns 503 rather than risk a double-credit mint.
+- **A client-requested PENALTY is still server-computed.** `api/sector/road-flee.ts`
+  charges the road-ambush flee (`shared/road-flee.ts`: half the HP you have, part
+  of the ryo you carry) from the settled save, never from an amount in the body.
+  It needs no proof that a hostile engaged: a forged call can only cost its own
+  caller. It is idempotent per client-minted `fleeId` (a receipt row), and fleeing
+  an exploration ambush claims that receipt's one-use fight marker, so the flee
+  settles the owed battle instead of acting as a free re-roll.
 
 ---
 
