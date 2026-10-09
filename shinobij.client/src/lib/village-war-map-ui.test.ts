@@ -15,6 +15,8 @@ import {
     garrisonFeedStatusLine,
     provisionsMeaningLine,
     resolvedStructureLevel,
+    sectorWarConcedeConfirmText,
+    sectorWarDeclareConfirmText,
     structureUpgradeNotice,
     warMapErrorAfterAction,
     warMapErrorAfterRefresh,
@@ -107,6 +109,23 @@ describe('garrison-feed copy', () => {
         assert.match(title, /^Spend 15 rations a day/);
         assert.match(title, new RegExp(`at most ${GARRISON_POINTS_CAP_DEFENDED} points`));
         assert.match(garrisonFeedButtonTitle('attacker', 15), new RegExp(`up to ${GARRISON_POINTS_CAP_FED} points`));
+    });
+});
+
+describe('E19 — the two sector-war confirms say what cannot be undone', () => {
+    it('declaring names the sector, the holder and the price', () => {
+        const text = sectorWarDeclareConfirmText(23, 'Frostfang Village', '~175 WR');
+        assert.match(text, /Sector 23, held by Frostfang Village/);
+        assert.match(text, /~175 WR/);
+        assert.match(text, /nothing is refunded if you concede/);
+    });
+
+    it('conceding names everything the attacker gives up', () => {
+        const text = sectorWarConcedeConfirmText(23, 'Frostfang Village');
+        assert.match(text, /Frostfang Village holds it whatever the score/);
+        assert.match(text, /not refunded/);
+        assert.match(text, /intel on it is burned/);
+        assert.match(text, /24 hours/);
     });
 });
 

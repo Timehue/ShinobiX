@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { WAR_MAP_MEMO_MS, clearWarMapCache, contestGarrisonFeed, contestVillageUnfed, declareSectorWar, fetchWarMap, storesUtcDay, type SectorWarContest } from './village-war-map';
+import { WAR_MAP_MEMO_MS, clearWarMapCache, contestGarrisonFeed, contestUnfedToday, contestVillageUnfed, declareSectorWar, fetchWarMap, storesUtcDay, type SectorWarContest } from './village-war-map';
 
 // MUST mirror api/_sector-war.ts sectorWarVillageUnfed: the stores verdict is
 // scoped to the UTC day it was stamped for. Without that, the "marches hungry"
@@ -28,6 +28,17 @@ function contest(over: Partial<SectorWarContest> = {}): SectorWarContest {
         ...over,
     };
 }
+
+// The Fed/Unfed chip read the raw `fed: false`, so yesterday's verdict stayed on
+// screen through a day the daily pass never ran.
+describe('contestUnfedToday — the Fed/Unfed chip expires with its day too', () => {
+    it('reads Unfed only while the verdict names today', () => {
+        assert.equal(contestUnfedToday(contest({ storesDate: TODAY, fed: false }), TODAY), true);
+        assert.equal(contestUnfedToday(contest({ storesDate: YESTERDAY, fed: false }), TODAY), false, 'a stale verdict reads as fed');
+        assert.equal(contestUnfedToday(contest({ fed: false }), TODAY), false, 'a war the pass never evaluated reads as fed');
+        assert.equal(contestUnfedToday(contest({ storesDate: TODAY, fed: true }), TODAY), false);
+    });
+});
 
 describe('contestVillageUnfed — the hungry plate expires with its day', () => {
     it('applies while the verdict names today', () => {

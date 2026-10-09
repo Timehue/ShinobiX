@@ -869,6 +869,7 @@ function WorldMapContent({
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
     const MERC_CLIENT_HIDE_MS = 15 * 60 * 1000;
     const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[]; contest: SectorWarContestView | null }>({ sector: -1, mercs: [], contest: null });
+    const presentHere = selectedSector != null && sameSector(currentSector, selectedSector); // arrival re-polls: the roster answers only a player who is there
     useEffect(() => {
         const village = (character.village ?? "").trim();
         const sec = selectedSector;
@@ -878,7 +879,7 @@ function WorldMapContent({
         load();
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
-    }, [selectedSector, character.name, character.village, villageWarViewOpen]);
+    }, [selectedSector, character.name, character.village, villageWarViewOpen, presentHere]);
     // Only trust the contest when it was polled FOR the sector on screen (the
     // roster lags a sector change by one poll), and narrow it to a war this
     // player is actually IN — a bystander village keeps plain world PvP.

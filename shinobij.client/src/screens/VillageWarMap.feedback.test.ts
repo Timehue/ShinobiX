@@ -94,6 +94,22 @@ describe('Village War Map feedback contract', () => {
         assert.doesNotMatch(screen, /cap 200/, 'the design-doc shorthand is gone');
     });
 
+    it('E19 — declaring and conceding each ask first; one tap does neither', () => {
+        assert.match(screen, /gameConfirm\(sectorWarDeclareConfirmText\([\s\S]{0,200}\)\)\) return;\s*void act\(`dec-\$\{sec\.sector\}`/);
+        assert.match(screen, /gameConfirm\(sectorWarConcedeConfirmText\([\s\S]{0,200}danger: true \}\)\)\) return;\s*void act\(`aband-\$\{sec\.sector\}`/);
+    });
+
+    it('E15 — only the newest refresh writes the screen, and the Fed chip is day-scoped', () => {
+        assert.match(screen, /const seq = \+\+refreshSeq\.current;/);
+        assert.match(screen, /if \(seq !== refreshSeq\.current\) return;\s*setData\(wm\);/);
+        assert.doesNotMatch(screen, /fed === false/, 'the chips read contestUnfedToday, not the raw verdict');
+        const overlay = readFileSync(new URL('../components/SectorOwnershipOverlay.tsx', import.meta.url), 'utf8');
+        assert.equal((overlay.match(/visiblePoll\(/g) ?? []).length, 2, 'banners and siege pulses are both re-read while the map is open');
+        assert.doesNotMatch(overlay, /useMemo\(/, 'the owners are no longer frozen at mount');
+        const worldMap = readFileSync(new URL('./WorldMap.tsx', import.meta.url), 'utf8');
+        assert.match(worldMap, /\[selectedSector, character\.name, character\.village, villageWarViewOpen, presentHere\]/, 'arriving in the sector re-polls its roster');
+    });
+
     it('3g — the button that was pressed relabels; the rest merely disable', () => {
         for (const [id, label] of [['feed-\\$\\{sec\\.sector\\}', 'Feeding…'], ['dec-\\$\\{sec\\.sector\\}', 'Declaring…'], ['aband-\\$\\{sec\\.sector\\}', 'Conceding…']]) {
             assert.match(screen, new RegExp(`busyLabel\\(busy, \`${id}\`, "${label}"`), `expected a "${label}" in-flight label`);
