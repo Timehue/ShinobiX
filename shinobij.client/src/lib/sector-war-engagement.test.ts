@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+    OPEN_SECTOR_BATTLE_EVENT,
     beginOpenSectorBattle,
     beginSectorContest,
     contestBackKey,
@@ -195,4 +196,26 @@ test("an open battle stashes its id for the screen, and the table's entry clears
     assert.equal(stashedOpenBattleId("sectorWarCard.v1"), "");
     store.set("sectorWarPet.v1", "{not json");
     assert.equal(stashedOpenBattleId("sectorWarPet.v1"), "");
+});
+
+test("stashing an open battle tells a contest screen that is already showing to remount", () => {
+    // App does not remount a screen it is asked to show again, so a player still
+    // on the Pet or Card screen would otherwise never see the new battle.
+    const target = new EventTarget();
+    const heard: unknown[] = [];
+    target.addEventListener(OPEN_SECTOR_BATTLE_EVENT, (event) => { heard.push((event as CustomEvent<unknown>).detail); });
+    (globalThis as { window?: unknown }).window = target;
+    try {
+        store.clear();
+        beginOpenSectorBattle({ kind: "pet", sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID }, "worldMap");
+        beginOpenSectorBattle({ kind: "card", sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID }, "worldMap");
+        // The stash is written first, so the remounted screen reads the new battle.
+        assert.deepEqual(heard, ["sectorWarPet.v1", "sectorWarCard.v1"]);
+        assert.equal(stashedOpenBattleId("sectorWarCard.v1"), ENGAGE_ID);
+        // The table's own entry is a navigation, not a battle drawn onto a screen.
+        beginSectorContest(attack(), "worldMap");
+        assert.equal(heard.length, 2);
+    } finally {
+        delete (globalThis as { window?: unknown }).window;
+    }
 });

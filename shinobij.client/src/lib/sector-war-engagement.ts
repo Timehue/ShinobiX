@@ -229,6 +229,13 @@ export function stashedContestIsGarrison(stashKey: string): boolean {
 /** One open-world battle in a Pet or Card war (api/_sector-contest-engage.ts). */
 export type OpenSectorBattle = { kind: "card" | "pet"; sectorWarId: string; engageId: string };
 
+/** Dispatched on window, with the stash key as `detail`, whenever an open battle
+ *  is stashed. App keeps a screen mounted when it is asked to show the screen it
+ *  already shows, so a player still on the Pet or Card screen (a table duel, or
+ *  an earlier open battle) would otherwise never see the new one: the screens
+ *  listen for this and remount their battle (lib/use-open-sector-battle.ts). */
+export const OPEN_SECTOR_BATTLE_EVENT = "shinobix:open-sector-battle";
+
 /** The server mints 24 hex characters (newOpenBattleId) and refuses anything else. */
 const ENGAGE_ID = /^[a-f0-9]{24}$/;
 
@@ -260,6 +267,11 @@ export function beginOpenSectorBattle(battle: OpenSectorBattle, backScreen: Scre
         sessionStorage.setItem(contestBackKey(route.stashKey), backScreen);
     } catch {
         /* storage disabled — the screen renders its own "context was lost" card */
+    }
+    try {
+        window.dispatchEvent(new CustomEvent(OPEN_SECTOR_BATTLE_EVENT, { detail: route.stashKey }));
+    } catch {
+        /* no window (tests): nothing is mounted to remount */
     }
     return route.screen;
 }
