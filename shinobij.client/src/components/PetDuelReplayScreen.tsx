@@ -60,12 +60,21 @@ export type PetDuelReplayConfig<S> = {
      * has (the Clan War pet challenge leaves it unset).
      */
     nextDuel?: (session: S) => string | null;
+    /**
+     * Optional: the duel was fought before this screen opened (an open-world
+     * Sector War pet battle, decided by both sides' sealed teams the moment one
+     * attacked the other), so there is no pet to pick. The screen never shows
+     * the picker: `loading` until the session arrives, `missing` if it cannot.
+     */
+    pickerless?: { loading: string; missing: string };
 };
 
 export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: PetDuelReplayConfig<S> }) {
-    const { ready, fetchState, submit, resolved: isResolved, watch, banner, waiting, onBack, nextDuel } = config;
+    const { ready, fetchState, submit, resolved: isResolved, watch, banner, waiting, onBack, nextDuel, pickerless } = config;
     const [selectedPetId, setSelectedPetId] = useState(pets[0]?.id ?? "");
     const [session, setSession] = useState<S | null>(null);
+    /** The mount read found no session (only shown for a `pickerless` screen). */
+    const [sessionMissing, setSessionMissing] = useState(false);
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     /** undefined = not fetched yet · null = decided but unwatchable · script = play it */
@@ -97,10 +106,11 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
         if (!ready) return;
         let alive = true;
         void fetchState().then((s) => {
-            if (!alive || !s) return;
+            if (!alive) return;
+            if (!s) return void setSessionMissing(true);
             setSession(s);
             if (nextDuel && isResolved(s) && nextDuel(s)) setArrivedDecided(true);
-        }).catch(() => { /* none yet */ });
+        }).catch(() => { if (alive) setSessionMissing(true); /* none yet */ });
         return () => { alive = false; };
     }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -190,6 +200,12 @@ export function PetDuelReplayScreen<S>({ pets, config }: { pets: Pet[]; config: 
                 <PetShowdownReplay script={script} playerPets={pets} onExit={replayFromCard ? () => setArrivedDecided(true) : onBack} />
             </div>
         );
+    }
+
+    // A battle fought before the screen opened has no picker to fall back to:
+    // until its decided session arrives, there is nothing else to show.
+    if (pickerless) {
+        return card(<><h3>{config.title}</h3><p className="hint">{sessionMissing ? pickerless.missing : pickerless.loading}</p><button onClick={onBack}>{config.backLabel}</button></>);
     }
 
     // My pets are in; waiting on the other side.

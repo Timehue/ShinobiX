@@ -624,7 +624,7 @@ describe('sector-war: Village Stores (garrison feed cap + unfed Watchtower)', ()
         assert.deepEqual(frost.garrisonFeed, s.garrisonFeed, 'a village sees its own entry');
         const moon = projectSectorWarForClient(s, MOON) as Record<string, unknown>;
         assert.equal(moon.garrisonFed, undefined, 'the other side never sees the enemy feed as its own');
-        // Owner ruling 2026-10-09: a village's internals are for its members, so
+        // Owner ruling 2026-10-08: a village's internals are for its members, so
         // the enemy's feed (and who ordered it) is not in the map either.
         assert.equal(moon.garrisonFeed, undefined, 'the other side never sees the enemy\'s feed entry');
         assert.deepEqual(

@@ -23,6 +23,9 @@ import "../styles/chronicle-duel.css";
 export interface CardDuelWaiting {
   status?: string;
   viewerSide?: string | null;
+  /** An open-world Sector War duel names the other duelist and who started it. */
+  opponent?: string | null;
+  initiator?: string;
 }
 
 /** What a finished duel did to a war, when the host reports it (Sector War). */
@@ -48,6 +51,12 @@ export interface CardClashDuelConfig {
    *  answer says a seat is open for them (`seatOpen`). Sector War only: its
    *  defender may open the table before any attacker has. */
   joinWhenSeatOpens?: boolean;
+  /** Optional: a wait the server reports that will never become a match (an
+   *  open-world duel that was called off). The screen stops polling it. */
+  waitingEnded?: (waiting: CardDuelWaiting) => boolean;
+  /** Optional: leaving while the duel has not started calls it off, so the
+   *  other duelist is never dealt a match nobody is at. Sector War open duels. */
+  cancelOnLeave?: boolean;
   forfeitConfirm: string;
   doneNote: (won: boolean, draw: boolean, warResult?: CardDuelWarResult) => string;
   autoJoin?: boolean;
@@ -105,6 +114,7 @@ export function CardClashDuelScreen({
   const [waitingInfo, setWaitingInfo] = useState<CardDuelWaiting | null>(null);
   const [seatOpen, setSeatOpen] = useState(false);
   const [warResult, setWarResult] = useState<CardDuelWarResult | undefined>(undefined);
+  const waitEnded = Boolean(!view && waitingInfo && config.waitingEnded?.(waitingInfo));
   const seatJoinInFlight = useRef(false);
   const joined = useRef(false);
   const actionInFlight = useRef(false);
@@ -227,7 +237,8 @@ export function CardClashDuelScreen({
   }, [post]);
 
   useEffect(() => {
-    if (!stash || !pageVisible || busy) return;
+    // A duel that was called off before it began has nothing left to wait for.
+    if (!stash || !pageVisible || busy || waitEnded) return;
     const delay = chronicleNextStateRefreshMs(view, waiting);
     if (delay === null) return;
     const timer = window.setTimeout(() => {
@@ -243,7 +254,7 @@ export function CardClashDuelScreen({
         .finally(() => setPollNonce((nonce) => nonce + 1));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [busy, pageVisible, pollNonce, post, stash, view, waiting]);
+  }, [busy, pageVisible, pollNonce, post, stash, view, waiting, waitEnded]);
 
   useEffect(() => {
     if (view?.status !== "complete") return;
@@ -294,6 +305,9 @@ export function CardClashDuelScreen({
         actionInFlight.current = false;
         setBusy(false);
       }
+    } else if (config.cancelOnLeave && !view && !waitEnded) {
+      // Best-effort: an unanswered open duel goes void on its own clock.
+      await post("cancel").catch(() => undefined);
     }
     setScreen(config.backScreen);
   }
@@ -346,12 +360,14 @@ export function CardClashDuelScreen({
       ) : null}
       {waiting || !view ? (
         <section className="chronicle-panel" aria-live="polite">
-          <h2>Preparing the table</h2>
+          <h2>{waitEnded ? "Duel called off" : "Preparing the table"}</h2>
           <p>{config.waitingNote && waitingInfo ? config.waitingNote(waitingInfo) : config.awaitingNote}</p>
-          <p>
-            The server is validating both 40-card decks and will choose the
-            first player.
-          </p>
+          {waitEnded ? null : (
+            <p>
+              The server is validating both 40-card decks and will choose the
+              first player.
+            </p>
+          )}
         </section>
       ) : (
         <>

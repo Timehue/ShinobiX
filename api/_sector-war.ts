@@ -949,7 +949,7 @@ export function projectSectorWarForClient(
     const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, garrisonFeed, ...rest } = session;
     if (opts.admin) return garrisonFeed ? { ...rest, garrisonFeed } : rest;
     // A village's garrison feed is its own business: whether it pays rations,
-    // and which member ordered it (owner ruling 2026-10-09, village internals
+    // and which member ordered it (owner ruling 2026-10-08, village internals
     // are for members only). The viewer sees its own entry, nobody else's, and
     // a caller that names no viewer gets none.
     const mine = viewerVillage ? garrisonFeedFor(session, viewerVillage) : undefined;

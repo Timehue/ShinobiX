@@ -145,7 +145,7 @@ export function villageWarMapView(args: {
  * where it stands, whether it has a Kage, and the rules of the sectors it holds
  * (an attacker must know what kind of battle a sector is). Its war chest,
  * treasury seals, structures, upkeep, dormancy, tax, stores and ledger are its
- * members' business (owner ruling 2026-10-09); other villages learn them only
+ * members' business (owner ruling 2026-10-08); other villages learn them only
  * through intel (api/village/intel.ts).
  */
 export type VillageWarMapPublicView = Pick<VillageWarMapView, 'village' | 'biome' | 'homeSectors' | 'sectorsHeld' | 'kageSeated' | 'sectors'> & {

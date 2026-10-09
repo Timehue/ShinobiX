@@ -144,7 +144,7 @@ describe('GET /api/village/war-map', { concurrency: false }, () => {
     });
 
     it('shows a village\'s war chest, structures and stores to its own members only', async () => {
-        // Owner ruling 2026-10-09: village internals are for that village's
+        // Owner ruling 2026-10-08: village internals are for that village's
         // members; everyone else sees who holds what and each sector's rules.
         const internals = ['warResources', 'treasurySeals', 'structures', 'upkeepWr', 'dormant', 'wrPerSector', 'taxRatePct', 'provisions', 'materialPoints', 'depotConversionCap', 'storesLedger'];
         await seedSave('frostrunner', VIEWER);

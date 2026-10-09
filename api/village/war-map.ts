@@ -21,7 +21,7 @@ import { viewerVillageOf } from '../_viewer-village.js';
  * structures + daily upkeep + dormancy, the Supply-Depot WR rate, the effective
  * tax tier, its stores and their ledger. For every village: the sectors it holds
  * and their win-condition / terrain (the holder sets them). Another village's
- * internals are for its members only (owner ruling 2026-10-09). Plus every
+ * internals are for its members only (owner ruling 2026-10-08). Plus every
  * active sector-war contest, with only the viewer's own garrison feed.
  * View-only — all actions call the dedicated server-auth endpoints.
  *
@@ -74,7 +74,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const viewerVillage = resolvedViewerVillage || undefined;
 
         // A village's war chest, structures, stores and tax are for its own
-        // members (owner ruling 2026-10-09). Everyone else gets the public view:
+        // members (owner ruling 2026-10-08). Everyone else gets the public view:
         // who holds what, and the rules of each held sector. Admins see all.
         const villages: Array<VillageWarMapView | VillageWarMapPublicView> = WAR_VILLAGES.map((v, i) => {
             const record = normalizeVillageWarRecord(v, warRaws[i] ?? undefined);

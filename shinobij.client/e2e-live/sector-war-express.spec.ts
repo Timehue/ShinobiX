@@ -101,6 +101,16 @@ async function openLiveSector(page: Page) {
     await expect(page.getByRole('button', { name: 'Contested · Pet Battle', exact: true })).toBeVisible({ timeout: 60_000 });
 }
 
+/** Back on the sector board after a battle screen, from either world-map view. */
+async function backToSector(page: Page) {
+    await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible({ timeout: 60_000 });
+    const returnToSector = page.getByRole('button', { name: new RegExp(`Return to Sector ${SECTOR}`) });
+    const sectorMap = page.locator('.sector-image-map');
+    await expect(sectorMap.or(returnToSector)).toBeVisible({ timeout: 60_000 });
+    if (await returnToSector.isVisible()) await returnToSector.click();
+    await expect(sectorMap).toBeVisible({ timeout: 60_000 });
+}
+
 async function logoutAndRelogin(page: Page, name: string) {
     const loggedOut = page.getByTestId('start-create');
     const blocked = page.getByRole('alertdialog', { name: /Save temporarily paused|Save Failed/ });
@@ -213,4 +223,74 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await openLiveSector(page);
     await expect(page.getByRole('button', { name: 'Contested · Pet Battle', exact: true })).toBeVisible();
+});
+
+// Owner ruling 2026-10-08: in a Pet war, attacking an enemy who stands in the
+// contested sector is a pet battle against THAT player, opened for both of them
+// as a Combat attack opens its fight, and it scores for the winner's village.
+test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both players\' screens', async ({ browser, baseURL, context, page, request }, info) => {
+    test.skip(info.project.name.includes('mobile'), 'The two-client battle runs once on the desktop player shell.');
+    test.setTimeout(210_000);
+    page.setDefaultTimeout(20_000);
+
+    const attacker = await seedAccount(request, info, 'openatk', ATTACKER_VILLAGE, pet('open-attacker-pet', 'rare-26', 'Tempest Ocelot', 'Lightning', 82));
+    const defender = await seedAccount(request, info, 'opendef', DEFENDER_VILLAGE, pet('open-defender-pet', 'rare-1', 'Cinder Otter', 'Fire', 70));
+    const setup = await request.post('/api/_qa/sector-war', {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+        data: {
+            action: 'seed', sector: SECTOR, attackerVillage: ATTACKER_VILLAGE,
+            defenderVillage: DEFENDER_VILLAGE, attackerName: attacker.name,
+            defenderName: defender.name, winCondition: 'pet',
+        },
+    });
+    expect(setup.status(), await setup.text()).toBe(200);
+    const contest = (await setup.json() as Json).contest as Json;
+    attacker.canonical = await (await request.get(`/api/save/${attacker.name}`, { headers: attacker.headers })).json() as Json;
+    defender.canonical = await (await request.get(`/api/save/${defender.name}`, { headers: defender.headers })).json() as Json;
+
+    const defenderContext = await browser.newContext({
+        baseURL, viewport: { width: 1366, height: 768 }, reducedMotion: 'reduce', serviceWorkers: 'block',
+    });
+    try {
+        await installSession(context, attacker);
+        await installSession(defenderContext, defender);
+        const defenderPage = await defenderContext.newPage();
+        defenderPage.setDefaultTimeout(20_000);
+        await openLiveSector(page);
+        await openLiveSector(defenderPage);
+
+        // The enemy standing in the sector is offered the war's own game.
+        const battle = page.getByRole('button', { name: `Pet Battle ${defender.name}`, exact: true });
+        await expect(battle).toBeEnabled({ timeout: 60_000 });
+        await battle.click();
+
+        const verdict = /Your pet won the sector duel|Your pet was defeated/;
+        await expect(page.locator('.app-shell[data-screen="sectorPet"]')).toBeVisible();
+        await expect(page.getByText(verdict)).toBeVisible({ timeout: 30_000 });
+        // The target's client hears of it and opens the same battle on its own.
+        await expect(defenderPage.locator('.app-shell[data-screen="sectorPet"]')).toBeVisible({ timeout: 30_000 });
+        await expect(defenderPage.getByText(verdict)).toBeVisible({ timeout: 30_000 });
+        const attackerWon = await page.getByText('Your pet won the sector duel!').isVisible();
+        expect(await defenderPage.getByText('Your pet won the sector duel!').isVisible(), 'one battle, one winner').toBe(!attackerWon);
+
+        const scored = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
+        expect(attackerWon ? scored.attackerPoints : scored.defenderPoints, 'it scored for the winner\'s village').toBeGreaterThan(0);
+        expect(attackerWon ? scored.defenderPoints : scored.attackerPoints).toBe(0);
+
+        const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
+        await expect(result).toBeVisible({ timeout: 60_000 });
+        await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+        await backToSector(page);
+
+        // The same two cannot be set on each other again at once, and the
+        // player is told why on that player's row rather than by a pop-up.
+        await expect(battle).toBeEnabled({ timeout: 60_000 });
+        await battle.click();
+        await expect(page.getByText(/You two met in battle moments ago/)).toBeVisible();
+        await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+        const unchanged = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
+        expect(unchanged).toMatchObject({ attackerPoints: scored.attackerPoints, defenderPoints: scored.defenderPoints });
+    } finally {
+        await defenderContext.close();
+    }
 });

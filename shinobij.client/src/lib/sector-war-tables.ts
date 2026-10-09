@@ -14,8 +14,9 @@
  */
 import type { Screen } from "../types/core";
 
-/** A Card table answer that is not a match yet: which wait it is. */
-export type SectorTableWaiting = { status?: string; viewerSide?: string | null };
+/** A Card table answer that is not a match yet: which wait it is. An open-world
+ *  duel also names the other duelist and the one who started it. */
+export type SectorTableWaiting = { status?: string; viewerSide?: string | null; opponent?: string | null; initiator?: string };
 
 /** What a finished duel did to the war (api/village/sector-card.ts, sector-pet.ts). */
 export type SectorWarResult = { scored: boolean; points?: number; reason?: string };
@@ -46,7 +47,25 @@ export function sectorCardWaitingNote(waiting: SectorTableWaiting): string {
     if (waiting.status === "awaiting-attacker") {
         return "No attacker has opened this sector's table yet. You'll be seated the moment one does.";
     }
+    // An open-world duel (api/village/sector-card.ts runEngage): one player
+    // challenged another standing in the sector, and the challenged player's
+    // client takes its seat as soon as it hears.
+    if (waiting.status === "awaiting-target") {
+        const opponent = waiting.opponent || "";
+        return waiting.initiator && waiting.initiator === opponent
+            ? `${opponent} challenged you to a card duel for this sector. Taking your seat…`
+            : `Waiting for ${opponent || "your opponent"} to take their seat. If they have not sat down within a minute, the duel is called off and nothing scores.`;
+    }
+    if (sectorCardWaitEnded(waiting)) {
+        return "This duel was called off before it began. Nothing scored for either side.";
+    }
     return "Waiting for the other side of the table.";
+}
+
+/** A wait that will never become a match: an open-world duel that was called
+ *  off, or whose challenged player never took their seat. */
+export function sectorCardWaitEnded(waiting: SectorTableWaiting): boolean {
+    return waiting.status === "void";
 }
 
 /** Under the board's own Victory/Defeat heading. Says "scored" only when the
@@ -125,6 +144,14 @@ export function sectorPetBanner(session: SectorPetView, me: string): string {
                 : `${session.winner === "p1" ? session.attackerVillage : session.defenderVillage} took the duel.`;
     return warResultUncounted(session.warResult) ? `${verdict} ${UNCOUNTED_NOTE}` : verdict;
 }
+
+/** An open-world pet battle's screen before its decided session arrives, or
+ *  when it cannot be read: the server keeps it half an hour, and only its two
+ *  villages may watch it. It was scored when it was fought, either way. */
+export const SECTOR_PET_OPEN_BATTLE_STATUS = {
+    loading: "Recovering the battle…",
+    missing: "This battle can no longer be watched. Whatever it scored is already on the war's tally.",
+};
 
 /**
  * The "next duel" control on a decided duel, or null for none.
