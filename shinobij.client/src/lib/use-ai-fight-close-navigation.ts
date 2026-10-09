@@ -11,7 +11,7 @@ export function useAiFightCloseNavigation({
     sealedFightOpen: boolean;
     missionBattleActive: boolean;
     setMissionBattleActive: (active: boolean) => void;
-    navigate: (screen: Screen) => void;
+    navigate: (screen: Screen, authoritativeCharacter?: undefined, options?: { returningFromFight?: boolean }) => void;
 }) {
     const [pending, setPending] = useState<AiFightCloseNavigation | null>(null);
     const owner = useRef({ playerKey: playerSlug(account), generation: 0 });
@@ -38,7 +38,9 @@ export function useAiFightCloseNavigation({
         if (state === 'discard') return;
         // Use the ordinary navigation function after its guard signals commit.
         // Other live battles, travel, and hospital restrictions still apply.
-        if (pending.returnScreen) navigateRef.current(pending.returnScreen as Screen);
+        // The fight was an overlay on the field, so a World Map return goes back
+        // into the sector it was fought in, not out to the overview.
+        if (pending.returnScreen) navigateRef.current(pending.returnScreen as Screen, undefined, { returningFromFight: true });
     }, [pending, sealedFightOpen, missionBattleActive, account]);
     return { onClose, stableNavigate };
 }

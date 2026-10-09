@@ -26,6 +26,7 @@ import {
     type EmissarySlug,
 } from "../lib/legacy-emissaries";
 import { isStoryReckoningId } from "../lib/story-reckonings";
+import { roadFleePriceLine } from "../lib/road-flee-api";
 
 type ActionResult = void | Promise<unknown>;
 type WandererAction = (wanderer: Wanderer) => ActionResult;
@@ -37,6 +38,12 @@ export type WorldWandererDialogState = Readonly<{
     nemesis?: boolean;
     standingLine?: string;
     peace?: boolean;
+    /** The exploration battle this hostile stands for (it is not a road wanderer). */
+    ambush?: Readonly<{ sector: number; requestId: string }>;
+    /** Minted on the first Flee, so a retry is never charged twice. */
+    fleeId?: string;
+    /** Why the last Fight or Flee did not go through; the choice stays open. */
+    choiceError?: string;
 }>;
 
 export type WorldWandererDialogProps = Readonly<{
@@ -49,6 +56,7 @@ export type WorldWandererDialogProps = Readonly<{
     closeWandererDialog: () => void;
     dismissWandererDialog: () => void;
     startWandererAttack: (wanderer: Wanderer, nemesis?: boolean) => ActionResult;
+    fleeWanderer: WandererAction;
     tradeWithWanderer: WandererAction;
     askRoadRumor: WandererAction;
     visitWandererMedic: WandererAction;
@@ -96,6 +104,7 @@ export function WorldWandererDialog({
     closeWandererDialog,
     dismissWandererDialog,
     startWandererAttack,
+    fleeWanderer,
     tradeWithWanderer,
     askRoadRumor,
     visitWandererMedic,
@@ -133,20 +142,24 @@ export function WorldWandererDialog({
             <p style={{ fontStyle: "italic", margin: "0 0 14px" }}>{wandererDialog.msg ?? (wandererDialog.nemesis ? `"You again, ${character.name}. You walked away last time. You won't this time."` : wandererDialog.w.greeting)}</p>
             {!wandererDialog.msg && remembered && <p style={{ fontSize: ".72rem", color: "#a7f3d0", margin: "-8px 0 12px", fontStyle: "italic" }}>{remembered}</p>}
             {!wandererDialog.msg && wandererDialog.standingLine && <p style={{ fontStyle: "italic", fontSize: ".8rem", color: wandererDialog.peace ? "var(--green-300)" : "var(--slate-300)", margin: "-6px 0 14px" }}>{wandererDialog.standingLine}</p>}
-            {!wandererDialog.msg && wandererDialog.w.verb === "attack" ? (
+            {!wandererDialog.msg && (wandererDialog.w.verb === "attack" || wandererDialog.w.verb === "bountyHunter") ? (
                 wandererDialog.peace ? (
                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                         <button onClick={dismissWandererDialog}>Pass in peace</button>
                         <button onClick={() => startWandererAttack(wandererDialog.w, false)} style={{ background: "transparent", borderColor: "#6b7280", color: "#9aa3b2" }}>Fight anyway</button>
                     </div>
                 ) : (
-                    <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                        <button onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
-                        <button onClick={dismissWandererDialog}>Flee</button>
-                    </div>
+                    <>
+                        {/* A hostile that has caught you is fought or fled, and the
+                            flee price is shown before the choice, never after. */}
+                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "-6px 0 12px" }}>{roadFleePriceLine(character)}</p>
+                        {wandererDialog.choiceError && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{wandererDialog.choiceError}</p>}
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                            <button disabled={wandererDialog.busy} onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>
+                            <button disabled={wandererDialog.busy} onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>
+                        </div>
+                    </>
                 )
-            ) : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter" ? (
-                <p role="status" style={{ color: "var(--red-300)", fontWeight: 700 }}>The hunter attacks. Combat is starting…</p>
             ) : !wandererDialog.msg && wandererDialog.w.verb === "merchant" ? (
                 <div style={{ display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
                     <button disabled={wandererDialog.busy} onClick={() => tradeWithWanderer(wandererDialog.w)}>{wandererDialog.busy ? "..." : "Trade"}</button>

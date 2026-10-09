@@ -12,9 +12,10 @@ import { useEffect, useRef, type ReactNode } from "react";
  * forced choice pushed in front of them silently, with focus still parked on
  * whatever was behind the scrim.
  *
- * Escape follows the encounter's dismissal policy. Bandits allow fleeing with
- * Escape and apply the same cooldown as their Flee button. A bounty hunter's
- * forced fight cannot be dismissed while it is starting.
+ * Escape follows the encounter's dismissal policy. A hostile that has caught
+ * the player (bandit, hunter, mercenary, Weekly Boss, exploration ambush) is
+ * fought or fled, and fleeing has a price, so Escape never closes it; only the
+ * Flee button does. A bandit that lets you pass in peace closes freely.
  *
  * Deliberately NOT using `inert` on the background. An earlier modal that
  * closed and navigated in the same click leaked `inert` onto #root and left the

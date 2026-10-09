@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { STARTER_PETS } from "../src/data/starter-pets";
 import { ASCENSION_STONE_ID, AWAKENING_STONE_ID, evolvePet, evolutionLineFor } from "../src/data/pet-evolutions";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 
 const manifest = JSON.parse(readFileSync(new URL("../dist/.vite/manifest.json", import.meta.url), "utf8")) as Record<string, { file: string; css?: string[] }>;
 const evolutionChunk = `/${manifest["src/components/PetEvolutionCutscene.tsx"].file}`;
@@ -217,7 +218,9 @@ test("a real map encounter warms binding during its story and returns after batt
     test.setTimeout(150_000);
     test.skip(!["chromium-desktop", "chromium-mobile", "webkit-mobile"].includes(info.project.name));
     const requests = countRequests(page, bindingChunk);
-    const save = { ...petSave(), currentSector: 40 };
+    const base = petSave();
+    // Road hostiles hunt the player into a blocking Fight/Flee; keep this sector quiet.
+    const save = { ...base, currentSector: 40, character: { ...base.character!, wandererCooldowns: quietRoadCooldowns([40]) } };
     const runtime = await installUiAuditRuntime(page, save);
     const wildPet = { ...STARTER_PETS[1].pet, id: "standard-1-17500000", name: "Moonfang", trait: "Loyal" };
     let requestId = "";

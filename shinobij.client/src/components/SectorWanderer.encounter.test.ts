@@ -47,6 +47,14 @@ test("a hunter has to find the player, and commits once it has", () => {
     assert.ok(spot < 12, `a spot radius of ${spot} covers the whole board — that is not an ambush`);
 });
 
+test("a hunter held back by another hostile's choice confronts you once it is made", () => {
+    // WorldMap refuses a second Fight/Flee while one is open. The hunter used to
+    // count that refusal as its greeting and stand beside the player in silence
+    // until they walked out of range; now only an ACCEPTED confrontation counts.
+    assert.match(source, /if \(isHunter\) greetedRef\.current = onEngageRef\.current\(wanderer\) !== false;/u);
+    assert.match(source, /onEngage: \(w: Wanderer\) => boolean \| void;/u);
+});
+
 test("arriving in a sector leaves time to read it before anyone closes in", () => {
     const arm = constant("ARM_DELAY_MS");
     assert.ok(arm >= 2_000, `${arm}ms is not long enough to read the sector panel before an encounter`);
