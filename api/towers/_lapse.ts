@@ -1,5 +1,10 @@
 import { safeName } from '../_utils.js';
-import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
+import {
+    applyPveOutcomeBodyOnce,
+    markPveOutcomeSettled,
+    readPveOutcomeMarker,
+    settlePveFightOutcome,
+} from '../pve/_fight-outcome-settlement.js';
 import type { AiFightSession } from '../missions/_ai-fight-outcome.js';
 import { releaseTowerBattleLeases, towerBattleLeaseMembers } from './_battle-lease.js';
 import { closeTowerPartyRun } from './_party.js';
@@ -7,7 +12,6 @@ import { withTowerSessionMutation, type TowerSessionLock } from './_session-muta
 import { isTowerRunLapsed, needsTowerLapseReconciliation, readSession, towerRunExpiresAt, writeSession } from './_tower-store.js';
 import type { TowerSession } from './_tower-session.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
-import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
 import { settleCaravanCombat, requireCaravan } from '../festival/_caravan.js';
 import { settleConsumedItemsForMember } from './_tower-store.js';
 import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
@@ -17,16 +21,25 @@ async function settleCaravanAmbushLapse(session: TowerSession, playerName: strin
     const actor = session.actors.find(candidate => candidate.side === 'squad' && candidate.ai === false && candidate.ownerSlug === playerName);
     if (!binding || !actor) return { ok: false, error: 'Caravan ambush proof is incomplete.' };
     await settleConsumedItemsForMember({ session, slug: playerName });
+    // Written ONCE across this forfeit and the generic pve-outcome path, which
+    // reads this Tower run too (see api/pve/_fight-outcome-settlement.ts).
+    const markedSettled = await readPveOutcomeMarker(session, playerName);
+    let bodyWritten = false;
     const result = await mutatePlayerSave(playerName, ({ character }) => {
+        bodyWritten = false;
         const { run } = requireCaravan(character, binding.runId);
         if (!run.combat || run.combat.sessionId !== session.runId) return { ok: false as const, status: 409, error: 'Ambush binding changed.' };
         if (run.combat.settled) return { ok: true as const, character, value: false, write: false };
         const now = Date.now();
-        const physical = applyAiFightOutcomeToCharacter(character, 'forfeit', actor, now, true);
-        const next = settleCaravanCombat(applyCompanionUsageCost(physical, session.companionUsage), session.runId, false, now);
+        const physical = applyPveOutcomeBodyOnce({
+            character, session, playerName, now, outcome: 'forfeit', continuousVitals: true, markedSettled,
+        });
+        bodyWritten = physical.bodyWritten;
+        const next = settleCaravanCombat(applyCompanionUsageCost(physical.character, session.companionUsage), session.runId, false, now);
         return { ok: true as const, character: next, value: true, write: true };
     });
     if (!result.ok) return { ok: false, error: result.error };
+    if (bodyWritten) await markPveOutcomeSettled(session, playerName, Date.now());
     return { ok: true, applied: result.value };
 }
 
@@ -45,8 +58,10 @@ async function settleCaravanAmbushLapse(session: TowerSession, playerName: strin
  * settlement closed, the entry fee spent, leases released, the party run
  * closed, and each human actor's HP settled at the value they walked away
  * with (api/pve/_fight-outcome-settlement.ts — receipt-idempotent, so a late
- * client report replays harmlessly). An actor at 0 HP had already fallen
- * inside the run; that admission is evidence, not invention.
+ * client report replays harmlessly). The run seated them at FULL HP, so that
+ * value can only lower their save's HP, never raise it (sessionSeedsFullHp).
+ * An actor at 0 HP had already fallen inside the run; that admission is
+ * evidence, not invention.
  *
  * Idempotent under the session lock and fenced on the exact row read; a run
  * that is live, normally completed, or gone is left exactly as found. Recorded

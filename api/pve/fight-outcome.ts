@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { readSession } from '../towers/_tower-store.js';
 import { readSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSession } from '../solo-pve/_session.js';
-import { abandonSoloPveSession } from '../solo-pve/_abandon.js';
+import { abandonSoloPveSession, isHollowGateFightSession } from '../solo-pve/_abandon.js';
 import type { AiFightSession } from '../missions/_ai-fight-outcome.js';
 import { settlePveFightOutcome } from './_fight-outcome-settlement.js';
 
@@ -87,6 +87,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // fails toward leaving the player alone, the only side that cannot punish
         // someone who did nothing wrong.
         if (!session) return res.status(200).json({ ok: true, outcome: 'unknown', applied: false, reason: 'session-not-found' });
+
+        // A fight inside a Hollow Gate dive is neither abandoned nor settled
+        // here: the dive owns its ending (escape, second wind, death), and a
+        // walk-out through this endpoint skipped all three.
+        if (isSoloPveSession(session) && isHollowGateFightSession(session)) {
+            return res.status(409).json({ error: 'That fight belongs to a Hollow Gate dive, which settles it.', reason: 'hollow-gate-dive', runId });
+        }
 
         // An ACTIVE session is not settled from its live HP. The owner walking
         // out on a Solo-PvE fight is an intentional abandon: perform the engine's
