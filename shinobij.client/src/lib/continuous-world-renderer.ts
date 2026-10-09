@@ -7,6 +7,8 @@ import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 
 const colors: Record<string, string> = { forest: '#495338', central: '#747052', snow: '#b5bdba', shadow: '#55505c', volcano: '#4a3d36' };
 const hash = (x: number, y: number) => Math.abs(Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+/** Side of a cached terrain tile, in device pixels. */
+const TILE = 256;
 
 /** Nearby-only painted terrain. No simulation, authority, timers or DOM HUD live here. */
 export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: ContinuousWorldSpace,
@@ -17,12 +19,21 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
         for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (terrain.kind(x + dx, y + dy)) return false;
         return true;
     };
-    const ctx = canvas.getContext('2d')!;
+    const output = canvas.getContext('2d')!;
     const images = new Map<number, HTMLImageElement>(), ground = new Map<string, HTMLCanvasElement>(), rock = new Map<string, HTMLCanvasElement>();
     const roadTextures = new Map<number, CanvasPattern>(), chunks = new Map(space.chunks.map(c => [c.sector, c]));
     const materials = new Map<string, HTMLImageElement>(), fieldSources = new Map<string, string>();
     const paintings = new Map<number, HTMLCanvasElement>();
     const crossings = worldRoadCrossings(space.roads);
+    // The painted world never moves, only the camera does. It is rastered once into
+    // fixed world tiles, so a walking frame copies a few tiles instead of repainting
+    // every layer: that repaint was most of a phone's frame while walking.
+    const tiles = new Map<string, { surface: HTMLCanvasElement; revision: number }>();
+    let tileScale = 0;
+    // Read on resize, not per frame: a per-frame clientWidth forced a layout every frame.
+    let width = canvas.clientWidth, height = canvas.clientHeight;
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => { width = canvas.clientWidth; height = canvas.clientHeight; });
+    resize?.observe(canvas);
     let revision = 0, lastDraw = '';
     let lastView: { tilePx: number; chunk: WorldChunk; crossings: typeof crossings; x: number; y: number } | undefined;
     const material = (name: string) => { let image = materials.get(name); if (!image) { image = new Image(); image.onload = () => { revision++; }; image.src = `/sector-map/world-terrain/${name}.webp`; materials.set(name, image); } return image; };
@@ -91,22 +102,12 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
                 if (rank > score) { score = rank; cliff = y * 12 + x; }
             }
             if (score > 0) rock.set(biome, patch(image, cliff, true, 3));
+            revision++;
         }
     }
-    function draw(position: WorldPoint, sector: number) {
-        const width = canvas.clientWidth, height = canvas.clientHeight, tilePx = width / 12, dpr = Math.min(devicePixelRatio, 2);
-        // The painting is static: actors/weather animate in separate DOM layers.
-        // Keep the raster while idle; image arrivals, camera, zone or size invalidate it.
-        const signature = `${position.x}:${position.y}:${sector}:${width}:${height}:${dpr}:${revision}`;
-        if (signature === lastDraw && lastView) return lastView;
-        if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, width, height);
-        const left = position.x - width / tilePx / 2, right = position.x + width / tilePx / 2;
-        const top = position.y - height / tilePx / 2, bottom = position.y + height / tilePx / 2;
+    /** Paints the world rectangle [left, right) x [top, bottom) through `ctx`, already in world units. */
+    function paint(ctx: CanvasRenderingContext2D, left: number, top: number, right: number, bottom: number) {
         const visible = space.chunks.filter(c => c.x < right + 2 && c.x + 12 > left - 2 && c.y < bottom + 2 && c.y + 12 > top - 2);
-        const current = chunks.get(sector)!; texture(current, imageFor(sector));
-        for (const chunk of visible) texture(chunk, imageFor(chunk.sector));
-        ctx.translate(width / 2, height / 2); ctx.scale(tilePx, tilePx); ctx.translate(-position.x, -position.y);
         // Overlapping feathered fields have fixed world coordinates and blend biome boundaries.
         ctx.fillStyle = '#3b4238'; ctx.fillRect(left, top, right - left, bottom - top);
         for (let y = Math.floor(top / 8) * 8 - 8; y < bottom + 8; y += 8) for (let x = Math.floor(left / 8) * 8 - 8; x < right + 8; x += 8) {
@@ -149,7 +150,8 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             for (const y of [-.7, .6]) { ctx.fillStyle = '#302e25'; ctx.fillRect(-1.75, y, 3.5, .16); ctx.fillStyle = pattern ?? '#aaa392'; ctx.fillRect(-1.75, y - .06, 3.5, .12); }
             ctx.restore();
         }
-        for (const chunk of visible) { const image = imageFor(chunk.sector); if (image.complete && image.naturalWidth) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
+        // Only maps already requested: the camera's own neighbourhood decides what loads (see draw).
+        for (const chunk of visible) { const image = images.get(chunk.sector); if (image?.complete && image.naturalWidth) ctx.drawImage(painting(chunk.sector, image), chunk.x, chunk.y, 12, 12); }
         // A low rock line where two walkable-looking strips touch without a step between them.
         for (const wall of walls) {
             if (wall.x < left - 1 || wall.x > right + 1 || wall.y < top - 1 || wall.y > bottom + 1) continue;
@@ -169,10 +171,64 @@ export function createContinuousWorldRenderer(canvas: HTMLCanvasElement, space: 
             ctx.strokeStyle = '#120e08a6'; ctx.lineWidth = .17; ctx.stroke();
             ctx.strokeStyle = '#fff0c8f0'; ctx.lineWidth = .09; ctx.stroke(); ctx.restore();
         }
+    }
+    /** Rasters one fixed world tile at the current scale. Tiles meet exactly: each is the whole picture, shifted by whole pixels. */
+    function renderTile(i: number, j: number) {
+        let tile = tiles.get(`${i}:${j}`);
+        if (!tile) { const surface = document.createElement('canvas'); surface.width = surface.height = TILE; tile = { surface, revision }; tiles.set(`${i}:${j}`, tile); }
+        const context = tile.surface.getContext('2d')!;
+        context.setTransform(1, 0, 0, 1, 0, 0); context.clearRect(0, 0, TILE, TILE);
+        context.setTransform(tileScale, 0, 0, tileScale, -i * TILE, -j * TILE);
+        paint(context, i * TILE / tileScale, j * TILE / tileScale, (i + 1) * TILE / tileScale, (j + 1) * TILE / tileScale);
+        tile.revision = revision;
+        return tile;
+    }
+    function draw(position: WorldPoint, sector: number) {
+        if (!resize) { width = canvas.clientWidth; height = canvas.clientHeight; }
+        const tilePx = width / 12, dpr = Math.min(devicePixelRatio, 2), scale = tilePx * dpr;
+        // The painting is static: actors/weather animate in separate DOM layers.
+        // Keep the raster while idle; image arrivals, camera, zone or size invalidate it.
+        const signature = `${position.x}:${position.y}:${sector}:${width}:${height}:${dpr}:${revision}`;
+        if (signature === lastDraw && lastView) return lastView;
+        if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) { canvas.width = Math.round(width * dpr); canvas.height = Math.round(height * dpr); }
+        if (scale !== tileScale) { tiles.clear(); tileScale = scale; }
+        const left = position.x - width / tilePx / 2, right = position.x + width / tilePx / 2;
+        const top = position.y - height / tilePx / 2, bottom = position.y + height / tilePx / 2;
+        const visible = space.chunks.filter(c => c.x < right + 2 && c.x + 12 > left - 2 && c.y < bottom + 2 && c.y + 12 > top - 2);
+        const current = chunks.get(sector)!; texture(current, imageFor(sector));
+        for (const chunk of visible) texture(chunk, imageFor(chunk.sector));
+        // The terrain snaps to whole device pixels (at most half a pixel off), so cached
+        // tiles land crisply and meet exactly. The DOM overlay keeps the exact camera.
+        const originX = Math.round(position.x * scale - canvas.width / 2), originY = Math.round(position.y * scale - canvas.height / 2);
+        const i0 = Math.floor(originX / TILE), i1 = Math.floor((originX + canvas.width - 1) / TILE);
+        const j0 = Math.floor(originY / TILE), j1 = Math.floor((originY + canvas.height - 1) / TILE);
+        output.setTransform(1, 0, 0, 1, 0, 0); output.clearRect(0, 0, canvas.width, canvas.height);
+        // A tile on screen is always drawn; a stale one (a map or texture arrived since)
+        // is repainted within a few milliseconds a frame, then the ring just off screen,
+        // so walking onto new ground rarely waits for a tile.
+        const started = performance.now(), budget = () => performance.now() - started < 4;
+        let behind = false;
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) {
+            let tile = tiles.get(`${i}:${j}`);
+            if (!tile || (tile.revision !== revision && budget())) tile = renderTile(i, j);
+            else if (tile.revision !== revision) behind = true;
+            output.drawImage(tile.surface, i * TILE - originX, j * TILE - originY);
+        }
+        for (let j = j0 - 1; j <= j1 + 1; j++) for (let i = i0 - 1; i <= i1 + 1; i++) {
+            if (tiles.get(`${i}:${j}`)?.revision === revision) continue;
+            if (budget()) renderTile(i, j); else behind = true;
+        }
+        for (const key of tiles.keys()) {
+            const [i, j] = key.split(':').map(Number) as [number, number];
+            if (i < i0 - 2 || i > i1 + 2 || j < j0 - 2 || j > j1 + 2) tiles.delete(key);
+        }
         const keep = new Set(visible.map(c => c.sector)); keep.add(sector);
         for (const id of images.keys()) if (!keep.has(id) && images.size > 4) { images.delete(id); paintings.delete(id); roadTextures.delete(id); }
-        lastDraw = signature;
+        // With tiles still stale, the next frame repaints even if nothing moved.
+        lastDraw = behind ? '' : signature;
         return lastView = { tilePx, chunk: current, crossings, x: width / 2 + (current.x - position.x) * tilePx, y: height / 2 + (current.y - position.y) * tilePx };
     }
-    return { draw, chunks, get imageCount() { return images.size; }, dispose() { images.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); blockBiome.clear(); } };
+    return { draw, chunks, get imageCount() { return images.size; }, dispose() {
+        resize?.disconnect(); tiles.clear(); images.clear(); paintings.clear(); materials.clear(); ground.clear(); rock.clear(); roadTextures.clear(); blockBiome.clear();
+    } };
 }
