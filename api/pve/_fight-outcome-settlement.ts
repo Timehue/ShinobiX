@@ -15,12 +15,14 @@ import {
     isPveFightMember,
     resolveAiFightOutcome,
     sessionIsSpar,
+    sessionSeedsFullHp,
     sessionUsesContinuousVitals,
     settlementOwnsHpOnWin,
     type AiFightOutcome,
     type AiFightSession,
 } from '../missions/_ai-fight-outcome.js';
 import { isSoloPveSession, type SoloPveSession } from '../solo-pve/_session.js';
+import { isHollowGateFightSession } from '../solo-pve/_abandon.js';
 import { applySoloPveUsageCosts } from '../solo-pve/_settlement.js';
 import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 
@@ -172,6 +174,9 @@ export function applyPveOutcomeWithReceipt(params: {
             // no physical consequence on any path, including the lapse
             // reconciler's abandon of one the player walked away from.
             sessionIsSpar(params.session),
+            // A Tower run seats its squad at full HP, so its remainder may only
+            // lower the save's HP. The Tower lapse settles every member here.
+            sessionSeedsFullHp(params.session),
         );
     // Caravan sessions are created only from the real current pools and held
     // behind the normal battle lock. Their terminal record includes legitimate
@@ -206,6 +211,124 @@ export function applyPveOutcomeWithReceipt(params: {
     };
 }
 
+/*
+ * A mode that settles a fight's physical consequence under its OWN receipt (an
+ * Endless wave, the Weekly Boss, a sealed AI fight, the Sunscar caravan ambush)
+ * writes it through the helpers below, so the body lands AT MOST ONCE across
+ * that settlement and the generic pve-outcome path: /api/pve/fight-outcome and
+ * the lapse reconciler (api/_battle-lapse.ts), which write it from the SAME
+ * sealed session. Each path used to write it under its own receipt, so the
+ * second write landed later, on a save that had moved on: HP went back UP to
+ * the fight's end value after the player had lost HP since, and a knockout
+ * re-ran its hospital stay. Whichever path writes first wins; the other leaves
+ * HP and the hospital alone.
+ *
+ * The generic path's evidence is its in-save receipt and its run marker
+ * (`pve-outcome:<runId>` naming the player). The save keeps only its latest
+ * SERVER_SETTLEMENT_RECEIPT_LIMIT receipts while the marker lasts as long as
+ * a finished session can still be read, so a mode reads the marker before
+ * its save write (readPveOutcomeMarker) and sets it after one that wrote the
+ * body (markPveOutcomeSettled), as the generic path does.
+ */
+
+/** Whether the generic path has already written this fight's body for this player. Pure. */
+export function pveOutcomeBodyWritten(
+    character: Record<string, unknown>,
+    session: AiFightSession,
+    playerName: string,
+): boolean {
+    const identity = pveOutcomeReceiptIdentity(session, playerName);
+    // A conflicting or unreadable receipt is no proof the body is unwritten,
+    // and a body written twice is the failure this guards against.
+    return inspectSettlementReceipt(character, identity.requestId, identity.fingerprint).status !== 'fresh';
+}
+
+/** Stamp the generic receipt for a body the mode has just written, so a later
+ *  generic call replays instead of writing it again. Pure. */
+export function stampPveOutcomeBody(
+    character: Record<string, unknown>,
+    session: AiFightSession,
+    playerName: string,
+    now: number,
+): Record<string, unknown> {
+    const outcome = resolveAiFightOutcome(session);
+    const identity = pveOutcomeReceiptIdentity(session, playerName, outcome);
+    const inspected = inspectSettlementReceipt(character, identity.requestId, identity.fingerprint);
+    if (inspected.status !== 'fresh') return character;
+    return appendSettlementReceipt(character, inspected.receipts, {
+        requestId: identity.requestId,
+        fingerprint: identity.fingerprint,
+        value: { kind: 'pve-outcome', runId: sessionId(session), outcome, applied: true, replayed: false },
+        settledAt: now,
+    });
+}
+
+/**
+ * The common case: write the body with applyAiFightOutcomeToCharacter unless the
+ * generic path already has, and stamp its receipt in the same character. When it
+ * already has, HP and the hospital stay as they are. Chakra and stamina still
+ * settle: they are decrease-only, so that changes nothing where the generic path
+ * charged them, and keeps the cost where it did not (it charges them only for an
+ * open-world fight). Pure.
+ */
+export function applyPveOutcomeBodyOnce(params: {
+    character: Record<string, unknown>;
+    session: AiFightSession;
+    playerName: string;
+    now: number;
+    /** The mode's own reading of the result (a flee settles as 'forfeit').
+     *  Defaults to the session's; the receipt is always keyed on the session's. */
+    outcome?: AiFightOutcome;
+    continuousVitals?: boolean;
+    spar?: boolean;
+    /** readPveOutcomeMarker's answer for this run and player. */
+    markedSettled?: boolean;
+}): { character: Record<string, unknown>; bodyWritten: boolean } {
+    const settled = applyAiFightOutcomeToCharacter(
+        params.character,
+        params.outcome ?? resolveAiFightOutcome(params.session),
+        aiFightParticipantActor(params.session, params.playerName),
+        params.now,
+        params.continuousVitals === true,
+        params.spar === true,
+        sessionSeedsFullHp(params.session),
+    );
+    if (params.markedSettled === true || pveOutcomeBodyWritten(params.character, params.session, params.playerName)) {
+        const kept = { ...params.character };
+        for (const field of ['chakra', 'stamina'] as const) {
+            if (settled[field] !== params.character[field]) kept[field] = settled[field];
+        }
+        return { character: kept, bodyWritten: false };
+    }
+    return { character: stampPveOutcomeBody(settled, params.session, params.playerName, params.now), bodyWritten: true };
+}
+
+/** Whether the generic path's run marker already names this player. */
+export async function readPveOutcomeMarker(
+    session: AiFightSession,
+    playerName: string,
+    read: (key: string) => Promise<unknown> = (key) => kv.get(key),
+): Promise<boolean> {
+    return legacyReceiptSettledPlayer(await read(pveOutcomeReceiptKey(sessionId(session))), playerName);
+}
+
+/** Set the run marker once a mode's save write that wrote the body has
+ *  committed. Best-effort: the in-save receipt already guards the next write. */
+export async function markPveOutcomeSettled(
+    session: AiFightSession,
+    playerName: string,
+    now: number,
+    write: (key: string, value: Record<string, unknown>, ttlSeconds: number) => Promise<unknown>
+        = (key, value, ttlSeconds) => kv.set(key, value, { ex: ttlSeconds, nx: true }),
+): Promise<void> {
+    const runId = sessionId(session);
+    try {
+        await write(pveOutcomeReceiptKey(runId), { runId, playerName, outcome: resolveAiFightOutcome(session), at: now }, OUTCOME_RECEIPT_TTL_SECONDS);
+    } catch (err) {
+        console.warn('[pve/fight-outcome] run marker deferred', runId, (err as Error)?.message ?? err);
+    }
+}
+
 /** Settle one server-owned fight outcome with atomic in-save replay evidence. */
 export async function settlePveFightOutcome(
     session: AiFightSession,
@@ -214,6 +337,15 @@ export async function settlePveFightOutcome(
 ): Promise<PveFightOutcomeSettlementResult> {
     if (!isPveFightMember(session, playerName)) {
         return { ok: false, status: 403, error: 'That fight belongs to another player.' };
+    }
+    // A fight inside a Hollow Gate dive is the DIVE's to settle
+    // (api/hollow-gate/combat-settle.ts): its post-win HP, a second wind, and a
+    // death with its clawbacks and hospital stay. The lapse reconciler already
+    // voids a lapsed one rather than settling it here (api/solo-pve/_abandon.ts),
+    // and no client reports one here. A request that did used to write the
+    // fight's HP a second time, after the dive had moved on: a free heal.
+    if (isSoloPveSession(session) && isHollowGateFightSession(session)) {
+        return { ok: false, status: 409, error: 'That fight belongs to a Hollow Gate dive, which settles it.' };
     }
     // Only an IMMUTABLE terminal result may write the body. An active session
     // used to resolve here as a "forfeit" taken from its live HP, which stamped

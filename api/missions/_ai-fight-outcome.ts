@@ -145,26 +145,56 @@ export function aiFightPaysReward(outcome: AiFightOutcome, battleKind: string | 
 
 /** The Academy spar's sealed session (api/story/spar-start.ts). */
 const ACADEMY_SPAR_ENCOUNTER_KIND = 'academy-spar';
+/** A village story chapter boss (api/story/boss-start.ts). */
+const STORY_BOSS_ENCOUNTER_KIND = 'story-boss';
 
 /**
  * Whether this run's own SETTLEMENT already owns the player's HP on a win, so
  * the outcome report must leave it alone.
  *
- * Exactly one mode does: the Academy spar grants a scripted post-spar HP
- * (`maxHp - 25` in applyAcademySparSettlement) rather than the HP the fight
- * left. Both writes land through mutatePlayerSave the moment the fight
- * resolves, so without this the tutorial's ending HP would depend on which
- * mutation got there first.
+ * Two modes do, and the story client fires both writes the moment the fight
+ * resolves (MissionArenaFight runs `settleFn` and `outcomeFn` together):
+ *   - the Academy spar grants a scripted post-spar HP (`maxHp - 25` in
+ *     applyAcademySparSettlement) rather than the HP the fight left;
+ *   - a story boss grants the HP the fight left PLUS 25 (applyStoryBossSettlement).
+ * Without this the ending HP depended on which mutation got there first: a
+ * report landing after the story settle took the boss's +25 back. And a report
+ * sent later, after the player had lost HP elsewhere, set HP back up to the
+ * fight's end value, a free heal.
  *
- * Deliberately narrow, and keyed off the SESSION's towerId rather than anything
- * the caller says — a client cannot opt its fight out of paying for itself.
- * A LOST spar is untouched by this and still reports normally; as a spar
- * (`sessionIsSpar`) that report leaves the beginner's HP as it was, so they can
- * step straight back onto the mat instead of into a hospital bed.
+ * Deliberately narrow, and keyed off the SESSION's own encounter rather than
+ * anything the caller says — a client cannot opt its fight out of paying for
+ * itself. A LOST spar or boss is untouched by this and still reports normally
+ * (its settlement refuses a loss). As a spar (`sessionIsSpar`) a lost spar
+ * leaves the beginner's HP as it was, so they can step straight back onto the
+ * mat instead of into a hospital bed.
  */
 export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined): boolean {
-    if (isSoloPveSession(session)) return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND;
+    if (isSoloPveSession(session)) {
+        return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND
+            || session.encounter.kind === STORY_BOSS_ENCOUNTER_KIND;
+    }
     return session?.towerId === ACADEMY_SPAR_ENCOUNTER_KIND;
+}
+
+/**
+ * Did this session seat the player at a FULL HP pool instead of the HP their
+ * save held? Every Tower-engine run does: buildTowerEncounter seals each squad
+ * actor at full vitals (api/towers/_encounter.ts `squadActor`), and so the
+ * Celestial Tower, the Endless Spire, Clan Boss assaults and World Crisis
+ * fights all start a wounded player at full health. What such a run leaves is
+ * "what is left of a pool the run handed you", unrelated to what the player
+ * held, so writing it back can only ever COST HP (see the HP note in
+ * applyAiFightOutcomeToCharacter).
+ *
+ * The Sunscar caravan ambush is the one Tower run re-seeded from the save
+ * (api/festival/_caravan-combat.ts), so its remaining HP is a real cost.
+ * Solo-PvE sessions are not Tower runs; buildSoloPveAiEncounter seeds HP from
+ * the save.
+ */
+export function sessionSeedsFullHp(session: AiFightSession | null | undefined): boolean {
+    if (!session || isSoloPveSession(session)) return false;
+    return !session.caravanAmbush;
 }
 
 /**
@@ -216,6 +246,9 @@ export function applyAiFightOutcomeToCharacter(
     continuousVitals = false,
     /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
     spar = false,
+    /** True when the run seated the player at a FULL HP pool
+     *  (`sessionSeedsFullHp`): the surviving HP may lower the save's, never raise it. */
+    fullHpSeed = false,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
     // A spar is practice. Win, lose, draw or walk away, the player leaves with
@@ -250,8 +283,15 @@ export function applyAiFightOutcomeToCharacter(
     // That was shipped on 2026-09-08 and reverted the same day.
     //
     // Clamped DECREASE-ONLY as a second line of defence, so even a mislabelled
-    // encounter can only ever cost a player vitals, never mint them. HP needs no
-    // such guard: it is seeded from currentHp in every mode.
+    // encounter can only ever cost a player vitals, never mint them.
+    //
+    // HP is carried from a resolved fight built by buildSoloPveAiEncounter,
+    // which seeds it from the save's current HP: what the fight left is what it
+    // cost. A Tower run does NOT. It seats the squad at full HP (`sessionSeedsFullHp`),
+    // so carrying its remainder back turned "enter wounded, walk out of a run"
+    // into a free heal: the Tower lapse settles every member this way
+    // (api/towers/_lapse.ts), and /api/pve/fight-outcome reads Tower runs too.
+    // For those runs HP is decrease-only, like chakra and stamina above.
     const carry = (actorValue: unknown, storedValue: unknown): number | undefined => {
         if (!continuousVitals) return undefined;
         if (typeof actorValue !== 'number' || !Number.isFinite(actorValue)) return undefined;
@@ -282,5 +322,12 @@ export function applyAiFightOutcomeToCharacter(
     // Clamped to the SAVE's own maxHp so a stale session (sealed before a level
     // changed the pool) can never set HP above the real ceiling.
     const maxHp = Math.max(1, num(character.maxHp));
-    return { ...character, ...spent, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
+    const surviving = Math.max(1, Math.min(maxHp, num(playerActor.hp)));
+    if (!fullHpSeed) return { ...character, ...spent, hp: surviving };
+    // A save with no readable HP is treated as full, which leaves the cost intact.
+    const storedHp = character.hp;
+    const held = typeof storedHp === 'number' && Number.isFinite(storedHp)
+        ? Math.max(0, Math.min(maxHp, Math.floor(storedHp)))
+        : maxHp;
+    return { ...character, ...spent, hp: Math.min(held, surviving) };
 }
