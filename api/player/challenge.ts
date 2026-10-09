@@ -692,6 +692,13 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         }
         const built = await buildNewChallenge(rawChallenge, creator, targetName);
         if (!built.ok) return res.status(built.status).json({ error: built.error });
+        // The notice is sent after the session exists, so a duel that was
+        // cancelled or finished in the meantime has nothing left to route into;
+        // queuing it would walk the defender into a dead battle.
+        if (built.challenge.battleId
+            && (await kv.get<PvpSession>(`pvp:${built.challenge.battleId}`))?.status === 'done') {
+            return res.status(200).json({ ok: true, skipped: 'battle-ended' });
+        }
         if (!built.challenge.battleId && !built.challenge.kageChallengeId) {
             const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
