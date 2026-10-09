@@ -23,7 +23,7 @@ test('compact map notice separates Study and lesson glyphs in the actual app', a
         await page.getByRole('button', { name: 'Collapse field lesson notice' }).click();
         await expect(page.getByRole('button', { name: 'Expand field lesson notice' })).toBeFocused();
         await page.getByRole('button', { name: 'Expand field lesson notice' }).press('Enter');
-        await expect(banner.locator('.pet-mentor-road-action')).toBeVisible();
+        await expect(banner.locator('.mentor-action')).toBeVisible();
     }
 });
 

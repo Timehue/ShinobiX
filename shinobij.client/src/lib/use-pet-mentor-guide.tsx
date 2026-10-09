@@ -76,7 +76,7 @@ export function usePetMentorGuide({
         >
         <button
             type="button"
-            className="pet-mentor-road-action"
+            className="mentor-action"
             onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }}
             onPointerEnter={preloadPetMentorGuide}
             onFocus={preloadPetMentorGuide}

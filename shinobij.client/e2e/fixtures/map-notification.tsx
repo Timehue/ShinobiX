@@ -11,7 +11,7 @@ export function MapNotificationFixture() {
         <button onClick={() => setVisible(value => !value)}>Toggle notice presence</button>
         <div className="map-instance" style={{ position: 'relative', width: 'min(90vw, 400px)', height: 300, background: '#394435' }}>
             {visible && <MapNotificationBanner identity={`${sector}:${lesson}`} label="field lesson notice" className="pet-mentor-road-prompt">
-                <button className="pet-mentor-road-action">Study lesson {lesson} in sector {sector}</button>
+                <button className="mentor-action">Study lesson {lesson} in sector {sector}</button>
             </MapNotificationBanner>}
         </div>
     </>;

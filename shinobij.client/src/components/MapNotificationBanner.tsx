@@ -1,4 +1,6 @@
-import { useId, useState, type ReactNode } from 'react';
+import { useId, useState, type ReactNode, type SyntheticEvent } from 'react';
+
+const stopPropagation = (event: SyntheticEvent) => event.stopPropagation();
 
 /** Optional map notices keep their action available without covering the playfield. */
 export function MapNotificationBanner({ identity, label, className, children }: {
@@ -11,9 +13,9 @@ export function MapNotificationBanner({ identity, label, className, children }: 
     if (state.identity !== identity) setState({ identity, collapsed: false });
     const collapsed = state.identity === identity && state.collapsed;
     return <div className={`${className} map-notification-banner${collapsed ? ' is-collapsed' : ''}`}
-        data-sector-hud="true" onPointerDown={event => event.stopPropagation()} onClick={event => event.stopPropagation()}>
-        <div id={contentId} className="map-notification-content" hidden={collapsed}>{children}</div>
-        <button type="button" className="map-notification-toggle" aria-controls={contentId} aria-expanded={!collapsed}
+        data-sector-hud="true" onPointerDown={stopPropagation} onClick={stopPropagation}>
+        <div id={contentId} className="map-notice-content" hidden={collapsed}>{children}</div>
+        <button type="button" className="map-notice-toggle" aria-controls={contentId} aria-expanded={!collapsed}
             aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
             onClick={event => {
                 setState({ identity, collapsed: !collapsed });
