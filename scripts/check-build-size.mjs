@@ -816,7 +816,16 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // VITE_* values (the gear work is the larger share: pieces, names, pop-up, named gear
 // rules). The owner has said the cap can be raised, so allow 9.21 MB for about 15 KB of
 // headroom. Startup, chunk, CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_210_000;
+// 2026-10-08 WAR AUDIT: the owner's sector and village war rulings (the mercenary
+// redesign, the War Hall and War Map changes, members-only war internals, and Pet and
+// Card wars fought in the open as their own game) measure 9,223,935 B with Production
+// Image style VITE_* values, against 9,205,177 B on main 61b4b5025. The owner left the
+// call to us ("fix the way is best for the game and players"). Trimming would mean
+// cutting shipped war features, so allow 9.24 MB for about 16 KB of headroom. The
+// startup gate did NOT move: the branch's own startup code was moved off the initial
+// graph instead, which measures 1,418,707 B raw / 394,068 B gzip (main: 394,129 B).
+// Startup, chunk, CSS and asset limits stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_240_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
