@@ -243,6 +243,17 @@ test('required live Express CI runs the hospital ward and roaming Weekly Boss jo
     assert.doesNotMatch(command, /--grep/);
 });
 
+test('required live Express CI binds a real wild companion on desktop and mobile', () => {
+    // The journey sat outside CI, so when the sector became the continuous
+    // world its tile click timed out on every run and nothing noticed.
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const command = job.split('\n').find(line => line.trim().startsWith('run:') && line.includes('wild-binding-express.spec.ts'));
+    assert.ok(command, 'the required live Express job must execute the wild-binding journey');
+    assert.ok(command.includes('--project=chromium-desktop-live') && command.includes('--project=chromium-mobile-live'));
+    assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');
+    assert.doesNotMatch(command, /--grep/);
+});
+
 /*
  * The Node pin lives in exactly ONE place: .nvmrc.
  *
