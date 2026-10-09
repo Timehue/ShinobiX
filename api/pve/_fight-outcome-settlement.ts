@@ -15,9 +15,11 @@ import {
     isPveFightMember,
     resolveAiFightOutcome,
     sessionIsSpar,
+    sessionSeededVitals,
     sessionSeedsFullHp,
     sessionUsesContinuousVitals,
     settlementOwnsHpOnWin,
+    vitalLostSinceSeal,
     type AiFightOutcome,
     type AiFightSession,
 } from '../missions/_ai-fight-outcome.js';
@@ -177,19 +179,27 @@ export function applyPveOutcomeWithReceipt(params: {
             // A Tower run seats its squad at full HP, so its remainder may only
             // lower the save's HP. The Tower lapse settles every member here.
             sessionSeedsFullHp(params.session),
+            // A fight seeded from the save charges what the save has lost since,
+            // so this write cannot undo damage taken while it was outstanding:
+            // the lapse reconciler and a client report can both land late.
+            sessionSeededVitals(params.session),
         );
     // Caravan sessions are created only from the real current pools and held
     // behind the normal battle lock. Their terminal record includes legitimate
     // potion/skill recovery, which must survive the trip back to the wagons.
     // Keep the generic fresh-start/decrease-only guard unchanged for other modes.
+    // Like HP, the absolute value is less whatever the bar lost since the fight
+    // was sealed, or a late write would hand that back.
     if (!legacyReplay && isSoloPveSession(params.session)
         && params.session.encounter.kind === 'caravan'
         && sessionUsesContinuousVitals(params.session) && participant) {
+        const seeded = sessionSeededVitals(params.session);
         for (const field of ['chakra', 'stamina'] as const) {
             const value = participant[field];
             const maximum = Number(params.character[field === 'chakra' ? 'maxChakra' : 'maxStamina']);
             if (typeof value === 'number' && Number.isFinite(value) && Number.isFinite(maximum)) {
-                settledCharacter[field] = Math.max(0, Math.min(maximum, Math.floor(value)));
+                const lost = vitalLostSinceSeal(params.character, field, seeded);
+                settledCharacter[field] = Math.max(0, Math.min(maximum, Math.floor(value) - lost));
             }
         }
     }
@@ -266,10 +276,12 @@ export function stampPveOutcomeBody(
 /**
  * The common case: write the body with applyAiFightOutcomeToCharacter unless the
  * generic path already has, and stamp its receipt in the same character. When it
- * already has, HP and the hospital stay as they are. Chakra and stamina still
- * settle: they are decrease-only, so that changes nothing where the generic path
- * charged them, and keeps the cost where it did not (it charges them only for an
- * open-world fight). Pure.
+ * already has, HP and the hospital stay as they are. So do chakra and stamina,
+ * unless the generic path did not charge them: it charges them only for a
+ * session it sees as continuous, and the caravan ambush is a Tower run whose
+ * mode settles them as continuous. They cannot simply settle again: a fight
+ * seeded from the save charges what the bar lost since it was sealed, and the
+ * generic path's own charge would count as that loss a second time. Pure.
  */
 export function applyPveOutcomeBodyOnce(params: {
     character: Record<string, unknown>;
@@ -292,11 +304,14 @@ export function applyPveOutcomeBodyOnce(params: {
         params.continuousVitals === true,
         params.spar === true,
         sessionSeedsFullHp(params.session),
+        sessionSeededVitals(params.session),
     );
     if (params.markedSettled === true || pveOutcomeBodyWritten(params.character, params.session, params.playerName)) {
         const kept = { ...params.character };
-        for (const field of ['chakra', 'stamina'] as const) {
-            if (settled[field] !== params.character[field]) kept[field] = settled[field];
+        if (params.continuousVitals === true && !sessionUsesContinuousVitals(params.session)) {
+            for (const field of ['chakra', 'stamina'] as const) {
+                if (settled[field] !== params.character[field]) kept[field] = settled[field];
+            }
         }
         return { character: kept, bodyWritten: false };
     }

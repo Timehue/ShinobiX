@@ -10,6 +10,7 @@ import { writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
 import {
     createStoryCombatBinding,
@@ -44,6 +45,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
+        // Every fight this player is holding, an earlier attempt at this boss
+        // included, is settled before this one is sealed from the save
+        // (api/pve/_held-fights.ts).
+        const held = await settleHeldFights(playerName);
+        if (!held.ok) return res.status(held.status).json({ error: held.error, errorCode: held.reason });
 
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;

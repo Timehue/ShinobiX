@@ -234,8 +234,11 @@ export type TowerSession = {
         sourceId: string;
     };
 
-    /** Server-minted Sunscar encounter binding. Settlement and lease repair are owned by Caravan. */
-    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string };
+    /** Server-minted Sunscar encounter binding. Settlement and lease repair are owned by Caravan.
+     *  `seededVitals` is what the save stored when the ambush re-seeded its
+     *  fighter from it (see missions/_ai-fight-outcome.ts `sessionSeededVitals`);
+     *  absent on an older ambush. */
+    caravanAmbush?: { runId: string; playerSlug: string; nodeId: string; seededVitals?: { hp?: number; chakra?: number; stamina?: number } };
 
     /**
      * Sealed weather for the encounter. Hunt encounters copy their Solo
