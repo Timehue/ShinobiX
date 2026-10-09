@@ -12,6 +12,7 @@ import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_to
 import { sectorPlace } from '../../shared/sector-geo.js';
 import { storyCombatBindingKey, STORY_COMBAT_SESSION_TTL_SECONDS, STORY_VILLAGE_BIOMES } from './_authoritative-story-combat.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import {
     ACADEMY_SPAR_OPPONENT_ID,
     academySparEligibility,
@@ -44,6 +45,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!identity.admin && await findTowerBattleStartConflict([playerName])) {
             return res.status(409).json(towerBattleActiveErrorBody());
         }
+        // Every fight this player is holding is settled before this one is
+        // sealed from the save (api/pve/_held-fights.ts).
+        const held = await settleHeldFights(playerName);
+        if (!held.ok) return res.status(held.status).json({ error: held.error, errorCode: held.reason });
 
         const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
         const char = save?.character as Record<string, unknown> | undefined;

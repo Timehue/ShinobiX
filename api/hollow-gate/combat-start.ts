@@ -24,6 +24,7 @@ import { recordBetaMetric } from '../_beta-metrics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { hollowGateManifestNode, hollowGatePositionNodeId } from './_floor-manifest.js';
 import { retireUnstartedHollowGatePetBinding } from './_pet-authority.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 
 type StartOutcome =
     | { status: number; body: Record<string, unknown> }
@@ -119,6 +120,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             if (resolved.filter((entry) => entry.startsWith(`${floor}:`)).length >= HOLLOW_GATE_MAX_COMBATS_PER_FLOOR) {
                 return { status: 429, body: { error: 'The sealed floor encounter limit was reached.' } };
+            }
+
+            // A shinobi fight is seeded from the save, so every other fight this
+            // player is holding is settled first (api/pve/_held-fights.ts). The
+            // dive's own open encounter was resumed or refused above.
+            if (combatMode === 'solo-pve') {
+                const held = await settleHeldFights(playerName);
+                if (!held.ok) return { status: held.status, body: { error: held.error, reason: held.reason } };
             }
 
             const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
