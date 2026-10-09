@@ -46,6 +46,13 @@ export const TEXT_LIMITS = {
     playerName: 32,
     noticeTitle: 80,
     noticeBody: 600,
+    /**
+     * One line of a village's Town Hall activity log (`notices`). The longest line
+     * the client writes is about 165: a 32-character name donating an 80-character
+     * creator item to the stores, with its credit. A longer line (an admin item
+     * with a longer name) is cut to this length, not refused.
+     */
+    villageActivityLine: 240,
     chatMessage: 500,
     description: 600,
     storyName: 80,
