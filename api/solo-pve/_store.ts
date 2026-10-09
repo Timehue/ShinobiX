@@ -14,11 +14,13 @@ import {
     publishBattleProjection,
     retireBattleProjection,
 } from '../_realtime/battle-projection.js';
+import { noteHeldFight } from './_held-fight-index.js';
 
 export type SoloPveKv = {
     get<T = unknown>(key: string): Promise<T | null>;
     set(key: string, value: unknown, opts?: { ex?: number; nx?: boolean }): Promise<unknown>;
     del?(key: string): Promise<unknown>;
+    hset?(key: string, fields: Record<string, unknown>): Promise<unknown>;
     compareSet?(
         key: string,
         expected: unknown | null,
@@ -63,6 +65,10 @@ export async function writeSoloPveSession(
             expiresAt: session.expiresAt,
         }, soloPveRowTtlSeconds(session));
         noteBattleStarted(session.ownerSlug);
+        // A fight sealed from the save is settled before the next one is sealed
+        // from it (api/pve/_held-fights.ts), so the next is never fought on HP
+        // this one already spent.
+        await noteHeldFight(store, session);
     } else if (session.status === 'done') {
         await retireSoloPveProjection(store, session);
     }

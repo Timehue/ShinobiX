@@ -212,6 +212,16 @@ export type SoloPveSession = {
     expiresAt: number;
     /** Optional server-sealed active TTL for long score attacks. */
     activeTtlSeconds?: number;
+    /**
+     * What the player's save held when this fight was sealed, recorded by a
+     * builder that seeded the player from it (buildSoloPveAiEncounter): HP
+     * always, chakra and stamina for a continuous fight. Settlement charges
+     * whatever the save has lost since on top of what the fight left
+     * (missions/_ai-fight-outcome.ts `vitalLostSinceSeal`), and a new fight
+     * settles this one first (api/pve/_held-fights.ts). Absent on a session
+     * sealed before it existed, which keeps the absolute write.
+     */
+    seededVitals?: { hp?: number; chakra?: number; stamina?: number };
 };
 
 export type CreateSoloPveSessionParams = {
@@ -227,6 +237,8 @@ export type CreateSoloPveSessionParams = {
     weeklyBossRoundBudget?: number;
     activeTtlSeconds?: number;
     companion?: CompanionSeal | null;
+    /** The save's vitals the player was seeded from (see SoloPveSession.seededVitals). */
+    seededVitals?: { hp?: number; chakra?: number; stamina?: number };
 };
 
 function cloneFighter(fighter: PvpFighter): PvpFighter {
@@ -246,6 +258,11 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
     const difficultyLevel = Number(params.difficultyEnemyLevel);
     const weeklyBossRoundBudget = Math.max(1, Math.min(MAX_SAFE_ROUND_BUDGET, Math.floor(Number(params.weeklyBossRoundBudget) || 0)));
     const activeTtlSeconds = Math.max(SOLO_PVE_SESSION_TTL_SECONDS, Math.min(2 * 60 * 60, Math.floor(Number(params.activeTtlSeconds) || SOLO_PVE_SESSION_TTL_SECONDS)));
+    const seededVitals: { hp?: number; chakra?: number; stamina?: number } = {};
+    for (const field of ['hp', 'chakra', 'stamina'] as const) {
+        const value = params.seededVitals?.[field];
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0) seededVitals[field] = Math.floor(value);
+    }
     return {
         runtime: SOLO_PVE_RUNTIME,
         schemaVersion: SOLO_PVE_SCHEMA_VERSION,
@@ -296,6 +313,7 @@ export function createSoloPveSession(params: CreateSoloPveSessionParams): SoloPv
         lastActionAt: now,
         expiresAt: now + activeTtlSeconds * 1000,
         ...(activeTtlSeconds !== SOLO_PVE_SESSION_TTL_SECONDS ? { activeTtlSeconds } : {}),
+        ...(Object.keys(seededVitals).length > 0 ? { seededVitals } : {}),
     };
 }
 
