@@ -315,9 +315,13 @@ describe("world-map reward settlement", () => {
             !worldState.includes("claimVillageWarDailyMission"),
             "the inline claim must be gone — it consumed the day's stamp and paid nothing",
         );
-        const fnStart = worldState.indexOf("export async function applyVillageWarMissionDamage");
+        // The war half loads with the Logbook. App imports world-state at
+        // startup, so it must not live there (scripts/check-build-size.mjs).
+        assert.ok(!worldState.includes("applyVillageWarMissionDamage"), "the war-damage half stays off the startup graph");
+        const missionDamage = source("./village-war-mission-damage.ts");
+        const fnStart = missionDamage.indexOf("export async function applyVillageWarMissionDamage");
         assert.notEqual(fnStart, -1, "the war-damage half must still exist where this test reads it");
-        const fn = worldState.slice(fnStart);
+        const fn = missionDamage.slice(fnStart);
         const fnBody = fn.slice(0, fn.indexOf("\n}"));
         assert.ok(
             !fnBody.includes("villageWarMissionsCompleted") && !fnBody.includes("clanMissionContrib"),

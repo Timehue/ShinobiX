@@ -3,9 +3,7 @@ import { afterEach, beforeEach, describe, it } from "node:test";
 import type { Character } from "../types/character";
 import {
     __resetSettledWarClaimsForTest,
-    __setVillageWarMissionRetryMsForTest,
     activeVillageWarsFor,
-    applyVillageWarMissionDamage,
     claimServerWarCrates,
     hydrateSharedWorldState,
     loadVillageWar,
@@ -13,6 +11,7 @@ import {
     VILLAGE_WAR_HP_MAX,
     type VillageWar,
 } from "./world-state";
+import { __setVillageWarMissionRetryMsForTest, applyVillageWarMissionDamage } from "./village-war-mission-damage";
 
 const MOON = "Moonshadow Village";
 const STORM = "Stormveil Village";

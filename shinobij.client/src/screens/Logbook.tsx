@@ -25,7 +25,8 @@ import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim"
 import {
     type CreatorEvent
 } from "../App";
-import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { activeVillageWarsFor, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { applyVillageWarMissionDamage } from "../lib/village-war-mission-damage";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
 import { setSectorReopen } from "../lib/sector-return";
