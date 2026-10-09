@@ -117,8 +117,18 @@ test("WorldMap and its selected-sector leaves keep the projection line-budget ra
         // confirmed-location gate without restoring a retired map layer.
         // The Find adds resume/settlement wiring; its VN, choice UI and claim logic remain separate.
         // 5,306 (-12): sector traces loading moved to lib/use-sector-traces.ts.
-        lineCount(worldMapSource) <= 5306,
-        `WorldMap.tsx grew past 5,306 lines; retired overview layers must stay retired.`,
+        // 5,352 (+53 on main's 5,299): road ambushes became a priced choice (owner requests,
+        // 2026-10-08/09). Contract hunters, war mercenaries and exploration
+        // ambushes now stop the player in the existing encounter dialog instead
+        // of starting a fight on contact, the Weekly Boss prompt became the same
+        // blocking, priced choice, a second hostile waits for the first, and Flee
+        // is charged by the server (fleeWanderer/fleeBoss).
+        // The cost rule, the client call and the ambusher's identity live outside
+        // this file (shared/road-flee.ts, lib/road-flee-api.ts). Behavior wiring on
+        // the existing encounter flow, not a retired map layer coming back. Exact
+        // achieved count, no buffer.
+        lineCount(worldMapSource) <= 5352,
+        `WorldMap.tsx grew past 5,352 lines; retired overview layers must stay retired.`,
     );
     assert.ok(
         lineCount(canvasSource) <= 220,
@@ -268,20 +278,62 @@ test("WorldWandererDialog stays hook-free, network-free, persistence-free, porta
     assert.doesNotMatch(dialogSource, /position:\s*"fixed"|inset:\s*0|zIndex:\s*9999/u);
 });
 
-test("WorldWandererDialog preserves bandit flee and forces bounty hunter combat", () => {
-    const attackChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "attack"', ') : !wandererDialog.msg && wandererDialog.w.verb === "bountyHunter"');
-    assertOrdered(attackChoices, [
+test("WorldWandererDialog makes every hostile that stops you a priced Fight/Flee choice", () => {
+    // ⚖ OWNER RULING (2026-10-08): a hostile that catches you in a sector stops
+    // you with Fight/Flee, bounty hunters included, and fleeing costs half your
+    // HP plus part of the ryo you carry (shared/road-flee.ts). Only a bandit
+    // that lets you "Pass in peace" is free.
+    const hostileChoices = sliceBetween(dialogSource,
+        '(wandererDialog.w.verb === "attack" || wandererDialog.w.verb === "bountyHunter")',
+        ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
+    assertOrdered(hostileChoices, [
         'onClick={dismissWandererDialog}>Pass in peace</button>',
         'onClick={() => startWandererAttack(wandererDialog.w, false)}',
         '>Fight anyway</button>',
-        'onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}',
-        '>Fight</button>',
-        'onClick={dismissWandererDialog}>Flee</button>',
-    ], "wanderer attack choice order");
-    const bountyChoices = sliceBetween(dialogSource, 'wandererDialog.w.verb === "bountyHunter"', ') : !wandererDialog.msg && wandererDialog.w.verb === "merchant"');
-    assert.match(bountyChoices, /The hunter attacks\. Combat is starting/u);
-    assert.doesNotMatch(bountyChoices, /<button|Flee|dismissWandererDialog/u);
+        '{roadFleePriceLine(character)}',
+        'onClick={() => startWandererAttack(wandererDialog.w, !!wandererDialog.nemesis)}>Fight</button>',
+        'onClick={() => fleeWanderer(wandererDialog.w)}>Flee</button>',
+    ], "hostile encounter choice order");
+    assert.doesNotMatch(hostileChoices, /onClick=\{dismissWandererDialog\}>Flee/u, "the paid flee must not route through the free dismissal");
+    assert.doesNotMatch(dialogSource, /Combat is starting/u, "a contract hunter no longer starts its fight on contact");
     assert.match(dialogSource, /wandererDialog\.w\.verb === "merchant"[\s\S]*onClick=\{closeWandererDialog\}>Leave<\/button>/u);
+});
+
+test("WorldMap charges a flee on the server and never lets Escape or the backdrop run for free", () => {
+    assert.match(worldMapSource, /function dismissWandererDialog\(\) \{\s*const d = wandererDialog;\s*if \(requiresWandererChoice\(d\) && !d\?\.peace\) return;/u);
+    const flee = sliceBetween(worldMapSource, "async function fleeWanderer", "const { traces: sectorTraces");
+    assertOrdered(flee, [
+        "fleeRoadAmbush(character.name, asked.fleeId,",
+        "if (!fled.ok) {",
+        "setWandererDialog((current) => current?.w.id === w.id ? null : current);",
+        "coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);",
+        "onServerVersion?.(fled._saveVersion)",
+    ], "flee settles on the server before the hostile backs off");
+    assert.doesNotMatch(flee, /ryo: [^f]|hp: [^f]/u, "the client adopts the server's totals and never computes its own");
+    const engage = sliceBetween(worldMapSource, "function handleWandererEngage", "async function engageRoamingMerc");
+    assert.match(engage, /if \(isMercAiId\(w\.id\) \|\| w\.verb === "bountyHunter"\) \{ setWandererDialog\(\{ w \}\); return; \}/u,
+        "a war mercenary and a contract hunter stop you before their fight");
+    const fight = sliceBetween(worldMapSource, "function startWandererAttack", "function roadRumorFor");
+    assert.match(fight, /if \(isMercAiId\(w\.id\)\) \{ void engageRoamingMerc\(w\); return; \}/u, "Fight is what starts the merc's clash");
+    // The Weekly Boss is a roaming attacker too: blocking dialog, priced flee, no free Escape.
+    const boss = sliceBetween(worldMapSource, "async function fleeBoss", "const mercWanderers");
+    assertOrdered(boss, ["fleeRoadAmbush(character.name, asked.fleeId, { kind: \"road\" })", "if (!fled.ok)", "setBossDialog(null);", "adoptFleeTotals(fled);"], "boss flee");
+    const bossPortal = sliceBetween(worldMapSource, "{bossDialog && createPortal(", "document.body,");
+    assertOrdered(bossPortal, ["<ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>",
+        "{roadFleePriceLine(character)}", "onClick={standBossFight}", "onClick={() => void fleeBoss()}>Flee</button>"], "boss encounter dialog");
+    assert.doesNotMatch(bossPortal, /free, no attempt spent/u);
+    assert.match(bossPortal, /maxHeight: "88dvh", overflowY: "auto"/u, "the boss card scrolls on a short phone like the wanderer card");
+    // One hostile at a time, and the one held back is DEFERRED, not dropped: a
+    // refused engage returns false so the actor asks again once the choice ends.
+    assert.match(engage, /if \(requiresWandererChoice\(wandererDialog\) \|\| bossDialog\) return false;/u);
+    assert.match(sliceBetween(worldMapSource, "function handleBossEngage", "function standBossFight"),
+        /if \(!roamingBoss\?\.aiId \|\| requiresWandererChoice\(wandererDialog\)\) return false;/u);
+    // The robber streak's gang gauntlet belongs to the bandits (the server never
+    // counts a night ninja toward it): Fight on a night ninja is that ninja.
+    assert.match(fight, /if \(!nemesis && w\.archetype !== "nightblade" && \(character\.robberStreak \?\? 0\) >= 5\)/u);
+    // Every exploration result path presents the ambush; only Fight starts it.
+    assert.doesNotMatch(worldMapSource, /launchResolvedExploreBattle/u);
+    assert.equal(worldMapSource.split("startExploreAmbushFight(").length - 1, 3, "declared once, used by Fight and the non-wild fallback");
 });
 
 test("WorldSectorOverlayLayer preserves direct-grid actor and marker order", () => {

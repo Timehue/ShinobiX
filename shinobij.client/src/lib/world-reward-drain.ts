@@ -9,7 +9,7 @@ type ReportFailure = (message: string) => void;
 export type WorldRewardDrainCallbacks = {
     continueWorldDiscovery: (operation: PendingWorldRewardOperation, interactive: boolean, reportFailure: ReportFailure) => Promise<"recovered" | "blocked" | "retired">;
     recoverPendingExternalDiscovery: (operation: PendingWorldRewardOperation, source: "pet" | "dungeon", reportFailure: ReportFailure) => Promise<boolean>;
-    launchResolvedExploreBattle: (sector: number, requestId: string) => boolean;
+    presentExploreAmbush: (sector: number, requestId: string) => boolean;
     recordMissionExplore: (sector: number, requestId: string, fieldProgress?: FieldExploreProgress[]) => Promise<boolean>;
     settleDiscoveredChest: (operation: PendingWorldRewardOperation, reportFailure: ReportFailure) => Promise<"settled" | "retryable" | "terminal">;
     onDungeonFound: (token: string) => void;
@@ -22,7 +22,7 @@ export async function drainPendingWorldRewardOperations(
     {
         continueWorldDiscovery,
         recoverPendingExternalDiscovery,
-        launchResolvedExploreBattle,
+        presentExploreAmbush,
         recordMissionExplore,
         settleDiscoveredChest,
         onDungeonFound,
@@ -70,7 +70,7 @@ export async function drainPendingWorldRewardOperations(
                 }
                 if (result.pendingBattle) { // this parked operation never committed; retire it and resume the owed ambush
                     completeWorldRewardOperation(playerName, operation.id);
-                    if (launchResolvedExploreBattle(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
+                    if (presentExploreAmbush(result.pendingBattle.sector, result.pendingBattle.requestId)) { recovered = true; break; }
                     blocked = true;
                     continue;
                 }
@@ -91,10 +91,11 @@ export async function drainPendingWorldRewardOperations(
                     else if (chestState === "terminal") retired = true;
                     else blocked = true;
                 } else if (result.outcome?.kind === "battle") {
-                    if (launchResolvedExploreBattle(operation.sector, operation.id)) {
+                    if (presentExploreAmbush(operation.sector, operation.id)) {
                         recovered = true;
                         // AiFightHost clears the operation only after start
-                        // ACK (or active-session resume), closing the crash gap.
+                        // ACK (or active-session resume), closing the crash gap;
+                        // a Flee clears it once the server has settled the ambush.
                         break;
                     }
                     blocked = true;

@@ -109,6 +109,7 @@ export async function startBountyHunter(playerName: string, hunterId: string): P
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "ai-hunter-start", playerName, hunterId }),
+            signal: AbortSignal.timeout(12_000), // a stalled start must not hold the Fight/Flee choice
         });
         const data = await res.json().catch(() => ({})) as { ok?: boolean; error?: string; reason?: string; bounty?: BountyEntry; cooldownUntil?: number };
         if (!res.ok || !data.ok) return { ok: false, error: data.error || "The hunter lost the trail.", reason: data.reason, bounty: data.bounty, cooldownUntil: data.cooldownUntil };
