@@ -1,3 +1,4 @@
+import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 import { expect, test } from '@playwright/test';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 import { readResourceGathering } from '../../shared/resource-gathering';
@@ -15,6 +16,8 @@ test('built Guild disables level 30 contracts for a level 16 player', async ({ p
 
 test('built map separates capped personal allowance from shared gathering pool', async ({ page }, info) => {
     const save = uiAuditSave();
+    // Road hostiles hunt the player into a blocking Fight/Flee; keep sector 22 quiet.
+    save.character = { ...save.character!, wandererCooldowns: quietRoadCooldowns([22]) };
     save.currentSector = 22;
     const date = new Date().toISOString().slice(0, 10);
     Object.assign(save.character!, { level: 17, dailyTilesExplored: 45, lastDailyReset: date, serverExploresToday: 45, serverExploreDate: date,

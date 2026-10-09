@@ -10,6 +10,8 @@ export type PvpRecoveryContext = {
     sectorAttack?: boolean;
     raidKind?: "raidPlayer" | "defense";
     sector?: number;
+    /** The duel began on the World Map, so its result goes back to sector. */
+    fromField?: boolean;
     clanWarChallengeId?: string;
     kageChallengeId?: string;
     kageVillage?: string;
