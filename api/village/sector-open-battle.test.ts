@@ -118,6 +118,28 @@ async function inboxOf(name: string): Promise<Array<Record<string, any>>> {
     return (await kv.get<Array<Record<string, any>>>(`challenges:${name}`)) ?? [];
 }
 
+/** Give a player a live post-defeat shield (Field Recovery), on a versioned save. */
+async function shield(name: string) {
+    const save = await kv.get<Record<string, any>>(`save:${name}`);
+    await kv.set(`save:${name}`, {
+        ...save, _saveVersion: 1, _saveAt: Date.now(),
+        character: {
+            ...save!.character, hp: 500, maxHp: 500, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100,
+            pvpShieldUntil: Date.now() + 90_000,
+        },
+    });
+}
+
+/** The shield's clear is best-effort and non-blocking (as a Combat raid's), so let it land. */
+async function shieldSpent(name: string): Promise<boolean> {
+    for (let i = 0; i < 40; i += 1) {
+        const until = Math.floor(Number((await kv.get<Record<string, any>>(`save:${name}`))?.character?.pvpShieldUntil ?? 0));
+        if (!until) return true;
+        await new Promise((resolve) => setImmediate(resolve));
+    }
+    return false;
+}
+
 describe('an open-world attack in a Pet war is a pet battle with that player', { concurrency: false }, () => {
     it('fights both sealed teams at once, scores it for the winner\'s village, and tells the target', async () => {
         const contest = await seedContest('pet');
@@ -202,6 +224,23 @@ describe('an open-world attack in a Pet war is a pet battle with that player', {
         const contest = await seedContest('card');
         const out = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
         assert.equal(out.statusCode, 409);
+    });
+
+    it('starting one spends the challenger\'s own post-defeat shield, as a Combat raid does', async () => {
+        // Otherwise a shielded player could start battles nobody could start back.
+        const contest = await seedContest('pet');
+        await shield(RAIDER);
+        const out = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(await shieldSpent(RAIDER), true);
+    });
+
+    it('a refused one leaves the shield alone', async () => {
+        const contest = await seedContest('pet');
+        await shield(RAIDER);
+        const ally = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: SECOND });
+        assert.equal(ally.statusCode, 403);
+        assert.equal(await shieldSpent(RAIDER), false);
     });
 });
 
@@ -296,6 +335,13 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         const sameAgain = await call(cardHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
         assert.equal(sameAgain.statusCode, 409);
         assert.match(String(sameAgain.body?.error), /met in battle/);
+    });
+
+    it('challenging one spends the challenger\'s own post-defeat shield', async () => {
+        const contest = await seedContest('card');
+        await shield(HOLDOUT);
+        await engage(contest.id, HOLDOUT, RAIDER);
+        assert.equal(await shieldSpent(HOLDOUT), true);
     });
 
     it('the war\'s table still works as before', async () => {

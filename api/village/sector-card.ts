@@ -25,6 +25,7 @@ import {
     OPEN_CARD_JOIN_WINDOW_MS,
     releaseOpenBattleFighters,
 } from '../_sector-contest-engage.js';
+import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 import {
     CHRONICLE_RULES_VERSION, advanceExpiredChronicleTurn, applyAction, createMatch,
     projectMatchForViewer,
@@ -477,6 +478,9 @@ async function runEngage(me: string, sectorWarId: string, body: Record<string, u
         await claim.release();
         throw err;
     }
+    // Starting it ends the challenger's own post-defeat shield, as a Combat raid
+    // does: the target could not start one back while it lasted.
+    endOwnFieldRecoveryShield(me);
     await noticeOpenSectorBattle({ kind: 'card', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
     return { status: 200, body: { ...versionEcho(resolution), engageId, session: openWaiting(session, mySide) } };
 }

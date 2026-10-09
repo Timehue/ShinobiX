@@ -24,6 +24,7 @@ import {
     newOpenBattleId,
     noticeOpenSectorBattle,
 } from '../_sector-contest-engage.js';
+import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 
 /*
  * /api/village/sector-pet — POST only. The sector-war "Pet" win-condition (Phase 7).
@@ -415,6 +416,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             session.warResult = warResultFrom(commit);
             session.appliedToContest = true;
             await kv.set(openSessionKey(engageId), session, { ex: SESSION_TTL_SEC });
+            // Starting it ends the challenger's own post-defeat shield, as a
+            // Combat raid does: the target could not start one back while it lasted.
+            endOwnFieldRecoveryShield(me);
             await noticeOpenSectorBattle({ kind: 'pet', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
             return res.status(200).json({
                 engageId,
