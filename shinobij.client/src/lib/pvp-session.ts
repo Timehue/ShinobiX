@@ -73,9 +73,12 @@ export function leavePvpSpectator(battleId: string | null, context: PvpRecoveryC
 export function pvpResultReturn(context: PvpRecoveryContext | null, currentSector: number, hospitalized = false): { returnTarget: Screen; returnLabel: string } {
     if (hospitalized && context?.spectatingFromSector == null && context?.spectatingFromScreen == null)
         return { returnTarget: "hospital", returnLabel: "Go to Hospital" };
+    // A plain duel taken while standing in the field goes back to that spot
+    // (owner, 2026-10-09). Ranked, clan-war and Kage fights keep their hubs.
     const returnTarget: Screen = context?.spectatingFromSector != null ? "worldMap"
         : context?.spectatingFromScreen ?? (context?.kageChallengeId ? "townHall" : context?.sectorAttack ? "worldMap"
-            : context?.mode?.startsWith("clanWar") ? "clan" : context?.mode === "ranked" ? "arenaDistrict" : "battleArena");
+            : context?.mode?.startsWith("clanWar") ? "clan" : context?.mode === "ranked" ? "arenaDistrict"
+                : duelFieldSector(context) != null ? "worldMap" : "battleArena");
     return {
         returnTarget,
         returnLabel: returnTarget === "worldMap" ? `Return to Sector ${context?.spectatingFromSector ?? context?.sector ?? currentSector}`
@@ -104,9 +107,21 @@ export function pvpResultReturn(context: PvpRecoveryContext | null, currentSecto
  * so `isWildSector` correctly leaves those on today's behaviour.
  */
 export function markPvpSectorReturn(target: Screen, context: PvpRecoveryContext | null, currentSector: number): void {
-    if (target !== "worldMap" || (!context?.sectorAttack && context?.spectatingFromSector == null)) return;
+    if (target !== "worldMap" || !context) return;
+    if (!context.sectorAttack && context.spectatingFromSector == null) {
+        const field = duelFieldSector(context);
+        if (field != null) setSectorReopen(field);
+        return;
+    }
     const sector = Number(context.spectatingFromSector ?? context.sector ?? currentSector);
     if (isWildSector(sector)) setSectorReopen(sector);
+}
+
+/** The wild sector a plain duel was taken in, if it began on the World Map at all (an Arena challenge still carries where you stand). */
+function duelFieldSector(context: PvpRecoveryContext | null): number | null {
+    if (!context?.fromField || context.kageChallengeId || context.mode?.startsWith("clanWar") || context.mode === "ranked") return null;
+    const sector = Number(context.sector);
+    return context.sector != null && isWildSector(sector) ? sector : null;
 }
 
 // PvP session environment selector. The server reads biome + weather elements

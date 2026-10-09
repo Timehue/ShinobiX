@@ -29,6 +29,7 @@ import {
 import type { PlayerRankedJournal } from './_player-ranked-journal.js';
 import { replayCommittedPvpActionReceipt } from './_action-receipt-replay.js';
 import { ensurePvpTerminalRecoveryPublication } from './_reward-recovery.js';
+import { releaseBattleChallengeNotices } from './_challenge-inbox-release.js';
 import { settlePvpTerminalVitals } from './_vitals-settlement.js';
 import { settleTerminalWorldRaid, type TerminalWorldSettlement } from './_terminal-world-raid.js';
 import { settlePvpSectorWarContinuation } from './_sector-war-continuation.js';
@@ -180,6 +181,9 @@ async function runCommittedPvpTerminalEffects(
     await ensurePvpTerminalRecoveryPublication(kv, session.battleId, session, {
         snapshotSealed: options.recoverySnapshotSealed === true,
     });
+    // The defender's sector-attack notice outlives the duel in their inbox and
+    // would route them back into it, however it ended (cancel, flee, knockout).
+    await releaseBattleChallengeNotices(session);
     if (isCancelledUnstartedPvpDuel(session)) return {};
 
     // A terminal retry is also the final action's durable replay path. The
