@@ -197,6 +197,15 @@ export function buildSoloPveAiEncounter(params: {
     continuousVitals?: boolean;
     /** Consensual spar: settlement writes no HP change and never hospitalizes. */
     spar?: boolean;
+    /**
+     * The vitals the save STORES, for a caller whose `save` carries idle
+     * recovery it projected but did not write back. Settlement charges the
+     * fight for anything the save holds below the sealed seed, so the seed must
+     * be what the save itself holds: a recovery that was never written would
+     * otherwise read as a loss wherever the settle cannot credit recovery
+     * (under a battle lock). Each defaults to what the fighter is seeded with.
+     */
+    storedVitals?: { hp?: unknown; chakra?: unknown; stamina?: unknown };
     encounter?: SoloPveEncounter;
     environment?: Partial<SoloPveEnvironment>;
     env?: NodeJS.ProcessEnv;
@@ -245,13 +254,29 @@ export function buildSoloPveAiEncounter(params: {
     const encounter: SoloPveEncounter = params.encounter
         ? { ...params.encounter, level: Number(enemy.character.level) || params.encounter.level }
         : { kind: 'generic-ai', id: profile.id, sourceId: params.profile.id, level: Number(enemy.character.level) || 1 };
+    const player = fighterFromHydratedCharacter(hydrated, 62, continuous);
+    // Every encounter built here seeds HP from the save's current HP, and a
+    // continuous one its chakra and stamina too, so those seeded values ARE
+    // what the save held. Settlement charges what the save loses after this on
+    // top of what the fight leaves. A fresh-start fight's full chakra and
+    // stamina pools are not the save's and are never carried back, so they are
+    // not sealed.
+    const sealed = (field: 'hp' | 'chakra' | 'stamina'): number => {
+        const stored = params.storedVitals?.[field];
+        return typeof stored === 'number' && Number.isFinite(stored)
+            ? Math.max(0, Math.min(player[field], Math.floor(stored)))
+            : player[field];
+    };
     return createSoloPveSession({
         sessionId: params.sessionId,
         ownerSlug: params.playerName,
         encounter: Object.keys(flags).length > 0
             ? { ...encounter, metadata: { ...(encounter.metadata ?? {}), ...flags } }
             : encounter,
-        player: fighterFromHydratedCharacter(hydrated, 62, continuous),
+        player,
+        seededVitals: continuous
+            ? { hp: sealed('hp'), chakra: sealed('chakra'), stamina: sealed('stamina') }
+            : { hp: sealed('hp') },
         enemy,
         now: params.now,
         environment: params.environment ?? { biome: 'central' },

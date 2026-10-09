@@ -14,6 +14,7 @@ import { builtinAiProfile } from '../_ai-profile-catalog.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { terminalizeLapsedSoloPveSession } from '../solo-pve/_abandon.js';
 import { advanceStronghold, isDeathsGateStronghold, STRONGHOLD_INTEL_TILE, STRONGHOLD_LAYOUT_VERSION, STRONGHOLD_SPAWN, STRONGHOLD_VAULT, STRONGHOLD_DIMS, type StrongholdVisit } from '../../shared/sector-stronghold.js';
@@ -142,6 +143,10 @@ export async function handleStrongholdAction(playerName: string, action: string,
             if (!session) {
                 const authority = await resolveBattleAuthority(playerName, battleEvidenceFrom(await kv.mget(...battleAuthorityKeys(playerName))));
                 if (authority.inBattle || onlineStore.get(playerName)?.pendingAttacker) return snapshot(playerName, visit, { combatBlocked: true });
+                // Every other fight this player is holding is settled before the
+                // patrol is sealed from the save (api/pve/_held-fights.ts).
+                const held = await settleHeldFights(playerName, { except: visit.patrolId });
+                if (!held.ok) return fail(held.error, held.status);
                 const save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
                 const character = save?.character as Record<string, unknown> | undefined;
                 if (!save || !character || isIncapacitated(character, Date.now())) return fail('Recover before facing the patrol.');

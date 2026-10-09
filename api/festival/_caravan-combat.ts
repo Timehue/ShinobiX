@@ -4,7 +4,8 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
-import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
+import { applyPveOutcomeBodyOnce, markPveOutcomeSettled, readPveOutcomeMarker, settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { kv } from '../_storage.js';
 import { battleLockedFor, isIncapacitated } from '../_elapsed-state.js';
@@ -29,7 +30,6 @@ import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import type { EnemyTemplate } from '../towers/_enemy-templates.js';
 import { needsTowerLapseReconciliation } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../combat-core/companion.js';
-import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
 
@@ -147,7 +147,24 @@ async function startTowerCaravanCombat(player: string, runId: string): Promise<T
         actor.chakra = Math.max(0, Math.min(actor.maxChakra, Number(character.chakra) || 0));
         actor.stamina = Math.max(0, Math.min(actor.maxStamina, Number(character.stamina) || 0));
         tower.pendingCompanion = sealCompanionFromSave({ ...character, activePetId: run.selectedPetId }, now) ?? undefined;
-        tower.caravanAmbush = { runId: run.id, playerSlug: player, nodeId: run.combat.nodeId };
+        // The fighter was re-seeded from the save just above. Settlement charges
+        // whatever the save loses after this on top of what the ambush leaves.
+        // `character` carries idle recovery this read settled but does not write
+        // back, and the lease just claimed stops recovery until the ambush
+        // settles, so the settle reads the save as STORED. The seal is that, or
+        // the unwritten recovery would be charged as a loss.
+        const stored = (await kv.get<{ character?: Record<string, unknown> }>(`save:${player}`))?.character;
+        const sealed = (value: unknown, seeded: number): number => typeof value === 'number' && Number.isFinite(value)
+            ? Math.max(0, Math.min(seeded, Math.floor(value)))
+            : seeded;
+        tower.caravanAmbush = {
+            runId: run.id, playerSlug: player, nodeId: run.combat.nodeId,
+            seededVitals: {
+                hp: sealed(stored?.hp, actor.hp),
+                chakra: sealed(stored?.chakra, actor.chakra),
+                stamina: sealed(stored?.stamina, actor.stamina),
+            },
+        };
         tower.floorProvenance = { kind: 'embedded', mintedBy: 'authoritative-pve', contentVersion: 'sunscar-caravan-ambush.1', floorId: floor.id };
         initializeTowerActionVersion(tower);
         startRound(tower);
@@ -197,14 +214,24 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
     const actor = session.actors.find(candidate => candidate.side === 'squad' && candidate.ownerSlug === player && candidate.ai === false);
     if (!actor) throw new FestivalError('The sealed shinobi could not be found.', 409);
     const winner = session.winner === 'squad';
+    // The ambush's HP lands ONCE across this settle and the generic pve-outcome
+    // path, which reads this Tower run too (/api/pve/fight-outcome). Both used
+    // to write it, so a late second write set HP back up to the ambush's end value.
+    const markedSettled = await readPveOutcomeMarker(session, player);
+    let bodyWritten = false;
     const out = await mutatePlayerSave(player, ({ character }) => {
+        bodyWritten = false;
         const { run } = requireCaravan(character);
         if (!run.combat || run.combat.sessionId !== session!.runId) throw new FestivalError('This battle belongs to another expedition.', 409);
         if (run.combat.settled) return { ok: true, character, value: { outcome: winner ? 'win' : 'loss' }, write: false };
         const now = Date.now();
-        const physical = applyAiFightOutcomeToCharacter(character,
-            winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss', actor, now, true);
-        const withPetCosts = applyCompanionUsageCost(physical, session!.companionUsage);
+        const physical = applyPveOutcomeBodyOnce({
+            character, session: session!, playerName: player, now,
+            outcome: winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss',
+            continuousVitals: true, markedSettled,
+        });
+        bodyWritten = physical.bodyWritten;
+        const withPetCosts = applyCompanionUsageCost(physical.character, session!.companionUsage);
         const next = settleCaravanCombat(withPetCosts, session!.runId, winner, now);
         const id = `arena-${session!.runId}`;
         const history = Array.isArray(next.battleHistory) ? next.battleHistory as Parameters<typeof appendBattleHistory>[0] : undefined;
@@ -220,6 +247,7 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
         return { ok: true, character: next, value: { outcome: winner ? 'win' : 'loss' }, write: true };
     });
     if (!out.ok) throw new FestivalError(out.error, out.status);
+    if (bodyWritten) await markPveOutcomeSettled(session, player, Date.now());
     if (session.rewardSettlementState !== 'settled') {
         session.rewardSettlementState = 'settled';
         await writeSession(session);
@@ -231,6 +259,11 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
 export async function startCaravanCombat(player: string, runId: string) {
     const save = await kv.get<{ character?: Record<string, unknown> }>(`save:${player}`);
     const current = save?.character ? (save.character.sunscarCaravan as { current?: { id?: string; combat?: { sessionId?: string } } } | undefined)?.current : undefined;
+    // Every other fight this player is holding is settled before either kind of
+    // caravan fight is sealed from the save (api/pve/_held-fights.ts). The
+    // escort's own fight is the one being resumed, never abandoned here.
+    const held = await settleHeldFights(player, { except: current?.combat?.sessionId });
+    if (!held.ok) throw new FestivalError(held.error, held.status);
     if (current?.id === runId && current.combat?.sessionId?.startsWith('caravan-tower:')) return startTowerCaravanCombat(player, runId);
     let sessionId = '';
     const checked = await mutatePlayerSave(player, async ({ character, record }) => {
@@ -246,7 +279,11 @@ export async function startCaravanCombat(player: string, runId: string) {
         if (!catalog) throw new FestivalError('The encounter could not be prepared.', 503);
         const save = await augmentSaveWithForgedDefs({ ...record, character: { ...character, activePetId: run.selectedPetId } });
         const profile = { ...catalog, id: `sunscar-${run.combat.enemy}`, name: enemy.name, visual: enemy.profile, isBossAi: run.combat.enemy !== 'raider' };
+        // `character` carries idle recovery this read settled but does not write
+        // back; the session seals what the save itself stores (see storedVitals).
+        const stored = (await kv.get<{ character?: Record<string, unknown> }>(`save:${player}`))?.character;
         const session = buildSoloPveAiEncounter({ sessionId, playerName: player, save: save!, profile, now: Date.now(), admin: await loadAdminCombatContent(), continuousVitals: true,
+            storedVitals: { hp: stored?.hp, chakra: stored?.chakra, stamina: stored?.stamina },
             scaling: { level: Math.max(1, Math.min(100, (Number(character.level) || 1) + enemy.levelOffset + run.contract.difficulty - 1)) },
             // Cactus Flats uses the existing central combat biome (sector-geo).
             encounter: { kind: 'caravan', id: run.combat.nodeId, bindingId: run.id, sourceId: enemy.profile, metadata: { returnScreen: 'sunscarFestival' } }, environment: { biome: 'central', blockedTiles: [] },

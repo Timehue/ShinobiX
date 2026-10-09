@@ -80,11 +80,13 @@ export function kickPlayer(name: string | undefined | null, reason: 'attack' | '
 
 /**
  * Tell a player's own tabs about a save version the server committed with NO
- * request of theirs in flight to carry it — today, a travel arrival settled by
- * the heartbeat/socket settler. Only for writes whose changes an autosave cannot
- * undo (server-owned fields, server-clamped vitals): the client adopts the
- * version alone, without a character. No-op without a socket; the 409 →
- * refetch recovery stays the fallback.
+ * response of theirs to carry it: a travel arrival settled by the
+ * heartbeat/socket settler, or a held fight settled by the start of their next
+ * one, whose reply carries the new fight (api/pve/_held-fights.ts). Only for
+ * writes whose changes an autosave cannot undo (server-owned fields,
+ * server-clamped vitals): the client adopts the version alone, without a
+ * character. No-op without a socket; the 409 → refetch recovery stays the
+ * fallback.
  */
 export function pushSaveVersion(name: string | undefined | null, version: number): void {
     if (!_emit || !name || !Number.isSafeInteger(version) || version <= 0) return;

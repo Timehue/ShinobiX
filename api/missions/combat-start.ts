@@ -28,6 +28,7 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { captureServerProductEvent } from '../_product-analytics.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { sectorPlace } from '../../shared/sector-geo.js';
 import { resolveSectorWeather, sectorWeatherElements } from '../../shared/sector-weather.js';
@@ -83,6 +84,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     char = save?.character as Record<string, unknown> | undefined;
                     if (!save || !char) throw new Error('Player save vanished during mission retry recovery.');
                 }
+            }
+
+            // Every other fight this player is holding is settled before this
+            // one is sealed from the save, so the mission is never fought on HP
+            // an earlier fight already spent (api/pve/_held-fights.ts).
+            const held = await settleHeldFights(playerName);
+            if (!held.ok) return { ok: false as const, error: held.error, errorCode: held.reason };
+            if (held.settled > 0) {
+                save = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+                char = save?.character as Record<string, unknown> | undefined;
+                if (!save || !char) throw new Error('Player save vanished while held fights were settled.');
             }
 
             // A live mission fight resumes above whatever the player's state; a

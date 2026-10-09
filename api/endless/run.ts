@@ -9,7 +9,14 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
-import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
+import {
+    applyPveOutcomeBodyOnce,
+    markPveOutcomeSettled,
+    pveOutcomeBodyWritten,
+    readPveOutcomeMarker,
+    stampPveOutcomeBody,
+} from '../pve/_fight-outcome-settlement.js';
 import { cashOutEndless, recordEndlessWin, startEndlessRun, type EndlessRun } from './_run.js';
 import {
     endlessWaveBindingKey,
@@ -58,7 +65,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
         const runToken = cleanToken(body.runToken);
         const waveRunId = cleanWaveRunId(body.waveRunId);
+        // The wave whose HP this settle wrote, so its run marker can be set once
+        // the save write commits (see the note in api/pve/_fight-outcome-settlement.ts).
+        let wroteWaveBody = null as SoloPveSession | null;
         const result = await mutatePlayerSave<Record<string, unknown>>(playerName, async ({ character }) => {
+            wroteWaveBody = null;
             if (action === 'start') {
                 const started = startEndlessRun(character, randomUUID().replace(/-/g, ''), dayKey());
                 if (!started.ok) return { ok: false as const, status: 409, error: started.reason };
@@ -133,12 +144,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
 
             const chargedCharacter = applySoloPveUsageCosts(character, session!);
+            const now = Date.now();
+            // The wave's HP lands ONCE across this settle and the generic
+            // pve-outcome path, which writes it from the same session (the lapse
+            // reconciler, /api/pve/fight-outcome). Both used to write it, so a
+            // late second write set HP back up to the wave's end value.
+            const markedSettled = await readPveOutcomeMarker(session!, playerName);
             if (validation.outcome === 'win') {
+                const bodyWritten = markedSettled || pveOutcomeBodyWritten(chargedCharacter, session!, playerName);
+                const vitals = endlessWaveVitals(session!, playerName);
                 const won = recordEndlessWin(
                     chargedCharacter,
                     run,
                     validation.binding.wave,
-                    endlessWaveVitals(session!, playerName),
+                    // HP the generic path already wrote stays as it is. Chakra and
+                    // stamina still settle (decrease-only), and so does the
+                    // every-tenth-wave heal, which is this run's reward.
+                    bodyWritten ? { ...vitals, hp: undefined } : vitals,
                 );
                 if (!won) return { ok: false as const, status: 409, error: 'unexpected-endless-wave' };
                 const receipt: EndlessReceipt = {
@@ -148,7 +170,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     reward: won.reward,
                     milestone: won.milestone,
                 };
-                const committed = { ...creditElderWins(won.character, 0, 1), redeemedEndlessActions: [...receipts, receipt].slice(-128) };
+                const settledCharacter = bodyWritten
+                    ? won.character
+                    : stampPveOutcomeBody(won.character, session!, playerName, now) as typeof won.character;
+                if (!bodyWritten) wroteWaveBody = session!;
+                const committed = { ...creditElderWins(settledCharacter, 0, 1), redeemedEndlessActions: [...receipts, receipt].slice(-128) };
                 return {
                     ok: true as const,
                     character: committed,
@@ -156,12 +182,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 };
             }
 
-            const ended = applyAiFightOutcomeToCharacter(
-                chargedCharacter,
-                validation.outcome === 'fled' ? 'forfeit' : validation.outcome,
-                session!.player,
-                Date.now(),
-            );
+            const physical = applyPveOutcomeBodyOnce({
+                character: chargedCharacter,
+                session: session!,
+                playerName,
+                now,
+                outcome: validation.outcome === 'fled' ? 'forfeit' : validation.outcome,
+                markedSettled,
+            });
+            if (physical.bodyWritten) wroteWaveBody = session!;
+            const ended = physical.character;
             const receipt: EndlessReceipt = { key: waveRunId, action, outcome: validation.outcome };
             return {
                 ok: true as const,
@@ -171,6 +201,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
 
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (wroteWaveBody) await markPveOutcomeSettled(wroteWaveBody, playerName, Date.now());
 
         if (action === 'settle' && waveRunId) {
             const binding = await kv.get<EndlessWaveBinding>(endlessWaveBindingKey(waveRunId)).catch(() => null);

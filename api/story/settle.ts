@@ -10,6 +10,9 @@ import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { applyAcademySparSettlement, applyStoryBossSettlement } from './_settle.js';
+import { sessionSeededVitals, vitalLostSinceSeal } from '../missions/_ai-fight-outcome.js';
+import { markPveOutcomeSettled, pveOutcomeBodyWritten, readPveOutcomeMarker, stampPveOutcomeBody } from '../pve/_fight-outcome-settlement.js';
+import type { SoloPveSession } from '../solo-pve/_session.js';
 import { bumpLegacyStats, legacyEnabled } from '../_legacy-track.js';
 import { extractSoloPveLegacyDeltas } from '../_legacy-pve.js';
 import type { StorySettlementDelivery } from '../../shared/story-settlement-presentation.js';
@@ -34,6 +37,26 @@ type StoryRedemption = {
     title?: string;
     chronicleCards?: string[];
 };
+
+/**
+ * The HP the story settlement builds its +25 on, for a WON boss fight.
+ *
+ * The fight's own HP is written at most once, against the shared pve-outcome
+ * receipt (api/pve/_fight-outcome-settlement.ts), the same body the client's
+ * outcome report and a later fight's start (api/pve/_held-fights.ts) write.
+ * When one of them already wrote it, the save's HP IS the fight's result, and
+ * the 25 is added to that: it is this settlement's reward, not part of the
+ * fight. Otherwise it is the HP the fight left, less whatever the save has lost
+ * since the fight was sealed (missions/_ai-fight-outcome.ts
+ * `vitalLostSinceSeal`), so a settle held back until after a fight elsewhere
+ * cannot set HP back up over that fight's cost. Both orders end on the same HP.
+ */
+function storyBossSurvivingHp(character: Record<string, unknown>, session: SoloPveSession, playerName: string, bodyWritten: boolean): number {
+    if (bodyWritten) return typeof character.hp === 'number' ? character.hp : Number(character.maxHp) || 0;
+    const surviving = storySessionSurvivingHp(session, playerName);
+    const lost = vitalLostSinceSeal(character, 'hp', sessionSeededVitals(session));
+    return lost > 0 ? Math.max(1, surviving - lost) : surviving;
+}
 
 function cleanRunId(raw: unknown): string {
     const runId = typeof raw === 'string' ? raw.trim().slice(0, 96) : '';
@@ -89,7 +112,12 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
     return withKvLock(bindingKey, async () => {
         const binding = await kv.get<StoryCombatBinding>(bindingKey);
         const session = await readSoloPveSession(runId);
+        // A won boss fight's HP lands once across this settle, the client's
+        // outcome report and a later fight's start (see storyBossSurvivingHp).
+        const markedSettled = !isSpar && session ? await readPveOutcomeMarker(session, playerName) : false;
+        let bodyWritten = false;
         const result = await mutatePlayerSave(playerName, async ({ character }) => {
+            bodyWritten = false;
             const redeemed = Array.isArray(character.redeemedStoryBattles)
                 ? (character.redeemedStoryBattles as unknown[]).filter((entry): entry is StoryRedemption => (
                     !!entry && typeof entry === 'object' && typeof (entry as StoryRedemption).token === 'string'
@@ -113,14 +141,16 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
             }
 
             const chargedCharacter = applySoloPveUsageCosts(character, session!);
+            const fightBodyWritten = !isSpar && (markedSettled || pveOutcomeBodyWritten(chargedCharacter, session!, playerName));
             const settled = isSpar
                 ? applyAcademySparSettlement(chargedCharacter, { opponentId: validation.binding.opponentId })
                 : applyStoryBossSettlement(
                     chargedCharacter,
                     { opponentId: validation.binding.opponentId },
-                    storySessionSurvivingHp(session!, playerName),
+                    storyBossSurvivingHp(chargedCharacter, session!, playerName, fightBodyWritten),
                 );
             if (!settled.ok) return settled;
+            bodyWritten = !isSpar && !fightBodyWritten;
             const redemption: StoryRedemption = {
                 token: redemptionKey,
                 progress: settled.progress,
@@ -132,10 +162,14 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
                 ...(settled.chronicleCards?.length ? { chronicleCards: settled.chronicleCards } : {}),
                 ...(settled.title ? { title: settled.title } : {}),
             };
+            // A body this settle wrote stamps the shared receipt, so the
+            // outcome report and a later fight's start replay instead of
+            // writing the fight's HP a second time.
+            const rewarded = isSpar ? settled.character : creditElderWins(settled.character, 0, 1);
             return {
                 ok: true as const,
                 character: {
-                    ...(isSpar ? settled.character : creditElderWins(settled.character, 0, 1)),
+                    ...(bodyWritten ? stampPveOutcomeBody(rewarded, session!, playerName, Date.now()) : rewarded),
                     redeemedStoryBattles: [...redeemed.slice(-19), redemption],
                 },
                 value: { ...redemption, replayed: false },
@@ -143,6 +177,7 @@ async function settleSealedStoryRun(params: { runId: string; playerName: string;
         });
 
         if (!result.ok) return result;
+        if (bodyWritten) await markPveOutcomeSettled(session!, playerName, Date.now());
         const delivery: StorySettlementDelivery = {
             battle: 'confirmed', personalReward: 'committed', combatRecord: 'unavailable',
             legacyRecord: isSpar || !legacyEnabled() ? 'not-applicable' : 'unavailable',

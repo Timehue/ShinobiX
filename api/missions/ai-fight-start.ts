@@ -17,6 +17,7 @@ import { STANDARD_PVE_AI_POLICY } from '../solo-pve/_ai-turn-policy.js';
 import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../solo-pve/_store.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import type { SoloPveSession } from '../solo-pve/_session.js';
 import { sealedSectorWeather } from '../_sector-weather-seal.js';
 import { resolveAiFightScaling } from './_ai-fight-scaling.js';
@@ -382,6 +383,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 const recovered = await recoverWorldFight(playerName);
                 if (recovered) return { status: 200, body: worldStartBody(recovered, true) };
 
+                // A new World fight settles every other fight this player is
+                // holding before it is sealed from the save
+                // (api/pve/_held-fights.ts). A resume-only probe seals nothing.
+                if (worldRequest) {
+                    const held = await settleHeldFights(playerName);
+                    if (!held.ok) return { status: held.status, body: { error: held.error, reason: held.reason } };
+                }
+
                 const worldStartNow = Date.now();
                 const arrivedSector = worldRequest
                     ? await settleMaturedTravelForAction(playerName, worldStartNow)
@@ -565,6 +574,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     ? { status: 204, body: { error: 'No active AI encounter.' } }
                     : { status: 404, body: { error: 'No active AI encounter.' } };
             }
+
+            // Every other fight this player is holding is settled before this
+            // one is sealed from the save (api/pve/_held-fights.ts).
+            const held = await settleHeldFights(playerName);
+            if (!held.ok) return { status: held.status, body: { error: held.error, reason: held.reason } };
 
             const save = await kv.get<Record<string, unknown>>(`save:${playerName}`);
             const character = (save?.character ?? null) as Record<string, unknown> | null;
