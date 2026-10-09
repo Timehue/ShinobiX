@@ -30,9 +30,17 @@ export function clearSectorReopen() {
     pendingSectorReopen = null;
 }
 
-/** Preserve the field detail for ordinary Travel, but let an explicit global-map action opt out. */
-export function worldMapReopenTarget(screen: string, sector: number, overview = false): number | null {
-    return !overview && screen !== "worldMap" && isWildSector(sector) ? sector : null;
+/**
+ * Preserve the field detail for ordinary Travel, but let an explicit global-map action opt out.
+ *
+ * `returningFromFight`: a sealed AI fight is an overlay, so the screen under it
+ * is still "worldMap" when it closes. Without this flag that close read as "open
+ * the map from the map" and remounted onto the overview, dropping the player out
+ * of the sector they had just fought in. The tile itself survives in
+ * presence-store, so reopening the sector puts them back on the same spot.
+ */
+export function worldMapReopenTarget(screen: string, sector: number, overview = false, returningFromFight = false): number | null {
+    return !overview && (returningFromFight || screen !== "worldMap") && isWildSector(sector) ? sector : null;
 }
 
 /*

@@ -5,6 +5,7 @@ import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { sectorExits } from '../../shared/sector-links';
 import { sectorName } from '../../shared/sector-geo';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 // Run with LIVE_E2E_REALTIME=1. Both browsers use the real Express handlers and
 // Socket.IO transport; no presence, save, movement or travel response is mocked.
@@ -19,7 +20,8 @@ async function account(request: APIRequestContext, side: string) {
     const token = String((await registered.json()).token);
     const headers = { 'x-player-name': name, 'x-player-token': token };
     const save = uiAuditSave();
-    save.character = { ...save.character, name, equippedJutsuIds: [], jutsuMastery: [] };
+    save.character = { ...save.character, name, equippedJutsuIds: [], jutsuMastery: [],
+        wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     save.worldGeoV = 2;
     save.currentSector = 31; save.currentTile = 85; save.currentBiome = 'snow';
     const seeded = await request.post(`/api/save/${name}?signal=1`, {

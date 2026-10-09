@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { installUiAuditRuntime, uiAuditSave, expectUiAuditBoot } from './helpers/ui-audit-runtime';
+import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 
 test('saved find survives dismissal and refresh; exact choice claims once', async ({page}, testInfo) => {
     const save={...uiAuditSave(),currentSector:40};
@@ -63,7 +64,8 @@ test('first find uses the VN renderer and skipping leaves an explicit unclaimed 
 
 test('Explore Tile reaches The Find after discovery probes and a lost claim reply retries safely',async({page})=>{
     const save={...uiAuditSave(),currentSector:40};
-    let character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[]} as Record<string,unknown>;
+    // Keep road hostiles from stopping the explorer mid-journey (they hunt and block).
+    let character={...save.character,unspentStats:0,statPoints:0,gatherIntroSeen:true,pendingGatherFinds:[],wandererCooldowns:quietRoadCooldowns([40])} as Record<string,unknown>;
     save.character=character;
     const runtime=await installUiAuditRuntime(page,save);
     const stages:string[]=[];

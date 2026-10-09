@@ -2423,7 +2423,7 @@ export default function App() {
         }
         setPvpBattleId(accepted.battleId!);
         setPvpRole("p1");
-        setPvpBattleContext({ mode: accepted.mode, clanWarPoints: accepted.clanWarPoints, sectorAttack: accepted.sectorAttack, sector: currentSector, kageChallengeId: accepted.kageChallengeId, kageVillage: accepted.kageVillage });
+        setPvpBattleContext({ mode: accepted.mode, clanWarPoints: accepted.clanWarPoints, sectorAttack: accepted.sectorAttack, sector: currentSector, fromField: screenRef.current === "worldMap", kageChallengeId: accepted.kageChallengeId, kageVillage: accepted.kageVillage });
         setScreen("pvpBattle");
     }, [duelChallenges, character?.name]);
 
@@ -2558,7 +2558,7 @@ export default function App() {
             if (createResult.kind === "ambiguous") {
                 setPvpBattleId(createResult.battleId);
                 setPvpRole("p2");
-                setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
+                setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, fromField: screenRef.current === "worldMap", kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
                 setScreen("pvpBattle");
                 alert("The acceptance response was interrupted. Reconnecting to the authoritative session…");
                 return;
@@ -2567,7 +2567,7 @@ export default function App() {
             setPvpSeedSession(createResult.session);
             setPvpBattleId(battleId);
             setPvpRole("p2");
-            setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
+            setPvpBattleContext({ mode: challenge.mode, clanWarPoints: challenge.clanWarPoints, sectorAttack: challenge.sectorAttack, sector: currentSector, fromField: screenRef.current === "worldMap", kageChallengeId: challenge.kageChallengeId, kageVillage: challenge.kageVillage });
             setScreen("pvpBattle");
             // Publication is authoritative; route the accepter before advisory
             // notification so a hung notice cannot strand a live session.
@@ -4526,7 +4526,7 @@ export default function App() {
         void logoutPlayerRef.current();
     }, []);
 
-    function navigate(nextScreen: Screen, authoritativeCharacter?: Character, options?: { worldMapOverview?: boolean }): boolean {
+    function navigate(nextScreen: Screen, authoritativeCharacter?: Character, options?: { worldMapOverview?: boolean; returningFromFight?: boolean }): boolean {
         const currentVillageWarAvailability = viewAvailability("villageWar");
         if (!villageWarScreenMountAllowed(nextScreen, currentVillageWarAvailability)) {
             alert(sectorMapAdmissionMessage(currentVillageWarAvailability));
@@ -4581,7 +4581,7 @@ export default function App() {
         }
 
         if (nextScreen === "worldMap") {
-            setSectorReopen(worldMapReopenTarget(screen, currentSectorRef.current, options?.worldMapOverview));
+            setSectorReopen(worldMapReopenTarget(screen, currentSectorRef.current, options?.worldMapOverview, options?.returningFromFight));
             setWorldMapKey((k) => k + 1);
         }
         perfNotifyScreen(nextScreen);
