@@ -3,6 +3,7 @@ import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 import { PROFESSION_CHANGE_APPROVAL_ID, PROFESSION_CHANGE_APPROVAL_NAME } from "../../../shared/profession-change";
 import type { GameItem } from "../types/combat";
 import { isCombatConsumable, isGloveItem, normalizeEquipmentSlot } from "./equipment";
+import { RESOURCE_ITEMS } from '../../../shared/resource-items';
 
 export type ItemPresentation = {
     category: string;
@@ -19,6 +20,14 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
         return { category: "Village Transfer Scroll", use: "Choose a new village in the Grand Marketplace", showPlayerSlot: false, effectLabel: "Transfer" };
     }
     const slot = normalizeEquipmentSlot(item.slot);
+    if (slot === 'fishingPole' || slot === 'pickaxe') {
+        return { category: 'Gathering Tool', use: slot === 'pickaxe' ? 'Equip, then mine rock formations on the world map' : 'Equip, then fish at water nodes on the world map', showPlayerSlot: true, effectLabel: 'Gathering Use' };
+    }
+    const resource = RESOURCE_ITEMS.find(candidate => candidate.id === item.id);
+    if (resource) {
+        return { category: resource.activity === 'fishing' ? 'Cooking Ingredient' : 'Crafting Material',
+            use: resource.activity === 'fishing' ? 'Cook at the Cafeteria' : 'Spend in the Crafter or refine at the Shinobi Outpost', showPlayerSlot: false, effectLabel: 'Ingredient Use' };
+    }
     const searchable = `${item.id} ${item.name} ${item.description}`.toLowerCase();
     const weapon = slot === "hand" && !isGloveItem(item);
     const armor = item.armorQuality != null

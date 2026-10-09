@@ -105,6 +105,8 @@ const f = (
  * derived lists inherit table order, which is not behavior (see header).
  */
 export const SAVE_FIELD_CONTRACT: readonly SaveFieldDef[] = [
+    f('resourceGathering', 'character', 'server-owned', 'resource-gathering', ['server-mirror-char', 'combat-strip-char'], 'Start spends the shared allowance, node charge and tool use; resolution co-writes skill XP, items and receipt.'),
+    f('gatheringToolUses', 'character', 'server-owned', 'resource-gathering', ['server-mirror-char', 'combat-strip-char'], 'Only shop grants initialize tools; admitted resource attempts debit durability.'),
     f('sunscarCaravan', 'character', 'server-owned', 'sunscar-caravan', ['server-mirror-char', 'combat-strip-char'], 'Expedition choices, run bindings, daily entry, reputation and payout commit together.'),
     f('sunscarRally', 'character', 'server-owned', 'sunscar-rally', ['server-mirror-char', 'combat-strip-char'], 'Official race checkpoints, daily entry and championship payout commit together.'),
     f('sunscarExchangeReceipts', 'character', 'server-owned', 'sunscar-exchange', ['server-array-ledger-char', 'combat-strip-char'], 'Pending escrow and delivery receipts; cleared only after the permanent listing journal commits.'),

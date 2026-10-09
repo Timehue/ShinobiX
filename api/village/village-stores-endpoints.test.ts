@@ -367,14 +367,14 @@ describe('war-structure materials gate (Village Stores)', { concurrency: false }
 });
 
 describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
-    it('cooks field rations (1 meat + 30 ryo → 5 rations) and campaign rations (pelt|scale + 80 → 20), capped at 40/day', async () => {
-        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 2 }, { itemId: 'gather-field-herb', count: 8 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
+    it('cooks edible field and campaign rations, preserves pelts and scales, and enforces the 40/day cap', async () => {
+        await seedPlayer('cook', DEFENDER, { ryo: 500, itemStacks: [{ itemId: 'hunt-beast-meat', count: 6 }, { itemId: 'gather-field-herb', count: 8 }, { itemId: 'gather-heartwood-bark', count: 4 }], inventory: ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'] });
         const a = await call(cafeteria, { playerName: 'cook', recipeId: 'field-rations' });
         assert.equal(a.statusCode, 200, JSON.stringify(a.body));
         assert.deepEqual({ cooked: a.body?.cooked, dailyCooked: a.body?.dailyCooked, dailyCap: a.body?.dailyCap }, { cooked: 5, dailyCooked: 5, dailyCap: 40 });
         let ch = a.body?.character as Record<string, unknown>;
         assert.equal(ch.ryo, 470);
-        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 1 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'ration-pack', count: 5 }]);
+        assert.deepEqual(ch.itemStacks, [{ itemId: 'hunt-beast-meat', count: 5 }, { itemId: 'gather-field-herb', count: 7 }, { itemId: 'gather-heartwood-bark', count: 3 }, { itemId: 'ration-pack', count: 5 }]);
         assert.equal(typeof a.body?._saveVersion, 'number');
 
         const b = await call(cafeteria, { playerName: 'cook', recipeId: 'campaign-rations' });
@@ -382,10 +382,12 @@ describe('cafeteria cook (Village Stores)', { concurrency: false }, () => {
         ch = b.body?.character as Record<string, unknown>;
         assert.equal(ch.ryo, 390);
         assert.equal(b.body?.dailyCooked, 25);
-        assert.deepEqual(ch.inventory, ['hunt-ash-scale', 'hunt-ash-scale'], 'the pelt is consumed first (recipe material order)');
+        assert.deepEqual(ch.inventory, ['hunt-ash-scale', 'hunt-frost-pelt', 'hunt-ash-scale'], 'inedible hunt materials are preserved');
+        assert.equal((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'hunt-beast-meat')?.count, 1);
+        assert.equal((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'gather-field-herb')?.count, 5);
         assert.deepEqual((ch.itemStacks as Array<{ itemId: string; count: number }>).find((s) => s.itemId === 'ration-pack'), { itemId: 'ration-pack', count: 25 });
 
-        // 25 + 20 > 40 → refused; 25 + 5 = 30 fits; then 35, 40, then refused.
+        // 25 + 20 exceeds the daily cap; one last field batch fits the cap and remaining meat.
         const over = await call(cafeteria, { playerName: 'cook', recipeId: 'campaign-rations' });
         assert.equal(over.statusCode, 400);
         assert.match(String(over.body?.error), /Daily ration limit/);

@@ -1,8 +1,10 @@
 import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
+import { gatheringTool, gatheringToolOwned, initializeGatheringTool } from '../../shared/gathering-tools.js';
 import { withGearTierUnlock } from '../_gear-drops.js';
 import { wildBindingSeal } from '../../shared/wild-binding.js';
 import { PROFESSION_CHANGE_APPROVAL_ID, professionChangeUnlockError } from '../../shared/profession-change.js';
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_COST, villageTransferUnlockError } from '../../shared/village-transfer.js';
+import { isPurchasableItem } from './_settlement.js';
 
 type Character = Record<string, unknown>;
 
@@ -27,8 +29,9 @@ function purchaseDiscount(character: Character, premium: boolean): number {
 export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRaw: unknown) {
     const id = typeof itemId === 'string' ? itemId : '';
     const item = ITEM_CATALOG[id];
+    const tool = gatheringTool(id);
     const baseCost = whole(item?.cost);
-    if (!item || baseCost <= 0) return { ok: false as const, reason: 'item-not-for-sale' as const };
+    if (!item || baseCost <= 0 || !isPurchasableItem({ ...item, cost: baseCost })) return { ok: false as const, reason: 'item-not-for-sale' as const };
     if (id === PROFESSION_CHANGE_APPROVAL_ID) {
         const error = professionChangeUnlockError(character);
         if (error) return { ok: false as const, reason: error };
@@ -45,10 +48,10 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const cap = beastSeal ? 99 : item.slot === 'potion' ? 2 : combatConsumable ? 50 : null;
     let qty = cap == null ? 1 : Math.max(1, Math.min(cap, whole(qtyRaw) || 1));
     if (cap != null) qty = Math.min(qty, Math.max(0, cap - itemCount(character, id)));
-    else if (itemCount(character, id) > 0) return { ok: false as const, reason: 'already-owned' as const };
+    else if (itemCount(character, id) > 0 || (tool && gatheringToolOwned(character, id))) return { ok: false as const, reason: 'already-owned' as const };
     if (qty <= 0) return { ok: false as const, reason: 'hold-cap' as const };
     const percent = purchaseDiscount(character, premium);
-    const unitCost = id === VILLAGE_TRANSFER_SCROLL_ID ? VILLAGE_TRANSFER_COST
+    const unitCost = tool?.durability === null ? 50 : id === VILLAGE_TRANSFER_SCROLL_ID ? VILLAGE_TRANSFER_COST
         : Math.max(1, Math.floor(baseCost * Math.max(0, 1 - percent / 100)));
     const totalCost = unitCost * qty;
     const balance = whole(character[currency]);
@@ -85,7 +88,7 @@ export function purchaseCatalogItem(character: Character, itemId: unknown, qtyRa
     const inventory = Array.isArray(character.inventory) ? character.inventory as string[] : [];
     return {
         ok: true as const,
-        character: withGearTierUnlock({ ...character, [currency]: balance - totalCost, inventory: [...inventory, ...Array.from({ length: qty }, () => id)] }, item),
+        character: initializeGatheringTool(withGearTierUnlock({ ...character, [currency]: balance - totalCost, inventory: [...inventory, ...Array.from({ length: qty }, () => id)] }, item), id),
         item: { id, qty, currency, unitCost, totalCost },
     };
 }

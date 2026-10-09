@@ -1,4 +1,5 @@
 import { INVENTORY_CAP, INVENTORY_FULL_ERROR } from '../_inventory-capacity.js';
+import { gatheringTool, gatheringToolOwned, initializeGatheringTool } from '../../shared/gathering-tools.js';
 import {
     appendSettlementReceipt,
     inspectSettlementReceipt,
@@ -36,7 +37,7 @@ const PACKS: Record<ShopPackId, { count: number; rarities: SettlementCard['rarit
     epic: { count: 1, rarities: ['rare', 'epic'], cost: 10, currency: 'fateShards', pool: 'marketplace' },
     legendary: { count: 1, rarities: ['legendary'], cost: 30, currency: 'fateShards', pool: 'marketplace' },
 };
-const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory']);
+const SHOP_SLOTS = new Set(['head', 'body', 'waist', 'legs', 'feet', 'hand', 'aura', 'weapon', 'thrown', 'item', 'potion', 'accessory', 'fishingPole', 'pickaxe']);
 const RYO_RARITIES = new Set(['common', 'uncommon', 'rare', 'epic']);
 const FATE_RARITIES = new Set(['legendary', 'mythic']);
 const MAX_STACK = 9999;
@@ -207,12 +208,12 @@ export function applyItemPurchase(
     const cap = holdCap(item);
     const quantity = cap === null ? 1 : Math.min(requested, Math.max(0, cap - itemCount(items, item.id)));
     if (quantity <= 0) return { ok: false, status: 400, error: `You can only carry ${cap} ${item.name}.` };
-    if (cap === null && itemCount(items, item.id) > 0) return { ok: false, status: 400, error: 'You already own that item.' };
+    if (cap === null && (itemCount(items, item.id) > 0 || (gatheringTool(item.id) && gatheringToolOwned(character, item.id)))) return { ok: false, status: 400, error: 'You already own that item.' };
 
     const currency = itemCurrency(item)!;
     const balance = whole(character[currency]);
     if (balance === null) return { ok: false, status: 409, error: `Stored ${currency} balance is invalid. Contact support.` };
-    const unitCost = discountedShopCost(item.cost, shopDiscountPercent(character, currency));
+    const unitCost = gatheringTool(item.id)?.durability === null ? 50 : discountedShopCost(item.cost, shopDiscountPercent(character, currency));
     const totalCost = unitCost * quantity;
     if (!Number.isSafeInteger(totalCost) || balance < totalCost) return { ok: false, status: 400, error: `Not enough ${currency === 'ryo' ? 'ryo' : 'Fate Shards'}.` };
 
@@ -225,12 +226,12 @@ export function applyItemPurchase(
         for (let i = 0; i < quantity; i += 1) items.inventory.push(item.id);
     }
     const value: ShopSettlementValue = { kind: 'item-purchase', itemId: item.id, quantity, currency, totalCost };
-    return withReceipt(withGearTierUnlock({
+    return withReceipt(initializeGatheringTool(withGearTierUnlock({
         ...character,
         [currency]: balance - totalCost,
         inventory: items.inventory,
         itemStacks: [...items.stacks.entries()].map(([itemId, count]) => ({ itemId, count })),
-    }, item), prior.receipts, requestId, fingerprint, value, now);
+    }, item), item.id), prior.receipts, requestId, fingerprint, value, now);
 }
 
 export function applyCardPackPurchase(
