@@ -325,6 +325,7 @@ const villageMemberFields: Record<string, Partial<VillageState>> = {};
 let villageMemberEdits = 0;
 function withMemberFields(village: string, state: Partial<VillageState>): Partial<VillageState> { return { ...state, ...villageMemberFields[sharedVillageStateKey(village)] }; }
 export function villageMemberEditCount(): number { return villageMemberEdits; }
+export function villageMemberStateLoaded(village: string): boolean { return sharedVillageStateKey(village) in villageMemberFields; }
 export function adoptVillageMemberState(village: string, fields: Partial<VillageState>, editsAtRead: number): boolean {
     if (editsAtRead !== villageMemberEdits) return false;
     const key = sharedVillageStateKey(village);

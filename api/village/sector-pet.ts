@@ -382,14 +382,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const myTeam = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
             const theirTeam = await sealWarTeam(gate.target);
             if (!theirTeam?.length) return res.status(409).json({ error: `${gate.target} has no pet able to fight right now.` });
-            const claim = await claimOpenSectorBattle({ contestId: sectorWarId, kind: 'pet', me, target: gate.target, now });
-            if (!claim.ok) return res.status(claim.status).json({ error: claim.error, retryAfterMs: claim.retryAfterMs });
-
-            const engageId = newOpenBattleId();
+            // Read everything the battle needs before holding anyone, so a read
+            // that fails leaves no hold behind.
             const terrain = gate.contest.terrain ?? sectorConfigFor(
                 normalizeVillageWarRecord(gate.contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(gate.contest.defenderVillage))) ?? undefined),
                 gate.contest.sector,
             ).terrain;
+            const claim = await claimOpenSectorBattle({ contestId: sectorWarId, kind: 'pet', me, target: gate.target, now });
+            if (!claim.ok) return res.status(claim.status).json({ error: claim.error, retryAfterMs: claim.retryAfterMs });
+
+            const engageId = newOpenBattleId();
             const mine = { name: me, pet, team: myTeam };
             const theirs = { name: gate.target, pet: theirTeam[0]!, team: theirTeam };
             // Seat p1 is the attacking village's fighter, whoever started it.
@@ -411,19 +413,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let commit: SectorWarBattleCommit;
             try {
                 commit = await applyPetOutcomeToContest(session);
+                // Starting it ends the challenger's own post-defeat shields, as
+                // a Combat raid does: the target could not start one back while
+                // they lasted. Then the loser, whoever that is, is protected
+                // before the holds let anyone else in; the winner may fight
+                // again at once (owner ruling 2026-10-09).
+                endOwnFieldRecoveryShield(me);
+                await endOwnOpenBattleProtection(sectorWarId, me);
+                await protectOpenBattleLoser(sectorWarId, session.winner === 'p1' ? p2.name : p1.name, now);
             } finally {
                 await claim.release();
             }
             session.warResult = warResultFrom(commit);
             session.appliedToContest = true;
             await kv.set(openSessionKey(engageId), session, { ex: SESSION_TTL_SEC });
-            // Starting it ends the challenger's own post-defeat shields, as a
-            // Combat raid does: the target could not start one back while they
-            // lasted. Then the loser, whoever that is, is protected; the winner
-            // may fight again at once (owner ruling 2026-10-09).
-            endOwnFieldRecoveryShield(me);
-            await endOwnOpenBattleProtection(sectorWarId, me);
-            await protectOpenBattleLoser(sectorWarId, session.winner === 'p1' ? p2.name : p1.name, now);
             await noticeOpenSectorBattle({ kind: 'pet', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
             return res.status(200).json({
                 engageId,

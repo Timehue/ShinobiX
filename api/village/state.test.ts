@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { after, before, beforeEach, describe, it } from 'node:test';
 
 process.env.NODE_ENV = 'test';
@@ -182,6 +184,25 @@ describe('GET /api/village/state', { concurrency: false }, () => {
         assert.equal(out.statusCode, 200);
         assert.equal(out.body?.state.contributionPoints, 12);
         assert.equal((await readState('admin')).statusCode, 400);
+    });
+});
+
+describe('the field lists', () => {
+    it('the client merges exactly the fields the server serves to members', async () => {
+        // The client keeps its own copy (shinobij.client/src/lib/world-state.ts):
+        // it decides which fields survive a public poll and which a write may
+        // send. A field only one side lists would either be wiped by every
+        // public poll or written back as a default.
+        const { MEMBER_VILLAGE_STATE_FIELDS, PUBLIC_VILLAGE_STATE_FIELDS } = await import('../_village-state-view.js');
+        // process.cwd(), not import.meta.url: this build root compiles to CommonJS.
+        const source = readFileSync(join(process.cwd(), 'shinobij.client', 'src', 'lib', 'world-state.ts'), 'utf8');
+        const list = source.match(/const VILLAGE_MEMBER_FIELDS = \[([^\]]*)\] as const;/);
+        assert.ok(list, 'the client list is still declared where this test reads it');
+        assert.deepEqual([...list[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]), [...MEMBER_VILLAGE_STATE_FIELDS]);
+        assert.deepEqual(MEMBER_FIELDS, [...MEMBER_VILLAGE_STATE_FIELDS], 'and this file\'s own expectation');
+        for (const field of PUBLIC_VILLAGE_STATE_FIELDS) {
+            assert.equal((MEMBER_VILLAGE_STATE_FIELDS as readonly string[]).includes(field), false, `${field} is listed once`);
+        }
     });
 });
 
