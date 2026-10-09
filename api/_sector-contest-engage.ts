@@ -38,8 +38,9 @@ import { enqueueChallenge, projectChallengerCharacter } from './player/challenge
  *  weaker enemy's points over and over. */
 export const OPEN_BATTLE_PAIR_COOLDOWN_MS = 10 * 60_000;
 /** After an instant pet battle, neither fighter can start or take another for
- *  this long: the time a Combat fight would have occupied them. It stops a
- *  pile-on, where a whole village hits one enemy's pets within seconds. */
+ *  this long. A Combat fight keeps both fighters busy while it lasts; a pet
+ *  battle is over in one request, so without this a whole village could hit one
+ *  enemy's pets within seconds. */
 export const OPEN_PET_BATTLE_REST_MS = 60_000;
 /** How long a challenged player has to take their seat at an open card duel
  *  before it is void. Their client opens it on its own the moment it hears;
@@ -144,10 +145,10 @@ function restKey(contestId: string, slug: string): string {
     return `sector-open-battle:rest:${contestId}:${safeName(slug)}`;
 }
 
-/** Each fighter's own window, by game. A pet battle is over at once, so it is
- *  the rest a Combat fight would have taken. A card duel is not a match until
- *  the challenged player sits down, and until then neither duelist counts as
- *  in a battle; this keeps either from being drawn into a second duel then. */
+/** Each fighter's own window, by game. A pet battle is over at once, so each
+ *  fighter rests (OPEN_PET_BATTLE_REST_MS). A card duel is not a match until the
+ *  challenged player sits down, and until then neither duelist counts as in a
+ *  battle; this keeps either from being drawn into a second duel then. */
 const FIGHTER_WINDOW: Record<OpenBattleKind, { windowMs: number; mine: string; theirs: string }> = {
     pet: {
         windowMs: OPEN_PET_BATTLE_REST_MS,
