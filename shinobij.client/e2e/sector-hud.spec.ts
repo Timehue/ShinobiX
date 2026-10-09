@@ -7,6 +7,25 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layout-2026-09-19';
 mkdirSync(evidence, { recursive: true });
 
+test('optional map notices reopen for new content, sector changes and visible re-entry', async ({ page }) => {
+    await page.goto('/e2e/fixtures/map-notification.html');
+    const collapse = () => page.getByRole('button', { name: 'Collapse field lesson notice' }).click();
+    const expand = page.getByRole('button', { name: 'Expand field lesson notice' });
+    await collapse(); await expect(expand).toBeVisible();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(expand).toBeVisible();
+    await page.getByRole('button', { name: 'New lesson' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+    await collapse(); await page.getByRole('button', { name: 'Change sector' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 15' })).toBeVisible();
+    await page.getByRole('button', { name: 'Change sector' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+    await collapse(); await page.getByRole('button', { name: 'Toggle notice presence' }).click();
+    await expect(expand).toHaveCount(0);
+    await page.getByRole('button', { name: 'Toggle notice presence' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+});
+
 async function boot(page: Page, count = 8, configure?: () => Promise<void>, sector = 22) {
     const save = uiAuditSave();
     save.currentSector = sector;
