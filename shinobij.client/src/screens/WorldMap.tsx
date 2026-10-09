@@ -2,7 +2,7 @@ import { gainXp } from "../lib/character-level-projection";
 import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
-import { sectorOrderFor } from "../lib/sector-order";
+import { useSectorOrder } from "../lib/use-sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
 import { isDeathsGateStronghold, strongholdTitle } from '../../../shared/sector-stronghold';
@@ -209,7 +209,7 @@ import {
 } from "../App";
 
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadVillageState, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
@@ -416,6 +416,7 @@ function WorldMapContent({
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
+    const sectorOrder = useSectorOrder(character.village, selectedSector); // orders are members-only: read from the village's own record
     // Only the ~6 posted sectors ever reach the network (the board itself is a
     // pure local computation over the same shared module the server uses).
     const sectorContract = useSectorContract(selectedSector, character.name);
@@ -4433,7 +4434,7 @@ function WorldMapContent({
                         weather={sectorWeather}
                         territory={commandTerritory}
                         gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
-                        order={sectorOrderFor(loadVillageState(character.village).noticePosts, selectedSector)}
+                        order={sectorOrder}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
                         sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}

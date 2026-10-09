@@ -63,12 +63,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // The seat drives the tax rate (no Kage → 0%), so it has to be read here
             // too or the displayed rate would diverge from the charged one.
             Promise.all(WAR_VILLAGES.map((v) => isVillageKageSeated(v))),
-            // The viewer's village drives the contest projection's compatibility
+            // The viewer's village decides which village's internals this
+            // response carries, and the contest projection's compatibility
             // `garrisonFed*` mirror (their OWN per-village feed entry only).
-            // Presence-first (api/_viewer-village.ts): this used to `kv.get` the
-            // caller's whole save — base64 avatar, inventory, jutsu and all — to
-            // read one short string. The live presence row already carries
-            // `village`, so an online caller now costs zero KV reads here.
+            // Read from the SAVE as a projection (api/_viewer-village.ts): the
+            // client-supplied presence row would let anyone claim a village.
             identity.admin ? Promise.resolve('') : viewerVillageOf(identity.name),
         ]);
         const viewerVillage = resolvedViewerVillage || undefined;

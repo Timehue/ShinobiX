@@ -14,47 +14,32 @@
  * combat, PvP and presence — enough to starve the connection pool and drive GC
  * pressure long before request COUNT became the limit.
  *
- * The fix: the in-memory presence store already holds `village` on every online
- * player's slim character (api/_realtime/presence-input.ts PRESENCE_CHAR_KEEP —
- * the heartbeat and the socket ping both put it there), and anyone polling these
- * endpoints is by definition online. So read presence first at zero KV cost and
- * fall back to the save read only on a genuine presence miss.
+ * WHY IT READS THE SAVE, NOT PRESENCE: this used to answer from the live
+ * presence row first, at zero KV cost. But presence `character` is
+ * CLIENT-SUPPLIED (the heartbeat stores whatever the client sends), and since
+ * the owner's 2026-10-08 ruling a village's intel, war chest, structures, stores
+ * and treasury are for its MEMBERS only. Every caller here now decides whose
+ * internals a response may carry, which is authorization: a player who claimed
+ * another village in their heartbeat would have been served that village's
+ * internals. So the answer comes from the SAVE, as a database-side projection
+ * (api/_storage-projection.ts): only `character.village` leaves Postgres, a few
+ * bytes instead of the ~200 KB row, which keeps the perf fix above.
  *
- * Trust: presence `character` is CLIENT-SUPPLIED, so this is display-grade only
- * — exactly the trust level both call sites already need (intel builds a view
- * keyed by village; war-map uses it to pick which garrison-feed mirror to
- * project). Neither grants currency, rewards, or write access, and neither can
- * be escalated by claiming a different village: the intel view is derived from
- * that village's OWN stored intel row, and a false claim just shows you a
- * village's public map layer. Do NOT reuse this for anything that pays out,
- * writes, or authorizes — those must keep reading the save.
- *
- * Cost note: a player whose save has NO village (villageless / brand-new) can
- * never be answered from presence, because '' is indistinguishable from "the
- * presence row didn't carry it". They pay the save read every time. That is the
- * rare case and it is the safe direction to fail.
+ * Read-only: the projected value is never written back or cached as a save.
  */
 import { kv } from './_storage.js';
+import { readKvProjection } from './_storage-projection.js';
 import { safeName } from './_utils.js';
-import { onlineStore } from './_realtime/online-store.js';
-
-/** The village on a player's live presence row, or '' when there isn't one. */
-export function presenceVillageOf(playerName: string): string {
-    const name = safeName(String(playerName ?? ''));
-    if (!name) return '';
-    const character = onlineStore.get(name)?.character as { village?: unknown } | null | undefined;
-    return String(character?.village ?? '').trim();
-}
 
 /**
- * A player's village: presence first (free), then their SAVED village.
+ * A player's village, as their SAVE records it — the membership authority for
+ * members-only views. '' for an unknown, villageless or unusable name.
  * Never a request body — the caller passes the authenticated identity name.
  */
 export async function viewerVillageOf(playerName: string): Promise<string> {
     const name = safeName(String(playerName ?? ''));
     if (!name) return '';
-    const fromPresence = presenceVillageOf(name);
-    if (fromPresence) return fromPresence;
-    const save = await kv.get<{ character?: { village?: string } }>(`save:${name}`);
-    return String(save?.character?.village ?? '').trim();
+    const [row] = await readKvProjection(kv, [`save:${name}`], { village: ['character', 'village'] });
+    const village = row?.village;
+    return typeof village === 'string' ? village.trim() : '';
 }

@@ -101,6 +101,7 @@ import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
 import villageIntelHandler from './api/village/intel.js';
+import villageStateHandler from './api/village/state.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import villageWarMissionHandler from './api/village/war-mission.js';
 import warClaimRewardHandler from './api/war/claim-reward.js';
@@ -553,6 +554,10 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // and CDN-cached, and a per-viewer block forced `private, no-store` on every
     // logged-in poll. GET only, auth required, proc-cached per village.
     route('/village/intel', villageIntelHandler);
+    // A village's members-only record (treasury + Village Stores, upgrades,
+    // orders, activity log, agenda): the part the public /api/game-state frame
+    // no longer carries. GET only, auth required, private/no-store.
+    route('/village/state', villageStateHandler);
     // War crate — server-authoritative claim of a village-war-win Legendary War
     // Crate, validated against the authoritative world:war record (P0.2c). POST,
     // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.

@@ -14,6 +14,7 @@ import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
+import { publicVillageStateView } from './_village-state-view.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
 import { setCircuitEnabled } from './dojo-circuit/_store.js';
@@ -111,7 +112,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             readElderCouncil(name, state, Date.now(), membershipStore),
                             readVillageAnbu(name, state, membershipStore, candidates),
                         ]);
-                        setSafeRecordValue(villageStates, name, { ...state, seatedKage: kage?.seatedKage,
+                        // Public fields only (owner ruling 2026-10-08): this frame
+                        // needs no login and is CDN-cached, so a village's
+                        // treasury, upgrades, orders and logs are served to its
+                        // members by /api/village/state (api/_village-state-view.ts).
+                        setSafeRecordValue(villageStates, name, { ...publicVillageStateView(state), seatedKage: kage?.seatedKage,
                             kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,
                             elderAppointees: elders.seats, elderTerm: elders, anbuAppointees: anbu.appointed, anbuEarned: anbu.earned, anbuMembers: anbu.members });
                     }));

@@ -101,33 +101,57 @@ describe('GET /api/village/war-map', { concurrency: false }, () => {
         assert.equal((await get(null)).headers['cache-control'], 'private, no-store');
     });
 
-    it('an ONLINE viewer costs ZERO save reads to resolve their village', async () => {
+    it('resolves the viewer\'s village from the save\'s village alone, never the whole save', async () => {
         await seedSave('frostrunner', VIEWER);
-        onlineStore.upsert({ name: 'frostrunner', sector: 26, character: { name: 'frostrunner', village: VIEWER, level: 20 } });
 
-        const original = kv.get.bind(kv);
-        let saveReads = 0;
-        (kv as unknown as { get: typeof kv.get }).get = ((key: string, ...rest: unknown[]) => {
-            if (String(key).startsWith('save:')) saveReads++;
-            return (original as (...a: unknown[]) => unknown)(key, ...rest);
+        const store = kv as unknown as Record<string, unknown>;
+        const originalGet = kv.get.bind(kv);
+        const originalMget = kv.mget.bind(kv);
+        let fullSaveReads = 0;
+        const projected: string[][] = [];
+        store.get = ((key: string, ...rest: unknown[]) => {
+            if (String(key).startsWith('save:')) fullSaveReads++;
+            return (originalGet as (...a: unknown[]) => unknown)(key, ...rest);
         }) as typeof kv.get;
+        store.mget = ((...keys: string[]) => {
+            fullSaveReads += keys.filter((key) => String(key).startsWith('save:')).length;
+            return (originalMget as (...a: unknown[]) => unknown)(...keys);
+        }) as typeof kv.mget;
+        store.mgetProjected = async (keys: string[], projection: Record<string, readonly string[]>) => {
+            projected.push(keys);
+            const { projectKvValue } = await import('../_storage-projection.js');
+            return (await originalMget(...keys)).map((value) => projectKvValue(value, projection));
+        };
         let out: ResponseOut;
         try {
             out = await get('frostrunner');
         } finally {
-            (kv as unknown as { get: typeof kv.get }).get = original;
+            store.get = originalGet;
+            store.mget = originalMget;
+            delete store.mgetProjected;
         }
         assert.equal(out.statusCode, 200);
-        assert.equal(saveReads, 0, 'presence already carries `village`; the save blob must not be read');
+        assert.equal(fullSaveReads, 0, 'one short string must not cost the whole save blob');
+        assert.deepEqual(projected, [['save:frostrunner']]);
         assert.ok(Array.isArray(out.body?.villages));
     });
 
-    it('an OFFLINE viewer still resolves through the save fallback', async () => {
+    it('a village claimed in the presence row does not unlock that village\'s internals', async () => {
+        // Presence `character` is client-supplied: whatever the heartbeat sent.
+        // Trusted here, a player who claimed Moonshadow got Moonshadow's war
+        // chest, structures and stores.
         await seedSave('frostrunner', VIEWER);
+        await kv.set('shared:village-war:moonshadowvillage', { warResources: 910, structures: { watchtower: 3 } });
+        onlineStore.upsert({ name: 'frostrunner', sector: 26, character: { name: 'frostrunner', village: 'Moonshadow Village', level: 20 } });
+
         const out = await get('frostrunner');
         assert.equal(out.statusCode, 200);
-        assert.ok(Array.isArray(out.body?.villages));
-        assert.ok((out.body?.villages as unknown[]).length > 0);
+        const villages = out.body?.villages as Array<Record<string, unknown>>;
+        const moon = villages.find((v) => v.village === 'Moonshadow Village')!;
+        const own = villages.find((v) => v.village === VIEWER)!;
+        assert.equal(moon.restricted, true, 'the save, not presence, says which village is theirs');
+        assert.equal('warResources' in moon, false);
+        assert.equal(own.restricted, undefined);
     });
 
     it('shows the held count the daily pass pays: war sectors only, suspended ones excluded', async () => {
