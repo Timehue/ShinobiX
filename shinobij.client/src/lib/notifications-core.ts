@@ -28,7 +28,7 @@ export interface GameNotification {
 // would double up.
 // The three Sector War tables are fights like any other: the Card table always
 // was, and the Pet duel and the Combat garrison assault now are too, so none of
-// them shows side rails over its board (owner ruling 2026-10-09).
+// them shows side rails over its board (owner ruling 2026-10-08).
 const BATTLE_ONLY_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "pvpBattle", "storyBoss", "tilecardsDuel", "sectorCard", "sectorPet", "sectorGarrison",
     "cardClashFreePlay", "dungeon",

@@ -5,9 +5,10 @@ import type { Pet } from "../types/pet";
 import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 import { garrisonSectorPet, joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
-import { stashedContestBackScreen, stashedContestIsGarrison } from "../lib/sector-war-engagement";
+import { stashedContestBackScreen, stashedContestIsGarrison, stashedOpenBattleId } from "../lib/sector-war-engagement";
 import { activeCarriedPets } from "../lib/entitlements";
 import {
+    SECTOR_PET_OPEN_BATTLE_STATUS,
     sectorPetBanner,
     sectorPetNextDuelLabel,
     sectorPetWaiting,
@@ -57,6 +58,10 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
     // Garrison mode: no defender ever answered, so the defending village's
     // sealed team holds the sector instead. Resolves in the same one call.
     const garrison = stashedContestIsGarrison("sectorWarPet.v1");
+    // An open-world battle: one side attacked the other in the sector, and both
+    // sealed teams fought then and there. There is nothing to pick, only the
+    // battle to watch, and no next duel at a table this player never sat at.
+    const engageId = stashedOpenBattleId("sectorWarPet.v1");
     const back = useCallback(() => setScreen(backScreen), [setScreen, backScreen]);
     const me = character.name;
 
@@ -64,7 +69,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
         <PetDuelReplayScreen<PetSession>
             pets={activeCarriedPets(character)}
             config={{
-                title: "Pet Duel — Sector War",
+                title: engageId ? "Pet Battle — Sector War" : "Pet Duel — Sector War",
                 intro: "Send a pet to fight for this sector. The duel resolves server-side and replays here.",
                 missingText: "No pet duel selected.",
                 backLabel: "← Back",
@@ -72,7 +77,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                 ready: !!sectorWarId,
                 submitLabel: "Send into battle",
                 submitErrorText: "Could not start the pet duel.",
-                fetchState: async () => ((await sectorPetState(character.name, sectorWarId, garrison)) as { session?: PetSession }).session ?? null,
+                fetchState: async () => ((await sectorPetState(character.name, sectorWarId, garrison, engageId)) as { session?: PetSession }).session ?? null,
                 submit: (petId) => (garrison
                     ? garrisonSectorPet(character.name, sectorWarId, petId)
                     : joinSectorPet(character.name, sectorWarId, petId)) as Promise<{ session?: PetSession; error?: string }>,
@@ -81,7 +86,7 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                 // arena's standing weather, so the home ground is on screen.
                 resolved: (s) => s.status === "done" && !!s.p2 && s.seed != null,
                 watch: async () => {
-                    const r = await sectorPetWatch(character.name, sectorWarId, garrison) as { script?: ShowdownReplayScript };
+                    const r = await sectorPetWatch(character.name, sectorWarId, garrison, engageId) as { script?: ShowdownReplayScript };
                     return r.script ?? null;
                 },
                 banner: (s) => sectorPetBanner(s, me),
@@ -89,7 +94,8 @@ export function SectorWarPetBattle({ character, setScreen }: { character: Charac
                 // gets the picker and answers. Everyone used to get the waiting card.
                 waiting: (s) => sectorPetWaiting(s, me),
                 // A decided duel is not the end of the table.
-                nextDuel: (s) => sectorPetNextDuelLabel(s, garrison),
+                nextDuel: (s) => (engageId ? null : sectorPetNextDuelLabel(s, garrison)),
+                ...(engageId ? { pickerless: SECTOR_PET_OPEN_BATTLE_STATUS } : {}),
             }}
         />
     );

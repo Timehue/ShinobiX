@@ -259,7 +259,7 @@ import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
-import { attackSectorPlayer } from "./lib/sector-attack";
+import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
@@ -2322,12 +2322,11 @@ export default function App() {
         return () => { controller.abort(); stop(); };
     }, [character?.name, gameplayViewOpen, restoringSession]);
 
-    // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
-    // the shared PvP battle (battleId present) or legacy arena as fallback.
+    // Sector-attack auto-routing: the defender goes to the shared PvP battle, or a Pet/Card war's open battle.
     useEffect(() => {
         if (!character) return;
         const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
-        if (!incoming) return;
+        if (!incoming || routeOpenSectorBattleNotice(incoming, { isTraveling, dismiss: dismissChallengeLocally, setScreen })) return;
         if (isTraveling) {
             declineChallengeGlobal(incoming);
             return;

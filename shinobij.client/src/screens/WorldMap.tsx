@@ -212,12 +212,12 @@ import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
 import { useSectorIntelPlate } from "../lib/village-intel";
-import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
+import { confirmSectorBattleRegistration, engageOpenSectorBattle, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
 import { fetchSectorRoster, engageMerc, mercEngageMessage, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
-import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, type SectorWarContestView } from "../lib/sector-war-engagement";
+import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, beginOpenSectorBattle, type SectorWarContestView } from "../lib/sector-war-engagement";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
@@ -3790,14 +3790,14 @@ function WorldMapContent({
     function handleSelectedSectorPlayerAttack(player: PlayerRecord) {
         const environment = selectedSectorCombatEnvironment();
         if (!environment) return;
-        // §17.2: the sector's win-condition decides WHICH game an attack opens.
-        // Card/Pet route to that sector's contest table; everything else falls
-        // through to the shinobi fight this button has always launched.
-        const contestScreen = beginSectorContest(sectorEngagementFor({
+        // §17.2: the sector's win-condition decides WHICH game an attack opens. In a
+        // Card/Pet war it is that game against this player (owner ruling 2026-10-08);
+        // everything else falls through to the shinobi fight it has always launched.
+        const engagement = sectorEngagementFor({
             contest: sectorWarContest, sector: environment.sector,
             myVillage: character.village, targetVillage: player.village, now: Date.now(),
-        }), "worldMap");
-        if (contestScreen) return void setScreen(contestScreen);
+        });
+        if (engagement.kind === "contest") return engageOpenSectorBattle(engagement.winCondition, character.name, engagement.contestId, player.name).then((battle) => setScreen(beginOpenSectorBattle(battle, "worldMap"))); // a refusal shows on the player's row
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.

@@ -17,12 +17,13 @@
  * of the contest (403), so a client that routed anyone else into those screens
  * would only be sending them somewhere to be rejected.
  *
- * Note on semantics: a Card/Pet contest is ONE session per war
- * (`sector-card:<contestId>`), attacker-opens / defender-answers — not a private
- * duel between the two specific players. So "attack that person" resolves to
- * "take your side's seat at this sector's table". That is the session model the
- * server has, and matching it is what keeps this a routing fix rather than a
- * rewrite of the contest engine.
+ * Two ways into a Card/Pet war. The war's TABLE is one session per war
+ * (`sector-card:<contestId>`), attacker-opens / defender-answers, for players who
+ * are not standing together. Attacking a named enemy in the sector is an
+ * OPEN-WORLD battle against that player (owner ruling 2026-10-08): the server's
+ * `engage` action fights it (Pet) or seats both duelists (Card), and the target's
+ * client is routed into it from the challenge inbox (openSectorBattleFromNotice).
+ * Both open the same screen; an `engageId` in the stash is what tells it which.
  */
 import type { Screen } from "../types/core";
 
@@ -222,5 +223,60 @@ export function stashedContestIsGarrison(stashKey: string): boolean {
         return (JSON.parse(sessionStorage.getItem(stashKey) ?? "{}") as { garrison?: unknown }).garrison === true;
     } catch {
         return false;
+    }
+}
+
+/** One open-world battle in a Pet or Card war (api/_sector-contest-engage.ts). */
+export type OpenSectorBattle = { kind: "card" | "pet"; sectorWarId: string; engageId: string };
+
+/** The server mints 24 hex characters (newOpenBattleId) and refuses anything else. */
+const ENGAGE_ID = /^[a-f0-9]{24}$/;
+
+/** The open battle an inbox notice names, or null when it names none or names
+ *  it in a shape this client cannot safely route on. */
+export function openSectorBattleFromNotice(notice: { sectorContest?: unknown } | null | undefined): OpenSectorBattle | null {
+    const raw = notice?.sectorContest;
+    if (!raw || typeof raw !== "object") return null;
+    const { kind, sectorWarId, engageId } = raw as Record<string, unknown>;
+    if (kind !== "card" && kind !== "pet") return null;
+    const warId = typeof sectorWarId === "string" ? sectorWarId.trim() : "";
+    if (!warId || typeof engageId !== "string" || !ENGAGE_ID.test(engageId)) return null;
+    return { kind, sectorWarId: warId, engageId };
+}
+
+/**
+ * Stash an open battle for its screen and hand back the screen to route to.
+ *
+ * It uses the table's stash key, so each screen reads one place. `engageId`
+ * goes in the stash itself, unlike the return target: the Chronicle screen
+ * posts `{ action, ...stash }`, and this is a field the server reads. It only
+ * addresses the battle; api/village/sector-card.ts and sector-pet.ts serve it
+ * to its two named fighters and the war's own villages.
+ */
+export function beginOpenSectorBattle(battle: OpenSectorBattle, backScreen: Screen): Screen {
+    const route = CONTEST_ROUTE[battle.kind];
+    try {
+        sessionStorage.setItem(route.stashKey, JSON.stringify({ sectorWarId: battle.sectorWarId, engageId: battle.engageId }));
+        sessionStorage.setItem(contestBackKey(route.stashKey), backScreen);
+    } catch {
+        /* storage disabled — the screen renders its own "context was lost" card */
+    }
+    return route.screen;
+}
+
+/** Open the battle an inbox notice names (lib/sector-attack.ts loads this on
+ *  demand for App). A notice whose battle cannot be trusted opens nothing. */
+export function openNoticedSectorBattle(notice: { sectorContest?: unknown }, setScreen: (screen: Screen) => void): void {
+    const battle = openSectorBattleFromNotice(notice);
+    if (battle) setScreen(beginOpenSectorBattle(battle, "worldMap"));
+}
+
+/** The open battle the contest screen was opened for, or "" for the table. */
+export function stashedOpenBattleId(stashKey: string): string {
+    try {
+        const id = (JSON.parse(sessionStorage.getItem(stashKey) ?? "{}") as { engageId?: unknown }).engageId;
+        return typeof id === "string" && ENGAGE_ID.test(id) ? id : "";
+    } catch {
+        return "";
     }
 }

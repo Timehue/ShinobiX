@@ -2,12 +2,13 @@ import { useMemo } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { CardClashDuelScreen, type CardClashDuelConfig } from "./ClanWarTileCardDuel";
-import { stashedContestBackScreen, stashedContestIsGarrison } from "../lib/sector-war-engagement";
+import { stashedContestBackScreen, stashedContestIsGarrison, stashedOpenBattleId } from "../lib/sector-war-engagement";
 import {
     SECTOR_CARD_FORFEIT_CONFIRM,
     SECTOR_CARD_GARRISON_FORFEIT_CONFIRM,
     sectorCardDoneNote,
     sectorCardGarrisonDoneNote,
+    sectorCardWaitEnded,
     sectorCardWaitingNote,
     sectorTableBackLabel,
 } from "../lib/sector-war-tables";
@@ -37,9 +38,12 @@ export function SectorWarCardBattle({ character, setScreen, sharedImages = {} }:
     // than a War Map they never visited — and says so on its buttons.
     // Garrison mode needs no separate screen: the stash carries `garrison` into
     // every request this screen already makes, and the server answers with the
-    // same Chronicle projection. Only the wording changes.
+    // same Chronicle projection. Only the wording changes. An open-world duel
+    // (an attack on an enemy in the sector) works the same way with its
+    // `engageId`: both seats are already named, so nobody is seated from a poll.
     const config = useMemo(() => {
         const garrison = stashedContestIsGarrison(SECTOR_CARD_CONFIG.stashKey);
+        const openDuel = !!stashedOpenBattleId(SECTOR_CARD_CONFIG.stashKey);
         const backScreen = stashedContestBackScreen(SECTOR_CARD_CONFIG.stashKey, SECTOR_CARD_CONFIG.backScreen);
         const backLabel = sectorTableBackLabel(backScreen);
         return {
@@ -58,6 +62,13 @@ export function SectorWarCardBattle({ character, setScreen, sharedImages = {} }:
                 joinWhenSeatOpens: false,
                 forfeitConfirm: SECTOR_CARD_GARRISON_FORFEIT_CONFIRM,
                 doneNote: sectorCardGarrisonDoneNote,
+            } : {}),
+            ...(openDuel ? {
+                title: "Sector War — Card Battle",
+                awaitingNote: "Seating both duelists…",
+                joinWhenSeatOpens: false,
+                waitingEnded: sectorCardWaitEnded,
+                cancelOnLeave: true,
             } : {}),
         };
     }, []);

@@ -52,8 +52,33 @@ test("the Sector War card table seats a defender who arrived first — and only 
 
 test("the Sector War pet table hands the defender a picker and offers the next duel", () => {
     assert.match(petScreen, /waiting: \(s\) => sectorPetWaiting\(s, me\)/);
-    assert.match(petScreen, /nextDuel: \(s\) => sectorPetNextDuelLabel\(s, garrison\)/);
+    // An open-world battle (an `engageId` in the stash) was not fought at the
+    // table, so it offers no next duel there. Every table duel still does.
+    assert.match(petScreen, /nextDuel: \(s\) => \(engageId \? null : sectorPetNextDuelLabel\(s, garrison\)\)/);
     assert.match(petShell, /nextDuel\?: \(session: S\) => string \| null;/, "optional: unset keeps the old shell");
     assert.match(petShell, /onExit=\{replayFromCard \? \(\) => setArrivedDecided\(true\) : onBack\}/);
     assert.doesNotMatch(clanPet, /nextDuel/, "the Clan War pet challenge is unchanged");
+});
+
+test("an open-world Sector War battle opens the war's own screen, without the table's controls", () => {
+    // Pet: the battle was decided before the screen opened, so there is no pet
+    // to pick. Only the open battle sets it; the shell's picker is untouched.
+    assert.match(petScreen, /const engageId = stashedOpenBattleId\("sectorWarPet\.v1"\);/);
+    assert.match(petScreen, /\.\.\.\(engageId \? \{ pickerless: SECTOR_PET_OPEN_BATTLE_STATUS \} : \{\}\)/);
+    assert.match(petScreen, /sectorPetState\(character\.name, sectorWarId, garrison, engageId\)/);
+    assert.match(petScreen, /sectorPetWatch\(character\.name, sectorWarId, garrison, engageId\)/);
+    assert.match(petShell, /pickerless\?: \{ loading: string; missing: string \};/);
+    assert.doesNotMatch(clanPet, /pickerless/, "the Clan War pet challenge is unchanged");
+    // Card: both seats are named, so nobody is seated from a poll; a called-off
+    // duel stops polling; the challenger leaving before it starts calls it off.
+    const open = cardScreen.slice(cardScreen.indexOf("...(openDuel ? {"));
+    assert.match(open, /joinWhenSeatOpens: false/);
+    assert.match(open, /waitingEnded: sectorCardWaitEnded/);
+    assert.match(open, /cancelOnLeave: true/);
+    assert.match(duel, /\} else if \(config\.cancelOnLeave && !view && !waitEnded\) \{/);
+    assert.match(duel, /if \(!stash \|\| !pageVisible \|\| busy \|\| waitEnded\) return;/);
+    const clanConfig = duel.slice(duel.indexOf("const CLAN_WAR_DUEL_CONFIG"), duel.indexOf("export function CardClashDuelScreen"));
+    for (const source of [clanConfig, freePlay]) {
+        assert.doesNotMatch(source, /\bwaitingEnded\b|\bcancelOnLeave\b/, "the hosts that share the screen behave as before");
+    }
 });

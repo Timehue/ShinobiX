@@ -5,6 +5,7 @@ import {
     SECTOR_CARD_GARRISON_FORFEIT_CONFIRM,
     sectorCardDoneNote,
     sectorCardGarrisonDoneNote,
+    sectorCardWaitEnded,
     sectorCardWaitingNote,
     sectorPetBanner,
     sectorPetNextDuelLabel,
@@ -71,6 +72,27 @@ test("the card table's waiting line is right for the side that reads it", () => 
     assert.match(sectorCardWaitingNote({ status: "awaiting-defender", viewerSide: null }), /defender's seat/);
     for (const status of ["awaiting-defender", "awaiting-attacker"]) {
         assert.doesNotMatch(sectorCardWaitingNote({ status, viewerSide: null }), /defending challenger/);
+    }
+});
+
+test("an open-world card duel names who each duelist is waiting on", () => {
+    // The challenger waits on the player they attacked; the challenged player's
+    // client is already taking its seat. Either may be the war's attacking side.
+    const challenger = sectorCardWaitingNote({ status: "awaiting-target", viewerSide: "p2", opponent: "raider", initiator: "warden" });
+    assert.match(challenger, /^Waiting for raider to take their seat\./);
+    assert.match(challenger, /nothing scores/);
+    assert.equal(
+        sectorCardWaitingNote({ status: "awaiting-target", viewerSide: "p1", opponent: "warden", initiator: "warden" }),
+        "warden challenged you to a card duel for this sector. Taking your seat…",
+    );
+    assert.match(sectorCardWaitingNote({ status: "awaiting-target", viewerSide: "p1" }), /^Waiting for your opponent/);
+    assert.match(sectorCardWaitingNote({ status: "void", viewerSide: "p1", opponent: "raider", initiator: "warden" }), /called off before it began\. Nothing scored/);
+});
+
+test("only a called-off open duel ends the wait; every table wait keeps polling", () => {
+    assert.equal(sectorCardWaitEnded({ status: "void" }), true);
+    for (const status of ["awaiting-target", "awaiting-defender", "awaiting-attacker", undefined]) {
+        assert.equal(sectorCardWaitEnded({ status }), false, String(status));
     }
 });
 

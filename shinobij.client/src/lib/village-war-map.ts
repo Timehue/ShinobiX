@@ -4,6 +4,7 @@
 // plain fetch already carries the player token / name / fingerprint headers.)
 
 import type { IntelTier, StoresLedgerEntry } from "./village-stores";
+import type { OpenSectorBattle } from "./sector-war-engagement";
 
 export type WinCondition = "combat" | "card" | "pet";
 
@@ -21,7 +22,7 @@ export interface VillageWarMapView {
     sectorsHeld: number;
     /** True on every village that is not the viewer's own: its war chest,
      *  structures, upkeep, tax and stores are for its members only (owner ruling
-     *  2026-10-09), so the fields below are absent. */
+     *  2026-10-08), so the fields below are absent. */
     restricted?: boolean;
     // ── The viewer's own village only ──
     warResources?: number;
@@ -349,11 +350,25 @@ export function joinSectorPet(playerName: string, sectorWarId: string, petId: st
 export function garrisonSectorPet(playerName: string, sectorWarId: string, petId: string) {
     return postJson("/api/village/sector-pet", { action: "garrison-duel", playerName, sectorWarId, petId });
 }
-export function sectorPetState(playerName: string, sectorWarId: string, garrison = false) {
-    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
+export function sectorPetState(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
+    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
 }
-export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false) {
-    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
+export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
+    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
+}
+/**
+ * An open-world battle against one enemy standing in this Pet or Card war's
+ * sector (owner ruling 2026-10-08). The server applies a Combat attack's gates,
+ * then fights it (Pet: both sealed teams, at once) or seats both duelists (Card:
+ * the target's client takes the other seat when it hears). A refusal throws
+ * WarMapRequestError with the server's own sentence, which the sector roster
+ * shows on that player's row.
+ */
+export async function engageOpenSectorBattle(kind: "card" | "pet", playerName: string, sectorWarId: string, target: string): Promise<OpenSectorBattle> {
+    const data = await postJson(kind === "pet" ? "/api/village/sector-pet" : "/api/village/sector-card", { action: "engage", playerName, sectorWarId, target });
+    const engageId = typeof data.engageId === "string" ? data.engageId : "";
+    if (!engageId) throw new WarMapRequestError(502, { error: "The battle could not be started." });
+    return { kind, sectorWarId, engageId };
 }
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });
