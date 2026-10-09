@@ -1,10 +1,14 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from "./helpers/ui-audit-runtime";
+import { quietRoadCooldowns } from "../e2e-live/helpers/quiet-road";
 
 function fieldSave() {
     const save = uiAuditSave();
     save.currentSector = 1;
     save.currentBiome = "forest";
+    // Bandits by day and night ninjas after dark hunt the player into a
+    // blocking Fight/Flee; this navigation journey must not meet one.
+    save.character = { ...save.character!, wandererCooldowns: quietRoadCooldowns([1]) };
     return save;
 }
 

@@ -5,6 +5,7 @@ import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { AURA_SPHERE_VN_ID } from '../src/constants/game';
 import { PVP_CLAIM_TRANSIENT_RETRY_DELAYS_MS } from '../src/lib/pvp-reward-claim';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 async function seed(request: APIRequestContext, suffix: string) {
     const name = uniquePlayerName((stamp) => `duel${suffix}${stamp}`);
@@ -24,7 +25,7 @@ async function seed(request: APIRequestContext, suffix: string) {
             'bukijutsuDefense', 'taijutsuOffense', 'taijutsuDefense', 'genjutsuOffense', 'genjutsuDefense',
             'ninjutsuOffense', 'ninjutsuDefense'].map(key => [key, 100])),
         ryo: 1000, inventory: [], itemStacks: [], equipment: {}, pets: [], tileCards: [], jutsuMastery: [],
-        equippedJutsuIds: [], pendingCombatMissionClaims: [],
+        equippedJutsuIds: [], pendingCombatMissionClaims: [], wandererCooldowns: quietRoadCooldowns([12]),
     };
     const saved = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': 'live-express-e2e-admin' },
