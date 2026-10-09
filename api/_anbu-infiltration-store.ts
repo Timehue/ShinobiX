@@ -47,7 +47,8 @@ import {
     completeEconomyTx,
     failEconomyTx,
 } from './_economy-tx.js';
-import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, type ServerSettlementReceipt } from './_settlement-receipts.js';
+import { pveOutcomeReceiptIdentity } from './pve/_fight-outcome-settlement.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { awardClanPoints, MAX_CLAN_POINTS_AWARD, CLAN_POINTS_WEEKLY_CAP, clanPointWeekKey } from './_clan-points.js';
 import { meritNum } from './village/_village-merit.js';
@@ -277,6 +278,45 @@ export type SettleOutcome =
  * replayable. A save-write failure can therefore retry without draining either
  * shared pool twice. `roll` is server randomness and is sealed into the journal.
  */
+/**
+ * The raid's usage costs and its physical consequence (HP, hospital), with the
+ * consequence written AT MOST ONCE across this settlement and
+ * /api/pve/fight-outcome, as the Combat garrison does
+ * (api/_sector-war-garrison-store.ts settleGarrisonFight). Both write it from
+ * the same sealed session under different receipts, so the client's generic
+ * call used to write it a second time, later: HP went back UP to the raid's end
+ * value after the raider had lost HP elsewhere, and a lost raid re-ran its
+ * hospital stay. A body that path already wrote is not written again here, and
+ * this path stamps that path's receipt so its later call is a replay. Usage
+ * costs belong to this path alone. Pure.
+ */
+function settleRaidBody(
+    character: Record<string, unknown>,
+    receipts: readonly ServerSettlementReceipt[],
+    session: SoloPveSession,
+    raiderSlug: string,
+    settledAt: number,
+): { character: Record<string, unknown>; receipts: ServerSettlementReceipt[] } {
+    const outcome = resolveAiFightOutcome(session);
+    const body = pveOutcomeReceiptIdentity(session, raiderSlug, outcome);
+    const withUsage = applySoloPveUsageCosts(character, session);
+    if (inspectSettlementReceipt(character, body.requestId, body.fingerprint).status !== 'fresh') {
+        return { character: withUsage, receipts: [...receipts] };
+    }
+    return {
+        character: applyAiFightOutcomeToCharacter(withUsage, outcome, session.player, settledAt),
+        receipts: [
+            {
+                requestId: body.requestId,
+                fingerprint: body.fingerprint,
+                value: { kind: 'pve-outcome', runId: session.sessionId, outcome, applied: true, replayed: false },
+                settledAt,
+            },
+            ...receipts.filter((entry) => entry.requestId !== body.requestId),
+        ],
+    };
+}
+
 export async function settleInfiltrationWin(
     run: InfilRun,
     roll: number,
@@ -393,14 +433,10 @@ export async function settleInfiltrationWin(
                         value: { replayed: true, lost: Math.max(0, Math.floor(num(value.overflowLost))) },
                     };
                 }
-                const settled = session
-                    ? applyAiFightOutcomeToCharacter(
-                        applySoloPveUsageCosts(char, session),
-                        resolveAiFightOutcome(session),
-                        session.player,
-                        t,
-                    )
-                    : char;
+                const raidBody = session
+                    ? settleRaidBody(char, inspected.receipts, session, run.raiderSlug, t)
+                    : { character: char, receipts: [...inspected.receipts] };
+                const settled = raidBody.character;
                 const stacks: Array<{ itemId: string; count: number }> = Array.isArray(settled.itemStacks)
                     ? (settled.itemStacks as Array<{ itemId: string; count: number }>).map(s => ({ ...s }))
                     : [];
@@ -422,7 +458,7 @@ export async function settleInfiltrationWin(
                     itemStacks: stacks,
                     ryo: num(settled.ryo) + RAID_RYO_REWARD,
                 };
-                const nextChar = appendSettlementReceipt(credited, inspected.receipts, {
+                const nextChar = appendSettlementReceipt(credited, raidBody.receipts, {
                     requestId: receiptId,
                     fingerprint,
                     value: {
@@ -517,15 +553,10 @@ export async function settleInfiltrationLoss(
             return { ok: true, write: false, character, value: { alreadySettled: true } };
         }
         const settledAt = now();
-        const settledCharacter = applyAiFightOutcomeToCharacter(
-            applySoloPveUsageCosts(character, session),
-            resolveAiFightOutcome(session),
-            session.player,
-            settledAt,
-        );
+        const raidBody = settleRaidBody(character, inspected.receipts, session, run.raiderSlug, settledAt);
         return {
             ok: true,
-            character: appendSettlementReceipt(settledCharacter, inspected.receipts, {
+            character: appendSettlementReceipt(raidBody.character, raidBody.receipts, {
                 requestId: receiptId,
                 fingerprint,
                 value: { kind: 'anbu-infiltration-loss', outcome: session.outcome ?? 'loss' },
