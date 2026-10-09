@@ -35,12 +35,18 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
     useEffect(() => {
         let alive = true, frame = 0, last = 0;
         const motion = new Map<string, Motion>();
+        // Measured on resize, not per frame: a per-frame clientWidth, read just after the
+        // world controller writes its styles, forced a layout every frame.
+        const parent = root.current?.parentElement;
+        let width = parent?.clientWidth ?? 0;
+        const resize = parent && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { width = parent.clientWidth; }) : null;
+        if (parent) resize?.observe(parent);
         void loadContinuousWorld().then(world => {
             if (!alive) return;
             const chunk = world.space.chunks.find(c => c.sector === sector)!;
             const tick = (now: number) => {
                 const dt = Math.min(.05, (now - (last || now)) / 1000); last = now;
-                const width = root.current?.parentElement?.clientWidth ?? 0, scale = width / 12;
+                const scale = width / 12;
                 const present = new Set<string>();
                 for (const peer of latest.current) {
                     const cursor = world.model.read(peer.worldPosition) ?? world.model.fallback(peer.currentSector ?? sector, peer.tile ?? playerNameTile(peer.name));
@@ -63,7 +69,7 @@ export function ContinuousWorldPeers({ sector, selfName, sharedImages }: { secto
             };
             frame = requestAnimationFrame(tick);
         }).catch(() => { /* The terrain connection shows its own retry state. */ });
-        return () => { alive = false; cancelAnimationFrame(frame); };
+        return () => { alive = false; cancelAnimationFrame(frame); resize?.disconnect(); };
     }, [sector]);
     return <div className="continuous-world-peers" ref={root} aria-hidden="true">{peers.map(peer => <div key={peer.name}
         ref={node => { if (node) elements.current.set(peer.name, node); else elements.current.delete(peer.name); }}
