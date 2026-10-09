@@ -3,7 +3,13 @@ import type { WorldPosition } from '../../shared/world-position.js';
 import type { OnlinePlayer } from './types.js';
 
 export const WORLD_WALK_SPEED = 6.5;
-export const WORLD_WALK_MAX_CREDIT = 2;
+/**
+ * Tiles a walker may get ahead of server time. Sustained speed stays WORLD_WALK_SPEED;
+ * this is the burst a rest can bank and the room network jitter eats into. Raised from
+ * 2 (owner-approved, 2026-10-08): at 2, a phone round trip of 200 ms capped walking at
+ * about 5 tiles/s, because one update is in flight and the client must stay inside it.
+ */
+export const WORLD_WALK_MAX_CREDIT = 3;
 export type WorldMoveResult = { ok: true; position: WorldPosition; sector: number; tile: number; distance: number }
     | { ok: false; reason: 'locked' | 'sequence' | 'position' | 'speed' };
 
@@ -24,7 +30,7 @@ export function createWorldMovementGate() {
             // A missing clock means the player has rested at least since the idle sweep
             // (or just connected), so they hold the same capped credit as any rested
             // walker. A quarter tile here refused the first step after every rest and
-            // snapped the player back. The cap still bounds the burst to two tiles.
+            // snapped the player back. The cap still bounds the burst to WORLD_WALK_MAX_CREDIT.
             const clock = clocks.get(player.name) ?? { at: now, credit: WORLD_WALK_MAX_CREDIT };
             const credit = Math.min(WORLD_WALK_MAX_CREDIT, clock.credit + Math.max(0, now - clock.at) / 1000 * WORLD_WALK_SPEED);
             const distance = model.distanceWithin(prior, position, credit);
