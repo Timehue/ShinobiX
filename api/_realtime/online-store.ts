@@ -233,6 +233,9 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             tile: serverWalkTile(sector, prev?.worldPosition && sector === prev.sector ? prev.tile : (entry.tileSector ?? entry.sector) === sector && !(travelingUntil !== undefined && travelingUntil > now)
                 ? entry.tile ?? prev?.tile : prev?.tile),
             movementSeq: prev?.movementSeq ?? 0,
+            // Battle/travel interruptions remain authoritative across heartbeats
+            // and reconnects. A client presence refresh cannot clear this epoch.
+            resourceEpoch: prev?.resourceEpoch ?? 0,
             ...(prev?.worldPosition && sector === prev.sector ? { worldPosition: prev.worldPosition } : {}),
         };
         if (!prev && entry.restoredWorldPosition) {
@@ -426,8 +429,19 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
             || (p.travelingUntil !== undefined && p.travelingUntil > this.now())) return null;
         const location = model.location(position);
         if (location.sector !== p.sector || location.tile === undefined) return null;
-        p.worldPosition = position; p.tile = location.tile;
-        p.movementSeq = (p.movementSeq ?? 0) + 1; p.lastSeenAt = this.now();
+        const previous = model.read(p.worldPosition) ?? model.fallback(p.sector, p.tile ?? 78);
+        // Map startup adopts the stationary server cursor to start its speed
+        // clock. That acknowledgement is not movement. A real fractional
+        // step on the same tile still counts as an interruption.
+        // The walker's point/cursor round-trip can differ by ~1e-14 tiles.
+        // Keep the canonical cursor for this tiny tolerance, so repeated
+        // acknowledgements cannot accumulate movement without a sequence tick.
+        const distance = previous ? model.distanceWithin(previous, position, 0) : null;
+        const stationary = distance !== null && distance <= 1e-9;
+        p.worldPosition = stationary ? previous! : position;
+        p.tile = stationary ? model.location(previous!).tile : location.tile;
+        if (!stationary) p.movementSeq = (p.movementSeq ?? 0) + 1;
+        p.lastSeenAt = this.now();
         return p;
     }
 
