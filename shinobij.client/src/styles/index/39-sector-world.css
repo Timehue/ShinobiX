@@ -8,6 +8,14 @@
     padding: 0; margin: 0; border: 0; background: transparent; box-shadow: none;
     transform: translate(-50%, -100%); touch-action: manipulation; cursor: pointer;
 }
+/* These are <button>s anchored by `transform`, and the global `button:hover` (0,1,1) replaces
+   that transform with translateY(-1px), plus a brightness filter and a shadow box. The
+   button then jumps half its width right and a full height down, out from under the
+   pointer, :hover drops, it snaps back, and the cursor flickers. Pin the anchor on hover. */
+@media (hover: hover) {
+    .sector-ground-landmark:hover { transform: translate(-50%, -100%); filter: none; box-shadow: none; }
+    .sector-village-entrance:hover { transform: translate(-50%, -50%); filter: none; box-shadow: none; }
+}
 .sector-ground-landmark img { display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; image-rendering: auto; }
 .sector-ground-landmark:disabled, .sector-village-entrance:disabled { opacity: 1; cursor: default; }
 .sector-ground-landmark.is-dormant { pointer-events: none; }
