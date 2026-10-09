@@ -20,10 +20,11 @@ import {
 import { readAllSectorPoolUsage, SECTOR_POOL_CAPS, type SectorPoolRow } from './world/_sector-pool.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 import { villageWarMapEnabled, villageStoresEnabled } from './_release-flags.js';
-// When the default-on Village War Map campaign is enabled,
-// war declaration is funded from the village WR pool instead of the Kage's Honor
-// Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
-// every path below is byte-for-byte the legacy behavior.
+// When the default-on Village War Map campaign is enabled, war declaration is
+// funded from the village WR pool; with DISABLE_VILLAGE_WAR set it falls back
+// to the Kage's Honor Seals. That cost is this file's only switch-dependent
+// branch. The sector-war exclusion holds either way, because the switch pauses
+// sector wars rather than ending them.
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
 import { villageWarHpMax, VILLAGE_WAR_HP_CEILING } from './_war-structures.js';
