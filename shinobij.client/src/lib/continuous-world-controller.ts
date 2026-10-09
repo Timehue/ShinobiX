@@ -7,6 +7,7 @@ import { bindContinuousWorldControl } from './continuous-world-control';
 import { isRealtimePresenceLive } from './use-presence-socket';
 import { worldRoadCrossings } from '../../../shared/world-road-crossings';
 import { tapCandidates } from './world-tap';
+import { createWorldMovePacer } from './world-move-pacing';
 
 type Host = { canvas: HTMLCanvasElement; chunk: HTMLDivElement; marker: HTMLDivElement;
     onPosition?: (sector: number, col: number, row: number) => void;
@@ -27,29 +28,40 @@ export async function mountContinuousWorld(host: Host) {
     const renderer = createContinuousWorldRenderer(host.canvas, world.space, world.navigation);
     const crossings = worldRoadCrossings(world.space.roads);
     let sequence = initial.sequence ?? 0, sector = initial.sector!, tile = initial.tile!;
-    let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0, movingTime = 0, acknowledgedTime = 0;
+    let held: WorldPoint | null = null, frame = 0, last = 0, lastSend = 0;
     let inFlight = false, disposed = false, stale = false, sentCursor = '', resyncing = false, drag: { x: number; y: number; moved: boolean } | null = null;
-    let requestedSector = sector, retryAfter = 0;
-    function accept(reply: WorldMovementReply, sampleTime: number) {
+    let requestedSector = sector, retryAfter = 0, refusedInRow = 0;
+    const pace = createWorldMovePacer(6.5);
+    const resumable = (reply: WorldMovementReply) => refusedInRow === 1 && (reply.reason === 'speed' || reply.reason === 'busy');
+    function accept(reply: WorldMovementReply) {
         if (staleReply(reply, world.space.layoutVersion)) { stale = true; walker.stop(); held = null; host.onStatus(STALE_WORLD_STATUS); return false; }
         const cursor = world.model.read(reply.worldPosition);
         if (!cursor || reply.sequence === undefined || reply.sector === undefined || reply.tile === undefined) return false;
         sequence = reply.sequence; sector = reply.sector; tile = reply.tile;
-        if (reply.ok) acknowledgedTime = sampleTime;
-        else { walker.stop(); walker.restore(cursor); movingTime = acknowledgedTime = 0; held = null; }
+        refusedInRow = reply.ok ? 0 : refusedInRow + 1;
+        if (!reply.ok) {
+            // A refused step puts the walker back on the server's cursor. A pace refusal
+            // (network jitter ate the speed budget, or a step was still settling) clears on
+            // the next update, so the walk goes on from there instead of dropping the
+            // destination. Anything else (a fight, a lock, a stale sequence), or a second
+            // refusal in a row, stops it.
+            if (!resumable(reply)) { walker.stop(); held = null; }
+            walker.restore(cursor); pace.reset();
+        }
         host.onAuthority(sector, tile); return true;
     }
     async function send(force = false) {
         if (inFlight || resyncing || disposed || stale || host.signal.aborted) return false;
-        const cursor = walker.cursor(world.space.layoutVersion), signature = JSON.stringify(cursor);
-        if (!force && signature === sentCursor) return true;
-        inFlight = true; const sampleTime = movingTime, sentSector = sector;
+        const cursor = walker.cursor(world.space.layoutVersion);
+        if (!force && !pace.retrying && JSON.stringify(cursor) === sentCursor) return true;
+        inFlight = true; const update = pace.next(cursor, performance.now() / 1000), signature = JSON.stringify(update.cursor), sentSector = sector;
         try {
-            const reply = await worldMovementRequest(cursor, sequence, host.signal);
+            const reply = await worldMovementRequest(update.cursor, sequence, host.signal);
             if (disposed) return false;
-            if (accept(reply, sampleTime)) { if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(reply.ok ? '' : 'Movement paused. Choose a new destination.'); return true; }
+            if (accept(reply)) { if (reply.ok) pace.accepted(update, performance.now() / 1000); if (requestedSector === sentSector) requestedSector = sector; sentCursor = reply.ok ? signature : ''; host.onStatus(reply.ok || resumable(reply) ? '' : 'Movement paused. Choose a new destination.'); return true; }
+            if (!stale) pace.dropped(update);
             return false;
-        } catch { if (!disposed) { walker.stop(); held = null; host.onStatus('Connection interrupted. Movement paused.'); } }
+        } catch { if (!disposed) { pace.dropped(update); walker.stop(); held = null; host.onStatus('Connection interrupted. Movement paused.'); } }
         finally { inFlight = false; }
     }
     // Adopt a stationary cursor first; this starts the server clock before prediction.
@@ -107,7 +119,7 @@ export async function mountContinuousWorld(host: Host) {
             if (staleReply(reply, world.space.layoutVersion)) { stale = true; host.onStatus(STALE_WORLD_STATUS); }
             else if (reply.ok && cursor && !disposed) {
                 walker.restore(cursor); sequence = reply.sequence ?? 0; sector = reply.sector!; tile = reply.tile!;
-                requestedSector = sector; movingTime = acknowledgedTime = 0; sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
+                requestedSector = sector; pace.reset(); sentCursor = ''; host.onAuthority(sector, tile); host.onStatus('');
             } else retryAfter = performance.now() + 1000;
         } catch { if (!disposed) { retryAfter = performance.now() + 1000; host.onStatus('Connection interrupted. Movement paused.'); } }
         finally { resyncing = false; }
@@ -126,12 +138,15 @@ export async function mountContinuousWorld(host: Host) {
             }
             if (best) walker.go(best);
         }
-        walker.pause(blocked || resyncing || movingTime - acknowledgedTime > 1.4 / 6.5);
-        const before = walker.travelled; walker.tick(dt);
-        movingTime += (walker.travelled - before) / 6.5;
-        // Each update must cover less ground than the 1.4-tile unacknowledged allowance
-        // above, or HTTP-only walking stalls between replies (125 ms = 0.8 tile).
-        if (!blocked && now - lastSend > (isRealtimePresenceLive() ? 100 : 125)) { lastSend = now; void send(); }
+        // Each update must cover less ground than WORLD_UPDATE_TILES, or walking
+        // waits between replies even on a fast connection (125 ms = 0.8 tile). The
+        // socket drops a world:move that lands within 80 ms of the last one, and
+        // phone uplink jitter bunched 100 ms sends under it; 150 ms keeps most clear.
+        const interval = isRealtimePresenceLive() ? 150 : 125;
+        walker.pause(blocked || resyncing);
+        const before = walker.travelled; walker.tick(Math.min(dt * pace.rate(interval / 1000), pace.room));
+        pace.advance((walker.travelled - before) / 6.5);
+        if (!blocked && now - lastSend > interval) { lastSend = now; void send(); }
         const view = renderer.draw(walker.position, sector), size = view.tilePx * 12;
         host.onPosition?.(sector, walker.position.x - view.chunk.x - .5, walker.position.y - view.chunk.y - .5);
         host.chunk.style.width = host.chunk.style.height = `${size}px`;
