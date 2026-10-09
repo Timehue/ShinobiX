@@ -1,10 +1,12 @@
-import { expect, type APIRequestContext, type BrowserContext, type Locator, type Page } from '@playwright/test';
+import { expect, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
 import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { uiAuditSave } from '../e2e/helpers/ui-audit-runtime';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
+import { CONTINUOUS_WORLD_SPACE } from '../../shared/continuous-world-layout';
 import { sectorExits } from '../../shared/sector-links';
 import { sectorName } from '../../shared/sector-geo';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 // Run with LIVE_E2E_REALTIME=1. Both browsers use the real Express handlers and
 // Socket.IO transport; no presence, save, movement or travel response is mocked.
@@ -19,7 +21,8 @@ async function account(request: APIRequestContext, side: string) {
     const token = String((await registered.json()).token);
     const headers = { 'x-player-name': name, 'x-player-token': token };
     const save = uiAuditSave();
-    save.character = { ...save.character, name, equippedJutsuIds: [], jutsuMastery: [] };
+    save.character = { ...save.character, name, equippedJutsuIds: [], jutsuMastery: [],
+        wandererCooldowns: quietRoadCooldowns(Array.from({ length: 65 }, (_, i) => i + 1)) };
     save.worldGeoV = 2;
     save.currentSector = 31; save.currentTile = 85; save.currentBiome = 'snow';
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
@@ -48,6 +51,9 @@ async function install(context: BrowserContext, player: Awaited<ReturnType<typeo
     }, { ...player, patch: LATEST_PATCH_NOTE.version });
 }
 
+// Sector 31 has road exits, so the World Map draws the continuous world: a
+// canvas whose camera follows the player, with the 144 tile buttons kept as
+// accessible stand-ins underneath it.
 async function openSector(page: Page) {
     await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
     const shell = page.locator('.app-shell[data-screen="worldMap"]');
@@ -56,21 +62,81 @@ async function openSector(page: Page) {
     if (await enter.isVisible()) await enter.click();
     await expect(shell).toBeVisible();
     const back = page.getByRole('button', { name: /Return to Sector 31/ });
-    const board = page.locator('.pixel-map[data-ground-floor="true"]');
-    await expect(back.or(board)).toBeVisible({ timeout: 60_000 });
+    const world = page.locator('.continuous-world-map');
+    await expect(back.or(world)).toBeVisible({ timeout: 60_000 });
     if (await back.isVisible()) await back.click();
-    await expect(board).toBeVisible();
+    // The stand-ins stay disabled until the world has adopted the server's position.
+    await expect(world).toHaveAttribute('aria-busy', 'false', { timeout: 60_000 });
+    await expect(world.locator(':scope > canvas')).toHaveAttribute('data-world-sector', '31');
 }
 
-async function peerTile(peer: Locator) {
-    return peer.evaluate(element => {
-        const board = element.closest('.pixel-map')!.getBoundingClientRect();
-        const matrix = new DOMMatrix(getComputedStyle(element).transform);
-        const node = element as HTMLElement;
-        const col = Math.floor((matrix.m41 + node.offsetWidth / 2) / board.width * 12);
-        const row = Math.floor((matrix.m42 + node.offsetHeight) / board.height * 12);
-        return row * 12 + col;
-    });
+// The stand-ins have pointer-events: none, so a click at one lands on the
+// canvas under it. Players walk with a tap, a drag or WASD/arrows;
+// assistive tech can still activate any stand-in, so focus one and press Enter.
+async function walkTo(page: Page, name: string) {
+    const tile = page.getByRole('button', { name, exact: true });
+    await expect(tile).toBeEnabled();
+    await tile.focus(); await tile.press('Enter');
+}
+
+/** The sector:tile Express has accepted for a player: the authority behind what both clients draw. */
+async function acceptedTile(request: APIRequestContext, player: { headers: Record<string, string> }) {
+    const reply = await request.get('/api/player/world-move', { headers: player.headers });
+    if (!reply.ok()) return `HTTP ${reply.status()}`;
+    const body = await reply.json() as { sector?: number; tile?: number };
+    return `${body.sector}:${body.tile}`;
+}
+
+/** Where an observer draws a peer's feet, in tiles from the top-left corner of the observer's own sector painting. */
+type Spot = { sector: number; x: number; y: number };
+type PeerWalkReview = { spot: () => Spot | null; samples: Spot[] };
+
+/** Start sampling, every frame, where the observer draws the named peer. */
+async function watchPeer(page: Page, name: string) {
+    await page.evaluate(name => {
+        // The peer layer lives inside the sector chunk the camera translates.
+        // Each peer is placed at (world point - chunk origin) * tile px and
+        // anchored at its feet by translate(-50%,-100%), so undoing that gives
+        // its world position relative to this painting, wherever the camera is.
+        const spot = () => {
+            const element = [...document.querySelectorAll<HTMLElement>('.continuous-world-peer')]
+                .find(node => node.title.startsWith(name + ' (Lv '));
+            const chunk = element?.closest<HTMLElement>('.continuous-world-chunk');
+            const transform = element ? getComputedStyle(element).transform : 'none';
+            // A peer mounted this frame has no position yet.
+            if (!element || !chunk?.clientWidth || transform === 'none') return null;
+            const matrix = new DOMMatrix(transform), tile = chunk.clientWidth / 12;
+            return { sector: Number(chunk.dataset.worldChunk),
+                x: (matrix.m41 + element.offsetWidth / 2) / tile, y: (matrix.m42 + element.offsetHeight) / tile };
+        };
+        const review = { spot, samples: [] as NonNullable<ReturnType<typeof spot>>[] };
+        (window as unknown as { peerWalkReview: typeof review }).peerWalkReview = review;
+        const sample = () => {
+            const at = spot();
+            if (at) review.samples.push(at);
+            requestAnimationFrame(sample);
+        };
+        requestAnimationFrame(sample);
+    }, name);
+}
+
+const tileOf = (spot: Spot) => spot.x >= 0 && spot.x < 12 && spot.y >= 0 && spot.y < 12
+    ? Math.floor(spot.y) * 12 + Math.floor(spot.x) : -1;
+/** Distance in tiles from a point to a polyline. */
+function distanceToLine(points: readonly { x: number; y: number }[], at: { x: number; y: number }) {
+    return Math.min(...points.slice(1).map((b, i) => {
+        const a = points[i]!, dx = b.x - a.x, dy = b.y - a.y;
+        const t = Math.max(0, Math.min(1, ((at.x - a.x) * dx + (at.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
+        return Math.hypot(at.x - a.x - t * dx, at.y - a.y - t * dy);
+    }));
+}
+async function peerTile(page: Page) {
+    const spot = await page.evaluate(() => (window as unknown as { peerWalkReview: PeerWalkReview }).peerWalkReview.spot());
+    return spot ? `${spot.sector}:${tileOf(spot)}` : 'not drawn';
+}
+/** The samples taken since the last call. */
+async function takeSamples(page: Page) {
+    return page.evaluate(() => (window as unknown as { peerWalkReview: PeerWalkReview }).peerWalkReview.samples.splice(0));
 }
 
 test('two real clients see grounded walking, sector departure and the same road arrival', async ({ browser, context, page, request, baseURL }, info) => {
@@ -82,6 +148,9 @@ test('two real clients see grounded walking, sector departure and the same road 
     try {
         await install(context, mover); await install(observerContext, observer);
         const watching = await observerContext.newPage();
+        const errors: string[] = [];
+        page.on('pageerror', error => errors.push(`mover: ${error.message}`));
+        watching.on('pageerror', error => errors.push(`observer: ${error.message}`));
         let moverSocket = false, observerSocket = false;
         // Socket.IO authenticates over polling before upgrading. The WebSocket
         // probe reply or a namespaced event proves the upgraded channel; its
@@ -95,53 +164,66 @@ test('two real clients see grounded walking, sector departure and the same road 
         }));
         await openSector(page); await openSector(watching);
         await expect.poll(() => moverSocket && observerSocket, { timeout: 30_000 }).toBe(true);
-        const peer = watching.locator(`.sector-peer[title^="${mover.name} (Lv "]`);
+        const peer = watching.locator(`.continuous-world-peer[title^="${mover.name} (Lv "]`);
         await expect(peer).toBeVisible({ timeout: 30_000 });
-        await expect.poll(() => peerTile(peer)).toBe(85);
-        await watching.evaluate(name => {
-            const samples: number[] = [];
-            const state = { running: true, samples };
-            (window as unknown as { peerWalkReview: typeof state }).peerWalkReview = state;
-            const sample = () => {
-                const element = [...document.querySelectorAll<HTMLElement>('.sector-peer')].find(node => node.title.startsWith(name + ' (Lv '));
-                if (element) {
-                    const board = element.closest('.pixel-map')!.getBoundingClientRect();
-                    const matrix = new DOMMatrix(getComputedStyle(element).transform);
-                    samples.push(Math.floor((matrix.m42 + element.offsetHeight) / board.height * 12) * 12
-                        + Math.floor((matrix.m41 + element.offsetWidth / 2) / board.width * 12));
-                }
-                if (state.running) requestAnimationFrame(sample);
-            };
-            requestAnimationFrame(sample);
-        }, mover.name);
-        await page.getByRole('button', { name: 'Move near blocked tile row 3 column 7', exact: true }).click();
-        await expect.poll(() => peerTile(peer), { timeout: 30_000 }).toBe(18);
-        const walked = await watching.evaluate(() => {
-            const state = (window as unknown as { peerWalkReview: { running: boolean; samples: number[] } }).peerWalkReview;
-            state.running = false; return [...new Set(state.samples)];
-        });
+        await watchPeer(watching, mover.name);
+        await expect.poll(() => peerTile(watching)).toBe('31:85');
         // An independent literal mask checks the actual rendered marker, not
         // the navigator helper that produces its path.
         const mask = ['############','#..........#','#.....TTTT.#','#....TTTTTT#','.......T.T..','============',
             '....=..=....','..BB=.T=BB.#','..BB=..=BB..','...==..===..','....=.......','#...=......#'].join('');
+        const grounded = (spot: Spot) => spot.sector === 31 && tileOf(spot) >= 0 && '.='.includes(mask[tileOf(spot)]!);
+        await takeSamples(watching);
+        await walkTo(page, 'Move near blocked tile row 3 column 7');
+        await expect.poll(() => acceptedTile(request, mover), { timeout: 30_000 }).toBe('31:18');
+        await expect.poll(() => peerTile(watching), { timeout: 30_000 }).toBe('31:18');
+        const firstWalk = await takeSamples(watching);
+        const walked = [...new Set(firstWalk.map(tileOf))];
         expect(walked.length).toBeGreaterThan(4);
-        expect(walked.every(tile => tile >= 0 && tile < 144 && '.='.includes(mask[tile]!))).toBe(true);
-        await page.getByRole('button', { name: 'Move to tile row 6 column 11', exact: true }).click();
-        await expect.poll(() => peerTile(peer), { timeout: 30_000 }).toBe(70);
+        expect(firstWalk.filter(spot => !grounded(spot))).toEqual([]);
+        await walkTo(page, 'Move to tile row 6 column 11');
+        await expect.poll(() => acceptedTile(request, mover), { timeout: 30_000 }).toBe('31:70');
+        await expect.poll(() => peerTile(watching), { timeout: 30_000 }).toBe('31:70');
+        expect((await takeSamples(watching)).filter(spot => !grounded(spot))).toEqual([]);
+        await expect(page.locator('.sector-player-tile')).toHaveAccessibleName('Current tile row 6 column 11');
+
         const exit = sectorExits(31).find(road => road.destinationSector === 27)!;
-        await page.getByRole('button', { name: `Cross to ${sectorName(27)}`, exact: true }).click();
-        await expect(page.locator('.sector-map-backdrop:not(.sector-floor-outgoing)')).toHaveCSS('background-image', /s46\.webp\?/);
+        expect(exit.direction).toBe('east');
+        const arrival = `Current tile row ${Math.floor(exit.destinationTile / 12) + 1} column ${exit.destinationTile % 12 + 1}`;
+        await walkTo(page, `Cross to ${sectorName(27)}`);
+        await expect(page.locator('.continuous-world-map > canvas')).toHaveAttribute('data-world-sector', '27', { timeout: 60_000 });
+        await expect(page.locator('.continuous-world-chunk')).toHaveAttribute('data-world-chunk', '27');
+        await expect.poll(() => acceptedTile(request, mover), { timeout: 30_000 }).toBe(`27:${exit.destinationTile}`);
+        await expect(page.locator('.sector-player-tile')).toHaveAccessibleName(arrival);
         await expect(peer).toHaveCount(0, { timeout: 30_000 });
-        await watching.getByRole('button', { name: 'Move to tile row 6 column 11', exact: true }).click();
-        await expect.poll(() => peerTile(watching.locator('.sector-avatar-overlay .sector-avatar-figure')), { timeout: 30_000 }).toBe(70);
-        await watching.getByRole('button', { name: `Cross to ${sectorName(27)}`, exact: true }).click();
-        const reunited = watching.locator(`.sector-peer[title^="${mover.name} (Lv "]`);
-        await expect(reunited).toBeVisible({ timeout: 30_000 });
-        await expect.poll(() => peerTile(reunited)).toBe(exit.destinationTile);
-        await expect(watching.locator('.sector-player-tile')).toHaveAttribute('data-walkable', 'true');
+        // The observer watched the mover walk off the painting's east edge along
+        // the road; nothing it drew left the walkable floor or that road. The
+        // road is the authored polyline, not the navigator that walks it.
+        const road = CONTINUOUS_WORLD_SPACE.roads.find(line => line.a.id === exit.id || line.b.id === exit.id)!;
+        const painting = CONTINUOUS_WORLD_SPACE.chunks.find(chunk => chunk.sector === 31)!;
+        const onRoad = (spot: Spot) => spot.sector === 31
+            && distanceToLine(road.points, { x: painting.x + spot.x, y: painting.y + spot.y }) < .25;
+        const departure = await takeSamples(watching);
+        expect(departure.some(spot => spot.sector === 31 && spot.x >= 12)).toBe(true);
+        expect(departure.filter(spot => !grounded(spot) && !onRoad(spot))).toEqual([]);
+
+        await walkTo(watching, 'Move to tile row 6 column 11');
+        await expect.poll(() => acceptedTile(request, observer), { timeout: 30_000 }).toBe('31:70');
+        await expect(watching.locator('.sector-player-tile')).toHaveAccessibleName('Current tile row 6 column 11');
+        await walkTo(watching, `Cross to ${sectorName(27)}`);
+        await expect(watching.locator('.continuous-world-map > canvas')).toHaveAttribute('data-world-sector', '27', { timeout: 60_000 });
+        await expect.poll(() => acceptedTile(request, observer), { timeout: 30_000 }).toBe(`27:${exit.destinationTile}`);
+        await expect(peer).toBeVisible({ timeout: 30_000 });
+        await expect.poll(() => peerTile(watching), { timeout: 30_000 }).toBe(`27:${exit.destinationTile}`);
+        // Standing on the painting, not the road: the stand-in for its own tile is marked.
+        await expect(watching.locator('.sector-player-tile')).toHaveAccessibleName(arrival);
+        // Neither walk left a "Movement paused" or "Connection interrupted" notice behind.
+        for (const client of [page, watching]) await expect(client.locator('.continuous-world-status')).toBeEmpty();
+        expect(errors).toEqual([]);
         await page.screenshot({ path: info.outputPath('two-client-mover-1366.png'), fullPage: true });
         await watching.screenshot({ path: info.outputPath('two-client-observer-390.png'), fullPage: true });
-        await info.attach('two-client-walking', { body: JSON.stringify({ observedTiles: walked, destination: 27,
+        await info.attach('two-client-walking', { body: JSON.stringify({ observedTiles: walked,
+            departedEastOnRoad: departure.filter(spot => spot.x >= 12).length, destination: 27,
             arrivalTile: exit.destinationTile, realSocketIo: moverSocket && observerSocket, realExpress: true }), contentType: 'application/json' });
     } finally {
         await observerContext.close();
