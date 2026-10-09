@@ -3,9 +3,9 @@ import { expect, type Locator } from '@playwright/test';
 /** Measure painted text, including caption glyphs overflowing a narrow grid cell. */
 export async function expectMapNoticeTextSeparated(banner: Locator, label: string) {
     const geometry = await banner.evaluate(element => {
-        const action = element.querySelector<HTMLElement>('.pet-mentor-road-action')!;
+        const action = element.querySelector<HTMLElement>('.mentor-action')!;
         const study = action.querySelector<HTMLElement>('b')!;
-        const toggle = element.querySelector<HTMLElement>('.map-notification-toggle')!;
+        const toggle = element.querySelector<HTMLElement>('.map-notice-toggle')!;
         const rect = (r: DOMRect) => ({ x: r.x, y: r.y, width: r.width, height: r.height });
         const painted = (node: HTMLElement) => {
             if (!node.getClientRects().length) return [];
