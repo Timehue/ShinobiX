@@ -31,15 +31,14 @@ import { settleSoloPveTerminalUsage } from '../solo-pve/_usage-authority.js';
 import { deductUsedItems } from '../pvp/claim-rewards.js';
 import {
     aiFightPaysReward,
-    aiFightPlayerActor,
     aiFightPlayerItemsUsed,
-    applyAiFightOutcomeToCharacter,
     sessionIsSpar,
     sessionUsesContinuousVitals,
     resolveAiFightOutcome,
     type AiFightOutcome,
     type AiFightSession,
 } from './_ai-fight-outcome.js';
+import { applyPveOutcomeBodyOnce, markPveOutcomeSettled, readPveOutcomeMarker } from '../pve/_fight-outcome-settlement.js';
 import { huntMissionByAiProfileId, huntMissionById } from './_mission-catalog.js';
 import {
     applyMissionProgressEvent,
@@ -173,7 +172,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // retired encounter shape a hard failure, never a client-trust fallback.
         const sealedSession: AiFightSession | null = await readSoloPveSession(sealedSessionId).catch(() => null);
         const outcome: AiFightOutcome = resolveAiFightOutcome(sealedSession);
-        const playerActor = aiFightPlayerActor(sealedSession);
         // Read the continuity off the SEALED session, not the request: an
         // open-world encounter was seeded from the player's real vitals, so its
         // leftovers are a genuine cost. A fresh-start session's are not.
@@ -204,8 +202,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // The upgrade gear piece this settle granted, for the result card. Reset
         // on every attempt, and unset on a replay (the pop-up still announces it).
         let grantedGearDropId = null as string | null;
+        // The fight's HP lands ONCE across this settle and the generic
+        // pve-outcome path (the lapse reconciler, /api/pve/fight-outcome), which
+        // writes it from the same session. Both used to, so a late second write
+        // set HP back up to the fight's end value.
+        const markedSettled = await readPveOutcomeMarker(settledUsageSession, playerName);
+        let bodyWritten = false;
         const result = await mutatePlayerSave(playerName, async ({ character, record }) => {
             grantedGearDropId = null;
+            bodyWritten = false;
             const redeemed = Array.isArray(character.redeemedAiFightRewards)
                 ? (character.redeemedAiFightRewards as unknown[]).filter((entry): entry is { token: string; xp: number; ryo: number; capped: boolean; dailyCount: number; statPoints?: number } =>
                     !!entry && typeof entry === 'object' && typeof (entry as { token?: unknown }).token === 'string')
@@ -340,7 +345,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     }
                     statPoints = growth.spent;
                 }
-                const settled = applyAiFightOutcomeToCharacter(noPurseCharacter, outcome, playerActor, Date.now(), continuousVitals, spar);
+                const physical = applyPveOutcomeBodyOnce({
+                    character: noPurseCharacter, session: settledUsageSession, playerName, now: Date.now(),
+                    outcome, continuousVitals, spar, markedSettled,
+                });
+                bodyWritten = physical.bodyWritten;
+                const settled = physical.character;
                 const worldSettled = sealedWorldContext
                     ? applyWorldAiFightSettlement(settled, sealedWorldContext, outcome, aiFightToken)
                     : settled;
@@ -408,7 +418,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // can never bank the reward while losing the damage it cost (or the
             // other way round). The player actor comes only from the mandatory
             // sealed Solo-PvE session.
-            const physicallySettled = applyAiFightOutcomeToCharacter(rewarded, outcome, playerActor, Date.now(), continuousVitals, spar);
+            const physical = applyPveOutcomeBodyOnce({
+                character: rewarded, session: settledUsageSession, playerName, now: Date.now(),
+                outcome, continuousVitals, spar, markedSettled,
+            });
+            bodyWritten = physical.bodyWritten;
+            const physicallySettled = physical.character;
             const nextCharacter = sealedWorldContext
                 ? applyWorldAiFightSettlement(physicallySettled, sealedWorldContext, outcome, aiFightToken)
                 : physicallySettled;
@@ -443,6 +458,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
+        if (bodyWritten) await markPveOutcomeSettled(settledUsageSession, playerName, Date.now());
         const reward = result.value;
         const dailyCount = reward.dailyCount;
         if (paysReward && dailyCount > 0) {

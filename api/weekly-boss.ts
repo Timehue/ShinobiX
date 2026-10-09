@@ -22,7 +22,7 @@ import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from './so
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve/_settlement.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
-import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
+import { applyPveOutcomeBodyOnce, markPveOutcomeSettled, readPveOutcomeMarker } from './pve/_fight-outcome-settlement.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from './_tower-battle-guard.js';
 import {
@@ -1252,22 +1252,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (banked.newlyBroken) await announceWeeklyBossBroken(banked.boss, run.playerName);
                     const settlementId = `weeklyboss-${runId}`.slice(0, 80);
                     const fingerprint = `${run.weekKey}:${run.aiId}:${run.bossStartedAt}`;
+                    // The attempt's HP lands ONCE across this settle and the
+                    // generic pve-outcome path (the lapse reconciler,
+                    // /api/pve/fight-outcome), which writes it from the same
+                    // session. Both used to, so a late second write set HP back
+                    // up to the attempt's end value.
+                    const markedSettled = await readPveOutcomeMarker(session!, run.playerName);
+                    let bodyWritten = false;
                     const usage = await mutatePlayerSave(run.playerName, ({ character }) => {
+                        bodyWritten = false;
                         const inspected = inspectSettlementReceipt(character, settlementId, fingerprint);
                         if (inspected.status === 'conflict' || inspected.status === 'invalid') {
                             return { ok: false as const, status: 409, error: 'weekly-boss-receipt-conflict' };
                         }
                         if (inspected.status === 'replay') return { ok: true as const, character, value: { replayed: true } };
                         const charged = applySoloPveUsageCosts(character, session!);
-                        const withOutcome = applyAiFightOutcomeToCharacter(
-                            charged,
-                            resolveAiFightOutcome(session!),
-                            session!.player,
-                            Date.now(),
-                        );
+                        const physical = applyPveOutcomeBodyOnce({ character: charged, session: session!, playerName: run.playerName, now: Date.now(), markedSettled });
+                        bodyWritten = physical.bodyWritten;
                         return {
                             ok: true as const,
-                            character: appendSettlementReceipt(withOutcome, inspected.receipts, {
+                            // The body may have stamped the generic receipt: append to
+                            // ITS list, not the one read before it.
+                            character: appendSettlementReceipt(physical.character, inspectSettlementReceipt(physical.character, settlementId, fingerprint).receipts, {
                                 requestId: settlementId,
                                 fingerprint,
                                 value: { damage: banked.damage },
@@ -1277,6 +1283,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         };
                     });
                     if (!usage.ok) return { status: usage.status, body: { error: 'Weekly Boss usage settlement could not be committed.' } };
+                    if (bodyWritten) await markPveOutcomeSettled(session!, run.playerName, Date.now());
                     await writeSoloPveSession(withSoloPveSettlementReceipt(session!, {
                         kind: 'weekly-boss',
                         id: runId,
