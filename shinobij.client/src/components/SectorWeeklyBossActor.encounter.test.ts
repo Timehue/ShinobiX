@@ -33,6 +33,13 @@ test("reduced motion drops the animation, not the boss encounter", () => {
     assert.match(source, /const maxDt = reduced \? REDUCED_STEP_MS \/ 1000 : SMOOTH_MAX_DT/u);
 });
 
+test("a boss held back by a road hostile's choice engages once it is made", () => {
+    // handleBossEngage returns false while a wanderer's Fight/Flee is open; the
+    // boss stays un-greeted and asks again on its next tick instead of going quiet.
+    assert.match(source, /if \(!greetedRef\.current\) greetedRef\.current = onEngageRef\.current\(\) !== false;/u);
+    assert.match(source, /onEngage: \(\) => boolean \| void;/u);
+});
+
 test("a reduced-motion step keeps the stalk speed but never teleports", () => {
     const tilesPerStep = (constant("WALK_TILES_PER_SEC") * constant("REDUCED_STEP_MS")) / 1000;
     assert.ok(tilesPerStep <= 1.0 + 1e-9, `a step moves ${tilesPerStep.toFixed(2)} tiles at once; keep it to one tile or less`);
