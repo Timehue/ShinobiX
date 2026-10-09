@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { readPendingEconomyIntent } from '../lib/economy-request-intent';
 import "../styles/index/19-town-hall.css";
 import type { Character, VersionedCharacterCommit } from "../types/character";
 import { gameToast } from "../components/GameToast";
@@ -57,10 +58,7 @@ export function Cafeteria({
 }) {
     const [busyMeal, setBusyMeal] = useState<CafeteriaMealId | null>(null);
     const [busyRecipe, setBusyRecipe] = useState<CookRecipeId | null>(null);
-    // The kitchen only exists because the Village Stores exist. When the war /
-    // stores layer is unavailable the cook endpoint answers a bare 'Not found.'
-    // into a modal, so the section is hidden instead — derived from the same
-    // capability read the Town Hall's Sector Map door uses, and failing CLOSED:
+    // Hunting recipes require Village Stores; fish recipes remain available.
     // only an explicit "available" shows it, so a cold boot hides it rather
     // than offering a button that cannot work.
     const storesOpen = capabilityAdmissionAllowed(useCapabilityViewAvailability("villageWar"));
@@ -106,7 +104,7 @@ export function Cafeteria({
         const recipe = COOK_RECIPES.find((r) => r.id === recipeId);
         if (!recipe) return;
         const gate = cookRecipeGate(character, recipe);
-        if (gate.ok !== true) { alert(gate.reason); return; }
+        if (gate.ok !== true && !readPendingEconomyIntent('cook-rations', [character.name, recipeId])) { alert(gate.reason); return; }
         setBusyRecipe(recipeId);
         const res = await cookRations(character.name, recipeId);
         setBusyRecipe(null);
@@ -212,10 +210,10 @@ export function Cafeteria({
                 })}
             </div>
 
-            {storesOpen && <section className="summary-box cafe-kitchen">
+            <section className="summary-box cafe-kitchen">
                 <h3>Cook for the village</h3>
-                <p className="hint">Turn hunt spoils and gathered Field Herbs into ration packs, then donate them at the Town Hall — they feed your village’s sieges, mercenary bands and garrisons.</p>
-                {kitchenClosed ? <p className="hint cafe-kitchen-empty" role="status">The kitchens are closed while the village stores are offline. Try again later.</p> : <>
+                <p className="hint">Cook fish and gathered Field Herbs into ration packs. Higher-grade fish yields more food. Village stores also accept hunt spoils while open.</p>
+                <>
                 <p className="hint cafe-cap-line">{cookRationsCapLine(character)} Resets at midnight UTC.</p>
                 <ul className="cafe-stock-grid">
                     {COOK_MATERIAL_IDS.map((id) => (
@@ -231,7 +229,7 @@ export function Cafeteria({
                 </ul>
                 {hasSpoils ? (
                     <div className="cafe-recipe-grid">
-                        {COOK_RECIPES.map((recipe) => {
+                        {COOK_RECIPES.filter(recipe => recipe.id.startsWith('fish-rations-') || (storesOpen && !kitchenClosed)).map((recipe) => {
                             const gate = cookRecipeGate(character, recipe);
                             const busy = busyRecipe === recipe.id;
                             const reasonId = `cook-reason-${recipe.id}`;
@@ -240,7 +238,7 @@ export function Cafeteria({
                                     <button
                                         type="button"
                                         className="location-button"
-                                        disabled={Boolean(busyRecipe) || Boolean(busyMeal) || !gate.ok}
+                                        disabled={Boolean(busyRecipe) || Boolean(busyMeal) || (!gate.ok && !readPendingEconomyIntent('cook-rations', [character.name, recipe.id]))}
                                         aria-describedby={gate.ok ? undefined : reasonId}
                                         onClick={() => void cook(recipe.id)}
                                     >
@@ -254,10 +252,10 @@ export function Cafeteria({
                         })}
                     </div>
                 ) : (
-                    <p className="hint cafe-kitchen-empty">You’re carrying no hunt spoils. Beast Meat and pelts drop from hunting beasts in the wilds — bring some back and the kitchen will turn them into rations.</p>
+                    <p className="hint cafe-kitchen-empty">Bring back fish from water nodes or spoils from hunting to cook ration packs.</p>
                 )}
-                </>}
-            </section>}
+                </>
+            </section>
         </div>
     );
 }

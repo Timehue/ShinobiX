@@ -62,6 +62,9 @@ const REPLACE_SUBTREE_KEYS = new Set<string>([
     // previous save and can strand or repay a completed contract.
     'serverHuntTrails',
     'serverFieldMissionRuns',
+    // Gathering settlements remove the active attempt. Retaining its old key
+    // would reopen a finished minigame and block the next node indefinitely.
+    'resourceGathering',
     // Era stage transitions reset counters and replace historical short-chapter
     // completion. Generic saves preserve this server-owned map before merging.
     'eraJourneys',

@@ -25,6 +25,8 @@ type Mechanism =
     | 'state-machine';       // payout write transitions the gating state
 
 const INVENTORY: ReadonlyArray<{ file: string; mechanism: Mechanism; markers: readonly (string | RegExp)[] }> = [
+    { file: 'world/resource.ts', mechanism: 'economy-tx', markers: ['reserveEconomyTx', 'completeEconomyTx', 'onUnconfirmedWrite', 'resolveResourceAttempt'] },
+    { file: 'world/_resource-gathering.ts', mechanism: 'in-save-receipt', markers: ['state.receipts.find', 'receipts: [...state.receipts, receipt]'] },
     { file: 'shop/settle.ts', mechanism: 'in-save-receipt', markers: ['parseSettlementRequestId'] },
     { file: 'inventory/sell.ts', mechanism: 'in-save-receipt', markers: ['parseSettlementRequestId'] },
     { file: 'craft/forge.ts', mechanism: 'in-save-receipt', markers: ['redeemedCrafts'] },

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { lazy, Suspense, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { Wanderer } from "./wanderers";
@@ -9,6 +9,7 @@ import {
 import type { PetTutorialProgress } from "../../../shared/pet-tutorial";
 import tomoePortrait from "../assets/pet-mentor/tomoe-portrait.webp";
 import tomoeKuroKeyArt from "../assets/pet-mentor/tomoe-kuro-key-art.webp";
+import { MapNotificationBanner } from "../components/MapNotificationBanner";
 
 const loadPetMentorGuide = () => import("../components/PetMentorGuide");
 const preloadPetMentorGuide = () => { void loadPetMentorGuide().catch(() => undefined); };
@@ -32,6 +33,7 @@ export function usePetMentorGuide({
     setScreen,
 }: UsePetMentorGuideArgs) {
     const [open, setOpen] = useState(false);
+    const returnFocusRef = useRef<HTMLElement | null>(null);
     const [PetMentorGuide] = useState(() => lazy(() => loadPetMentorGuide().then((module) => ({ default: module.PetMentorGuide }))));
     const wanderers = useMemo(
         () => petMentorWandererFor({
@@ -49,6 +51,7 @@ export function usePetMentorGuide({
 
     function engage(wanderer: Wanderer): boolean {
         if (wanderer.id !== PET_MENTOR_WANDERER_ID) return false;
+        returnFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         setOpen(true);
         return true;
     }
@@ -61,15 +64,20 @@ export function usePetMentorGuide({
                 onClose={() => setOpen(false)}
                 onProgress={recordProgress}
                 setScreen={setScreen}
+                returnFocusRef={returnFocusRef}
             />
         </Suspense>
     ) : null;
 
     const roadPrompt = mentor ? (
+        <MapNotificationBanner
+            identity={`${selectedSector}:${mentor.greeting}:${JSON.stringify(character.petTutorialProgress)}`}
+            label="field lesson notice" className="pet-mentor-road-prompt"
+        >
         <button
             type="button"
-            className="pet-mentor-road-prompt"
-            onClick={() => setOpen(true)}
+            className="mentor-action"
+            onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }}
             onPointerEnter={preloadPetMentorGuide}
             onFocus={preloadPetMentorGuide}
         >
@@ -81,6 +89,7 @@ export function usePetMentorGuide({
             </span>
             <b>Study →</b>
         </button>
+        </MapNotificationBanner>
     ) : null;
 
     return { wanderers, engage, guide, roadPrompt } as const;

@@ -109,9 +109,7 @@ describe("server settlement policy", () => {
         const hub = source("../screens/CentralHub.tsx");
         assertGuardBefore(hub, "forgeNamedWeapon", "creatorItemCraft", "setCreatorItems(");
         assertGuardBefore(hub, "forgeNamedArmor", "creatorItemCraft", "setCreatorItems(");
-        assertGuardBefore(hub, "craftExistingWeapon", "creatorItemCraft", "forgeServer(");
-        assertGuardBefore(hub, "craftExistingArmor", "creatorItemCraft", "forgeServer(");
-        assertGuardBefore(hub, "craftRecipe", "creatorItemCraft", "forgeServer(");
+        assertGuardBefore(hub, "completeCraft", "creatorItemCraft", "forgeServer(");
         assertGuardBefore(hub, "craftHollowGateKeyWithDungeonKeys", "creatorItemCraft", "forgeHollowGateKeyServer(");
         assertGuardBefore(hub, "craftHollowGateKeyWithFateShards", "creatorItemCraft", "forgeHollowGateKeyServer(");
         assertGuardBefore(hub, "forgeRelicFromFragments", "creatorItemCraft", "forgeServer(");

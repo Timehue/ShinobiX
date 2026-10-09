@@ -373,7 +373,7 @@ export function HunterBoard({
                 statusLabel="Daily hunt rewards"
                 statusValue={`${dailyHuntsCompleted(character)} / ${huntCap}`}
                 subtitle="Read the trail, prepare the right loadout, and turn dangerous quarry into guild standing."
-                title="Hunter Guild"
+                title="Hunting"
                 tone="azure"
             />
             {!hasDailyHuntSlot(character) && <p role="status">Rewards reset at midnight UTC. You can still accept and track eligible contracts.</p>}

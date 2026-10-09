@@ -51,6 +51,8 @@ export type OnlinePlayer = {
     worldPosition?: WorldPosition;
     /** Monotonic server sequence for within-sector movement deltas. */
     movementSeq?: number;
+    /** Invalidates gathering even if a battle ends or a traveler returns before Resolve. */
+    resourceEpoch?: number;
     /** Boot snapshots may render a roster, but cannot authorize gameplay until
      * the first ingress rehydrates position from the durable save/lease. */
     locationUnverified?: boolean;
