@@ -108,6 +108,16 @@ export function contestVillageUnfed(
     return list.length === 0 || list.includes(village);
 }
 
+/** Whether EITHER side of this contest marches hungry today: the Fed/Unfed chip.
+ *  Day-scoped like contestVillageUnfed. The chip read the raw `fed: false`, so
+ *  yesterday's verdict stayed on screen through a day the pass never ran. */
+export function contestUnfedToday(
+    c: Pick<SectorWarContest, "fed" | "storesDate">,
+    today: string = storesUtcDay(),
+): boolean {
+    return !!today && c.storesDate === today && c.fed === false;
+}
+
 /** Thrown by the action wrappers. `message` is the PLAYER-FACING sentence: the
  *  endpoints send a humanised `message` beside the machine `error` code (see
  *  api/village/war-structure.ts structureUpgradeErrorMessage), and it wins — a

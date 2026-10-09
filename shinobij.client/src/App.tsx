@@ -1059,9 +1059,9 @@ export default function App() {
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
     useWarRewardClaims(gameplayMutationsOpen ? character : null, setCharacter, commitVersionedCharacter, worldStateVersion, clanWarStateVersion);
-    // Daily village tax — a ryo sink that scales with how much ground your village
-    // has LOST. Server-idempotent per UTC day; the debit must be adopted here
-    // because ryo is client-owned in the save ledger.
+    // Daily village tax — a ryo sink on territory your village holds BEYOND its
+    // eight home sectors. Server-idempotent per UTC day; the debit must be adopted
+    // here because ryo is client-owned in the save ledger.
     useVillageTax(gameplayMutationsOpen ? character : null, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so

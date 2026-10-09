@@ -50,7 +50,8 @@ export const TAX_CATCHUP_DAYS_MAX = 3;
 export const TAX_BURN_SHARE = 0.5;        // 50% burned, 50% to the village treasury
 export const TAX_MIN_RANK_LEVEL = 15;     // Academy Students (level < 15) are exempt
 
-// Home sectors per village (the tax-tier / income ceiling). 0..8.
+// Home sectors per village: the untaxed allowance. Only territory held beyond
+// it creates the occupation tax (taxRateForSectors); WR income is not capped by it.
 export const MAX_HOME_SECTORS = 8;
 
 function clampNonNegInt(n: number): number {

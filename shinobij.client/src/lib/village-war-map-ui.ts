@@ -122,6 +122,18 @@ export function garrisonFeedButtonTitle(side: GarrisonFeedSide, rationsPerDay: n
     return `Spend ${rationsPerDay} rations a day from the Town Hall stores to feed this sector's garrison fight. While it is covered, ${effect}. Kage or ANBU only.`;
 }
 
+// ── E19: the two sector-war buttons that cannot be taken back ───────────────
+
+/** The confirm before declaring: the War Resources are spent at once. */
+export function sectorWarDeclareConfirmText(sector: number, defender: string, costLabel: string): string {
+    return `Declare a 72-hour war on Sector ${sector}, held by ${defender}? Your village pays now (${costLabel}), and nothing is refunded if you concede.`;
+}
+
+/** The confirm before conceding: the defender holds and nothing comes back. */
+export function sectorWarConcedeConfirmText(sector: number, defender: string): string {
+    return `Concede the war for Sector ${sector}? ${defender} holds it whatever the score, the War Resources you spent are not refunded, both sides' intel on it is burned, and you cannot declare on it again for 24 hours.`;
+}
+
 /** The always-visible Provisions one-liner under the resources stat row (C2). */
 export function provisionsMeaningLine(garrisonRationsPerDay: number): string {
     return `Provisions feed your sieges — ${WAR_RATIONS_PER_DAY} rations a day per war, ${garrisonRationsPerDay} for a fed garrison. Cook at the Noodle Den, donate at the Town Hall.`;
