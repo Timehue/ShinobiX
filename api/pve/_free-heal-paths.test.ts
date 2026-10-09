@@ -23,7 +23,9 @@ import {
  *   - Modes that settle HP under their own receipt (Endless, the Weekly Boss,
  *     sealed AI fights, the caravan ambush, a story boss win, a Hollow Gate dive
  *     fight) could have it written AGAIN by the generic path from the same
- *     session, later, after the player had lost HP elsewhere.
+ *     session, later, after the player had lost HP elsewhere. (A story boss
+ *     win now shares the generic receipt instead of being deferred; see
+ *     _delayed-settlement-paths.test.ts.)
  * The handler-level journeys are in _free-heal-journeys.test.ts.
  */
 
@@ -110,11 +112,26 @@ describe('a Tower run seats its squad at full HP, so settling it never raises HP
 });
 
 describe('the generic path leaves alone the fights their own mode settles', () => {
-    it('defers a WON story boss to the story settlement, as it does the Academy spar', async () => {
-        const won = soloSession({ encounter: { kind: 'story-boss', id: 'boss' }, winner: 'player', outcome: 'win', player: fighter('Alice', 60) });
+    it('defers a WON Academy spar to the spar settlement, which grants a scripted HP', async () => {
+        const won = soloSession({ encounter: { kind: 'academy-spar', id: 'dummy' }, winner: 'player', outcome: 'win', player: fighter('Alice', 60) });
         const deferred = await settlePveFightOutcome(won, 'alice', untouchedStorage);
         assert.equal(deferred.ok, true);
-        if (deferred.ok) assert.equal(deferred.deferredToSettlement, true, 'the story settle writes the HP plus its +25');
+        if (deferred.ok) assert.equal(deferred.deferredToSettlement, true);
+    });
+
+    it('writes a WON story boss\'s fight HP once; the story settle adds its +25 on top (api/story/settle.ts)', async () => {
+        const won = soloSession({ encounter: { kind: 'story-boss', id: 'boss' }, winner: 'player', outcome: 'win', player: fighter('Alice', 60) });
+        let written = null as Record<string, unknown> | null;
+        const mutateSave: typeof mutatePlayerSave = async (_name, mutate) => {
+            const character = { name: 'alice', hp: 90, maxHp: 100 };
+            const decision = await mutate({ playerName: 'alice', saveKey: 'save:alice', record: { character, _saveVersion: 1 }, character });
+            if (!decision.ok) return decision;
+            written = decision.character;
+            return { ok: true, value: decision.value, record: { character: decision.character, _saveVersion: 2 }, character: decision.character, _saveVersion: 2 };
+        };
+        const settled = await settlePveFightOutcome(won, 'alice', { readLegacyReceipt: async () => null, writeLegacyReceipt: async () => undefined, mutateSave });
+        assert.equal(settled.ok && settled.applied, true);
+        assert.equal(written!.hp, 60, 'the HP the fight left, and its receipt, so the story settle does not write it again');
     });
 
     it('still settles a LOST story boss, which its settlement refuses', async () => {

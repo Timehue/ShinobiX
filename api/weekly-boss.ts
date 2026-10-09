@@ -23,6 +23,7 @@ import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from './solo-pve
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
 import { applyPveOutcomeBodyOnce, markPveOutcomeSettled, readPveOutcomeMarker } from './pve/_fight-outcome-settlement.js';
+import { settleHeldFights } from './pve/_held-fights.js';
 import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from './_tower-battle-guard.js';
 import {
@@ -1017,6 +1018,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             error: 'No matching interrupted Weekly Boss fight is available.',
                             code: 'weekly-boss-recovery-not-found',
                         } };
+                    }
+
+                    // A NEW attempt settles every other fight this player is
+                    // holding before it is sealed from the save
+                    // (api/pve/_held-fights.ts). Reconnecting to the run already
+                    // sealed (below) does not.
+                    if (!run || !session) {
+                        const held = await settleHeldFights(actorName);
+                        if (!held.ok) return { status: 409 as const, body: { error: held.error, errorCode: held.reason } };
                     }
 
                     // Validate and seed the fight against the save with its idle
