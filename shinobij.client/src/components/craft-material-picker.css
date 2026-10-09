@@ -1,0 +1,39 @@
+.ui-modal-card.craft-material-picker {
+    width: min(620px, calc(100vw - 24px));
+    background: var(--slate-900);
+    border: 1px solid var(--gold);
+    border-radius: 12px;
+    color: var(--text);
+    box-shadow: 0 24px 70px #000b;
+    max-height: calc(100dvh - (var(--dialog-viewport-margin) * 2));
+}
+.craft-material-picker form { display: flex; flex-direction: column; max-height: calc(100dvh - (var(--dialog-viewport-margin) * 2) - 2px); }
+.craft-material-picker header, .craft-material-picker footer, .craft-picker-intro { flex-shrink: 0; }
+.craft-material-picker header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; border-bottom: 1px solid #d8a13a40; }
+.craft-material-picker header small { color: var(--gold); font-size: .68rem; letter-spacing: .12em; }
+.craft-material-picker h2 { margin: 5px 0 0; font-size: 1.3rem; }
+.craft-material-picker header button { min-width: 44px; min-height: 44px; font-size: 1.4rem; }
+.craft-picker-intro { margin: 0; padding: 14px 20px 0; color: var(--text-dim); font-size: .85rem; }
+.craft-picker-groups { padding: 16px 20px; overflow-y: auto; min-height: 0; }
+.craft-material-picker fieldset { margin: 0 0 14px; padding: 12px; border: 1px solid #94a3b838; border-radius: 8px; min-width: 0; }
+.craft-material-picker legend { padding: 0 6px; color: var(--gold); font-size: .84rem; font-weight: 700; }
+.craft-material-picker legend span { color: var(--text-dim); white-space: nowrap; margin-left: 8px; }
+.craft-picker-options { display: grid; gap: 8px; }
+.craft-picker-option { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; }
+.craft-picker-option span { display: grid; gap: 3px; min-width: 0; }
+.craft-picker-option strong { font-size: .88rem; overflow-wrap: anywhere; }
+.craft-picker-option small { color: var(--text-dim); font-size: .76rem; }
+.craft-picker-option input { width: 80px; min-height: 44px; flex: none; padding: 8px; color: var(--text); background: var(--slate-800); border: 1px solid #94a3b85c; border-radius: 6px; font: inherit; }
+.craft-material-picker input:focus-visible, .craft-material-picker button:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; }
+.craft-material-picker footer { padding: 12px 20px 20px; border-top: 1px solid #d8a13a40; }
+.craft-picker-summary { margin: 0 0 12px; color: var(--gold); font-size: .82rem; }
+.craft-picker-hint, .craft-picker-error { margin: 0 0 12px; font-size: .8rem; color: var(--text-dim); }
+.craft-picker-error { color: #fca5a5; }
+.craft-picker-actions { display: flex; gap: 10px; }
+.craft-picker-actions button { flex: 1; min-height: 44px; }
+.craft-picker-confirm { border-color: var(--gold); color: var(--gold-300); }
+@media (max-width: 480px) {
+    .craft-material-picker header, .craft-material-picker footer { padding: 14px; }
+    .craft-picker-intro { padding: 12px 14px 0; }
+    .craft-picker-groups { padding: 12px 14px; }
+}

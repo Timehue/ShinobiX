@@ -793,3 +793,14 @@ test('a sleeper waking during a click never changes Strike Down into Attack',asy
     await page.getByRole('button',{name:'Attack SleepingNinja'}).click();
     expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual(['attack:SleepingNinja','reconciled:SleepingNinja']);
 });
+
+test('Explore clearly uses the shared fishing and mining allowance at the daily cap', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/e2e/fixtures/sector-hud.html?capped');
+    const explore = page.getByRole('button', { name: 'Explore', exact: true });
+    await expect(explore).toBeDisabled();
+    await expect(explore).toContainText('Shared 100/100');
+    await expect(explore).toHaveAttribute('aria-description', /Explore, fishing and mining: 100\/100 shared daily actions/);
+    await page.getByRole('button', { name: 'Sector Info · Claim ready', exact: true }).click();
+    await expect(page.getByText(/Explore, fishing and mining: 100\/100 shared daily actions/)).toBeVisible();
+});

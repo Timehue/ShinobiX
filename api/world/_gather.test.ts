@@ -9,6 +9,8 @@ import { applyCookRecipe, COOK_RECIPES } from '../player/_cafeteria.js';
 import { storesDonationRouting, DAILY_RATION_COOK_CAP } from '../_village-stores.js';
 import { routeStoresDonation } from '../_treasury-stores-donate.js';
 import { applyTreasuryDonation } from '../_treasury-donate.js';
+import { gearCraftIngredients } from '../../shared/crafting-recipes.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 
 for (const level of [1, 49, 50, 100]) for (const chest of [true, false]) test(`exact overall rates and boundaries: level ${level}, chests ${chest}`, () => {
     const r = sectorExplorePostChestRates(level, chest);
@@ -66,8 +68,9 @@ test('gather credits only a tile and obeys the normal daily limit', () => {
 });
 function stocked(id:string, quantity=1) {
     return {level:65,ryo:10000,inventory:[],itemStacks:[
-        {itemId:'hunt-beast-meat',count:140*quantity},
-        ...Object.entries(GATHER_RECIPE_INGREDIENTS[id]).map(([itemId,count])=>({itemId,count:count*quantity})),
+        ...(id.includes('supply')
+            ? Object.entries(GATHER_RECIPE_INGREDIENTS[id]).map(([itemId,count])=>({itemId,count:count*quantity}))
+            : gearCraftIngredients(ITEM_CATALOG[id]).map(ingredient=>({itemId:ingredient.ids[0],count:ingredient.count*quantity}))),
     ]};
 }
 for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade','embercoil-scythe','tempest-fang-blade']) test(`legendary ${id}: exact costs, quantities and level 65`,()=>{
@@ -75,25 +78,25 @@ for(const id of ['elderbranch-katana','black-lotus-dagger','frostfang-oathblade'
         const original=stocked(id,q);const before=structuredClone(original);
         const result=applyForge(original,'weapon',id,q)!;assert.ok(result);
         assert.equal(result.ryo,10000-3500*q);assert.equal(craftPointTotal(result),0);assert.equal(countOwned(result,id),q);
-        for(const material of Object.keys(GATHER_RECIPE_INGREDIENTS[id]))assert.equal(countOwned(result,material),0);
+        for(const {itemId} of original.itemStacks)assert.equal(countOwned(result,itemId),0);
         assert.deepEqual(original,before);assert.equal(applyForge({...original,level:64},'weapon',id,q),null);
-        for(const material of Object.keys(GATHER_RECIPE_INGREDIENTS[id])){
+        for(const {itemId:material} of original.itemStacks){
             const short={...original,itemStacks:original.itemStacks.map(s=>s.itemId===material?{...s,count:s.count-1}:s)};
             assert.equal(applyForge(short,'weapon',id,q),null);assert.deepEqual(original,before);
         }
     }
 });
-test('shuriken keeps 15 points for three, exact iron sand, no ryo charge and 50 carry cap',()=>{
-    const original={level:65,ryo:0,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:4}]};
+test('shuriken uses exact iron sand, preserves food, has no ryo charge and keeps the 50 carry cap',()=>{
+    const original={level:65,ryo:0,itemStacks:[{itemId:'hunt-beast-meat',count:6},{itemId:'gather-iron-sand',count:12},{itemId:'gather-heartwood-bark',count:2},{itemId:'gather-binding-fiber',count:4}]};
     const result=applyForge(original,'supply','thrown-shuriken',2)!;
-    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(craftPointTotal(result),0);assert.equal(result.ryo,0);
+    assert.equal(countOwned(result,'thrown-shuriken'),6);assert.equal(countOwned(result,'hunt-beast-meat'),6);assert.equal(result.ryo,0);
     assert.equal(applyForge({...original,inventory:Array(48).fill('thrown-shuriken')},'supply','thrown-shuriken',1),null);
     for(const id of [...COMMON_GATHER_IDS,...Object.values(BIOME_GATHER_IDS)])assert.equal(CRAFT_POINTS[id],undefined);
 });
 test('rations require herbs atomically and retain the 40/day cooking cap',()=>{
     assert.equal(DAILY_RATION_COOK_CAP,40);
     for(const recipe of Object.values(COOK_RECIPES)){
-        const base={ryo:recipe.ryo,inventory:[recipe.materials[0]],itemStacks:[{itemId:'gather-field-herb',count:recipe.herbs}]};
+        const base={ryo:recipe.ryo,inventory:Array(recipe.materialCount ?? 1).fill(recipe.materials[0]) as string[],itemStacks:[{itemId:'gather-field-herb',count:recipe.herbs},{itemId:'gather-heartwood-bark',count:recipe.fuel}]};
         const before=structuredClone(base);const result=applyCookRecipe(base,recipe);
         assert.equal(result.ok,true);if(result.ok){assert.equal(countOwned(result.character,'ration-pack'),recipe.rations);assert.equal(countOwned(result.character,'gather-field-herb'),0);}
         assert.equal(applyCookRecipe({...base,itemStacks:[]},recipe).ok,false);assert.deepEqual(base,before);

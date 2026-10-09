@@ -1,4 +1,7 @@
 import type { Character } from "../types/character";
+import { COOK_RECIPES as SHARED_COOK_RECIPES, type CookRecipeId, type CookRecipe } from '../../../shared/cooking-recipes';
+import { RESOURCE_ITEMS } from '../../../shared/resource-items';
+import { pendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
 
 export type CafeteriaMealId = "small-ramen" | "shinobi-meal" | "feast";
 
@@ -32,57 +35,44 @@ export type CafeteriaMealResult = {
 };
 
 // ── Village Stores: COOK recipes (rations) ─────────────────────────────────
-// Hunt materials + ryo → ration-pack stacks the player donates at the Town
-// Hall (→ treasury.provisions). Display mirror of api/player/_cafeteria.ts
-// COOK_RECIPES + the 40/day cap — KEEP IN SYNC; the server is authoritative.
+// Shared food, herb and fuel requirements produce ration packs for journeys
+// and Village Stores. The server owns debits and the 40-ration daily cap.
 
-export type CookRecipeId = "field-rations" | "campaign-rations";
-export type CookRecipe = {
-    id: CookRecipeId;
-    name: string;
-    ryo: number;
-    /** Any ONE of these is consumed (first owned wins). */
-    materials: string[];
-    rations: number;
-    herbs: number;
-};
-export const COOK_RECIPES: CookRecipe[] = [
-    { id: "field-rations", name: "Field Rations", ryo: 30, materials: ["hunt-beast-meat"], rations: 5, herbs: 1 },
-    { id: "campaign-rations", name: "Campaign Rations", ryo: 80, materials: ["hunt-frost-pelt", "hunt-ash-scale"], rations: 20, herbs: 2 },
-];
+export type { CookRecipeId, CookRecipe };
+export const COOK_RECIPES = SHARED_COOK_RECIPES;
 export const DAILY_RATION_COOK_CAP = 40;
 export const RATION_ITEM_ID = "ration-pack";
 export const COOK_MATERIAL_NAMES: Record<string, string> = {
+    ...Object.fromEntries(RESOURCE_ITEMS.filter(item => item.activity === 'fishing').map(item => [item.id, item.name])),
     "gather-field-herb": "Field Herb",
+    "gather-heartwood-bark": "Heartwood Bark (fuel)",
     "hunt-beast-meat": "Beast Meat",
-    "hunt-frost-pelt": "Frost Pelt",
-    "hunt-ash-scale": "Ash Scale",
 };
 /** Every material any recipe can consume, in recipe order, de-duplicated. */
-export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => [...r.materials, 'gather-field-herb'])));
+export const COOK_MATERIAL_IDS: string[] = Array.from(new Set(COOK_RECIPES.flatMap((r) => [...r.materials, 'gather-field-herb', 'gather-heartwood-bark'])));
 
 /** The display name for a cook material — never the raw item id. */
 export function cookMaterialName(itemId: string): string {
     return COOK_MATERIAL_NAMES[itemId] ?? itemId;
 }
 
-/** "Frost Pelt or Ash Scale" — a recipe's inputs, in words. */
+/** A recipe's edible inputs, in words. */
 export function cookMaterialChoiceName(recipe: CookRecipe): string {
     return recipe.materials.map(cookMaterialName).join(" or ");
 }
 
 /** Rations read as days of food, so the recipe line is voice and not a
  *  formula. Beyond the two shipped recipes it falls back to the numeral. */
-const RATION_DAYS_IN_WORDS: Record<number, string> = { 5: "five", 10: "ten", 15: "fifteen", 20: "twenty", 30: "thirty", 40: "forty" };
-const RECIPE_FOOD_NAME: Record<CookRecipeId, string> = {
+const RATION_DAYS_IN_WORDS: Record<number, string> = { 5: "five", 10: "ten", 15: "fifteen", 20: "twenty" };
+const RECIPE_FOOD_NAME: Partial<Record<CookRecipeId, string>> = {
     "field-rations": "field rations",
     "campaign-rations": "siege rations",
 };
 
-/** "Beast Meat and 30 ryo — five days of field rations." */
+/** Food, seasoning, cooking fuel and ryo, followed by the ration yield. */
 export function cookRecipeLine(recipe: CookRecipe): string {
     const days = RATION_DAYS_IN_WORDS[recipe.rations] ?? String(recipe.rations);
-    return `${cookMaterialChoiceName(recipe)}, ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'} and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
+    return `${recipe.materialCount ? `${recipe.materialCount} ` : ''}${cookMaterialChoiceName(recipe)}, ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}, ${recipe.fuel} Heartwood Bark for fuel and ${recipe.ryo} ryo — ${days} days of ${RECIPE_FOOD_NAME[recipe.id] ?? "rations"}.`;
 }
 
 type OwnedShape = { inventory?: string[]; itemStacks?: { itemId: string; count: number }[] };
@@ -122,9 +112,10 @@ export function cookRecipeGate(character: OwnedShape & { ryo?: number }, recipe:
     const cooked = rationsCookedToday(character, now);
     if (cooked + recipe.rations > DAILY_RATION_COOK_CAP) return { ok: false, reason: `Daily limit: ${cooked}/${DAILY_RATION_COOK_CAP} rations cooked today` };
     if (Math.floor(Number(character.ryo) || 0) < recipe.ryo) return { ok: false, reason: `Not enough ryo (${recipe.ryo} needed)` };
-    const material = recipe.materials.find((m) => countOwnedItem(character, m) > 0);
-    if (!material) return { ok: false, reason: `Needs 1 ${cookMaterialChoiceName(recipe)}` };
+    const material = recipe.materials.find((m) => countOwnedItem(character, m) >= (recipe.materialCount ?? 1));
+    if (!material) return { ok: false, reason: `Needs ${recipe.materialCount ?? 1} ${cookMaterialChoiceName(recipe)}` };
     if (countOwnedItem(character, 'gather-field-herb') < recipe.herbs) return { ok: false, reason: `Needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'} (have ${countOwnedItem(character, 'gather-field-herb')})` };
+    if (countOwnedItem(character, 'gather-heartwood-bark') < recipe.fuel) return { ok: false, reason: `Needs ${recipe.fuel} Heartwood Bark for cooking fuel (have ${countOwnedItem(character, 'gather-heartwood-bark')})` };
     return { ok: true, material };
 }
 
@@ -140,13 +131,15 @@ export type CookRationsResult = {
 };
 
 export async function cookRations(playerName: string, recipeId: CookRecipeId): Promise<CookRationsResult> {
+    const intent = pendingEconomyIntent('cook-rations', [playerName, recipeId]);
     try {
         const res = await fetch("/api/player/cafeteria", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ playerName, recipeId }),
+            body: JSON.stringify({ playerName, recipeId, requestId: intent.requestId }),
         });
         const data = await res.json().catch(() => ({})) as CookRationsResult;
+        if (economyIntentSettled(res.status, data)) intent.complete();
         if (!res.ok || !data.ok) return { ...data, ok: false, error: data.error || "The kitchen is too busy right now." };
         return { ...data, ok: true };
     } catch {

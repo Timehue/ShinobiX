@@ -36,7 +36,8 @@ describe('solo-PvE published content compatibility', () => {
         // 202 to 203: the Village Transfer Scroll, beside the existing profession scroll.
         // 203 to 313: 110 gear step drops (shared/gear-steps.ts), weapon and armor
         // half point upgrades that only change EP or damage reduction.
-        assert.equal(items.length, 313, 'update the compatibility report when the generated catalog changes');
+        // 313 to 333: four gathering tools, four fish grades and twelve graded minerals.
+        assert.equal(items.length, 333, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

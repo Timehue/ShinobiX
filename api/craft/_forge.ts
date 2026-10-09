@@ -1,16 +1,13 @@
-import { GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS, isVillageSupplyGood } from '../../shared/gathering.js';
+import { VILLAGE_SUPPLY_GOODS, isVillageSupplyGood } from '../../shared/gathering.js';
 import { villageStoresEnabled } from '../_release-flags.js';
 import { ITEM_CATALOG, type CatalogItem } from '../pvp/_item-catalog.js';
-import { HUNTER_RANK_REQUIREMENTS } from '../hunter/_rank-up.js';
 import { effectiveItemLevelReq } from '../../shared/item-level-gate.js';
 import { isStepItemId } from '../../shared/gear-steps.js';
 import { withGearTierUnlock } from '../_gear-drops.js';
+import { SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, planSelectedCraftIngredients, type CraftIngredient } from '../../shared/crafting-recipes.js';
 
-// Materials the Hunter Guild consumes to rank up. Derived from the rank-up table
-// so it can NEVER drift when those turn-ins change. consumeCraftPoints spares these
-// until last, so crafting a supply doesn't silently cannibalize rank-up progress.
-const RANK_UP_PROTECTED = new Set<string>(HUNTER_RANK_REQUIREMENTS.map((r) => r.itemId));
-
+// Legacy material-point valuations remain the Village Stores donation contract.
+// The Crafter now consumes the exact ingredients in shared/crafting-recipes.ts.
 export const CRAFT_POINTS: Record<string, number> = {
     'hunt-torn-hide': 3, 'hunt-wild-feather': 3, 'hunt-small-fang': 3, 'hunt-cracked-horn': 3,
     'hunt-beast-meat': 5, 'hunt-frost-pelt': 8, 'hunt-shadow-claw': 8, 'hunt-wolf-fang': 10,
@@ -19,27 +16,7 @@ export const CRAFT_POINTS: Record<string, number> = {
     'weekly-boss-core': 150, 'dungeon-legendary-relic': 200, 'warforged-relic': 250, 'veil-of-the-hollow': 250,
 };
 
-const SUPPLY_RECIPES: Record<string, { points: number; count?: number; currency?: 'auraDust' | 'boneCharms'; amount?: number; levelReq?: number }> = {
-    'village-supply-bundle': { points: 0 }, 'village-supply-crate': { points: 0 },
-    'pet-treat': { points: 50 }, 'elemental-pet-treat': { points: 100 },
-    'beast-seal-master': { points: 450, levelReq: 30 },
-    'currency:aura-dust': { points: 50, currency: 'auraDust', amount: 50 },
-    'currency:bone-charm': { points: 1000, currency: 'boneCharms', amount: 1 },
-    'thrown-shuriken': { points: 15, count: 3 }, 'thrown-senbon': { points: 30 },
-    'thrown-serpent-dust': { points: 40 }, 'item-smoke-bomb': { points: 25 },
-    'item-attack-pill': { points: 20 }, 'item-defense-pill': { points: 20 },
-    'potion-rejuvenation': { points: 250 },
-    'pve-hunters-bond-harness': { points: 280 }, 'pve-loyal-companion-bell': { points: 280 },
-    'pve-frenzy-claw': { points: 350 }, 'pve-guardians-blessing': { points: 350 },
-    'pve-sanguine-charm': { points: 350 }, 'pve-predators-fang': { points: 420 },
-    'pve-avengers-pendant': { points: 420 }, 'pve-bloodbond-totem': { points: 420 },
-    'pve-pack-alpha-crest': { points: 490 }, 'pve-apex-predator-fang': { points: 490 },
-    'consum-phantom-charm': { points: 170 }, 'consum-smoke-pellet': { points: 170 },
-    'consum-cleansing-incense': { points: 200 }, 'consum-thornmail-oil': { points: 220 },
-    'consum-lifeline-elixir': { points: 250 }, 'consum-second-wind': { points: 280 },
-};
-
-const STACKABLE_OUTPUTS = new Set([...Object.keys(SUPPLY_RECIPES), 'dungeon-legendary-relic']);
+const STACKABLE_OUTPUTS = new Set([...Object.keys(SUPPLY_CRAFT_RECIPES), 'dungeon-legendary-relic']);
 const count = (v: unknown) => Math.max(0, Math.floor(Number(v) || 0));
 
 export function countOwned(character: Record<string, unknown>, itemId: string): number {
@@ -85,45 +62,23 @@ export function craftPointTotal(character: Record<string, unknown>): number {
     return Object.entries(CRAFT_POINTS).reduce((sum, [id, points]) => sum + countOwned(character, id) * points, 0);
 }
 
-export function consumeCraftPoints(character: Record<string, unknown>, pointsRaw: number): Record<string, unknown> | null {
-    const required = count(pointsRaw); if (craftPointTotal(character) < required) return null;
-    let next = character; let remaining = required;
-    // Burn NORMAL fodder cheapest-first, then dip into rank-up-designated materials
-    // only if the fodder can't cover the cost — so a routine craft never silently
-    // eats a player's Hunter rank-up stock while any other material would do.
-    const cheapestFirst = Object.entries(CRAFT_POINTS).sort((a, b) => a[1] - b[1]);
-    const ordered = [
-        ...cheapestFirst.filter(([id]) => !RANK_UP_PROTECTED.has(id)),
-        ...cheapestFirst.filter(([id]) => RANK_UP_PROTECTED.has(id)),
-    ];
-    for (const [id, points] of ordered) {
-        while (remaining > 0 && countOwned(next, id) > 0) { next = removeOwned(next, id, 1); remaining -= points; }
-    }
-    return next;
-}
-
 function ryoFor(item: CatalogItem): number { return item.rarity === 'rare' ? 600 : item.rarity === 'epic' ? 1400 : 3500; }
-function itemPoints(item: CatalogItem, armor: boolean): number {
-    if (item.rarity === 'rare') return armor ? 200 : 150;
-    if (item.rarity === 'epic') return armor ? 400 : 350;
-    return armor ? 800 : 700;
-}
-
-export function consumeGatherIngredients(character: Record<string, unknown>, recipeId: string, quantity = 1): Record<string, unknown> | null {
-    const ingredients = Object.entries(GATHER_RECIPE_INGREDIENTS[recipeId] ?? {});
-    if (ingredients.some(([id, amount]) => countOwned(character, id) < amount * quantity)) return null;
-    return ingredients.reduce((next, [id, amount]) => removeOwned(next, id, amount * quantity), character);
+export function consumeRecipeIngredients(character: Record<string, unknown>, ingredients: readonly CraftIngredient[], quantity = 1, materials?: unknown): Record<string, unknown> | null {
+    const owned = (id: string) => countOwned(character, id);
+    const plan = materials === undefined ? planCraftIngredients(ingredients, owned, quantity) : planSelectedCraftIngredients(ingredients, owned, quantity, materials);
+    return plan ? Object.entries(plan).reduce((next, [id, amount]) => removeOwned(next, id, amount), character) : null;
 }
 
 export type CraftKind = 'supply' | 'weapon' | 'armor' | 'relic';
-export function applyForge(character: Record<string, unknown>, kind: CraftKind, recipeId: string, quantityRaw: unknown) {
+export function applyForge(character: Record<string, unknown>, kind: CraftKind, recipeId: string, quantityRaw: unknown, materials?: unknown) {
     const quantity = Math.max(1, Math.min(20, count(quantityRaw) || 1));
     if (kind === 'relic') {
         if (recipeId !== 'dungeon-legendary-relic' || countOwned(character, 'dungeon-legendary-fragment') < 5) return null;
         return addOwned(removeOwned(character, 'dungeon-legendary-fragment', 5), recipeId, 1, true);
     }
     if (kind === 'supply') {
-        const recipe = SUPPLY_RECIPES[recipeId]; if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
+        const recipe = Object.hasOwn(SUPPLY_CRAFT_RECIPES, recipeId) ? SUPPLY_CRAFT_RECIPES[recipeId] : undefined;
+        if (!recipe || count(character.level) < (recipe.levelReq ?? 1)) return null;
         if (isVillageSupplyGood(recipeId) && !villageStoresEnabled()) return null;
         const ryo = (VILLAGE_SUPPLY_GOODS[recipeId]?.ryo ?? 0) * quantity;
         if (count(character.ryo) < ryo) return null;
@@ -131,8 +86,8 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
         const cap = output?.slot === 'thrown' ? 50 : output?.slot === 'potion' ? 2
             : output?.slot === 'item' && (output.weaponEffect != null || output.apCost != null || output.restoreChakra != null || output.restoreStamina != null) ? 50 : null;
         if (cap != null && countOwned(character, recipeId) + (recipe.count ?? 1) * quantity > cap) return null;
-        const exact = consumeGatherIngredients(character, recipeId, quantity); if (!exact) return null;
-        const paid = consumeCraftPoints({ ...exact, ryo: count(character.ryo) - ryo }, recipe.points * quantity); if (!paid) return null;
+        const exact = consumeRecipeIngredients(character, recipe.ingredients, quantity, materials); if (!exact) return null;
+        const paid: Record<string, unknown> = { ...exact, ryo: count(character.ryo) - ryo };
         if (recipe.currency) return { ...paid, [recipe.currency]: count(paid[recipe.currency]) + (recipe.amount ?? 0) * quantity };
         return addOwned(paid, recipeId, (recipe.count ?? 1) * quantity, true);
     }
@@ -147,7 +102,6 @@ export function applyForge(character: Record<string, unknown>, kind: CraftKind, 
     // Reading the raw field would let a player craft a tier they cannot wear.
     if (!valid || count(character.level) < effectiveItemLevelReq(item)) return null;
     const ryo = ryoFor(item) * quantity; if (count(character.ryo) < ryo) return null;
-    const exact = consumeGatherIngredients(character, recipeId, quantity); if (!exact) return null;
-    const paid = consumeCraftPoints(exact, itemPoints(item, armor) * quantity); if (!paid) return null;
+    const paid = consumeRecipeIngredients(character, gearCraftIngredients(item), quantity, materials); if (!paid) return null;
     return withGearTierUnlock(addOwned({ ...paid, ryo: count(paid.ryo) - ryo }, recipeId, quantity, false), item);
 }

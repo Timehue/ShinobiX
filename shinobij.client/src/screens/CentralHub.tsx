@@ -81,7 +81,10 @@ import { commitNamedForgeServer, forgeServer, rollNamedForgeServer } from "../li
 import { forgeHollowGateKeyServer } from "../lib/hollow-gate-forge-api";
 import { gameToast } from "../components/GameToast";
 import { effectiveItemLevelReq } from "../../../shared/item-level-gate";
-import { GATHER_NAMES, GATHER_RECIPE_INGREDIENTS, VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
+import { VILLAGE_SUPPLY_GOODS } from "../../../shared/gathering-materials";
+import { namedForgeOreCount } from '../../../shared/resource-forging';
+import { CRAFT_MATERIAL_NAMES, SUPPLY_CRAFT_RECIPES, gearCraftIngredients, planCraftIngredients, craftIngredientProgress, type CraftMaterialSelection } from '../../../shared/crafting-recipes';
+import { CraftMaterialPicker, type CraftPickerRecipe } from '../components/CraftMaterialPicker';
 import { Modal } from "../components/ui/Modal";
 import { NamedForgeRevealModal, type NamedForgeAnimation } from "../components/NamedForgeRevealModal";
 import {
@@ -108,8 +111,7 @@ const WEEKLY_BOSS_ART: Record<string, string> = {
 };
 
 // Fantasy glyph per craft material — gives the forge's material list real
-// imagery instead of plain rows. Tiered by point value (see craftTier) for
-// the chip's accent colour, so rarer mats read as more valuable at a glance.
+// imagery instead of plain rows, with the catalog rarity as its accent colour.
 const MATERIAL_ICON: Record<string, IconType> = {
     "hunt-torn-hide": GiAnimalHide,
     "hunt-wild-feather": GiFeather,
@@ -144,15 +146,6 @@ const BLOODLINE_AWAKENING_TIERS = [
     { rank: "A Rank", rankMark: "A", className: "rank-a", materialKey: "auraStones", materialName: "Aura Stones", currencyIcon: "crystal", artwork: "/assets/awakening-aura-altar-v1.webp" },
     { rank: "S Rank", rankMark: "S", className: "rank-s", materialKey: "mythicSeals", materialName: "Mythic Seals", currencyIcon: "sigil", artwork: "/assets/awakening-mythic-altar-v1.webp" },
 ] as const;
-
-// Material rarity band from its craft-point value → chip accent colour.
-function craftTier(pts: number): "common" | "uncommon" | "rare" | "epic" | "legendary" {
-    if (pts <= 5) return "common";
-    if (pts <= 10) return "uncommon";
-    if (pts <= 25) return "rare";
-    if (pts <= 50) return "epic";
-    return "legendary";
-}
 
 export function CentralHub({
     character,
@@ -218,10 +211,19 @@ export function CentralHub({
     useActivitySectionRequests("centralHub.initialPanel", ["crafter"], () => setShowCrafter(true));
     const [crafterTab, setCrafterTab] = useState<"supplies" | "weapons" | "armor">("supplies");
     // Batch-craft size for the Supplies tab — craft up to this many per click,
-    // with the material (craft-point) cost scaled by the same factor.
+    // with every listed ingredient scaled by the same factor.
     const [craftQty, setCraftQty] = useState(1);
     const [elementalCoreBusy, setElementalCoreBusy] = useState(false);
     const [craftBusy, setCraftBusy] = useState(false);
+    const [pendingCraft, setPendingCraft] = useState<(CraftPickerRecipe & { opener: HTMLElement }) | null>(null);
+    const pendingCraftRef = useRef<typeof pendingCraft>(null);
+    useEffect(() => { pendingCraftRef.current = pendingCraft; }, [pendingCraft]);
+    const craftOwnerRef = useRef({ name: character.name, active: true });
+    useEffect(() => {
+        const owner = { name: character.name, active: true };
+        craftOwnerRef.current = owner;
+        return () => { owner.active = false; };
+    }, [character.name]);
     const [awakeningBusy, setAwakeningBusy] = useState(false);
     const [bloodlineForgeBusy, setBloodlineForgeBusy] = useState(false);
     const [bloodlineCinematic, setBloodlineCinematic] = useState<{
@@ -326,6 +328,7 @@ export function CentralHub({
     }, [namedForgeAnimation]);
 
     async function rollNamedWeapon() {
+        if (countItem(character, 'gather-iron-sand-pristine') < namedForgeOreCount('weapon')) return alert(`Need ${namedForgeOreCount('weapon')} Pristine Iron Sand for a named weapon.`);
         if (namedForgeLocked) return alert(namedForgeLockMessage);
         if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
@@ -414,6 +417,7 @@ export function CentralHub({
     ];
 
     async function rollNamedArmor() {
+        if (countItem(character, 'gather-iron-sand-pristine') < namedForgeOreCount('armor')) return alert(`Need ${namedForgeOreCount('armor')} Pristine Iron Sand for named armor.`);
         if (namedForgeLocked) return alert(namedForgeLockMessage);
         if (!namedForgePaymentReady) return alert(namedForgePaymentError);
         if (!beginNamedForge()) return;
@@ -565,106 +569,51 @@ export function CentralHub({
     // despawn (top 10 → core, top 25 → key, all contributors → ryo/xp
     // share with MVP 2× bonus). No client-side claim handler is needed.
 
-    // ── Unified craft-points pool ────────────────────────────────────────
-    // Every craftable material — hunt drops AND boss/dungeon/war relics —
-    // converts to points. All three Crafter tabs (Supplies, Weapons, Armor)
-    // draw from this single pool: any material is accepted until a recipe's
-    // point cost is filled. Consumption is cheapest-first, so high-value
-    // relics are preserved until a craft is expensive enough to need them.
-    const CRAFT_POINTS: Record<string, number> = {
-        "hunt-torn-hide": 3,
-        "hunt-wild-feather": 3,
-        "hunt-small-fang": 3,
-        "hunt-cracked-horn": 3,
-        "hunt-beast-meat": 5,
-        "hunt-frost-pelt": 8,
-        "hunt-shadow-claw": 8,
-        "hunt-wolf-fang": 10,
-        "hunt-ash-scale": 15,
-        "hunt-ember-scale": 20,
-        "hunt-shadow-pelt": 25,
-        "hunt-ancient-beast-core": 30,
-        "hunt-titan-bone": 30,
-        "hunt-legendary-material": 50,
-        [WEEKLY_BOSS_CORE_ID]: 150,
-        [DUNGEON_LEGENDARY_RELIC_ID]: 200,
-        [WARFORGED_RELIC_ID]: 250,
-        [VEIL_OF_THE_HOLLOW_ID]: 250,
-    };
-    const CRAFT_MATERIAL_NAMES: Record<string, string> = {
-        "hunt-torn-hide": "Torn Hide",
-        "hunt-wild-feather": "Wild Feather",
-        "hunt-small-fang": "Small Fang",
-        "hunt-cracked-horn": "Cracked Horn",
-        "hunt-beast-meat": "Beast Meat",
-        "hunt-frost-pelt": "Frost Pelt",
-        "hunt-shadow-claw": "Shadow Claw",
-        "hunt-wolf-fang": "Wolf Fang",
-        "hunt-ash-scale": "Ash Scale",
-        "hunt-ember-scale": "Ember Scale",
-        "hunt-shadow-pelt": "Shadow Pelt",
-        "hunt-ancient-beast-core": "Ancient Beast Core",
-        "hunt-titan-bone": "Titan Bone",
-        "hunt-legendary-material": "Legendary Material",
-        [WEEKLY_BOSS_CORE_ID]: "Weekly Boss Core",
-        [DUNGEON_LEGENDARY_RELIC_ID]: "Dungeon Legendary Relic",
-        [WARFORGED_RELIC_ID]: "Warforged Relic",
-        [VEIL_OF_THE_HOLLOW_ID]: "Veil of the Hollow",
-    };
-
-    function craftPointsTotal(): number {
-        return Object.entries(CRAFT_POINTS).reduce((sum, [id, pts]) => {
-            return sum + countItem(character, id) * pts;
-        }, 0);
-    }
-
-    // Points-based weapon/armor crafting — both tabs draw from the unified
-    // pool above, just like Supplies. Armor sits one tier above the
-    // equivalent weapon rarity (hence the higher point cost). Ryo stays as
-    // a secondary sink, scaled by rarity and shared across both crafts.
+    // All workshop tabs use the server's material-specific recipe definitions.
     function craftRyoForRarity(rarity: string): number {
         if (rarity === "rare") return 600;
         if (rarity === "epic") return 1400;
         return 3500; // legendary
     }
-    function weaponCraftPoints(item: GameItem): number {
-        if (item.rarity === "rare") return 150;
-        if (item.rarity === "epic") return 350;
-        return 700; // legendary
-    }
-    function armorCraftPoints(item: GameItem): number {
-        if (item.rarity === "rare") return 200;
-        if (item.rarity === "epic") return 400;
-        return 800; // legendary
+    function recipeIngredients(id: string) {
+        const supply = SUPPLY_CRAFT_RECIPES[id];
+        if (supply) return supply.ingredients;
+        const item = allHubItems.find(item => item.id === id);
+        return item ? gearCraftIngredients(item) : [];
     }
 
     function gatheredIngredientsReady(id: string, quantity = 1): boolean {
-        return Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).every(([material, amount]) => countItem(character, material) >= amount * quantity)
+        return recipeIngredients(id).length > 0 && planCraftIngredients(recipeIngredients(id), material => countItem(character, material), quantity) !== null
             && character.ryo >= (VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0) * quantity;
     }
     function gatheredIngredientsLine(id: string, quantity = 1): string {
-        return Object.entries(GATHER_RECIPE_INGREDIENTS[id] ?? {}).map(([material, amount]) =>
-            `${GATHER_NAMES[material] ?? "Ration Pack"}: ${countItem(character, material)}/${amount * quantity}`).join(" · ");
+        return recipeIngredients(id).map(ingredient =>
+            `${ingredient.label}: ${ingredient.ids.reduce((total, material) => total + countItem(character, material), 0)}/${ingredient.count * quantity}`).join(" · ");
     }
-    async function craftExistingWeapon(item: GameItem) {
-        if (!requireServerSettlement("creatorItemCraft") || !beginCraft()) return;
-        try {
-            const result = await forgeServer(character.name, "weapon", item.id, 1);
-            if (!result.character) return alert(result.error || "The weapon forge failed.");
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
-            alert(`${item.name} forged and added to your inventory.`);
-        } finally {
-            endCraft();
-        }
+    function recipeProgress(id: string, quantity = 1): number {
+        return craftIngredientProgress(recipeIngredients(id), material => countItem(character, material), quantity);
     }
-
-    async function craftExistingArmor(item: GameItem) {
-        if (!requireServerSettlement("creatorItemCraft") || !beginCraft()) return;
+    function selectCraftMaterials(kind: CraftPickerRecipe['kind'], id: string, name: string, quantity: number, opener: HTMLElement) {
+        const item = allHubItems.find(entry => entry.id === id);
+        const craft = { kind, recipeId: id, name, quantity, opener, ingredients: recipeIngredients(id), image: sharedImages['item:' + id] || item?.image,
+            materialImages: Object.fromEntries(recipeIngredients(id).flatMap(group => group.ids).map(material =>
+                [material, sharedImages['item:' + material] || allHubItems.find(entry => entry.id === material)?.image || ''])),
+            output: (SUPPLY_CRAFT_RECIPES[id]?.count ?? SUPPLY_CRAFT_RECIPES[id]?.amount ?? 1) * quantity,
+            ryo: (kind === 'supply' ? VILLAGE_SUPPLY_GOODS[id]?.ryo ?? 0 : craftRyoForRarity(item?.rarity ?? 'rare')) * quantity };
+        setPendingCraft(craft);
+    }
+    async function completeCraft(materials: CraftMaterialSelection): Promise<string | undefined> {
+        if (!pendingCraft || !requireServerSettlement("creatorItemCraft") || !beginCraft()) return 'The forge is unavailable.';
+        const owner = craftOwnerRef.current;
         try {
-            const result = await forgeServer(character.name, "armor", item.id, 1);
-            if (!result.character) return alert(result.error || "The armor forge failed.");
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
-            alert(`${item.name} forged and added to your inventory.`);
+            const result = await forgeServer(character.name, pendingCraft.kind, pendingCraft.recipeId, pendingCraft.quantity, materials);
+            if (!result.character) return result.error || 'The forge could not complete this craft.';
+            if (!owner.active || owner !== craftOwnerRef.current) return 'Check the inventory of the character who submitted this craft.';
+            if (!Number.isSafeInteger(result._saveVersion) || (result._saveVersion ?? 0) <= 0 || result.character.name !== owner.name) return 'Refresh your inventory to check this craft.';
+            // Realtime may already have adopted this craft (or a newer save).
+            // Keep that newer inventory; the successful reply still confirms the craft.
+            commitServerCharacter(result.character, result._saveVersion);
+            if (pendingCraftRef.current !== pendingCraft) gameToast(`Crafted ${pendingCraft.name} (batch ×${pendingCraft.quantity}).`);
         } finally {
             endCraft();
         }
@@ -734,12 +683,12 @@ export function CentralHub({
                     action: () => setScreen("grandMarketplace"),
                 },
                 {
-                    name: "Hunter Guild",
+                    name: "Shinobi Outpost",
                     kicker: "Track",
                     badge: "Contracts",
                     art: hunterGuildArt,
                     artPosition: "center",
-                    text: "Take beast contracts, track sectors, gather materials, and build hunter rank.",
+                    text: "Take hunting contracts, train fishing and mining, and prepare your gathering tools.",
                     action: () => setScreen("hunting"),
                 },
             ],
@@ -1363,66 +1312,27 @@ export function CentralHub({
             )}
 
             {showCrafter && (() => {
-                // Supplies, Weapons, and Armor all read the same unified
-                // craft-points pool (CRAFT_POINTS / craftPointsTotal) so the
-                // three tabs stay balanced against one another. The server owns
-                // material consumption and final grants.
-                const totalPts = craftPointsTotal();
-
-                // Batch craft up to `qty` copies, scaling the craft-point cost by
-                // the same factor ("raise the materials to compensate"). Capped
-                // consumables clamp the batch to the carry cap so crafting can't
-                // exceed what the shop lets you hold; affordability clamps the rest.
-                async function craftRecipe(
-                    recipe: { name: string; cost: number; itemId: string; per?: number; levelReq?: number },
-                    qty: number,
-                ) {
-                    if (!requireServerSettlement("creatorItemCraft")) return;
-                    if (character.level < (recipe.levelReq ?? 1)) return alert(`Reach level ${recipe.levelReq} to craft ${recipe.name}.`);
-                    const affordable = recipe.cost > 0 ? Math.floor(totalPts / recipe.cost) : 20;
-                    if (!gatheredIngredientsReady(recipe.itemId, qty)) return alert('Gather the named ingredients and ryo shown for this batch first.');
-                    if (affordable < 1) return alert(`Not enough materials. Need ${recipe.cost} craft points, you have ${totalPts}.`);
-                    let quantity = Math.min(Math.max(1, Math.floor(qty)), affordable);
-                    const item = allHubItems.find((entry) => entry.id === recipe.itemId);
-                    const cap = item ? consumableHoldCap(item) : null;
-                    if (cap != null) {
-                        const maxByCap = Math.floor(Math.max(0, cap - countItem(character, recipe.itemId)) / (recipe.per ?? 1));
-                        if (maxByCap < 1) return alert(`You can only carry ${cap} ${recipe.name}.`);
-                        quantity = Math.min(quantity, maxByCap);
-                    }
-                    if (!beginCraft()) return;
-                    try {
-                        const result = await forgeServer(character.name, "supply", recipe.itemId, quantity);
-                        if (!result.character) return alert(result.error || "The supply forge failed.");
-                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
-                        gameToast(`Crafted ${quantity}x ${recipe.name}.`);
-                    } finally {
-                        endCraft();
-                    }
-                }
-
-                const recipes: Array<{ name: string; cost: number; desc: string; itemId: string; per?: number; levelReq?: number }> = [
-                    ...Object.entries(VILLAGE_SUPPLY_GOODS).map(([itemId, good]) => ({ name: good.name, itemId, cost: 0, per: 1, desc: `1× ${good.name} · donate for ${good.provisions} provisions · village only` })),
-                    { name: "Pet Treats", cost: 50, desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
-                    { name: "Elemental Treats", cost: 100, desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
-                    { name: "Master Beast Seal", cost: 450, desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
-                    { name: "Aura Dust", cost: 50, desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
-                    { name: "Bone Charm", cost: 1000, desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
+                const recipes: Array<{ name: string; desc: string; itemId: string; per?: number; levelReq?: number }> = [
+                    ...Object.entries(VILLAGE_SUPPLY_GOODS).map(([itemId, good]) => ({ name: good.name, itemId, per: 1, desc: `1× ${good.name} · donate for ${good.provisions} provisions · village only` })),
+                    { name: "Pet Treats", desc: "1× Treats (+100 pet XP)", itemId: "pet-treat", per: 1 },
+                    { name: "Elemental Treats", desc: "1× Elemental Treats (+250 pet XP)", itemId: "elemental-pet-treat", per: 1 },
+                    { name: "Master Beast Seal", desc: "1× Master Beast Seal · bind wild pets at 65% Resolve or lower · level 30", itemId: "beast-seal-master", per: 1, levelReq: 30 },
+                    { name: "Aura Dust", desc: "+50 Aura Dust", itemId: "currency:aura-dust" },
+                    { name: "Bone Charm", desc: "+1 Bone Charm", itemId: "currency:bone-charm" },
                     // Thrown weapons
-                    { name: "Shuriken ×3", cost: 15, desc: "3× Shuriken (18 EP thrown)", itemId: "thrown-shuriken", per: 3 },
-                    { name: "Senbon ×1", cost: 30, desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
-                    { name: "Serpent Dust ×1", cost: 40, desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
+                    { name: "Shuriken ×3", desc: "3× Shuriken (18 EP thrown)", itemId: "thrown-shuriken", per: 3 },
+                    { name: "Senbon ×1", desc: "1× Senbon (300 dmg/round, 2 rounds)", itemId: "thrown-senbon", per: 1 },
+                    { name: "Serpent Dust ×1", desc: "1× Serpent Dust (10% poison, 2 rounds)", itemId: "thrown-serpent-dust", per: 1 },
                     // Combat items
-                    { name: "Smoke Bomb ×1", cost: 25, desc: "1× Smoke Bomb (blocks direct damage for both players for 1 round; Pierce and Wound, Poison, and Drain damage still land)", itemId: "item-smoke-bomb", per: 1 },
-                    { name: "Attack Pill ×1", cost: 20, desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
-                    { name: "Defense Pill ×1", cost: 20, desc: "1× Defense Pill (-15% damage received, 2 rounds)", itemId: "item-defense-pill", per: 1 },
+                    { name: "Smoke Bomb ×1", desc: "1× Smoke Bomb (blocks direct damage for both players for 1 round; Pierce and Wound, Poison, and Drain damage still land)", itemId: "item-smoke-bomb", per: 1 },
+                    { name: "Attack Pill ×1", desc: "1× Attack Pill (+15% damage dealt, 2 rounds)", itemId: "item-attack-pill", per: 1 },
+                    { name: "Defense Pill ×1", desc: "1× Defense Pill (-15% damage received, 2 rounds)", itemId: "item-defense-pill", per: 1 },
                     // Potions stay stackable in the server-side forge settlement.
-                    { name: "Rejuvenation Potion ×1", cost: 250, desc: "1× Rejuvenation Potion (restore 1000 chakra + 1000 stamina in battle, 20 AP, up to 2/fight)", itemId: "potion-rejuvenation", per: 1 },
+                    { name: "Rejuvenation Potion ×1", desc: "1× Rejuvenation Potion (restore 1000 chakra + 1000 stamina in battle, 20 AP, up to 2/fight)", itemId: "potion-rejuvenation", per: 1 },
                     // PVE companion gear — epic/legendary-tier crafts. Each piece
                     // boosts the summoned pet in PvE and wears out after 20 summons.
                     ...petPveGear.map((gear) => ({
                         name: gear.name,
-                        cost: gear.craftPts,
                         desc: `Pet gear · 1× ${gear.name} (equip on a pet, PVE slot) — ${gear.desc}. Breaks after ${PET_PVE_DURABILITY} summons.`,
                         itemId: gear.id,
                         per: 1,
@@ -1430,12 +1340,14 @@ export function CentralHub({
                     // Battle consumables — reactive single-use items (epic-tier craft).
                     ...petConsumables.map((cons) => ({
                         name: cons.name,
-                        cost: cons.craftPts,
                         desc: `Pet item · 1× ${cons.name} (equip on a pet, Consumable slot) — ${cons.desc} in pet battles. Single use.`,
                         itemId: cons.id,
                         per: 1,
                     })),
-                ];
+                ].map(recipe => ({ ...recipe,
+                    per: SUPPLY_CRAFT_RECIPES[recipe.itemId]?.count ?? 1,
+                    levelReq: SUPPLY_CRAFT_RECIPES[recipe.itemId]?.levelReq,
+                }));
 
                 // Resolve a recipe item's artwork (published shared image first,
                 // then the item's own image). Empty string = no art → caller draws
@@ -1456,28 +1368,24 @@ export function CentralHub({
                     return <GiSwapBag />;
                 };
 
-                // Shared, collapsed-by-default materials breakdown — identical in
-                // all three tabs. The summary always shows the craft-point total so
-                // players see their balance without expanding the full list. Each
-                // material gets a fantasy glyph + tier colour so the list reads like
-                // a forge ledger rather than a wall of text.
+                // Exact stock, including mined grades, used by every workshop tab.
                 const materialsPanel = (
                     <details className="cf-mats">
                         <summary className="cf-mats-head">
-                            <span className="cf-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="cf-mat-total">{totalPts} craft pts</span></span>
+                            <span className="cf-mat-sum"><GiStoneStack /> <strong>Your Materials</strong> · <span className="cf-mat-total">{Object.keys(CRAFT_MATERIAL_NAMES).filter(id => countItem(character, id) > 0).length} types in stock</span></span>
                             <span className="cf-mat-toggle" />
                         </summary>
                         <div className="cf-mat-grid">
                             {Object.entries(CRAFT_MATERIAL_NAMES).map(([id, label]) => {
                                 const count = countItem(character, id);
-                                const pts = CRAFT_POINTS[id] ?? 0;
+                                const rarity = allHubItems.find(item => item.id === id)?.rarity ?? 'common';
                                 const Icon = MATERIAL_ICON[id] ?? GiStoneStack;
                                 return (
-                                    <div key={id} className="cf-mat" data-tier={craftTier(pts)} data-empty={count === 0 ? "1" : undefined}>
+                                    <div key={id} className="cf-mat" data-tier={rarity} data-empty={count === 0 ? "1" : undefined}>
                                         <span className="cf-mat-icon"><Icon size={20} /></span>
                                         <span className="cf-mat-info">
                                             <span className="cf-mat-name">{label}</span>
-                                            <span className="cf-mat-meta"><b>{count}×</b> · {pts} pts</span>
+                                            <span className="cf-mat-meta"><b>{count}×</b> in stock</span>
                                         </span>
                                     </div>
                                 );
@@ -1493,7 +1401,7 @@ export function CentralHub({
                                 <h2><GiBlacksmith style={HDR_ICON} />Crafter</h2>
                                 <button className="danger-button" onClick={() => setShowCrafter(false)}>✕ Close</button>
                             </div>
-                            <p className="cf-sub">Convert hunting, boss, dungeon, and war materials into supplies, weapons, or armor.</p>
+                            <p className="cf-sub">Forge with mined metal, stitch hides and fiber, and prepare supplies from their listed ingredients. Choose your exact materials before completing a craft.</p>
                             <div className="cf-tabs">
                                 <button disabled={namedForgeAnimation !== null} className={crafterTab === "supplies" ? "active" : ""} onClick={() => setCrafterTab("supplies")}><GiSwapBag />Supplies</button>
                                 <button disabled={namedForgeAnimation !== null} className={crafterTab === "weapons" ? "active" : ""} onClick={() => setCrafterTab("weapons")}><GiCrossedSwords />Weapons</button>
@@ -1651,15 +1559,14 @@ export function CentralHub({
 
                             <div className="cf-grid">
                                 {recipes.map((recipe) => {
-                                    const batchCost = recipe.cost * craftQty;
-                                    const fillPct = batchCost ? Math.min(100, Math.floor((totalPts / batchCost) * 100)) : 100;
+                                    const fillPct = recipeProgress(recipe.itemId, craftQty);
                                     // Capped consumables (thrown / combat item / potion) can't be
                                     // crafted past the shared carry cap — show the count and gate.
                                     const capItem = recipe.itemId ? allHubItems.find((i) => i.id === recipe.itemId) : undefined;
                                     const cap = capItem ? consumableHoldCap(capItem) : null;
                                     const owned = recipe.itemId ? countItem(character, recipe.itemId) : 0;
                                     const atCap = cap != null && owned + (recipe.per ?? 1) * craftQty > cap;
-                                    const canAffordOne = totalPts >= batchCost && gatheredIngredientsReady(recipe.itemId, craftQty);
+                                    const canAffordOne = gatheredIngredientsReady(recipe.itemId, craftQty);
                                     const img = itemImage(recipe.itemId);
                                     return (
                                         <div key={recipe.name} className="cf-card">
@@ -1673,17 +1580,17 @@ export function CentralHub({
                                                     <strong>{recipe.name}</strong>
                                                     <small>{recipe.desc}</small>
                                                     {cap != null && (
-                                                        <small style={{ color: "var(--green-300)" }}>In bag: {owned} / {cap}</small>
+                                                        <small>In bag: {owned} / {cap}</small>
                                                     )}
                                                 </div>
                                             </div>
                                             <div className="cf-meter">
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="cf-points">{Math.min(totalPts, batchCost)}/{batchCost} pts · Output ×{(recipe.per ?? 1) * craftQty}</small>
+                                            <small className="cf-points">Materials {fillPct}% · Output ×{(recipe.per ?? 1) * craftQty}</small>
                                             {gatheredIngredientsLine(recipe.itemId, craftQty) && <small className="cf-cost">{gatheredIngredientsLine(recipe.itemId, craftQty)}</small>}
                                             {VILLAGE_SUPPLY_GOODS[recipe.itemId] && <small className="cf-cost">{character.ryo}/{VILLAGE_SUPPLY_GOODS[recipe.itemId].ryo * craftQty} ryo · shared 40-provisions donation cap/day</small>}
-                                            <button onClick={() => craftRecipe(recipe, craftQty)} disabled={!canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
+                                            <button onClick={event => selectCraftMaterials('supply', recipe.itemId, recipe.name, craftQty, event.currentTarget)} disabled={craftBusy || !canAffordOne || atCap || character.level < (recipe.levelReq ?? 1)}>
                                                 {character.level < (recipe.levelReq ?? 1) ? `Level ${recipe.levelReq} required` : atCap ? "At carry limit" : `Craft ×${craftQty}`}
                                             </button>
                                         </div>
@@ -1725,10 +1632,9 @@ export function CentralHub({
                             )}
                             <div className="cf-grid">
                                 {craftableWeapons.map((item) => {
-                                    const costPts = weaponCraftPoints(item);
                                     const ryo = craftRyoForRarity(item.rarity);
-                                    const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && totalPts >= costPts && gatheredIngredientsReady(item.id);
-                                    const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
+                                    const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
+                                    const fillPct = recipeProgress(item.id);
                                     const img = itemImage(item.id);
                                     return (
                                         <div key={item.id} className="cf-card" data-rarity={item.rarity}>
@@ -1744,15 +1650,15 @@ export function CentralHub({
                                                         <button className="weapon-info-btn" onClick={() => setWeaponInfoItem(item)} title="View weapon info">i</button>
                                                     </div>
                                                     <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {item.weaponEp ?? 0} EP | {item.weaponEffect ?? "Weapon"}</small>
-                                                    <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                    <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
                                                     {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
                                                 </div>
                                             </div>
                                             <div className="cf-meter">
                                                 <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                             </div>
-                                            <small className="cf-points">{Math.min(totalPts, costPts)}/{costPts} pts</small>
-                                            <button onClick={() => craftExistingWeapon(item)} disabled={!ready}>
+                                            <small className="cf-points">Materials {fillPct}%</small>
+                                            <button onClick={event => selectCraftMaterials('weapon', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
                                                 Forge
                                             </button>
                                         </div>
@@ -1766,10 +1672,9 @@ export function CentralHub({
                                     <p className="hint">No armor recipes available yet — add craftable armor items via the admin item creator.</p>
                                 ) : (
                                     craftableArmor.map((item) => {
-                                        const costPts = armorCraftPoints(item);
                                         const ryo = craftRyoForRarity(item.rarity);
-                                        const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && totalPts >= costPts && gatheredIngredientsReady(item.id);
-                                        const fillPct = Math.min(100, Math.floor((totalPts / costPts) * 100));
+                                        const ready = character.level >= effectiveItemLevelReq(item) && character.ryo >= ryo && gatheredIngredientsReady(item.id);
+                                        const fillPct = recipeProgress(item.id);
                                         const img = itemImage(item.id);
                                         return (
                                             <div key={item.id} className="cf-card" data-rarity={item.rarity}>
@@ -1782,15 +1687,15 @@ export function CentralHub({
                                                     <div className="cf-card-head">
                                                         <strong>{item.name}</strong>
                                                         <small>{item.rarity.toUpperCase()} | Lv {effectiveItemLevelReq(item)} | {equipmentSlotLabel(item.slot)} | {item.armorQuality ?? "—"}</small>
-                                                        <small className="cf-cost">{costPts} craft pts + {ryo.toLocaleString()} ryo</small>
+                                                        <small className="cf-cost">{ryo.toLocaleString()} ryo</small>
                                                     {gatheredIngredientsLine(item.id) && <small className="cf-cost">{gatheredIngredientsLine(item.id)}</small>}
                                                     </div>
                                                 </div>
                                                 <div className="cf-meter">
                                                     <div className="cf-meter-fill" style={{ width: `${fillPct}%` }} />
                                                 </div>
-                                                <small className="cf-points">{Math.min(totalPts, costPts)}/{costPts} pts</small>
-                                                <button onClick={() => craftExistingArmor(item)} disabled={!ready}>
+                                                <small className="cf-points">Materials {fillPct}%</small>
+                                                <button onClick={event => selectCraftMaterials('armor', item.id, item.name, 1, event.currentTarget)} disabled={!ready || craftBusy}>
                                                     Forge
                                                 </button>
                                             </div>
@@ -1898,7 +1803,7 @@ export function CentralHub({
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "armor"
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling Armor…" : "Sealing Armor…"
-                                                : "Roll Named Armor"}
+                                                : `Roll Named Armor · ${namedForgeOreCount('armor')} Pristine Ore`}
                                         </button>
 
                                         {namedArmorRoll && !namedForgeAnimation && (
@@ -2066,7 +1971,7 @@ export function CentralHub({
                                             <GameIcon name="dice" size={16} style={HDR_ICON} />
                                             {namedForgeAnimation?.kind === "weapon"
                                                 ? namedForgeAnimation.phase === "rolling" ? "Rolling Weapon…" : "Sealing Weapon…"
-                                                : "Roll Named Weapon"}
+                                                : `Roll Named Weapon · ${namedForgeOreCount('weapon')} Pristine Ore`}
                                         </button>
 
                                         {namedWeaponRoll && !namedForgeAnimation && (
@@ -2142,6 +2047,8 @@ export function CentralHub({
                     </Modal>
                 );
             })()}
+            {pendingCraft && showCrafter && <CraftMaterialPicker recipe={pendingCraft} owned={id => countItem(character, id)} ryo={character.ryo}
+                opener={pendingCraft.opener} onCancel={() => { pendingCraftRef.current = null; setPendingCraft(null); }} onConfirm={completeCraft} />}
             {namedForgeAnimation && <NamedForgeRevealModal
                 {...namedForgeAnimation}
                 returnFocusRef={namedForgeAnimation.kind === "weapon" ? namedWeaponRollButtonRef : namedArmorRollButtonRef}
