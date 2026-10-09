@@ -13,7 +13,7 @@ export const outpostItems: GameItem[] = [
         id: item.id, name: item.name, slot: 'item' as const, cost: 0, rarity: 'common' as const,
         bonuses: {}, image: item.activity === 'fishing' ? '/items/gather-river-fish.svg' : `/items/${item.family}-v1.webp`,
         description: item.activity === 'fishing'
-            ? `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} fish. Cook five with a Field Herb at the Cafeteria for ${(item.grade + 1) * 5} Ration Packs.`
+            ? `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} fish. Cook five with a Field Herb and Heartwood Bark at the Noodle Den for ${(item.grade + 1) * 5} Ration Packs.`
             : `${['Common', 'Fine', 'Superior', 'Pristine'][item.grade]} mineral. Used in grade-specific forging recipes at the Crafter.`,
     })),
 ];

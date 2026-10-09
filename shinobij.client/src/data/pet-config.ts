@@ -9,6 +9,7 @@
 
 import type { Pet, PetRarity, PetTrait, PetTrainingType, PetExpeditionType } from "../types/pet";
 import { PET_EXPEDITION_ROUTES } from "../../../shared/pet-expedition-contract";
+import { RESOURCE_ITEMS } from '../../../shared/resource-items';
 import {
     TERRITORY_CONTROL_SCROLL_ID,
     DUNGEON_KEY_ID,
@@ -118,6 +119,7 @@ export const petFeedItems = [
 // Items that stack in inventory (consumables, scrolls, dungeon shards).
 // All petFeedItems are stackable plus a few hand-picked special-case ids.
 export const stackableItemIds = new Set<string>([
+    ...RESOURCE_ITEMS.map(item => item.id),
     ...petFeedItems.map((item) => item.id),
     "beast-seal-worn", "beast-seal-reinforced", "beast-seal-tempered",
     "beast-seal-master", "beast-seal-ancient",
