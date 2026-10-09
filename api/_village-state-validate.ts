@@ -200,8 +200,8 @@ export async function validateVillageStateWrite(
     // (/api/village/treasury/transfer), upgrades (/api/village/upgrade), the
     // daily agenda (claim-daily-agenda), and the stores drains (the daily pass,
     // /api/village/war-structure). The blob only ever RE-ASSERTS a treasury the
-    // client read, and that read can be seconds stale (the /api/game-state frame
-    // sits behind a process cache and the client polls on a cadence). So the
+    // client read, and that read can be seconds stale (members poll it from
+    // /api/village/state on a cadence). So the
     // blob may not move the treasury in EITHER direction. A stale LOWER figure
     // used to be accepted from the seated Kage (the retired blob-withdrawal path)
     // and, for items, from any villager, which erased donations that landed

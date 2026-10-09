@@ -3,6 +3,7 @@ import { HOLLOW_GATE_UNLOCK_COST } from "../lib/hollow-gate-prices";
 import { elderFocusForSeats, elderSeatsForTerm, normalizeElderAppointees } from "../../../shared/village-elders";
 import { cacheVillageElders } from "../lib/village-elder-focus";
 import { adoptVillageAnbu, adoptVillageOrders } from "../lib/world-state";
+import { refreshVillageMemberState } from "../lib/village-member-state";
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useEffectEvent, useRef } from "react";
@@ -315,6 +316,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         setAnbuAppointmentInputs(normalizeAnbuAppointees(next.anbuAppointees));
     }, [character.village]);
     useEffect(() => {
+        let alive = true;
         const refreshVillageState = () => {
             const next = loadVillageState(character.village);
             setState(current => {
@@ -323,8 +325,16 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 return normalized;
             });
         };
-        refreshVillageState();
-        return visiblePoll(refreshVillageState, 10000);
+        // The treasury, stores, upgrades, orders, log and agenda are members-only
+        // (owner ruling 2026-10-08), so the public game-state poll no longer
+        // brings them: the Town Hall reads them itself, on this same poll.
+        const refresh = () => {
+            refreshVillageState();
+            void refreshVillageMemberState(character.village, { force: true }).then((changed) => { if (alive && changed) refreshVillageState(); });
+        };
+        refresh();
+        const stop = visiblePoll(refresh, 10000);
+        return () => { alive = false; stop(); };
     }, [character.village]);
     useEffect(() => {
         let alive = true;

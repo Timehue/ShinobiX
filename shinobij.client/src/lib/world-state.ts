@@ -206,7 +206,7 @@ export function hydrateSharedGameState(data: {
         rawVS.forEach((state) => {
             const village = String(state?.village ?? "").trim();
             if (!village) return;
-            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state);
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, withMemberFields(village, state));
             cacheVillageElders(village, state.elderAppointees, state.elderTerm?.nextSelectionAt);
         });
     } else if (rawVS && typeof rawVS === "object") {
@@ -215,7 +215,7 @@ export function hydrateSharedGameState(data: {
             if (!state || typeof state !== "object") continue;
             const village = key.trim();
             if (!village) continue;
-            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state as Partial<VillageState>);
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, withMemberFields(village, state as Partial<VillageState>));
             cacheVillageElders(village, (state as Partial<VillageState>).elderAppointees, (state as Partial<VillageState>).elderTerm?.nextSelectionAt);
         }
     }
@@ -314,6 +314,25 @@ function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] {
 function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), upgrades: {}, contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, elderAppointees: ["", "", ""], anbuAppointees: ["", "", ""], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
+/* A village's members-only fields (owner ruling 2026-10-08): the public game-state
+ * frame no longer carries them, so lib/village-member-state.ts reads them from
+ * GET /api/village/state and every public poll merges them back in. Until that
+ * read lands a village has no entry here, and its defaults are never written
+ * back (saveVillageState). Edits count local writes, so a read that began
+ * before one cannot put the older figures back. */
+const VILLAGE_MEMBER_FIELDS = ["treasury", "upgrades", "contributionPoints", "notices", "noticePosts", "dailyAgenda"] as const;
+const villageMemberFields: Record<string, Partial<VillageState>> = {};
+let villageMemberEdits = 0;
+function withMemberFields(village: string, state: Partial<VillageState>): Partial<VillageState> { return { ...state, ...villageMemberFields[sharedVillageStateKey(village)] }; }
+export function villageMemberEditCount(): number { return villageMemberEdits; }
+export function adoptVillageMemberState(village: string, fields: Partial<VillageState>, editsAtRead: number): boolean {
+    if (editsAtRead !== villageMemberEdits) return false;
+    const key = sharedVillageStateKey(village);
+    const before = JSON.stringify(sharedVillageStateCache[key]);
+    villageMemberFields[key] = fields;
+    sharedVillageStateCache[key] = normalizeVillageState(village, { ...loadVillageState(village), ...fields });
+    return JSON.stringify(sharedVillageStateCache[key]) !== before;
+}
 /* Village upgrades are SHARED village infrastructure bought from the treasury
  * seal pool (api/village/_upgrade.ts). Levels live on the village record; the
  * copy on the character is a server-validated mirror. Clamped 0..50 and
@@ -368,6 +387,12 @@ export function saveVillageState(village: string, state: VillageState) {
     if (nextUntil > prevUntil) localHollowGateUnlockBump[key] = { until: nextUntil, at: Date.now() };
     else if (nextUntil < prevUntil) delete localHollowGateUnlockBump[key];
     sharedVillageStateCache[key] = normalized;
+    // This edit is the newest copy of the members-only fields until the next
+    // read. Before the first one they are only defaults, so none are sent: the
+    // server keeps what is stored for anything a write leaves out.
+    const member = villageMemberFields[key];
+    villageMemberEdits++;
+    if (member) villageMemberFields[key] = Object.fromEntries(VILLAGE_MEMBER_FIELDS.map((field) => [field, normalized[field]])) as Partial<VillageState>;
     // Orders have their own atomic actions. Routine village writes must never
     // replay a stale board over someone else's newly posted or deleted order.
     // The treasury is the same: every movement has its own endpoint, and the
@@ -377,11 +402,13 @@ export function saveVillageState(village: string, state: VillageState) {
     // either way (api/_village-state-validate.ts); sending them only filled its
     // suppression log on every Town Hall action.
     const { noticePosts: _orders, anbuAppointees: _anbuSeats, anbuEarned: _earnedAnbu, anbuMembers: _anbuMembers, elderAppointees: _elders, elderTerm: _elderTerm, treasury: _treasury, upgrades: _upgrades, ...villageFields } = normalized;
+    if (!member) for (const field of VILLAGE_MEMBER_FIELDS) delete (villageFields as Partial<VillageState>)[field];
     persistSharedGameState({ kind: "villageState", village, state: villageFields });
 }
 export function adoptVillageOrders(village: string, noticePosts: NoticePost[]): void {
     const key = sharedVillageStateKey(village);
     sharedVillageStateCache[key] = { ...loadVillageState(village), noticePosts };
+    if (villageMemberFields[key]) { villageMemberFields[key] = { ...villageMemberFields[key], noticePosts }; villageMemberEdits++; }
 }
 export function adoptVillageAnbu(village: string, roster: { appointed: string[]; earned: string[]; members: string[] }): void {
     sharedVillageStateCache[sharedVillageStateKey(village)] = { ...loadVillageState(village), anbuAppointees: roster.appointed, anbuEarned: roster.earned, anbuMembers: roster.members };
