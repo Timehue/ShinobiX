@@ -178,7 +178,7 @@ test("sealed hunt target win unlocks explicit Guild turn-in while loss remains r
     const target = worldMap.slice(worldMap.indexOf('if (p.mode === "huntTarget")'), worldMap.indexOf('if (p.mode === "questboss")'));
     assert.match(target, /if \(won && mission\)/);
     assert.match(target, /\[mission\.id\]: mission\.exploreCount/);
-    assert.match(target, /Return to the Hunter Guild and turn in the contract/);
+    assert.match(target, /Return to the Shinobi Outpost and turn in the contract/);
     assert.match(target, /else if \(!won\)/);
     assert.match(target, /final trail stays hot for a rematch/);
     const board = readFileSync(new URL("../screens/HunterBoard.tsx", import.meta.url), "utf8");

@@ -7,6 +7,25 @@ import { quietRoadCooldowns } from '../e2e-live/helpers/quiet-road';
 const evidence = process.env.SECTOR_HUD_EVIDENCE_DIR || '../docs/sector-hud-layout-2026-09-19';
 mkdirSync(evidence, { recursive: true });
 
+test('optional map notices reopen for new content, sector changes and visible re-entry', async ({ page }) => {
+    await page.goto('/e2e/fixtures/map-notification.html');
+    const collapse = () => page.getByRole('button', { name: 'Collapse field lesson notice' }).click();
+    const expand = page.getByRole('button', { name: 'Expand field lesson notice' });
+    await collapse(); await expect(expand).toBeVisible();
+    await page.setViewportSize({ width: 844, height: 390 });
+    await expect(expand).toBeVisible();
+    await page.getByRole('button', { name: 'New lesson' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+    await collapse(); await page.getByRole('button', { name: 'Change sector' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 15' })).toBeVisible();
+    await page.getByRole('button', { name: 'Change sector' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+    await collapse(); await page.getByRole('button', { name: 'Toggle notice presence' }).click();
+    await expect(expand).toHaveCount(0);
+    await page.getByRole('button', { name: 'Toggle notice presence' }).click();
+    await expect(page.getByRole('button', { name: 'Study lesson 2 in sector 14' })).toBeVisible();
+});
+
 async function boot(page: Page, count = 8, configure?: () => Promise<void>, sector = 22) {
     const save = uiAuditSave();
     save.currentSector = sector;
@@ -797,4 +816,15 @@ test('a sleeper waking during a click never changes Strike Down into Attack',asy
     expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual([]);
     await page.getByRole('button',{name:'Attack SleepingNinja'}).click();
     expect(await page.evaluate(()=>window.sectorFixture.events)).toEqual(['attack:SleepingNinja','reconciled:SleepingNinja']);
+});
+
+test('Explore clearly uses the shared fishing and mining allowance at the daily cap', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/e2e/fixtures/sector-hud.html?capped');
+    const explore = page.getByRole('button', { name: 'Explore', exact: true });
+    await expect(explore).toBeDisabled();
+    await expect(explore).toContainText('Shared 100/100');
+    await expect(explore).toHaveAttribute('aria-description', /Explore, fishing and mining: 100\/100 shared daily actions/);
+    await page.getByRole('button', { name: 'Sector Info · Claim ready', exact: true }).click();
+    await expect(page.getByText(/Explore, fishing and mining: 100\/100 shared daily actions/)).toBeVisible();
 });

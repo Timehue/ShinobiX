@@ -126,6 +126,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         arrivalTile?: number,
         worldPosition?: WorldPosition,
     ): OnlinePlayer {
+        player.resourceEpoch = (player.resourceEpoch ?? 0) + 1;
         if (originSector !== undefined && originSector !== player.sector) {
             const previousSector = player.sector;
             this.removeFromSector(key, previousSector);
@@ -357,6 +358,7 @@ export class MemoryOnlineStateStore implements OnlineStateStore {
         const p = this.players.get(key);
         if (!p) return;
         const changed = !!p.inBattle !== inBattle;
+        if (changed && inBattle) p.resourceEpoch = (p.resourceEpoch ?? 0) + 1;
         p.inBattle = inBattle ? true : undefined;
         // Fight hosts flip this between beats, and the next beat compares
         // against the already-flipped record, so only here is the change seen.

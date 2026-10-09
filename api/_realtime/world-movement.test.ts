@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorldMovementGate } from './world-movement.js';
+import { createWorldMovementGate, WORLD_WALK_MAX_CREDIT } from './world-movement.js';
 import { worldPositionModel, WORLD_LAYOUT_VERSION, CONTINUOUS_WORLD_SPACE } from '../../shared/continuous-world-layout.js';
 import { buildWorldNavigation } from '../../shared/continuous-world-navigation.js';
 import type { OnlinePlayer } from './types.js';
@@ -21,10 +21,12 @@ function actor(): OnlinePlayer {
 
 test('admission uses server time and consumes one shared movement budget', () => {
     const gate = createWorldMovementGate(), player = actor();
-    const burst = gate.admit(player, along(2), 0, 1000);
-    assert(burst.ok); assert(Math.abs(burst.distance - 2) < 1e-8);
+    // A rested walker may burst exactly the capped credit, and then nothing more until time passes.
+    const burst = gate.admit(player, along(WORLD_WALK_MAX_CREDIT), 0, 1000);
+    assert(burst.ok); assert(Math.abs(burst.distance - WORLD_WALK_MAX_CREDIT) < 1e-8);
+    assert.deepEqual(createWorldMovementGate().admit(actor(), along(WORLD_WALK_MAX_CREDIT + 1), 0, 1000), { ok: false, reason: 'speed' });
     player.worldPosition = burst.position; player.movementSeq = 1;
-    const onward = { ...along(2), to: along(3).from, progress: .6 };
+    const onward = { ...along(WORLD_WALK_MAX_CREDIT), to: along(WORLD_WALK_MAX_CREDIT + 1).from, progress: .6 };
     assert.deepEqual(gate.admit(player, onward, 1, 1000), { ok: false, reason: 'speed' });
     const later = gate.admit(player, onward, 1, 1100);
     assert(later.ok); assert(Math.abs(later.distance - .6) < 1e-8);

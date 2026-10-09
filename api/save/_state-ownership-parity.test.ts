@@ -52,6 +52,7 @@ const FROZEN = {
         'editablePets', 'petEncounterVn', 'ancientChestVn', 'hollowGateEventConfig',
     ],
     COMBAT_STRIP_CHAR_FIELDS: [
+        'resourceGathering', 'gatheringToolUses',
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen', 'gearTierUnlocks', 'equippedNamedGear',
         'sunscarExchangeReceipts', 'sunscarRally', 'sunscarCaravan',
         // Approved clan recovery evidence is private, co-written server state.
@@ -199,6 +200,7 @@ const FROZEN = {
     // (exploration trio, chest trio, achievements quad, endless seven) — now
     // one uniform mirror loop; semantics per group were identical.
     SERVER_MIRRORED_CHARACTER_FIELDS: [
+        'resourceGathering', 'gatheringToolUses',
         'professionChosenAt', // Scroll retry fencing must survive all generic saves.
         'gearTierUnlocks', // Only a shop purchase or a craft raises it.
         'pendingGatherFinds', 'redeemedGatherFinds', 'gatherIntroSeen',

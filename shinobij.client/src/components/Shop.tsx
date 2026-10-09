@@ -13,6 +13,7 @@ import { wildBindingSeal } from "../../../shared/wild-binding";
 import { getAllItems } from "../lib/items";
 import { weaponEffectDisplayValue } from "../lib/weapon-effect-display";
 import { countItem } from "../lib/inventory";
+import { gatheringTool } from '../../../shared/gathering-tools';
 import { normalizeEquipmentSlot, equipmentSlotLabel, armorReductionForQuality, consolidateItemBonuses, consumableHoldCap } from "../lib/equipment";
 import { petFeedXpForItem, stackableItemIds } from "../data/pet-config";
 import { getShopDiscountPercent, discountCost } from "../lib/village-upgrades";
@@ -123,7 +124,7 @@ function ShopBase({
     const openItem = (item: GameItem) => { setSelectedItem(item); setBuyQty(1); };
 
     const allItems = getAllItems(creatorItems);
-    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory"];
+    const shopSlots: EquipmentSlot[] = ["head", "body", "waist", "legs", "feet", "hand", "aura", "relic", "weapon", "thrown", "item", "potion", "accessory", "fishingPole", "pickaxe"];
     const armorShopSlots: EquipmentSlot[] = ["body", "head", "waist", "legs", "feet"];
     const shopItems = allItems.filter((item) => {
         const craftOnlyWeapon = item.slot === "hand" && item.weaponEp != null && ["rare", "epic", "legendary"].includes(item.rarity);
@@ -152,6 +153,7 @@ function ShopBase({
         return s === "potion" || (s === "item" && (!!item.weaponEffect || item.restoreChakra != null || item.restoreStamina != null));
     };
     const slotGroups: { label: string; slots: EquipmentSlot[]; consumables?: boolean; beastSeals?: boolean }[] = [
+        { label: "Gathering Tools", slots: ["fishingPole", "pickaxe"] },
         { label: "Head", slots: ["head"] },
         { label: "Chest", slots: ["body", "armor"] },
         { label: "Waist", slots: ["waist"] },
@@ -187,11 +189,11 @@ function ShopBase({
         : null;
     const wallet = currency === "fateShards" ? character.fateShards : character.ryo;
     const shopDiscountPercent = currency === "ryo" ? getShopDiscountPercent(character) : (activeElderFocus(character) === "trade" ? 5 : 0);
-    const getShopCost = (cost: number) => discountCost(cost, shopDiscountPercent);
+    const getShopCost = (cost: number, id?: string) => gatheringTool(id)?.durability === null ? 50 : discountCost(cost, shopDiscountPercent);
 
     async function buy(item: GameItem, qty = 1) {
         if (!requireServerSettlement("shopPurchase")) return;
-        const finalCost = getShopCost(item.cost);
+        const finalCost = getShopCost(item.cost, item.id);
         // Use the shared ladder, not the raw levelReq — most high-rarity items
         // author no requirement at all, so reading the field directly would show
         // "no requirement" here and then be refused by the server.
@@ -279,7 +281,7 @@ function ShopBase({
                         <div className="location-grid">
                             {groupItems.map((item) => {
                                 const owned = alreadyOwned(item);
-                                const finalCost = getShopCost(item.cost);
+                                const finalCost = getShopCost(item.cost, item.id);
                                 const canAfford = wallet >= finalCost;
                                 const levelLocked = !meetsItemLevelReq(item, character.level);
 
@@ -329,7 +331,7 @@ function ShopBase({
             </div>}
 
             {selectedItem && (
-                <Modal open onClose={closeItem} ariaLabel={`${selectedItem.name} item details`} size="lg" bare className="item-popup-card" disableBackdropClose={purchaseBusy}>
+                <Modal open onClose={closeItem} ariaLabel={`${selectedItem.name} item details`} size="lg" bare className={`item-popup-card${gatheringTool(selectedItem.id) ? ' item-popup-card--tool' : ''}`} disableBackdropClose={purchaseBusy}>
                         <button
                             type="button"
                             className="item-popup-close"
@@ -356,7 +358,12 @@ function ShopBase({
                                     {selectedItem.description}
                                 </p>
 
-                                {wildBindingSeal(selectedItem.id) ? <div className="item-popup-detail-grid">
+                                {gatheringTool(selectedItem.id) ? <div className="item-popup-detail-grid">
+                                    <p><strong>Equipment slot:</strong> {equipmentSlotLabel(selectedItem.slot)}</p>
+                                    <p><strong>Durability:</strong> {gatheringTool(selectedItem.id)!.durability === null ? 'Permanent · never breaks' : '50 gathering attempts'}</p>
+                                    <p><strong>Use:</strong> Equip in Inventory before visiting a world node</p>
+                                    <p><strong>Shop Price:</strong> {currencyIcon} {getShopCost(selectedItem.cost, selectedItem.id)} {currencyLabel}</p>
+                                </div> : wildBindingSeal(selectedItem.id) ? <div className="item-popup-detail-grid">
                                     <p><strong>Use:</strong> Bind a wild pet during an Explore or Caravan encounter</p>
                                     <p><strong>Resolve required:</strong> {wildBindingSeal(selectedItem.id)!.resolveThreshold}% or lower</p>
                                     <p><strong>Binding bonus:</strong> +{wildBindingSeal(selectedItem.id)!.captureBonus} chance points</p>
@@ -446,7 +453,7 @@ function ShopBase({
                                 <div className="item-popup-actions">
                                     {(() => {
                                         const cap = consumableHoldCap(selectedItem);
-                                        const unit = getShopCost(selectedItem.cost);
+                                        const unit = getShopCost(selectedItem.cost, selectedItem.id);
 
                                         // One-off gear: single Buy button, exactly as before.
                                         if (cap == null) {

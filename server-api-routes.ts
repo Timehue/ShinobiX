@@ -157,6 +157,7 @@ import villageHollowGateUnlockHandler from './api/village/hollow-gate-unlock.js'
 import villageOpenWarCrateHandler from './api/village/open-war-crate.js';
 import villageUpgradeHandler from './api/village/upgrade.js';
 import worldClaimGatherHandler from './api/world/claim-gather.js';
+import worldResourceHandler from './api/world/resource.js';
 import worldExploreHandler from './api/world/explore.js';
 import worldSectorLayoutHandler from './api/world/sector-layout.js';
 import worldOpenChestHandler from './api/world/open-chest.js';
@@ -875,6 +876,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/village/open-war-crate', villageOpenWarCrateHandler);
     route('/village/upgrade', villageUpgradeHandler);
     route('/world/claim-gather', worldClaimGatherHandler);
+    route('/world/resource', worldResourceHandler);
     route('/world/explore', worldExploreHandler);
     route('/world/sector-layout', worldSectorLayoutHandler);
     route('/world/open-chest', worldOpenChestHandler);

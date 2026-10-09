@@ -185,7 +185,7 @@ const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").th
 const Settings = lazyWithRetry(() => import("./screens/Settings").then(m => ({ default: m.Settings })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
 const Logbook = lazyWithRetry(() => import("./screens/Logbook").then(m => ({ default: m.Logbook })));
-const HunterBoard = lazyWithRetry(() => import("./screens/HunterBoard").then(m => ({ default: m.HunterBoard })));
+const HunterBoard = lazyWithRetry(() => import("./screens/ShinobiOutpost").then(m => ({ default: m.ShinobiOutpost })));
 const Missions = lazyWithRetry(() => import("./screens/Missions").then(m => ({ default: m.Missions })));
 const StoryHall = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryArchiveHall })));
 const StoryBoss = lazyWithRetry(() => import("./screens/StoryBoss").then(m => ({ default: m.StoryBoss })));

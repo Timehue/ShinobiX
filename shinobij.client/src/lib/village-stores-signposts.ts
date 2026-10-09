@@ -45,7 +45,7 @@ export type StoresItemSignpost = {
  *  the same "first owned material" order applyCookRecipe uses). */
 export function cookRecipeForMaterial(itemId: string): CookRecipe | null {
     const id = String(itemId ?? "");
-    return COOK_RECIPES.find((r) => r.materials.includes(id) || id === "gather-field-herb") ?? null;
+    return COOK_RECIPES.find((r) => r.materials.includes(id) || id === "gather-field-herb" || id === "gather-heartwood-bark") ?? null;
 }
 
 /**
@@ -70,7 +70,7 @@ export function storesItemSignpost(itemId: string): StoresItemSignpost | null {
     if (!recipe) return null;
     return {
         itemId: id,
-        line: `Cooks into ${recipe.name} at the Noodle Den — ${recipe.rations.toLocaleString()} rations for your village's stores, ${recipe.ryo.toLocaleString()} ryo a batch.`,
+        line: `${id === "gather-heartwood-bark" ? "Fuel for" : "Cooks into"} ${recipe.name} at the Noodle Den — ${recipe.rations} rations, ${recipe.ryo} ryo a batch.`,
         actionLabel: "Cook at the Noodle Den",
         screen: "cafeteria",
     };

@@ -1,5 +1,14 @@
 # Connected sector world — continuous travel implemented and locally verified
 
+## Phone walking pace — 2026-10-08 (PR #308)
+
+Owner report from a Galaxy S25+ in the Play Store app: movement lags after a few seconds of walking. The pacing rule below ("under the 1.4-tile allowance") is superseded. There were three causes, measured at phone size against the real server gate:
+
+- **Pacing** (`shinobij.client/src/lib/world-move-pacing.ts`). The walker used to wait whenever it was 1.4 tiles past the last *acknowledged* update. With one update in flight, every round trip over about 100 ms froze it. It now waits only when the next update would carry more than 1.4 tiles, or when it is 2.6 tiles past the server's last answer. On a slower link it walks at the sustainable pace instead of dashing and freezing. A dropped update is re-sent unchanged. Socket sends go every 150 ms, which keeps them clear of the server's 80 ms `world:move` throttle.
+- **Server credit.** `WORLD_WALK_MAX_CREDIT` went from 2 to 3 tiles, with owner approval. Sustained speed is unchanged.
+- **Refusals.** A first `speed` or `busy` refusal now resumes the walk from the server's cursor. It no longer drops the destination.
+- **Renderer.** The static world is rastered into 256-device-pixel tiles, kept for the screen plus a one-tile ring. A walking frame copies tiles. Recycled tile canvases go back to a pool, and dropped canvases are shrunk to free GPU memory at once. Ground built from a map's art stays fixed until the biome material arrives; it used to rebuild every frame when two same-biome maps were visible. There is no per-frame `clientWidth` read.
+
 ## Open frontier — 2026-10-08
 
 This supersedes the corridor-only walking described below. Owner report: "excessive collision, sector 14". Two audits listed the same causes. The sector masks were correct. The walls came from walking being limited to the paintings plus a one-cell road line, so every road verge and open painting edge was an invisible wall.

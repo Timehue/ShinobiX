@@ -42,7 +42,7 @@ test('registry write failure leaves the named roll and forge materials unspent f
     const ip = '127.0.1.1';
     await kv.set(`save:${playerName}`, {
         _saveVersion: 1,
-        character: { name: playerName, level: 100, fateShards: 200, boneCharms: 500, inventory: [], itemStacks: [] },
+        character: { name: playerName, level: 100, fateShards: 200, boneCharms: 500, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }] },
         creatorItems: [],
     });
     await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll: rollNamedForge('weapon') });
@@ -92,7 +92,7 @@ test('weapon and every armor slot require Fate Shards on roll and forge, preserv
         const token = `shardForgeToken123456${index}`;
         const key = `save:${playerName}`;
         const wallet = { boneCharms: 5000, auraStones: 5000, mythicSeals: 5000, fateShards: 199 };
-        const character = { name: playerName, level: 100, ...wallet, inventory: [], itemStacks: [] };
+        const character = { name: playerName, level: 100, ...wallet, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }] };
         await kv.set(key, { _saveVersion: 1, character, creatorItems: [] });
         const call = async (body: Record<string, unknown>) => {
             const out = response();
@@ -135,7 +135,7 @@ test('a full inventory preserves shards and the sealed roll, then succeeds after
     const token = 'fullNamedForgeToken123456';
     const key = `save:${playerName}`;
     const inventory = Array.from({ length: INVENTORY_CAP }, (_, index) => `held-item-${index}`);
-    const character = { name: playerName, level: 100, fateShards: 200, boneCharms: 5000, inventory, itemStacks: [] };
+    const character = { name: playerName, level: 100, fateShards: 200, boneCharms: 5000, inventory, itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }] };
     const sealed = { playerName, roll: rollNamedForge('armor', 'body') };
     await kv.set(key, { _saveVersion: 1, character, creatorItems: [] });
     await kv.set(`named-forge:${playerName}:${token}`, sealed);
@@ -160,7 +160,7 @@ test('competing forges spend one shard balance once and use only their sealed st
     const tokens = ['concurrentNamedToken123456A', 'concurrentNamedToken123456B'];
     const rolls = [rollNamedForge('weapon'), rollNamedForge('armor', 'feet')];
     await kv.set(key, { _saveVersion: 1, character: { name: playerName, level: 100, fateShards: 200,
-        boneCharms: 5000, auraStones: 5000, mythicSeals: 5000, inventory: [], itemStacks: [] }, creatorItems: [] });
+        boneCharms: 5000, auraStones: 5000, mythicSeals: 5000, inventory: [], itemStacks: [{ itemId: 'gather-iron-sand-pristine', count: 20 }] }, creatorItems: [] });
     for (const [index, token] of tokens.entries()) await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll: rolls[index] });
     const attempts = await Promise.all(tokens.map(token => forge(playerName, token, '127.0.3.2', {
         roll: { ep: 999, offenseVal: 999 }, weaponEp: 999, bonuses: { ninjutsuOffense: 999 }, fateShards: 9999,

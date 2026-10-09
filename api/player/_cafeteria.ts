@@ -1,4 +1,6 @@
 import { addOwned, countOwned, removeOwned } from '../craft/_forge.js';
+import { COOK_RECIPES as SHARED_COOK_RECIPES, type CookRecipeId, type CookRecipe } from '../../shared/cooking-recipes.js';
+import { RESOURCE_ITEMS } from '../../shared/resource-gathering.js';
 import {
     COOK_COUNT_FIELD, COOK_DATE_FIELD, DAILY_RATION_COOK_CAP, RATION_ITEM_ID,
     dailyCounter, stampDailyCounter, utcDay,
@@ -44,30 +46,15 @@ function restoreAmount(flat: number, pct: number | undefined, maxPool: number): 
 // Hunt materials + ryo → ration-pack stacks the player donates to the Town Hall
 // (api/village/treasury/donate.ts → treasury.provisions). Per-player 40
 // rations/day (UTC), a server counter on the save that only grows within a day.
-export type CookRecipeId = 'field-rations' | 'campaign-rations';
-export type CookRecipe = {
-    id: CookRecipeId;
-    name: string;
-    ryo: number;
-    /** Any ONE of these material ids (1 unit) is consumed. */
-    materials: readonly string[];
-    /** ration-pack produced per cook. */
-    rations: number;
-    herbs: number;
-};
-export const COOK_RECIPES: Record<CookRecipeId, CookRecipe> = {
-    'field-rations': { id: 'field-rations', name: 'Field Rations', ryo: 30, materials: ['hunt-beast-meat'], rations: 5, herbs: 1 },
-    'campaign-rations': { id: 'campaign-rations', name: 'Campaign Rations', ryo: 80, materials: ['hunt-frost-pelt', 'hunt-ash-scale'], rations: 20, herbs: 2 },
-};
+export type { CookRecipeId, CookRecipe };
+export const COOK_RECIPES: Record<string, CookRecipe> = Object.fromEntries(SHARED_COOK_RECIPES.map(recipe => [recipe.id, recipe]));
 
-/** Display names for the cook materials. A refusal reaches the player as a
- *  sentence, so it must never carry a raw item id: "Campaign Rations needs 1
- *  Frost Pelt or Ash Scale", not "1 × hunt-frost-pelt or hunt-ash-scale".
+/** Display names for the edible cook materials. A refusal reaches the player as a
+ *  sentence, so it must never carry a raw item id.
  *  Mirrored by COOK_MATERIAL_NAMES in shinobij.client/src/lib/cafeteria.ts. */
 export const COOK_MATERIAL_NAMES: Record<string, string> = {
+    ...Object.fromEntries(RESOURCE_ITEMS.filter(item => item.activity === 'fishing').map(item => [item.id, item.name])),
     'hunt-beast-meat': 'Beast Meat',
-    'hunt-frost-pelt': 'Frost Pelt',
-    'hunt-ash-scale': 'Ash Scale',
 };
 
 export function cookMaterialName(itemId: string): string {
@@ -75,7 +62,7 @@ export function cookMaterialName(itemId: string): string {
     return COOK_MATERIAL_NAMES[id] ?? id;
 }
 
-/** "Frost Pelt or Ash Scale" — a recipe's accepted inputs, in words. */
+/** A recipe's accepted edible inputs, in words. */
 export function cookMaterialChoiceName(recipe: CookRecipe): string {
     return recipe.materials.map(cookMaterialName).join(' or ');
 }
@@ -89,7 +76,7 @@ export type CookOutcome =
     | { ok: true; character: Record<string, unknown>; cooked: number; dailyCooked: number; dailyCap: number; materialUsed: string }
     | { ok: false; error: string; dailyCooked?: number; dailyCap?: number };
 
-/** Pure: debit ryo + one material, credit ration-pack into itemStacks, bump the
+/** Pure: debit ryo, food, herbs and cooking fuel; credit ration-pack, bump the
  *  UTC-day cook counter. Refuses when the day's cap can't fit the whole batch. */
 export function applyCookRecipe(character: Record<string, unknown>, recipe: CookRecipe, now: number = Date.now()): CookOutcome {
     const today = utcDay(now);
@@ -99,12 +86,16 @@ export function applyCookRecipe(character: Record<string, unknown>, recipe: Cook
     }
     const ryo = num(character.ryo);
     if (ryo < recipe.ryo) return { ok: false, error: `Not enough ryo. ${recipe.name} costs ${recipe.ryo}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
-    const materialUsed = recipe.materials.find((m) => countOwned(character, m) > 0);
-    if (!materialUsed) return { ok: false, error: `${recipe.name} needs 1 ${cookMaterialChoiceName(recipe)}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
+    const materialCount = recipe.materialCount ?? 1;
+    const materialUsed = recipe.materials.find((m) => countOwned(character, m) >= materialCount);
+    if (!materialUsed) return { ok: false, error: `${recipe.name} needs ${materialCount} ${cookMaterialChoiceName(recipe)}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
     if (countOwned(character, 'gather-field-herb') < recipe.herbs)
         return { ok: false, error: `${recipe.name} needs ${recipe.herbs} Field Herb${recipe.herbs === 1 ? '' : 's'}.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
-    let next = removeOwned({ ...character, ryo: ryo - recipe.ryo }, materialUsed, 1);
+    if (countOwned(character, 'gather-heartwood-bark') < recipe.fuel)
+        return { ok: false, error: `${recipe.name} needs ${recipe.fuel} Heartwood Bark for cooking fuel.`, dailyCooked, dailyCap: DAILY_RATION_COOK_CAP };
+    let next = removeOwned({ ...character, ryo: ryo - recipe.ryo }, materialUsed, materialCount);
     next = removeOwned(next, 'gather-field-herb', recipe.herbs);
+    next = removeOwned(next, 'gather-heartwood-bark', recipe.fuel);
     next = addOwned(next, RATION_ITEM_ID, recipe.rations, true);
     next = stampDailyCounter(next, COOK_DATE_FIELD, COOK_COUNT_FIELD, today, dailyCooked + recipe.rations);
     return { ok: true, character: next, cooked: recipe.rations, dailyCooked: dailyCooked + recipe.rations, dailyCap: DAILY_RATION_COOK_CAP, materialUsed };
