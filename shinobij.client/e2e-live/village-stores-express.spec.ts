@@ -137,12 +137,12 @@ async function seedStoresAccount(request: APIRequestContext, testInfo: TestInfo)
         professionXp: 0,
         professionChosenAt: 1,
         inventory: [],
-        // The hunt spoils the loop starts from. Campaign Rations consumes the
-        // Frost Pelt first (recipe material order), so the Ash Scales survive
-        // for the donation legs.
+        // Food feeds both ration recipes; pelts and scales remain for equipment
+        // and the later material-donation legs.
         itemStacks: [
             { itemId: 'hunt-beast-meat', count: 5 },
             { itemId: 'gather-field-herb', count: 3 },
+            { itemId: 'gather-heartwood-bark', count: 3 },
             { itemId: 'hunt-frost-pelt', count: 3 },
             { itemId: 'hunt-ash-scale', count: 30 },
         ],
@@ -299,14 +299,14 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         const cookedTotal = FIELD_RATIONS_YIELD + CAMPAIGN_RATIONS_YIELD;
         await expect(rationChip.locator('strong')).toHaveText(String(cookedTotal));
         await expect(capLine).toContainText(`Cooked today: ${campaignBody.dailyCooked}/40 rations.`);
-        // Frost Pelt is spent before Ash Scale, so the donation legs still have stock.
-        await expect(kitchen.getByRole('listitem').filter({ hasText: 'Frost Pelt' }).locator('strong')).toHaveText('2');
+        // Inedible pelts are no longer advertised as kitchen ingredients.
+        await expect(kitchen.getByRole('listitem').filter({ hasText: 'Frost Pelt' })).toHaveCount(0);
 
         // Server truth, not the DOM: the packs and the spent spoils are on the save.
         const afterCook = await readSave(request, name, token);
         expect(countOwned(afterCook, 'ration-pack'), 'the server must hold the cooked packs').toBe(cookedTotal);
-        expect(countOwned(afterCook, 'hunt-beast-meat')).toBe(4);
-        expect(countOwned(afterCook, 'hunt-frost-pelt')).toBe(2);
+        expect(countOwned(afterCook, 'hunt-beast-meat')).toBe(0);
+        expect(countOwned(afterCook, 'hunt-frost-pelt')).toBe(3, 'pelts remain available for equipment');
         expect(countOwned(afterCook, 'gather-field-herb'), 'field and campaign rations consume one and two herbs').toBe(0);
         expect(Number((afterCook.character as Record<string, unknown>).ryo)).toBe(50_000 - 30 - 80);
 

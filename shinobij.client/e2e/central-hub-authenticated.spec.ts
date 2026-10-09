@@ -180,7 +180,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         { tile: "Arena District", heading: "Arena District" },
         { tile: "Shinobi Council Hall", heading: "Shinobi Council Hall" },
         { tile: "Grand Marketplace", heading: "Grand Marketplace" },
-        { tile: "Hunter Guild", heading: /Hunter Guild/ },
+        { tile: "Shinobi Outpost", heading: /Shinobi Outpost/ },
         { tile: "Hall of Legends", heading: "Hall of Legends" },
         { tile: "Pet Colosseum", heading: "Pet Colosseum" },
         { tile: "Weekly Boss", heading: "Weekly Boss" },
@@ -189,7 +189,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
     for (const destination of navigations) {
         await page.locator(".central-card").filter({ hasText: destination.tile }).click();
         await expect(page.getByRole("heading", { name: destination.heading }).first()).toBeVisible();
-        if (destination.tile === "Hunter Guild") {
+        if (destination.tile === "Shinobi Outpost") {
             const rankUp = page.locator(".rank-up-btn");
             await expect(rankUp).toContainText(/^Rank Up → /);
             await expect(rankUp).not.toContainText("?");

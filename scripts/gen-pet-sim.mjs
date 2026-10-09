@@ -64,6 +64,7 @@ write("_game-consts.ts", "constants/game.ts (subset)", consts + "\n");
 
 // 3. data/pet-config.ts → pet-config.ts (redirect its 2 imports).
 let petConfig = read("data/pet-config.ts")
+    .replace(/from '\.\.\/\.\.\/\.\.\/shared\/resource-items'/g, 'from "../../shared/resource-items.js"')
     .replace(/from "\.\.\/types\/pet"/g, 'from "./pet-types.js"')
     .replace(SHARED_IMPORT, SHARED_SERVER_PATH)
     // `[^}]*`, NOT `[\s\S]*?`. A lazy any-character match starts at the FIRST

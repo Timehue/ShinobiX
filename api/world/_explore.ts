@@ -117,7 +117,9 @@ export function applySectorExploreReward(
     if (!reward) return { ok: false as const, reason: 'invalid-sector' as const };
     const storedDate = typeof character.serverExploreDate === 'string' ? character.serverExploreDate : '';
     const count = storedDate === today ? Math.max(0, Math.floor(Number(character.serverExploresToday) || 0)) : 0;
-    if (count >= DAILY_SECTOR_EXPLORE_LIMIT) return { ok: false as const, reason: 'daily-limit' as const };
+    const resource = character.resourceGathering as { date?: string; attemptsToday?: number } | undefined;
+    const resourceCount = resource?.date === today ? Math.max(0, Math.floor(Number(resource.attemptsToday) || 0)) : 0;
+    if (count + resourceCount >= DAILY_SECTOR_EXPLORE_LIMIT) return { ok: false as const, reason: 'daily-limit' as const };
     const paid = credit === 'tile' ? { ...reward, ryo: 0 } : reward;
     const leveled = withRelicSurveyProgress(gainXp(character, paid.xp) as Record<string, unknown>, sectorRaw);
     return {

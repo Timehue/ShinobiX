@@ -13,6 +13,8 @@ import { buildNamedItem, debitNamedForge, makeNamedForgeReceipt, resolveNamedFor
 import { recordForgedItem } from '../_forged-item-registry.js';
 import { NAMED_ITEM_LEVEL_REQ } from '../../shared/item-level-gate.js';
 import { canPayNamedForge, NAMED_FORGE_FATE_SHARD_COST } from '../../shared/named-forge-economy.js';
+import { namedForgeOreCount } from '../../shared/resource-forging.js';
+import { countOwned } from './_forge.js';
 
 const cleanToken = (v: unknown) => typeof v === 'string' && /^[A-Za-z0-9]{16,96}$/.test(v) ? v : '';
 const REGISTRY_UNAVAILABLE = 'Named gear storage is temporarily unavailable. Retry this forge with the same roll.';
@@ -57,7 +59,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!canPayNamedForge(save?.character ?? {})) {
                 return res.status(409).json({ error: `Named forging requires ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` });
             }
-            const kind = body.kind === 'armor' ? 'armor' : 'weapon'; const roll = rollNamedForge(kind, body.slot);
+            const kind = body.kind === 'armor' ? 'armor' : 'weapon';
+            if (countOwned(save?.character ?? {}, 'gather-iron-sand-pristine') < namedForgeOreCount(kind))
+                return res.status(409).json({ error: `Named ${kind} forging requires ${namedForgeOreCount(kind)} Pristine Iron Sand and ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` });
+            const roll = rollNamedForge(kind, body.slot);
             const token = randomUUID().replace(/-/g, '');
             await kv.set(`named-forge:${playerName}:${token}`, { playerName, roll }, { ex: 20 * 60 });
             return res.status(200).json({ ok: true, token, roll });
@@ -86,9 +91,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
             const sealed = await kv.get<{ playerName: string; roll: NamedRoll }>(`named-forge:${playerName}:${token}`);
             if (!sealed || sealed.playerName !== playerName) return { ok: false as const, status: 409, error: 'invalid-or-spent-roll' };
-            const paid = debitNamedForge(character);
+            const paid = debitNamedForge(character, sealed.roll.kind);
             if (!paid) {
-                return { ok: false as const, status: 409, error: `Named forging requires ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` };
+                return { ok: false as const, status: 409, error: `Named forging requires ${namedForgeOreCount(sealed.roll.kind)} Pristine Iron Sand and ${NAMED_FORGE_FATE_SHARD_COST} Fate Shards.` };
             }
             const item = buildNamedItem(
                 sealed.roll,

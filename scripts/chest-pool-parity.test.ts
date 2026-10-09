@@ -51,7 +51,7 @@ describe('ancient chest pools mirror the client catalogs', () => {
         // Mirrors the client's old filter: rarity match, excluding the `item` slot.
         // Gear step drops are not chest stock; they have their own roll.
         const eligible = (rarity: string) => starterItems
-            .filter((item) => item.rarity === rarity && item.slot !== 'item' && !isStepItemId(item.id))
+            .filter((item) => item.rarity === rarity && item.slot !== 'item' && !item.serviceItem && !isStepItemId(item.id))
             .map((item) => item.id).sort();
         assert.deepEqual(poolFor(0.3, 'itemId'), eligible('common'));
         assert.deepEqual(poolFor(0.6, 'itemId'), eligible('rare'));

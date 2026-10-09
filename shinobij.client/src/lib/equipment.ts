@@ -38,6 +38,8 @@ export const itemSectionOptions: ReadonlyArray<{ value: EquipmentSlot; label: st
     { value: "item", label: "Item" },
     { value: "thrown", label: "Thrown" },
     { value: "potion", label: "Potion" },
+    { value: "fishingPole", label: "Fishing Pole" },
+    { value: "pickaxe", label: "Pickaxe" },
 ];
 
 // A hand-slot item whose name marks it as gloves/gauntlets (rather than a

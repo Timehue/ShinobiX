@@ -125,6 +125,10 @@ shop,tempest-fang-blade,fateShards,100,per unit,api/pvp/_item-catalog.ts,legenda
 shop,thrown-senbon,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-serpent-dust,ryo,400,per unit,api/pvp/_item-catalog.ts,rare thrown
 shop,thrown-shuriken,ryo,400,per unit,api/pvp/_item-catalog.ts,common thrown
+shop,tool-basic-fishing-pole,ryo,150,per unit,api/pvp/_item-catalog.ts,common fishingPole
+shop,tool-basic-pickaxe,ryo,150,per unit,api/pvp/_item-catalog.ts,common pickaxe
+shop,tool-golden-fishing-pole,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary fishingPole
+shop,tool-golden-pickaxe,fateShards,50,per unit,api/pvp/_item-catalog.ts,legendary pickaxe
 shop,training-katana,ryo,240,per unit,api/pvp/_item-catalog.ts,common hand
 shop,village-transfer-scroll,fateShards,250,per unit,api/pvp/_item-catalog.ts,legendary item
 shop,void-leech-nodachi,fateShards,100,per unit,api/pvp/_item-catalog.ts,mythic hand

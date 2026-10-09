@@ -1,8 +1,21 @@
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { purchaseCatalogItem } from './_purchase.js';
+import { ITEM_CATALOG } from '../pvp/_item-catalog.js';
 
 describe('catalog shop purchase', () => {
+    it('rejects direct purchases of every forge-only weapon and armor without charging', () => {
+        const forgeOnly = Object.values(ITEM_CATALOG).filter(item =>
+            (item.slot === 'hand' && item.weaponEp != null && ['rare', 'epic', 'legendary'].includes(item.rarity)) ||
+            (['body', 'head', 'waist', 'legs', 'feet'].includes(item.slot) && item.rarity === 'rare' && item.armorQuality));
+        assert.ok(forgeOnly.length >= 20);
+        for (const item of forgeOnly) {
+            const character = { level: 100, ryo: 1_000_000, fateShards: 1_000_000, inventory: [], itemStacks: [] };
+            const before = structuredClone(character);
+            assert.deepEqual(purchaseCatalogItem(character, item.id, 1), { ok: false, reason: 'item-not-for-sale' }, item.id);
+            assert.deepEqual(character, before, item.id);
+        }
+    });
     it('atomically debits ryo and grants an ordinary catalog item', () => {
         const result = purchaseCatalogItem({ level: 10, ryo: 1000, inventory: [] }, 'shinobi-vest', 99);
         assert.equal(result.ok, true);

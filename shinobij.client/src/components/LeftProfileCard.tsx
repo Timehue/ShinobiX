@@ -1,4 +1,5 @@
 import { useSharedNow } from "../lib/use-shared-now";
+import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { petTrainingOptions } from "../data/pet-config";
 import { getActiveAuraSphereBonuses } from "../lib/aura-sphere";
 import { dailyMissionsCompleted, dailyHuntsCompleted, dailyHuntCap } from "../lib/character-progress";
@@ -134,6 +135,7 @@ export const ProfileCardBody = memo(function ProfileCardBody({
     // portrait everyone else can see (lib/own-avatar.ts).
     const avatarSrc = useOwnAvatar(character);
     const now = serverNow();
+    const fieldActions = resourceActionsToday(character, now);
     const trainingReady = activeTraining !== null && now >= activeTraining.endsAt;
     const jutsuTrainingReady = activeJutsuTraining !== null && now >= activeJutsuTraining.endsAt;
     // Today's Broker crates at the Sunscar Festival; null until the count loads.
@@ -188,9 +190,9 @@ export const ProfileCardBody = memo(function ProfileCardBody({
             {/* Daily caps */}
             <div className="left-daily-caps">
                 <div className="left-caps-grid">
-                    <div className="left-caps-cell">
-                        <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--green-300)" }} />Tiles</span>
-                        <span className="left-caps-value" style={{ color: (character.dailyTilesExplored ?? 0) >= 100 ? "var(--danger)" : "var(--green-300)" }}>{character.dailyTilesExplored ?? 0}/100</span>
+                    <div className="left-caps-cell left-caps-field" title="Explore, fishing and mining share 100 actions per UTC day">
+                        <span className="left-caps-label"><GameIcon name="map" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Actions</span>
+                        <span className="left-caps-value" style={{ color: fieldActions >= 100 ? "var(--danger)" : "var(--gold-400)" }}>{fieldActions}/100</span>
                     </div>
                     <div className="left-caps-cell">
                         <span className="left-caps-label"><GameIcon name="scroll" size={10} style={{ verticalAlign: "-2px", marginRight: 3, color: "var(--gold-400)" }} />Missions</span>

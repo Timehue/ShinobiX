@@ -63,6 +63,9 @@ import type { VersionedCharacterCommit } from "../types/character";
 import type { Screen } from "../types/core";
 import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 import { PROFESSION_CHANGE_APPROVAL_ID } from "../../../shared/profession-change";
+import { GatheringEquipment } from '../components/GatheringEquipment';
+import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
+import { resourceRequest } from '../lib/resource-api';
 
 const ITEM_CATEGORY_ART: Record<ItemCategory, GameArtIconKind> = {
     gear: "attack", consumable: "potion", pet: "petTamer", material: "boneCharm", event: "reward",
@@ -335,6 +338,7 @@ export function Inventory({
     }).length;
 
     function equipItem(item: GameItem) {
+        if (gatheringTool(item.id)) { void changeGatheringTool(item.id, false); return; }
         if (item.weaponElement && !hasCharacterElement(character, item.weaponElement)) {
             alert(`You need the ${item.weaponElement} element to equip ${item.name}.`);
             return;
@@ -433,6 +437,7 @@ export function Inventory({
         const normalized = normalizeEquipmentSlot(slot);
         const equippedId = equippedIdForSlot(normalized);
         if (!equippedId) return;
+        if (gatheringTool(equippedId)) { void changeGatheringTool(equippedId, true); return; }
 
         // Consumable slots were a non-consuming selection — clearing one must
         // NOT mint a copy back into the backpack (that would dupe the item).
@@ -496,6 +501,13 @@ export function Inventory({
         }
 
         alert("This item cannot be used yet.");
+    }
+
+    async function changeGatheringTool(id: string, unequip: boolean) {
+        const result = await resourceRequest({ action: 'equip', playerName: character.name, itemId: id, unequip });
+        if (result.character) onVersionedCharacter(result.character, result._saveVersion);
+        if (!result.ok) alert(result.error ?? 'Could not change your gathering tool.');
+        else setSelectedInventoryItem(null);
     }
 
     function isSellableGear(item: GameItem) {
@@ -578,6 +590,7 @@ export function Inventory({
 
     const selected = selectedInventoryItem;
     const selectedGameItem = selected?.item;
+    const selectedGatheringTool = gatheringTool(selectedGameItem?.id);
     async function checkExchangeEligibility() {
         if (!selected || checkingExchange) return;
         const itemId = selectedGameItem?.id ?? selected.entry;
@@ -634,6 +647,7 @@ export function Inventory({
         <>
             {!selected && saleNotice}
             <div className="inventory-page">
+                <GatheringEquipment character={character} commit={onVersionedCharacter} />
                 <section className="inventory-equipped-panel">
                     <div className="inventory-equipped-heading">
                         <div>
@@ -1104,7 +1118,8 @@ export function Inventory({
                                             {selectedGameItem.weaponCooldown != null && selectedGameItem.weaponCooldown > 0 && <p><strong>Cooldown:</strong> {selectedGameItem.weaponCooldown} rounds</p>}
                                             {selectedGameItem.restoreChakra != null && <p><strong>Restores:</strong> {selectedGameItem.restoreChakra} chakra</p>}
                                             {selectedGameItem.restoreStamina != null && <p><strong>Restores:</strong> {selectedGameItem.restoreStamina} stamina</p>}
-                                            {selectedGameItem.cost > 0 && (selectedMarketplaceScroll
+                                            {selectedGatheringTool && <p><strong>Durability:</strong> {selectedGatheringTool.durability === null ? 'Permanent · never breaks' : `${gatheringToolRemaining(character, selectedGatheringTool.id)} / 50 uses remaining`}</p>}
+                                            {selectedGameItem.cost > 0 && (selectedMarketplaceScroll || selectedGatheringTool?.durability === null
                                                 ? <p><strong>Marketplace price:</strong> {selectedGameItem.cost} Fate Shards</p>
                                                 : <p><strong>Value:</strong> {selectedGameItem.cost} ryo</p>)}
                                             {selectedSellValue > 0 && <p><strong>Sell Value:</strong> {selectedSellValue} ryo</p>}

@@ -313,6 +313,56 @@ test("Tomoe appears on the active road while a paced lesson is waiting", async (
     await expect(page.getByRole("dialog", { name: "Tamer Tomoe & Kuro" })).toBeVisible();
 });
 
+test("the field lesson notice collapses without activating Study or moving the camera", async ({ page }, info) => {
+    test.setTimeout(120_000);
+    await installApi(page, 1);
+    // This test targets Tomoe's controls; keep unrelated level-milestone whispers already heard.
+    await page.addInitScript(() => localStorage.setItem('legacyRumors.seen.v1:petmentorqa', JSON.stringify([10, 20, 30, 40, 45])));
+    await page.goto('/#/worldMap', { waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'networkidle' });
+    const action = page.getByRole('button', { name: /Tamer Tomoe & Kuro/ });
+    const banner = page.locator('.pet-mentor-road-prompt');
+    const canvas = page.locator('.continuous-world-map > canvas');
+    await expect(action).toBeVisible();
+    for (const [width, height] of [[320, 568], [390, 844], [844, 390], [1366, 768]]) {
+        await page.setViewportSize({ width, height });
+        const collapse = page.getByRole('button', { name: 'Collapse field lesson notice' });
+        const bounds = await collapse.boundingBox();
+        expect(bounds!.width).toBeGreaterThanOrEqual(44);
+        expect(bounds!.height).toBeGreaterThanOrEqual(44);
+        if (width === 390 || width === 844) await page.screenshot({ path: info.outputPath(`field-notice-expanded-${width}.png`), fullPage: true });
+        await collapse.click();
+        const expand = page.getByRole('button', { name: 'Expand field lesson notice' });
+        await expect(expand).toBeFocused();
+        await expect(expand).toHaveAttribute('aria-expanded', 'false');
+        await expect(action).toBeHidden();
+        await expect(page.getByRole('dialog', { name: 'Tamer Tomoe & Kuro' })).toHaveCount(0);
+        await expect(canvas).toHaveAttribute('data-world-x', /.+/);
+        await expect(canvas).toHaveAttribute('data-world-y', /.+/);
+        const cursor = await canvas.evaluate(element => [element.dataset.worldX, element.dataset.worldY]);
+        await expand.press('d', { delay: 120 }); await expand.press('ArrowRight', { delay: 120 });
+        expect(await canvas.evaluate(element => [element.dataset.worldX, element.dataset.worldY])).toEqual(cursor);
+        const chip = await banner.boundingBox(), map = await page.locator('.continuous-world-map').boundingBox();
+        expect(chip!.width).toBeLessThanOrEqual(56);
+        expect(chip!.x).toBeGreaterThan(map!.x + map!.width / 2);
+        expect(chip!.y + chip!.height).toBeLessThanOrEqual(map!.y + map!.height);
+        await page.screenshot({ path: info.outputPath(`field-notice-collapsed-${width}.png`), fullPage: true });
+        await expand.press('Enter');
+        await expect(collapse).toBeFocused();
+        await expect(action).toBeVisible();
+    }
+    await action.focus(); await action.press('Enter');
+    const guide = page.getByRole('dialog', { name: 'Tamer Tomoe & Kuro' });
+    await expect(guide).toBeVisible();
+    while (await guide.getByRole('button', { name: /Next lesson page/ }).count()) await guide.getByRole('button', { name: /Next lesson page/ }).click();
+    await guide.getByRole('button', { name: 'Complete lesson & continue' }).click();
+    await guide.getByRole('button', { name: "Close Tomoe's field guide" }).click();
+    await expect(action).toBeFocused();
+    await expect(action).toBeVisible();
+    const accessibility = await new AxeBuilder({ page }).include('.pet-mentor-road-prompt').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    expect(accessibility.violations).toEqual([]);
+});
+
 test("Tomoe provides a complete, responsive seven-chapter pet battle course", async ({ page }, testInfo: TestInfo) => {
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];

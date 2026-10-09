@@ -1,4 +1,6 @@
 import { gainXp } from "../lib/character-level-projection";
+import { resourceActionsToday } from '../../../shared/resource-gathering';
+import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
 import { sectorOrderFor } from "../lib/sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
@@ -260,17 +262,6 @@ const SECTOR_CENTRE_TILE = 78;
 // fight-launch call site below.
 function bountyHunterLevel(playerLevel: number, amount: number): number {
     return contractHunterLevel(playerLevel, amount);
-}
-
-function interiorTileFromKey(key: string): number {
-    let h = 2166136261 >>> 0;
-    for (let i = 0; i < key.length; i += 1) {
-        h ^= key.charCodeAt(i);
-        h = Math.imul(h, 16777619);
-    }
-    const col = 2 + ((h >>> 0) % 8);
-    const row = 2 + (((h >>> 5) >>> 0) % 8);
-    return row * 12 + col;
 }
 
 type ActiveHuntTrail = { mission: CreatorMission; sector: number; progress: number; requiredTracks: number };
@@ -1736,7 +1727,7 @@ function WorldMapContent({
                     const lead = trail?.sector;
                     setTimeout(() => alert(lead
                         ? `The pack drives you off, but the Guild still has the trail. Regroup, then continue in Sector ${lead}.`
-                        : "The pack drives you off the trail. Return to the Hunter Guild if the lead does not reappear."), 40);
+                        : "The pack drives you off the trail. Return to the Shinobi Outpost if the lead does not reappear."), 40);
                 });
                 return;
             }
@@ -1766,7 +1757,7 @@ function WorldMapContent({
                     delete next[mission.id];
                     return next;
                 });
-                setTimeout(() => alert(`${context.displayName} is down. Return to the Hunter Guild and turn in the contract for your reward.`), 40);
+                setTimeout(() => alert(`${context.displayName} is down. Return to the Shinobi Outpost and turn in the contract for your reward.`), 40);
             } else if (!won) {
                 setTimeout(() => alert(`${context.displayName} escaped. The final trail stays hot for a rematch.`), 40);
             }
@@ -3303,9 +3294,9 @@ function WorldMapContent({
                 gameToast("Collect a saved find to make room for more exploration.", { kind: "info" });
                 return;
             }
-            const dailyTiles = character.dailyTilesExplored ?? 0;
+            const dailyTiles = resourceActionsToday(character);
             if (dailyTiles >= 100) {
-                alert("Daily tile exploration limit reached (100/100). Resets at midnight UTC.");
+                alert("Daily Explore, Fishing and Mining limit reached (100/100). Resets at midnight UTC.");
                 return;
             }
             const depleted = sectorExploreRefusal(sector, loadSectorTerritory(sector).ownerVillage, character.village);
@@ -3564,7 +3555,7 @@ function WorldMapContent({
             setHuntToast({
                 id: Date.now(),
                 kicker: "Contract complete",
-                text: `${huntAi.name} is already logged as defeated. Return to the Hunter Guild and turn in the contract.`,
+                text: `${huntAi.name} is already logged as defeated. Return to the Shinobi Outpost and turn in the contract.`,
             });
             return;
         }
@@ -4412,6 +4403,8 @@ function WorldMapContent({
                         ambienceBiome={ambienceBiomeForSector(selectedSector)}
                         playerTile={sectorPlayerPos}
                         playerName={character.name}
+                        gatheringCharacter={character}
+                        onGatheringCommit={onVersionedCharacter}
                         playerAvatarImage={resolveOwnAvatar(character, sharedImages)}
                         isCurrent={sectorIsCurrent}
                         enterDirection={sectorEnterDir}
@@ -4456,7 +4449,7 @@ function WorldMapContent({
                         onOpenSigns={handleOpenSectorSigns}
                         onOpenShrine={handleOpenSectorShrine}
                         contract={sectorContract} contractBusy={contractBusy} onClaimContract={() => { void handleClaimContract(); }}
-                        onExplore={handleExploreSelectedSector} dailyExplores={character.dailyTilesExplored ?? 0} exploreBusy={explorePresentationInFlight}
+                        onExplore={handleExploreSelectedSector} dailyExplores={resourceActionsToday(character)} exploreBusy={explorePresentationInFlight}
                         onFindRicherGround={handleFindRicherGround}
                         onHunt={handleHuntSelectedSector}
                     />
@@ -4827,7 +4820,7 @@ function WorldMapContent({
                         <h3>{loc.name}</h3>
                         <p className="territory-hostile-tag"><GameArtIcon kind="warning" size={17} /> Hostile Territory</p>
                         <p>{weatherEffects[weather].effect}</p>
-                        <button disabled={(character.dailyTilesExplored ?? 0) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{(character.dailyTilesExplored ?? 0) >= 100 ? 'Daily exploration limit reached (100/100)' : 'Explore Territory'}</button>
+                        <button disabled={resourceActionsToday(character) >= 100 || explorePresentationInFlight} onClick={() => runWhenSectorConfirmed(virtualSector, () => { void exploreSector(virtualSector); })}>{resourceActionsToday(character) >= 100 ? 'Shared daily actions used (100/100)' : 'Explore Territory'}</button>
                         <button onClick={() => runWhenSectorConfirmed(virtualSector, () => restInSector(virtualSector))}>Recover</button>
 
                         <div className="territory-guard-section">
