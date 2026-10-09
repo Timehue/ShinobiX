@@ -12,7 +12,7 @@ export function MapNotificationBanner({ identity, label, className, children }: 
     // Keep the action mounted so a dialog can restore focus to its original opener.
     if (state.identity !== identity) setState({ identity, collapsed: false });
     const collapsed = state.identity === identity && state.collapsed;
-    return <div className={`${className} map-notification-banner${collapsed ? ' is-collapsed' : ''}`}
+    return <div className={`${className} map-note${collapsed ? ' is-collapsed' : ''}`}
         data-sector-hud="true" onPointerDown={stopPropagation} onClick={stopPropagation}>
         <div id={contentId} className="map-notice-content" hidden={collapsed}>{children}</div>
         <button type="button" className="map-notice-toggle" aria-controls={contentId} aria-expanded={!collapsed}
