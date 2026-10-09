@@ -4,7 +4,7 @@ import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { buildSoloPveAiEncounter } from '../solo-pve/_ai-encounter.js';
 import { isSoloPveSessionLapsed } from '../solo-pve/_session.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
-import { settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
+import { applyPveOutcomeBodyOnce, markPveOutcomeSettled, readPveOutcomeMarker, settlePveFightOutcome } from '../pve/_fight-outcome-settlement.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { kv } from '../_storage.js';
 import { battleLockedFor, isIncapacitated } from '../_elapsed-state.js';
@@ -29,7 +29,6 @@ import { resolveAiProfileJutsu } from '../_ai-opponent-loadout.js';
 import type { EnemyTemplate } from '../towers/_enemy-templates.js';
 import { needsTowerLapseReconciliation } from '../towers/_tower-store.js';
 import { sealCompanionFromSave } from '../combat-core/companion.js';
-import { applyAiFightOutcomeToCharacter } from '../missions/_ai-fight-outcome.js';
 import type { AdminCombatContent } from '../_admin-content.js';
 import { applyCompanionUsageCost } from '../solo-pve/_settlement.js';
 
@@ -197,14 +196,24 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
     const actor = session.actors.find(candidate => candidate.side === 'squad' && candidate.ownerSlug === player && candidate.ai === false);
     if (!actor) throw new FestivalError('The sealed shinobi could not be found.', 409);
     const winner = session.winner === 'squad';
+    // The ambush's HP lands ONCE across this settle and the generic pve-outcome
+    // path, which reads this Tower run too (/api/pve/fight-outcome). Both used
+    // to write it, so a late second write set HP back up to the ambush's end value.
+    const markedSettled = await readPveOutcomeMarker(session, player);
+    let bodyWritten = false;
     const out = await mutatePlayerSave(player, ({ character }) => {
+        bodyWritten = false;
         const { run } = requireCaravan(character);
         if (!run.combat || run.combat.sessionId !== session!.runId) throw new FestivalError('This battle belongs to another expedition.', 409);
         if (run.combat.settled) return { ok: true, character, value: { outcome: winner ? 'win' : 'loss' }, write: false };
         const now = Date.now();
-        const physical = applyAiFightOutcomeToCharacter(character,
-            winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss', actor, now, true);
-        const withPetCosts = applyCompanionUsageCost(physical, session!.companionUsage);
+        const physical = applyPveOutcomeBodyOnce({
+            character, session: session!, playerName: player, now,
+            outcome: winner ? 'win' : session!.winner === 'draw' ? 'draw' : 'loss',
+            continuousVitals: true, markedSettled,
+        });
+        bodyWritten = physical.bodyWritten;
+        const withPetCosts = applyCompanionUsageCost(physical.character, session!.companionUsage);
         const next = settleCaravanCombat(withPetCosts, session!.runId, winner, now);
         const id = `arena-${session!.runId}`;
         const history = Array.isArray(next.battleHistory) ? next.battleHistory as Parameters<typeof appendBattleHistory>[0] : undefined;
@@ -220,6 +229,7 @@ async function finishTowerCaravanCombat(player: string, runId: string) {
         return { ok: true, character: next, value: { outcome: winner ? 'win' : 'loss' }, write: true };
     });
     if (!out.ok) throw new FestivalError(out.error, out.status);
+    if (bodyWritten) await markPveOutcomeSettled(session, player, Date.now());
     if (session.rewardSettlementState !== 'settled') {
         session.rewardSettlementState = 'settled';
         await writeSession(session);
