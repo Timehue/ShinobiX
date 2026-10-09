@@ -119,7 +119,7 @@
     .sector-intel-payoff p:last-child {
         margin-bottom: 0;
     }
-.map-instance .pet-mentor-road-prompt {
+.map-instance .map-note {
     position: absolute;
     right: clamp(10px, 2vw, 18px);
     bottom: clamp(10px, 2vw, 18px);
@@ -156,21 +156,20 @@
 .map-notice-content { min-width: 0; }
 .map-notice-content[hidden] { display: none; }
 .map-instance .map-notice-toggle { display: grid; place-items: center; min-width: 44px; min-height: 44px; padding: 0; border: 1px solid rgba(244, 184, 96, .45); border-radius: 9px; background: rgba(7, 17, 21, .75); color: #f4c77f; font-size: 1.1rem; line-height: 1; touch-action: manipulation; }
-.map-instance .pet-mentor-road-prompt.is-collapsed { grid-template-columns: 44px; width: 54px; min-height: 54px; gap: 0; }
-.map-instance .pet-mentor-road-prompt small { color: #f4c77f; font-size: .58rem; font-style: normal; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
-.map-instance .pet-mentor-road-prompt strong { overflow: hidden; color: #fff5e4; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
-.map-instance .pet-mentor-road-prompt em { overflow: hidden; color: #acbac8; font-size: .62rem; font-style: normal; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
-.map-instance .pet-mentor-road-prompt b { color: #f4c77f; font-size: .68rem; white-space: nowrap; }
+.map-instance .map-note.is-collapsed { grid-template-columns: 44px; width: 54px; min-height: 54px; gap: 0; }
+.map-instance .map-note small { color: #f4c77f; font-size: .58rem; font-style: normal; font-weight: 900; letter-spacing: .1em; text-transform: uppercase; }
+.map-instance .map-note strong { overflow: hidden; color: #fff5e4; font-size: .78rem; text-overflow: ellipsis; white-space: nowrap; }
+.map-instance .map-note em { overflow: hidden; color: #acbac8; font-size: .62rem; font-style: normal; line-height: 1.3; text-overflow: ellipsis; white-space: nowrap; }
+.map-instance .map-note b { color: #f4c77f; font-size: .68rem; white-space: nowrap; }
 @media (hover: hover) {
-    .map-instance .pet-mentor-road-prompt:hover { border-color: #f8d28c; transform: translateY(-1px); }
+    .map-instance .map-note:hover { border-color: #f8d28c; transform: translateY(-1px); }
 }
 .map-instance :is(.mentor-action,.map-notice-toggle):focus-visible { outline: 3px solid #f8d28c; outline-offset: -3px; }
 
 @media (max-width: 600px) {
-    .map-instance .pet-mentor-road-prompt { gap: 4px; min-height: 58px; }
-    .map-instance .pet-mentor-road-prompt.is-collapsed { min-height: 54px; }
+    .map-instance .map-note { gap: 4px; min-height: 58px; }
     .map-instance .mentor-action { gap: 6px; min-height: 48px; padding: 3px; }
-    .map-instance .pet-mentor-road-prompt em { display: none; }
+    .map-instance .map-note em { display: none; }
 }
 
 /* The notice follows the map's width, including short landscape and split panes. */
@@ -178,7 +177,7 @@
     .map-instance .mentor-action { grid-template-columns: 32px minmax(0, 1fr); gap: 4px 6px; padding: 3px; }
     .map-instance .pet-mentor-road-art { grid-row: 1 / 3; width: 32px; height: 32px; }
     .map-instance .mentor-action > b { justify-self: start; }
-    .map-instance .pet-mentor-road-prompt em { display: none; }
+    .map-instance .map-note em { display: none; }
 }
 @container (max-width: 200px) {
     .map-instance .mentor-action { grid-template-columns: minmax(0, 1fr); }
