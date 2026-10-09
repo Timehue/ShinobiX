@@ -193,7 +193,7 @@ const sageCopy = buildSageVnEvent({
     sector: 1,
     spawnedAt: 1,
     expiresAt: 2,
-}, "Test Shinobi").vnPages?.flatMap((page) => page.dialogue) ?? [];
+}, "Test Shinobi").vnPages?.flatMap((page) => [page.title, page.scene, ...page.dialogue]) ?? [];
 
 const emissaryCopy = EMISSARY_DEFS.flatMap((def) => [
     def.name,
