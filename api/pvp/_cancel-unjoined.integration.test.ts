@@ -111,6 +111,51 @@ test('cancellation releases both players and never writes their saves or runs br
     }
 });
 
+test('cancelling drops the defender\'s sector-attack notice so the heartbeat cannot route them back in', async () => {
+    const session = await seed('cancel-notice');
+    const notice = (id: string, battleId: string) => ({ id, fromName: session.p1.name, toName: session.p2.name, sectorAttack: true, battleId });
+    const unrelated = notice('other-notice', 'some-other-duel');
+    const inbox = `challenges:${session.p2.name}`;
+    await kv.set(inbox, [notice('sector-notice', session.battleId), unrelated], { ex: 180 });
+    assert.equal((await call(move, session.p1.name, { battleId: session.battleId, role: 'p1', action: 'cancel-unjoined' })).status, 200);
+    assert.deepEqual(await kv.get(inbox), [unrelated], 'only the cancelled duel\'s notice is removed');
+});
+
+test('a cancelled duel\'s only notice leaves the inbox empty', async () => {
+    const session = await seed('cancel-lone-notice');
+    const inbox = `challenges:${session.p2.name}`;
+    await kv.set(inbox, [{ id: 'lone-notice', fromName: session.p1.name, toName: session.p2.name, sectorAttack: true, battleId: session.battleId }], { ex: 180 });
+    assert.equal((await call(move, session.p1.name, { battleId: session.battleId, role: 'p1', action: 'cancel-unjoined' })).status, 200);
+    assert.equal(await kv.get(inbox), null);
+});
+
+test('a duel that ends any other way (a flee) also drops the defender\'s notice on the next terminal read', async () => {
+    const session = await seed('flee-notice');
+    const inbox = `challenges:${session.p2.name}`;
+    const notice = { id: 'flee-notice-id', fromName: session.p1.name, toName: session.p2.name, sectorAttack: true, battleId: session.battleId };
+    await kv.set(inbox, [notice], { ex: 180 });
+    await kv.set(`pvp:${session.battleId}`, { ...session, joined: { p1: true, p2: true }, status: 'done', winner: 'p2',
+        fleedBy: 'p1', endedAt: Date.now(), log: [...session.log, `${session.p1.name} fled the battle, losing 10 HP.`] });
+    const result = await call(move, session.p2.name, { battleId: session.battleId, role: 'p2', action: 'wait' });
+    assert.equal(result.status, 200);
+    assert.equal(await kv.get(inbox), null, 'a finished duel leaves no notice to route the defender back into it');
+});
+
+test('a notice posted after its duel already ended is not queued', async () => {
+    const challenge = (await import('../player/challenge.js')).default as unknown as Handler;
+    const session = await seed('late-notice');
+    await kv.set(`pvp:${session.battleId}`, { ...session, status: 'done', winner: 'draw', terminalReason: 'cancelled-unjoined',
+        endedAt: Date.now(), log: [...session.log, `${session.p1.name} cancelled the unstarted duel.`] });
+    const posted = await call(challenge, session.p1.name, {
+        targetName: session.p2.name,
+        challenge: { id: 'late-notice-id', fromName: session.p1.name, toName: session.p2.name, mode: 'standard',
+            sectorAttack: true, battleId: session.battleId },
+    });
+    assert.equal(posted.status, 200, JSON.stringify(posted.body));
+    assert.equal(posted.body.skipped, 'battle-ended');
+    assert.equal(await kv.get(`challenges:${session.p2.name}`), null);
+});
+
 test('pending recovery repairs a legacy cancellation after a crash, including after the live row expires', async () => {
     const { sealPvpRewardRecoverySnapshot } = await import('./_reward-recovery.js');
     for (const expired of [false, true]) {
