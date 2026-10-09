@@ -2332,7 +2332,7 @@ export default function App() {
             declineChallengeGlobal(incoming);
             return;
         }
-        setDuelChallenges(prev => prev.filter(c => c.id !== incoming.id));
+        dismissChallengeLocally(incoming.id); void clearChallengeOnServer(incoming);
         if (incoming.battleId) {
             setPvpBattleId(incoming.battleId);
             setPvpRole("p2");
