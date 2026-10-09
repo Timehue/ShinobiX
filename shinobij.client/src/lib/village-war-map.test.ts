@@ -202,11 +202,11 @@ describe('engageOpenSectorBattle — an attack in a Pet or Card war is that war\
     it('throws the server\'s own sentence on a refusal, for the player\'s row to show', async () => {
         globalThis.fetch = (async () => ({
             ok: false, status: 409,
-            json: async () => ({ error: 'You two met in battle moments ago. You can fight again in 9 min.' }),
+            json: async () => ({ error: 'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.' }),
         }) as unknown as Response) as typeof globalThis.fetch;
         try {
             await assert.rejects(engageOpenSectorBattle('pet', 'Raider', '10:storm-vs-leaf', 'Warden'),
-                { name: 'WarMapRequestError', message: 'You two met in battle moments ago. You can fight again in 9 min.' });
+                { name: 'WarMapRequestError', message: 'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.' });
         } finally { globalThis.fetch = realFetch; clearWarMapCache(); }
     });
 

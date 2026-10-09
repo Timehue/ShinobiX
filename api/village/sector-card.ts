@@ -19,10 +19,13 @@ import { villageWarMapEnabled } from '../_release-flags.js';
 import { resolveChronicleDeckMutation, resolveChronicleDeckWithSave, type ChronicleDeckResolution } from '../card-clash/_deck.js';
 import {
     claimOpenSectorBattle,
+    endOwnOpenBattleProtection,
     gateOpenSectorBattle,
     newOpenBattleId,
+    noteCalledOffOpenDuel,
     noticeOpenSectorBattle,
     OPEN_CARD_JOIN_WINDOW_MS,
+    protectOpenBattleLoser,
     releaseOpenBattleFighters,
 } from '../_sector-contest-engage.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
@@ -68,7 +71,9 @@ function cleanEngageId(raw:unknown):string{const id=String(raw??'').trim();retur
 function keyOf(session:Session):string{return session.open?openKey(session.open.engageId):sessionKey(session.sectorWarId)}
 async function saveSession(session:Session){const key=keyOf(session);await kv.set(key,session,{ex:SESSION_TTL_SEC});await syncCardDuelPresence(kv,key,session,SESSION_TTL_SEC)}
 async function applyOutcome(session:Session){if(!session.state?.winner||session.appliedToContest)return;const winner=session.state.winner;const winnerName=winner==='p1'?session.p1Name:winner==='p2'?(session.p2Name??''):'';const loserName=winner==='p1'?(session.p2Name??''):winner==='p2'?session.p1Name:'';const[winnerRole,loserRole]=await Promise.all([sectorWarRoleOf(winnerName),sectorWarRoleOf(loserName)]);const endedAt=battleEndedAt(session);/* One CAS commits the receipt with the tally (deduped past the in-row ledger). A settled war is no longer written, a duel opened before this contest instance belongs to an earlier war on the sector, and a duel that ENDED after the war stopped being live is past the whistle: it is skipped, never scored as a 0-point receipt (which still logged `battle-scored` and still put its winner on the capture credit). */const commit=await commitSectorWarBattle({contestId:session.sectorWarId,battleId:session.open?`card-open:${session.sectorWarId}:${session.open.engageId}`:`card:${session.sectorWarId}:${session.createdAt}`,decide:async(contest):Promise<SectorWarBattleDecision>=>{if(contest.flipped||contest.expiredAt)return{kind:'skip',reason:'terminal'};if(session.createdAt<contest.startedAt)return{kind:'skip',reason:'superseded'};if(!isSectorWarActive(contest,endedAt))return{kind:'skip',reason:'superseded'};const[atkRaw,defRaw]=await Promise.all([kv.get<Record<string,unknown>>(villageWarKey(session.attackerVillage)),kv.get<Record<string,unknown>>(villageWarKey(session.defenderVillage))]);const outcome=applyContestBattleByWinner(contest,winner,{now:endedAt,roleSwing:sectorControlSwing(winnerRole,loserRole),attackerMult:sectorWarDamageMultiplier(normalizeVillageWarRecord(session.attackerVillage,atkRaw??undefined)),defenderMult:defenderPointsMultiplier(normalizeVillageWarRecord(session.defenderVillage,defRaw??undefined)),by:winnerName});if(!outcome)return{kind:'skip',reason:'draw'};/* sectors never flip mid-war — settlement compares the tallies at 72h */return{kind:'score',outcome,attackerWon:winner==='p1',by:winnerName,at:endedAt}}});session.appliedToContest=true;session.warResult=warResultFrom(commit)}
-async function persist(session:Session){if(session.status==='done')await applyOutcome(session);await saveSession(session)}
+async function persist(session:Session){if(session.status==='done'){const first=!session.appliedToContest;await applyOutcome(session);if(first&&session.open)await protectOpenDuelLoser(session)}await saveSession(session)}
+/** An open duel was decided: its loser is protected. The winner, and either side of a draw, may fight again at once (owner ruling 2026-10-09). */
+async function protectOpenDuelLoser(session:Session){const winner=session.state?.winner;const loser=winner==='p1'?(session.p2Name??''):winner==='p2'?session.p1Name:'';if(loser)await protectOpenBattleLoser(session.sectorWarId,loser,Date.now())}
 // The shared clock: passes expired turns, and forfeits a duelist who misses two in
 // a row (shared/chronicle-duel.ts advanceExpiredChronicleTurn); applyOutcome then
 // scores that forfeit on the contest like any other result. Returns whether the
@@ -478,9 +483,10 @@ async function runEngage(me: string, sectorWarId: string, body: Record<string, u
         await claim.release();
         throw err;
     }
-    // Starting it ends the challenger's own post-defeat shield, as a Combat raid
-    // does: the target could not start one back while it lasted.
+    // Starting it ends the challenger's own post-defeat shields, as a Combat
+    // raid does: the target could not start one back while they lasted.
     endOwnFieldRecoveryShield(me);
+    await endOwnOpenBattleProtection(sectorWarId, me);
     await noticeOpenSectorBattle({ kind: 'card', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
     return { status: 200, body: { ...versionEcho(resolution), engageId, session: openWaiting(session, mySide) } };
 }
@@ -506,7 +512,13 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
             session.status = 'void';
             session.updatedAt = now;
             await saveSession(session);
-            if (!expired) await releaseOpenBattleFighters(sectorWarId, [session.p1Name, session.p2Name ?? '']);
+            // Inside the window both holds are this duel's, so calling it off
+            // frees both duelists at once. Past it they have lapsed, and either
+            // may already hold one for another duel, which must not be freed.
+            if (!expired) {
+                await releaseOpenBattleFighters(sectorWarId, [session.p1Name, session.p2Name ?? '']);
+                await noteCalledOffOpenDuel(sectorWarId, me, session.open.target, now);
+            }
         } else if (action === 'join' && named && safeName(session.open.target) === safeName(me)) {
             const resolution = await resolveDeck(me, ids(body.deck ?? body.defaultDeck), admin);
             if (!resolution) return { status: 400, body: { error: 'No legal 40-card Chronicle deck is available.' } };
@@ -516,6 +528,9 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
             session.status = 'active';
             session.updatedAt = now;
             await saveSession(session);
+            // The match is live: its presence now proves both duelists are in a
+            // battle (api/card-clash/_presence.ts), so the holds are done.
+            await releaseOpenBattleFighters(sectorWarId, [session.p1Name, session.p2Name ?? '']);
             return { status: 200, body: { ...versionEcho(resolution), session: projectMatchForViewer(session.state, seat) } };
         }
     }

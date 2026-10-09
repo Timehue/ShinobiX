@@ -20,9 +20,11 @@ import { activeCarriedPets } from '../_entitlements.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
 import {
     claimOpenSectorBattle,
+    endOwnOpenBattleProtection,
     gateOpenSectorBattle,
     newOpenBattleId,
     noticeOpenSectorBattle,
+    protectOpenBattleLoser,
 } from '../_sector-contest-engage.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 
@@ -403,22 +405,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 terrain, engine: 'showdown', open: { engageId, initiator: me },
                 createdAt: now, updatedAt: now,
             };
-            // A commit that fails scored nothing (the contest receipt is written
-            // atomically or not at all), so the cooldown it claimed is released:
-            // a busy war row must not lock this pair out for ten minutes.
+            // The battle is decided here, so both fighters' holds end with this
+            // commit, whether it lands or fails (a failed commit scored nothing:
+            // the contest receipt is written atomically or not at all).
             let commit: SectorWarBattleCommit;
             try {
                 commit = await applyPetOutcomeToContest(session);
-            } catch (err) {
+            } finally {
                 await claim.release();
-                throw err;
             }
             session.warResult = warResultFrom(commit);
             session.appliedToContest = true;
             await kv.set(openSessionKey(engageId), session, { ex: SESSION_TTL_SEC });
-            // Starting it ends the challenger's own post-defeat shield, as a
-            // Combat raid does: the target could not start one back while it lasted.
+            // Starting it ends the challenger's own post-defeat shields, as a
+            // Combat raid does: the target could not start one back while they
+            // lasted. Then the loser, whoever that is, is protected; the winner
+            // may fight again at once (owner ruling 2026-10-09).
             endOwnFieldRecoveryShield(me);
+            await endOwnOpenBattleProtection(sectorWarId, me);
+            await protectOpenBattleLoser(sectorWarId, session.winner === 'p1' ? p2.name : p1.name, now);
             await noticeOpenSectorBattle({ kind: 'pet', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
             return res.status(200).json({
                 engageId,

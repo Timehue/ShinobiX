@@ -329,10 +329,10 @@ test('real sector contest attack is a card duel with that player, retaining the 
 test('a refused card duel says why on that player\'s row and leaves the sector usable',async({page})=>{
     await boot(page,1,async()=>{
         await cardWar(page);
-        await page.route('**/api/village/sector-card',route=>route.fulfill({status:409,json:{error:'You two met in battle moments ago. You can fight again in 9 min.'}}));
+        await page.route('**/api/village/sector-card',route=>route.fulfill({status:409,json:{error:'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.'}}));
     });
     await page.getByRole('button',{name:'Card Battle Shinobi001'}).click();
-    await expect(page.getByText('You two met in battle moments ago. You can fight again in 9 min.',{exact:true})).toBeVisible();
+    await expect(page.getByText('That shinobi just lost a battle and is recovering. You can challenge them in 2 min.',{exact:true})).toBeVisible();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','worldMap');
     await expect(page.locator('.sector-image-map')).toBeVisible();
     expect(await page.evaluate(()=>sessionStorage.getItem('sectorWarCard.v1'))).toBeNull();
