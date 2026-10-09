@@ -1,5 +1,5 @@
 /*
- * Resolve a caller's VILLAGE without reading their save blob.
+ * Resolve a caller's VILLAGE from their save, without reading the whole save blob.
  *
  * WHY THIS EXISTS (perf, 100-200 concurrent players on one Railway process):
  * two hot per-viewer GETs — /api/village/intel and /api/village/war-map — used
@@ -18,10 +18,11 @@
  * presence row first, at zero KV cost. But presence `character` is
  * CLIENT-SUPPLIED (the heartbeat stores whatever the client sends), and since
  * the owner's 2026-10-08 ruling a village's intel, war chest, structures, stores
- * and treasury are for its MEMBERS only. Every caller here now decides whose
- * internals a response may carry, which is authorization: a player who claimed
- * another village in their heartbeat would have been served that village's
- * internals. So the answer comes from the SAVE, as a database-side projection
+ * and treasury are for its MEMBERS only. Every caller here (intel, war-map and
+ * the members-only /api/village/state) now decides whose internals a response
+ * may carry, which is authorization: a player who claimed another village in
+ * their heartbeat would have been served that village's internals. So the
+ * answer comes from the SAVE, as a database-side projection
  * (api/_storage-projection.ts): only `character.village` leaves Postgres, a few
  * bytes instead of the ~200 KB row, which keeps the perf fix above.
  *

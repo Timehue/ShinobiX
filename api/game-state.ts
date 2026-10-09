@@ -34,7 +34,9 @@ const DOJO_CIRCUIT_ENABLED_KEY = 'game:dojo-circuit:enabled';
 // it did before this cache existed. The village endpoints that write the row
 // (orders, leadership, treasury donate/transfer, upgrade, agenda, Hollow Gate,
 // war-structure) also drop the entry, so the next poll after one of them
-// rebuilds instead of serving the pre-write frame. The villageState POST below
+// rebuilds instead of serving the pre-write frame. (Since the frame went public
+// fields only, api/_village-state-view.ts, just the leadership and Hollow Gate
+// writes change what it shows; the rest only cost a rebuild.) The villageState POST below
 // deliberately does NOT: it is free to call, so dropping the entry there would
 // let any player force a rebuild of this shared frame on demand.
 const GAME_STATE_TTL_MS = 3000;
