@@ -9,6 +9,7 @@ import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { augmentSaveWithForgedDefs } from '../_forged-item-registry.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 import type { EndlessRun } from './_run.js';
 import {
     buildEndlessWaveEncounter,
@@ -69,20 +70,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
 
+            // Every fight this player is holding, an earlier wave included, is
+            // settled before this wave is sealed from the save
+            // (api/pve/_held-fights.ts).
+            const held = await settleHeldFights(playerName);
+            if (!held.ok) return { ok: false as const, error: held.error, errorCode: held.reason };
+            let sealSave = save;
+            let sealChar = char;
+            if (held.settled > 0) {
+                const fresh = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+                const freshChar = fresh?.character as Record<string, unknown> | undefined;
+                if (!fresh || !freshChar) throw new Error('Player save vanished while held fights were settled.');
+                sealSave = fresh;
+                sealChar = freshChar;
+            }
+
             // Resuming the wave already on the board (above) stays open; sealing
             // a NEW one while admitted does not. The wave seeds from the save's
             // own HP, so it would start a knocked-out fighter at zero.
-            if (!identity.admin && isIncapacitated(char)) {
+            if (!identity.admin && isIncapacitated(sealChar)) {
                 return { ok: false as const, error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' };
             }
             const runId = endlessWaveRunId();
             const now = Date.now();
             const built = buildEndlessWaveEncounter({
                 playerName,
-                save,
+                save: sealSave,
                 runToken,
                 wave,
-                playerLevel: Math.max(1, Math.floor(Number(char.level) || 1)),
+                playerLevel: Math.max(1, Math.floor(Number(sealChar.level) || 1)),
                 runId,
                 now,
                 admin: await loadAdminCombatContent(),

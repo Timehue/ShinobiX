@@ -150,21 +150,130 @@ const ACADEMY_SPAR_ENCOUNTER_KIND = 'academy-spar';
  * Whether this run's own SETTLEMENT already owns the player's HP on a win, so
  * the outcome report must leave it alone.
  *
- * Exactly one mode does: the Academy spar grants a scripted post-spar HP
- * (`maxHp - 25` in applyAcademySparSettlement) rather than the HP the fight
- * left. Both writes land through mutatePlayerSave the moment the fight
- * resolves, so without this the tutorial's ending HP would depend on which
- * mutation got there first.
+ * One mode does: the Academy spar grants a scripted post-spar HP (`maxHp - 25`
+ * in applyAcademySparSettlement) rather than the HP the fight left, and the
+ * story client fires both writes the moment the fight resolves
+ * (MissionArenaFight runs `settleFn` and `outcomeFn` together), so without
+ * this the ending HP depended on which mutation got there first.
  *
- * Deliberately narrow, and keyed off the SESSION's towerId rather than anything
- * the caller says — a client cannot opt its fight out of paying for itself.
- * A LOST spar is untouched by this and still reports normally; as a spar
- * (`sessionIsSpar`) that report leaves the beginner's HP as it was, so they can
- * step straight back onto the mat instead of into a hospital bed.
+ * A story boss used to be the second. Its settlement grants the HP the fight
+ * left PLUS 25, and a report landing after it took the +25 back. It now writes
+ * the fight's HP at most once against this report's receipt and adds the 25 as
+ * the reward it is (api/story/settle.ts), so the two reach the same HP in
+ * either order, and a won boss can be settled before another fight is sealed
+ * (api/pve/_held-fights.ts).
+ *
+ * Deliberately narrow, and keyed off the SESSION's own encounter rather than
+ * anything the caller says — a client cannot opt its fight out of paying for
+ * itself. A LOST spar is untouched by this and still reports normally (its
+ * settlement refuses a loss). As a spar (`sessionIsSpar`) a lost spar leaves
+ * the beginner's HP as it was, so they can step straight back onto the mat
+ * instead of into a hospital bed.
  */
 export function settlementOwnsHpOnWin(session: AiFightSession | null | undefined): boolean {
     if (isSoloPveSession(session)) return session.encounter.kind === ACADEMY_SPAR_ENCOUNTER_KIND;
     return session?.towerId === ACADEMY_SPAR_ENCOUNTER_KIND;
+}
+
+/**
+ * Did this session seat the player at a FULL HP pool instead of the HP their
+ * save held? Every Tower-engine run does: buildTowerEncounter seals each squad
+ * actor at full vitals (api/towers/_encounter.ts `squadActor`), and so the
+ * Celestial Tower, the Endless Spire, Clan Boss assaults and World Crisis
+ * fights all start a wounded player at full health. What such a run leaves is
+ * "what is left of a pool the run handed you", unrelated to what the player
+ * held, so writing it back can only ever COST HP (see the HP note in
+ * applyAiFightOutcomeToCharacter).
+ *
+ * The Sunscar caravan ambush is the one Tower run re-seeded from the save
+ * (api/festival/_caravan-combat.ts), so its remaining HP is a real cost.
+ * Solo-PvE sessions are not Tower runs; buildSoloPveAiEncounter seeds HP from
+ * the save.
+ */
+export function sessionSeedsFullHp(session: AiFightSession | null | undefined): boolean {
+    if (!session || isSoloPveSession(session)) return false;
+    return !session.caravanAmbush;
+}
+
+/**
+ * The vitals the player's SAVE held when a fight was sealed from it. HP is
+ * sealed for every fight seeded from the save; chakra and stamina only for a
+ * CONTINUOUS (open-world) one, the only kind that carries them back.
+ */
+export type SeededVitals = { hp?: number; chakra?: number; stamina?: number };
+export type SeededVital = keyof SeededVitals;
+
+const VITAL_POOL: Record<SeededVital, 'maxHp' | 'maxChakra' | 'maxStamina'> = {
+    hp: 'maxHp',
+    chakra: 'maxChakra',
+    stamina: 'maxStamina',
+};
+
+/**
+ * What this session sealed of the save it was seeded from: every Solo-PvE
+ * encounter built by buildSoloPveAiEncounter, and the Sunscar caravan ambush
+ * (api/festival/_caravan-combat.ts). `undefined` for a session sealed before
+ * the field existed, and for a run that seats a full pool instead
+ * (`sessionSeedsFullHp`).
+ *
+ * It is what makes a LATE first settlement honest. Settlement used to write the
+ * fight's surviving HP as an absolute value, which is right only while the save
+ * still holds what the fight was seeded from. Finish a fight at high HP, keep
+ * its report back, lose HP in another mode and settle that, then report the
+ * first fight: its write set HP back up to its own end value, a free heal. The
+ * write now subtracts whatever the save has lost since (`vitalLostSinceSeal`),
+ * and a continuous fight's chakra and stamina are settled the same way.
+ */
+export function sessionSeededVitals(session: AiFightSession | null | undefined): SeededVitals | undefined {
+    if (!session) return undefined;
+    const sealed: unknown = isSoloPveSession(session) ? session.seededVitals : session.caravanAmbush?.seededVitals;
+    if (!sealed || typeof sealed !== 'object') return undefined;
+    const vitals: SeededVitals = {};
+    for (const field of ['hp', 'chakra', 'stamina'] as const) {
+        const value = (sealed as Record<string, unknown>)[field];
+        if (typeof value === 'number' && Number.isFinite(value) && value >= 0) vitals[field] = Math.floor(value);
+    }
+    return Object.keys(vitals).length > 0 ? vitals : undefined;
+}
+
+/** A vital as settlement reads it from the save. One with no readable value
+ *  counts as full, as it did when the fighter was seeded (`finite(value, max)`). */
+function heldVital(character: Record<string, unknown>, field: SeededVital, max: number): number {
+    const stored = character[field];
+    return typeof stored === 'number' && Number.isFinite(stored)
+        ? Math.max(0, Math.min(max, Math.floor(stored)))
+        : max;
+}
+
+/**
+ * How much of one vital the save has lost since a fight was sealed from it
+ * (`sessionSeededVitals`), given what the save holds NOW. A settlement
+ * subtracts it from what the fight left. 0 when that vital was not sealed. Pure.
+ *
+ * Only a LOSS since the seal counts. What the save gained since is never
+ * credited: idle recovery keeps running on the save while a Solo-PvE fight is
+ * fought (nothing battle-locks it), and the absolute write has always replaced
+ * that, so crediting it would make every fight a little cheaper. A settlement
+ * built on this is therefore never above the old value, and equal to it
+ * whenever the save has lost nothing since the seal, which is every prompt
+ * settlement.
+ *
+ * ⚠ Not idempotent: written twice, a fight would be charged its own cost a
+ * second time as "lost since". Every writer applies it at most once against the
+ * shared pve-outcome receipt (api/pve/_fight-outcome-settlement.ts), and
+ * api/pve/_seeded-body-writers.test.ts fails on a writer that does not.
+ *
+ * A survivor keeps the floor of 1 HP after the subtraction. The hospital
+ * follows the fight's own authoritative 0 HP, not a sum: what the player lost
+ * elsewhere cannot knock them out of a fight they walked away from.
+ */
+export function vitalLostSinceSeal(character: Record<string, unknown>, field: SeededVital, seeded: SeededVitals | undefined): number {
+    const seed = seeded?.[field];
+    if (seed === undefined) return 0;
+    const max = Math.max(field === 'hp' ? 1 : 0, num(character[VITAL_POOL[field]]));
+    // Against the pool as it stands now, so a maximum that shrank since (gear
+    // taken off) is not mistaken for a loss.
+    return Math.max(0, Math.min(seed, max) - heldVital(character, field, max));
 }
 
 /**
@@ -216,6 +325,12 @@ export function applyAiFightOutcomeToCharacter(
     continuousVitals = false,
     /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
     spar = false,
+    /** True when the run seated the player at a FULL HP pool
+     *  (`sessionSeedsFullHp`): the surviving HP may lower the save's, never raise it. */
+    fullHpSeed = false,
+    /** What the save held when the fight was seeded from it (`sessionSeededVitals`).
+     *  Whatever the save has lost since is charged on top of what the fight left. */
+    seeded?: SeededVitals,
 ): Record<string, unknown> {
     if (outcome === 'unknown') return character;
     // A spar is practice. Win, lose, draw or walk away, the player leaves with
@@ -250,22 +365,38 @@ export function applyAiFightOutcomeToCharacter(
     // That was shipped on 2026-09-08 and reverted the same day.
     //
     // Clamped DECREASE-ONLY as a second line of defence, so even a mislabelled
-    // encounter can only ever cost a player vitals, never mint them. HP carries
-    // no such guard, and that is safe ONLY while every encounter seeds the
-    // player's actor from the save's current HP: buildSoloPveAiEncounter does,
-    // and so do the two Solo-PvE builders that bypass it
+    // encounter can only ever cost a player vitals, never mint them.
+    //
+    // HP is carried from a resolved fight built by buildSoloPveAiEncounter,
+    // which seeds it from the save's current HP: what the fight left is what it
+    // cost. So do the two Solo-PvE builders that bypass it
     // (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-encounter.ts).
-    // Those two used to seed a full pool, which made "start the fight, then
-    // walk out" a free heal. A new builder that seeds a full pool reopens it.
-    const carry = (actorValue: unknown, storedValue: unknown): number | undefined => {
+    // They used to seed a full pool, which made "start the fight, then walk out"
+    // a free heal, and a new builder that seeds a full pool reopens it. They seal
+    // no `seeded` vitals, so the late-settlement charge below does not cover them.
+    // A Tower run does NOT seed current HP. It seats the squad at full HP (`sessionSeedsFullHp`),
+    // so carrying its remainder back turned "enter wounded, walk out of a run"
+    // into a free heal: the Tower lapse settles every member this way
+    // (api/towers/_lapse.ts), and /api/pve/fight-outcome reads Tower runs too.
+    // For those runs HP is decrease-only, like chakra and stamina above.
+    //
+    // "What the fight left is what it cost" holds only while the save still
+    // holds what the fight was seeded from. A settlement can land late (a held
+    // report, the lapse reconciler), after the player lost HP, chakra or stamina
+    // elsewhere, so a fight seeded from the save also charges that loss
+    // (`seeded`, see vitalLostSinceSeal). Without it a held report waived the
+    // fight's own chakra and stamina cost whenever the bar had fallen below
+    // what the fight left in the meantime.
+    const carry = (field: 'chakra' | 'stamina'): number | undefined => {
         if (!continuousVitals) return undefined;
+        const actorValue = playerActor[field];
         if (typeof actorValue !== 'number' || !Number.isFinite(actorValue)) return undefined;
-        return Math.max(0, Math.min(num(storedValue), Math.floor(actorValue)));
+        return Math.max(0, Math.min(num(character[field]), Math.floor(actorValue) - vitalLostSinceSeal(character, field, seeded)));
     };
     const spent: Record<string, number> = {};
-    const carriedChakra = carry(playerActor.chakra, character.chakra);
+    const carriedChakra = carry('chakra');
     if (carriedChakra !== undefined) spent.chakra = carriedChakra;
-    const carriedStamina = carry(playerActor.stamina, character.stamina);
+    const carriedStamina = carry('stamina');
     if (carriedStamina !== undefined) spent.stamina = carriedStamina;
 
     if (num(playerActor.hp) <= 0) {
@@ -287,5 +418,15 @@ export function applyAiFightOutcomeToCharacter(
     // Clamped to the SAVE's own maxHp so a stale session (sealed before a level
     // changed the pool) can never set HP above the real ceiling.
     const maxHp = Math.max(1, num(character.maxHp));
-    return { ...character, ...spent, hp: Math.max(1, Math.min(maxHp, num(playerActor.hp))) };
+    // A fight seeded from the save also charges what the save has lost since it
+    // was sealed (vitalLostSinceSeal; nothing for a session with no seed), so a
+    // late settlement cannot write HP back up over damage taken elsewhere.
+    const surviving = Math.max(1, Math.min(maxHp, num(playerActor.hp) - vitalLostSinceSeal(character, 'hp', seeded)));
+    if (!fullHpSeed) return { ...character, ...spent, hp: surviving };
+    // A save with no readable HP is treated as full, which leaves the cost intact.
+    const storedHp = character.hp;
+    const held = typeof storedHp === 'number' && Number.isFinite(storedHp)
+        ? Math.max(0, Math.min(maxHp, Math.floor(storedHp)))
+        : maxHp;
+    return { ...character, ...spent, hp: Math.min(held, surviving) };
 }

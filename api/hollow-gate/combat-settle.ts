@@ -11,6 +11,8 @@ import { writeVersionedPlayerSaveWithStore } from '../save/_mutate-player-save.j
 import { hollowGateProtectedCurrencyBaseline } from './_external-credits.js';
 import { hollowGatePendingOperationOf, hollowGateSavedTokenMismatch, makeHollowGatePendingOperation, recoverHollowGatePendingOperation } from './_pending-operation.js';
 import { gainXp } from '../_xp-engine.js';
+import { sessionSeededVitals, vitalLostSinceSeal } from '../missions/_ai-fight-outcome.js';
+import { markPveOutcomeSettled, stampPveOutcomeBody } from '../pve/_fight-outcome-settlement.js';
 import { readSoloPveSession, writeSoloPveSession } from '../solo-pve/_store.js';
 import { applySoloPveUsageCosts, withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { HG_CLAWBACK_KEYS, hollowGateRunKey, HOLLOW_GATE_RUN_EXPIRED_MESSAGES, itemStackCount, rewardMultiplierForToken, type HollowGateRunToken } from './_run-token.js';
@@ -320,11 +322,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : pet);
                 }
                 if (won) {
+                    // The win writes the fight's surviving HP as an absolute
+                    // value, so a settle held back past HP lost elsewhere since
+                    // the fight was sealed set HP back up over it. Read against
+                    // the save as stored, before this settle's own changes.
+                    const lostSinceSeal = binding!.combatMode === 'solo-pve' && session
+                        ? vitalLostSinceSeal(char, 'hp', sessionSeededVitals(session))
+                        : 0;
                     if (binding!.combatMode === 'solo-pve') next = creditElderWins(next, 0, 1);
                     next = gainXp(next, reward.xp) as Record<string, unknown>;
                     next.hp = binding!.combatMode === 'pet'
                         ? Math.max(1, Math.min(Math.floor(num(next.maxHp) || 1), Math.floor(num(next.hp) || 1)))
-                        : hollowGatePostWinHp(next.maxHp, survivingHp, binding!.kind);
+                        : hollowGatePostWinHp(next.maxHp, lostSinceSeal > 0 ? Math.max(1, survivingHp - lostSinceSeal) : survivingHp, binding!.kind);
                     next.ryo = num(next.ryo) + reward.ryo;
                     next.auraDust = num(next.auraDust) + reward.auraDust;
                     next.honorSeals = num(next.honorSeals) + reward.honorSeals;
@@ -421,6 +430,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         lastHollowGateStart: undefined,
                     };
                 }
+                // Whichever way the dive fight ended, this write settles its
+                // physical consequence. Stamp the shared pve-outcome receipt,
+                // as every mode that writes a fight's body does, so a later
+                // fight's start sees it settled (api/pve/_held-fights.ts) and no
+                // other path can write it a second time.
+                if (binding!.combatMode === 'solo-pve' && session) {
+                    next = stampPveOutcomeBody(next, session, playerName, receipt.settledAt);
+                }
                 const settledIds = Array.isArray(next.settledHollowGateCombatIds)
                     ? (next.settledHollowGateCombatIds as unknown[]).filter((id): id is string => typeof id === 'string')
                     : [];
@@ -440,6 +457,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if ('error' in banked) return { status: 409, body: { error: banked.error } };
 
             await persistRunCombatSettlement(runKey, run, binding, banked.receipt, token);
+            if (binding.combatMode === 'solo-pve' && session) await markPveOutcomeSettled(session, playerName, banked.receipt.settledAt);
 
             if (binding.combatMode === 'solo-pve' && session?.status === 'done' && session.settlementState !== 'settled') {
                 await writeSoloPveSession(withSoloPveSettlementReceipt(session, {
