@@ -3,7 +3,7 @@ import { resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { buildCorpus, supplementalSources, narrativeConsumers, type Scene, type Page } from './narrative-corpus.mts';
-import { splitDialogueLine } from '../shinobij.client/src/lib/vn.ts';
+import { assetReferenceInText, splitDialogueLine } from '../shinobij.client/src/lib/vn.ts';
 import { auditCreatorExport, RETIRED_CANON_TERMS } from './narrative-creator-content.mts';
 export type Finding = {
     severity: 'error' | 'warning';
@@ -70,11 +70,14 @@ export function auditScenes(scenes: Scene[]): Finding[] {
                 report('error', 'empty-dialogue', where, 'No dialogue');
             // Titles and scene captions are shown in the reader for authored pages;
             // other families synthesize these fields as review annotations.
-            if (authoredPageFamilies.has(s.family))
+            if (authoredPageFamilies.has(s.family) || s.readerCaptions)
                 for (const label of [p.title, p.scene]) {
                     const dash = typeof label === 'string' ? dashPunctuation(label) : undefined;
                     if (dash)
                         report('error', 'dash-punctuation', where, `${dash}: ${label}`);
+                    const asset = typeof label === 'string' ? assetReferenceInText(label) : undefined;
+                    if (asset)
+                        report('error', 'asset-path', where, `${asset} is shown as text; images belong in an image field`);
                 }
             const visible = p.lines?.map(l => l.text) ?? p.dialogue ?? [];
             // A narrator speaking as "I" outside quoted speech is usually a line
@@ -109,6 +112,9 @@ export function auditScenes(scenes: Scene[]): Finding[] {
                 const dash = dashPunctuation(text);
                 if (dash)
                     report('error', 'dash-punctuation', where, `${dash}: ${text}`);
+                const asset = assetReferenceInText(text);
+                if (asset)
+                    report('error', 'asset-path', where, `${asset} is shown as text: ${text}`);
                 if (/[.!?]{3,}|\u2026/u.test(text))
                     report('warning', 'punctuation', where, text);
                 if (text.trim().split(/\s+/).length <= 3)

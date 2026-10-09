@@ -99,6 +99,36 @@ export function defaultVnScene(eventId?: string | null, biome?: string | null): 
     return "";
 }
 
+const MEDIA_FILE = /\.(?:png|jpe?g|webp|gif|svg|avif|bmp|ico|glb|gltf|mp3|ogg|wav|m4a|mp4|webm)(?:[?#]\S*)?$/i;
+
+/**
+ * Finds an asset reference inside player-facing text: a URL, a data or blob
+ * URI, a slash path such as /scenes/x, or a media file name. Image paths
+ * belong in image fields; this is how "/scenes/legacy-sage-offer.png" once
+ * printed as a story caption. Returns the offending token, or undefined for
+ * ordinary prose.
+ */
+export function assetReferenceInText(text: string | null | undefined): string | undefined {
+    for (const raw of (text ?? "").split(/\s+/)) {
+        const token = raw.replace(/^[("'“‘[]+/u, "").replace(/[)"'”’\],;:!?.]+$/u, "");
+        if (!token) continue;
+        if (/^(?:https?:\/\/|data:|blob:)/i.test(token)
+            || /^\.{0,2}\/[\w.-]+\//.test(token)
+            || MEDIA_FILE.test(token)) return token;
+    }
+    return undefined;
+}
+
+/**
+ * The scene caption a VN reader prints: the first candidate holding real
+ * prose. Same `a || b` fallthrough the readers always used, except a caption
+ * that carries an asset path is authoring data in the wrong field and is
+ * skipped rather than shown to the player.
+ */
+export function vnSceneCaption(...candidates: Array<string | null | undefined>): string {
+    return candidates.find((candidate) => !!candidate && !assetReferenceInText(candidate)) ?? "";
+}
+
 /**
  * Scenic narration should not inherit the reader's uploaded avatar merely
  * because Player is the visual-novel renderer's default conversation partner.
@@ -170,6 +200,9 @@ export function analyzeVnFlow(pages: VnFlowPage[]): { reachable: number[]; warni
     const warnings: string[] = [];
     pages.forEach((p, i) => {
         if (!p.dialogue.trim() && !p.scene.trim()) warnings.push(`Page ${i + 1} has no dialogue or scene text.`);
+        const shownPath = [p.title, p.scene, p.dialogue, ...(p.choices ?? []).map((c) => c.text)]
+            .map(assetReferenceInText).find(Boolean);
+        if (shownPath) warnings.push(`Page ${i + 1} would show "${shownPath}" to players as text. Put pictures in the Page Image field.`);
         (p.choices ?? []).filter((c) => c.text.trim()).forEach((c) => {
             if (c.nextPage < 0 || c.nextPage >= pages.length) warnings.push(`Page ${i + 1} choice "${c.text.trim()}" jumps to a page that doesn't exist.`);
         });
