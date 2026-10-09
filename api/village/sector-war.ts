@@ -585,7 +585,8 @@ async function sendSectorFundingOutcome(
         // it reduced 250 WR to (the comeback multiplier then applied on top).
         intelTier: intel?.tier ?? 'none',
         intelBaseCost: intel?.baseCost ?? SECTOR_WAR_WR,
-        contest: projectSectorWarForClient(outcome.session),
+        // The declarer is the attacking village's own member.
+        contest: projectSectorWarForClient(outcome.session, outcome.session.attackerVillage),
     });
 }
 
@@ -1232,7 +1233,8 @@ async function doAbandon(req: VercelRequest, res: VercelResponse, identity: Iden
     }
     // The WR spent declaring is NOT refunded — a called-off siege still cost the
     // village, which is what keeps declare-spam from being free.
-    return res.status(200).json({ ok: true, sector, contest: projectSectorWarForClient(out.session) });
+    // Only the attacking Kage (or an admin) can call a war off.
+    return res.status(200).json({ ok: true, sector, contest: projectSectorWarForClient(out.session, out.session.attackerVillage, { admin: identity.admin }) });
 }
 
 // ── garrison-feed (Village Stores) ─────────────────────────────────────────────
@@ -1316,10 +1318,10 @@ async function doStatus(_req: VercelRequest, res: VercelResponse, identity: Iden
     const sector = Math.floor(Number(body.sector) || 0);
     if (sector) {
         const [ownerVillage, contest] = await Promise.all([getSectorOwnerVillage(sector), activeContestOnSector(sector)]);
-        return res.status(200).json({ ok: true, sector, ownerVillage, contest: contest ? projectSectorWarForClient(contest, viewer) : null });
+        return res.status(200).json({ ok: true, sector, ownerVillage, contest: contest ? projectSectorWarForClient(contest, viewer, { admin: identity.admin }) : null });
     }
     const contests = await listActiveSectorWars();
-    return res.status(200).json({ ok: true, contests: contests.map((c) => projectSectorWarForClient(c, viewer)) });
+    return res.status(200).json({ ok: true, contests: contests.map((c) => projectSectorWarForClient(c, viewer, { admin: identity.admin })) });
 }
 
 // ── seed (admin, Phase 4d) ─────────────────────────────────────────────────────

@@ -33,7 +33,7 @@ afterEach(() => {
     clearWarMapCache();
 });
 
-function warMap(villages: { village: string; warResources: number; sectorsHeld: number }[]): WarMapResponse {
+function warMap(villages: { village: string; warResources?: number; sectorsHeld: number; restricted?: boolean }[]): WarMapResponse {
     return { ok: true, enabled: true, contests: [], villages: villages.map(v => ({ ...v })) } as unknown as WarMapResponse;
 }
 
@@ -63,6 +63,14 @@ describe("declaration cost: the village pool pays, discounted by held sectors", 
         const map = warMap([{ village: STORM, warResources: 90, sectorsHeld: 8 }, { village: MOON, warResources: 1_200, sectorsHeld: 3 }]);
         assert.deepEqual(warDeclareQuoteFromMap(map, MOON), { mode: "war-resources", cost: 600, pool: 1_200, sectorsHeld: 3 });
         assert.deepEqual(warDeclareQuoteFromMap(map, "Unlisted Village"), { mode: "unknown" });
+    });
+
+    it("does not price against a restricted view, which carries no war chest", () => {
+        // The server shows a village's pool to its own members only; a restricted
+        // view of the Kage's village (the server could not tell who asked) is not
+        // an empty pool.
+        const map = warMap([{ village: MOON, sectorsHeld: 3, restricted: true }]);
+        assert.deepEqual(warDeclareQuoteFromMap(map, MOON), { mode: "unknown" });
     });
 
     it("reads the war map, and only a 404 (the war system switched off) falls back to the Kage's Honor Seals", async () => {

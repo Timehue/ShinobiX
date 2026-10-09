@@ -26,8 +26,12 @@ export interface GameNotification {
 // active fight is in progress. weeklyBoss/villageWar are deliberately excluded:
 // they get their own dedicated war/event chips below, so listing them here too
 // would double up.
+// The three Sector War tables are fights like any other: the Card table always
+// was, and the Pet duel and the Combat garrison assault now are too, so none of
+// them shows side rails over its board (owner ruling 2026-10-09).
 const BATTLE_ONLY_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "pvpBattle", "storyBoss", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "dungeon",
+    "pvpBattle", "storyBoss", "tilecardsDuel", "sectorCard", "sectorPet", "sectorGarrison",
+    "cardClashFreePlay", "dungeon",
     "hollowGateShrine", "hollowGateTiles", "eventTiles", "eventPetBattle",
     "endlessTower",
 ]);

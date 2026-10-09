@@ -4,6 +4,7 @@ import { after, before, beforeEach, describe, it } from 'node:test';
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
 process.env.SESSION_SECRET = 'village-war-map-test-secret-32-bytes-long';
+process.env.ADMIN_PASSWORD = 'village-war-map-test-admin';
 
 /*
  * GET /api/village/war-map — the read-only WR-economy aggregator.
@@ -48,6 +49,7 @@ after(async () => {
     for (const p of onlineStore.list()) onlineStore.remove(p.name);
     delete process.env.SHINOBIX_QA_MEMORY_KV;
     delete process.env.SESSION_SECRET;
+    delete process.env.ADMIN_PASSWORD;
 });
 
 function fakeRes() {
@@ -139,5 +141,34 @@ describe('GET /api/village/war-map', { concurrency: false }, () => {
         assert.equal(out.statusCode, 200);
         const frost = (out.body?.villages as Array<{ village: string; sectorsHeld: number }>).find((v) => v.village === VIEWER);
         assert.equal(frost?.sectorsHeld, 7);
+    });
+
+    it('shows a village\'s war chest, structures and stores to its own members only', async () => {
+        // Owner ruling 2026-10-09: village internals are for that village's
+        // members; everyone else sees who holds what and each sector's rules.
+        const internals = ['warResources', 'treasurySeals', 'structures', 'upkeepWr', 'dormant', 'wrPerSector', 'taxRatePct', 'provisions', 'materialPoints', 'depotConversionCap', 'storesLedger'];
+        await seedSave('frostrunner', VIEWER);
+        await kv.set('shared:village-war:frostfangvillage', { warResources: 640, structures: { ramparts: 2 } });
+        await kv.set('shared:village-war:moonshadowvillage', { warResources: 910, structures: { watchtower: 3 } });
+        await kv.set('game:village-state:moonshadowvillage', { treasury: { honorSeals: 77, provisions: 300, materialPoints: 40 } });
+
+        const member = await get('frostrunner');
+        assert.equal(member.statusCode, 200);
+        const villages = member.body?.villages as Array<Record<string, unknown>>;
+        const own = villages.find((v) => v.village === VIEWER)!;
+        const moon = villages.find((v) => v.village === 'Moonshadow Village')!;
+        assert.equal(own.restricted, undefined);
+        assert.equal(own.warResources, 640, 'a member sees their own war chest');
+        assert.equal(moon.restricted, true);
+        for (const field of internals) assert.equal(field in moon, false, `another village's ${field} is hidden`);
+        assert.ok(Array.isArray(moon.sectors), 'the rules of the sectors it holds stay public');
+        assert.equal(typeof moon.sectorsHeld, 'number');
+
+        const { res, out } = fakeRes();
+        await warMap({ method: 'GET', headers: { 'x-admin-password': process.env.ADMIN_PASSWORD }, socket: { remoteAddress: '127.0.0.1' } } as never, res);
+        assert.equal(out.statusCode, 200);
+        const adminMoon = (out.body?.villages as Array<Record<string, unknown>>).find((v) => v.village === 'Moonshadow Village')!;
+        assert.equal(adminMoon.warResources, 910, 'an admin sees every village');
+        assert.equal(adminMoon.treasurySeals, 77);
     });
 });

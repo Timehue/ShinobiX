@@ -18,15 +18,20 @@ export interface VillageWarMapView {
     village: string;
     biome: string;
     homeSectors: number[];
-    warResources: number;
-    warResourcesCap: number;
-    treasurySeals: number;
-    structures: Record<string, number>;
-    upkeepWr: number;
-    dormant: boolean;
-    wrPerSector: number;
     sectorsHeld: number;
-    taxRatePct: number;
+    /** True on every village that is not the viewer's own: its war chest,
+     *  structures, upkeep, tax and stores are for its members only (owner ruling
+     *  2026-10-09), so the fields below are absent. */
+    restricted?: boolean;
+    // ── The viewer's own village only ──
+    warResources?: number;
+    warResourcesCap?: number;
+    treasurySeals?: number;
+    structures?: Record<string, number>;
+    upkeepWr?: number;
+    dormant?: boolean;
+    wrPerSector?: number;
+    taxRatePct?: number;
     /** No seated Kage → the rate is forced to 0 (mirrors api/_war-tax-apply.ts). */
     kageSeated?: boolean;
     /** The sectors this village HOLDS (its home sectors still in its hands, then
