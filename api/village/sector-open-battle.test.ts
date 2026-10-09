@@ -28,6 +28,8 @@ const BYSTANDER = 'openbystander';
 
 let petHandler: Handler;
 let cardHandler: Handler;
+let OPEN_BATTLE_LOSER_SHIELD_MS: number;
+let PVP_RAID_SHIELD_MS: number;
 let kv: typeof import('../_storage.js').kv;
 let war: typeof import('../_sector-war.js');
 let onlineStore: typeof import('../_realtime/online-store.js').onlineStore;
@@ -52,6 +54,8 @@ before(async () => {
     ({ onlineStore } = await import('../_realtime/online-store.js'));
     ({ issuePlayerToken } = await import('../_auth.js'));
     ({ __resetRateLimitsForTest: resetRateLimits } = await import('../_ratelimit.js'));
+    ({ OPEN_BATTLE_LOSER_SHIELD_MS } = await import('../_sector-contest-engage.js'));
+    ({ PVP_RAID_SHIELD_MS } = await import('../pvp/_vitals-settlement.js'));
     const petModule = await import('./sector-pet.js');
     const cardModule = await import('./sector-card.js');
     petHandler = ((petModule.default as unknown as { default?: Handler })?.default ?? petModule.default) as unknown as Handler;
@@ -128,6 +132,15 @@ async function shield(name: string) {
             pvpShieldUntil: Date.now() + 90_000,
         },
     });
+}
+
+const STRONG = [1, 2].map((n) => ({ id: `titan${n}`, name: `Titan ${n}`, rarity: 'mythic', hp: 2310, attack: 300, defense: 215, speed: 225, level: 50, element: 'None' }));
+const WEAK = [1, 2].map((n) => ({ id: `runt${n}`, name: `Runt ${n}`, rarity: 'common', hp: 20, attack: 2, defense: 1, speed: 1, level: 1, element: 'None' }));
+
+/** Field a team that decides the next pet battle: STRONG wins it, WEAK loses it. */
+async function field(name: string, pets: typeof STRONG) {
+    const save = await kv.get<Record<string, any>>(`save:${name}`);
+    await kv.set(`save:${name}`, { ...save, character: { ...save!.character, pets, activePetId: pets[0].id } });
 }
 
 /** The shield's clear is best-effort and non-blocking (as a Combat raid's), so let it land. */
@@ -207,17 +220,70 @@ describe('an open-world attack in a Pet war is a pet battle with that player', {
         assert.equal((await ledgerOf(contest.id)).receipts.length, 0, 'a refused attack scores nothing');
     });
 
-    it('cannot be farmed: the pair waits ten minutes, and fresh pets rest a minute', async () => {
+    it('the winner may fight again at once; the loser cannot be challenged for two minutes', async () => {
+        // Owner ruling 2026-10-09: no cooldown for the winner. The loser has a
+        // Combat defeat's protection, which is what stops a strong team farming
+        // one weaker player for uncapped points.
         const contest = await seedContest('pet');
-        assert.equal((await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT })).statusCode, 200);
+        await field(RAIDER, STRONG);
+        await field(HOLDOUT, WEAK);
+        const first = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.equal(first.body?.session.winner, 'p1', 'the strong team won');
         // The target's heartbeat clears the "is attacking you" flag in play.
         onlineStore.clearPendingAttacker(HOLDOUT);
-        const again = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
-        assert.equal(again.statusCode, 409);
-        assert.match(String(again.body?.error), /met in battle/);
-        const pileOn = await call(petHandler, { action: 'engage', playerName: SECOND, sectorWarId: contest.id, target: HOLDOUT });
-        assert.equal(pileOn.statusCode, 409, 'one enemy\'s pets are not hit by a whole village within seconds');
-        assert.equal((await ledgerOf(contest.id)).receipts.length, 1);
+
+        const next = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: GUARD });
+        assert.equal(next.statusCode, 200, `the winner fights again at once: ${JSON.stringify(next.body)}`);
+
+        for (const challenger of [SECOND, RAIDER]) {
+            const refused = await call(petHandler, { action: 'engage', playerName: challenger, sectorWarId: contest.id, target: HOLDOUT });
+            assert.equal(refused.statusCode, 409, `${challenger} cannot challenge the loser yet`);
+            assert.match(String(refused.body?.error), /just lost a battle/);
+            assert.ok(refused.body?.retryAfterMs > 60_000 && refused.body?.retryAfterMs <= OPEN_BATTLE_LOSER_SHIELD_MS);
+        }
+
+        // Two minutes on, the protection has run out.
+        const key = `sector-open-battle:shield:${contest.id}:${HOLDOUT}`;
+        await kv.set(key, { until: Date.now() - 1 });
+        const later = await call(petHandler, { action: 'engage', playerName: SECOND, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(later.statusCode, 200, JSON.stringify(later.body));
+        assert.equal((await ledgerOf(contest.id)).receipts.length, 3, 'every battle fought scored');
+    });
+
+    it('a loser who starts a battle of their own ends their protection', async () => {
+        const contest = await seedContest('pet');
+        await field(RAIDER, STRONG);
+        await field(HOLDOUT, WEAK);
+        assert.equal((await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT })).statusCode, 200);
+        onlineStore.clearPendingAttacker(HOLDOUT);
+
+        await field(HOLDOUT, STRONG);
+        await field(SECOND, WEAK);
+        const revenge = await call(petHandler, { action: 'engage', playerName: HOLDOUT, sectorWarId: contest.id, target: SECOND });
+        assert.equal(revenge.statusCode, 200, JSON.stringify(revenge.body));
+        assert.equal(revenge.body?.session.winner, 'p2', 'the defender won this one');
+        const back = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(back.statusCode, 200, `a player who chose to fight again can be fought: ${JSON.stringify(back.body)}`);
+    });
+
+    it('a fighter whose battle is still being decided is not drawn into another', async () => {
+        // Two challengers at the same instant: the first holds the target while
+        // its battle is decided. The hold is released the moment it is.
+        const contest = await seedContest('pet');
+        await kv.set(`sector-open-battle:hold:${contest.id}:${HOLDOUT}`, { until: Date.now() + 30_000 });
+        const second = await call(petHandler, { action: 'engage', playerName: SECOND, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(second.statusCode, 409);
+        assert.match(String(second.body?.error), /already in a battle/);
+        await kv.del(`sector-open-battle:hold:${contest.id}:${HOLDOUT}`);
+        const first = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        assert.equal(await kv.get(`sector-open-battle:hold:${contest.id}:${RAIDER}`), null, 'decided: no hold remains');
+        assert.equal(await kv.get(`sector-open-battle:hold:${contest.id}:${HOLDOUT}`), null);
+    });
+
+    it('protects a loser exactly as long as a Combat defeat does', () => {
+        assert.equal(OPEN_BATTLE_LOSER_SHIELD_MS, PVP_RAID_SHIELD_MS);
     });
 
     it('is only a Pet war\'s battle', async () => {
@@ -323,18 +389,34 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         assert.match(String(elsewhere.body?.error), /You already have a card duel waiting/);
     });
 
-    it('a duel its challenger calls off frees both duelists at once; the pair still waits', async () => {
+    it('a duel its challenger calls off frees both at once; only that challenger waits to ask that player again', async () => {
         const contest = await seedContest('card');
         const engageId = await engage(contest.id);
         await call(cardHandler, { action: 'cancel', playerName: RAIDER, sectorWarId: contest.id, engageId });
         onlineStore.clearPendingAttacker(HOLDOUT);
+        const sameAgain = await call(cardHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        assert.equal(sameAgain.statusCode, 409, 'no pulling a player into a duel and out of it on repeat');
+        assert.match(String(sameAgain.body?.error), /called off a duel with them/);
         assert.ok(await engage(contest.id, SECOND, HOLDOUT), 'another challenger may take the freed target');
-        onlineStore.clearPendingAttacker(HOLDOUT);
         onlineStore.clearPendingAttacker(GUARD);
         assert.ok(await engage(contest.id, RAIDER, GUARD), 'the challenger is free to fight someone else');
-        const sameAgain = await call(cardHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
-        assert.equal(sameAgain.statusCode, 409);
-        assert.match(String(sameAgain.body?.error), /met in battle/);
+    });
+
+    it('a live duel holds nobody, and once decided only its loser is protected', async () => {
+        const contest = await seedContest('card');
+        const engageId = await engage(contest.id);
+        assert.equal((await call(cardHandler, { action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, engageId })).statusCode, 200);
+        assert.equal(await kv.get(`sector-open-battle:hold:${contest.id}:${RAIDER}`), null, 'the live match itself keeps them out of other fights');
+        assert.equal(await kv.get(`sector-open-battle:hold:${contest.id}:${HOLDOUT}`), null);
+
+        const forfeited = await call(cardHandler, { action: 'forfeit', playerName: RAIDER, sectorWarId: contest.id, engageId });
+        assert.equal(forfeited.body?.warResult?.scored, true, JSON.stringify(forfeited.body));
+        onlineStore.clearPendingAttacker(HOLDOUT);
+        onlineStore.clearPendingAttacker(SECOND);
+        assert.ok(await engage(contest.id, HOLDOUT, SECOND), 'the winner duels again at once');
+        const loser = await call(cardHandler, { action: 'engage', playerName: GUARD, sectorWarId: contest.id, target: RAIDER });
+        assert.equal(loser.statusCode, 409);
+        assert.match(String(loser.body?.error), /just lost a battle/);
     });
 
     it('challenging one spends the challenger\'s own post-defeat shield', async () => {

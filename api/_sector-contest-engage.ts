@@ -33,20 +33,32 @@ import { isSectorWarActive, type SectorWarSession } from './_sector-war.js';
 import { loadSectorWar } from './_sector-war-store.js';
 import { enqueueChallenge, projectChallengerCharacter } from './player/challenge.js';
 
-/** The same two players can meet in the open again only after this. A pet
- *  battle resolves in one request, so without it one strong team could farm a
- *  weaker enemy's points over and over. */
-export const OPEN_BATTLE_PAIR_COOLDOWN_MS = 10 * 60_000;
-/** After an instant pet battle, neither fighter can start or take another for
- *  this long. A Combat fight keeps both fighters busy while it lasts; a pet
- *  battle is over in one request, so without this a whole village could hit one
- *  enemy's pets within seconds. */
-export const OPEN_PET_BATTLE_REST_MS = 60_000;
+/*
+ * Cooldowns (owner ruling 2026-10-09): the WINNER of an open battle has none,
+ * and neither does either side of a draw. They may fight again at once.
+ */
+/** The LOSER of an open battle cannot be challenged to another in that war for
+ *  this long: the same two minutes a player beaten in Combat is protected for
+ *  (PVP_RAID_SHIELD_MS, api/pvp/_vitals-settlement.ts). A pet battle is over in
+ *  one request and a player battle's points are uncapped, so this is what stops
+ *  a strong team farming one weaker player. Starting a battle of their own ends
+ *  it, as a Combat raid ends Field Recovery. */
+export const OPEN_BATTLE_LOSER_SHIELD_MS = 2 * 60_000;
 /** How long a challenged player has to take their seat at an open card duel
  *  before it is void. Their client opens it on its own the moment it hears;
  *  a target who never does scores nothing for anyone, as an unanswered Combat
- *  attack scores nothing. */
+ *  attack scores nothing. Until they sit down neither duelist counts as in a
+ *  battle, so both are held for this window: one duel at a time each. */
 export const OPEN_CARD_JOIN_WINDOW_MS = 60_000;
+/** A challenger who calls off a card duel before it starts cannot challenge that
+ *  same player again for this long. The target's client opens a duel the moment
+ *  it hears of one, so without this a challenger could pull someone into a duel
+ *  and back out of it over and over. */
+export const OPEN_CARD_CALLED_OFF_MS = 2 * 60_000;
+/** A pet battle is fought inside one request, and both fighters are held only
+ *  while it is: two challengers cannot fight one player at the same moment. The
+ *  hold is released the moment the battle is decided; this bounds a crash. */
+export const OPEN_PET_BATTLE_HOLD_MS = 30_000;
 
 export type OpenBattleKind = 'pet' | 'card';
 
@@ -136,45 +148,66 @@ export async function gateOpenSectorBattle(args: {
     };
 }
 
-function pairKey(contestId: string, a: string, b: string): string {
-    const [x, y] = [safeName(a), safeName(b)].sort();
-    return `sector-open-battle:pair:${contestId}:${x}:${y}`;
+/** Held while a fighter's battle is being set up or decided: one at a time. */
+function holdKey(contestId: string, slug: string): string {
+    return `sector-open-battle:hold:${contestId}:${safeName(slug)}`;
 }
 
-function restKey(contestId: string, slug: string): string {
-    return `sector-open-battle:rest:${contestId}:${safeName(slug)}`;
+/** A loser's protection (OPEN_BATTLE_LOSER_SHIELD_MS). */
+function loserShieldKey(contestId: string, slug: string): string {
+    return `sector-open-battle:shield:${contestId}:${safeName(slug)}`;
 }
 
-/** Each fighter's own window, by game. A pet battle is over at once, so each
- *  fighter rests (OPEN_PET_BATTLE_REST_MS). A card duel is not a match until the
- *  challenged player sits down, and until then neither duelist counts as in a
- *  battle; this keeps either from being drawn into a second duel then. */
-const FIGHTER_WINDOW: Record<OpenBattleKind, { windowMs: number; mine: string; theirs: string }> = {
+/** One challenger's called-off duel against one target (OPEN_CARD_CALLED_OFF_MS). */
+function calledOffKey(contestId: string, from: string, to: string): string {
+    return `sector-open-battle:called-off:${contestId}:${safeName(from)}:${safeName(to)}`;
+}
+
+/** Each fighter's hold, by game. A pet battle is decided inside its request; a
+ *  card duel is not a match until the challenged player sits down, and until
+ *  then neither duelist counts as in a battle. Either way the hold keeps both
+ *  from being drawn into a second battle meanwhile. It is never a cooldown. */
+const FIGHTER_HOLD: Record<OpenBattleKind, { holdMs: number; mine: string; theirs: string }> = {
     pet: {
-        windowMs: OPEN_PET_BATTLE_REST_MS,
-        mine: 'Your pets are still recovering from their last battle. Try again in a minute.',
-        theirs: 'That shinobi\'s pets just fought. Try again in a minute.',
+        holdMs: OPEN_PET_BATTLE_HOLD_MS,
+        mine: 'Your last battle is still being decided. Try again in a moment.',
+        theirs: 'That shinobi is already in a battle. Try again in a moment.',
     },
     card: {
-        windowMs: OPEN_CARD_JOIN_WINDOW_MS,
+        holdMs: OPEN_CARD_JOIN_WINDOW_MS,
         mine: 'You already have a card duel waiting to begin. Try again in a minute.',
         theirs: 'That shinobi has a card duel waiting to begin. Try again in a minute.',
     },
 };
 
-async function claimWindow(key: string, windowMs: number, now: number): Promise<{ ok: true } | { ok: false; retryAfterMs: number }> {
-    const placed = await kv.set(key, { at: now }, { nx: true, ex: Math.max(1, Math.ceil(windowMs / 1000)) });
+function inMinutes(ms: number): string {
+    return `${Math.max(1, Math.ceil(ms / 60_000))} min`;
+}
+
+async function claimHold(key: string, holdMs: number, now: number): Promise<{ ok: true } | { ok: false; retryAfterMs: number }> {
+    const placed = await kv.set(key, { until: now + holdMs }, { nx: true, ex: Math.max(1, Math.ceil(holdMs / 1000)) });
     if (placed) return { ok: true };
-    const held = await kv.get<{ at?: number }>(key);
-    const at = Math.floor(Number(held?.at) || now);
-    return { ok: false, retryAfterMs: Math.max(1_000, at + windowMs - now) };
+    return { ok: false, retryAfterMs: Math.max(1_000, await msLeftOn(key, now)) };
+}
+
+/** How long a stamped `{ until }` key still has to run; 0 when it is gone. */
+async function msLeftOn(key: string, now: number): Promise<number> {
+    const held = await kv.get<{ until?: number }>(key);
+    const until = Math.floor(Number(held?.until) || 0);
+    return until > now ? until - now : 0;
+}
+
+async function stampFor(key: string, ms: number, now: number): Promise<void> {
+    await kv.set(key, { until: now + ms }, { ex: Math.max(1, Math.ceil(ms / 1000)) }).catch(() => undefined);
 }
 
 /**
- * Reserve this meeting. Fails closed: a claim that cannot be made refuses the
- * battle rather than letting it skip its cooldown. Besides the pair's cooldown,
- * each fighter takes their own window for the game (FIGHTER_WINDOW). On a
- * refusal any part already claimed is released, so a refused battle costs nothing.
+ * Reserve this meeting. Refused while the target is under a loser's protection,
+ * or while this challenger's called-off duel against them still runs. Then each
+ * fighter takes their hold for the game (FIGHTER_HOLD). Fails closed: a hold
+ * that cannot be placed refuses the battle, and any part already placed is
+ * released, so a refused battle costs nothing. The caller releases the holds
+ * once the battle no longer needs them.
  */
 export async function claimOpenSectorBattle(args: {
     contestId: string;
@@ -183,33 +216,56 @@ export async function claimOpenSectorBattle(args: {
     target: string;
     now: number;
 }): Promise<{ ok: true; release: () => Promise<void> } | { ok: false; status: 409; error: string; retryAfterMs: number }> {
+    const refuse = (error: string, retryAfterMs: number) => ({ ok: false as const, status: 409 as const, error, retryAfterMs });
+    const shieldLeft = await msLeftOn(loserShieldKey(args.contestId, args.target), args.now);
+    if (shieldLeft > 0) {
+        return refuse(`That shinobi just lost a battle and is recovering. You can challenge them in ${inMinutes(shieldLeft)}.`, shieldLeft);
+    }
+    const calledOffLeft = args.kind === 'card' ? await msLeftOn(calledOffKey(args.contestId, args.me, args.target), args.now) : 0;
+    if (calledOffLeft > 0) {
+        return refuse(`You called off a duel with them moments ago. You can challenge them again in ${inMinutes(calledOffLeft)}.`, calledOffLeft);
+    }
     const claimed: string[] = [];
     const release = async () => { if (claimed.length) await kv.del(...claimed).catch(() => 0); };
-    const fighter = FIGHTER_WINDOW[args.kind];
-    const steps: Array<{ key: string; windowMs: number; error: (min: number) => string }> = [
-        { key: pairKey(args.contestId, args.me, args.target), windowMs: OPEN_BATTLE_PAIR_COOLDOWN_MS,
-            error: (min) => `You two met in battle moments ago. You can fight again in ${min} min.` },
-        { key: restKey(args.contestId, args.me), windowMs: fighter.windowMs, error: () => fighter.mine },
-        { key: restKey(args.contestId, args.target), windowMs: fighter.windowMs, error: () => fighter.theirs },
-    ];
-    for (const step of steps) {
-        const claim = await claimWindow(step.key, step.windowMs, args.now);
+    const hold = FIGHTER_HOLD[args.kind];
+    for (const step of [{ name: args.me, error: hold.mine }, { name: args.target, error: hold.theirs }]) {
+        const key = holdKey(args.contestId, step.name);
+        const claim = await claimHold(key, hold.holdMs, args.now);
         if (!claim.ok) {
             await release();
-            return { ok: false, status: 409, error: step.error(Math.max(1, Math.ceil(claim.retryAfterMs / 60_000))), retryAfterMs: claim.retryAfterMs };
+            return refuse(step.error, claim.retryAfterMs);
         }
-        claimed.push(step.key);
+        claimed.push(key);
     }
     return { ok: true, release };
 }
 
-/** A card duel its challenger called off inside the join window frees both
- *  duelists at once, instead of at the end of their window. Only inside it:
- *  after it, either may already hold a window for another duel. The pair's
- *  cooldown stands either way. */
+/** Free both duelists' holds: a card duel that started (presence now proves
+ *  the fight), finished, or was called off. */
 export async function releaseOpenBattleFighters(contestId: string, names: readonly string[]): Promise<void> {
-    const keys = names.filter(Boolean).map((name) => restKey(contestId, name));
+    const keys = names.filter(Boolean).map((name) => holdKey(contestId, name));
     if (keys.length) await kv.del(...keys).catch(() => 0);
+}
+
+/**
+ * A battle was decided: protect its loser (OPEN_BATTLE_LOSER_SHIELD_MS). The
+ * winner gets nothing to wait out, and a draw protects nobody. Best-effort, like
+ * the Combat shield's own write: the result already stands either way.
+ */
+export async function protectOpenBattleLoser(contestId: string, loser: string, now: number): Promise<void> {
+    const slug = safeName(loser);
+    if (slug) await stampFor(loserShieldKey(contestId, slug), OPEN_BATTLE_LOSER_SHIELD_MS, now);
+}
+
+/** Starting a battle ends the challenger's own loser protection in this war. */
+export async function endOwnOpenBattleProtection(contestId: string, me: string): Promise<void> {
+    await kv.del(loserShieldKey(contestId, me)).catch(() => 0);
+}
+
+/** A challenger called off a card duel: they cannot challenge that target again
+ *  for OPEN_CARD_CALLED_OFF_MS. Anyone else may, and the target may challenge them. */
+export async function noteCalledOffOpenDuel(contestId: string, from: string, to: string, now: number): Promise<void> {
+    await stampFor(calledOffKey(contestId, from, to), OPEN_CARD_CALLED_OFF_MS, now);
 }
 
 /** A fresh id for one open-world battle. */

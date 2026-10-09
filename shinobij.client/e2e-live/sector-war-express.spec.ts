@@ -288,12 +288,21 @@ test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both 
         await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
         await backToSector(page);
 
-        // The same two cannot be set on each other again at once, and the
-        // player is told why on that player's row rather than by a pop-up.
-        await expect(battle).toBeEnabled({ timeout: 60_000 });
-        await battle.click();
-        await expect(page.getByText(/You two met in battle moments ago/)).toBeVisible();
-        await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+        // The loser cannot be set on again at once, and whoever tries is told why
+        // on that player's row rather than by a pop-up. The winner waits for
+        // nothing (owner ruling 2026-10-09), so the try comes from the winner.
+        const [winnerPage, loserName] = attackerWon ? [page, defender.name] : [defenderPage, attacker.name];
+        if (!attackerWon) {
+            const targetResult = defenderPage.getByRole('dialog', { name: /Victory|Defeat/ });
+            await expect(targetResult).toBeVisible({ timeout: 60_000 });
+            await targetResult.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+            await backToSector(defenderPage);
+        }
+        const again = winnerPage.getByRole('button', { name: `Pet Battle ${loserName}`, exact: true });
+        await expect(again).toBeEnabled({ timeout: 60_000 });
+        await again.click();
+        await expect(winnerPage.getByText(/just lost a battle and is recovering/)).toBeVisible();
+        await expect(winnerPage.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
         const unchanged = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
         expect(unchanged).toMatchObject({ attackerPoints: scored.attackerPoints, defenderPoints: scored.defenderPoints });
     } finally {
