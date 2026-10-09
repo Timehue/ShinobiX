@@ -82,3 +82,12 @@ test("an open-world Sector War battle opens the war's own screen, without the ta
         assert.doesNotMatch(source, /\bwaitingEnded\b|\bcancelOnLeave\b/, "the hosts that share the screen behave as before");
     }
 });
+
+test("a battle drawn onto a contest screen that is already showing remounts it", () => {
+    // App keeps the screen mounted when asked to show it again, so each screen
+    // keys its battle on the stash's generation (lib/use-open-sector-battle.ts).
+    assert.match(petScreen, /const generation = useOpenSectorBattleGeneration\("sectorWarPet\.v1"\);/);
+    assert.match(petScreen, /<SectorWarPetBattleView key=\{generation\} \{\.\.\.props\} \/>/);
+    assert.match(cardScreen, /const generation = useOpenSectorBattleGeneration\(SECTOR_CARD_CONFIG\.stashKey\);/);
+    assert.match(cardScreen, /<SectorWarCardTable key=\{generation\} \{\.\.\.props\} \/>/);
+});

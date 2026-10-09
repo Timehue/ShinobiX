@@ -159,7 +159,7 @@ export function WorldSectorCommandPanel({
                         <span>attacking {sectorContest.defenderVillage}</span>
                     </p>
                     <p className="sector-empty-note">
-                        This sector is contested with {sectorContestLabel(sectorContest.winCondition).toLowerCase()}s, so attacking here opens that table — a shinobi fight scores nothing for the war.
+                        This sector is contested with {sectorContestLabel(sectorContest.winCondition).toLowerCase()}s. Attacking an enemy here starts one with them, and the button below opens the war's table for the other side to answer.
                     </p>
                     <button
                         type="button"

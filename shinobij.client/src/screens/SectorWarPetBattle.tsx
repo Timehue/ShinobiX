@@ -6,6 +6,7 @@ import { PetDuelReplayScreen } from "../components/PetDuelReplayScreen";
 import type { ShowdownReplayScript } from "../../../shared/pet-showdown-contract";
 import { garrisonSectorPet, joinSectorPet, sectorPetState, sectorPetWatch } from "../lib/village-war-map";
 import { stashedContestBackScreen, stashedContestIsGarrison, stashedOpenBattleId } from "../lib/sector-war-engagement";
+import { useOpenSectorBattleGeneration } from "../lib/use-open-sector-battle";
 import { activeCarriedPets } from "../lib/entitlements";
 import {
     SECTOR_PET_OPEN_BATTLE_STATUS,
@@ -16,9 +17,12 @@ import {
 } from "../lib/sector-war-tables";
 
 /*
- * Sector War "Pet" win-condition screen (Phase 7). The player sends a pet; the
- * attacker opens, a defender answers, and the server resolves a DETERMINISTIC pet
- * duel (api/village/sector-pet → api/_pet-sim, the ported engine). The outcome is
+ * Sector War "Pet" win-condition screen (Phase 7). At the war's table the player
+ * sends a pet; the attacker opens, a defender answers, and the server resolves a
+ * DETERMINISTIC pet duel (api/village/sector-pet → api/_pet-sim, the ported
+ * engine). An attack on an enemy standing in the sector is an open-world battle
+ * instead (an `engageId` in the stash): both sealed teams fought the moment it
+ * was started, and this screen only shows it. Either way the outcome is
  * server-authoritative; this screen REPLAYS the same (pets, seed) so the fight you
  * watch is byte-identical to what the server recorded — it can never disagree on
  * who won. No win/loss is ever reported from here.
@@ -48,7 +52,16 @@ type PetSession = {
     warResult?: SectorWarResult;
 };
 
-export function SectorWarPetBattle({ character, setScreen }: { character: Character; setScreen: (s: Screen) => void }) {
+type SectorWarPetBattleProps = { character: Character; setScreen: (s: Screen) => void };
+
+export function SectorWarPetBattle(props: SectorWarPetBattleProps) {
+    // A new open battle for a player already on this screen remounts the battle,
+    // so it shows the one they were just drawn into, not the one before it.
+    const generation = useOpenSectorBattleGeneration("sectorWarPet.v1");
+    return <SectorWarPetBattleView key={generation} {...props} />;
+}
+
+function SectorWarPetBattleView({ character, setScreen }: SectorWarPetBattleProps) {
     const sectorWarId = (() => {
         try { return String((JSON.parse(sessionStorage.getItem("sectorWarPet.v1") ?? "{}") as { sectorWarId?: string }).sectorWarId ?? ""); } catch { return ""; }
     })();

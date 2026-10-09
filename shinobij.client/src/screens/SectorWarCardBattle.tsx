@@ -3,6 +3,7 @@ import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { CardClashDuelScreen, type CardClashDuelConfig } from "./ClanWarTileCardDuel";
 import { stashedContestBackScreen, stashedContestIsGarrison, stashedOpenBattleId } from "../lib/sector-war-engagement";
+import { useOpenSectorBattleGeneration } from "../lib/use-open-sector-battle";
 import {
     SECTOR_CARD_FORFEIT_CONFIRM,
     SECTOR_CARD_GARRISON_FORFEIT_CONFIRM,
@@ -32,7 +33,16 @@ const SECTOR_CARD_CONFIG: CardClashDuelConfig = {
     autoJoin: true,
 };
 
-export function SectorWarCardBattle({ character, setScreen, sharedImages = {} }: { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> }) {
+type SectorWarCardBattleProps = { character: Character; setScreen: (s: Screen) => void; sharedImages?: Record<string, string> };
+
+export function SectorWarCardBattle(props: SectorWarCardBattleProps) {
+    // A new open duel for a player already on this screen remounts the table, so
+    // they take the seat they were just challenged to, not the one before it.
+    const generation = useOpenSectorBattleGeneration(SECTOR_CARD_CONFIG.stashKey);
+    return <SectorWarCardTable key={generation} {...props} />;
+}
+
+function SectorWarCardTable({ character, setScreen, sharedImages = {} }: SectorWarCardBattleProps) {
     // An entry from the world map records its return target beside the stash, so
     // the table sends the player back to the sector they opened it from rather
     // than a War Map they never visited — and says so on its buttons.
