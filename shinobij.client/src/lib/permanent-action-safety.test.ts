@@ -27,7 +27,7 @@ describe("permanent action interaction safety", () => {
         assert.match(exchange, /<CacheRewardReveal/);
         const reveal = source("../components/CacheRewardReveal.tsx");
         assert.match(reveal, /import \{ Modal \} from "\.\/ui\/Modal"/);
-        assert.match(reveal, /<Modal open/);
+        assert.match(reveal, /<Modal\s+open/);
         assert.doesNotMatch(exchange, /createPortal|modal-overlay/);
     });
 

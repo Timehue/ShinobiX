@@ -1687,7 +1687,6 @@
 .app-shell[data-screen="shinobiCouncil"] .council-screen,
 .app-shell[data-screen="grandMarketplace"] .grand-marketplace-screen,
 .app-shell[data-screen="hallOfLegends"] .hol-screen,
-.app-shell[data-screen="worldBosses"] .weekly-boss-screen,
 .app-shell[data-screen="weeklyBoss"] .weekly-boss-screen {
     width: min(1180px, calc(100% - 24px));
     max-width: 1180px;
@@ -1987,7 +1986,6 @@
     .app-shell[data-screen="grandMarketplace"] .grand-marketplace-screen,
     .app-shell[data-screen="hallOfLegends"] .hol-screen,
     .app-shell[data-screen="hunting"] .hunter-board,
-    .app-shell[data-screen="worldBosses"] .weekly-boss-screen,
     .app-shell[data-screen="weeklyBoss"] .weekly-boss-screen {
         width: calc(100% - 8px);
         margin: 8px auto 78px;

@@ -14,7 +14,8 @@ import { WorldBossTabs, type WorldBossTab } from '../components/WorldBossTabs';
 export function WorldBossesHub({
     character,
     currentSector,
-    initialTab,
+    screen,
+    navigate,
     creatorItems,
     savedBloodlines,
     onVersionedCharacter,
@@ -24,11 +25,11 @@ export function WorldBossesHub({
     sharedImages,
     onRecordBattle,
     onBack,
-    bossBackLabel,
 }: {
     character: Character;
     currentSector: number;
-    initialTab?: WorldBossTab;
+    screen: Screen;
+    navigate: (screen: Screen) => void;
     creatorItems: GameItem[];
     savedBloodlines: SavedBloodline[];
     onVersionedCharacter: VersionedCharacterCommit;
@@ -42,7 +43,8 @@ export function WorldBossesHub({
 }) {
     const tabStorageKey = 'worldBosses.activeTab.' + character.name.toLowerCase();
     const [activeTab, setActiveTab] = useState<WorldBossTab>(() => {
-        if (initialTab) return initialTab;
+        if (screen === 'weeklyBoss') return 'weekly';
+        if (screen === 'worldBossEvent') return 'hollow-beast';
         try {
             return sessionStorage.getItem(tabStorageKey) === 'hollow-beast' ? 'hollow-beast' : 'weekly';
         } catch {
@@ -53,6 +55,8 @@ export function WorldBossesHub({
         setActiveTab(tab);
         try { sessionStorage.setItem(tabStorageKey, tab); } catch { /* keep the tab switch available */ }
     }, [tabStorageKey]);
+    const bossBack = screen === 'worldBossEvent' ? () => navigate('worldMap') : onBack;
+    const bossBackLabel = screen === 'worldBossEvent' ? 'World map' : 'Central';
     const tabBar = <WorldBossTabs active={activeTab} onSelect={selectTab} />;
 
     if (activeTab === 'weekly') {
@@ -88,8 +92,8 @@ export function WorldBossesHub({
         sharedImages={sharedImages}
         onVersionedCharacter={onVersionedCharacter}
         onRecordBattle={onRecordBattle}
-        onBack={onBack}
-        backLabel={bossBackLabel ?? 'Central'}
+        onBack={bossBack}
+        backLabel={bossBackLabel}
         worldBossTabs={tabBar}
     />;
 }

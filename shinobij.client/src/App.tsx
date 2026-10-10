@@ -6112,11 +6112,10 @@ export default function App() {
                     <BattleTowers character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && (screen === "weeklyBoss" || screen === "worldBosses" || screen === "worldBossEvent") && character && (
-                    <WorldBossesHub character={character} currentSector={currentSector} initialTab={screen === "weeklyBoss" ? "weekly" : screen === "worldBossEvent" ? "hollow-beast" : undefined}
+                    <WorldBossesHub character={character} currentSector={currentSector} screen={screen} navigate={navigate}
                         creatorItems={creatorItems} savedBloodlines={savedBloodlines}
                         onVersionedCharacter={commitVersionedCharacter} creatorAis={playableAis} setScreen={setScreen} playerRoster={playerRoster}
-                        sharedImages={sharedImages} onRecordBattle={recordBattle} onBack={screen === "worldBossEvent" ? () => navigate("worldMap") : goBack}
-                        bossBackLabel={screen === "worldBossEvent" ? "World map" : undefined}
+                        sharedImages={sharedImages} onRecordBattle={recordBattle} onBack={goBack}
                     />
                 )}
                 {!activeTriggeredEvent && screen === "villageWar" && character && <VillageWarScreen character={character} playerRoster={playerRoster} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}

@@ -1,3 +1,15 @@
+/* The weekly arena is presented as tab one inside the lazy world-boss hub. */
+.app-shell[data-screen="worldBosses"] .weekly-boss-screen {
+    width: min(1180px, calc(100% - 24px));
+    max-width: 1180px;
+    margin: 12px auto 36px;
+    padding: 20px;
+    border: 1px solid rgba(218, 181, 84, .28);
+    border-radius: 22px;
+    background: linear-gradient(155deg, rgba(7, 13, 27, .96), rgba(8, 12, 23, .88));
+    box-shadow: 0 28px 72px rgba(0, 0, 0, .42), inset 0 1px rgba(255, 255, 255, .04);
+}
+
 .world-boss-tabs {
     display: flex;
     gap: 8px;
@@ -41,6 +53,12 @@
 }
 .world-boss-tabs button.is-active span { color: #ffbc62; }
 @media (max-width: 560px) {
+    .app-shell[data-screen="worldBosses"] .weekly-boss-screen {
+        width: calc(100% - 8px);
+        margin: 8px auto 78px;
+        padding: 8px;
+        border-radius: 16px;
+    }
     .world-boss-tabs { width: min(100% - 24px, 560px); margin: 9px auto 12px; }
     .world-boss-tabs button { flex-direction: column; gap: 3px; min-height: 50px; font-size: 10px; }
 }
