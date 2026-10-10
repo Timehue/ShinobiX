@@ -5,6 +5,7 @@ import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "..
 import type { TowerHostLoadout } from "../lib/towers-api";
 import { visiblePoll } from "../lib/poll";
 import { worldBossDefinition } from "../../../shared/world-boss-event";
+import "../styles/world-boss-map.css";
 
 const WorldBossQueueDialog = lazy(() =>
     import("../screens/WorldBossQueueDialog").then(({ WorldBossQueueDialog }) => ({ default: WorldBossQueueDialog })),

@@ -842,7 +842,14 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // branch moved its own startup code off the initial graph instead, which merged
 // measures 1,421,285 B raw / 394,927 B gzip (main: 1,421,371 B / 395,010 B). Chunk,
 // CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_350_000;
+// 2026-10-10 COOPERATIVE WORLD BOSS (PR #334): Production Image measured
+// 9,426,284 B with production-length VITE_* settings versus the 9,333,815 B
+// main baseline from the preceding release audit. Roaming-boss combat, queue,
+// event, admin, cache-reveal and crystal-support UI add 92,469 B of shipped
+// product code. Allow 9.45 MB for about 23.7 KB of measured headroom. The
+// separate startup gzip gate stays fixed; boss map styling is loaded with the
+// lazy world-map feature rather than the global stylesheet. Other gates stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_450_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai
