@@ -297,21 +297,45 @@ test('pending action is exclusive and rejection leaves the sector usable',async(
     await expect(page.locator('.sector-image-map')).toBeVisible();
 });
 
-test('real sector contest routes to its card table, retaining the war context',async({page})=>{
+const cardWar=(page:Page)=>page.route('**/api/sector/merc-roam',route=>route.fulfill({json:{mercs:[],contest:{
+    id:'fixture-card-war',sector:22,winCondition:'card',attackerVillage:'Stormveil Village',
+    defenderVillage:'Ashen Leaf Village',endsAt:Date.now()+3_600_000,garrisonReady:true,
+}}}));
+
+// Owner ruling 2026-10-08: attacking an enemy in a Card war is a card duel with
+// THAT player (the server's `engage`), not a seat at the war's table.
+test('real sector contest attack is a card duel with that player, retaining the war context',async({page})=>{
     let normalAttacks=0;
+    const engages:Array<Record<string,unknown>>=[];
     await boot(page,1,async()=>{
-        await page.route('**/api/sector/merc-roam',route=>route.fulfill({json:{mercs:[],contest:{
-            id:'fixture-card-war',sector:22,winCondition:'card',attackerVillage:'Stormveil Village',
-            defenderVillage:'Ashen Leaf Village',endsAt:Date.now()+3_600_000,garrisonReady:true,
-        }}}));
+        await cardWar(page);
         await page.route('**/api/player/attack',route=>{normalAttacks++;return route.fulfill({status:409,json:{error:'Wrong route'}});});
+        await page.route('**/api/village/sector-card',route=>{
+            const body=route.request().postDataJSON() as Record<string,unknown>;
+            if(body.action!=='engage')return route.fallback();
+            engages.push(body);
+            return route.fulfill({json:{engageId:'0123456789abcdef01234567',session:{status:'awaiting-target',viewerSide:'p1',opponent:'Shinobi001',initiator:'AuditNinja'}}});
+        });
     });
     await expect(page.getByRole('button',{name:'Contested · Card Battle'})).toBeVisible();
     await page.screenshot({path:`${evidence}/contest.png`});
     await page.getByRole('button',{name:'Card Battle Shinobi001'}).click();
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','sectorCard');
     expect(normalAttacks).toBe(0);
-    expect(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('sectorWarCard.v1')!))).toEqual({sectorWarId:'fixture-card-war'});
+    expect(engages).toEqual([{action:'engage',playerName:'AuditNinja',sectorWarId:'fixture-card-war',target:'Shinobi001'}]);
+    expect(await page.evaluate(()=>JSON.parse(sessionStorage.getItem('sectorWarCard.v1')!))).toEqual({sectorWarId:'fixture-card-war',engageId:'0123456789abcdef01234567'});
+});
+
+test('a refused card duel says why on that player\'s row and leaves the sector usable',async({page})=>{
+    await boot(page,1,async()=>{
+        await cardWar(page);
+        await page.route('**/api/village/sector-card',route=>route.fulfill({status:409,json:{error:'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.'}}));
+    });
+    await page.getByRole('button',{name:'Card Battle Shinobi001'}).click();
+    await expect(page.getByText('That shinobi just lost a battle and is recovering. You can challenge them in 2 min.',{exact:true})).toBeVisible();
+    await expect(page.locator('.app-shell')).toHaveAttribute('data-screen','worldMap');
+    await expect(page.locator('.sector-image-map')).toBeVisible();
+    expect(await page.evaluate(()=>sessionStorage.getItem('sectorWarCard.v1'))).toBeNull();
 });
 
 test('sleepers retain the existing confirmation and Strike Down endpoint',async({page})=>{

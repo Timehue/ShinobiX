@@ -112,6 +112,80 @@ describe('sector-war declaration territory authority race', { concurrency: false
             assert.notEqual(row?.status, 'reserved', `${key} must not retain a live reservation`);
         }
     });
+
+    // The hidden `funding` row is published before the two village rows are
+    // promoted. When the promotion lost its race, the route answered "conflict"
+    // and walked away from that row: it kept both villages blocked, from village
+    // wars and from every other sector war on the defender, until this exact
+    // attacker happened to declare on this sector again.
+    it('aborts its unpaid declaration row when the village rows cannot be bound to it', async () => {
+        const { villageWarReservationBlocks } = await import('../_war-village-reservation.js');
+        const originalCompareSet = kv.compareSet.bind(kv);
+        kv.compareSet = (async (key: string, expected: unknown, value: unknown, options?: unknown) => {
+            if (key.startsWith('world:village-war-reservation:')
+                && (value as { state?: string } | null)?.state === 'reserved') {
+                return false; // a competing writer wins every promotion attempt
+            }
+            return originalCompareSet(key, expected as never, value as never, options as never);
+        }) as typeof kv.compareSet;
+
+        let response: ResponseOut;
+        try {
+            response = await declare();
+        } finally {
+            kv.compareSet = originalCompareSet as typeof kv.compareSet;
+        }
+
+        assert.notEqual(response.statusCode, 200, JSON.stringify(response.body));
+        const row = await kv.get<{ declarationFunding?: { status?: string } }>(OLD_CONTEST_KEY);
+        assert.equal(row?.declarationFunding?.status, 'aborted', 'the unpaid row is aborted, not left funding');
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await villageWarReservationBlocks(kv, ATTACKER, Date.now()), false, 'the attacker is free');
+        assert.equal(await villageWarReservationBlocks(kv, OLD_DEFENDER, Date.now()), false, 'and so is the defender');
+
+        const retry = await declare();
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    });
+
+    // A war past its whistle waits out the settlement grace before its verdict
+    // is stamped, and that verdict may still flip the sector. Until it lands,
+    // the sector is not open to a new declaration.
+    it('refuses a new declaration while the last war on the sector awaits its verdict', async () => {
+        const now = Date.now();
+        const settlingId = `${SECTOR}:stormveilvillage-vs-frostfangvillage`;
+        await kv.set(`shared:sector-war:${settlingId}`, {
+            id: settlingId, sector: SECTOR, attackerVillage: NEW_DEFENDER, defenderVillage: OLD_DEFENDER,
+            winCondition: 'combat', attackerPoints: 9, defenderPoints: 0,
+            startedAt: now - 72 * 60 * 60 * 1000 - 60_000, endsAt: now - 60_000, updatedAt: now - 60_000,
+            flipped: false, declarationGeneration: 1,
+        });
+        const blocked = await declare();
+        assert.equal(blocked.statusCode, 409, JSON.stringify(blocked.body));
+        assert.match(String(blocked.body?.error), /still being settled/);
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await kv.get(OLD_CONTEST_KEY), null, 'nothing was published');
+    });
+
+    // The debit lands on the attacker's War Resource record, which merc hires
+    // and ticks, the daily stores pass and ANBU skims rewrite whole under that
+    // record's lock. A declaration that debited without the lock could have its
+    // debit, and the receipt that proves it, erased by such a rewrite.
+    it('debits only while holding the lock every other War Resource writer uses', async () => {
+        const lockKey = `lock:${ATTACKER_WR_KEY}`;
+        await kv.set(lockKey, 'a-merc-hire-in-progress', { nx: true, ex: 30 });
+        let blocked: ResponseOut;
+        try {
+            blocked = await declare();
+        } finally {
+            await kv.del(lockKey);
+        }
+        assert.equal(blocked.statusCode, 503, JSON.stringify(blocked.body));
+        assert.equal((await kv.get<{ warResources?: number }>(ATTACKER_WR_KEY))?.warResources, 1_000, 'nothing was spent');
+        assert.equal(await kv.get(OLD_CONTEST_KEY), null, 'nothing was published');
+
+        const retry = await declare();
+        assert.equal(retry.statusCode, 200, JSON.stringify(retry.body));
+    });
 });
 
 /*
@@ -200,10 +274,31 @@ describe('sector-war declaration World Herald', { concurrency: false }, () => {
             drums[0].message,
             `${ATTACKER} has declared war on Sector ${SECTOR}, held by ${OLD_DEFENDER}. The contest runs 72 hours.`,
         );
-        assert.equal(drums[0].receiptId, 'sector-war-declared:23:moonshadowvillage-vs-frostfangvillage:g1');
+        assert.match(String(drums[0].receiptId), /^sector-war-declared:23:moonshadowvillage-vs-frostfangvillage:g1\.s\d+$/);
 
         // High importance also lands as one herald line per village chat.
         const chat = (await kv.get<Array<Record<string, unknown>>>('chat:village:stormveil-village')) ?? [];
         assert.equal(chat.filter((m) => m.receiptId === drums[0].receiptId).length, 1);
+    });
+
+    // A defended war's record ages out a day after it settles, and the next
+    // siege of that sector starts again at generation 1. Its drums (and the
+    // holding clan's siege notice) used to be keyed `:g1` too, so the old war's
+    // entries still in the capped feeds silently swallowed the new war's.
+    it('beats the drums again for a new siege once the last war record has aged out', async () => {
+        await kv.set(TERRITORY_KEY, { sector: SECTOR, ownerVillage: OLD_DEFENDER, ownerClan: 'Frost Wolves', hp: 20_000, updatedAt: Date.now() });
+        const clanKey = 'save:clan-frostwolves';
+        await kv.set(clanKey, { name: 'Frost Wolves', notices: [] });
+
+        const first = await declare();
+        assert.equal(first.statusCode, 200, JSON.stringify(first.body));
+        await kv.del(OLD_CONTEST_KEY); // fought, settled, and expired
+        const second = await declare();
+        assert.equal(second.statusCode, 200, JSON.stringify(second.body));
+
+        const feed = (await kv.get<Array<Record<string, unknown>>>('game:announcements')) ?? [];
+        assert.equal(feed.filter((a) => a.type === 'sector_war_declared').length, 2, 'each siege gets its own drums');
+        const notices = ((await kv.get<Record<string, unknown>>(clanKey))?.notices ?? []) as Array<Record<string, unknown>>;
+        assert.equal(notices.filter((n) => String(n.title).includes('under siege')).length, 2, 'and its own clan warning');
     });
 });

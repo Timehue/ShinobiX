@@ -6,6 +6,7 @@ import { readSoloPveSession } from './_store.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 import { isSoloPveSessionLapsed } from './_session.js';
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
+import { settleTerminalGarrisonFight } from './_garrison-terminal-hook.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -32,6 +33,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // answers 410 with its outcome unsettled.
         const outcome = await reconcileTerminalSoloPveOutcome(session, playerName);
         if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+        // A finished Sector War garrison assault is settled on sight (a no-op
+        // for every other encounter, and for one already settled).
+        await settleTerminalGarrisonFight(session);
         // F08: an ACTIVE session past its gameplay expiry is terminalized from
         // its own evidence (the abandon rule at the HP it lapsed with) and its
         // physical consequence settled BEFORE the client learns it expired.
@@ -39,6 +43,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             await reconcileLapsedBattle({ kind: 'solo-pve', sessionId: session.sessionId }, session.ownerSlug);
             const terminal = await readSoloPveSession(sessionId);
             if (terminal) session = terminal;
+            await settleTerminalGarrisonFight(session);
             return res.status(410).json({ error: 'Solo-PvE session expired.', lapsed: true, session });
         }
         // A terminal row past its own retention is readable evidence, not a live fight.
