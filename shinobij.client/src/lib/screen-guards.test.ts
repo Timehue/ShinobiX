@@ -2,6 +2,7 @@ import { describe, it } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync } from "node:fs";
 import { BATTLE_SCREENS, RESTORABLE_SCREENS, TRANSIENT_SCREEN_PARENT, isHospitalNavigationBlocked, isUnresolvedBattle, restoreScreenForSave, safeFallbackScreen, screenResetsSector, setScreenFightActive, shouldRedirectToHospital, type BattleGuardSignals } from "./screen-guards";
+import { isBattleFlowScreen } from "./battle-flow-screen";
 
 const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
 const navigationGuardSource = readFileSync(new URL("./use-battle-navigation-guard.ts", import.meta.url), "utf8");
@@ -59,6 +60,20 @@ describe("screen navigation guards", () => {
             pvpBattleId: "pvp-done",
             pvpBattleResolved: true,
         })), false);
+    });
+
+    it("guards a live Sector War garrison assault like every other battle-only war screen", () => {
+        // It was missing from every guard: the nav bar, Back and a story
+        // trigger could each unmount an assault mid-fight.
+        assert.equal(BATTLE_SCREENS.has("sectorGarrison"), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "sectorGarrison" })), true);
+        assert.equal(isBattleFlowScreen("sectorGarrison", false, false, () => false), true,
+            "story/VN triggers stand down on it");
+        // A knocked-out attacker still reads the assault's result before the
+        // hospital takes them: the redirect waits for an unresolved battle.
+        assert.equal(shouldRedirectToHospital(true, "sectorGarrison", isUnresolvedBattle(signals({ screen: "sectorGarrison" }))), false);
+        // ...and it still restores to itself on refresh (the server resumes it).
+        assert.equal(restoreScreenForSave("sectorGarrison", false), "sectorGarrison");
     });
 
     it("blocks global navigation during free-play Card Clash duels", () => {

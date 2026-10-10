@@ -83,6 +83,25 @@ describe('runVillageStoresStep (IO orchestration)', () => {
         assert.equal('skipNextAutoDeploy' in cleared.mercLeases[0], false);
     });
 
+    // Since the 2026-10-08 redesign a leader can hold two bands of one tier (one
+    // per war, or several in one war). The skip used to be keyed (tier, hirer),
+    // so a fed band sat out its tick with its unfed twin.
+    it('marks only the band the stores could not feed, not its fed twin of the same tier', async () => {
+        const store = memStore();
+        // 30 rations: 1 spoils, the first band of 3 eats 24, the second cannot be fed.
+        store.m.set(STATE, { treasury: { provisions: 30 } });
+        const band = (id: string, warId: string) => ({
+            tierId: 'merc-ronin', player: 'hirer', expiresAt: NOW + 9999, count: 3,
+            id, context: { kind: 'village', warId, generation: 1 },
+        });
+        store.m.set(WAR, { ...defaultVillageWarRecord(FROST), mercLeases: [band('mh_first-band', 'war-a'), band('mh_second-band', 'war-b')] });
+        const r = await runVillageStoresStep({ village: FROST, today: TODAY, now: NOW, wars: [], store, lock, notifyUnfed: async () => undefined });
+        assert.equal(r.mercsSkipped, 1);
+        const rec = store.m.get(WAR) as VillageWarRecord;
+        assert.equal(rec.mercLeases.find((l) => l.id === 'mh_first-band')?.skipNextAutoDeploy, undefined, 'the fed band still acts');
+        assert.equal(rec.mercLeases.find((l) => l.id === 'mh_second-band')?.skipNextAutoDeploy, true, 'the unfed one sits out a tick');
+    });
+
     it('leaves a war that settled since the scan exactly as settlement left it', async () => {
         // The war list is read once before the per-village loop, so by the time
         // this stamp runs the war can be over. The stamp writes without a TTL,

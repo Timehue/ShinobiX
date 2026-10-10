@@ -113,10 +113,16 @@ export function effectiveLevel(record: VillageWarRecord, key: StructureKey): num
 
 // ── Effect helpers (each dormancy-aware via effectiveLevel) ──
 
-/** Village war HP cap after Ramparts (Phase 3 war engine reads this). */
+/** Village war HP cap after Ramparts. api/world-state.ts seals it into the war
+ *  row (`hpMax`) at declaration and raises it when Ramparts is bought mid-war. */
 export function villageWarHpMax(record: VillageWarRecord): number {
     return Math.round(BASE_VILLAGE_WAR_HP_MAX * (1 + STRUCTURE_DEFS.ramparts.perLevel / 100 * effectiveLevel(record, 'ramparts')));
 }
+/** The highest village war HP any village can have (max-level Ramparts). The
+ *  war row's HP values are clamped to it on read. */
+export const VILLAGE_WAR_HP_CEILING = Math.round(
+    BASE_VILLAGE_WAR_HP_MAX * (1 + STRUCTURE_DEFS.ramparts.perLevel / 100 * VILLAGE_STRUCTURE_MAX_LEVEL),
+);
 /** Sector Control HP cap after Watchtower (Phase 4 sector war reads this). */
 export function defenderPointsMultiplier(record: VillageWarRecord): number {
     return 1 + STRUCTURE_DEFS.watchtower.perLevel / 100 * effectiveLevel(record, 'watchtower');
