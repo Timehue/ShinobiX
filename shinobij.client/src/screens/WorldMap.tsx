@@ -188,6 +188,7 @@ import { cwListWars } from "../lib/clan-war-api";
 import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map-v2.webp";
@@ -999,18 +1000,7 @@ function WorldMapContent({
     }
 
     const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
-    const bossItems = useMemo(() => getAllItems(wmCreatorItems), [wmCreatorItems]);
-    const bossHostLoadout = useMemo(() => ({
-        pvpItems: getPvpItemLoadout(character, bossItems),
-        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
-        armorFactor: getCharacterArmorFactor(character, bossItems),
-        armorRawDR: getCharacterArmorRawDR(character, bossItems),
-        itemDamagePct: getEquippedItemBonus(character, bossItems, "damagePercent"),
-        itemAbsorbPct: getEquippedItemBonus(character, bossItems, "absorbPercent"),
-        itemReflectPct: getEquippedItemBonus(character, bossItems, "reflectPercent"),
-        itemLifeStealPct: getEquippedItemBonus(character, bossItems, "lifeStealPercent"),
-        itemShield: getEquippedItemBonus(character, bossItems, "shield"),
-    }), [character, bossItems, savedBloodlines]);
+    const bossHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, wmCreatorItems), [character, savedBloodlines, wmCreatorItems]);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
