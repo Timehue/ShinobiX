@@ -39,7 +39,9 @@ function fighter(input: InfiltrationFighter, pos: number, enemy = false): PvpFig
     const maxStamina = Math.max(0, num(input.character.maxStamina, 50));
     // The raider brings the HP their save holds: settlement writes the fight's
     // end HP back onto that save, so a full-pool seed made "start a raid, walk
-    // out" a free heal. Clamped to [0, maxHp] like api/solo-pve/_ai-encounter.ts.
+    // out" a free heal. That write is decrease-only as well
+    // (sessionHpIsDecreaseOnly in api/missions/_ai-fight-outcome.ts).
+    // Clamped to [0, maxHp] like api/solo-pve/_ai-encounter.ts.
     // The sealed ANBU has no save to write back to and always starts full.
     const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
