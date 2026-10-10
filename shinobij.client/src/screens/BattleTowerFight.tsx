@@ -410,7 +410,7 @@ function buildTowerPhaseBanner(session: TowerSession, boss: TowerActor | undefin
             ? `Eliminate ${addsRemaining || "the"} reinforcement${addsRemaining === 1 ? "" : "s"} to break the boss barrier.`
             : "Reinforcements entered the arena — thin them out before they overwhelm the squad.");
     }
-    if (boss.shield > 0) instructions.push(`Aegis active (${Math.round(boss.shield)} shield) — break it before committing burst damage.`);
+    if (boss.shield > 0) instructions.push(`Aegis raised (${Math.round(boss.shield)} shield) — break it before committing burst damage.`);
     else if (boss.character.aegis) instructions.push("Aegis forms at each health phase — break each shield before committing burst damage.");
     if (mechanic === "enrage") instructions.push("Damage increased — protect the weakest ally and finish this phase quickly.");
     if (mechanic === "regen") instructions.push("Regeneration persists — focus attacks to outpace its end-of-round healing.");

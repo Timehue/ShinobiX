@@ -137,6 +137,7 @@ export const stackableItemIds = new Set<string>([
     // they're 1-at-a-time and the evolve paths key off inventory[].
     DUNGEON_KEY_ID,
     LEGENDARY_WAR_CRATE_ID,
+    HOLLOW_BEAST_CACHE_ID,
     WARFORGED_RELIC_ID,
     DUNGEON_LEGENDARY_RELIC_ID,
     // Anbu Vault Infiltration war caches (server-minted; cap 9999/stack).

@@ -88,7 +88,7 @@
     background: linear-gradient(180deg, color-mix(in srgb, var(--cache-reveal-accent, #f5c56e) 88%, white), var(--cache-reveal-accent, #f5c56e));
     box-shadow: 0 4px 18px color-mix(in srgb, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 25%, transparent);
 }
-.cache-reveal-action:hover { filter: brightness(1.09); }
+@media (hover: hover) { .cache-reveal-action:hover { filter: brightness(1.09); } }
 .cache-reveal-skip {
     min-height: 34px;
     margin-top: 5px;
@@ -97,7 +97,7 @@
     color: #879ab0;
     background: transparent;
 }
-.cache-reveal-skip:hover { color: #d7e2ee; }
+@media (hover: hover) { .cache-reveal-skip:hover { color: #d7e2ee; } }
 .cache-reveal-rewards {
     display: grid;
     gap: 6px;

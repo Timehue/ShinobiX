@@ -181,7 +181,6 @@ const ClanWarPetBattle = lazyWithRetry(() => import("./screens/ClanWarPetBattle"
 const ClanWar2v2Battle = lazyWithRetry(() => import("./screens/ClanWar2v2Battle").then(m => ({ default: m.ClanWar2v2Battle })));
 const CardClashFreePlay = lazyWithRetry(() => import("./screens/CardClashFreePlay").then(m => ({ default: m.CardClashFreePlay })));
 const WorldBossesHub = lazyWithRetry(() => import("./screens/WorldBossesHub").then(m => ({ default: m.WorldBossesHub })));
-const WorldBossQueueDialog = lazyWithRetry(() => import("./screens/WorldBossQueueDialog").then(m => ({ default: m.WorldBossQueueDialog })));
 const BloodlineMaker = lazyWithRetry(() => import("./screens/BloodlineMaker").then(m => ({ default: m.BloodlineMaker })));
 const Settings = lazyWithRetry(() => import("./screens/Settings").then(m => ({ default: m.Settings })));
 const Profile = lazyWithRetry(() => import("./screens/Profile").then(m => ({ default: m.Profile })));
@@ -755,7 +754,6 @@ export { getAllJutsus, getPvpJutsuLoadout };
 
 export default function App() {
     const [screen, setScreen] = useState<Screen>("start");
-    const [worldBossQueueOpen, setWorldBossQueueOpen] = useState(false);
     const [academyAwakeningRequested, setAcademyAwakeningRequested] = useState(false);
     const bloodlineMaker = useBloodlineMakerFlow(setScreen, setAcademyAwakeningRequested);
     const { mutationAvailability, refresh: refreshCapabilities, viewAvailability } = useLiveCapabilities();
@@ -784,10 +782,6 @@ export default function App() {
         perfNotifyScreen(fallback);
         setScreen(fallback);
     }, [screen, villageWarAvailability, character]);
-
-    useEffect(() => {
-        if (screen !== "worldMap") setWorldBossQueueOpen(false);
-    }, [screen]);
 
     // Session-expiry handling (audit #14 + data-loss fix). A token-first client
     // that dropped its stored password can't re-mint an expired 24h token (or one
@@ -5880,11 +5874,9 @@ export default function App() {
                     <Village character={character} setScreen={navigate} />
                 </>)}
                 {!activeTriggeredEvent && screen === "worldMap" && character && (
-                    <>
                     <WorldMap
                         key={worldMapKey}
                         onLaunchWeeklyBoss={() => navigate("weeklyBoss")}
-                        onLaunchWorldBossEvent={() => setWorldBossQueueOpen(true)}
                         onExplorePresentationActiveChange={setWorldExplorePresentationActive}
                         setCurrentBiome={setCurrentBiome}
                         setScreen={navigate}
@@ -5926,24 +5918,15 @@ export default function App() {
                         savedBloodlines={savedBloodlines}
                         creatorJutsus={creatorJutsus}
                         creatorItems={creatorItems}
+                        hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()}
+                        onRecordBattle={recordBattle}
                         onVersionedCharacter={commitVersionedCharacter} onOwnSaveRead={adoptOwnSaveRead}
                         capturePvpCreateScope={capturePvpCreateScope}
                         onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} attackSleeper={(opponent) => { return strikeDownSleeper({ opponent, attackerName: character.name, isTraveling, setCharacter, setPlayerRoster, onServerVersion: (version) => acceptExternalSaveVersion(version, character.name) === "accepted" }); }}
                         sectorAttackPlayer={(opponent) => attackSectorPlayer({ opponent, character, isTraveling, creatorItems, creatorJutsus, savedBloodlines, currentSector, currentBiome, currentWeather, capturePvpCreateScope, installPvpRecovery, setPvpBattleId, setPvpRole, setPvpBattleContext, setPvpSeedSession, setRaidBattleKind, setScreen })}
 
                     />
-                    {worldBossQueueOpen && <Suspense fallback={null}>
-                        <WorldBossQueueDialog
-                            character={character}
-                            currentSector={currentSector}
-                            hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()}
-                            sharedImages={sharedImages}
-                            onVersionedCharacter={commitVersionedCharacter}
-                            onRecordBattle={recordBattle}
-                            onClose={() => setWorldBossQueueOpen(false)}
-                        />
-                    </Suspense>}
-                    </>
+
                 )}
                 {!activeTriggeredEvent && screen === "sunscarFestival" && character && (
                     <SunscarFestival
@@ -6129,18 +6112,10 @@ export default function App() {
                     <BattleTowers character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && (screen === "weeklyBoss" || screen === "worldBosses" || screen === "worldBossEvent") && character && (
-                    <WorldBossesHub
-                        character={character}
-                        currentSector={currentSector}
-                        initialTab={screen === "weeklyBoss" ? "weekly" : screen === "worldBossEvent" ? "hollow-beast" : undefined}
+                    <WorldBossesHub character={character} currentSector={currentSector} initialTab={screen === "weeklyBoss" ? "weekly" : screen === "worldBossEvent" ? "hollow-beast" : undefined}
                         hostLoadout={(() => { const it = getAllItems(creatorItems); return { pvpItems: getPvpItemLoadout(character, it), bloodlineMult: getBloodlineMultiplier(character, savedBloodlines), armorFactor: getCharacterArmorFactor(character, it), armorRawDR: getCharacterArmorRawDR(character, it), itemDamagePct: getEquippedItemBonus(character, it, "damagePercent"), itemAbsorbPct: getEquippedItemBonus(character, it, "absorbPercent"), itemReflectPct: getEquippedItemBonus(character, it, "reflectPercent"), itemLifeStealPct: getEquippedItemBonus(character, it, "lifeStealPercent"), itemShield: getEquippedItemBonus(character, it, "shield") }; })()}
-                        onVersionedCharacter={commitVersionedCharacter}
-                        creatorAis={playableAis}
-                        setScreen={setScreen}
-                        playerRoster={playerRoster}
-                        sharedImages={sharedImages}
-                        onRecordBattle={recordBattle}
-                        onBack={screen === "worldBossEvent" ? () => navigate("worldMap") : goBack}
+                        onVersionedCharacter={commitVersionedCharacter} creatorAis={playableAis} setScreen={setScreen} playerRoster={playerRoster}
+                        sharedImages={sharedImages} onRecordBattle={recordBattle} onBack={screen === "worldBossEvent" ? () => navigate("worldMap") : goBack}
                         bossBackLabel={screen === "worldBossEvent" ? "World map" : undefined}
                     />
                 )}

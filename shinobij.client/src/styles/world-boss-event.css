@@ -48,7 +48,7 @@
     background: rgba(255, 255, 255, .055);
     color: #d1dfed;
 }
-.world-boss-back:hover { background: rgba(255, 255, 255, .11); }
+@media (hover: hover) { .world-boss-back:hover { background: rgba(255, 255, 255, .11); } }
 .world-boss-topbar-mark {
     display: flex;
     align-items: center;
@@ -208,7 +208,7 @@
 @keyframes wbe-spin { to { transform: rotate(360deg); } }
 .world-boss-primary,.world-boss-secondary { min-height: 42px; padding: 0 16px; font-size: 12px; }
 .world-boss-primary { display: flex; width: 100%; justify-content: space-between; align-items: center; background: linear-gradient(100deg, #087c79, #0aa99a); box-shadow: 0 5px 18px rgba(0, 155, 145, .2); }
-.world-boss-primary:hover:not(:disabled) { filter: brightness(1.13); }
+@media (hover: hover) { .world-boss-primary:hover:not(:disabled) { filter: brightness(1.13); } }
 .world-boss-primary:disabled { opacity: .48; cursor: not-allowed; }
 .world-boss-primary span { font-size: 18px; }
 .world-boss-secondary { margin-top: 4px; border: 1px solid rgba(217, 235, 249, .16); background: rgba(255, 255, 255, .055); }

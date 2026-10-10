@@ -33,7 +33,7 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: .1em;
 }
-.world-boss-tabs button:hover { color: #edf3fb; background: rgba(255, 255, 255, .045); }
+@media (hover: hover) { .world-boss-tabs button:hover { color: #edf3fb; background: rgba(255, 255, 255, .045); } }
 .world-boss-tabs button.is-active {
     border-color: rgba(255, 188, 98, .24);
     color: #fff0d4;

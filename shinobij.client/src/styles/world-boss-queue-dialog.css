@@ -52,7 +52,7 @@
     font: 400 24px/1 ui-sans-serif, system-ui, sans-serif;
     cursor: pointer;
 }
-.world-boss-queue-close:hover { background: rgba(255, 255, 255, .14); }
+@media (hover: hover) { .world-boss-queue-close:hover { background: rgba(255, 255, 255, .14); } }
 .world-boss-queue-kicker {
     color: #6ce7d4;
     font-size: 9px;
@@ -100,11 +100,11 @@
 .world-boss-queue-join,
 .world-boss-queue-leave { min-height: 42px; border-radius: 9px; color: #edf3fb; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
 .world-boss-queue-join { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 13px; padding: 0 15px; border: 0; background: linear-gradient(100deg, #087c79, #0aa99a); box-shadow: 0 5px 18px rgba(0, 155, 145, .2); }
-.world-boss-queue-join:hover:not(:disabled) { filter: brightness(1.12); }
+@media (hover: hover) { .world-boss-queue-join:hover:not(:disabled) { filter: brightness(1.12); } }
 .world-boss-queue-join:disabled,.world-boss-queue-leave:disabled { opacity: .52; cursor: not-allowed; }
 .world-boss-queue-join > span { font-size: 17px; }
 .world-boss-queue-leave { margin-top: 11px; padding: 0 15px; border: 1px solid rgba(217, 235, 249, .17); background: rgba(255, 255, 255, .055); }
-.world-boss-queue-leave:hover:not(:disabled) { background: rgba(255, 255, 255, .1); }
+@media (hover: hover) { .world-boss-queue-leave:hover:not(:disabled) { background: rgba(255, 255, 255, .1); } }
 .world-boss-queue-message,.world-boss-queue-closed { margin-top: 11px; padding: 9px 11px; border-radius: 8px; color: #f2d9ae; background: rgba(201, 132, 47, .12); font-size: 10px; line-height: 1.45; }
 .world-boss-queue-footnote { margin: 11px 0 0; color: #7f93aa; font-size: 9px; line-height: 1.5; }
 .world-boss-queue-footnote b { color: #aab9ca; }

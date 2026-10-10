@@ -10,9 +10,9 @@ import { serverNow } from '../lib/server-clock';
 import { gatheringTool, gatheringToolRemaining } from '../../../shared/gathering-tools';
 import './resource-gathering.css';
 
-export function ResourceWorld({ character, sector, tile, commit, walk, worldBossCrystalsActive = false, worldBossEventId, minedWorldBossCrystalNodeIds = [] }: {
+export function ResourceWorld({ character, sector, tile, commit, walk, worldBossCrystals }: {
     character: Character; sector: number; tile: number; commit: VersionedCharacterCommit; walk: (sector: number, tile: number) => void;
-    worldBossCrystalsActive?: boolean; worldBossEventId?: string; minedWorldBossCrystalNodeIds?: readonly string[];
+    worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
 }) {
     const [selected, setSelected] = useState<ResourceNode | null>(null), [mode, setMode] = useState<'active' | 'relaxed'>('active');
     const [busy, setBusy] = useState(false), [error, setError] = useState(''), [receipt, setReceipt] = useState<ResourceReceipt | null>(null);
@@ -62,9 +62,9 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
             if (!result.ok) { setError(result.error ?? 'Gathering is unavailable.'); return false; }
             if (result.worldBossHollowShard) {
                 setWorldBossHollowShard(result.worldBossHollowShard);
-                if (worldBossEventId && node.worldBossCrystal) setLocallyMinedCrystals(current => ({
+                if (worldBossCrystals?.eventId && node.worldBossCrystal) setLocallyMinedCrystals(current => ({
                     ...current,
-                    [worldBossEventId]: [...new Set([...(current[worldBossEventId] ?? []), node.id])],
+                    [worldBossCrystals.eventId]: [...new Set([...(current[worldBossCrystals.eventId] ?? []), node.id])],
                 }));
             }
             if (result.receipt) {
@@ -82,10 +82,10 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
         if (active) { void request('cancel'); return; }
         setSelected(null); setReceipt(null); setError('');
     }
-    const minedCrystals = new Set([...minedWorldBossCrystalNodeIds, ...(locallyMinedCrystals[worldBossEventId ?? ''] ?? [])]);
+    const minedCrystals = new Set([...(worldBossCrystals?.minedNodeIds ?? []), ...(locallyMinedCrystals[worldBossCrystals?.eventId ?? ''] ?? [])]);
     const visibleNodes = [
         ...RESOURCE_NODES,
-        ...(worldBossCrystalsActive ? WORLD_BOSS_CRYSTAL_NODES.filter(candidate => !minedCrystals.has(candidate.id)) : []),
+        ...(worldBossCrystals?.active ? WORLD_BOSS_CRYSTAL_NODES.filter(candidate => !minedCrystals.has(candidate.id)) : []),
     ];
     return <>
         <div className="resource-node-layer" aria-label="Fishing, mining, and event crystal nodes">{visibleNodes.filter(candidate => candidate.sector === sector).map(candidate => {
