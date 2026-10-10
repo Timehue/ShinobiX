@@ -62,9 +62,10 @@ export function ResourceWorld({ character, sector, tile, commit, walk, worldBoss
             if (!result.ok) { setError(result.error ?? 'Gathering is unavailable.'); return false; }
             if (result.worldBossHollowShard) {
                 setWorldBossHollowShard(result.worldBossHollowShard);
-                if (worldBossCrystals?.eventId && node.worldBossCrystal) setLocallyMinedCrystals(current => ({
+                const worldBossEventId = worldBossCrystals?.eventId;
+                if (worldBossEventId && node.worldBossCrystal) setLocallyMinedCrystals(current => ({
                     ...current,
-                    [worldBossCrystals.eventId]: [...new Set([...(current[worldBossCrystals.eventId] ?? []), node.id])],
+                    [worldBossEventId]: [...new Set([...(current[worldBossEventId] ?? []), node.id])],
                 }));
             }
             if (result.receipt) {

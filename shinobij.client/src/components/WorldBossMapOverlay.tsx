@@ -112,7 +112,7 @@ export function WorldBossSectorFlag({ event, sector }: { event: WorldBossMapEven
     const boss = worldBossDefinition(event.bossId);
     return <span className={"atlas-world-boss-flag" + (event.movementPaused ? " is-paused" : "")} aria-hidden="true" title={(event.bossName || boss.name) + " is at Sector " + sector + ". Travel in to join the team queue"}>
         <span
-            className={"atlas-world-boss-sprite" + (boss.mapSpriteKind === "single" ? " is-single" : "") + (boss.mapGlow === "white-red" ? " is-white-red-glow" : "")}
+            className={"atlas-world-boss-sprite" + (boss.mapGlow === "white-red" ? " is-white-red-glow" : "")}
             style={{ backgroundImage: 'url("' + boss.mapSprite + '")' }}
         />
     </span>;
