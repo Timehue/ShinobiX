@@ -1,10 +1,19 @@
 /*
  * Village-War mercenaries — autonomous deployment (Phase 5 snipe). A frequent cron
- * tick gives active merc bands a life of their own: for each Combat sector a
- * village is besieging, a merc snipes the LOWEST-HP enemy defender currently in
- * that sector (online presence), so mercs "attack whenever / snipe low-HP players"
- * without the Kage hand-deploying each one. All resolution is server-authoritative
- * (resolveMercBattle via the towers engine) — the same path the manual deploy uses.
+ * tick gives active merc bands a life of their own, so mercs "attack whenever /
+ * snipe low-HP players" without a leader hand-deploying each one. All resolution
+ * is server-authoritative (resolveMercBattle via the towers engine) — the same
+ * path the manual deploy and the roaming encounter use.
+ *
+ * Every band serves the ONE war it was hired for (owner redesign 2026-10-08;
+ * api/_merc-context.ts), and acts only while that exact war instance is live:
+ *   - Combat sector war: the DEFENDING village's band patrols its contested
+ *     sector and snipes the lowest-HP ATTACKING-village player there. A band
+ *     win scores the defence in full; an attacker who beats it scores a quarter.
+ *   - All-out village war: each side's band hunts the lowest-HP enemy anywhere,
+ *     and a merc win chips the enemy village's war HP (floored at 1).
+ *   - A LEGACY band, hired before the redesign and bound to nothing, still
+ *     fights only in its village's all-out village war, and lapses with its lease.
  *
  * Server-gated by the default-on Sector Map campaign. Shares the deployOneMerc core
  * with /api/village/war-merc so the two never drift.
@@ -18,22 +27,22 @@
  * victim to sector 0, so they are not a sleeper again until they log in, walk out
  * and log off in the wild), AND it stamps the same 15-min per-target merc
  * cooldown, so a player who comes back and logs off again at once is not chained.
- * One raid per siege / per war-side per tick, like the live snipe.
+ * One raid per war context per tick, like the live snipe.
  */
 import { kv } from './_storage.js';
 import { loadAdminCombatContent } from './_admin-content.js';
 import { withKvLock } from './_lock.js';
 import { safeName } from './_utils.js';
-import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey, villageWarSlug, type MercLease, type MercLeaseContext } from './_war-state.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_MERC } from './_war-role.js';
 import { defenderPointsMultiplier } from './_war-structures.js';
-import { applySectorWarBattle } from './_sector-war.js';
+import { applySectorWarBattle, sectorWarInstanceTag } from './_sector-war.js';
 import { commitSectorWarBattle, listActiveSectorWars, type SectorWarBattleDecision } from './_sector-war-store.js';
 import { sectorWarDamageMultiplier } from './_war-structures.js';
-import { applyMercVillageWarDamage, listActiveVillageWars } from './world-state.js';
+import { applyMercVillageWarDamage } from './world-state.js';
 import { sealTowerFighter } from './towers/_seal.js';
 import { resolveMercBattle, type MercBattleResult } from './towers/_merc-fighters.js';
-import { claimMercFromBand } from './_war-merc.js';
+import { bandsServing, claimMercFromBandKey, leaseServes, mercBandKey } from './_war-merc.js';
 import { isMercTargetOnCooldown, mercTargetsOnCooldown, setMercTargetCooldown, pickMercTarget, type RoamTarget } from './_merc-roam.js';
 import { wrMercTierById } from './_war-economy.js';
 import { recordWarEcoEvent } from './_war-telemetry.js';
@@ -44,6 +53,8 @@ import { listSleeperCamps, type SleeperCamp } from './_realtime/sleeper-camps.js
 import { settleSleeperKo } from './player/sleeper-kill.js';
 import { pushOfflineNotice } from './player/_offline-notices.js';
 import { LockContendedError } from './_lock.js';
+import { listVillageWarInstances, sectorContestContext, villageWarActing, villageWarContext } from './_merc-context.js';
+import { sweepRetiredWarMercenaryHires } from './_war-mercenary-hire.js';
 
 export interface MercDeployResult {
     winner: 'merc' | 'player' | 'stall';
@@ -53,9 +64,15 @@ export interface MercDeployResult {
 }
 
 export type MercClaimArgs = {
+    /** The band's own village (whose WR paid for it). */
     village: string;
     tierId: string;
     hirer: string;
+    /** The band to spend (mercBandKey). Defaults to the legacy `${tierId}:${hirer}`. */
+    bandKey?: string;
+    /** The war the merc is being spent in. A band bound to another war is
+     *  refused under the lock, so it can never fight outside its own war. */
+    context?: MercLeaseContext | null;
     sector: number;
     targetPlayer: string;
     /** Current server-authoritative village the target must still belong to. */
@@ -105,11 +122,15 @@ async function defaultPrepareFighter(rawSave: Record<string, unknown> | null): P
  *      claim the band member and stamp the cooldown.
  *   4. fight — and if even that throws, the claimed merc is RETURNED to the band
  *      and the cooldown stamp is left in place (it only costs one quiet tick).
+ *
+ * The caller gets the claimed band's snapshot back (`lease`) so that, should its
+ * own scoring step fail to land the result, it can return the merc too
+ * (returnMercToBand) rather than leave it spent with nothing to show.
  */
 export async function claimAndResolveMerc(
     args: MercClaimArgs,
     deps: MercClaimDeps = {},
-): Promise<{ battle: MercBattleResult; mercsRemaining: number } | null> {
+): Promise<{ battle: MercBattleResult; mercsRemaining: number; lease: MercLease } | null> {
     const store = deps.store ?? kv;
     const lock = deps.lock ?? (<T>(key: string, fn: () => Promise<T>) => withKvLock(key, fn, { failClosed: true }));
     const onCooldown = deps.isOnCooldown ?? isMercTargetOnCooldown;
@@ -144,15 +165,18 @@ export async function claimAndResolveMerc(
     // (3) Re-check under the lock and only THEN spend a band member. Keeping the
     // cooldown check and stamp inside that lock also prevents two concurrent
     // deploys from both passing the old pre-claim cooldown read.
+    const bandKey = args.bandKey ?? `${args.tierId}:${args.hirer}`;
     const claim = await lock(targetSaveKey, async () => {
         if (!(await stillValidTarget())) return null;
         return lock(warKey, async () => {
             const rec = normalizeVillageWarRecord(args.village, (await store.get<Record<string, unknown>>(warKey)) ?? undefined);
-            const lease = rec.mercLeases.find((l) => l.tierId === args.tierId && l.player === args.hirer && l.expiresAt > args.now);
-            const out = claimMercFromBand(rec.mercLeases, args.tierId, args.hirer, args.now);
-            if (!out.claimed || !lease) return null;
+            const lease = rec.mercLeases.find((l) => mercBandKey(l) === bandKey && l.expiresAt > args.now);
+            // A band only ever fights in the war it was hired for.
+            if (!lease || (args.context && !leaseServes(lease, args.context))) return null;
+            const out = claimMercFromBandKey(rec.mercLeases, bandKey, args.now);
+            if (!out.claimed) return null;
             await store.set(warKey, { ...rec, mercLeases: out.leases });
-            return { remaining: out.remaining, expiresAt: lease.expiresAt };
+            return { remaining: out.remaining, lease: { ...lease } };
         });
     });
     if (!claim) return null;
@@ -164,110 +188,143 @@ export async function claimAndResolveMerc(
     const seed = (args.now ^ (args.sector * 2654435761)) >>> 0;
     try {
         const battle = runFight(sealed, { ...args, seed });
-        return { battle, mercsRemaining: claim.remaining };
+        return { battle, mercsRemaining: claim.remaining, lease: claim.lease };
     } catch (err) {
-        await returnMercToBand(args, claim.expiresAt, { store, lock });
+        await returnMercToBand(args.village, claim.lease, { store, lock });
         throw err;
     }
 }
 
-/** Put a claimed-but-unfought merc back in its band (the lease is re-created at
- *  its original expiry when the claim emptied it). Best-effort: a failure here
- *  is logged, never rethrown over the original fight error. */
-async function returnMercToBand(
-    args: MercClaimArgs,
-    expiresAt: number,
-    io: { store: NonNullable<MercClaimDeps['store']>; lock: NonNullable<MercClaimDeps['lock']> },
+/** Put a claimed merc back in its band — one that never fought, or whose fight
+ *  could not be applied to its war. The lease is re-created at its original
+ *  expiry (same id, same war) when the claim emptied it. Best-effort: a failure
+ *  here is logged, never rethrown over the original error. */
+export async function returnMercToBand(
+    village: string,
+    lease: MercLease,
+    io: { store?: NonNullable<MercClaimDeps['store']>; lock?: NonNullable<MercClaimDeps['lock']> } = {},
 ): Promise<void> {
-    const warKey = villageWarKey(args.village);
+    const store = io.store ?? kv;
+    const lock = io.lock ?? (<T>(key: string, fn: () => Promise<T>) => withKvLock(key, fn, { failClosed: true }));
+    const warKey = villageWarKey(village);
+    const bandKey = mercBandKey(lease);
     try {
-        await io.lock(warKey, async () => {
-            const rec = normalizeVillageWarRecord(args.village, (await io.store.get<Record<string, unknown>>(warKey)) ?? undefined);
-            const has = rec.mercLeases.some((l) => l.tierId === args.tierId && l.player === args.hirer);
+        await lock(warKey, async () => {
+            const rec = normalizeVillageWarRecord(village, (await store.get<Record<string, unknown>>(warKey)) ?? undefined);
+            const has = rec.mercLeases.some((l) => mercBandKey(l) === bandKey);
+            const { skipNextAutoDeploy: _skip, ...restored } = lease;
             const mercLeases = has
-                ? rec.mercLeases.map((l) => (l.tierId === args.tierId && l.player === args.hirer ? { ...l, count: l.count + 1 } : l))
-                : [...rec.mercLeases, { tierId: args.tierId, player: args.hirer, expiresAt, count: 1 }];
-            await io.store.set(warKey, { ...rec, mercLeases });
+                ? rec.mercLeases.map((l) => (mercBandKey(l) === bandKey ? { ...l, count: l.count + 1 } : l))
+                : [...rec.mercLeases, { ...restored, count: 1 }];
+            await store.set(warKey, { ...rec, mercLeases });
         });
     } catch (err) {
-        console.error('[merc-auto] could not return the unfought merc to its band:', (err as Error).message);
+        console.error('[merc-auto] could not return the merc to its band:', (err as Error).message);
     }
 }
 
-/** Resolve ONE merc deployment against a target in a SECTOR war + apply it to the
- *  contest. SHARED by the manual war-merc `attack` action and the autonomous tick.
- *  Merc win → full Control-HP chip + flip-on-capture; player win → 25% regen; stall
- *  → inert. Returns null if the band is spent or the target is on cooldown. */
+/** Resolve ONE merc of a DEFENDING village's band against an ATTACKING-village
+ *  player in a Combat sector war, and score it. SHARED by the manual war-merc
+ *  `attack` action, the roaming encounter and the autonomous tick.
+ *
+ *  Scoring (owner ruling 2026-10-08, `mercSide: 'defender'`): a band win scores
+ *  the DEFENCE in full, role-weighted (merc vs the attacker's rank, the
+ *  defender's Watchtower applies); an attacker who beats the band scores the
+ *  attack at MERC_REPEL_POINTS_FRACTION; a stall is inert. Merc battles are AI
+ *  battles: they never refresh `lastLiveBattleAt`. Receipt `by` is the human
+ *  winner (the attacker who repelled it) or '' — a merc win earns no capture
+ *  credit.
+ *
+ *  Returns null — and spends nothing — if the band is spent, serves another
+ *  war, or the target is on the 15-minute cooldown. A merc that fought but whose
+ *  result could not be applied (the war ended or was replaced, or the commit
+ *  threw) is returned to its band. */
 export async function deployOneMerc(args: {
+    /** The band's village: the contest's DEFENDER. */
     village: string;
     tierId: string;
     hirer: string;
+    bandKey?: string;
     sector: number;
+    /** An ATTACKING-village player. */
     targetPlayer: string;
+    /** The contest's attacker village. */
     targetVillage: string;
     contestId: string;
+    /** The contest instance the band was hired for (sectorWarInstanceTag). */
+    instance: string;
     mercLevel: number;
     now: number;
-}): Promise<MercDeployResult | null> {
-    const resolved = await claimAndResolveMerc(args);
+}, deps: Pick<MercClaimDeps, 'prepareFighter' | 'runFight'> = {}): Promise<MercDeployResult | null> {
+    const context: MercLeaseContext = { kind: 'sector', contestId: args.contestId, instance: args.instance, sector: args.sector };
+    const resolved = await claimAndResolveMerc({ ...args, context }, deps);
     if (!resolved) return null;
-    const { battle, mercsRemaining } = resolved;
+    const { battle, mercsRemaining, lease } = resolved;
+    // A stall is inert by design: the merc is spent, nothing scores.
+    if (!battle.mercWon && !battle.playerWon) {
+        return { winner: battle.winner, attackerPoints: 0, defenderPoints: 0, mercsRemaining };
+    }
 
-    // Score the war under its lock. A merc win adds attacker points at villager
-    // weight; the defending PLAYER's rank sets the rest of the kill value — a Kage
-    // who falls to a merc is a full bounty, a Kage who repels one scores more
-    // (at the reduced merc-repel fraction; §17.6). Sectors never flip mid-war —
-    // settlement compares the tallies when the 72 hours close.
-    let attackerPoints = 0;
-    let defenderPoints = 0;
-    if (battle.mercWon || battle.playerWon) {
+    // The human is the attacker, so the attack wins exactly when the merc loses.
+    const attackerWon = battle.playerWon;
+    const by = attackerWon ? safeName(args.targetPlayer) : '';
+    let result: Awaited<ReturnType<typeof commitSectorWarBattle>>;
+    try {
         const playerRole = await sectorWarRoleOf(args.targetPlayer, args.targetVillage);
-        const result = await commitSectorWarBattle({
+        result = await commitSectorWarBattle({
             contestId: args.contestId,
-            // targetPlayer in the id: two mercs striking DIFFERENT defenders in
-            // the same millisecond must not collide into one receipt (the dedupe
+            // targetPlayer in the id: two mercs striking DIFFERENT players in the
+            // same millisecond must not collide into one receipt (the dedupe
             // would silently drop the second battle's points).
             battleId: `merc:${args.contestId}:${args.targetPlayer}:${args.now}`,
             decide: async (live): Promise<SectorWarBattleDecision> => {
-                // A settled war's row is no longer written, and a deploy aimed at
-                // an earlier war on this sector never scores the one after it.
+                // A settled war's row is no longer written, and a band hired for
+                // one war on this sector never scores the war after it.
                 if (live.flipped || live.expiredAt) return { kind: 'skip', reason: 'terminal' };
-                if (args.now < live.startedAt) return { kind: 'skip', reason: 'superseded' };
+                if (args.now < live.startedAt
+                    || sectorWarInstanceTag(live) !== args.instance
+                    || live.defenderVillage !== args.village
+                    || live.attackerVillage !== args.targetVillage) return { kind: 'skip', reason: 'superseded' };
                 const [atkRaw, defRaw] = await Promise.all([
-                    kv.get<Record<string, unknown>>(villageWarKey(args.village)),
+                    kv.get<Record<string, unknown>>(villageWarKey(live.attackerVillage)),
                     kv.get<Record<string, unknown>>(villageWarKey(live.defenderVillage)),
                 ]);
-                const atkRecord = normalizeVillageWarRecord(args.village, atkRaw ?? undefined);
+                const atkRecord = normalizeVillageWarRecord(live.attackerVillage, atkRaw ?? undefined);
                 const defRecord = normalizeVillageWarRecord(live.defenderVillage, defRaw ?? undefined);
+                // Winner's weight + the loser's rank penalty: a Kage who falls to
+                // the band is a full bounty for the defence; a Kage who cuts it
+                // down scores more for the attack (at the repel fraction).
                 const roleSwing = battle.mercWon
                     ? sectorControlSwing(ROLE_MERC, playerRole)
                     : sectorControlSwing(playerRole, ROLE_MERC);
-                const outcome = applySectorWarBattle(live, battle.mercWon, {
+                const outcome = applySectorWarBattle(live, attackerWon, {
                     now: args.now,
                     roleSwing,
                     attackerMult: sectorWarDamageMultiplier(atkRecord),
                     defenderMult: defenderPointsMultiplier(defRecord),
-                    // A merc kill is the band's, not a player's; a repel is the
-                    // defender's (attribution feeds the settlement capture credit).
-                    by: battle.mercWon ? '' : args.targetPlayer,
+                    by,
                     mercBattle: true,
+                    mercSide: 'defender',
                 });
-                return {
-                    kind: 'score',
-                    outcome,
-                    attackerWon: battle.mercWon,
-                    by: battle.mercWon ? '' : args.targetPlayer,
-                    at: args.now,
-                };
+                return { kind: 'score', outcome, attackerWon, by, at: args.now };
             },
         });
-        const tally = result.status === 'applied' ? result.session : result.status === 'skipped' ? result.contest : null;
-        if (tally) {
-            attackerPoints = tally.attackerPoints;
-            defenderPoints = tally.defenderPoints;
-        }
+    } catch (err) {
+        await returnMercToBand(args.village, lease);
+        throw err;
     }
-    return { winner: battle.winner, attackerPoints, defenderPoints, mercsRemaining };
+    if (result.status !== 'applied') {
+        // The war is over or was replaced: the fight changed nothing, so the
+        // merc goes back (it can only ever serve this war, so it simply idles).
+        await returnMercToBand(args.village, lease);
+        return null;
+    }
+    return {
+        winner: battle.winner,
+        attackerPoints: result.session.attackerPoints,
+        defenderPoints: result.session.defenderPoints,
+        mercsRemaining,
+    };
 }
 
 // Per-win damage a merc lands on the ENEMY village's war HP in a village war.
@@ -286,26 +343,42 @@ export interface MercVillageWarResult {
 /** Resolve ONE merc deployment against an enemy-village player in a VILLAGE war +
  *  apply it. Same server-auth fight as the sector path (claimAndResolveMerc); a
  *  merc win chips the enemy village's war HP (floored — mercs soften, players
- *  finish), a player win / stall is inert. Returns null if the band is spent or the
- *  target is on the 15-min cooldown. */
+ *  finish), a player win / stall is inert. Returns null if the band is spent,
+ *  serves another war, or the target is on the 15-min cooldown. A merc WIN whose
+ *  damage could not land (the war ended or froze meanwhile, or the write threw)
+ *  is returned to its band — it fought for nothing. */
 export async function deployMercVillageWar(args: {
-    village: string;       // attacker — the merc owner's village
-    enemyVillage: string;  // defender
+    village: string;       // the band's village
+    enemyVillage: string;
     tierId: string;
     hirer: string;
+    bandKey?: string;
+    /** The war instance the band serves (a legacy band serves any of its village's). */
+    war?: { id: string; generation: number };
     sector: number;
     targetPlayer: string;
     mercLevel: number;
     now: number;
-}): Promise<MercVillageWarResult | null> {
-    const resolved = await claimAndResolveMerc({ ...args, targetVillage: args.enemyVillage });
+}, deps: Pick<MercClaimDeps, 'prepareFighter' | 'runFight'> = {}): Promise<MercVillageWarResult | null> {
+    const context = args.war ? villageWarContext(args.war) : null;
+    const resolved = await claimAndResolveMerc({ ...args, targetVillage: args.enemyVillage, context }, deps);
     if (!resolved) return null;
-    const { battle, mercsRemaining } = resolved;
+    const { battle, mercsRemaining, lease } = resolved;
 
     let enemyWarHp: number | null = null;
     if (battle.mercWon) {
-        const dmg = await applyMercVillageWarDamage(args.village, args.enemyVillage, MERC_VILLAGE_WAR_DAMAGE, args.now);
-        enemyWarHp = dmg ? dmg.enemyHp : null;
+        let dmg: Awaited<ReturnType<typeof applyMercVillageWarDamage>>;
+        try {
+            dmg = await applyMercVillageWarDamage(args.village, args.enemyVillage, MERC_VILLAGE_WAR_DAMAGE, args.now);
+        } catch (err) {
+            await returnMercToBand(args.village, lease);
+            throw err;
+        }
+        if (!dmg) {
+            await returnMercToBand(args.village, lease);
+            return null;
+        }
+        enemyWarHp = dmg.enemyHp;
     }
     return { winner: battle.winner, enemyWarHp, mercsRemaining };
 }
@@ -361,22 +434,41 @@ async function sleeperMercTargets(
     return targetsOf(names, enemyVillage, now);
 }
 
+/** A live sector-war contest as the tick reads it (a SectorWarSession satisfies it). */
+type TickContest = {
+    id: string;
+    sector: number;
+    attackerVillage: string;
+    defenderVillage: string;
+    winCondition: string;
+    flipped: boolean;
+    startedAt?: number;
+    declarationGeneration?: number;
+};
+/** A live village war as the tick reads it. `id`/`generation` name the instance
+ *  its bands must be bound to; without them only legacy bands can serve it. */
+type TickVillageWar = { villages: [string, string]; id?: string; generation?: number };
+/** The band chosen to act in a war context this tick. */
+export type TickBand = { tierId: string; player: string; level: number; key?: string };
+
 // Minimal injectable surfaces so the tick is unit-testable.
 type AutoDeps = {
     now?: number;
-    listContests?: () => Promise<Array<{ id: string; sector: number; attackerVillage: string; defenderVillage: string; winCondition: string; flipped: boolean }>>;
-    listVillageWars?: () => Promise<Array<{ villages: [string, string] }>>;
+    listContests?: () => Promise<TickContest[]>;
+    listVillageWars?: () => Promise<TickVillageWar[]>;
     onlineNames?: (sector: number) => string[];
     onlineAll?: () => string[];
     /** offline sleeper camps (api/_realtime/sleeper-camps.ts) */
     listSleepers?: () => Promise<SleeperCamp[]>;
-    /** the attacker village's live merc band */
-    bandOf?: (village: string, now: number) => Promise<{ tierId: string; player: string; level: number } | null>;
+    /** the band of `village` that acts in `context` this tick (see activeBand) */
+    bandOf?: (village: string, now: number, context: MercLeaseContext | null, skippedThisTick: Set<string>) => Promise<TickBand | null>;
     /** names → live merc marks (village check + cooldown + HP from the save) */
     targetsOf?: (names: readonly string[], enemyVillage: string, now: number) => Promise<RoamTarget[]>;
     deploy?: typeof deployOneMerc;
     deployVillage?: typeof deployMercVillageWar;
     raidSleeper?: typeof raidSleeperCamp;
+    /** finishes Honor-Seal strikes the retired Town Hall hire left mid-saga */
+    sweepRetiredHires?: (now: number) => Promise<unknown>;
 };
 
 export interface MercAutoResult {
@@ -387,23 +479,46 @@ export interface MercAutoResult {
     raided: number;
 }
 
-/** The attacker's active merc band (with its tier level), or null if it has none.
- *  Village Stores: a band the daily pass marked UNFED (`skipNextAutoDeploy`) sits
- *  out exactly one tick — the flag is cleared here so the next tick deploys. */
-async function activeBand(village: string, now: number): Promise<{ tierId: string; player: string; level: number } | null> {
+/**
+ * The band of `village` that acts in `context` this tick (with its tier level),
+ * or null if none serves it. Bands act in hire order — the oldest contract first.
+ * A null context (a village war whose instance is unknown) admits legacy bands only.
+ *
+ * Village Stores: a band the daily pass marked UNFED (`skipNextAutoDeploy`) sits
+ * out exactly one tick. The flag is cleared on first sight and the band is put
+ * in `skippedThisTick`, so it sits out the WHOLE tick — clearing the flag alone
+ * used to let a village's second war context deploy the same unfed band in the
+ * very tick it was meant to miss. Skipping is per band: another, fed band of the
+ * village may still act.
+ */
+export async function activeBand(
+    village: string,
+    now: number,
+    context: MercLeaseContext | null,
+    skippedThisTick: Set<string>,
+): Promise<TickBand | null> {
     const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
-    const band = rec.mercLeases.find((l) => l.expiresAt > now && l.count > 0);
-    if (!band) return null;
-    if (band.skipNextAutoDeploy) {
-        await clearMercSkip(village, band.tierId, band.player);
-        return null;
+    const serving = context
+        ? bandsServing(rec.mercLeases, context, now)
+        : rec.mercLeases.filter((l) => !l.context && l.expiresAt > now && l.count > 0);
+    for (const lease of serving) {
+        const key = mercBandKey(lease);
+        const tickKey = `${villageWarSlug(village)}|${key}`;
+        if (skippedThisTick.has(tickKey)) continue;
+        if (lease.skipNextAutoDeploy) {
+            skippedThisTick.add(tickKey);
+            await clearMercSkip(village, key);
+            continue;
+        }
+        const tier = wrMercTierById(lease.tierId);
+        if (tier) return { key, tierId: lease.tierId, player: lease.player, level: tier.level };
     }
-    const tier = wrMercTierById(band.tierId);
-    return tier ? { tierId: band.tierId, player: band.player, level: tier.level } : null;
+    return null;
 }
 
 /** Clear a band's one-tick stores skip under the war-record lock (pure helper
- *  exported for the test; the live path runs it from activeBand). */
+ *  exported for the test; the live path runs it from activeBand). Addresses
+ *  every lease of (tier, hirer) — clearMercSkipForBand addresses ONE band. */
 export function clearMercSkipInRecord<T extends { mercLeases: Array<{ tierId: string; player: string; skipNextAutoDeploy?: boolean }> }>(record: T, tierId: string, player: string): T {
     return {
         ...record,
@@ -414,11 +529,22 @@ export function clearMercSkipInRecord<T extends { mercLeases: Array<{ tierId: st
         }),
     };
 }
-async function clearMercSkip(village: string, tierId: string, player: string): Promise<void> {
+/** Clear ONE band's one-tick stores skip (by mercBandKey). Pure. */
+export function clearMercSkipForBand<T extends { mercLeases: MercLease[] }>(record: T, bandKey: string): T {
+    return {
+        ...record,
+        mercLeases: record.mercLeases.map((l) => {
+            if (mercBandKey(l) !== bandKey || !l.skipNextAutoDeploy) return l;
+            const { skipNextAutoDeploy: _skip, ...rest } = l;
+            return rest;
+        }),
+    };
+}
+async function clearMercSkip(village: string, bandKey: string): Promise<void> {
     try {
         await withKvLock(villageWarKey(village), async () => {
             const rec = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
-            await kv.set(villageWarKey(village), clearMercSkipInRecord(rec, tierId, player));
+            await kv.set(villageWarKey(village), clearMercSkipForBand(rec, bandKey));
         }, { failClosed: true });
     } catch (err) {
         if (!(err instanceof LockContendedError)) throw err;
@@ -445,17 +571,49 @@ export async function liveMercTargets(names: readonly string[], enemyVillage: st
     return out.filter(target => !coolingDown.has(target.name));
 }
 
-/** One autonomous tick. Sector wars: a merc snipes the lowest-HP enemy defender in
- *  each besieged Combat sector (ANY enemy now — no min-HP gate; the snipe is just
- *  the pick order). Village wars: each side's band hunts the lowest-HP enemy player
- *  ANYWHERE (the mercs "go where the enemy players are"). One merc per siege /
- *  per war-side per tick, so bands deplete organically; the 15-min per-target
- *  cooldown stops them spamming one player. No-op when the campaign is disabled. */
+/** Live village wars whose bands may act now (hot, not frozen), with the
+ *  instance identity their bands are bound to. */
+async function actingVillageWars(now: number): Promise<TickVillageWar[]> {
+    return (await listVillageWarInstances(now))
+        .filter(villageWarActing)
+        .map((war) => ({ villages: war.villages, id: war.id, generation: war.generation }));
+}
+
+/** One failed war context must never cost the rest of the tick its turn. */
+function logTickFailure(scope: string, err: unknown): void {
+    if (err instanceof LockContendedError) return; // a busy row: just not this tick
+    console.error(`[merc-auto] ${scope} skipped this tick:`, (err as Error)?.message ?? err);
+}
+
+/** One autonomous tick (owner redesign 2026-10-08).
+ *
+ *  Sector wars: each Combat contest's DEFENDING village fields one merc from a
+ *  band hired for that contest; it snipes the lowest-HP ATTACKING-village player
+ *  in the contested sector (no min-HP gate; the snipe is just the pick order) and
+ *  raids one attacker sleeper camp pitched there.
+ *  Village wars: each side's band hired for that war (or a legacy band) hunts
+ *  the lowest-HP enemy player ANYWHERE, and one enemy sleeper camp in the wild.
+ *
+ *  One merc per war context per tick, so bands deplete organically; the 15-min
+ *  per-target cooldown stops them spamming one player. Each context runs in its
+ *  own try/catch: a throw (say, a fail-closed save lock while the target
+ *  autosaves) skips that context for this tick and the rest still run. With the
+ *  campaign disabled, only the retired-hire sweep runs. */
 export async function runMercAutoDeploy(deps: AutoDeps = {}): Promise<MercAutoResult> {
-    if (!villageWarMapEnabled()) return { enabled: false, deployed: 0, raided: 0 };
     const now = deps.now ?? Date.now();
-    const listContests = deps.listContests ?? listActiveSectorWars;
-    const listVillageWars = deps.listVillageWars ?? listActiveVillageWars;
+    // A retired Town Hall Honor-Seal hire caught mid-saga freezes its village
+    // war's row until someone helps it forward. Nobody can start one any more,
+    // so the tick is where a stranded one gets finished — even with the Sector
+    // Map switched off, because the all-out village war it freezes is not.
+    const sweepRetiredHires = deps.sweepRetiredHires ?? ((at: number) => sweepRetiredWarMercenaryHires(at));
+    try {
+        await sweepRetiredHires(now);
+    } catch (err) {
+        logTickFailure('retired mercenary sweep', err);
+    }
+    if (!villageWarMapEnabled()) return { enabled: false, deployed: 0, raided: 0 };
+    const listContests = deps.listContests ?? (() => listActiveSectorWars(now));
+    const listVillageWars = deps.listVillageWars ?? (() => actingVillageWars(now));
     const onlineNames = deps.onlineNames ?? ((sector: number) => onlineStore.list().filter((p) => p.sector === sector).map((p) => p.name));
     const onlineAll = deps.onlineAll ?? (() => onlineStore.list().map((p) => p.name));
     const listSleepers = deps.listSleepers ?? (async () => [...(await listSleeperCamps()).values()]);
@@ -467,42 +625,81 @@ export async function runMercAutoDeploy(deps: AutoDeps = {}): Promise<MercAutoRe
 
     let deployed = 0;
     let raided = 0;
-    // Fetched lazily — only a siege/war with a live band ever needs the camp list.
+    // Fetched lazily — only a war with a live band ever needs the camp list.
     let sleepers: SleeperCamp[] | null = null;
     const campList = async () => (sleepers ??= await listSleepers());
+    const skippedThisTick = new Set<string>();
 
-    // ── Sector wars: snipe the lowest-HP enemy defender in each besieged Combat sector,
-    // and raid one enemy sleeper camp pitched in that sector.
-    for (const contest of await listContests()) {
-        if (contest.winCondition !== 'combat' || contest.flipped) continue;
-        const band = await bandOf(contest.attackerVillage, now);
-        if (!band) continue;
-        const target = pickMercTarget(await targetsOf(onlineNames(contest.sector), contest.defenderVillage, now), contest.defenderVillage);
-        if (target) {
-            const r = await deploy({ village: contest.attackerVillage, tierId: band.tierId, hirer: band.player, sector: contest.sector, targetPlayer: target.name, targetVillage: contest.defenderVillage, contestId: contest.id, mercLevel: band.level, now });
-            if (r) deployed++;
+    // ── Sector wars: the DEFENDER's band snipes the lowest-HP attacker in its
+    // contested Combat sector, and raids one attacker sleeper camp pitched there.
+    let contests: TickContest[] = [];
+    try {
+        contests = await listContests();
+    } catch (err) {
+        logTickFailure('sector-war scan', err);
+    }
+    for (const contest of contests) {
+        try {
+            if (contest.winCondition !== 'combat' || contest.flipped) continue;
+            const context = sectorContestContext({
+                id: contest.id,
+                sector: contest.sector,
+                startedAt: Number(contest.startedAt) || 0,
+                declarationGeneration: contest.declarationGeneration,
+            });
+            if (context.kind !== 'sector') continue;
+            const defender = contest.defenderVillage;
+            const attacker = contest.attackerVillage;
+            const band = await bandOf(defender, now, context, skippedThisTick);
+            if (!band) continue;
+            const target = pickMercTarget(await targetsOf(onlineNames(contest.sector), attacker, now), attacker);
+            if (target) {
+                const r = await deploy({
+                    village: defender, tierId: band.tierId, hirer: band.player, bandKey: band.key,
+                    sector: contest.sector, targetPlayer: target.name, targetVillage: attacker,
+                    contestId: contest.id, instance: context.instance, mercLevel: band.level, now,
+                });
+                if (r) deployed++;
+            }
+            const sleeper = pickMercTarget(await sleeperMercTargets(await campList(), contest.sector, attacker, now, targetsOf), attacker);
+            if (sleeper && await raidSleeper({ targetPlayer: sleeper.name, sector: contest.sector, now, attackerVillage: defender })) raided++;
+        } catch (err) {
+            logTickFailure(`sector war ${contest.id}`, err);
         }
-        const sleeper = pickMercTarget(await sleeperMercTargets(await campList(), contest.sector, contest.defenderVillage, now, targetsOf), contest.defenderVillage);
-        if (sleeper && await raidSleeper({ targetPlayer: sleeper.name, sector: contest.sector, now, attackerVillage: contest.attackerVillage })) raided++;
     }
 
     // ── Village wars: each side's band hunts the lowest-HP enemy player anywhere —
     // online, and one enemy sleeper camp anywhere in the wild.
-    for (const war of await listVillageWars()) {
-        for (const attacker of war.villages) {
-            const enemy = war.villages.find((v) => v !== attacker);
-            if (!enemy) continue;
-            const band = await bandOf(attacker, now);
-            if (!band) continue;
-            const target = pickMercTarget(await targetsOf(onlineAll(), enemy, now), enemy);
-            if (target) {
-                const r = await deployVillage({ village: attacker, enemyVillage: enemy, tierId: band.tierId, hirer: band.player, sector: 0, targetPlayer: target.name, mercLevel: band.level, now });
-                if (r) deployed++;
+    let wars: TickVillageWar[] = [];
+    try {
+        wars = await listVillageWars();
+    } catch (err) {
+        logTickFailure('village-war scan', err);
+    }
+    for (const war of wars) {
+        const context = war.id && war.generation ? villageWarContext({ id: war.id, generation: war.generation }) : null;
+        for (const side of war.villages) {
+            try {
+                const enemy = war.villages.find((v) => v !== side);
+                if (!enemy) continue;
+                const band = await bandOf(side, now, context, skippedThisTick);
+                if (!band) continue;
+                const target = pickMercTarget(await targetsOf(onlineAll(), enemy, now), enemy);
+                if (target) {
+                    const r = await deployVillage({
+                        village: side, enemyVillage: enemy, tierId: band.tierId, hirer: band.player, bandKey: band.key,
+                        ...(war.id && war.generation ? { war: { id: war.id, generation: war.generation } } : {}),
+                        sector: 0, targetPlayer: target.name, mercLevel: band.level, now,
+                    });
+                    if (r) deployed++;
+                }
+                const camps = await campList();
+                const sleeper = pickMercTarget(await sleeperMercTargets(camps, null, enemy, now, targetsOf), enemy);
+                const campSector = sleeper ? (camps.find((c) => c.name === sleeper.name)?.sector ?? 0) : 0;
+                if (sleeper && campSector >= 1 && await raidSleeper({ targetPlayer: sleeper.name, sector: campSector, now, attackerVillage: side })) raided++;
+            } catch (err) {
+                logTickFailure(`village war ${war.id ?? war.villages.join(' vs ')} (${side})`, err);
             }
-            const camps = await campList();
-            const sleeper = pickMercTarget(await sleeperMercTargets(camps, null, enemy, now, targetsOf), enemy);
-            const campSector = sleeper ? (camps.find((c) => c.name === sleeper.name)?.sector ?? 0) : 0;
-            if (sleeper && campSector >= 1 && await raidSleeper({ targetPlayer: sleeper.name, sector: campSector, now, attackerVillage: attacker })) raided++;
         }
     }
     return { enabled: true, deployed, raided };

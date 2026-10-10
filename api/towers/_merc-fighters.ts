@@ -109,8 +109,8 @@ const MERC_FLOOR: TowerFloor = {
 export type MercBattleWinner = 'merc' | 'player' | 'stall';
 export interface MercBattleResult {
     winner: MercBattleWinner;
-    mercWon: boolean;    // → chip Control HP (attacker win)
-    playerWon: boolean;  // → 25% defender regen
+    mercWon: boolean;    // → the band's side scores (full weight in a sector war)
+    playerWon: boolean;  // → the player's side scores at the merc-repel fraction
     rounds: number;
     log: string[];
 }
