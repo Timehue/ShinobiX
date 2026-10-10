@@ -221,6 +221,21 @@ export async function validateVillageStateWrite(
         }
     }
 
+    // World-event Ashfall and its idempotency receipts are server-owned. Keep
+    // both through stale village-state submissions so residents cannot clear the
+    // consequence early or erase the receipt that prevents a retry from adding it.
+    {
+        const prevUntil = Math.max(0, num(prev.worldBossAshfallUntil, 0));
+        const inUntil = Math.max(0, num(incoming.worldBossAshfallUntil, prevUntil));
+        next.worldBossAshfallUntil = ctx.isAdmin ? inUntil : prevUntil;
+        if (!ctx.isAdmin && inUntil !== prevUntil) suppressed.push('worldBossAshfallUntil (server-set only)');
+        const receipts = prev.worldBossAshfallReceipts;
+        if (!ctx.isAdmin) {
+            if (receipts !== undefined) next.worldBossAshfallReceipts = receipts;
+            else delete next.worldBossAshfallReceipts;
+        }
+    }
+
     // ── Village upgrades: SERVER-OWNED, never client-writable ───────
     // Village upgrades are shared infrastructure bought from the treasury seal
     // pool by /api/village/upgrade, which writes this key directly. The blob

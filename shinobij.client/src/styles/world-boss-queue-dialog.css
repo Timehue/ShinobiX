@@ -1,0 +1,129 @@
+.world-boss-queue-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1800;
+    display: grid;
+    place-items: center;
+    padding: 18px;
+    background: rgba(2, 7, 14, .74);
+    backdrop-filter: blur(5px);
+    animation: world-boss-queue-fade-in .16s ease-out;
+}
+.world-boss-queue-dialog {
+    width: min(560px, 100%);
+    overflow: hidden;
+    border: 1px solid rgba(164, 194, 220, .22);
+    border-radius: 17px;
+    color: #edf3fb;
+    background: #0b1727;
+    box-shadow: 0 26px 100px rgba(0, 0, 0, .62), 0 0 36px rgba(60, 168, 161, .1);
+    animation: world-boss-queue-rise .22s cubic-bezier(.2,.8,.2,1);
+}
+.world-boss-queue-hero {
+    position: relative;
+    min-height: 178px;
+    display: flex;
+    flex-direction: column;
+    justify-content: end;
+    padding: 25px 26px 21px;
+    background-color: #111d2e;
+    background-position: center 43%;
+    background-size: cover;
+}
+.world-boss-queue-hero::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 1px;
+    background: linear-gradient(90deg, rgba(86, 226, 207, .36), rgba(255, 188, 98, .24), transparent);
+}
+.world-boss-queue-close {
+    position: absolute;
+    top: 13px;
+    right: 14px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid rgba(226, 239, 250, .2);
+    border-radius: 9px;
+    color: #edf3fb;
+    background: rgba(5, 12, 22, .65);
+    font: 400 24px/1 ui-sans-serif, system-ui, sans-serif;
+    cursor: pointer;
+}
+@media (hover: hover) { .world-boss-queue-close:hover { background: rgba(255, 255, 255, .14); } }
+.world-boss-queue-kicker {
+    color: #6ce7d4;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .18em;
+}
+.world-boss-queue-hero h2 {
+    margin: 6px 42px 5px 0;
+    color: #f2f5fa;
+    font: 700 clamp(30px, 6vw, 42px)/1 Georgia, 'Times New Roman', serif;
+    letter-spacing: -.035em;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, .6);
+}
+.world-boss-queue-hero p {
+    max-width: 450px;
+    margin: 0;
+    color: #ced8e5;
+    font-size: 11px;
+    line-height: 1.45;
+    text-shadow: 0 1px 8px #000;
+}
+.world-boss-queue-body { padding: 19px 24px 17px; }
+.world-boss-queue-vitals { display: flex; align-items: end; justify-content: space-between; gap: 15px; }
+.world-boss-queue-vitals > div { display: grid; gap: 5px; min-width: 0; }
+.world-boss-queue-vitals span { color: #8fa4bd; font-size: 8px; font-weight: 900; letter-spacing: .15em; }
+.world-boss-queue-vitals strong { font-size: 17px; font-variant-numeric: tabular-nums; }
+.world-boss-queue-vitals small { color: #8fa4bd; font-size: 10px; font-weight: 650; }
+.world-boss-queue-sector { text-align: right; }
+.world-boss-queue-sector strong { color: #d7e3ef; font-size: 11px; }
+.world-boss-queue-health { height: 7px; margin-top: 10px; overflow: hidden; border-radius: 99px; background: #050d18; }
+.world-boss-queue-health span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #d14b48, #ff9865); box-shadow: 0 0 12px rgba(238, 95, 81, .4); transition: width .35s ease; }
+.world-boss-queue-held { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: #8ee7d5; font-size: 11px; }
+.world-boss-queue-held span { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid rgba(86, 226, 207, .3); border-radius: 7px; font-size: 15px; }
+.world-boss-queue-instructions { margin: 15px 0 12px; color: #aebed0; font-size: 11px; line-height: 1.5; }
+.world-boss-queue-slots { display: flex; align-items: center; gap: 8px; }
+.world-boss-queue-slots > span { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid rgba(153, 179, 207, .24); border-radius: 50%; color: #8499b0; background: rgba(255, 255, 255, .025); font-size: 11px; font-weight: 850; }
+.world-boss-queue-slots > span.is-filled { border-color: rgba(86, 226, 207, .7); color: #56e2cf; background: rgba(86, 226, 207, .13); box-shadow: 0 0 13px rgba(86, 226, 207, .13); }
+.world-boss-queue-slots small { margin-left: 4px; color: #8298af; font-size: 9px; font-weight: 850; letter-spacing: .12em; }
+.world-boss-queue-waiting { display: flex; align-items: center; gap: 10px; min-height: 54px; margin-top: 13px; padding: 9px 12px; border: 1px solid rgba(86, 226, 207, .2); border-radius: 10px; background: rgba(9, 26, 39, .72); }
+.world-boss-queue-waiting > div { display: grid; gap: 3px; }
+.world-boss-queue-waiting strong { color: #daf4ef; font-size: 11px; }
+.world-boss-queue-waiting small { color: #9cb5c8; font-size: 10px; line-height: 1.4; }
+.world-boss-queue-waiting b { color: #ffbc62; font-variant-numeric: tabular-nums; }
+.world-boss-queue-spinner { flex: 0 0 18px; width: 18px; height: 18px; border: 2px solid rgba(86, 226, 207, .24); border-top-color: #56e2cf; border-radius: 50%; animation: world-boss-queue-spin .8s linear infinite; }
+.world-boss-queue-join,
+.world-boss-queue-leave { min-height: 42px; border-radius: 9px; color: #edf3fb; font: inherit; font-size: 11px; font-weight: 800; cursor: pointer; }
+.world-boss-queue-join { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 13px; padding: 0 15px; border: 0; background: linear-gradient(100deg, #087c79, #0aa99a); box-shadow: 0 5px 18px rgba(0, 155, 145, .2); }
+@media (hover: hover) { .world-boss-queue-join:hover:not(:disabled) { filter: brightness(1.12); } }
+.world-boss-queue-join:disabled,.world-boss-queue-leave:disabled { opacity: .52; cursor: not-allowed; }
+.world-boss-queue-join > span { font-size: 17px; }
+.world-boss-queue-leave { margin-top: 11px; padding: 0 15px; border: 1px solid rgba(217, 235, 249, .17); background: rgba(255, 255, 255, .055); }
+@media (hover: hover) { .world-boss-queue-leave:hover:not(:disabled) { background: rgba(255, 255, 255, .1); } }
+.world-boss-queue-message,.world-boss-queue-closed { margin-top: 11px; padding: 9px 11px; border-radius: 8px; color: #f2d9ae; background: rgba(201, 132, 47, .12); font-size: 10px; line-height: 1.45; }
+.world-boss-queue-footnote { margin: 11px 0 0; color: #7f93aa; font-size: 9px; line-height: 1.5; }
+.world-boss-queue-footnote b { color: #aab9ca; }
+.world-boss-queue-empty { display: grid; gap: 5px; padding: 8px 0 14px; color: #d7e3ef; font-size: 12px; }
+.world-boss-queue-empty span { color: #93a8bf; font-size: 10px; }
+@keyframes world-boss-queue-spin { to { transform: rotate(360deg); } }
+@keyframes world-boss-queue-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes world-boss-queue-rise { from { opacity: 0; transform: translateY(8px) scale(.985); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@media (max-width: 600px) {
+    .world-boss-queue-overlay { align-items: end; padding: 10px; }
+    .world-boss-queue-dialog { max-height: calc(100dvh - 20px); overflow: auto; border-radius: 15px; }
+    .world-boss-queue-hero { min-height: 158px; padding: 22px 19px 18px; background-position: 59% center; }
+    .world-boss-queue-body { padding: 16px 18px 14px; }
+    .world-boss-queue-vitals { align-items: start; }
+    .world-boss-queue-vitals strong { font-size: 15px; }
+    .world-boss-queue-sector { max-width: 48%; }
+    .world-boss-queue-sector strong { line-height: 1.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .world-boss-queue-overlay,.world-boss-queue-dialog,.world-boss-queue-spinner { animation: none; }
+    .world-boss-queue-health span { transition: none; }
+}

@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "../styles/battle-skin.css";
 import type { Character, BattleHistoryEntry, VersionedCharacterCommit } from "../types/character";
 import { BattleTowersLobby } from "./BattleTowersLobby";
 import { BattleTowerFight } from "./BattleTowerFight";
 import { fetchTowerState, TowerStateApiError, type TowerSession, type TowerHostLoadout } from "../lib/towers-api";
+import type { GameItem, SavedBloodline } from "../types/combat";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { setTowerFightRunId, towerPvpMatchIdFromRunKey, TOWER_RUN_KEY } from "../lib/screen-guards";
 import {
 } from "../lib/tower-pvp-api";
@@ -56,7 +58,8 @@ function clearRunKeys() {
 // timeout enters a recoverable error state without deleting the saved run id.
 const RESUME_TIMEOUT_MS = 12_000;
 
-export function BattleTowers({ character, updateCharacter, onVersionedCharacter, sharedImages, hostLoadout, onExit, onRecordBattle }: { character: Character; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; hostLoadout?: TowerHostLoadout; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function BattleTowers({ character, creatorItems, savedBloodlines, updateCharacter, onVersionedCharacter, sharedImages, onExit, onRecordBattle }: { character: Character; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; updateCharacter: (c: Character) => void; onVersionedCharacter: VersionedCharacterCommit; sharedImages?: Record<string, string>; onExit: () => void; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+    const hostLoadout: TowerHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     // If a runId survived a refresh, start by checking the server; otherwise the
     // lobby shows immediately (no resume flash on a fresh entry).
     const [view, setView] = useState<View>(() => {

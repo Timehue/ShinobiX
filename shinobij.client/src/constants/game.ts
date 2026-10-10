@@ -10,6 +10,7 @@ import {
     HOLLOW_GATE_DEPTH,
 } from "../../../shared/hollow-gate-contract";
 import { PROGRESSION_EXAM_HOLDS } from "../../../shared/progression-holds";
+import { HOLLOW_BEAST_CACHE_ID } from "../../../shared/world-boss-cache";
 
 // ── API endpoints ────────────────────────────────────────────────────────
 export const WORLD_STATE_API = "/api/world-state";
@@ -170,6 +171,7 @@ export const VEIL_OF_THE_HOLLOW_ID = "veil-of-the-hollow";
 export const HOLLOW_GATE_KEY_ID = "hollow-gate-key";
 export const WARFORGED_RELIC_ID = "warforged-relic";
 export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
+export { HOLLOW_BEAST_CACHE_ID };
 // Elemental attunement: Shards drop from Hollow Gate bosses; 10 Shards forge one
 // Core at the Crafter; a Core is applied to a legendary/mythic weapon to attune it
 // to one of the wielder's awakened elements (see api/weapon/apply-elemental-core.ts).

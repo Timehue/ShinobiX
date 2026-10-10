@@ -1,0 +1,159 @@
+.ui-modal-backdrop.cache-reveal-overlay {
+    z-index: 9000;
+    background: rgba(3, 8, 15, .86);
+    backdrop-filter: blur(4px);
+    animation: cache-reveal-fade .22s ease both;
+}
+.ui-modal-card.cache-reveal-dialog {
+    width: min(460px, calc(100vw - 28px));
+    max-height: min(90dvh, 760px);
+    overflow: auto;
+    border: 1px solid color-mix(in srgb, var(--cache-reveal-accent, #f5c56e) 42%, transparent);
+    border-radius: 14px;
+    color: #edf4fb;
+    background: radial-gradient(ellipse at 50% 5%, color-mix(in srgb, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 34%, transparent), transparent 54%), linear-gradient(155deg, #142238, #080f1b 72%);
+    box-shadow: 0 24px 85px rgba(0, 0, 0, .64), 0 0 42px color-mix(in srgb, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 22%, transparent);
+}
+.cache-reveal-stage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 21px clamp(16px, 5vw, 28px) 24px;
+    text-align: center;
+}
+.cache-reveal-overline {
+    margin: 0 0 5px;
+    color: var(--cache-reveal-accent, #f5c56e);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .2em;
+}
+.cache-reveal-title {
+    margin: 0;
+    color: #f5f7fb;
+    font: 700 clamp(21px, 6vw, 28px)/1.15 Georgia, "Times New Roman", serif;
+    text-shadow: 0 0 22px color-mix(in srgb, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 43%, transparent);
+}
+.cache-reveal-title--result { margin-bottom: -2px; }
+.cache-reveal-chest-wrap {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: min(176px, 47vw);
+    aspect-ratio: 1;
+    margin: 5px 0 -2px;
+}
+.cache-reveal-chest-wrap::before {
+    position: absolute;
+    inset: 4%;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 0%, transparent 68%);
+    content: "";
+    opacity: .58;
+}
+.cache-reveal-chest-wrap--open::before { animation: cache-reveal-glow 1.8s ease-in-out infinite alternate; }
+.cache-reveal-chest {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    filter: drop-shadow(0 14px 20px rgba(0, 0, 0, .5));
+}
+.cache-reveal-chest--closed { animation: cache-reveal-rattle 1.1s ease-in-out infinite; }
+.cache-reveal-chest--open { animation: cache-reveal-pop .42s cubic-bezier(.2, 1.35, .4, 1) both; }
+.cache-reveal-stage--jackpot .cache-reveal-chest--open { animation: cache-reveal-pop .42s cubic-bezier(.2, 1.35, .4, 1) both, cache-reveal-rattle .45s ease-in-out .45s 3; }
+.cache-reveal-copy {
+    margin: 4px 0 14px;
+    color: #a9b9ce;
+    font-size: 12px;
+    line-height: 1.5;
+}
+.cache-reveal-copy--credited { margin: 11px 0 13px; }
+.cache-reveal-action,
+.cache-reveal-skip {
+    min-height: 42px;
+    border-radius: 8px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 850;
+    cursor: pointer;
+}
+.cache-reveal-action {
+    width: min(100%, 260px);
+    padding: 10px 18px;
+    border: 1px solid color-mix(in srgb, var(--cache-reveal-accent, #f5c56e) 68%, white 0%);
+    color: #111925;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--cache-reveal-accent, #f5c56e) 88%, white), var(--cache-reveal-accent, #f5c56e));
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--cache-reveal-glow, rgba(245, 197, 110, .55)) 25%, transparent);
+}
+@media (hover: hover) { .cache-reveal-action:hover { filter: brightness(1.09); } }
+.cache-reveal-skip {
+    min-height: 34px;
+    margin-top: 5px;
+    padding: 7px 14px;
+    border: 0;
+    color: #879ab0;
+    background: transparent;
+}
+@media (hover: hover) { .cache-reveal-skip:hover { color: #d7e2ee; } }
+.cache-reveal-rewards {
+    display: grid;
+    gap: 6px;
+    width: 100%;
+    max-height: min(28vh, 230px);
+    margin-top: 5px;
+    overflow: auto;
+}
+.cache-reveal-reward {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 50px;
+    padding: 6px 10px;
+    border: 1px solid rgba(194, 213, 234, .12);
+    border-radius: 9px;
+    background: linear-gradient(95deg, rgba(31, 49, 72, .88), rgba(15, 26, 42, .92));
+    text-align: left;
+    animation: cache-reveal-row .34s ease both;
+}
+.cache-reveal-reward-icon {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border: 1px solid rgba(206, 222, 239, .12);
+    border-radius: 8px;
+    background: rgba(1, 8, 16, .38);
+}
+.cache-reveal-reward-icon img { width: 34px; height: 34px; object-fit: contain; }
+.cache-reveal-reward-copy { display: grid; gap: 2px; min-width: 0; }
+.cache-reveal-reward-name { overflow: hidden; color: #dce6f1; font-size: 12px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cache-reveal-reward-detail { color: #8fa3bc; font-size: 10px; line-height: 1.3; }
+.cache-reveal-reward-count { color: var(--cache-reveal-accent, #f5c56e); font-size: 13px; font-variant-numeric: tabular-nums; }
+.cache-reveal-empty { margin: 8px 0; color: #b9c5d2; font-size: 13px; }
+@keyframes cache-reveal-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cache-reveal-rattle {
+    0%, 100% { transform: translateY(0) rotate(0); }
+    18% { transform: translateY(-3px) rotate(-2.6deg); }
+    36% { transform: translateY(0) rotate(2.6deg); }
+    54% { transform: translateY(-2px) rotate(-1.5deg); }
+    72% { transform: translateY(0) rotate(1.5deg); }
+}
+@keyframes cache-reveal-pop { from { transform: scale(.54); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes cache-reveal-glow { from { transform: scale(.84); opacity: .34; } to { transform: scale(1.12); opacity: .78; } }
+@keyframes cache-reveal-row { from { transform: translateY(6px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (max-width: 440px) {
+    .cache-reveal-stage { padding: 17px 14px 18px; }
+    .cache-reveal-chest-wrap { width: 142px; }
+    .cache-reveal-reward { grid-template-columns: 34px minmax(0, 1fr) auto; gap: 8px; min-height: 46px; padding: 5px 8px; }
+    .cache-reveal-reward-icon { width: 34px; height: 34px; }
+    .cache-reveal-reward-icon img { width: 30px; height: 30px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .cache-reveal-overlay,
+    .cache-reveal-dialog *,
+    .cache-reveal-dialog *::before { animation: none !important; }
+}

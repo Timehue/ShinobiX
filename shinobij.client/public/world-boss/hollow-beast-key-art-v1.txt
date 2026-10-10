@@ -1,0 +1,6 @@
+Generated with OpenAI image generation for the Four-Village Muster world boss.
+
+Prompt:
+Create original premium fantasy MMORPG key art for a cooperative world-boss encounter, wide 16:9 landscape composition. A colossal ancient stag-drake beast called the Hollow Beast looms on a rugged highland road, with layered charcoal stone-and-ash armor, elegant branching luminous jade antlers, a long leonine silhouette, restrained amber magma seams, and intelligent pale-gold eyes. The creature must feel ancient, imposing, and entirely original, with no resemblance to recognizable characters or franchises. Four distant shinobi villages glow across a misty forest valley beneath a storm break; tiny human silhouettes establish scale. Cinematic game concept painting, rich atmospheric depth, refined painterly detail, controlled teal jade and ember palette, dramatic but readable focal silhouette. Place the beast on the right half and leave the left third darker and visually calm for UI overlay. No text, lettering, symbols, emblems, borders, UI, watermark, or logos.
+
+Source: Codex generated image exec-bcfd952e-4e11-4b07-9651-8801fa7b8244.png, retained in the user's generated_images folder. Project output is converted to WebP for delivery.

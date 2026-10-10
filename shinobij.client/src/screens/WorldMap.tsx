@@ -121,7 +121,7 @@ import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
-const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossMapCalloutOverlay = lazy(() => import("../components/WorldBossMapCalloutOverlay").then(m => ({ default: m.WorldBossMapCalloutOverlay })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
@@ -174,6 +174,7 @@ import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { stageWeeklyBossFight } from "../lib/weekly-boss-launch";
+import { useWorldBossMap, WorldBossSectorFlag } from "../components/WorldBossMapOverlay";
 import { playerNameTile } from "../lib/sector-tile";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
@@ -327,6 +328,7 @@ function WorldMapContent({
     onServerVersion,
     onVersionedCharacter,
     onOwnSaveRead,
+    onRecordBattle,
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
@@ -384,6 +386,7 @@ function WorldMapContent({
     onServerVersion?: (version?: number) => boolean;
     onVersionedCharacter: VersionedCharacterCommit;
     onOwnSaveRead: OwnSaveReadCommit;
+    onRecordBattle?: (entry: import("../types/character").BattleHistoryEntry) => void;
     capturePvpCreateScope: (ownerName: string) => { signal: AbortSignal; isCurrent: () => boolean };
     // Launch the REAL weekly-boss fight: the roaming encounter stages it
     // (lib/weekly-boss-launch.ts) and the Weekly Boss screen starts the sealed
@@ -983,9 +986,7 @@ function WorldMapContent({
         stageWeeklyBossFight("worldMap");
         onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
     }
-    // Fleeing the boss spends no attempt, but it is the same priced road flee as
-    // any hostile (owner, 2026-10-09), and the boss backs off like a fled bandit.
-    async function fleeBoss() {
+    async function fleeBoss() { // Preserve the priced road flee without consuming a weekly attempt.
         const d = bossDialog;
         if (!d || d.busy) return;
         const asked = { ...d, fleeId: d.fleeId ?? crypto.randomUUID(), error: undefined };
@@ -996,6 +997,8 @@ function WorldMapContent({
         coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS);
         adoptFleeTotals(fled);
     }
+
+    const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -4453,6 +4456,7 @@ function WorldMapContent({
                         playerName={character.name}
                         gatheringCharacter={character}
                         onGatheringCommit={onVersionedCharacter}
+                        worldBossCrystals={{ active: worldBossView?.event?.active ?? false, eventId: worldBossView?.event?.eventId, minedNodeIds: worldBossView?.event?.minedCrystalNodeIds ?? [] }}
                         playerAvatarImage={resolveOwnAvatar(character, sharedImages)}
                         isCurrent={sectorIsCurrent}
                         enterDirection={sectorEnterDir}
@@ -5065,6 +5069,7 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
+            <Suspense fallback={null}><WorldBossMapCalloutOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
@@ -5167,6 +5172,7 @@ function WorldMapContent({
                                 ? "atlas-sector atlas-sector-deaths-gate"
                                 : "atlas-sector atlas-sector-" + biomeForSector(sector.id))
                             + (sector.id === weeklyBossSector ? " atlas-sector-weekly-boss" : "")
+                            + (sector.id === worldBossSector ? " atlas-sector-world-boss" : "")
                             + (huntTrail ? " atlas-sector-hunt-trail" : "")
                             + (sectorShrine ? " atlas-sector-shrine" : "")
                             + (currentSector === sector.id ? " atlas-sector-current" : "")
@@ -5175,18 +5181,13 @@ function WorldMapContent({
                             + (contract ? ` atlas-sector-contract${contract.nightOnly ? " atlas-sector-contract-night" : ""}` : "")
                         }
                         style={{ left: sector.x + "%", top: sector.y + "%", ...sectorMarkerStyle(sector.id) }}
-                        data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined}
-                        data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
-                        onClick={() => triggerTravelPoint(sector.id)}
-                        onMouseEnter={() => setRouteHoverSector(sector.id)}
-                        onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
-                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
-                        aria-label={currentSector === sector.id
-                            ? `You are here, ${sectorName(sector.id) ?? `Sector ${sector.id}`}`
-                            : `Travel to ${sectorName(sector.id) ?? `Sector ${sector.id}`} (Sector ${sector.id})`}
+                        data-academy-hint={academySectorTargetId === sector.id ? "Next · travel here" : undefined} data-academy-autoscroll={academySectorTargetId === sector.id ? "true" : undefined}
+                        onClick={() => sector.id === worldBossSector ? handleWorldBossMarker(sector.id) : triggerTravelPoint(sector.id)} onMouseEnter={() => setRouteHoverSector(sector.id)} onMouseLeave={() => setRouteHoverSector((current) => (current === sector.id ? null : current))}
+                        title={(currentSector === sector.id ? `You are here | ${sectorTitle}` : sectorTitle) + (sector.id === worldBossSector ? ` | ${worldBossEvent?.bossName ?? "World boss"} is here; travel in or open its team queue` : "") + (richnessLabel ? ` | ${richnessLabel}` : "") + (contract ? (contract.nightOnly ? " | Night contract posted today" : " | Contract posted today") : "")}
+                        aria-label={currentSector === sector.id ? "You are here, " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + (sector.id === worldBossSector ? ", world boss muster" : "") : "Travel to " + (sectorName(sector.id) ?? ("Sector " + sector.id)) + " (Sector " + sector.id + ")" + (sector.id === worldBossSector ? ", world boss location" : "")}
                     >
                         {currentSector === sector.id && <span className="atlas-you-label" aria-hidden="true">YOU</span>}
-                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}
+                        {sector.id === 99 ? <GameArtIcon kind="warning" size={20} /> : sector.id}<WorldBossSectorFlag event={worldBossEvent} sector={sector.id} />
                         {scoutedSectors.has(sector.id) && (
                             <span
                                 style={{ position: "absolute", top: -5, right: -5, fontSize: 11, lineHeight: 1, filter: "drop-shadow(0 0 2px #000)", pointerEvents: "none" }}

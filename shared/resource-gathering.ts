@@ -50,6 +50,7 @@ export type ResourceReceipt = {
     id: string; activity: ResourceActivity; outcome: 'success' | 'failed' | 'cancelled' | 'expired';
     itemId?: string; grade?: ResourceGrade; xp: number; performance: number; toolBroke: boolean;
     traceId?: string;
+    worldBossEventId?: string;
     settledAt?: number;
 };
 export type ResourceGatheringState = {

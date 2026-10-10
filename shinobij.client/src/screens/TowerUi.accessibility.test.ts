@@ -93,7 +93,7 @@ test("Team PvP presentation keeps live-player art and hides disabled consumable 
     const clanWar2v2 = readFileSync(new URL("./ClanWar2v2Battle.tsx", import.meta.url), "utf8");
     assert.match(ranked2v2, /teamPvpConsumables=\{\(state\.match as TowerPvpMatch\)\.rules\?\.consumables === "enabled"\}/);
     assert.match(clanWar2v2, /teamPvpConsumables=\{match\.rules\?\.consumables === "enabled"\}/);
-    assert.match(fight, /aria-label=\{isTeamPvp \? "Your Team" : "Squad"\}/);
+    assert.match(fight, /aria-label=\{isTeamPvp \|\| isWorldBoss \? "Your Team" : "Squad"\}/);
     assert.match(fight, /aria-label=\{isTeamPvp \? "Rival Team and battle log" : "Enemies and battle log"\}/);
 });
 

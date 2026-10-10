@@ -199,6 +199,8 @@ export type TowerSession = {
     encounterFloor?: TowerFloorView;
     /** Present only on the sealed level-80 world-crisis triad encounter. */
     worldCrisis80?: { crisisId: string; village: string; sourceId: string };
+    /** Present only on a server-matched roaming world-boss encounter. */
+    worldBossEvent?: { eventId: string; matchId: string; matchHpAtStart: number };
     /** Monotonic server action revision used by optional reconnect-safe commands. */
     actionVersion?: number;
     /**

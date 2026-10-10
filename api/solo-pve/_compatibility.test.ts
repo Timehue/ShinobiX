@@ -37,7 +37,8 @@ describe('solo-PvE published content compatibility', () => {
         // 203 to 313: 110 gear step drops (shared/gear-steps.ts), weapon and armor
         // half point upgrades that only change EP or damage reduction.
         // 313 to 333: four gathering tools, four fish grades and twelve graded minerals.
-        assert.equal(items.length, 333, 'update the compatibility report when the generated catalog changes');
+        // 333 to 334: Hollow Beast Cache is a non-combat reward item.
+        assert.equal(items.length, 334, 'update the compatibility report when the generated catalog changes');
     });
 
     it('resolves every catalog AI loadout to compatible server-sealed jutsu', () => {

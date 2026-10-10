@@ -18,7 +18,9 @@ test.beforeEach(async ({ page: _page }, testInfo) => {
 });
 
 const manifest = JSON.parse(readFileSync(new URL("../dist/.vite/manifest.json", import.meta.url), "utf8"));
-const arenaChunk = `/${manifest["src/screens/WeeklyBossArena.tsx"].file}`;
+// Weekly and world bosses now share the lazy-loaded hub chunk; keep this stale-
+// chunk recovery check aligned with the route that actually loads both tabs.
+const worldBossesHubChunk = `/${manifest["src/screens/WorldBossesHub.tsx"].file}`;
 const NEW_VERSION_CARD = { name: "A new version is available" } as const;
 
 function countDocumentLoads(page: Page): () => number {
@@ -29,10 +31,10 @@ function countDocumentLoads(page: Page): () => number {
     return () => loads;
 }
 
-async function openWeeklyBossFromHub(page: Page) {
+async function openWorldBossesFromCentralHub(page: Page) {
     const runtime = await installUiAuditRuntime(page);
     await expectUiAuditBoot(page, runtime, "centralHub");
-    await page.locator(".central-card").filter({ hasText: "Weekly Boss" }).click();
+    await page.locator(".central-card").filter({ hasText: "World Bosses" }).click();
 }
 
 const reloadStamp = (page: Page) => page.evaluate(() => sessionStorage.getItem("__sj_chunk_reloaded"));
@@ -40,13 +42,13 @@ const reloadStamp = (page: Page) => page.evaluate(() => sessionStorage.getItem("
 test("a chunk that never loads reloads once, then stays on the new-version card", async ({ page }) => {
     test.setTimeout(90_000);
     const documentLoads = countDocumentLoads(page);
-    await page.route((url) => url.pathname === arenaChunk, (route) => route.abort("failed"));
+    await page.route((url) => url.pathname === worldBossesHubChunk, (route) => route.abort("failed"));
 
-    await openWeeklyBossFromHub(page);
+    await openWorldBossesFromCentralHub(page);
     // lazyWithRetry spends ~3.6 s retrying before the boundary sees the error.
     await expect.poll(documentLoads, { timeout: 30_000 }).toBe(2);
 
-    // The reload restores #/weeklyBoss, whose chunk fails again. The boundary
+    // The reload restores #/worldBosses, whose chunk fails again. The boundary
     // renders its card even on the way to a reload, so the card alone proves
     // nothing; it has to still be there, with no third load, after the moment
     // the old guard would have reloaded (immediately after the card rendered).
@@ -64,7 +66,7 @@ test("a stale deploy's missing chunk reloads once, then the new build's chunk lo
     // A deploy changes the chunk's URL. The running build asks for the old one,
     // which server.ts answers with a no-store 404.
     await page.route(
-        (url) => url.pathname === arenaChunk && url.search === "",
+        (url) => url.pathname === worldBossesHubChunk && url.search === "",
         (route) => route.fulfill({
             status: 404,
             contentType: "text/plain",
@@ -84,16 +86,16 @@ test("a stale deploy's missing chunk reloads once, then the new build's chunk lo
             documentsServed += 1;
             if (documentsServed === 1) return route.continue();
             const response = await route.fetch();
-            const importMap = JSON.stringify({ imports: { [arenaChunk]: `${arenaChunk}?build=next` } });
+            const importMap = JSON.stringify({ imports: { [worldBossesHubChunk]: `${worldBossesHubChunk}?build=next` } });
             const html = (await response.text()).replace("<head>", `<head><script type="importmap">${importMap}</script>`);
             return route.fulfill({ response, body: html });
         },
     );
 
-    await openWeeklyBossFromHub(page);
+    await openWorldBossesFromCentralHub(page);
     await expect.poll(documentLoads, { timeout: 30_000 }).toBe(2);
 
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "weeklyBoss");
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldBosses");
     await expect(page.locator(".weekly-boss-screen").filter({ hasText: "Weekly Boss" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", NEW_VERSION_CARD)).toHaveCount(0);
     expect(documentLoads()).toBe(2);

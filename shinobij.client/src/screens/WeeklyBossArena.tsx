@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/purity */
 import { useState, useEffect, useCallback, useRef } from "react";
+import type { ReactNode } from "react";
 // Compact local chrome glyphs shared with the rest of the game.
 import { GiOgre, GiTrophy, GiTombstone, GiPadlock, GiCrossedSwords } from "../components/icons/LightweightGameIcons";
 const WB_ICON = { verticalAlign: "-0.12em", marginRight: "0.3rem" } as const;
@@ -34,6 +35,8 @@ export function WeeklyBossArena({
     setScreen,
     playerRoster,
     sharedImages = {},
+    worldBossTabs,
+    screenGuardKey = "weeklyBoss",
 }: {
     character: Character;
     onVersionedCharacter: VersionedCharacterCommit;
@@ -44,6 +47,8 @@ export function WeeklyBossArena({
     setScreen: (s: Screen) => void;
     playerRoster: PlayerRecord[];
     sharedImages?: Record<string, string>;
+    worldBossTabs?: ReactNode;
+    screenGuardKey?: Screen;
 }) {
     const weeklyBossViewAvailability = useCapabilityViewAvailability();
     const weeklyBossMutationAvailability = useCapabilityMutationAvailability();
@@ -68,9 +73,13 @@ export function WeeklyBossArena({
     // The fight lives in this screen's state, which App's nav lock cannot see.
     // Announce it so the menus cannot walk the player out of a live boss fight.
     useEffect(() => {
-        setScreenFightActive("weeklyBoss", fight !== null);
-        return () => setScreenFightActive("weeklyBoss", false);
-    }, [fight]);
+        if (screenGuardKey === "weeklyBoss") {
+            setScreenFightActive("weeklyBoss", fight !== null);
+            return () => setScreenFightActive("weeklyBoss", false);
+        }
+        setScreenFightActive(screenGuardKey, fight !== null);
+        return () => setScreenFightActive(screenGuardKey, false);
+    }, [fight, screenGuardKey]);
 
     const refresh = useCallback(async () => {
         // This return sits before the try/finally below, so it must settle the
@@ -276,6 +285,7 @@ export function WeeklyBossArena({
                     statusValue="Dormant"
                     onBack={() => setScreen(backScreen)}
                 />
+                {worldBossTabs}
                 <section className="weekly-boss-empty-state" aria-label="Weekly Boss status">
                     <span aria-hidden="true"><GiTombstone /></span>
                     <div>
@@ -352,6 +362,7 @@ export function WeeklyBossArena({
                 statusValue={countdown}
                 onBack={() => setScreen(backScreen)}
             />
+            {worldBossTabs}
             {error && <div style={{ color: "var(--red-400)", marginBottom: "0.5rem" }}><GameArtIcon kind="warning" size={16} /> {error}</div>}
             {guardCycleAvailability !== "available" && (
                 <div role="status" style={{ background: "rgba(15,23,42,0.55)", border: "1px solid rgba(148,163,184,0.35)", borderRadius: 6, padding: "0.55rem 0.75rem", margin: "0.5rem 0", fontSize: "0.84rem", color: "var(--slate-300)" }}>

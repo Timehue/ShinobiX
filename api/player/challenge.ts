@@ -10,6 +10,7 @@ import { onlineStore } from '../_realtime/online-store.js';
 import { challengeBlock } from '../_realtime/presence-gating.js';
 import { kickPlayer } from '../_realtime/notify.js';
 import { blockRelationship } from './_blocks.js';
+import { worldBossPvpProtectionBlock } from '../world-boss-event/_pvp-protection.js';
 import { sealPvpPetDuel } from '../pet/_pvp-duel.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
@@ -538,6 +539,12 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
             if (safeName(targetName) !== record.from || safeName(boundedString(rawChallenge.fromName, 64)) !== record.to) {
                 return res.status(409).json({ error: 'Challenge response does not match the outstanding challenge.' });
             }
+            if (accepted) {
+                for (const participant of [record.from, record.to]) {
+                    const worldBossBlock = await worldBossPvpProtectionBlock(participant);
+                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
+                }
+            }
             if (accepted && !await isCurrentKageInvitation(record, true)) {
                 const blocked = await blockRelationship(record.from, record.to);
                 if (blocked.aBlockedB || blocked.bBlockedA) {
@@ -702,6 +709,12 @@ async function secureChallengeHandler(req: VercelRequest, res: VercelResponse) {
         if (!built.challenge.battleId && !built.challenge.kageChallengeId) {
             const block = challengeBlock(onlineStore.get(built.record.to), built.record.mode);
             if (block) return res.status(block.status).json({ error: block.error });
+        }
+        const worldBossBlock = await worldBossPvpProtectionBlock(built.record.to);
+        if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
+        if (!identity.admin) {
+            const creatorWorldBossBlock = await worldBossPvpProtectionBlock(built.record.from);
+            if (creatorWorldBossBlock) return res.status(creatorWorldBossBlock.status).json({ error: creatorWorldBossBlock.error });
         }
 
         const senderKey = outgoingKey(built.record.from);
