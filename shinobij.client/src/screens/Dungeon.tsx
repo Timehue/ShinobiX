@@ -267,9 +267,11 @@ export function DungeonRareBeastBattle({
             reportedOutcome: payload.reportedOutcome,
             inputLog: payload.inputLog,
         }).then((settled) => {
-            if (!onVersionedCharacter(settled.character, settled.saveVersion)) {
-                throw new Error("The Dungeon result belongs to a no-longer-active save session.");
-            }
+            // Settled even if a newer save was adopted first and this commit is
+            // refused as stale (the coordinator then reads the stored save back).
+            // Throwing here parked a paid result on an error that a retry of the
+            // same seal could not clear.
+            onVersionedCharacter(settled.character, settled.saveVersion);
             setSettlementStatus("settled");
             return settled;
         }).catch((cause: unknown) => {
