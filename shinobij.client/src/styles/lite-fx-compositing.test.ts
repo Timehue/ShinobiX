@@ -52,6 +52,26 @@ test("the blanket backdrop-filter kill covers elements and both pseudo-elements"
     assert.match(liteFx, /backdrop-filter: none !important/);
 });
 
+test("the kill outranks the shared card rules, which are (0,2,0) and !important", () => {
+    // `.center-game > .card { backdrop-filter: blur(3px) !important }` (0,2,0) beat
+    // the plain `html.lite-fx *` (0,1,1) on 17 of 31 screens. A selector with at
+    // least four `.lite-fx` classes outranks it and any three-class rule.
+    const built = transform({
+        filename: "lite-fx-compositing.css", code: Buffer.from(liteFx), minify: true, targets: viteCssTargets(),
+    }).code.toString();
+    const boosted = /html\.lite-fx\.lite-fx\.lite-fx\.lite-fx \*[^{]*\{([^}]*)\}/.exec(built);
+    assert.ok(boosted, `the specificity-boosted kill is missing from the minified output:\n${built.slice(0, 600)}`);
+    assert.match(boosted[1], /(^|;)backdrop-filter:none!important/);
+    // The minifier rewrites `*::before` as ` :before`; accept either spelling.
+    for (const pseudo of ["before", "after"]) {
+        assert.match(
+            built,
+            new RegExp(`html\\.lite-fx\\.lite-fx\\.lite-fx\\.lite-fx (?:\\*)?::?${pseudo}`),
+            `${pseudo} pseudo-elements need the boosted kill too`,
+        );
+    }
+});
+
 /** build.cssTarget from vite.config.ts, encoded the way Vite's convertTargets hands it to lightningcss. */
 function viteCssTargets(): Record<string, number> {
     const config = readFileSync(path.resolve(srcDir, "..", "vite.config.ts"), "utf8");
