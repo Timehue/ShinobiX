@@ -86,6 +86,23 @@ test('buildInfiltrationEncounter seals a one-human Solo PvE session and exact ra
     assert.equal('towerId' in session, false);
 });
 
+test('the raider walks in with the HP their save holds, never a free full pool', () => {
+    // The raid settles the fight's end HP onto the raider's save, so a
+    // full-pool seed made "start a raid, walk out" a free heal.
+    const at = (hp: unknown) => buildInfiltrationEncounter({
+        runId: 'infil-hp', now: NOW,
+        raider: fighter('raider', 'Raider', 9_000, { hp }),
+        anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000, { hp: 10 }),
+        terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
+    });
+    const wounded = at(1_200);
+    assert.equal(wounded.player.hp, 1_200);
+    assert.equal(wounded.enemy.hp, 12_000, 'the sealed Anbu always starts full');
+    assert.equal(at(50_000).player.hp, 9_000);
+    assert.equal(at(-1).player.hp, 0);
+    assert.equal(at(undefined).player.hp, 9_000);
+});
+
 test('raider and Anbu start on the same row with tight duel spacing', () => {
     const session = build();
     const width = INFILTRATION_MAP.width;

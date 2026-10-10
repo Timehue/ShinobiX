@@ -3,11 +3,12 @@
  *
  * Village War Map — the lazy per-player tax (pure core, Phase 1). §6.4 / §8.2
  *
- * Applied lazily when a village member is active (the IO call-site — gated by
- * ENABLE_VILLAGE_TAX — lands with the sector-war engine, since in Phase 1 every
- * village still holds its 8 home sectors → the 0% tier → the tax is a no-op until
- * a village occupies a ninth sector). This module owns how many days are owed and
- * the wallet+bank debit + treasury split.
+ * Applied lazily when a village member starts a session: the IO call-site is
+ * api/_war-tax-apply.ts (assessVillageTax, behind /api/village/tax), on by
+ * default and switched off by DISABLE_VILLAGE_TAX=1 or the Sector Map kill
+ * switch. A village holding its 8 home sectors or fewer sits at the 0% tier, so
+ * the tax only bites once a village occupies a ninth WAR sector. This module owns
+ * how many days are owed and the wallet+bank debit + treasury split.
  *
  * Debits wallet ryo first, then banked ryo. Academy Students (level < 15) are a
  * total no-op (no stamp, no write). A non-occupying village, the

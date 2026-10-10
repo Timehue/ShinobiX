@@ -14,6 +14,7 @@ import { authedPlayerOrAdmin, isFullAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
 import { withKvLock, LockContendedError } from './_lock.js';
 import { validateVillageStateWrite, loadAuthoritativeKage } from './_village-state-validate.js';
+import { publicVillageStateView } from './_village-state-view.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { applyTournamentVictory } from './achievements/_tournament.js';
 import { setCircuitEnabled } from './dojo-circuit/_store.js';
@@ -33,7 +34,9 @@ const DOJO_CIRCUIT_ENABLED_KEY = 'game:dojo-circuit:enabled';
 // it did before this cache existed. The village endpoints that write the row
 // (orders, leadership, treasury donate/transfer, upgrade, agenda, Hollow Gate,
 // war-structure) also drop the entry, so the next poll after one of them
-// rebuilds instead of serving the pre-write frame. The villageState POST below
+// rebuilds instead of serving the pre-write frame. (Since the frame went public
+// fields only, api/_village-state-view.ts, just the leadership and Hollow Gate
+// writes change what it shows; the rest only cost a rebuild.) The villageState POST below
 // deliberately does NOT: it is free to call, so dropping the entry there would
 // let any player force a rebuild of this shared frame on demand.
 const GAME_STATE_TTL_MS = 3000;
@@ -111,7 +114,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             readElderCouncil(name, state, Date.now(), membershipStore),
                             readVillageAnbu(name, state, membershipStore, candidates),
                         ]);
-                        setSafeRecordValue(villageStates, name, { ...state, seatedKage: kage?.seatedKage,
+                        // Public fields only (owner ruling 2026-10-08): this frame
+                        // needs no login and is CDN-cached, so a village's
+                        // treasury, upgrades, orders and logs are served to its
+                        // members by /api/village/state (api/_village-state-view.ts).
+                        setSafeRecordValue(villageStates, name, { ...publicVillageStateView(state), seatedKage: kage?.seatedKage,
                             kageSystemUnlocked: Boolean(kage?.kageSystemUnlocked), firstLiberator: kage?.firstLiberator,
                             elderAppointees: elders.seats, elderTerm: elders, anbuAppointees: anbu.appointed, anbuEarned: anbu.earned, anbuMembers: anbu.members });
                     }));

@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import type { Character, PlayerRecord } from "../types/character";
+import type { DuelChallenge } from "../types/duel-challenge";
 import { pvpStableBattleIdFromRequestBody } from "./pvp-session-create";
-import { attackSectorPlayer, type SectorAttackOptions } from "./sector-attack";
+import { attackSectorPlayer, routeOpenSectorBattleNotice, type SectorAttackOptions } from "./sector-attack";
+import { openNoticedSectorBattle } from "./sector-war-engagement";
 
 /*
  * Behavioural tests for the open-world sector attack.
@@ -309,5 +312,82 @@ describe("what happens to the claim after the battle server answers", () => {
         assert.equal(alerts.length, 1);
         assert.ok(!rec.calls.includes('setScreen("pvpBattle")'),
             "an unregistered sector battle must not route the attacker into it");
+    });
+});
+
+describe("routeOpenSectorBattleNotice — the target's half of an open Pet/Card battle", () => {
+    const ENGAGE_ID = "0123456789abcdef01234567";
+    const contest = (kind: "card" | "pet") => ({ kind, sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID });
+    const notice = (over: Partial<DuelChallenge> = {}): DuelChallenge => ({
+        id: `sector-pet-${ENGAGE_ID}`,
+        fromName: "Attacker",
+        toName: "Quarry",
+        challenger: { name: "Attacker" } as Character,
+        createdAt: 1,
+        sectorAttack: true,
+        sectorContest: contest("pet"),
+        ...over,
+    });
+    const route = (incoming: DuelChallenge, isTraveling = false) => {
+        const dismissed: string[] = [];
+        const screens: string[] = [];
+        const handled = routeOpenSectorBattleNotice(incoming, {
+            isTraveling,
+            dismiss: (id) => { dismissed.push(id); },
+            setScreen: (screen) => { screens.push(screen); },
+        });
+        return { handled, dismissed, screens };
+    };
+
+    /** The routing loads on demand, so the screen changes a moment later. */
+    async function settled(screens: string[], count: number) {
+        for (let i = 0; i < 200 && screens.length < count; i += 1) await new Promise((resolve) => setTimeout(resolve, 5));
+        return screens;
+    }
+    function withSessionStorage<T>(run: (store: Map<string, string>) => Promise<T>): Promise<T> {
+        const store = new Map<string, string>();
+        (globalThis as { sessionStorage?: unknown }).sessionStorage = {
+            getItem: (key: string) => store.get(key) ?? null,
+            setItem: (key: string, value: string) => { store.set(key, value); },
+        };
+        return run(store).finally(() => { delete (globalThis as { sessionStorage?: unknown }).sessionStorage; });
+    }
+
+    it("opens the battle the notice names, and dismisses it so the next beat cannot route again", () => withSessionStorage(async (store) => {
+        const routed = route(notice());
+        // Handled and dismissed at once, before the routing has even loaded.
+        assert.equal(routed.handled, true);
+        assert.deepEqual(routed.dismissed, [`sector-pet-${ENGAGE_ID}`]);
+        assert.deepEqual(await settled(routed.screens, 1), ["sectorPet"]);
+        assert.deepEqual(JSON.parse(store.get("sectorWarPet.v1")!), { sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID });
+        assert.equal(store.get("sectorWarPet.v1:from"), "worldMap");
+        assert.deepEqual(await settled(route(notice({ sectorContest: contest("card") })).screens, 1), ["sectorCard"]);
+    }));
+
+    it("opens nothing for a notice whose battle it cannot trust", () => withSessionStorage(async (store) => {
+        const screens: string[] = [];
+        await openNoticedSectorBattle(notice({ sectorContest: { ...contest("pet"), engageId: "../sector-pet:12" } }), (screen) => { screens.push(screen); });
+        assert.deepEqual(screens, []);
+        assert.equal(store.size, 0);
+    }));
+
+    it("dismisses the notice of a player who is traveling, without routing them", async () => {
+        const routed = route(notice(), true);
+        assert.deepEqual({ handled: routed.handled, dismissed: routed.dismissed }, { handled: true, dismissed: [`sector-pet-${ENGAGE_ID}`] });
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        assert.deepEqual(routed.screens, []);
+    });
+
+    it("leaves a Combat attack's notice to its own route", () => {
+        assert.deepEqual(route(notice({ sectorContest: undefined, battleId: "pvp-1" })), { handled: false, dismissed: [], screens: [] });
+    });
+
+    it("keeps the routing off the startup graph", () => {
+        // App imports this module statically. A static import of the engagement
+        // module put all of it in the entry chunk and over the startup gzip gate
+        // (scripts/check-build-size.mjs INITIAL_GRAPH_GZIP_FAIL_BYTES).
+        const source = readFileSync(new URL("./sector-attack.ts", import.meta.url), "utf8");
+        assert.doesNotMatch(source, /^import [^;]*from "\.\/sector-war-engagement"/mu);
+        assert.match(source, /import\("\.\/sector-war-engagement"\)/u);
     });
 });

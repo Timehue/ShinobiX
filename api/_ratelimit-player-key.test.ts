@@ -185,9 +185,12 @@ describe('war reward claims', () => {
         const handler = (await import('./war/claim-reward.js')).default as unknown as Handler;
         const name = `warclaim${Date.now().toString(36)}`;
         const warId = 'moonshadow-vs-stormveil';
+        // The claimant fought for the winner: the crate goes only to members who
+        // did (owner ruling 2026-10-08), so a bare win would grant nothing.
         await kv.set(`world:war:${warId}`, {
             id: warId, villages: ['Moonshadow Village', 'Stormveil Village'], endedAt: Date.now() - 60_000,
             winnerVillage: 'Moonshadow Village', warCrateId: `crate-${name}`,
+            contributions: { [name]: { damage: 100, side: 'Moonshadow Village', name } },
         });
         await kv.set(`save:${name}`, { _saveVersion: 5, character: {
             name, village: 'Moonshadow Village', level: 10, ryo: 0, inventory: [], claimedWarCrateIds: [],

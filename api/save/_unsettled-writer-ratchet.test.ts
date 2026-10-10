@@ -72,10 +72,11 @@ const SETTLES_ITSELF = new Set([
     'pet/sanctuary-transfer.ts',
     'pet/showdown.ts',
     // Training retries its own exact compare-and-set with a proposal token, and
-    // the attack drops a shield fire-and-forget under a fail-open lock.
+    // starting a fight on a player (a Combat raid, an open Pet/Card war battle)
+    // drops the attacker's shield fire-and-forget under a fail-open lock.
     'training/start.ts',
     'training/complete.ts',
-    'player/attack.ts',
+    '_field-recovery-shield.ts',
     // The entry fee is charged under the run's own battle lease, so it settles
     // up to the moment that lease began (settleIdleRecovery's ownBattleLock).
     'towers/start.ts',

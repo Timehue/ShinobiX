@@ -19,6 +19,7 @@ import { villageWarMapEnabled, villageStoresEnabled } from '../_release-flags.js
 import { appendStoresLedger, readStores, structureMaterialsCost, STRUCTURE_HERALD_MIN_LEVEL } from '../_village-stores.js';
 import { announce } from '../_announce.js';
 import { completeEconomyTx, failEconomyTx, makeEconomyTxId, markEconomyTx, reserveEconomyTx, type EconomyTxState } from '../_economy-tx.js';
+import { raiseVillageWarRampartsHp } from '../world-state.js';
 
 /*
  * /api/village/war-structure — POST only
@@ -222,6 +223,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 ...(level !== undefined ? { currentLevel: level } : {}),
             });
         }
+        // Ramparts bought during an all-out village war raise this village's war
+        // HP straight away (api/world-state.ts raiseVillageWarRampartsHp). The
+        // level is already granted, so a contended war row must not fail the
+        // purchase; the raise is recomputed from the live level, so the next
+        // Ramparts purchase catches up whatever this one could not land.
+        if (structure === 'ramparts') {
+            await raiseVillageWarRampartsHp(village).catch((error) => {
+                console.warn('[village/war-structure] ramparts war-HP raise deferred', safeLogValue(error));
+            });
+        }
         // World Herald for a major (L8+) permanent structure. Receipt = village/structure/level.
         if (!isPerWarStructure(structure) && (result.newLevel ?? 0) >= STRUCTURE_HERALD_MIN_LEVEL) {
             const name = STRUCTURE_DEFS[structure as keyof typeof STRUCTURE_DEFS]?.name ?? structure;
@@ -233,7 +244,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }, { receiptId: `structure-raised:${villageWarSlug(village)}:${structure}:${result.newLevel}` });
         }
         // Telemetry (best-effort): the currency spent upgrading a war structure.
-        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}`, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
+        // The id is unique per PURCHASE: Ramparts and Watchtower reset at peace and
+        // are bought again in the next war, and an id of village/structure/level
+        // alone made that second purchase read as a replay and dropped its spend.
+        void recordWarEcoEvent({ eventId: `structure:${villageWarSlug(village)}:${structure}:${result.newLevel}:${Date.now()}`, village, kind: isPerWarStructure(structure) ? 'wr.spend.structure' : 'seals.spend.structure', amount: result.cost ?? 0, meta: structure });
         return res.status(200).json(result);
     } catch (err) {
         // A reserved/debited-but-unfinished purchase is parked for the economy
