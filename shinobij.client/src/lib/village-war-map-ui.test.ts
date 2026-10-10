@@ -3,6 +3,7 @@ import { describe, it } from 'node:test';
 
 import {
     GARRISON_POINTS_CAP,
+    GARRISON_POINTS_CAP_DEFENDED,
     GARRISON_POINTS_CAP_FED,
     NO_WAR_MAP_ERROR,
     WAR_RATIONS_PER_DAY,
@@ -10,9 +11,12 @@ import {
     declareEstimateNote,
     depotConversionNote,
     garrisonFedCapLine,
+    garrisonFeedButtonTitle,
     garrisonFeedStatusLine,
     provisionsMeaningLine,
     resolvedStructureLevel,
+    sectorWarConcedeConfirmText,
+    sectorWarDeclareConfirmText,
     structureUpgradeNotice,
     warMapErrorAfterAction,
     warMapErrorAfterRefresh,
@@ -80,15 +84,48 @@ describe('garrison-feed copy', () => {
         }
     });
 
-    it('spells out what "cap 200" buys, in points', () => {
+    it('spells out what a feed buys, in points, for the side that pays for it', () => {
         assert.equal(
-            garrisonFedCapLine('Moonshadow Village', true),
-            `Fed by Moonshadow Village — the garrison holds ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}.`,
+            garrisonFedCapLine('Moonshadow Village', true, 'attacker'),
+            `Fed by Moonshadow Village: your garrison assaults here can bank up to ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}.`,
         );
-        const pending = garrisonFedCapLine('Frostfang Village', false);
+        const pending = garrisonFedCapLine('Frostfang Village', false, 'attacker');
         assert.match(pending, /supply run/);
         assert.match(pending, new RegExp(`${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}`));
         assert.doesNotMatch(pending, /\bcap \d+/i);
+    });
+
+    // Owner ruling 2026-10-08: a feed is worth the same to the defence as to
+    // the attack. The defender's lowers what the attackers' assaults can bank.
+    it('tells a defender that its feed lowers what the attackers can bank', () => {
+        assert.equal(GARRISON_POINTS_CAP_DEFENDED, 100, 'the defender\'s feed moves the cap as far as the attacker\'s');
+        assert.equal(GARRISON_POINTS_CAP - GARRISON_POINTS_CAP_DEFENDED, GARRISON_POINTS_CAP_FED - GARRISON_POINTS_CAP);
+        assert.equal(
+            garrisonFedCapLine('Frostfang Village', true, 'defender'),
+            `Fed by Frostfang Village: the attackers' garrison assaults here can bank at most ${GARRISON_POINTS_CAP_DEFENDED} points instead of ${GARRISON_POINTS_CAP}.`,
+        );
+        assert.match(garrisonFedCapLine('Frostfang Village', false, 'defender'), /From tonight's supply run, the attackers'/);
+        const title = garrisonFeedButtonTitle('defender', 15);
+        assert.match(title, /^Spend 15 rations a day/);
+        assert.match(title, new RegExp(`at most ${GARRISON_POINTS_CAP_DEFENDED} points`));
+        assert.match(garrisonFeedButtonTitle('attacker', 15), new RegExp(`up to ${GARRISON_POINTS_CAP_FED} points`));
+    });
+});
+
+describe('E19 — the two sector-war confirms say what cannot be undone', () => {
+    it('declaring names the sector, the holder and the price', () => {
+        const text = sectorWarDeclareConfirmText(23, 'Frostfang Village', '~175 WR');
+        assert.match(text, /Sector 23, held by Frostfang Village/);
+        assert.match(text, /~175 WR/);
+        assert.match(text, /nothing is refunded if you concede/);
+    });
+
+    it('conceding names everything the attacker gives up', () => {
+        const text = sectorWarConcedeConfirmText(23, 'Frostfang Village');
+        assert.match(text, /Frostfang Village holds it whatever the score/);
+        assert.match(text, /not refunded/);
+        assert.match(text, /intel on it is burned/);
+        assert.match(text, /24 hours/);
     });
 });
 

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { after, before, beforeEach, describe, test } from 'node:test';
+import { after, afterEach, before, beforeEach, describe, test } from 'node:test';
+import { TAX_EXEMPTION_RYO } from './_war-economy.js';
 
 process.env.NODE_ENV = 'test';
 process.env.SHINOBIX_QA_MEMORY_KV = '1';
@@ -244,5 +245,64 @@ describe('village tax: the treasury share settles exactly once', { concurrency: 
         assert.equal(result.applied, false);
         assert.equal((await balances()).lastTaxDate, TODAY);
         assert.deepEqual(await kv.keys('economy-tx:village-tax-*'), []);
+    });
+});
+
+describe('village tax: a switched-off day is stamped untaxed, never billed later', { concurrency: false }, () => {
+    const DAY = 86_400_000;
+    afterEach(() => {
+        delete process.env.DISABLE_VILLAGE_TAX;
+        delete process.env.DISABLE_VILLAGE_WAR;
+    });
+
+    for (const flag of ['DISABLE_VILLAGE_TAX', 'DISABLE_VILLAGE_WAR'] as const) {
+        test(`days off under ${flag}=1 are stamped, so switching back on bills one day, not three`, async () => {
+            // Same rule as an empty Kage seat. The switched-off call used to
+            // return before stamping, and re-enabling billed 3 days of arrears.
+            const day0 = NOW - 4 * DAY;
+            assert.equal((await tax.assessVillageTax(PLAYER, day0)).applied, true, 'an ordinary taxed day first');
+            const { ryo: afterDay0, treasury: treasuryAfterDay0 } = await balances();
+
+            process.env[flag] = '1';
+            for (const t of [day0 + DAY, day0 + 2 * DAY, day0 + 3 * DAY]) {
+                const off = await tax.assessVillageTax(PLAYER, t);
+                assert.equal((await balances()).lastTaxDate, tax.utcDateString(t), 'the switched-off day is stamped');
+                assert.equal(off.applied, false);
+                assert.equal(off.taxed, 0);
+            }
+            assert.equal((await balances()).ryo, afterDay0, 'nothing is charged while switched off');
+            assert.equal((await balances()).treasury, treasuryAfterDay0, 'and nothing moves into the treasury');
+
+            delete process.env[flag];
+            const back = await tax.assessVillageTax(PLAYER, NOW);
+            const oneDay = Math.floor((afterDay0 - TAX_EXEMPTION_RYO) * 0.01);
+            assert.equal(back.taxed, oneDay, 'one day owed — the switched-off days are not arrears');
+            assert.equal(back.applied, true);
+        });
+    }
+
+    test('the endpoint answers enabled:false while switched off, charges nothing, and stamps the day', async () => {
+        const { issuePlayerToken } = await import('./_auth.js');
+        const endpoint = (await import('./village/tax.js')).default as unknown as Handler;
+        process.env.DISABLE_VILLAGE_TAX = '1';
+        const out: { statusCode: number; body?: Record<string, unknown> } = { statusCode: 200 };
+        const res = {
+            setHeader: () => res,
+            status: (code: number) => { out.statusCode = code; return res; },
+            json: (body: Record<string, unknown>) => { out.body = body; return res; },
+            end: () => res,
+        };
+        await endpoint({
+            method: 'POST',
+            body: { playerName: PLAYER },
+            headers: { 'x-player-name': PLAYER, 'x-player-token': issuePlayerToken(PLAYER) ?? '' },
+            socket: { remoteAddress: '127.0.0.7' },
+        } as never, res as never);
+        assert.equal(out.statusCode, 200);
+        assert.equal(out.body?.enabled, false);
+        assert.equal(out.body?.applied, false, 'the client adopts nothing: no ryo moved');
+        const after = await balances();
+        assert.equal(after.lastTaxDate, tax.utcDateString(Date.now()), 'the untaxed day is stamped');
+        assert.equal(after.ryo, 1_000_000);
     });
 });

@@ -17,10 +17,11 @@
  * use) and renders <SectorOwnershipOverlay> inside .anime-world-map. No new war
  * engine — pure view over the existing server state.
  */
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import "../styles/village-war-map-skin.css";
 import { fetchWarMap, villageAccent } from "../lib/village-war-map";
 import { loadSectorTerritory } from "../lib/world-state";
+import { visiblePoll } from "../lib/poll";
 import { HOME_SECTORS } from "../data/war-map-sectors";
 import { isLowEndMobile } from "../lib/device-tier";
 import ashenBanner from "../assets/village-war/owned-sector-ashenleaf.webp";
@@ -38,32 +39,51 @@ const BANNER_BY_VILLAGE: Record<string, string> = {
 
 type SectorPoint = { id: number; x: number; y: number };
 
-export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonly SectorPoint[] }) {
-    // Base ownership = each village's static home sectors (the client mirror, so it
-    // works with no server), overridden by any captured sector from the local
-    // territory cache so a flipped sector flies the conqueror's banner. Pure derived
-    // (static table + cache read) — no effect needed.
-    const ownerBySector = useMemo(() => {
-        const owners = new Map<number, string>();
-        for (const [village, sectors] of Object.entries(HOME_SECTORS)) {
-            for (const s of sectors) owners.set(s, village);
-        }
-        for (const s of [...owners.keys()]) {
-            const owner = loadSectorTerritory(s).ownerVillage;
-            if (owner) owners.set(s, owner);
-        }
-        return owners;
-    }, []);
+/** Base ownership = each village's static home sectors (the client mirror, so it
+ *  works with no server), overridden by any captured sector from the local
+ *  territory cache so a flipped sector flies the conqueror's banner. */
+function readOwners(): Map<number, string> {
+    const owners = new Map<number, string>();
+    for (const [village, sectors] of Object.entries(HOME_SECTORS)) {
+        for (const s of sectors) owners.set(s, village);
+    }
+    for (const s of [...owners.keys()]) {
+        const owner = loadSectorTerritory(s).ownerVillage;
+        if (owner) owners.set(s, owner);
+    }
+    return owners;
+}
 
+function sameOwners(a: ReadonlyMap<number, string>, b: ReadonlyMap<number, string>): boolean {
+    return a.size === b.size && [...a].every(([sector, village]) => b.get(sector) === village);
+}
+
+/** Banners re-read the LOCAL territory cache (the world map's own polls keep
+ *  it current), so this costs no request. */
+const OWNER_REFRESH_MS = 30_000;
+/** Siege pulses come from the War Map aggregator, a territory scan on the
+ *  server: this overlay is on the main world map for every player, so it asks
+ *  rarely. A siege runs 72 hours; a pulse that lags two minutes is fine. */
+const SIEGE_REFRESH_MS = 120_000;
+
+export function SectorOwnershipOverlay({ sectorPoints }: { sectorPoints: readonly SectorPoint[] }) {
+    const [ownerBySector, setOwnerBySector] = useState(readOwners);
     // Active sieges drive the pulse — best-effort from the server; simply absent when
     // the war feature is off server-side (the ownership banners still show).
     const [contested, setContested] = useState<Set<number>>(new Set());
+    // Both used to be read once at mount, so a sector captured, or a siege
+    // opened or settled, while the map stayed open kept its old banner and
+    // pulse until the player left and came back.
+    useEffect(() => visiblePoll(() => {
+        const owners = readOwners();
+        setOwnerBySector((prev) => (sameOwners(prev, owners) ? prev : owners));
+    }, OWNER_REFRESH_MS), []);
     useEffect(() => {
         let alive = true;
-        fetchWarMap()
+        const stop = visiblePoll(() => fetchWarMap()
             .then((view) => { if (alive && view.enabled) setContested(new Set(view.contests.map((c) => c.sector))); })
-            .catch(() => { /* no live sieges available */ });
-        return () => { alive = false; };
+            .catch(() => { /* no live sieges available */ }), SIEGE_REFRESH_MS, 0.1, { immediate: true });
+        return () => { alive = false; stop(); };
     }, []);
 
     if (ownerBySector.size === 0) return null;

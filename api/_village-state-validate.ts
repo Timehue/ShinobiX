@@ -150,7 +150,11 @@ export async function validateVillageStateWrite(
     //  - agendaClaimReceipts: the only gate on the daily agenda's treasury
     //    tithe (api/village/claim-daily-agenda.ts). Unpinned, a villager could
     //    reset it and collect the tithe again on every claim.
-    for (const journal of ['settlementReceipts', 'agendaClaimReceipts'] as const) {
+    //  - warSpoilsReceipts: proof that a won village war's spoils already left
+    //    (or reached) this treasury (api/world-state.ts settleVillageWarSpoils).
+    //    Unpinned, a villager could clear it while a settlement is being
+    //    retried and have the loser debited twice.
+    for (const journal of ['settlementReceipts', 'agendaClaimReceipts', 'warSpoilsReceipts'] as const) {
         if (incoming[journal] !== undefined && JSON.stringify(incoming[journal]) !== JSON.stringify(prev[journal] ?? null)) {
             suppressed.push(`${journal} (server-owned settlement journal)`);
         }
@@ -192,34 +196,28 @@ export async function validateVillageStateWrite(
     next.hollowGateUnlockedUntil = ctx.isAdmin ? inUntil : prevUntil;
     if (!ctx.isAdmin && inUntil !== prevUntil) suppressed.push('hollowGateUnlockedUntil (use the paid unlock endpoint)');
 
-    // ── warLossDebuffUntil (legacy name; comeback rally window) ─────
-    // Set ONLY by the server at war settlement (api/world-state.ts). The client
-    // may never clear or shorten it — pin to the previous value if a write tries
-    // to lower it, so a losing village can't dodge its 3-day training debuff.
-    {
-        const prevUntil = Number(prev.warLossDebuffUntil ?? 0) || 0;
-        const inUntil = Number(incoming.warLossDebuffUntil ?? prevUntil) || 0;
-        if (!ctx.isAdmin && inUntil < prevUntil) {
-            next.warLossDebuffUntil = prevUntil;
-            suppressed.push('warLossDebuffUntil decrease (server-set only)');
+    // ── War morale stamps: SERVER-OWNED, never client-writable ──────
+    // Both are set ONLY by the server at war settlement (api/world-state.ts
+    // settleVillageWar via api/_war-morale.ts settlementMoralePatch), and the
+    // client only ever reads them (api/village/war-debuff.ts). So a non-admin
+    // blob may not move either one in EITHER direction.
+    //
+    // This used to guard one direction per field, and the loss stamp's guard
+    // went stale when the stamp changed meaning. `warLossDebuffUntil` began as a
+    // training DEBUFF, so only a decrease was blocked. It is now the losing
+    // village's comeback RALLY (+10% training XP, −10% jutsu time, applied
+    // server-side at every training seal), so an increase was the dangerous
+    // direction and it was accepted: any villager could post a far-future
+    // stamp and hand their whole village a permanent boost. Pinning both ways
+    // cannot go stale again whichever way the multipliers point.
+    for (const stamp of ['warLossDebuffUntil', 'warWinBuffUntil'] as const) {
+        const prevUntil = Number(prev[stamp] ?? 0) || 0;
+        const inUntil = Number(incoming[stamp] ?? prevUntil) || 0;
+        if (ctx.isAdmin) {
+            next[stamp] = inUntil;
         } else {
-            next.warLossDebuffUntil = inUntil;
-        }
-    }
-
-    // ── warWinBuffUntil (victor's morale buff) ──────────────────────
-    // Set ONLY by the server at war settlement (api/world-state.ts). The guard
-    // runs the OPPOSITE way to the debuff above: a debuff is dodged by shortening
-    // it, a buff is stolen by EXTENDING it — so pin to the previous value if a
-    // write tries to raise it, and let a client clear its own buff harmlessly.
-    {
-        const prevUntil = Number(prev.warWinBuffUntil ?? 0) || 0;
-        const inUntil = Number(incoming.warWinBuffUntil ?? prevUntil) || 0;
-        if (!ctx.isAdmin && inUntil > prevUntil) {
-            next.warWinBuffUntil = prevUntil;
-            suppressed.push('warWinBuffUntil increase (server-set only)');
-        } else {
-            next.warWinBuffUntil = inUntil;
+            next[stamp] = prevUntil;
+            if (inUntil !== prevUntil) suppressed.push(`${stamp} change (server-set only)`);
         }
     }
 
@@ -246,8 +244,8 @@ export async function validateVillageStateWrite(
     // (/api/village/treasury/transfer), upgrades (/api/village/upgrade), the
     // daily agenda (claim-daily-agenda), and the stores drains (the daily pass,
     // /api/village/war-structure). The blob only ever RE-ASSERTS a treasury the
-    // client read, and that read can be seconds stale (the /api/game-state frame
-    // sits behind a process cache and the client polls on a cadence). So the
+    // client read, and that read can be seconds stale (members poll it from
+    // /api/village/state on a cadence). So the
     // blob may not move the treasury in EITHER direction. A stale LOWER figure
     // used to be accepted from the seated Kage (the retired blob-withdrawal path)
     // and, for items, from any villager, which erased donations that landed

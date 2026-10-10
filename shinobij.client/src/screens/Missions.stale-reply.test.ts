@@ -36,7 +36,7 @@ test("a paid Mission Hall, Hunter Guild or Logbook claim finishes even when its 
 test("a settled village-war mission spends its war-damage token even when its commit is refused", () => {
     const claim = handler(logbook, "claimWarMission");
     assert.doesNotMatch(claim, REFUSAL_RETURNS);
-    assert.match(claim, /onVersionedCharacter\(settled\.character, settled\.saveVersion\);\s*const war = applyVillageWarMissionDamage\(settled\.character, settled\.warMissionToken\);/);
+    assert.match(claim, /onVersionedCharacter\(settled\.character, settled\.saveVersion\);\s*const war = (?:await )?applyVillageWarMissionDamage\(settled\.character, settled\.warMissionToken\);/);
 });
 
 test("world rewards finish when their reply is refused as stale", () => {
