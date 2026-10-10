@@ -15,7 +15,7 @@ import { PET_EXPEDITION_ROUTES } from "../../shared/pet-expedition-contract.js";
 import { RESOURCE_ITEMS } from "../../shared/resource-items.js";
 import {
     TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,
-    WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,
+    HOLLOW_BEAST_CACHE_ID, WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,
 } from "./_game-consts.js";
 
 // ── Trait roster + descriptions ──────────────────────────────────────────
