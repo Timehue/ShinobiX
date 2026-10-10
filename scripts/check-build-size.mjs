@@ -831,7 +831,18 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // 9,257,901 B in the local Sentry-only build. The requested gathering/workshop
 // feature needs this lazy-code allowance, including the measured 55,972 B env
 // delta. Allow 9.325 MB; initial raw, chunk, CSS and asset gates stay fixed.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_325_000;
+// 2026-10-09 WAR AUDIT ON CURRENT MAIN: the owner's sector and village war rulings
+// (the mercenary redesign, the War Hall and War Map changes, members-only war
+// internals, and Pet and Card wars fought in the open as their own game) add
+// 19,336 B of lazy product code. Merged onto main 58b51fcc3 (Production Image run
+// 37889015787: 9,314,479 B) they measure 9,333,815 B with the same VITE_* settings
+// and a real commit SHA. The owner left the call to us ("fix the way is best for
+// the game and players"), and trimming would mean cutting shipped war features, so
+// allow 9.35 MB for about 16 KB of headroom. The startup gate does not move: the
+// branch moved its own startup code off the initial graph instead, which merged
+// measures 1,421,285 B raw / 394,927 B gzip (main: 1,421,371 B / 395,010 B). Chunk,
+// CSS and asset limits stay put.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_350_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

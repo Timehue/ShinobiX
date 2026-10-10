@@ -177,6 +177,8 @@ describe('server writers keep the idle recovery a player earned', { concurrency:
             endedAt: Date.now() - 60_000,
             warCrateId: `war-crate-${warId}`,
             winnerVillage: 'Frostfang Village',
+            // The winner's crate is for members who fought (owner ruling 2026-10-08).
+            contributions: { [name]: { damage: 40, raids: 1, pvpKills: 1, side: 'Frostfang Village', name } },
         });
         const out = await call(await load('../village/claim-war-crate.js'), { playerName: name, warCrateId: `war-crate-${warId}` });
 

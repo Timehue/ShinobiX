@@ -270,7 +270,9 @@ describe('settleInfiltrationWin', { concurrency: false }, () => {
         const raider = await charOf('raider');
         assert.equal(raider.ryo, 777 + RAID_RYO_REWARD, "the other writer's commit survives and the raid pays once");
         assert.equal((await stacksOf('raider')).find(s => s.itemId === CACHE_ITEM_IDS.warSupply)?.count, 40);
-        assert.equal((raider.serverSettlementReceipts as unknown[]).length, 1);
+        // The raid's own receipt, plus the generic fight-outcome receipt it
+        // stamps so a later /api/pve/fight-outcome call is a replay.
+        assert.equal((raider.serverSettlementReceipts as unknown[]).length, 2);
         assert.equal((await read(TERRITORY_KEY)).warSupply, 3960);
         assert.equal((await read(villageWarKey(VILLAGE))).warResources, 4950);
     });
@@ -307,6 +309,43 @@ describe('settleInfiltrationLoss', { concurrency: false }, () => {
         assert.equal(out.character.hospitalized, true);
         assertRecovered(out.character, 'reply', ['chakra', 'stamina']);
         assertRecovered(await charOf('raider'), 'committed save', ['chakra', 'stamina']);
+    });
+});
+
+// The raid's HP and hospital stay are written by this settlement AND by the
+// client's generic /api/pve/fight-outcome, from the same sealed session under
+// different receipts. The generic call used to write them again, later: HP went
+// back UP to the raid's end value after the raider had lost HP elsewhere, and a
+// lost raid re-ran its hospital stay.
+describe('a raid\'s physical consequence lands once across both settle paths', { concurrency: false }, () => {
+    it('a later generic outcome call after a won raid is a replay, not a heal', async () => {
+        const { settlePveFightOutcome } = await import('./pve/_fight-outcome-settlement.js');
+        await seedTerritory(); await seedWarRecord();
+        await seedSave('raider', { hp: 9000 });
+        const session = terminalSession('win');
+        const won = await settleInfiltrationWin(makeRun(), 0.05, deps, session);
+        assert.equal(won.ok, true);
+        assert.equal((await charOf('raider')).hp, 4321, 'the raid wrote its end HP');
+
+        const save = await read('save:raider');
+        await kv.set('save:raider', { ...save, character: { ...(save.character as Json), hp: 100 } }); // hurt elsewhere
+        const late = await settlePveFightOutcome(session, 'raider');
+        assert.equal(late.ok && late.applied, false, 'the generic call is a replay');
+        assert.equal((await charOf('raider')).hp, 100, 'and heals nothing');
+    });
+
+    it('a generic outcome call that lands first is not doubled by the raid settlement', async () => {
+        const { settlePveFightOutcome } = await import('./pve/_fight-outcome-settlement.js');
+        await seedSave('raider', { inventory: ['potion'], hp: 9000 });
+        const session = terminalSession('loss');
+        const first = await settlePveFightOutcome(session, 'raider');
+        assert.equal(first.ok && first.applied, true);
+        const hospitalizedUntil = (await charOf('raider')).hospitalizedUntil;
+
+        const loss = await settleInfiltrationLoss(makeRun(), session, deps);
+        assert.equal(loss.ok && !loss.alreadySettled, true);
+        assert.equal((await charOf('raider')).hospitalizedUntil, hospitalizedUntil, 'the hospital stay is not run again');
+        assert.deepEqual((await charOf('raider')).inventory, [], 'the raid still charges the items it used');
     });
 });
 
