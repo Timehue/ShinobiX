@@ -121,10 +121,11 @@ export function SageOfferModal({ offer, playerName, actionsAllowed, canMutate, o
                     setNote("The Sage sealed your path, but the Hall's record did not arrive. Refresh before continuing.");
                     return;
                 }
-                if (onVersionedCharacter(result.character, result._saveVersion) === false) {
-                    setNote("A newer character record is already active. The Sage's older reply was safely ignored.");
-                    return;
-                }
+                // The Legacy is sealed for life even if a newer save was adopted
+                // first and this commit is refused as stale (the coordinator then
+                // reads the stored save back), so begin its trial rather than tell
+                // the player their permanent choice was ignored.
+                onVersionedCharacter(result.character, result._saveVersion);
                 const chronicleRecord = buildChronicleRecordReceipt(result.chronicleCards, "sage-acceptance");
                 setMoment({
                     mode: "trial-start",

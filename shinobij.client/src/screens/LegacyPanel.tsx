@@ -188,11 +188,10 @@ export function LegacyPanel({ character, onVersionedCharacter }: {
                     setBusy(false);
                     return;
                 }
-                if (onVersionedCharacter(result.character, result._saveVersion) === false) {
-                    setTrialNote("A newer character record is already active; this older trial reply was ignored.");
-                    setBusy(false);
-                    return;
-                }
+                // Sealed even if a newer save was adopted first and this commit is
+                // refused as stale (the coordinator then reads the stored save
+                // back), so play the stage-up rather than call the reply ignored.
+                onVersionedCharacter(result.character, result._saveVersion);
                 const chronicleRecord = buildChronicleRecordReceipt(result.chronicleCards, "legacy-awakening", def.name);
                 setMoment({
                     mode: "stage-up",

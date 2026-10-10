@@ -30,7 +30,9 @@ function PersonalEraChapter({ eraId, playerName, progress, canMutate, setScreen,
         try {
             const result = await sealEraChapter(playerName, eraId, action, routeId);
             if (request !== generation.current) return;
-            if (!onVersionedCharacter(result.character, result.saveVersion)) throw new Error('A newer save arrived. Refresh your chapter record before continuing.');
+            // Recorded even if a newer save was adopted first and this commit is
+            // refused as stale (the coordinator then reads the stored save back).
+            onVersionedCharacter(result.character, result.saveVersion);
             onProgress(result.chapter);
         } catch (failure) {
             if (request === generation.current) setError(failure instanceof Error ? failure.message : 'The Hall could not record your chapter.');

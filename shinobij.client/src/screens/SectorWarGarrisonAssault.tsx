@@ -90,7 +90,9 @@ export function SectorWarGarrisonAssault({
         // Install the server-settled character (item usage + surviving HP/hospital
         // from the fight) before showing the result — same contract as every
         // other AI-fight settlement (AnbuVaultRaid, MissionArenaFight itself).
-        if (r.ok && r.character && !onVersionedCharacter(r.character, r._saveVersion)) return r;
+        // Settled even if a newer save was adopted first and this commit is
+        // refused as stale; returning here left no report to show.
+        if (r.ok && r.character) onVersionedCharacter(r.character, r._saveVersion);
         setReport(r);
         setPhase("result");
         return r;
