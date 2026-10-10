@@ -24,7 +24,7 @@ test.afterEach(async ({ page }, testInfo) => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
 });
 
-async function fixture(page: Page) {
+async function fixture(page: Page, options: { heldVersion?: number } = {}) {
     const entry = { errors: [] as string[], messages: [] as { type: string; text: string }[] };
     diagnostics.set(page, entry);
     page.on('pageerror', error => entry.errors.push(error.message));
@@ -34,6 +34,8 @@ async function fixture(page: Page) {
     save.currentSector = 0;
     save.character = { ...save.character, ryo: 10000, inventory: ['shinobi-vest', 'shinobi-vest', 'shinobi-vest', 'rustfang-kunai'], itemStacks: [], equipment: {}, tileCards: [] };
     const runtime = await installUiAuditRuntime(page, save);
+    // A real stale reply still carries a positive version, so hold one with room below it.
+    if (options.heldVersion) runtime.commitServerCharacter(save.character!, options.heldVersion);
     async function boot() {
         await expectUiAuditBoot(page, runtime, 'inventory');
         await expect(page.getByRole('heading', { name: 'Equipped', exact: true })).toBeVisible();
@@ -41,9 +43,12 @@ async function fixture(page: Page) {
     }
     async function acceptSale(route: Route, stale = false) {
         const character = { ...save.character, inventory: ['rustfang-kunai'], itemStacks: [], ryo: 10270 };
-        const version = runtime.currentVersion() + (stale ? -1 : 1);
-        if (!stale) runtime.commitServerCharacter(character, version);
-        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'shinobi-vest', quantity: 3, ryo: 270 }, _saveVersion: version } });
+        // The server always stores the sale. A stale reply carries a version
+        // older than the save the client already holds, as when a later write's
+        // version was adopted before this reply landed.
+        const heldVersion = runtime.currentVersion();
+        runtime.commitServerCharacter(character, heldVersion + 1);
+        await route.fulfill({ json: { ok: true, character, settlement: { kind: 'inventory-sale', itemId: 'shinobi-vest', quantity: 3, ryo: 270 }, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
     }
     return { boot, acceptSale };
 }
@@ -166,21 +171,22 @@ test('Inventory preserves an interrupted sale with inline recovery and distingui
     expect(requests).toHaveLength(6);
 });
 
-test('Inventory explains an unaccepted character version and retains the selected item and Escape focus', async ({ page }) => {
-    const { boot, acceptSale } = await fixture(page);
+// A settled sale whose reply is refused as stale (a newer save was adopted
+// first) is still sold. It used to report "Action unconfirmed" and keep the
+// vests on screen, from a fake reply the server had never stored.
+test('Inventory confirms a settled sale whose reply arrives after a newer save', async ({ page }) => {
+    const { boot, acceptSale } = await fixture(page, { heldVersion: 40 });
     let requests = 0;
     await page.route('**/api/inventory/sell', route => { requests++; return acceptSale(route, true); });
     await boot();
     const vest = await openVest(page, true);
     await vest.getByRole('button', { name: /Sell All x3/ }).click();
-    await expect(vest.locator('#inventory-sale-error')).toContainText('Action unconfirmed. Refresh before retrying.');
-    await expect(vest).toContainText('Inventory Count: 3');
-    await expect(vest.getByRole('button', { name: /Sell All x3/ })).toBeEnabled();
-    await expect(page.locator('.game-toast-stack')).toHaveCount(0);
-    await capture(page, 'inventory-sale-stale-version');
-    await page.keyboard.press('Escape');
     await expect(vest).toHaveCount(0);
-    await expect(page.getByRole('button', { name: 'Inspect Shinobi Vest', exact: true })).toBeFocused();
+    await expect(page.locator('.game-toast-stack')).toContainText('Sold 3 × Shinobi Vest for 270 ryo.');
+    await expect(page.locator('#inventory-sale-error')).toHaveCount(0);
+    // The stored-save read-back removes the sold vests.
+    await expect(page.getByRole('button', { name: 'Inspect Shinobi Vest', exact: true })).toHaveCount(0);
+    await capture(page, 'inventory-sale-stale-version');
     expect(requests).toBe(1);
 });
 
