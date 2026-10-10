@@ -55,7 +55,10 @@ balance-semantics, navigation and presentation selection passes 256 tests.
 Build commands and release
 gates are documented in the prototype specification.
 The resource-card refinement reran all 25 presentation regressions successfully.
-The production build and packaged-asset checks pass. Code-size validation passes
-at 9,349,516 bytes against the unchanged 9,350,000-byte total product ceiling;
-startup and individual chunk limits are also unchanged and pass. No deployment
-or CI instrumentation build is claimed.
+The earlier local build and packaged-asset checks passed at 9,349,516 bytes
+against the then-current 9,350,000-byte total product ceiling. That checkpoint
+did not use the full production build arguments. The subsequent live-main
+integration uses the production-image workflow's public test settings; its
+measured allowance and current release evidence are recorded in
+[the main integration notes](main-integration-2026-10-10.md). Startup and
+individual chunk limits remain unchanged. No human playtest is claimed.
