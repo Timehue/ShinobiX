@@ -48,8 +48,9 @@ concurrency:
   # 2026-08-02 and 2026-09-01 (deleted 2026-09-01).
   #
   # Keying the group on the SHA gives each pushed commit its own group, so main
-  # scans never queue behind one another and each runs to completion. The repo is
-  # public, so the extra concurrent runs cost no Actions minutes.
+  # scans never queue behind one another and each runs to completion. That was
+  # free while the repo was public. Since it went private (2026-10-10), every
+  # run counts against the account's Actions minutes.
   group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   # PRs still collapse onto the branch head: superseding a PR scan uploads that
   # same errored record, but on a PR ref that is an acceptable trade for not
@@ -90,7 +91,41 @@ jobs:
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
+      # The analysis gates this check; the upload does not.
+      #
+      # On 2026-10-10 the repo became private on a free plan, and code scanning
+      # went with it: every upload now gets a 403 ("Code scanning is not enabled
+      # for this repository"). The built-in upload is the analyze step's last act,
+      # so the whole check went red. Railway cancels a rollout when any check on
+      # the commit fails, so production froze at 9bdd39a7 (#320) while main moved on.
+      #
+      # So the analysis runs with `upload: never` and still fails the check if
+      # CodeQL itself fails. The upload is a separate best-effort step. It resumes
+      # on its own once code scanning is back (public visibility, or GitHub Code
+      # Security on a private repo), so nothing here needs reverting. Until then,
+      # each run keeps its SARIF as an artifact.
       - name: Perform CodeQL Analysis
+        id: analyze
         uses: github/codeql-action/analyze@v4
         with:
           category: "/language:${{ matrix.language }}"
+          upload: never
+
+      - name: Upload results to code scanning (best effort)
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.analyze.outputs.sarif-output }}
+          category: "/language:${{ matrix.language }}"
+
+      # Best effort too: a private repo's artifact storage quota is small, and a
+      # full quota must not turn this check red and stop deploys again.
+      - name: Keep the SARIF as a run artifact
+        if: ${{ always() && steps.analyze.outputs.sarif-output != '' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v7
+        with:
+          name: codeql-sarif-${{ matrix.language }}-${{ github.sha }}-${{ github.run_attempt }}
+          path: ${{ steps.analyze.outputs.sarif-output }}
+          if-no-files-found: warn
+          retention-days: 7

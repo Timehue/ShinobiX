@@ -86,6 +86,17 @@ run is evidence for that revision; it is not proof that the repository's default
 setup, ruleset, or alert inventory is configured correctly. Those are external
 GitHub settings and must be inspected by an authorized operator.
 
+The check is green when the analysis succeeds, whether or not GitHub accepts the
+upload. On 2026-10-10 the repo became private on a free plan, and code scanning
+was switched off: every upload got a 403, the check went red, and Railway
+cancelled every rollout. Since then the analysis runs with `upload: never`, and
+a separate `continue-on-error` step tries the upload. That step resumes on its
+own when code scanning is available again. Each run also keeps its SARIF as a
+`codeql-sarif-*` artifact for 7 days, best effort, so a full storage quota
+cannot redden the check. A red upload step inside a green check
+means code scanning is still off. Check it with
+`gh api repos/Timehue/ShinobiX/code-scanning/default-setup`.
+
 If production Python is added outside the excluded offline script area, add a
 Python analysis deliberately and migrate branch protection only after its check
 context has completed successfully at least once.
