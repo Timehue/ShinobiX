@@ -4,6 +4,7 @@
 // plain fetch already carries the player token / name / fingerprint headers.)
 
 import type { IntelTier, StoresLedgerEntry } from "./village-stores";
+import type { OpenSectorBattle } from "./sector-war-engagement";
 
 export type WinCondition = "combat" | "card" | "pet";
 
@@ -18,17 +19,25 @@ export interface VillageWarMapView {
     village: string;
     biome: string;
     homeSectors: number[];
-    warResources: number;
-    warResourcesCap: number;
-    treasurySeals: number;
-    structures: Record<string, number>;
-    upkeepWr: number;
-    dormant: boolean;
-    wrPerSector: number;
     sectorsHeld: number;
-    taxRatePct: number;
+    /** True on every village that is not the viewer's own: its war chest,
+     *  structures, upkeep, tax and stores are for its members only (owner ruling
+     *  2026-10-08), so the fields below are absent. */
+    restricted?: boolean;
+    // ── The viewer's own village only ──
+    warResources?: number;
+    warResourcesCap?: number;
+    treasurySeals?: number;
+    structures?: Record<string, number>;
+    upkeepWr?: number;
+    dormant?: boolean;
+    wrPerSector?: number;
+    taxRatePct?: number;
     /** No seated Kage → the rate is forced to 0 (mirrors api/_war-tax-apply.ts). */
     kageSeated?: boolean;
+    /** The sectors this village HOLDS (its home sectors still in its hands, then
+     *  those it captured), with the settings it chose: the current holder sets a
+     *  sector's rules. `homeSectors` keeps the static home table. */
     sectors: SectorConfigView[];
     // ── Village Stores (api/_village-stores.ts; optional while the switch is off) ──
     /** Rations in the treasury. */
@@ -103,6 +112,16 @@ export function contestVillageUnfed(
     if (c.fed !== false) return false;
     const list = c.unfedVillages ?? [];
     return list.length === 0 || list.includes(village);
+}
+
+/** Whether EITHER side of this contest marches hungry today: the Fed/Unfed chip.
+ *  Day-scoped like contestVillageUnfed. The chip read the raw `fed: false`, so
+ *  yesterday's verdict stayed on screen through a day the pass never ran. */
+export function contestUnfedToday(
+    c: Pick<SectorWarContest, "fed" | "storesDate">,
+    today: string = storesUtcDay(),
+): boolean {
+    return !!today && c.storesDate === today && c.fed === false;
 }
 
 /** Thrown by the action wrappers. `message` is the PLAYER-FACING sentence: the
@@ -229,7 +248,9 @@ export function fetchWarMap(): Promise<WarMapResponse> {
     const pending = (async () => {
         const r = await fetch("/api/village/war-map", { method: "GET" });
         const data = (await r.json().catch(() => ({}))) as Record<string, unknown>;
-        if (!r.ok) throw new Error(String(data.error ?? `HTTP ${r.status}`));
+        // Typed, so a caller can tell 404 (the war system is switched off) from
+        // an outage. The message is unchanged: this GET never sends `message`.
+        if (!r.ok) throw new WarMapRequestError(r.status, data);
         return data as unknown as WarMapResponse;
     })();
     warMapInFlight = pending;
@@ -329,11 +350,25 @@ export function joinSectorPet(playerName: string, sectorWarId: string, petId: st
 export function garrisonSectorPet(playerName: string, sectorWarId: string, petId: string) {
     return postJson("/api/village/sector-pet", { action: "garrison-duel", playerName, sectorWarId, petId });
 }
-export function sectorPetState(playerName: string, sectorWarId: string, garrison = false) {
-    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
+export function sectorPetState(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
+    return postJson("/api/village/sector-pet", { action: "state", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
 }
-export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false) {
-    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}) });
+export function sectorPetWatch(playerName: string, sectorWarId: string, garrison = false, engageId = "") {
+    return postJson("/api/village/sector-pet", { action: "watch", playerName, sectorWarId, ...(garrison ? { garrison: true } : {}), ...(engageId ? { engageId } : {}) });
+}
+/**
+ * An open-world battle against one enemy standing in this Pet or Card war's
+ * sector (owner ruling 2026-10-08). The server applies a Combat attack's gates,
+ * then fights it (Pet: both sealed teams, at once) or seats both duelists (Card:
+ * the target's client takes the other seat when it hears). A refusal throws
+ * WarMapRequestError with the server's own sentence, which the sector roster
+ * shows on that player's row.
+ */
+export async function engageOpenSectorBattle(kind: "card" | "pet", playerName: string, sectorWarId: string, target: string): Promise<OpenSectorBattle> {
+    const data = await postJson(kind === "pet" ? "/api/village/sector-pet" : "/api/village/sector-card", { action: "engage", playerName, sectorWarId, target });
+    const engageId = typeof data.engageId === "string" ? data.engageId : "";
+    if (!engageId) throw new WarMapRequestError(502, { error: "The battle could not be started." });
+    return { kind, sectorWarId, engageId };
 }
 export function setSectorWinCondition(playerName: string, village: string, sector: number, winCondition: WinCondition) {
     return postJson("/api/village/war-win-condition", { playerName, village, sector, winCondition });
@@ -348,22 +383,102 @@ export function upgradeWarStructure(playerName: string, village: string, structu
     return postJson("/api/village/war-structure", { playerName, village, structure, ...(toLevel ? { toLevel } : {}) });
 }
 
-// ── Mercenaries (Phase 5) ──
-export interface WrMercTierView { id: string; level: number; costWr: number; }
-export interface MercLeaseView { tierId: string; player: string; expiresAt: number; count: number; }
+// ── Mercenaries (Phase 5; owner redesign 2026-10-08) ──
+// A band is hired FOR one war: the village's all-out village war (the Kage seat
+// hires 3, each Elder seat 1) or a Combat sector war the village DEFENDS (3 per
+// contest). It acts only in that war, only while it is live.
+export interface WrMercTierView {
+    id: string;
+    level: number;
+    /** The undiscounted base price. */
+    costWr: number;
+    /** What the server charges right now (comeback × Barracks applied). */
+    cost?: number;
+    /** Mercs in one band of this tier. */
+    band?: number;
+}
+export interface MercLeaseView {
+    /** The band's id — null for a legacy band hired before the redesign. */
+    id?: string | null;
+    tierId: string;
+    player: string;
+    expiresAt: number;
+    count: number;
+    contextKey?: string | null;
+    contextKind?: "village" | "sector" | null;
+    sector?: number | null;
+    /** Hired before wars were named at hire: fights in village wars only. */
+    legacy?: boolean;
+    /** Its war is live, so it acts. */
+    live?: boolean;
+    /** A defender's sector band the viewer may send at a player. */
+    deployable?: boolean;
+}
+export interface MercContextView {
+    kind: "village" | "sector";
+    key: string;
+    enemy: string;
+    endsAt: number;
+    /** Village war still in its pre-war window: bands start acting then. */
+    startsAt?: number;
+    contestId?: string;
+    sector?: number;
+    acting: boolean;
+    hiresUsed: number;
+    hiresLimit: number;
+    callerHiresLeft: number;
+    seats?: Array<{ seat: string; used: number; limit: number }>;
+}
+export interface MercListView {
+    ok?: boolean;
+    warResources?: number;
+    tiers?: WrMercTierView[];
+    contexts?: MercContextView[];
+    /** Sieges this village runs — it can no longer hire for those. */
+    attacking?: Array<{ contestId: string; sector: number; enemy: string; endsAt: number }>;
+    leases?: MercLeaseView[];
+    viewer?: { role: "kage" | "elder" | "none"; seats: string[]; canHire: boolean; canDeploy: boolean };
+}
+export type MercHireContext = { kind: "village" } | { kind: "sector"; contestId: string };
+export interface MercHireResult {
+    ok?: boolean;
+    replayed?: boolean;
+    hireId?: string;
+    tierId?: string;
+    cost?: number;
+    expiresAt?: number;
+    band?: number;
+    hiresLeft?: number;
+}
 
-/** Hire a merc tier — the seated Kage spends village WR to field a 2-day band of
- *  3-5 AI mercs. Returns { cost, band, expiresAt }. */
-export function hireMerc(playerName: string, village: string, tierId: string) {
-    return postJson("/api/village/war-merc", { action: "hire", playerName, village, tierId });
+/** One id per hire CLICK. A retry of the same click reuses it, so a lost
+ *  response replays the first hire instead of paying for a second. */
+export function newMercRequestId(): string {
+    const uuid = globalThis.crypto?.randomUUID?.();
+    if (uuid) return uuid;
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
-/** Read this village's WR pool + the merc tier menu + the active bands. */
-export function listMercs(playerName: string, village: string) {
-    return postJson("/api/village/war-merc", { action: "list", playerName, village });
+
+/** Hire a merc band FOR one war: a Kage or Elder spends village WR (the server
+ *  recomputes the price). `requestId` comes from newMercRequestId — the same id
+ *  on a retry. */
+export function hireMerc(playerName: string, village: string, tierId: string, context: MercHireContext, requestId: string): Promise<MercHireResult> {
+    return postJson("/api/village/war-merc", {
+        action: "hire", playerName, village, tierId, requestId,
+        context: context.kind,
+        ...(context.kind === "sector" ? { contestId: context.contestId } : {}),
+    }) as Promise<MercHireResult>;
 }
-/** Deploy one merc from the band at an enemy-village defender on a contested
- *  sector. The fight resolves SERVER-SIDE (auto, deterministic, can't be faked);
- *  returns { winner, attackerPoints, defenderPoints, mercsRemaining }. */
-export function deployMerc(playerName: string, village: string, tierId: string, sector: number, targetPlayer: string) {
-    return postJson("/api/village/war-merc", { action: "attack", playerName, village, tierId, sector, targetPlayer });
+/** Read this village's WR pool, the tier menu (with the live price), the wars it
+ *  can hire for (with the allowance left) and its bands. */
+export function listMercs(playerName: string, village: string): Promise<MercListView> {
+    return postJson("/api/village/war-merc", { action: "list", playerName, village }) as Promise<MercListView>;
+}
+/** Send one merc of a defender's sector band at an attacking-village player,
+ *  wherever they are. The fight resolves SERVER-SIDE (auto, deterministic, can't
+ *  be faked); returns { winner, attackerPoints, defenderPoints, mercsRemaining }. */
+export function deployMerc(playerName: string, village: string, bandId: string, targetPlayer: string) {
+    return postJson("/api/village/war-merc", { action: "attack", playerName, village, bandId, targetPlayer }) as Promise<{
+        ok?: boolean; winner?: "merc" | "player" | "stall"; attackerPoints?: number; defenderPoints?: number; mercsRemaining?: number;
+    }>;
 }

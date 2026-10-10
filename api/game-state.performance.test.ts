@@ -47,7 +47,8 @@ test('shared game-state batches both collections once, shares concurrent builds,
     for (const { out } of replies) {
         assert.equal(out.status, 200);
         assert.deepEqual(out.body, {
-            villageStates: { ...defaults, leaf: { treasury: { ryo: 9 }, seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] } },
+            // The seeded treasury is members-only (api/_village-state-view.ts): absent here.
+            villageStates: { ...defaults, leaf: { seatedKage: undefined, firstLiberator: undefined, kageSystemUnlocked: false, elderAppointees: ['', '', ''], elderTerm: await kv.get('village:elder-council:leaf'), anbuAppointees: ['', '', ''], anbuEarned: [], anbuMembers: [] } },
             clanPetBattles: { fox: { id: 'battle-1' } },
             arenaTournament: null, arenaActiveFights: [], weeklyBossAiId: null, dojoCircuitEnabled: false,
             boostEvent: null,

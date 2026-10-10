@@ -922,6 +922,22 @@ fighter from a level + archetype — here it's a squad of them). Rules:
   than a village war and needed for the comeback — gated by WR cost + 2‑day expiry + the
   battle difficulty/terrain.
 
+> **Owner redesign, 2026‑10‑08 (shipped).** The Town Hall Honor‑Seal hire above is
+> **retired**: `hire-mercenary` refuses new hires and only finishes a hire left mid‑saga
+> (the merc tick sweeps those too). Every mercenary is now a War Map band, priced as in
+> §6.3, hired **for one war** and acting only while that war instance is live (2‑day lease
+> at most, never past the war's end):
+> - **All‑out village war:** the Kage seat hires 3 bands per war, each Elder seat 1. The
+>   allowance is per seat, so re‑appointing an Elder does not mint more. A rematch is a
+>   new war with a fresh allowance.
+> - **Combat sector war:** only the **defending** village hires — the Kage or any Elder,
+>   3 bands per contest. The band patrols the contested sector, snipes the lowest‑HP
+>   attacker there, and the defending leaders may also send it at any attacker, anywhere.
+>   A band win scores the defence in full; an attacker who beats it scores ×0.25
+>   (`mercSide: 'defender'`). The attacker can no longer hire.
+> - Bands hired before the redesign carry no war and fight only in village wars until
+>   they lapse. A retried hire click replays its receipt instead of paying twice.
+
 ### 17.6 Sector Control HP — how a sector war actually resolves (owner ask)
 A sector war is a fixed **72-hour scored war** for one sector *(reworked
 2026‑08‑06, owner decision — replaces the Control‑HP count‑down siege)*. Both

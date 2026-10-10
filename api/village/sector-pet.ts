@@ -4,12 +4,12 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock, LockContendedError } from '../_lock.js';
-import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
+import { normalizeVillageWarRecord, sectorConfigFor, villageWarKey } from '../_war-state.js';
 import { sectorWarDamageMultiplier, defenderPointsMultiplier } from '../_war-structures.js';
 import { sectorWarRoleOf, sectorControlSwing, ROLE_VILLAGER } from '../_war-role.js';
-import { applyContestBattleByWinner, contestGarrisonReady, lastGarrisonBattleAt, sectorWarGarrisonIdle, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
-import { garrisonDefenderFor, NO_GARRISON_DEFENDER_ERROR } from '../_sector-war-garrison-defender.js';
-import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleDecision } from '../_sector-war-store.js';
+import { applyContestBattleByWinner, contestGarrisonReady, isSectorWarActive, lastGarrisonBattleAt, sectorWarGarrisonIdle, GARRISON_UNLOCK_IDLE_MS } from '../_sector-war.js';
+import { fieldGarrisonDefender, maskedGarrisonDefenderName, NO_GARRISON_DEFENDER_ERROR } from '../_sector-war-garrison-defender.js';
+import { commitSectorWarBattle, loadSectorWar, type SectorWarBattleCommit, type SectorWarBattleDecision } from '../_sector-war-store.js';
 import { resolveWarDuel, type WarDuelInput } from '../_pet-showdown/war-duel.js';
 import { sealWarTeam } from '../_pet-showdown/war-team.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
@@ -18,6 +18,16 @@ import { petStatCeil, type PetCeilStat } from '../_pet-stat-ceil.js';
 import { petCombatBusyReason } from '../pet/_pet-busy.js';
 import { activeCarriedPets } from '../_entitlements.js';
 import { villageWarMapEnabled } from '../_release-flags.js';
+import {
+    claimOpenSectorBattle,
+    endOwnOpenBattleProtection,
+    gateOpenSectorBattle,
+    newOpenBattleId,
+    noticeOpenSectorBattle,
+    protectOpenBattleLoser,
+    releaseOpenBattleNotice,
+} from '../_sector-contest-engage.js';
+import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 
 /*
  * /api/village/sector-pet — POST only. The sector-war "Pet" win-condition (Phase 7).
@@ -27,17 +37,24 @@ import { villageWarMapEnabled } from '../_release-flags.js';
  * lib/pet-duel-sim (scripts/gen-pet-sim.mjs; the parity test guards it byte-for-byte).
  * Two real players each bring a pet: the attacker opens, the defender joins, and the
  * duel auto-resolves the instant both pets are in — no turns, the sim is deterministic
- * from (both pets, seed). The winner maps onto the contest exactly like Combat/Card:
- * attacker win → chip Control HP (flip on capture), defender win → regen, draw → no
- * change. The client REPLAYS the same (pets, seed) to show the fight — identical to
- * the server, so it can never disagree on who won.
+ * from (both teams, seed). The winner maps onto the contest exactly like Combat/Card:
+ * an attacker win scores the attacker's tally, a defender win the defender's, and a
+ * draw nothing; settlement compares the tallies when the 72 hours close. The client
+ * REPLAYS the same inputs to show the fight — identical to the server, so it can
+ * never disagree on who won.
  *
  * Pet stats are clamped server-side (petStatCeil) so a tampered save can't seal an OP
  * pet. Server-gated by the default-on Sector Map campaign switch.
  *
- * Body: { action, sectorWarId, petId? }
- *   join  { petId }  attacker opens with a pet / defender joins with a pet → resolve
- *   state {}         read the session (drives the defender join + the client replay)
+ * Body: { action, sectorWarId, petId?, target?, engageId? }
+ *   join    { petId }   attacker opens with a pet / defender joins with a pet → resolve
+ *   engage  { target }  an OPEN-WORLD battle against an enemy standing in this
+ *                       sector (api/_sector-contest-engage.ts): both sides' sealed
+ *                       teams fight at once, the war scores it, the target is told
+ *   state   {}          read the session AS THIS VIEWER MAY SEE IT (projectPetSession):
+ *                       only the war's two villages, and never one side's team to the
+ *                       other before the duel resolves. `engageId` reads an open-world
+ *                       battle instead of the table.
  */
 
 const SESSION_TTL_SEC = 30 * 60; // 30m hygiene — abandoned duels self-clean
@@ -65,11 +82,102 @@ type SectorPetSession = {
      *  garrison team rather than a live player. Scores at garrison weight and
      *  never refreshes `lastLiveBattleAt` — see applySectorWarBattle. */
     garrison?: boolean;
+    /** Server-only: whose sealed team the garrison fielded. Players see the
+     *  masked defender name in `p2.name`, never this (projectPetSession). */
+    garrisonDefenderSlug?: string;
+    /** Set on an OPEN-WORLD battle: one player attacked an enemy in the sector
+     *  (action `engage`), so both seats are named and it is not the war's table. */
+    open?: { engageId: string; initiator: string };
     terrain?: string | null;   // defender sector terrain sealed at resolve → drives the home-ground element bonus in the (identical) client replay
     appliedToContest?: boolean;
+    /** What the resolved duel did to the war, so the screen never claims a
+     *  score for a duel the war could no longer count. */
+    warResult?: WarResult;
     createdAt: number;
     updatedAt: number;
 };
+
+type WarResult = { scored: boolean; points?: number; reason?: string };
+function warResultFrom(commit: SectorWarBattleCommit): WarResult {
+    return commit.status === 'applied'
+        ? { scored: true, points: commit.receipt.points }
+        : { scored: false, reason: commit.status === 'skipped' ? commit.reason : 'missing' };
+}
+
+function sameName(a: string | undefined, b: string): boolean {
+    return !!a && a.toLowerCase() === b.toLowerCase();
+}
+
+/**
+ * The live duel's seed, fixed by the TABLE it is fought at.
+ *
+ * It used to be rolled from the defender's join time. The contest commit lands
+ * before the session write, so when that write failed, the retry re-rolled a
+ * new fight while the contest replayed the first one's receipt: the duel the
+ * players watched could crown a different winner than the one the war scored.
+ * Derived from the table's own identity (the war and the moment it was
+ * opened, the same pair the battle id is built from), a retry fights the
+ * scored duel again. It reveals nothing a defender could exploit: until the
+ * duel resolves, nobody but the attacker sees the attacker's team.
+ */
+function petDuelSeed(sectorWarId: string, openedAt: number): number {
+    return seedFromKey(`sector-pet:${sectorWarId}:${Math.floor(Number(openedAt) || 0)}`);
+}
+
+/** An open-world battle's seed, fixed by its own id for the same reason. */
+function openPetDuelSeed(engageId: string): number {
+    return seedFromKey(`sector-pet-open:${engageId}`);
+}
+
+function seedFromKey(key: string): number {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < key.length; i += 1) {
+        hash ^= key.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193) >>> 0;
+    }
+    return hash >>> 0;
+}
+
+type PetViewer = { side: 'p1' | 'p2' | null; village: string; admin: boolean };
+
+/** Who is looking at a session: a duelist, a member of one of the war's two
+ *  villages, an admin, or (village '') nobody this duel concerns. */
+async function petViewerOf(session: SectorPetSession, me: string, admin: boolean): Promise<PetViewer> {
+    const side = sameName(session.p1.name, me) ? 'p1'
+        : session.p2 && !session.garrison && sameName(session.p2.name, me) ? 'p2'
+            : null;
+    return { side, village: admin || side ? '' : await villageOf(me), admin };
+}
+
+function petViewerAllowed(session: SectorPetSession, viewer: PetViewer): boolean {
+    return viewer.admin || viewer.side !== null
+        || (!!viewer.village && (viewer.village === session.attackerVillage || viewer.village === session.defenderVillage));
+}
+
+/**
+ * A session as ONE viewer may see it.
+ *
+ * `state` used to hand any logged-in caller the whole row — both sealed teams —
+ * so a defender could read the attacker's team (and the sector's terrain it
+ * would fight on) before choosing what to answer with. Until the duel resolves
+ * a side's team is shown only to that side's own duelist; once it resolves,
+ * both are on the replay anyway. `viewerSide` tells the screen which seat (if
+ * any) is the viewer's, and `canAnswer` whether they may take the open one.
+ */
+function projectPetSession(session: SectorPetSession, viewer: PetViewer): Record<string, unknown> {
+    const { garrisonDefenderSlug: _sealedFrom, ...visible } = session;
+    if (viewer.admin || session.status === 'done') {
+        return { ...visible, viewerSide: viewer.side, canAnswer: false };
+    }
+    const own = viewer.side === 'p1';
+    return {
+        ...visible,
+        p1: own ? visible.p1 : { name: visible.p1.name },
+        ...(own ? {} : { createdAt: undefined, updatedAt: undefined }),
+        viewerSide: viewer.side,
+        canAnswer: viewer.side === null && !session.garrison && viewer.village === session.defenderVillage,
+    };
+}
 
 function sessionKey(sectorWarId: string): string { return `sector-pet:${sectorWarId}`; }
 /* The garrison duel gets its OWN key. Sharing the live table's key would let an
@@ -79,9 +187,17 @@ function sessionKey(sectorWarId: string): string { return `sector-pet:${sectorWa
  * independent: the garrison is what you do INSTEAD of waiting, not something
  * that cancels the seat a real defender can still take. */
 function garrisonSessionKey(sectorWarId: string): string { return `sector-pet-garrison:${sectorWarId}`; }
+/** An open-world battle (action `engage`) lives under its own id: many can be
+ *  fought in one war, and none of them is the war's table. */
+function openSessionKey(engageId: string): string { return `sector-pet-open:${engageId}`; }
+function cleanEngageId(raw: unknown): string {
+    const id = String(raw ?? '').trim();
+    return /^[a-f0-9]{24}$/.test(id) ? id : '';
+}
 /** Which session a read addresses. `garrison` is a mode selector re-authorized
  *  server-side on every write; on a read it only chooses which row to project. */
-function readKey(sectorWarId: string, garrison: boolean): string {
+function readKey(sectorWarId: string, garrison: boolean, engageId = ''): string {
+    if (engageId) return openSessionKey(engageId);
     return garrison ? garrisonSessionKey(sectorWarId) : sessionKey(sectorWarId);
 }
 
@@ -112,9 +228,10 @@ async function sealPlayerPet(playerName: string, petId: string): Promise<Pet | n
 }
 
 // Apply the duel winner to the sector-war contest — p1 = attacker, p2 = defender, so
-// the winner maps straight on (attacker chip / defender regen / draw no-op). Idempotent
-// via appliedToContest; nested under the session lock the caller holds.
-async function applyPetOutcomeToContest(session: SectorPetSession): Promise<void> {
+// the winner maps straight on (attacker win → attacker points, defender win →
+// defender points, draw → nothing). Exactly once through the contest's battle
+// receipt; nested under the session lock the caller holds. Returns what it did.
+async function applyPetOutcomeToContest(session: SectorPetSession): Promise<SectorWarBattleCommit> {
     // Role-scaled swing (§17.6): p1 = attacker, p2 = defender. Roles read outside the
     // contest lock (authoritative server state), then applied atomically inside it.
     const winnerName = session.winner === 'p1' ? session.p1.name : session.winner === 'p2' ? (session.p2?.name ?? '') : '';
@@ -130,15 +247,24 @@ async function applyPetOutcomeToContest(session: SectorPetSession): Promise<void
             ? [await sectorWarRoleOf(session.p1.name), ROLE_VILLAGER] as const
             : [ROLE_VILLAGER, await sectorWarRoleOf(session.p1.name)] as const)
         : await Promise.all([sectorWarRoleOf(winnerName), sectorWarRoleOf(loserName)]);
-    await commitSectorWarBattle({
+    // The duel ended when it resolved; that stamp, not this request's clock,
+    // decides whether the war could still count it.
+    const endedAt = Math.floor(Number(session.updatedAt) || 0) || Date.now();
+    return commitSectorWarBattle({
         contestId: session.sectorWarId,
-        battleId: `pet${session.garrison ? '-garrison' : ''}:${session.sectorWarId}:${session.createdAt}`,
+        battleId: session.open
+            ? `pet-open:${session.sectorWarId}:${session.open.engageId}`
+            : `pet${session.garrison ? '-garrison' : ''}:${session.sectorWarId}:${session.createdAt}`,
         decide: async (contest): Promise<SectorWarBattleDecision> => {
             // A settled war's row is no longer written; a duel opened against
-            // an earlier war on this sector never scores the one that replaced it.
+            // an earlier war on this sector never scores the one that replaced
+            // it; and one that ended after the war stopped being live is past
+            // the whistle — skipped, never a 0-point receipt that still logs a
+            // score and still puts its winner on the capture credit.
             if (contest.flipped || contest.expiredAt) return { kind: 'skip', reason: 'terminal' };
             if (session.createdAt < contest.startedAt) return { kind: 'skip', reason: 'superseded' };
-            const at = Date.now();
+            if (!isSectorWarActive(contest, endedAt)) return { kind: 'skip', reason: 'superseded' };
+            const at = endedAt;
             const [atkRaw, defRaw] = await Promise.all([
                 kv.get<Record<string, unknown>>(villageWarKey(session.attackerVillage)),
                 kv.get<Record<string, unknown>>(villageWarKey(session.defenderVillage)),
@@ -212,14 +338,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const me = identity.admin ? safeName(String(body?.playerName ?? '')) : identity.name;
 
         const wantsGarrison = body?.garrison === true;
-        if (action === 'state') {
-            const session = await kv.get<SectorPetSession>(readKey(sectorWarId, wantsGarrison));
+        const engageId = cleanEngageId(body?.engageId);
+        if (action === 'state' || action === 'watch') {
+            const session = await kv.get<SectorPetSession>(readKey(sectorWarId, wantsGarrison, engageId));
+            if (session && engageId && session.sectorWarId !== sectorWarId) return res.status(404).json({ error: 'No pet duel session yet.' });
             if (!session) return res.status(404).json({ error: 'No pet duel session yet.' });
-            return res.status(200).json({ session });
-        }
-        if (action === 'watch') {
-            const session = await kv.get<SectorPetSession>(readKey(sectorWarId, wantsGarrison));
-            if (!session) return res.status(404).json({ error: 'No pet duel session yet.' });
+            // Only the war's own two villages (and admins) read its duels.
+            const viewer = await petViewerOf(session, me, identity.admin);
+            if (!petViewerAllowed(session, viewer)) {
+                return res.status(403).json({ error: 'Only the two sides of this sector war can see its pet duels.' });
+            }
+            // The target has the open battle in front of them: its notice has
+            // done its job, and left in the inbox it would route them back here
+            // after a reload.
+            if (session.open && viewer.side && !sameName(session.open.initiator, me)) await releaseOpenBattleNotice(me, session.open.engageId);
+            if (action === 'state') return res.status(200).json({ session: projectPetSession(session, viewer) });
             if (session.status !== 'done' || !session.p2 || session.seed === undefined) {
                 return res.status(409).json({ error: 'This pet duel has not been decided yet.' });
             }
@@ -232,6 +365,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             })).script;
             return res.status(200).json({ script });
         }
+        // ── engage: an open-world pet battle against an enemy in this sector ──
+        // Owner ruling 2026-10-08: in a Pet war, a battle the two villages'
+        // members start in the open IS a pet battle. The same gates as a Combat
+        // attack (api/_sector-contest-engage.ts), then both sealed teams fight at
+        // once: a pet duel is decided by its two kits, with no turns to wait on,
+        // so the target's team answers for them exactly as a defender's does at
+        // the table. Either side may start it; the winner's village scores.
+        if (action === 'engage') {
+            if (identity.admin) return res.status(403).json({ error: 'Open-world battles are fought by players.' });
+            if (!(await enforceRateLimitKv(req, res, 'sector-pet-engage', 6, 60_000, identity.name))) return;
+            const now = Date.now();
+            const gate = await gateOpenSectorBattle({ me, target: body?.target, sectorWarId, kind: 'pet', now });
+            if (!gate.ok) {
+                return res.status(gate.status).json({ error: gate.error, ...(gate.retryAfterMs ? { retryAfterMs: gate.retryAfterMs } : {}) });
+            }
+            // The active pet leads, as your loadout leads a Combat fight; the
+            // rest of the 2v2+bench team fills from the same roster.
+            const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
+            if (!pet) return res.status(400).json({ error: 'You have no pet able to fight right now.' });
+            const myTeam = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
+            const theirTeam = await sealWarTeam(gate.target);
+            if (!theirTeam?.length) return res.status(409).json({ error: `${gate.target} has no pet able to fight right now.` });
+            // Read everything the battle needs before holding anyone, so a read
+            // that fails leaves no hold behind.
+            const terrain = gate.contest.terrain ?? sectorConfigFor(
+                normalizeVillageWarRecord(gate.contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(gate.contest.defenderVillage))) ?? undefined),
+                gate.contest.sector,
+            ).terrain;
+            const claim = await claimOpenSectorBattle({ contestId: sectorWarId, kind: 'pet', me, target: gate.target, now });
+            if (!claim.ok) return res.status(claim.status).json({ error: claim.error, retryAfterMs: claim.retryAfterMs });
+
+            const engageId = newOpenBattleId();
+            const mine = { name: me, pet, team: myTeam };
+            const theirs = { name: gate.target, pet: theirTeam[0]!, team: theirTeam };
+            // Seat p1 is the attacking village's fighter, whoever started it.
+            const p1 = gate.p1 === me ? mine : theirs;
+            const p2 = gate.p1 === me ? theirs : mine;
+            const seed = openPetDuelSeed(engageId);
+            const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2 }));
+            const session: SectorPetSession = {
+                sectorWarId, sector: gate.contest.sector,
+                attackerVillage: gate.contest.attackerVillage, defenderVillage: gate.contest.defenderVillage,
+                p1, p2, status: 'done', seed,
+                winner: duel.outcome === 'from' ? 'p1' : 'p2',
+                terrain, engine: 'showdown', open: { engageId, initiator: me },
+                createdAt: now, updatedAt: now,
+            };
+            // The battle is decided here, so both fighters' holds end with this
+            // commit, whether it lands or fails (a failed commit scored nothing:
+            // the contest receipt is written atomically or not at all).
+            let commit: SectorWarBattleCommit;
+            try {
+                commit = await applyPetOutcomeToContest(session);
+                // Starting it ends the challenger's own post-defeat shields, as
+                // a Combat raid does: the target could not start one back while
+                // they lasted. Then the loser, whoever that is, is protected
+                // before the holds let anyone else in; the winner may fight
+                // again at once (owner ruling 2026-10-09).
+                endOwnFieldRecoveryShield(me);
+                await endOwnOpenBattleProtection(sectorWarId, me);
+                await protectOpenBattleLoser(sectorWarId, session.winner === 'p1' ? p2.name : p1.name, now);
+            } finally {
+                await claim.release();
+            }
+            session.warResult = warResultFrom(commit);
+            session.appliedToContest = true;
+            await kv.set(openSessionKey(engageId), session, { ex: SESSION_TTL_SEC });
+            await noticeOpenSectorBattle({ kind: 'pet', from: me, fromCharacter: gate.myCharacter, to: gate.target, sectorWarId, engageId, now });
+            return res.status(200).json({
+                engageId,
+                session: projectPetSession(session, { side: gate.p1 === me ? 'p1' : 'p2', village: gate.myVillage, admin: false }),
+            });
+        }
+
         // ── garrison: the sector's own defence stands in for an absent player ──
         // A Pet contest needs a defender to answer before anything scores, so a
         // village that simply never logs in used to run the 72h clock out at 0-0
@@ -245,14 +452,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // time, so two runs of this block at once (a double-tap that outwaits
             // the lock) would both pass the idle check and both score.
             const result = await withKvLock(garrisonSessionKey(sectorWarId), async () => {
+                const now = Date.now();
                 const contest = await loadSectorWar(sectorWarId);
-                if (!contest || contest.flipped) return { status: 409 as const, body: { error: 'No active sector war for that id.' } };
+                // An ended war fields no garrison, and says so plainly rather than
+                // blaming a defender who is not there (the idle check below).
+                if (!contest || !isSectorWarActive(contest, now)) return { status: 409 as const, body: { error: 'No active sector war for that id.' } };
                 if (contest.winCondition !== 'pet') return { status: 409 as const, body: { error: 'That sector is not a Pet contest.' } };
                 const myVillage = identity.admin ? contest.attackerVillage : await villageOf(me);
                 if (myVillage !== contest.attackerVillage) {
                     return { status: 403 as const, body: { error: 'Only the attacking village can fight the garrison.' } };
                 }
-                const now = Date.now();
                 if (!contestGarrisonReady(contest, now)) {
                     // Two different reasons, two different messages: "a defender is
                     // actually here" and "you just fought the garrison" are not the
@@ -264,21 +473,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         : `The defence is still contesting this sector — the garrison can be fought in ${inMin(Math.max(contest.lastLiveBattleAt ?? 0, contest.startedAt))} min if no defender answers.`;
                     return { status: 409 as const, body: { error } };
                 }
-                const defender = await garrisonDefenderFor(contest.defenderVillage);
-                if (!defender) return { status: 409 as const, body: { error: NO_GARRISON_DEFENDER_ERROR } };
-
                 const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
                 if (!pet) return { status: 400 as const, body: { error: 'You have no pet to send into battle.' } };
                 const team = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
-                const garrisonTeam = await sealWarTeam(defender.slug);
-                if (!garrisonTeam?.length) {
-                    return { status: 409 as const, body: { error: 'The garrison has no pet able to hold this sector right now.' } };
+                // The first ANBU in rotation (then the Kage) who can actually
+                // field a team holds the garrison. One whose pets are all on an
+                // expedition or breeding used to refuse the whole assault, every
+                // time the rotation landed on them.
+                const fielded = await fieldGarrisonDefender(contest.defenderVillage, async (slug) => {
+                    const garrisonTeam = await sealWarTeam(slug);
+                    return garrisonTeam?.length ? garrisonTeam : null;
+                });
+                if (!fielded.ok) {
+                    return { status: 409 as const, body: { error: fielded.reason === 'no-defender'
+                        ? NO_GARRISON_DEFENDER_ERROR
+                        : 'The garrison has no pet able to hold this sector right now.' } };
                 }
+                const defender = fielded.defender;
+                const garrisonTeam = fielded.fielded;
 
-                const defRec = normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined);
-                const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
+                // The terrain sealed into the contest at declaration (the
+                // holder's current setting for a war declared before that).
+                const terrain = contest.terrain ?? sectorConfigFor(
+                    normalizeVillageWarRecord(contest.defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined),
+                    contest.sector,
+                ).terrain;
                 const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
-                const p2 = { name: defender.slug, pet: garrisonTeam[0]!, team: garrisonTeam };
+                // The garrison fights under the defence's MASKED name, as the
+                // Combat garrison does: it represents the village, not a callout
+                // of which ANBU's kennel it borrowed.
+                const p2 = { name: maskedGarrisonDefenderName(contest.defenderVillage, defender, fielded.appointees), pet: garrisonTeam[0]!, team: garrisonTeam };
                 const p1 = { name: me, pet, team };
                 const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1, p2 }));
                 const session: SectorPetSession = {
@@ -286,13 +510,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     attackerVillage: contest.attackerVillage, defenderVillage: contest.defenderVillage,
                     p1, p2, status: 'done', seed,
                     winner: duel.outcome === 'from' ? 'p1' : 'p2',
-                    terrain, engine: 'showdown', garrison: true,
+                    terrain, engine: 'showdown', garrison: true, garrisonDefenderSlug: defender.slug,
                     createdAt: now, updatedAt: now,
                 };
-                await applyPetOutcomeToContest(session);
+                session.warResult = warResultFrom(await applyPetOutcomeToContest(session));
                 session.appliedToContest = true;
                 await kv.set(garrisonSessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
-                return { status: 200 as const, body: { session, garrisonDefendedByKage: defender.byKage } };
+                return { status: 200 as const, body: {
+                    session: projectPetSession(session, { side: 'p1', village: '', admin: identity.admin }),
+                    garrisonDefendedByKage: defender.byKage,
+                } };
             }, { failClosed: true });
             return res.status(result.status).json(result.body);
         }
@@ -300,8 +527,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (action !== 'join') return res.status(400).json({ error: `Unknown action: ${action}` });
 
         const result = await withKvLock(sessionKey(sectorWarId), async () => {
+            const now = Date.now();
+            const existing = await kv.get<SectorPetSession>(sessionKey(sectorWarId));
             const contest = await loadSectorWar(sectorWarId);
-            if (!contest || contest.flipped) return { status: 409 as const, body: { error: 'No active sector war for that id.' } };
+            // An ENDED war (captured, defended, abandoned, or past its 72 hours)
+            // opens and answers no duels: a defended row lingers for a day, and a
+            // duel on it used to resolve as if the war could still count it.
+            if (!contest || !isSectorWarActive(contest, now)) return { status: 409 as const, body: { error: 'No active sector war for that id.' } };
             if (contest.winCondition !== 'pet') return { status: 409 as const, body: { error: 'That sector is not a Pet contest.' } };
             const { attackerVillage, defenderVillage } = contest;
 
@@ -311,15 +543,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const isAttacker = myVillage === attackerVillage;
             const isDefender = myVillage === defenderVillage;
             if (!isAttacker && !isDefender) return { status: 403 as const, body: { error: 'You are not a participant in this sector war.' } };
+            const viewer = (side: PetViewer['side']): PetViewer => ({ side, village: myVillage, admin: identity.admin });
 
             const pet = await sealPlayerPet(me, String(body?.petId ?? ''));
             if (!pet) return { status: 400 as const, body: { error: 'You have no pet to send into battle.' } };
             // The champion leads; the rest of the 2v2+bench team fills from the
             // same roster (owner ruling: war duels are 2v2 with two reserves).
             const team = (await sealWarTeam(me, [String(pet.id)])) ?? [pet];
-
-            const existing = await kv.get<SectorPetSession>(sessionKey(sectorWarId));
-            const now = Date.now();
 
             // Attacker opens a fresh duel (or re-opens after the last one finished).
             if (!existing || existing.status === 'done') {
@@ -329,11 +559,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     p1: { name: me, pet, team }, status: 'awaiting-defender', createdAt: now, updatedAt: now,
                 };
                 await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
-                return { status: 200 as const, body: { session } };
+                return { status: 200 as const, body: { session: projectPetSession(session, viewer('p1')) } };
             }
             // Idempotent re-open by the same attacker (e.g. a retry before a defender answered).
-            if (existing.p1.name.toLowerCase() === me.toLowerCase()) {
-                return { status: 200 as const, body: { session: existing } };
+            if (sameName(existing.p1.name, me)) {
+                return { status: 200 as const, body: { session: projectPetSession(existing, viewer('p1')) } };
             }
             if (existing.status !== 'awaiting-defender') return { status: 409 as const, body: { error: 'This pet duel is no longer accepting a defender.' } };
             if (!isDefender) return { status: 409 as const, body: { error: 'A defender of this sector must answer the pet duel.' } };
@@ -346,18 +576,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             // AI over their own sealed kits — symmetric by construction. The old
             // doctrine briefing was a legacy-sim concept and retires with it: a
             // garrison's plan is now its KIT, not a side-channel order.
-            const defRec = normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined);
-            const terrain = defRec.sectors[String(contest.sector)]?.terrain ?? null;
-            const seed = (now ^ (contest.sector * 2654435761)) >>> 0;
+            const terrain = contest.terrain ?? sectorConfigFor(
+                normalizeVillageWarRecord(defenderVillage, (await kv.get<Record<string, unknown>>(villageWarKey(defenderVillage))) ?? undefined),
+                contest.sector,
+            ).terrain;
+            // Fixed by the table, not this request: a retry after a lost session
+            // write fights the duel the contest already scored (petDuelSeed).
+            const seed = petDuelSeed(sectorWarId, existing.createdAt);
             const duel = resolveWarDuel(sectorWarInput({ sectorWarId, seed, terrain, p1: existing.p1, p2: { name: me, pet, team } }));
             // Showdown's judge always decides — 'draw' survives in the type only
             // for sessions the retired engine recorded.
             const winner: 'p1' | 'p2' = duel.outcome === 'from' ? 'p1' : 'p2';
             const session: SectorPetSession = { ...existing, p2: { name: me, pet, team }, status: 'done', seed, winner, terrain, engine: 'showdown', updatedAt: now };
-            await applyPetOutcomeToContest(session);
+            session.warResult = warResultFrom(await applyPetOutcomeToContest(session));
             session.appliedToContest = true;
             await kv.set(sessionKey(sectorWarId), session, { ex: SESSION_TTL_SEC });
-            return { status: 200 as const, body: { session } };
+            return { status: 200 as const, body: { session: projectPetSession(session, viewer('p2')) } };
         }, { failClosed: true });
 
         return res.status(result.status).json(result.body);

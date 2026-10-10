@@ -1,4 +1,5 @@
 import { CHALLENGE_DAMAGE, type ClanWar } from '../clan/war/_storage.js';
+import { safeName } from '../_utils.js';
 
 export const WAR_REWARD_EXPIRY_MS = 7 * 24 * 60 * 60 * 1000;
 export const LEGENDARY_WAR_CRATE_ID = 'legendary-war-crate';
@@ -103,7 +104,22 @@ export function settleVillageWarRewards(
     let warsWon = 0;
     let mvpCount = 0;
 
-    if (war.winnerVillage === village && war.warCrateId && !claimed.has(war.warCrateId)) {
+    // The war's contribution ledger is keyed by the player's safeName SLUG (every
+    // server writer keys it by the authenticated name). It used to be read by the
+    // lowercased DISPLAY name, so a player called "Kira Uchiha" (slug
+    // "kirauchiha") never found their own damage and lost the consolation and the
+    // lifetime-damage stat. The display-name key is kept as a fallback for rows
+    // written before every writer used the slug.
+    const contribution = war.contributions?.[safeName(playerName)]
+        ?? war.contributions?.[playerName.toLowerCase()];
+    const isMvp = sameName(war.mvpByVillage?.[village], playerName);
+
+    // The winner's crate is for members of the winning village who FOUGHT for it
+    // (owner ruling 2026-10-08): damage for that side, or its MVP. Winning alone
+    // used to be enough, so a member who never fought — or a player who moved
+    // villages after the war — could claim a Legendary War Crate.
+    const foughtForWinner = isMvp || (!!contribution && contribution.side === village && Number(contribution.damage) > 0);
+    if (war.winnerVillage === village && war.warCrateId && !claimed.has(war.warCrateId) && foughtForWinner) {
         markers.push(war.warCrateId);
         crates += 1;
         warsWon += 1;
@@ -111,7 +127,7 @@ export function settleVillageWarRewards(
 
     const rewardToken = villageWarRewardToken(war);
     const mvpId = `mvp-crate-${rewardToken}`;
-    if (sameName(war.mvpByVillage?.[village], playerName) && !claimed.has(mvpId)) {
+    if (isMvp && !claimed.has(mvpId)) {
         markers.push(mvpId);
         crates += 1;
         ryo += 10_000;
@@ -121,7 +137,6 @@ export function settleVillageWarRewards(
         mvpCount += 1;
     }
 
-    const contribution = war.contributions?.[playerName.toLowerCase()];
     if (war.loserCrateId && war.winnerVillage && war.winnerVillage !== village
         && contribution?.side === village && contribution.damage >= 50 && !claimed.has(war.loserCrateId)) {
         markers.push(war.loserCrateId);

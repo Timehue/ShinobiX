@@ -24,7 +24,8 @@ import {
 } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
-import { runVillageWarDailyPass } from '../_war-daily.js';
+import { startClanBossInitialization } from '../_startup-initialization.js';
+import { runVillageWarDailyCatchUp, runVillageWarDailyPass, type VillageWarDailyResult } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
 import { scheduledJobsDisabled } from '../_launch-controls.js';
@@ -56,6 +57,11 @@ const BATTLE_LAPSE_TICK_MS = 10 * 60_000; // F08 backstop: fights nobody came ba
 // Player-ranked sagas nobody came back to finish (restart mid-saga, lost gate admission).
 const RANKED_SETTLEMENT_TICK_MS = 5 * 60_000;
 const RANKED_SETTLEMENT_BOOT_DELAY_MS = 60_000;
+// The village-war daily pass's catch-up/retry tick (api/_war-daily.ts
+// runVillageWarDailyCatchUp). One marker read when the day is done; a re-run of
+// the pass, which only finishes what is missing, when it is not.
+const VILLAGE_WAR_CATCHUP_TICK_MS = 10 * 60_000;
+const VILLAGE_WAR_CATCHUP_BOOT_DELAY_MS = 60_000;
 const SNAPSHOT_RECOVERY_TICK_MS = 60 * 60_000;
 const SNAPSHOT_RECOVERY_RETRY_MS = 5 * 60_000;
 // The snapshot pass has a five-minute budget. Keep crash ownership only a little
@@ -72,7 +78,11 @@ const LEASE_TTL = {
     snapshot: 20 * 60 * 60,
     rankedRollover: 20 * 60 * 60,
     clanBoss: 20 * 60 * 60,
-    villageWar: 20 * 60 * 60,
+    // NOT a day-long dedupe window. The village-war day is deduped by the
+    // pass's own per-village stamps and its durable done-marker, so this lease
+    // only bounds crash recovery: a pass that died mid-run is retried by the
+    // catch-up tick within half an hour, not 20 hours later.
+    villageWar: 30 * 60,
     era: 20 * 60 * 60,
     mercAuto: 9 * 60,
     settlementReconciliation: 4 * 60,
@@ -100,6 +110,9 @@ let _rankedSettlementInterval: ReturnType<typeof setInterval> | null = null;
 let _rankedSettlementBootTimeout: ReturnType<typeof setTimeout> | null = null;
 let _snapshotRecoveryInterval: ReturnType<typeof setInterval> | null = null;
 let _snapshotRecoveryRetryTimeout: ReturnType<typeof setTimeout> | null = null;
+let _villageWarCatchUpInterval: ReturnType<typeof setInterval> | null = null;
+let _villageWarCatchUpBootTimeout: ReturnType<typeof setTimeout> | null = null;
+let _villageWarCatchUpRunning = false;
 let _settlementScanRunning = false;
 let _clanBossPartySweepRunning = false;
 let _territoryLifecycleRunning = false;
@@ -229,6 +242,48 @@ async function fireSectorWarSettlement(): Promise<void> {
         console.error('[cron-scheduler] sector-war settlement threw:', (err as Error).message);
     } finally {
         _sectorWarSettleRunning = false;
+    }
+}
+
+/**
+ * The leased village-war daily pass, shared by the 03:00 tick and the catch-up.
+ * A run that left any village unfinished RELEASES the lease, so the catch-up
+ * tick retries it; only a complete day holds the lease. It used to be held for
+ * 20 hours after any run, which left a failed village unpaid for the day.
+ */
+function runLeasedVillageWarDailyPass(now?: number): Promise<VillageWarDailyResult | null> {
+    return runLeasedJob(
+        'village-war-daily',
+        LEASE_TTL.villageWar,
+        () => runVillageWarDailyPass(now === undefined ? {} : { now }),
+        (result) => result.complete,
+    );
+}
+
+function logVillageWarDailyResult(label: string, w: VillageWarDailyResult): void {
+    if (!w.enabled) return;
+    if (w.ran > 0) console.log(`[cron-scheduler] village-war daily ${label}: ${w.ran}/${w.processed} villages processed.`);
+    if (!w.complete) {
+        console.warn(`[cron-scheduler] village-war daily ${label} left the day unfinished${w.failed.length ? ` (${w.failed.join(', ')})` : ''}; the catch-up tick retries it.`);
+    }
+}
+
+/**
+ * One village-war catch-up tick (exported so tests drive the real entry point).
+ * Past 03:00 UTC with today not yet recorded complete, it re-runs the leased
+ * pass: a restart across 03:00 no longer skips the day, and a village that
+ * failed is finished within minutes. See runVillageWarDailyCatchUp.
+ */
+export async function fireVillageWarDailyCatchUp(): Promise<void> {
+    if (_villageWarCatchUpRunning || !villageWarMapEnabled()) return;
+    _villageWarCatchUpRunning = true;
+    try {
+        const out = await runBackgroundWork(() => runVillageWarDailyCatchUp({ runPass: runLeasedVillageWarDailyPass }));
+        if (out?.status === 'ran') logVillageWarDailyResult('catch-up', out.result);
+    } catch (err) {
+        console.error('[cron-scheduler] village-war daily catch-up threw:', (err as Error).message);
+    } finally {
+        _villageWarCatchUpRunning = false;
     }
 }
 
@@ -410,12 +465,11 @@ async function fireCore(): Promise<void> {
         console.error('[cron-scheduler] clan-boss weekly threw:', (err as Error).message);
     }
     // Village War Map daily pass (WR accrual + structure upkeep + merc-lease
-    // expiry). Default on; the canonical Sector Map kill switch makes it a no-op.
+    // expiry + seals + stores). Default on; the canonical Sector Map kill switch
+    // makes it a no-op. An unfinished day is retried by the catch-up tick.
     try {
-        const w = await runLeasedJob('village-war-daily', LEASE_TTL.villageWar, () => runVillageWarDailyPass());
-        if (w && w.enabled && w.ran > 0) {
-            console.log(`[cron-scheduler] village-war daily pass: ${w.ran}/${w.processed} villages processed.`);
-        }
+        const w = await runLeasedVillageWarDailyPass();
+        if (w) logVillageWarDailyResult('pass', w);
     } catch (err) {
         console.error('[cron-scheduler] village-war daily pass threw:', (err as Error).message);
     }
@@ -503,6 +557,17 @@ export function startSnapshotCron(): void {
         _sectorWarSettleInterval.unref?.();
         void fireSectorWarSettlement();
     }
+    if (!_villageWarCatchUpInterval) {
+        _villageWarCatchUpInterval = setInterval(() => void fireVillageWarDailyCatchUp(), VILLAGE_WAR_CATCHUP_TICK_MS);
+        _villageWarCatchUpInterval.unref?.();
+        // A restart across 03:00 UTC used to skip the village-war day outright;
+        // the first check follows boot closely.
+        _villageWarCatchUpBootTimeout = setTimeout(() => {
+            _villageWarCatchUpBootTimeout = null;
+            void fireVillageWarDailyCatchUp();
+        }, VILLAGE_WAR_CATCHUP_BOOT_DELAY_MS);
+        _villageWarCatchUpBootTimeout.unref?.();
+    }
     if (!_battleLapseInterval) {
         _battleLapseInterval = setInterval(() => void fireBattleLapseSweep(), BATTLE_LAPSE_TICK_MS);
         _battleLapseInterval.unref?.();
@@ -563,8 +628,7 @@ export function startSnapshotCron(): void {
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
     // immediately (rather than dark until the next 03:00 tick). The core kill switch
     // makes it a no-op; NX guards ensure it never double-spawns.
-    void runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly())
-        .catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
+    void startClanBossInitialization();
     console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 
@@ -578,6 +642,8 @@ export function stopSnapshotCron(): void {
     if (_clanBossPartySweepInterval) { clearInterval(_clanBossPartySweepInterval); _clanBossPartySweepInterval = null; }
     if (_territoryLifecycleInterval) { clearInterval(_territoryLifecycleInterval); _territoryLifecycleInterval = null; }
     if (_sectorWarSettleInterval) { clearInterval(_sectorWarSettleInterval); _sectorWarSettleInterval = null; }
+    if (_villageWarCatchUpInterval) { clearInterval(_villageWarCatchUpInterval); _villageWarCatchUpInterval = null; }
+    if (_villageWarCatchUpBootTimeout) { clearTimeout(_villageWarCatchUpBootTimeout); _villageWarCatchUpBootTimeout = null; }
     if (_battleLapseInterval) { clearInterval(_battleLapseInterval); _battleLapseInterval = null; }
     if (_battleLapseBootTimeout) { clearTimeout(_battleLapseBootTimeout); _battleLapseBootTimeout = null; }
     if (_rankedSettlementInterval) { clearInterval(_rankedSettlementInterval); _rankedSettlementInterval = null; }

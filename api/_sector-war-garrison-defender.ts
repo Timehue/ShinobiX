@@ -18,15 +18,29 @@
  * `pickAnbuDefender` rotates the choice and stamps its own last-defended map,
  * so repeat assaults spread across a village's appointees instead of grinding
  * one person's sealed kit.
+ *
+ * Choosing a defender is not enough, though: the chosen one must be ABLE to
+ * field what the engine seals. An ANBU whose pets are all on an expedition or
+ * breeding has no war team, one who never built a Chronicle deck has no deck,
+ * one with no save has no snapshot. Picking that player and refusing ("the
+ * garrison has nothing to hold with") made the garrison unassaultable for as
+ * long as the rotation kept landing on them, while every other appointee and
+ * the Kage stood ready. `fieldGarrisonDefender` walks the rotation instead.
  */
 import { kv } from './_storage.js';
 import { safeName } from './_utils.js';
-import { loadAnbuAppointees, pickAnbuDefender } from './_anbu-infiltration-store.js';
+import {
+    anbuLastDefKey,
+    loadAnbuAppointees,
+    pickAnbuDefender,
+    villageSlug,
+} from './_anbu-infiltration-store.js';
 
 export interface GarrisonDefender {
     /** safeName slug of the player whose sealed kit defends this sector. */
     slug: string;
-    /** True when no ANBU seats are occupied and the seated Kage stood in. */
+    /** True when the seated Kage stood in: the village has no ANBU appointed,
+     *  or none of its ANBU could field what this engine seals. */
     byKage: boolean;
 }
 
@@ -64,3 +78,86 @@ export async function garrisonDefenderFor(village: string): Promise<GarrisonDefe
 /** The refusal a caller shows when `garrisonDefenderFor` returns null. */
 export const NO_GARRISON_DEFENDER_ERROR =
     'That village has no ANBU or Kage to field a garrison yet.';
+
+/**
+ * The order `pickAnbuDefender` picks in — least recently defended first, ties
+ * broken by slug — WITHOUT stamping anyone. Only the appointee who actually
+ * defends is stamped (by `fieldGarrisonDefender`), so one who cannot field
+ * never pushes the rotation along on a refusal.
+ */
+export async function garrisonRotation(village: string, appointees: readonly string[]): Promise<string[]> {
+    const lastMap = (await kv.get<Record<string, unknown>>(anbuLastDefKey(villageSlug(village)))) ?? {};
+    const lastDefended = (slug: string): number => {
+        const at = Number(Object.prototype.hasOwnProperty.call(lastMap, slug) ? lastMap[slug] : 0);
+        return Number.isFinite(at) ? at : 0;
+    };
+    // Slug order first, then a STABLE sort on the timestamp: equal timestamps
+    // keep slug order, exactly the tie-break pickAnbuDefender applies.
+    return [...appointees].sort().sort((a, b) => lastDefended(a) - lastDefended(b));
+}
+
+export type FieldedGarrison<T> =
+    | {
+        ok: true;
+        defender: GarrisonDefender;
+        /** What `field` sealed from the defender (a deck, a team, a snapshot). */
+        fielded: T;
+        /** The appointee roster as loaded: its order numbers the masked name. */
+        appointees: string[];
+    }
+    | {
+        ok: false;
+        /** `no-defender`: no ANBU and no seated Kage at all. `cannot-field`:
+         *  there were candidates, and none of them could field this engine. */
+        reason: 'no-defender' | 'cannot-field';
+    };
+
+/**
+ * The defender who holds this garrison for ONE engine: the first appointee in
+ * rotation order whose `field` succeeds, then the seated Kage. `field` returns
+ * what it sealed, or null when that player cannot field it right now.
+ *
+ * Only a total failure refuses, and it says which kind: a village with nobody
+ * to defend (NO_GARRISON_DEFENDER_ERROR) is a different message from one whose
+ * defenders all happen to be unable to field right now.
+ */
+export async function fieldGarrisonDefender<T>(
+    village: string,
+    field: (slug: string) => Promise<T | null | undefined>,
+): Promise<FieldedGarrison<T>> {
+    const appointees = await loadAnbuAppointees(village);
+    for (const slug of await garrisonRotation(village, appointees)) {
+        const fielded = await field(slug);
+        if (fielded == null) continue;
+        // Stamp exactly the appointee who defends: a one-name roster makes
+        // pickAnbuDefender choose (and timestamp) them, so the shared rotation
+        // moves past them the same way it always has.
+        await pickAnbuDefender(village, [slug]);
+        return { ok: true, defender: { slug, byKage: false }, fielded, appointees };
+    }
+    const kage = await seatedKageOf(village);
+    if (kage && !appointees.includes(kage)) {
+        const fielded = await field(kage);
+        if (fielded != null) return { ok: true, defender: { slug: kage, byKage: true }, fielded, appointees };
+    }
+    return { ok: false, reason: appointees.length > 0 || kage ? 'cannot-field' : 'no-defender' };
+}
+
+/**
+ * The name the attacker sees for the garrison's defender. Masked like Anbu
+ * Infiltration's own defender — the garrison represents the village's defence,
+ * not a callout of which player it is — but numbered by roster position (owner
+ * ruling) so a returning attacker can tell whether they face the same ANBU
+ * again or a rotation. loadAnbuAppointees is order-preserving, so the number
+ * is stable for as long as that ANBU stays appointed.
+ */
+export function maskedGarrisonDefenderName(
+    village: string,
+    defender: GarrisonDefender,
+    appointees: readonly string[],
+): string {
+    const shortVillage = village.replace(/\s+Village$/i, '').trim() || 'Village';
+    if (defender.byKage) return `The ${shortVillage} Kage`;
+    const index = appointees.indexOf(defender.slug);
+    return `${shortVillage} Anbu #${index >= 0 ? index + 1 : appointees.length}`;
+}

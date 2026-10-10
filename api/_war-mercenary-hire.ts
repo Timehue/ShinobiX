@@ -1,6 +1,17 @@
+/*
+ * Village-war Honor-Seal mercenary hire — the target-first exact-once saga
+ * behind the RETIRED Town Hall hire (api/village/hire-mercenary.ts).
+ *
+ * RETIRED 2026-10-08 (owner ruling): village-war mercenaries are now hired as
+ * AI bands from the War Map (api/village/war-merc.ts). No new hire starts. A
+ * hire already mid-saga is still finished — retireWarMercenaryHire — so no war
+ * row stays frozen, nothing paid is lost, and nothing is charged twice. The
+ * saga below is kept intact for exactly that, and for its replay receipts.
+ */
 import { createHash, randomUUID } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
-import type { KvLike } from './_storage.js';
+import { kv, type KvLike } from './_storage.js';
+import { withKvLock } from './_lock.js';
 import { syncCurrencyLedger } from './_currency-ledger.js';
 import { mergePreservingImages } from './_utils.js';
 import { carriedRegenCursor, settleIdleRecovery, versionedPlayerRecord } from './save/_mutate-player-save.js';
@@ -89,6 +100,8 @@ export type WarMercenaryHireResult =
     }
     | { status: 'insufficient'; have: number; cost: number }
     | { status: 'expired'; row: Record<string, unknown> }
+    /** A retired hire that never debited: aborted, the war row unfrozen, no charge. */
+    | { status: 'retired'; row: Record<string, unknown> }
     | { status: 'busy'; row: Record<string, unknown> }
     | { status: 'conflict'; row: Record<string, unknown> | null }
     | { status: 'blocked'; reason: string; row: Record<string, unknown> | null };
@@ -791,6 +804,83 @@ export async function helpWarMercenaryHire(
         return { status: 'blocked', reason: debit.reason, row: await store.get<Record<string, unknown>>(warKey) };
     }
     return activateFunding(store, warKey, fundingRow, marker, debit.row, debit.receipt, now);
+}
+
+/**
+ * Finish a RETIRED hire caught mid-saga (the target-first marker is on the war
+ * row). New hires are refused, so this never starts a charge:
+ *   - the Honor Seals already left the player's save → the strike they paid for
+ *     is activated, exactly as the original request would have landed it;
+ *   - they never did → the attempt is fenced in the save (an `aborted` entry no
+ *     paused worker can debit past) and the marker removed, unfreezing the war
+ *     with no charge.
+ * Caller holds the war-row lock and then the source-save lock, as for
+ * helpWarMercenaryHire.
+ */
+export async function retireWarMercenaryHire(
+    store: MercenaryHireStore,
+    warKey: string,
+    fundingRow: Record<string, unknown>,
+    now: number,
+): Promise<WarMercenaryHireResult> {
+    const marker = warMercenaryFundingMarkerFromRow(fundingRow);
+    if (!marker || positiveSafeInteger(now) === null) {
+        return { status: 'blocked', reason: 'funding-marker-invalid', row: fundingRow };
+    }
+    const aborted = await abortFunding(store, warKey, fundingRow, marker, now);
+    if (aborted === 'aborted') {
+        return { status: 'retired', row: (await store.get<Record<string, unknown>>(warKey)) ?? fundingRow };
+    }
+    if (aborted === 'funded') {
+        const source = await store.get<Record<string, unknown>>(marker.sourceKey);
+        const receipt = source ? sourceEntryFromRow(source, marker) : null;
+        if (source && receipt?.state === 'committed') {
+            return activateFunding(store, warKey, fundingRow, marker, source, receipt, now);
+        }
+    }
+    return { status: 'blocked', reason: 'retired-funding-settle-incomplete', row: await store.get<Record<string, unknown>>(warKey) };
+}
+
+/**
+ * Sweep every village-war row for a retired hire left mid-saga and finish it
+ * (retireWarMercenaryHire). The Town Hall no longer calls the hire route, so
+ * without this a crashed attempt would keep its war row frozen (every war write
+ * answers 503) until a member happened to call it. Runs on the mercenary tick.
+ * A row whose locks are busy is left for the next tick. Returns how many rows
+ * it settled and how many still carry a marker.
+ */
+export async function sweepRetiredWarMercenaryHires(
+    now: number = Date.now(),
+    io: {
+        store?: MercenaryHireStore & Pick<KvLike, 'keys' | 'mget'>;
+        lock?: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
+    } = {},
+): Promise<{ settled: number; pending: number }> {
+    const store = io.store ?? kv;
+    const lock = io.lock ?? (<T>(key: string, fn: () => Promise<T>) => withKvLock(key, fn, { failClosed: true }));
+    const keys = await store.keys('world:war:*');
+    if (!keys.length) return { settled: 0, pending: 0 };
+    const rows = await store.mget<unknown[]>(...keys);
+    let settled = 0;
+    let pending = 0;
+    for (let index = 0; index < keys.length; index += 1) {
+        if (!warHasMercenaryFundingField(rows[index])) continue;
+        const key = keys[index];
+        try {
+            const result = await lock(key, async () => {
+                const exact = await store.get<Record<string, unknown>>(key);
+                const marker = warMercenaryFundingMarkerFromRow(exact);
+                if (!exact || !marker) return null;
+                return lock(marker.sourceKey, () => retireWarMercenaryHire(store, key, exact, now));
+            });
+            if (result && (result.status === 'active' || result.status === 'retired')) settled += 1;
+            else pending += 1;
+        } catch (err) {
+            pending += 1;
+            console.warn('[war-mercenary-hire] retired hire still settling on', key, (err as Error)?.message ?? err);
+        }
+    }
+    return { settled, pending };
 }
 
 export async function settleWarMercenaryHire(

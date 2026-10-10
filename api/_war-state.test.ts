@@ -9,6 +9,7 @@ import {
     totalUpkeepWr,
     canSetTerrain,
     reconcileTerrainLeadership,
+    sectorConfigFor,
     terrainSetCountFor,
     STRUCTURE_KEYS,
     MAX_SECTORS_PER_WIN_CONDITION,
@@ -179,6 +180,58 @@ describe('war-state: terrain quota (Kage 3 / elder 1)', () => {
         });
         assert.equal(r.terrainSetBy['26'], 'kage'); // 26 is a Frostfang home sector (the gate)
         assert.equal(r.terrainSetBy['99'], undefined); // foreign sector dropped
+    });
+});
+
+// Owner ruling 2026-10-08: the CURRENT HOLDER sets a sector's rules. A village
+// configures the sectors it holds, home or captured; a sector it lost is no
+// longer its to set, its terrain pick is freed, and the max-7 rule counts only
+// the sectors it holds. (Ashen Leaf's home is 9-16, Frostfang's 26-33.)
+describe('war-state: the holder configures a sector', () => {
+    const LEAF = 'Ashen Leaf Village';
+    const LEAF_HOME = HOME_SECTORS[LEAF];
+
+    it('a captured war sector keeps its settings in the holder\'s record; any other key is dropped', () => {
+        const r = normalizeVillageWarRecord(LEAF, {
+            sectors: { '27': { winCondition: 'card', terrain: 'volcano' }, '99': { winCondition: 'pet' }, '027': { winCondition: 'pet' } } as never,
+            terrainSetBy: { '27': 'leafkage' } as never,
+        });
+        assert.deepEqual(r.sectors['27'], { winCondition: 'card', terrain: 'volcano' });
+        assert.equal(r.sectors['99'], undefined, 'not a war sector');
+        assert.equal(r.sectors['027'], undefined, 'not a canonical sector key');
+        assert.equal(r.terrainSetBy['27'], 'leafkage');
+    });
+
+    it('an unconfigured captured sector reads as Combat on its own land\'s terrain', () => {
+        const r = defaultVillageWarRecord(LEAF);
+        assert.deepEqual(sectorConfigFor(r, 27), { winCondition: 'combat', terrain: 'snow' });
+        assert.deepEqual(sectorConfigFor(r, 9), r.sectors['9'], 'a home sector reads its stored settings');
+    });
+
+    it('only held sectors are configurable, and the max-7 rule counts only them', () => {
+        const r = defaultVillageWarRecord(LEAF);
+        const lost = LEAF_HOME[7];
+        const held = [...LEAF_HOME.filter((s) => s !== lost), 27];
+        assert.equal(canAssignWinCondition(r, lost, 'card', held), false, 'a lost home sector is no longer its to set');
+        assert.equal(canAssignWinCondition(r, 27, 'card', held), true, 'a captured one is');
+        for (const s of held.slice(0, 7)) r.sectors[String(s)] = { ...sectorConfigFor(r, s), winCondition: 'card' };
+        assert.equal(winConditionCounts(r, held).card, 7);
+        assert.equal(canAssignWinCondition(r, held[7], 'card', held), false, 'an 8th held sector cannot join the 7');
+        r.sectors[String(lost)].winCondition = 'card';
+        assert.equal(winConditionCounts(r, held).card, 7, 'the lost sector\'s setting does not count');
+    });
+
+    it('a lost sector frees its terrain pick, and a captured one can take it', () => {
+        const r = defaultVillageWarRecord(LEAF);
+        for (const s of LEAF_HOME.slice(5, 8)) r.terrainSetBy[String(s)] = 'kage'; // the Kage's 3 picks
+        const lost = LEAF_HOME[7];
+        const held = [...LEAF_HOME.filter((s) => s !== lost), 27];
+        assert.equal(canSetTerrain(r, lost, 'kage', 'kage', held).error, 'not-home-sector', 'a lost sector is not its to set');
+        assert.equal(terrainSetCountFor(r, 'kage', held), 2, 'the lost sector\'s pick no longer counts');
+        assert.equal(canSetTerrain(r, 27, 'kage', 'kage', held).ok, true, 'so the Kage may pick the captured one');
+        reconcileTerrainLeadership(r, 'kage', [], held);
+        assert.equal(r.terrainSetBy[String(lost)], undefined, 'and reconciling releases it');
+        assert.equal(canSetTerrain(r, 27, 'kage', 'kage').error, 'not-home-sector', 'without a held list the old home-only scope stands');
     });
 });
 

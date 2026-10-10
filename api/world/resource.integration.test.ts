@@ -32,6 +32,52 @@ async function seed(name: string, patch: Json = {}) {
     await kv.set(`save:${name}`, { _saveVersion: 1, _saveAt: Date.now(), currentSector: node.sector, character });
     online.upsert({ name, sector: node.sector, tile: node.approach, character: { level: 100 } });
 }
+for (const activity of ['mining', 'fishing'] as const) {
+    for (const interruption of ['heartbeat', 'battle', 'expiry'] as const) {
+        test(`${activity} status recovery reports ${interruption} and preserves admission accounting on replay`, async () => {
+            const name = `resumestatus${activity}${interruption}`, node = resourceNode(activity === 'mining' ? 'resource-17' : 'resource-1')!;
+            await seed(name, { equipment: { pickaxe: 'tool-basic-pickaxe', fishingPole: 'tool-basic-fishing-pole' },
+                gatheringToolUses: { 'tool-basic-pickaxe': 0, 'tool-basic-fishing-pole': 0 } });
+            if (activity === 'fishing') online.startTravel(name, node.sector, Date.now(), 29, node.approach);
+            online.setInBattle(name, true); online.setInBattle(name, false);
+            const epoch = online.get(name)!.resourceEpoch!; assert.ok(epoch > 0);
+            const id = `recover-status-${activity}-${interruption}`;
+            const started = await post(name, { action: 'start', nodeId: node.id, mode: 'relaxed', requestId: id });
+            assert.equal(started.status, 200);
+            const saved = (await kv.get<Json>(`save:${name}`))!, character = saved.character as Json;
+            const state = readResourceGathering(character.resourceGathering), startedAt = Date.now() - 4000;
+            const expiresAt = interruption === 'expiry' ? Date.now() - 1 : startedAt + 90_000;
+            await kv.set(`save:${name}`, { ...saved, character: { ...character, resourceGathering: { ...state, active: { ...state.active, startedAt, expiresAt } } } });
+            const key = `economy-tx:resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
+            const journal = (await kv.get<{ meta: Json }>(key))!;
+            await kv.set(key, { ...journal, meta: { ...journal.meta, seal: { ...(journal.meta.seal as Json), startedAt, expiresAt, successDraw: 0, traceDraw: 1 } } });
+            if (interruption === 'battle') { online.setInBattle(name, true); online.setInBattle(name, false); }
+            online.upsert({ name, sector: node.sector, tile: node.approach, character: null });
+            const status = await post(name, { action: 'status' }); assert.equal(status.status, 200);
+            if (interruption === 'heartbeat') {
+                assert.equal(online.get(name)!.resourceEpoch, epoch);
+                assert.equal(readResourceGathering((status.body.character as Json).resourceGathering).active?.id, id);
+                assert.equal(status.body.receipt, undefined);
+            } else {
+                assert.equal((status.body.receipt as Json).outcome, interruption === 'expiry' ? 'expired' : 'cancelled');
+                assert.equal((status.body.receipt as Json).xp, 0); assert.equal(status.body.nodeId, node.id);
+                assert.equal(readResourceGathering((status.body.character as Json).resourceGathering).active, undefined);
+            }
+            const settlement = await post(name, { action: 'resolve', requestId: id }); assert.equal(settlement.status, 200);
+            const settled = settlement.body.character as Json, receipt = settlement.body.receipt as Json;
+            assert.equal(receipt.xp, interruption === 'heartbeat' ? 10 : 0);
+            assert.equal(resourceActionsToday(settled), 1);
+            assert.equal(readResourceGathering(settled.resourceGathering).nodes[node.id].attempts, 1);
+            assert.equal((settled.gatheringToolUses as Json)[activity === 'mining' ? 'tool-basic-pickaxe' : 'tool-basic-fishing-pole'], 1);
+            const replay = await post(name, { action: 'cancel', requestId: id });
+            assert.equal(replay.status, 200); assert.equal(replay.body.replayed, true);
+            assert.deepEqual(replay.body.character, settled); assert.deepEqual(replay.body.receipt, receipt);
+            const recovered = await post(name, { action: 'status', requestId: id, nodeId: node.id });
+            assert.equal(recovered.status, 200); assert.deepEqual(recovered.body.receipt, receipt);
+            assert.equal(recovered.body.nodeId, node.id); assert.deepEqual(recovered.body.character, settled);
+        });
+    }
+}
 test('authenticated mixed action #100 admits once, shares one pool slot and refuses #101', async () => {
     const name = 'resourcehundred'; await seed(name, { serverExploreDate: new Date().toISOString().slice(0, 10), serverExploresToday: 99 });
     const body = { action: 'start', nodeId: 'resource-17', mode: 'relaxed', requestId: 'resource-shared-hundred-001' };
