@@ -117,6 +117,21 @@ async function caravanAtCombat(name: string, now: number, sessionId: (node: stri
     return String(progress.current.id);
 }
 
+const WAR_SECTOR = 12;
+
+/** Frostfang holds the war sector, and its appointed ANBU defends both the vault and the garrison. */
+async function seedWarDefence(): Promise<void> {
+    await kv.set(`world:territory:${WAR_SECTOR}`, { sector: WAR_SECTOR, ownerVillage: 'Frostfang Village', updatedAt: Date.now() });
+    await kv.set('game:village-state:frostfangvillage', { anbuAppointees: ['heldroutesanbu'] });
+    await kv.set('save:heldroutesanbu', {
+        character: {
+            name: 'Frostfang Anbu', village: 'Frostfang Village', level: 100,
+            maxHp: 12_000, hp: 12_000, maxChakra: 1_000, maxStamina: 1_000,
+            stats: {}, jutsu: [], pvpItems: [], equipment: {},
+        },
+    });
+}
+
 /** A combat mission won at 450, its outcome never reported: a held fight. */
 async function holdMission(name: string): Promise<void> {
     const started = await call('../missions/combat-start.js', name, { playerName: name, missionId: 'combat-e-drill' });
@@ -263,6 +278,45 @@ describe('each route that seals a fight from the save settles a held fight first
                 return Number(escort.player.hp);
             },
         },
+        {
+            route: 'ANBU Vault raid',
+            async start(name) {
+                const { onlineStore } = await import('../_realtime/online-store.js');
+                const { handleStrongholdAction, strongholdVisitKey } = await import('../village/_stronghold.js');
+                const { STRONGHOLD_VAULT } = await import('../../shared/sector-stronghold.js');
+                await seedWarDefence();
+                // A raid admits level 100, standing beside the vault in the sector's stronghold.
+                const record = await kv.get<Json>(`save:${name}`);
+                const character = { ...record?.character, level: 100 };
+                await kv.set(`save:${name}`, { ...record, character });
+                onlineStore.upsert({ name, sector: WAR_SECTOR, character });
+                const entered = await handleStrongholdAction(name, 'stronghold-enter', { sector: WAR_SECTOR, presenceId: `held-routes-${name}` });
+                assert.equal(entered.status, 200, JSON.stringify(entered.body));
+                await kv.set(strongholdVisitKey(name, WAR_SECTOR), { ...(entered.body.visit as Json), tile: STRONGHOLD_VAULT - 1 });
+                const out = await call('../village/anbu-infiltration.js', name, { playerName: name, action: 'start', sector: WAR_SECTOR });
+                assert.equal(out.status, 200, JSON.stringify(out.body));
+                return Number(out.body.session.player.hp);
+            },
+        },
+        {
+            route: 'sector-war garrison assault',
+            async start(name, now) {
+                await seedWarDefence();
+                // A Combat war on that sector, the player's village attacking, and
+                // no live battle for three hours: the garrison is open to assault.
+                const startedAt = now - 3 * 60 * 60_000;
+                const id = `${WAR_SECTOR}:stormveilvillage-vs-frostfangvillage`;
+                await kv.set(`shared:sector-war:${id}`, {
+                    id, sector: WAR_SECTOR, attackerVillage: 'Stormveil Village', defenderVillage: 'Frostfang Village',
+                    winCondition: 'combat', attackerPoints: 0, defenderPoints: 0,
+                    startedAt, endsAt: startedAt + 72 * 60 * 60_000, updatedAt: startedAt,
+                    lastLiveBattleAt: startedAt, flipped: false, appliedBattles: [],
+                });
+                const out = await call('../village/sector-war.js', name, { playerName: name, action: 'garrison-start', sector: WAR_SECTOR });
+                assert.equal(out.status, 200, JSON.stringify(out.body));
+                return Number(out.body.session.player.hp);
+            },
+        },
     ];
 
     for (const { route, start } of cases) {
@@ -280,16 +334,21 @@ describe('each route that seals a fight from the save settles a held fight first
 // ─── The ratchet ──────────────────────────────────────────────────────────────
 //
 // A file "seals a fight from the save" when it builds a Solo-PvE encounter
-// (buildSoloPveAiEncounter seeds HP from the save). The caravan ambush, the one
-// Tower run re-seeded from the save, lives in a file that also seals the escort.
+// (buildSoloPveAiEncounter seeds HP from the save), or one of the two war
+// fights, which seat the player on the save's HP through their own builders:
+// the ANBU Vault raid and the sector-war garrison assault. The caravan ambush,
+// the one Tower run re-seeded from the save, lives in a file that also seals
+// the escort.
 
-const SEALS_FROM_SAVE = /\bbuildSoloPveAiEncounter\(/;
+const SEALS_FROM_SAVE = /\b(?:buildSoloPveAiEncounter|buildInfiltrationEncounter|buildGarrisonEncounter)\(/;
 
 /** Builders that seal for a route, and the route that settles held fights before calling them. */
 const BUILDERS: Record<string, { reason: string; route?: string }> = {
     'api/solo-pve/_ai-encounter.ts': { reason: 'defines buildSoloPveAiEncounter' },
     'api/endless/_wave-session.ts': { reason: 'builds the wave api/endless/wave-start.ts seals', route: 'api/endless/wave-start.ts' },
     'api/hollow-gate/_encounter.ts': { reason: 'builds the dive fight api/hollow-gate/combat-start.ts seals', route: 'api/hollow-gate/combat-start.ts' },
+    'api/_anbu-infiltration-encounter.ts': { reason: 'builds the vault raid api/village/anbu-infiltration.ts seals', route: 'api/village/anbu-infiltration.ts' },
+    'api/_sector-war-garrison-encounter.ts': { reason: 'builds the garrison assault api/village/sector-war.ts seals', route: 'api/village/sector-war.ts' },
 };
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
@@ -315,6 +374,7 @@ describe('every route that seals a fight from the save settles held fights first
         for (const known of [
             'api/missions/combat-start.ts', 'api/missions/ai-fight-start.ts', 'api/story/boss-start.ts', 'api/story/spar-start.ts',
             'api/weekly-boss.ts', 'api/festival/_caravan-combat.ts', 'api/village/_stronghold.ts',
+            'api/village/anbu-infiltration.ts', 'api/village/sector-war.ts',
         ]) {
             assert.ok(sealers.includes(known), `${known} should be detected as sealing a fight from the save`);
         }
