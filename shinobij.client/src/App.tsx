@@ -259,7 +259,7 @@ import { useVillageTax } from "./lib/use-village-tax";
 import { requireServerSettlement } from "./lib/server-settlement-gate";
 import { createHeartbeatGate, scheduleHeartbeat } from "./lib/heartbeat-cadence";
 import { noteTowerPartyInvites } from "./lib/tower-party-invite-toast";
-import { attackSectorPlayer } from "./lib/sector-attack";
+import { attackSectorPlayer, routeOpenSectorBattleNotice } from "./lib/sector-attack";
 import { strikeDownSleeper } from "./lib/sleeper-kill";
 const StartScreen = lazyWithRetry(() => import("./screens/StartScreen").then(m => ({ default: m.StartScreen })));
 const OnboardingCoach = lazyWithRetry(() => import("./components/OnboardingCoach").then(m => ({ default: m.OnboardingCoach })));
@@ -1059,9 +1059,9 @@ export default function App() {
     // sharedClanWarCache; ClanHall fires its own claim too once clanData
     // is loaded.
     useWarRewardClaims(gameplayMutationsOpen ? character : null, setCharacter, commitVersionedCharacter, worldStateVersion, clanWarStateVersion);
-    // Daily village tax — a ryo sink that scales with how much ground your village
-    // has LOST. Server-idempotent per UTC day; the debit must be adopted here
-    // because ryo is client-owned in the save ledger.
+    // Daily village tax — a ryo sink on territory your village holds BEYOND its
+    // eight home sectors. Server-idempotent per UTC day; the debit must be adopted
+    // here because ryo is client-owned in the save ledger.
     useVillageTax(gameplayMutationsOpen ? character : null, setCharacter, (version) => { acceptExternalSaveVersion(version, character?.name ?? currentAccountName); }, gameToast);
 
     // Light-weight clan war polling — keeps sharedClanWarCache fresh so
@@ -2322,12 +2322,11 @@ export default function App() {
         return () => { controller.abort(); stop(); };
     }, [character?.name, gameplayViewOpen, restoringSession]);
 
-    // Sector-attack auto-routing: if a sectorAttack challenge arrives, route defender to
-    // the shared PvP battle (battleId present) or legacy arena as fallback.
+    // Sector-attack auto-routing: the defender goes to the shared PvP battle, or a Pet/Card war's open battle.
     useEffect(() => {
         if (!character) return;
         const incoming = duelChallenges.find(c => c.toName.toLowerCase() === character.name.toLowerCase() && c.sectorAttack);
-        if (!incoming) return;
+        if (!incoming || routeOpenSectorBattleNotice(incoming, { isTraveling, dismiss: dismissChallengeLocally, setScreen })) return;
         if (isTraveling) {
             declineChallengeGlobal(incoming);
             return;

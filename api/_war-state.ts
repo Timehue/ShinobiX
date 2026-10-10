@@ -23,6 +23,8 @@ import { parseStoresLedger, type StoresLedgerEntry } from './_village-stores.js'
 import {
     HOME_SECTORS,
     VILLAGE_BIOME,
+    homeVillageForSector,
+    isWarSector,
     isWarVillage,
     type WarVillage,
 } from './_war-map-sectors.js';
@@ -56,6 +58,58 @@ export interface MercLease {
     /** Set by the daily stores pass when the band went UNFED: api/_merc-auto.ts
      *  skips exactly one auto-deploy tick, then clears it. */
     skipNextAutoDeploy?: boolean;
+    /** Band id (its hire's id) and the war it serves — always set together on a
+     *  band hired since the redesign. A LEGACY band has neither: it keeps its
+     *  (tierId, player) identity and fights only in village wars until it lapses. */
+    id?: string;
+    context?: MercLeaseContext;
+}
+
+/** The one war a hired band serves (owner redesign 2026-10-08): the band acts
+ *  only there, and only while that exact war instance is live. */
+export type MercLeaseContext =
+    | { kind: 'village'; warId: string; generation: number }
+    | { kind: 'sector'; contestId: string; instance: string; sector: number };
+
+/** One War Map hire, kept while its war could still be live. The per-war hire
+ *  allowances count these (a lease lapses after 2 days, a village war runs up
+ *  to 14), and a retried request replays its receipt instead of paying twice. */
+export interface MercHireReceipt {
+    id: string;
+    context: string;    // mercContextKey of the war it was hired for
+    seat: string;       // the allowance it spent: 'kage' | 'elder-1..3'
+    player: string;
+    tierId: string;
+    cost: number;
+    at: number;
+    expiresAt: number;
+    keepUntil: number;
+}
+/** Hard backstop on stored hire receipts (newest kept). The hire route prunes
+ *  receipts whose war is over and refuses — never evicts — before this fills. */
+export const MERC_HIRE_RECEIPTS_MAX = 128;
+
+export function mercContextKey(context: MercLeaseContext): string {
+    return context.kind === 'village'
+        ? `village:${context.warId}:g${context.generation}`
+        : `sector:${context.contestId}:${context.instance}`;
+}
+
+function normalizeMercLeaseContext(raw: unknown): MercLeaseContext | null {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const c = raw as Record<string, unknown>;
+    if (c.kind === 'village') {
+        const warId = String(c.warId ?? '').trim();
+        const generation = Math.floor(Number(c.generation));
+        return warId && generation >= 1 ? { kind: 'village', warId, generation } : null;
+    }
+    if (c.kind === 'sector') {
+        const contestId = String(c.contestId ?? '').trim();
+        const instance = String(c.instance ?? '').trim();
+        const sector = Math.floor(Number(c.sector));
+        return contestId && instance && sector >= 1 ? { kind: 'sector', contestId, instance, sector } : null;
+    }
+    return null;
 }
 
 export interface VillageWarRecord {
@@ -63,6 +117,7 @@ export interface VillageWarRecord {
     structures: Record<StructureKey, number>;   // level 0..MAX each
     sectors: Record<string, SectorWarState>;    // key = String(worldSectorNumber)
     mercLeases: MercLease[];
+    mercHires?: MercHireReceipt[];              // War Map hire receipts (see MercHireReceipt)
     dormant: boolean;                           // structures suspended (upkeep unpaid)
     lastWarPassDate: string;                    // 'YYYY-MM-DD' UTC daily-pass stamp
     terrainSetBy: Record<string, string>;       // sectorKey → player who set its terrain (§17.3 quota)
@@ -195,14 +250,19 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
         }
     }
 
-    // Only the village's own home sectors are tracked; fill defaults, clamp present.
+    // Home sectors are always present (defaults filled). A war sector the
+    // village CAPTURED keeps its entry too: the current holder configures a
+    // sector (owner ruling 2026-10-08), so its settings live in the holder's
+    // record. Any other key is dropped.
     if (raw.sectors && typeof raw.sectors === 'object') {
-        for (const key of Object.keys(base.sectors)) {
-            const r = (raw.sectors as Record<string, Partial<SectorWarState>>)[key];
+        for (const [key, r] of Object.entries(raw.sectors as Record<string, Partial<SectorWarState>>)) {
             if (!r || typeof r !== 'object') continue;
+            const home = Object.prototype.hasOwnProperty.call(base.sectors, key);
+            const sector = Number(key);
+            if (!home && (!Number.isSafeInteger(sector) || String(sector) !== key || !isWarSector(sector))) continue;
             base.sectors[key] = {
                 winCondition: asWinCondition(r.winCondition),
-                terrain: asTerrain(r.terrain, base.sectors[key].terrain),
+                terrain: asTerrain(r.terrain, home ? base.sectors[key].terrain : landTerrainOf(sector)),
             };
         }
     }
@@ -215,12 +275,41 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
             const player = String((l as MercLease).player ?? '');
             const expiresAt = Math.floor(Number((l as MercLease).expiresAt) || 0);
             if (!tierId || !player || expiresAt <= 0) continue;
-            const dedupeKey = `${tierId}:${player}`;
+            // A bound band carries its id and war together. A damaged binding is
+            // dropped rather than read as a legacy band, which may fight in any
+            // village war: it must never act outside the war it was hired for.
+            const bound = (l as MercLease).id !== undefined || (l as MercLease).context !== undefined;
+            const id = String((l as MercLease).id ?? '').trim().slice(0, 80);
+            const context = normalizeMercLeaseContext((l as MercLease).context);
+            if (bound && (!id || !context)) continue;
+            const dedupeKey = bound ? `id:${id}` : `${tierId}:${player}`;
             if (seen.has(dedupeKey)) continue;
             seen.add(dedupeKey);
             const count = clampInt((l as MercLease).count ?? mercBandSize(tierId), 0, MERC_BAND_MAX);
-            base.mercLeases.push({ tierId, player, expiresAt, count, ...((l as MercLease).skipNextAutoDeploy === true ? { skipNextAutoDeploy: true } : {}) });
+            base.mercLeases.push({
+                tierId, player, expiresAt, count,
+                ...((l as MercLease).skipNextAutoDeploy === true ? { skipNextAutoDeploy: true } : {}),
+                ...(bound && context ? { id, context } : {}),
+            });
         }
+    }
+    if (Array.isArray(raw.mercHires)) {
+        const hires: MercHireReceipt[] = [];
+        const seenHires = new Set<string>();
+        for (const h of raw.mercHires as unknown[]) {
+            if (!h || typeof h !== 'object' || Array.isArray(h)) continue;
+            const r = h as Record<string, unknown>;
+            const id = String(r.id ?? '').trim().slice(0, 80);
+            const context = String(r.context ?? '').trim();
+            const seat = String(r.seat ?? '').trim();
+            const player = String(r.player ?? '').trim();
+            const tierId = String(r.tierId ?? '').trim();
+            const nums = [r.cost, r.at, r.expiresAt, r.keepUntil].map((v) => Math.max(0, Math.floor(Number(v) || 0)));
+            if (!id || !context || !seat || !player || !tierId || seenHires.has(id) || nums[1] <= 0 || nums[3] <= 0) continue;
+            seenHires.add(id);
+            hires.push({ id, context, seat, player, tierId, cost: nums[0], at: nums[1], expiresAt: nums[2], keepUntil: nums[3] });
+        }
+        base.mercHires = hires.sort((a, b) => a.at - b.at).slice(-MERC_HIRE_RECEIPTS_MAX);
     }
 
     if (raw.terrainSetBy && typeof raw.terrainSetBy === 'object') {
@@ -249,35 +338,68 @@ export function normalizeVillageWarRecord(village: string, raw?: Partial<Village
     return base;
 }
 
-/** Count how many sectors use each win-condition. */
-export function winConditionCounts(record: VillageWarRecord): Record<WinCondition, number> {
+/** A war sector's own terrain: the biome of the village whose home it is. */
+function landTerrainOf(sector: number): Terrain {
+    const home = homeVillageForSector(sector);
+    return home ? VILLAGE_BIOME[home] : 'central';
+}
+
+/**
+ * A village's settings for `sector`: its stored entry, or the defaults (Combat,
+ * the land's own biome) for a sector it captured and has not configured yet.
+ * The HOLDER's settings are the ones a war on the sector uses (owner ruling
+ * 2026-10-08). Pure.
+ */
+export function sectorConfigFor(record: VillageWarRecord, sector: number): SectorWarState {
+    const key = String(Math.floor(Number(sector) || 0));
+    return Object.prototype.hasOwnProperty.call(record.sectors, key)
+        ? record.sectors[key]
+        : { winCondition: 'combat', terrain: landTerrainOf(Number(key)) };
+}
+
+/** Count how many sectors use each win-condition: the sectors in `heldSectors`
+ *  when given (what the max-7 rule counts), else every entry in the record. */
+export function winConditionCounts(record: VillageWarRecord, heldSectors?: readonly number[]): Record<WinCondition, number> {
     const counts: Record<WinCondition, number> = { combat: 0, card: 0, pet: 0 };
-    for (const s of Object.values(record.sectors)) counts[s.winCondition]++;
+    const configs = heldSectors ? heldSectors.map((s) => sectorConfigFor(record, s)) : Object.values(record.sectors);
+    for (const s of configs) counts[s.winCondition]++;
     return counts;
 }
 
 /** Whether `sector` may be (re)assigned to `wc` without breaking the max-7 rule.
- *  Re-assigning a sector already on `wc` is always allowed (no-op). */
-export function canAssignWinCondition(record: VillageWarRecord, sector: number, wc: WinCondition): boolean {
-    const cur = record.sectors[String(Math.floor(Number(sector) || 0))];
-    if (!cur) return false;            // not a home sector of this village
-    if (cur.winCondition === wc) return true;
-    return winConditionCounts(record)[wc] < MAX_SECTORS_PER_WIN_CONDITION;
+ *  Re-assigning a sector already on `wc` is always allowed (no-op).
+ *
+ *  With `heldSectors` (the sectors the village holds right now) the village may
+ *  configure exactly those, home or captured, and the rule counts only them: a
+ *  sector it lost is no longer its to set, and no longer counts. Without it,
+ *  the record's own entries (its home sectors) are the scope, as before. */
+export function canAssignWinCondition(record: VillageWarRecord, sector: number, wc: WinCondition, heldSectors?: readonly number[]): boolean {
+    const s = Math.floor(Number(sector) || 0);
+    if (heldSectors ? !heldSectors.includes(s) : !record.sectors[String(s)]) return false;
+    if (sectorConfigFor(record, s).winCondition === wc) return true;
+    return winConditionCounts(record, heldSectors)[wc] < MAX_SECTORS_PER_WIN_CONDITION;
 }
 
-/** How many sectors' terrain a given player currently owns the pick for. */
-export function terrainSetCountFor(record: VillageWarRecord, player: string): number {
-    return Object.values(record.terrainSetBy).filter((p) => p === player).length;
+/** How many sectors' terrain a given player currently owns the pick for. With
+ *  `heldSectors`, only picks on sectors the village still holds count: a lost
+ *  sector frees its pick. */
+export function terrainSetCountFor(record: VillageWarRecord, player: string, heldSectors?: readonly number[]): number {
+    return Object.entries(record.terrainSetBy)
+        .filter(([sector, p]) => p === player && (!heldSectors || heldSectors.includes(Number(sector))))
+        .length;
 }
 
 /** Keep terrain itself, but release offices held by former leaders. A demoted
- * Kage retains at most the current role's quota, in stable sector order. */
-export function reconcileTerrainLeadership(record: VillageWarRecord, kage: string, elders: string[]): void {
+ * Kage retains at most the current role's quota, in stable sector order. With
+ * `heldSectors`, the pick on a sector the village no longer holds is released
+ * too: a lost sector frees its pick (owner ruling 2026-10-08). */
+export function reconcileTerrainLeadership(record: VillageWarRecord, kage: string, elders: string[], heldSectors?: readonly number[]): void {
     const leader = leadershipNameKey(kage);
     const council = new Set(elders.map(leadershipNameKey).filter(Boolean));
     const counts = new Map<string, number>();
     const assignments: Record<string, string> = {};
     for (const [sector, owner] of Object.entries(record.terrainSetBy).sort(([a], [b]) => Number(a) - Number(b))) {
+        if (heldSectors && !heldSectors.includes(Number(sector))) continue;
         const name = leadershipNameKey(owner);
         const quota = name && name === leader ? TERRAIN_QUOTA_KAGE : council.has(name) ? TERRAIN_QUOTA_ELDER : 0;
         const used = counts.get(name) ?? 0;
@@ -292,16 +414,19 @@ export function reconcileTerrainLeadership(record: VillageWarRecord, kage: strin
  *  §17.3 quota: Kage 3 / elder 1. Re-setting a sector you already own is free; an
  *  elder cannot override a sector another leader picked; the Kage may override. */
 export function canSetTerrain(
-    record: VillageWarRecord, sector: number, player: string, role: TerrainRole,
+    record: VillageWarRecord, sector: number, player: string, role: TerrainRole, heldSectors?: readonly number[],
 ): { ok: boolean; error?: 'not-authorized' | 'not-home-sector' | 'set-by-another' | 'quota-reached' } {
     if (role === 'none') return { ok: false, error: 'not-authorized' };
-    const key = String(Math.floor(Number(sector) || 0));
-    if (!record.sectors[key]) return { ok: false, error: 'not-home-sector' };
+    const s = Math.floor(Number(sector) || 0);
+    const key = String(s);
+    // With `heldSectors`, the village sets exactly the sectors it holds (see
+    // canAssignWinCondition); the error keeps its old name for the callers.
+    if (heldSectors ? !heldSectors.includes(s) : !record.sectors[key]) return { ok: false, error: 'not-home-sector' };
     const current = record.terrainSetBy[key];
     if (current && current !== player && role !== 'kage') return { ok: false, error: 'set-by-another' };
     const alreadyMine = current === player;
     const limit = role === 'kage' ? TERRAIN_QUOTA_KAGE : TERRAIN_QUOTA_ELDER;
-    if (!alreadyMine && terrainSetCountFor(record, player) >= limit) return { ok: false, error: 'quota-reached' };
+    if (!alreadyMine && terrainSetCountFor(record, player, heldSectors) >= limit) return { ok: false, error: 'quota-reached' };
     return { ok: true };
 }
 

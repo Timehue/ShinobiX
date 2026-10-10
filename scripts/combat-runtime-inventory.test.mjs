@@ -603,15 +603,31 @@ describe('executable multi-engine runtime registry', () => {
     );
     // The wrong-owner Tower resolver stays gone; the rebuilt garrison is a Solo
     // PvE session over a sealed real-ANBU snapshot, scored into the contest by
-    // api/village/sector-war.ts under the SAME lock/receipt machinery a
-    // live-defender fight uses.
+    // api/_sector-war-garrison-settle.ts under the SAME lock/receipt machinery a
+    // live-defender fight uses. Every request that can end the fight lands
+    // there: garrison-resolve and garrison-start in api/village/sector-war.ts,
+    // and the Solo-PvE terminal hook on /solo-pve/action and /solo-pve/state.
+    const garrisonSettleSource = readFileSync(join(ROOT, 'api', '_sector-war-garrison-settle.ts'), 'utf8');
+    const garrisonTerminalHookSource = readFileSync(join(ROOT, 'api', 'solo-pve', '_garrison-terminal-hook.ts'), 'utf8');
     assert.doesNotMatch(sectorWarSource, /resolveMercBattle|sealTowerFighter/);
+    assert.doesNotMatch(garrisonSettleSource, /resolveMercBattle|sealTowerFighter/);
     assert.match(sectorWarSource, /case 'garrison-start': return await doGarrisonStart\(/);
     assert.match(sectorWarSource, /case 'garrison-resolve': return await doGarrisonResolve\(/);
     assert.match(sectorWarSource, /buildGarrisonEncounter/);
     assert.match(sectorWarSource, /garrisonSessionMatches/);
-    assert.match(sectorWarSource, /garrisonBattle: attackerWon/);
-    assert.match(sectorWarSource, /mercBattle: !attackerWon/);
+    assert.match(sectorWarSource, /settleGarrisonRun\(/);
+    assert.match(sectorWarSource, /settleGarrisonRunLocked\(/);
+    assert.match(garrisonSettleSource, /garrisonSessionMatches\(/);
+    assert.match(garrisonSettleSource, /garrisonBattle: attackerWon/);
+    assert.match(garrisonSettleSource, /mercBattle: !attackerWon/);
+    assert.match(garrisonTerminalHookSource, /settleTerminalGarrisonSession\(/);
+    for (const route of ['action', 'state']) {
+      assert.match(
+        readFileSync(join(ROOT, 'api', 'solo-pve', `${route}.ts`), 'utf8'),
+        /settleTerminalGarrisonFight\(/,
+        `/solo-pve/${route} must settle a garrison fight it finds ended`,
+      );
+    }
 
     const dungeonPet = runtimeModeById('dungeon-pet-cinematic');
     assert.equal(dungeonPet.status, 'match');

@@ -28,12 +28,16 @@ let kv: typeof import('../_storage.js').kv;
 let war: typeof import('../_sector-war.js');
 let store: typeof import('../_sector-war-store.js');
 let settle: typeof import('./_sector-war-continuation.js').settlePvpSectorWarContinuation;
+let ensure: typeof import('./_sector-war-continuation.js').ensurePvpSectorWarRegistration;
 
 before(async () => {
     ({ kv } = await import('../_storage.js'));
     war = await import('../_sector-war.js');
     store = await import('../_sector-war-store.js');
-    ({ settlePvpSectorWarContinuation: settle } = await import('./_sector-war-continuation.js'));
+    ({
+        settlePvpSectorWarContinuation: settle,
+        ensurePvpSectorWarRegistration: ensure,
+    } = await import('./_sector-war-continuation.js'));
 });
 
 beforeEach(async () => {
@@ -196,6 +200,48 @@ describe('world PvP sector continuation: crash recovery by keyed reads', { concu
         } finally {
             kv.keys = originalKeys as typeof kv.keys;
         }
+    });
+});
+
+describe('world PvP sector continuation: the verified sector binds the fight', { concurrency: false }, () => {
+    // `rewardSector` is stamped only when the creator opts into base rewards. A
+    // tampered client that opted out still got a world-authority fight in the
+    // contested sector, but it never bound to the war, so a defender who won it
+    // scored nothing. The sector the server verified from both fighters'
+    // presence binds it now.
+    it('binds and scores a world fight that opted out of base rewards', async () => {
+        const w = await contest();
+        const now = Date.now();
+        const fight = {
+            ...battle({ createdAt: now - 1000, endedAt: now - 10, winner: 'p2' }),
+            rewardSector: undefined,
+            worldTerritoryEvidence: { version: 1, sector: SECTOR, ownerClan: '', ownerVillage: DEFENDER, raidDamage: 0, observedAt: now - 1000 },
+        } as unknown as PvpSession;
+        assert.equal((await ensure(fight)).registered, true, 'the fight binds to the war in its verified sector');
+        const receipt = await settle(fight);
+        assert.equal(receipt.outcome, 'applied');
+        assert.equal(receipt.attackerWon, false);
+        assert.equal((await row(w.id)).defenderPoints, 5, 'and the defender\'s win counts');
+    });
+});
+
+describe('world PvP sector continuation: an unreadable contest row', { concurrency: false }, () => {
+    // The runbook's promise is "play skips it". The recovery lookup read every
+    // candidate row strictly, so one corrupt row threw for EVERY decisive fight
+    // between its two villages in that sector, bound to the war or not, and
+    // neither fighter could finish claiming their rewards until it was repaired.
+    it('skips it for a fight not bound to that war, and still fails closed for one that is', async () => {
+        const w = await contest({}, 3);
+        const raw = (await kv.get<Record<string, unknown>>(war.sectorWarKey(w.id)))!;
+        await kv.set(war.sectorWarKey(w.id), { ...raw, appliedBattles: 'corrupt' });
+        const now = Date.now();
+
+        const unbound = battle({ createdAt: now - 1000, endedAt: now - 10, winner: 'p1' });
+        assert.equal((await settle(unbound)).outcome, 'not-applicable', 'an ordinary fight still completes');
+
+        const bound = battle({ createdAt: now - 1000, endedAt: now - 10, winner: 'p1' });
+        await register(bound, w.id);
+        await assert.rejects(settle(bound), /ledger-invalid/, 'a fight bound to the broken war waits for the repair');
     });
 });
 

@@ -50,7 +50,8 @@ export const TAX_CATCHUP_DAYS_MAX = 3;
 export const TAX_BURN_SHARE = 0.5;        // 50% burned, 50% to the village treasury
 export const TAX_MIN_RANK_LEVEL = 15;     // Academy Students (level < 15) are exempt
 
-// Home sectors per village (the tax-tier / income ceiling). 0..8.
+// Home sectors per village: the untaxed allowance. Only territory held beyond
+// it creates the occupation tax (taxRateForSectors); WR income is not capped by it.
 export const MAX_HOME_SECTORS = 8;
 
 function clampNonNegInt(n: number): number {
@@ -163,3 +164,11 @@ const MERC_BAND_SIZES: Record<string, number> = {
 export function mercBandSize(tierId: string): number {
     return MERC_BAND_SIZES[tierId] ?? 0;
 }
+
+// ── Mercenary hire allowances (owner ruling 2026-10-08) ──
+// A band is hired FOR one war. In an all-out village war the Kage seat may hire
+// 3 bands and each Elder seat 1. In a Combat sector war only the DEFENDING
+// village hires, 3 bands per contest in all (Kage or any Elder).
+export const MERC_HIRES_PER_VILLAGE_WAR_KAGE = 3;
+export const MERC_HIRES_PER_VILLAGE_WAR_ELDER = 1;
+export const MERC_HIRES_PER_SECTOR_CONTEST = 3;

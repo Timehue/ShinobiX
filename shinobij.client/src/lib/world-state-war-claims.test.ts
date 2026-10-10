@@ -16,6 +16,8 @@ function endedWars(count: number) {
         endedAt: Date.now() - 60_000,
         winnerVillage: "Moonshadow Village",
         warCrateId: `crate-${other}`,
+        // Kaya fought: the winner's crate goes only to those who dealt war damage.
+        contributions: { kaya: { damage: 30, raids: 1, pvpKills: 0, side: "Moonshadow Village", name: "Kaya" } },
     }));
 }
 
