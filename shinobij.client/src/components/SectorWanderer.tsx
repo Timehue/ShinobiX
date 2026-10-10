@@ -8,11 +8,11 @@
  * You can also walk to it (or click it) — whoever closes the gap first, the
  * encounter fires.
  *
- * Phase 1 (always on — the `wanderers.v1` opt-out was retired): an "attack"
- * wanderer launches a
- * fight when it reaches you; the others greet with a speech bubble. Renderer +
- * movement only — the actual fight is started by <WorldMap> through the existing
- * arena AI path, so nothing here touches combat, rewards, or saves.
+ * Phase 1 (always on — the `wanderers.v1` opt-out was retired): a pursuer
+ * (bandits, night ninjas, contract hunters, war mercenaries) hunts you and, when
+ * it reaches you, stops you with the Fight/Flee encounter; the others greet with
+ * a speech bubble. Renderer + movement only — <WorldMap> owns the encounter, the
+ * fight start and the priced flee, so nothing here touches combat, rewards, or saves.
  */
 import { type CSSProperties, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { WorldPlayerPosition } from '../lib/world-player-position';
@@ -102,7 +102,7 @@ export function SectorWanderer({
     sector?: number;
     playerIndex: number;
     biome: Biome;
-    onEngage: (w: Wanderer) => void;
+    onEngage: (w: Wanderer) => boolean | void;
 }) {
     const wrapRef = useRef<HTMLDivElement | null>(null);
     const figRef = useRef<HTMLDivElement | null>(null);
@@ -258,11 +258,12 @@ export function SectorWanderer({
                 if (distPlayer <= ENGAGE_TILES) {
                     setWalking(false);
                     if (!greetedRef.current) {
-                        greetedRef.current = true;
                         // A bandit confronts you (opens the Fight/Flee dialog);
                         // everyone else just greets — you click to interact.
-                        if (isHunter) onEngageRef.current(wanderer);
-                        else speak(wanderer.greeting);
+                        // A confrontation refused because another hostile holds
+                        // you stays un-greeted, so it engages once that is done.
+                        if (isHunter) greetedRef.current = onEngageRef.current(wanderer) !== false;
+                        else { greetedRef.current = true; speak(wanderer.greeting); }
                     }
                     schedule(); // hold adjacent
                     return;

@@ -239,7 +239,7 @@ test('a night ninja is well formed and hostile', () => {
         assert.deepEqual(parseWandererId(w.id), { sector: s, dayBucket: BUCKET, index: WANDERER_NIGHT_INDEX });
         assert.equal(w.archetype, 'nightblade');
         assert.equal(w.verb, 'attack');
-        assert.equal(w.movement, 'patrol', 'night ninjas prowl; they do not charge the player');
+        assert.equal(w.movement, 'pursue', 'night ninjas hunt the player like bandits (owner, 2026-10-09)');
         const meta = WANDERER_ARCHETYPES.nightblade;
         assert.equal(meta.weight, 0, 'never in the daytime roll');
         assert.ok(meta.names.includes(w.name));

@@ -5,6 +5,7 @@ import { uniqueNameStamp } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
 import { weeklyBossRoamState } from '../src/lib/weekly-boss-roam';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 /*
  * MMORPG behaviour, played through the real Express server (docs/MMORPG_BEHAVIOR_PASS_2026-09-24.md).
@@ -169,7 +170,8 @@ test('Stand & Fight starts the roaming Weekly Boss fight, and leaving it returns
     const sector = roam!.currentSector;
 
     const tag = uniqueNameStamp((stamp) => [`bosshunt${stamp}`], { head: info.project.name.includes('mobile') ? 'm' : 'd' });
-    const hunter = await seedShinobi(request, `bosshunt${tag}`, { sector, tile: 78 });
+    // Only the boss may stop this hunter: a natural road hostile would get there first.
+    const hunter = await seedShinobi(request, `bosshunt${tag}`, { sector, tile: 78 }, { wandererCooldowns: quietRoadCooldowns([sector]) });
     expect(hunter.canonical.currentSector, 'the hunter stands in the boss sector').toBe(sector);
     const beat = await request.post('/api/player/heartbeat', {
         headers: hunter.headers, data: { name: hunter.name, sector, tile: 78, character: hunter.canonical.character },

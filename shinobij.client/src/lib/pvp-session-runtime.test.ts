@@ -91,6 +91,27 @@ describe("returning from a sector raid", () => {
         assert.equal(takeSectorReopen(), null, "only a sector raid reopens a board");
     });
 
+    it("sends a plain duel taken in the field back to that sector spot, and keeps every hub", () => {
+        // Owner, 2026-10-09: "after pvp they go back to the same sector spot".
+        assert.deepEqual(pvpResultReturn({ mode: "standard", sector: 21, fromField: true }, 21), { returnTarget: "worldMap", returnLabel: "Return to Sector 21" });
+        assert.deepEqual(pvpResultReturn({ sector: 21, fromField: true }, 21), { returnTarget: "worldMap", returnLabel: "Return to Sector 21" });
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { mode: "standard", sector: 21, fromField: true }, 21);
+        assert.equal(takeSectorReopen(), 21);
+        // Taken in town, or in a mode with its own hub: unchanged.
+        assert.equal(pvpResultReturn({ mode: "standard", sector: 0, fromField: true }, 0).returnTarget, "battleArena");
+        assert.equal(pvpResultReturn({ mode: "ranked", sector: 21, fromField: true }, 21).returnTarget, "arenaDistrict");
+        assert.equal(pvpResultReturn({ mode: "clanWar1v1", sector: 21, fromField: true }, 21).returnTarget, "clan");
+        assert.equal(pvpResultReturn({ mode: "standard", sector: 21, fromField: true, kageChallengeId: "k1" }, 21).returnTarget, "townHall");
+        assert.equal(pvpResultReturn({ mode: "standard", sector: 21, fromField: true }, 21, true).returnTarget, "hospital", "a knocked-out loser still goes to the Hospital");
+        // A challenge taken in the Arena still records where the player stands;
+        // that alone must not send the result out to the field.
+        assert.deepEqual(pvpResultReturn({ mode: "standard", sector: 21 }, 21), { returnTarget: "battleArena", returnLabel: "Return to Arena" });
+        clearSectorReopen();
+        markPvpSectorReturn("worldMap", { mode: "standard", sector: 21 }, 21);
+        assert.equal(takeSectorReopen(), null);
+    });
+
     it("marks nothing for a village or outskirts fight, which is a different view", () => {
         clearSectorReopen();
         markPvpSectorReturn("worldMap", { sectorAttack: true, sector: 0 }, 0);

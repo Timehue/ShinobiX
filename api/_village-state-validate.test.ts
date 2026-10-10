@@ -1,5 +1,10 @@
+process.env.NODE_ENV = 'test';
+process.env.SHINOBIX_QA_MEMORY_KV = '1';
+
 import { describe, it } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { kv } from './_storage.js';
+import { TEXT_LIMITS } from './_text-moderation.js';
 import { validateVillageStateWrite } from './_village-state-validate.js';
 
 // The village treasury is server-owned. Items arrive through the atomic
@@ -9,8 +14,9 @@ import { validateVillageStateWrite } from './_village-state-validate.js';
 // it cannot raise it (a mint) or lower it (a stale re-assert that would erase a
 // donation made after the client's last poll).
 //
-// Treasury-only writes with kageState=null exercise no IO (the notice/silence
-// and KV paths are gated behind other incoming fields).
+// Treasury-only writes with kageState=null exercise no IO. A member's new
+// activity line (`notices`) reads the caller's silence record, so the store is
+// the in-memory QA backend.
 
 const villager = { callerName: 'rin', isAdmin: false, village: 'Leaf' };
 const admin = { callerName: '', isAdmin: true, village: 'Leaf' };
@@ -282,5 +288,162 @@ describe('validateVillageStateWrite - a stale Kage re-assert cannot erase a dona
         const { next } = await validateVillageStateWrite(afterDonation, { ...stalePoll, notices: ['rin selected the war focus.'] }, villager, kage);
         assert.deepEqual(next.treasury, afterDonation.treasury);
         assert.deepEqual(next.notices, ['rin selected the war focus.'], 'the rest of the write still lands');
+    });
+});
+
+// The Town Hall activity log (`notices`) is plain lines, newest first. Each
+// Town Hall action prepends ONE line and sends the whole list back (cut at 8),
+// so a member's write may add one moderated line at the top. It can never
+// rewrite, reorder or drop a line that is already stored.
+describe('validateVillageStateWrite — notices (Town Hall activity log)', () => {
+    const log = [
+        'jin donated 500 ryo to the village treasury.',
+        'mei joined the Village Guard queue with +2.0% defense.',
+        'rin selected the war focus.',
+    ];
+    const added = 'rin donated 1,000 ryo to the village treasury.';
+    const linked = 'rin found free ryo at www.example-scam.com/claim';
+    const noticeSuppressions = (suppressed: string[]) => suppressed.filter((s) => s.startsWith('notices'));
+
+    it('lets a member prepend the line their action adds', async () => {
+        const { next, suppressed } = await validateVillageStateWrite({ notices: log }, { notices: [added, ...log] }, villager, null);
+        assert.deepEqual(next.notices, [added, ...log]);
+        assert.deepEqual(noticeSuppressions(suppressed), []);
+    });
+
+    it('keeps the stored log when a write leaves notices out or echoes it back', async () => {
+        const omitted = await validateVillageStateWrite({ notices: log }, {}, villager, null);
+        assert.deepEqual(omitted.next.notices, log);
+        const echoed = await validateVillageStateWrite({ notices: log }, { notices: [...log] }, villager, null);
+        assert.deepEqual(echoed.next.notices, log);
+        assert.deepEqual(noticeSuppressions(echoed.suppressed), []);
+        const none = await validateVillageStateWrite({}, {}, villager, null);
+        assert.equal('notices' in none.next, false, 'a village with no log does not gain one');
+    });
+
+    it('never lets a member rewrite, reorder or drop a stored line', async () => {
+        // The most any list can do is put one moderated line above the stored
+        // ones, which every member's Town Hall action may do anyway.
+        const tampered: string[][] = [
+            [],                                                             // clear the log
+            [log[0], log[2]],                                               // drop a line
+            ['jin donated 5 ryo to the village treasury.', log[1], log[2]], // rewrite one
+            [log[1], log[0], log[2]],                                       // reorder
+            Array.from({ length: 12 }, (_, i) => `spam ${i}`),              // flood
+        ];
+        for (const notices of tampered) {
+            const { next } = await validateVillageStateWrite({ notices: log }, { notices }, villager, null);
+            const out = next.notices as string[];
+            assert.ok(out.length <= log.length + 1, `at most one line is added: ${JSON.stringify(out)}`);
+            assert.deepEqual(out.slice(out.length - log.length), log, `the stored lines survive, in order: ${JSON.stringify(out)}`);
+        }
+    });
+
+    it('takes one new line per write and logs what it dropped', async () => {
+        const flood = Array.from({ length: 12 }, (_, i) => `spam ${i}`);
+        const { next, suppressed } = await validateVillageStateWrite({ notices: log }, { notices: flood }, villager, null);
+        assert.deepEqual(next.notices, ['spam 0', ...log]);
+        assert.ok(suppressed.some((s) => s.includes('7 line(s) matching nothing stored dropped')), JSON.stringify(suppressed));
+    });
+
+    it('adds only its own line for a client whose copy is a write or two stale', async () => {
+        // kai's line landed after this client last read the log.
+        const stored = ['kai donated 2 honorSeals to the village treasury.', ...log];
+        const add = await validateVillageStateWrite({ notices: stored }, { notices: [added, ...log] }, villager, null);
+        assert.deepEqual(add.next.notices, [added, ...stored]);
+        const echo = await validateVillageStateWrite({ notices: stored }, { notices: [...log] }, villager, null);
+        assert.deepEqual(echo.next.notices, stored, 'an echo of the older copy changes nothing');
+    });
+
+    it('caps the log at 8, so a full log drops its oldest line', async () => {
+        const full = Array.from({ length: 8 }, (_, i) => `line ${8 - i}`); // newest first
+        const fresh = await validateVillageStateWrite({ notices: full }, { notices: [added, ...full].slice(0, 8) }, villager, null);
+        assert.deepEqual(fresh.next.notices, [added, ...full.slice(0, 7)]);
+        // This client read the log before two more lines landed and pushed two
+        // of its lines off the end. It still adds only its own line.
+        const newer = ['line 10', 'line 9', ...full.slice(0, 6)];
+        const stale = await validateVillageStateWrite({ notices: newer }, { notices: [added, ...full].slice(0, 8) }, villager, null);
+        assert.deepEqual(stale.next.notices, [added, ...newer.slice(0, 7)]);
+    });
+
+    it('records the same line twice when the same action repeats', async () => {
+        const repeat = await validateVillageStateWrite({ notices: [added] }, { notices: [added, added] }, villager, null);
+        assert.deepEqual(repeat.next.notices, [added, added]);
+        const echo = await validateVillageStateWrite({ notices: [added, added] }, { notices: [added, added] }, villager, null);
+        assert.deepEqual(echo.next.notices, [added, added], 'an echo of the pair adds nothing');
+    });
+
+    it('starts an empty log with the one line the write adds', async () => {
+        // With nothing stored, the client shows two placeholder lines and sends
+        // them back under its new line. They are not activity, so they stay out.
+        const placeholders = ['Town Hall upgrades are open for donation funding.', 'Village Guard queue is accepting defenders.'];
+        const { next } = await validateVillageStateWrite({}, { notices: [added, ...placeholders] }, villager, null);
+        assert.deepEqual(next.notices, [added]);
+    });
+
+    it('moderates the new line and caps its length', async () => {
+        const redacted = await validateVillageStateWrite({ notices: log }, { notices: [linked, ...log] }, villager, null);
+        const top = (redacted.next.notices as string[])[0];
+        assert.match(top, /\[redacted link\]/);
+        assert.doesNotMatch(top, /example-scam/);
+        const long = await validateVillageStateWrite({ notices: log }, { notices: ['x'.repeat(5_000), ...log] }, villager, null);
+        const out = long.next.notices as string[];
+        assert.equal(out[0].length, TEXT_LIMITS.villageActivityLine);
+        assert.deepEqual(out.slice(1), log);
+    });
+
+    it('recognises the writer\'s own unmoderated copy of a line it added', async () => {
+        // The writer keeps its raw line until its next read, so its next write
+        // sends the raw text where the server stored the moderated one.
+        const stored = (await validateVillageStateWrite({ notices: log }, { notices: [linked, ...log] }, villager, null)).next.notices as string[];
+        assert.notEqual(stored[0], linked);
+        const echo = await validateVillageStateWrite({ notices: stored }, { notices: [linked, ...log] }, villager, null);
+        assert.deepEqual(echo.next.notices, stored, 'an echo is not mistaken for a new line');
+        const add = await validateVillageStateWrite({ notices: stored }, { notices: [added, linked, ...log] }, villager, null);
+        assert.deepEqual(add.next.notices, [added, ...stored]);
+        assert.deepEqual(noticeSuppressions(add.suppressed), []);
+    });
+
+    it('refuses a new line that is not text or is empty after moderation', async () => {
+        for (const head of [42, { text: 'an object' }, '   ']) {
+            const { next, suppressed } = await validateVillageStateWrite({ notices: log }, { notices: [head, ...log] as string[] }, villager, null);
+            assert.deepEqual(next.notices, log);
+            assert.ok(suppressed.includes('notices line rejected (empty after moderation)'), JSON.stringify(suppressed));
+        }
+    });
+
+    it('refuses a new line from a silenced member, but still takes their echo', async () => {
+        await kv.set('mod:silence:rin', { until: Date.now() + 60_000, reason: 'test', by: 'admin', at: Date.now() });
+        try {
+            const add = await validateVillageStateWrite({ notices: log }, { notices: [added, ...log] }, villager, null);
+            assert.deepEqual(add.next.notices, log);
+            assert.ok(add.suppressed.includes('notices line rejected (caller silenced)'), JSON.stringify(add.suppressed));
+            const echo = await validateVillageStateWrite({ notices: log }, { notices: [...log] }, villager, null);
+            assert.deepEqual(echo.next.notices, log);
+            assert.deepEqual(noticeSuppressions(echo.suppressed), []);
+            const other = await validateVillageStateWrite({ notices: log }, { notices: [added, ...log] }, { ...villager, callerName: 'jin' }, null);
+            assert.deepEqual(other.next.notices, [added, ...log], 'the silence is rin\'s alone');
+        } finally {
+            await kv.del('mod:silence:rin');
+        }
+    });
+
+    it('refuses a log that is not a list, from an admin too', async () => {
+        for (const ctx of [villager, admin]) {
+            const { next, suppressed } = await validateVillageStateWrite({ notices: log }, { notices: 'all quiet' as unknown as string[] }, ctx, null);
+            assert.deepEqual(next.notices, log);
+            assert.ok(suppressed.includes('notices rejected (expected a list of lines)'), JSON.stringify(suppressed));
+        }
+    });
+
+    it('lets an admin replace the log unmoderated, keeping only text and 8 lines', async () => {
+        const replaced = ['Patch notes: https://shinobijourney.com/news', ...Array.from({ length: 9 }, (_, i) => `admin line ${i}`)];
+        const { next, suppressed } = await validateVillageStateWrite({ notices: log }, { notices: replaced }, admin, null);
+        assert.deepEqual(next.notices, replaced.slice(0, 8));
+        assert.deepEqual(noticeSuppressions(suppressed), []);
+        const mixed = await validateVillageStateWrite({ notices: log }, { notices: ['kept', 7, null, 'also kept'] as string[] }, admin, null);
+        assert.deepEqual(mixed.next.notices, ['kept', 'also kept']);
+        const cleared = await validateVillageStateWrite({ notices: log }, { notices: [] }, admin, null);
+        assert.deepEqual(cleared.next.notices, []);
     });
 });
