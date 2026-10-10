@@ -1649,7 +1649,7 @@ function WorldMapContent({
             const d = await res.json().catch(() => null) as { ok?: boolean; reason?: string; error?: string; reward?: { ryo: number; fateShards: number; boneCharms: number }; character?: Character; _saveVersion?: number } | null;
             failure = ambushRewardFailureMessage(d, res.status);
             if (res.ok && d?.ok && d.reward && d.character) {
-                if (!onVersionedCharacter(d.character, d._saveVersion)) return false;
+                onVersionedCharacter(d.character, d._saveVersion); // Paid even if refused as stale: report it claimed so the marker clears.
                 const parts = [`${d.reward.ryo} ryo`];
                 if (d.reward.fateShards > 0) parts.push(`${d.reward.fateShards} fate shard${d.reward.fateShards === 1 ? "" : "s"}`);
                 if (d.reward.boneCharms > 0) parts.push(`${d.reward.boneCharms} bone charm${d.reward.boneCharms === 1 ? "" : "s"}`);
@@ -2267,7 +2267,7 @@ function WorldMapContent({
                 body: JSON.stringify({ action: "claim", playerName: character.name, sector: selectedSector ?? 0, wandererId: w.id }),
             });
             const data = await res.json() as { ok?: boolean; reason?: string; ryo?: number; totalRyo?: number; character?: Character; _saveVersion?: number };
-            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+            if (data.character) onVersionedCharacter(data.character, data._saveVersion); // A stale refusal must not leave the dialog busy.
             if (data.ok && typeof data.totalRyo === "number") {
                 coolNaturalWanderer(w);
                 if (!data.character && onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, ryo: data.totalRyo!, activeWandererQuest: null }) : prev);
@@ -2297,7 +2297,7 @@ function WorldMapContent({
             });
             const data = await res.json() as { ok?: boolean; character?: Character; _saveVersion?: number };
             if (!data.ok) throw new Error();
-            if (data.character) { if (!onVersionedCharacter(data.character, data._saveVersion)) return; }
+            if (data.character) onVersionedCharacter(data.character, data._saveVersion); // Done even if refused as stale.
             else if (onServerVersion?.(data._saveVersion) !== false) updateCharacter(prev => prev && prev.name === character.name ? ({ ...prev, activeWandererQuest: null }) : prev);
             setWandererDialog({ w, msg: "You set the task down." });
         } catch {
@@ -3130,7 +3130,7 @@ function WorldMapContent({
             }
             return "retryable";
         }
-        if (!onVersionedCharacter(chest.character, chest.saveVersion)) return "retryable";
+        onVersionedCharacter(chest.character, chest.saveVersion); // The loot is paid even if refused as stale, so open the chest.
         completeWorldRewardOperation(character.name, chestOperation.id);
         completeWorldRewardOperation(character.name, worldExploreRequestId);
         setActiveChest(chest.loot);

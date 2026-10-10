@@ -144,12 +144,12 @@ export function Logbook({
         ? "You graduated from the Academy. The village now trusts you with real shinobi work."
         : `Congratulations, ${character.name}. Your next shinobi path is open.`;
 
-    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): boolean {
-        const authoritativeCommit = commitAuthoritativeMissionClaim(result, onVersionedCharacter);
-        if (authoritativeCommit !== null) return authoritativeCommit;
-        if (!onServerVersion(result._saveVersion)) return false;
+    // Paid once the server applied it, even when this commit is refused as stale
+    // (see Missions.tsx), so every caller finishes its step after this.
+    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): void {
+        if (commitAuthoritativeMissionClaim(result, onVersionedCharacter) !== null) return;
+        if (!onServerVersion(result._saveVersion)) return;
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        return true;
     }
 
     // Server-authoritative field claims. Unknown/creator-authored mission ids are
@@ -178,7 +178,7 @@ export function Logbook({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
-            if (!applySuccessfulMissionClaim(result)) return;
+            applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
             alert(`${mission.name} complete. ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character)}.`);
@@ -259,7 +259,8 @@ export function Logbook({
     // The player half of this mission is settled by /api/village/war-mission —
     // every counter it awards is frozen by the save sanitizer, so the old inline
     // claim burned the day's stamp and paid nothing. Commit the reward FIRST,
-    // then apply the war damage, so a refused claim leaves the war untouched.
+    // then apply the war damage, so a claim the server refuses leaves the war
+    // untouched.
     async function claimWarMission(index: number) {
         if (warMissionPending) return;
         setWarMissionPending(true);
@@ -274,7 +275,11 @@ export function Logbook({
                             ? "Your village is not in an active war."
                             : "The mission could not be claimed right now. Try again in a moment.");
             }
-            if (!onVersionedCharacter(settled.character, settled.saveVersion)) return;
+            // The server paid this claim even if a newer save was adopted first and
+            // the commit is refused as stale. Its single-use token is the only way
+            // the mission's war damage lands, so spend it either way; the
+            // world-state write refuses a token minted for anyone else.
+            onVersionedCharacter(settled.character, settled.saveVersion);
             const war = applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
             alert(war.note);
         } finally {
@@ -349,7 +354,7 @@ export function Logbook({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
-        if (!applySuccessfulMissionClaim(result)) return;
+        applySuccessfulMissionClaim(result);
         const shards = result.reward.currency?.fateShards ?? 0;
         alert(`Academy Training complete! +${result.reward.statPoints ?? 0} stat points, +${result.reward.ryo} ryo, +${result.reward.stamina} stamina${shards ? `, +${shards} Fate Shards` : ""}. Keep following your Logbook path toward Genin.`);
     }

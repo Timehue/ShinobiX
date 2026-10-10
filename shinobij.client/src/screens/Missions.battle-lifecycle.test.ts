@@ -70,7 +70,7 @@ test("all successful Mission Hall claims use atomic versioned character adoption
     assert.equal([...logbook.matchAll(/applySuccessfulMissionClaim\(result\)/g)].length, 2);
     for (const source of [hunterBoard, logbook]) {
         assert.match(source, /commitAuthoritativeMissionClaim\(result, onVersionedCharacter\)/);
-        assert.match(source, /if \(!onServerVersion\(result\._saveVersion\)\) return false;/);
+        assert.match(source, /if \(!onServerVersion\(result\._saveVersion\)\) return;/);
     }
 });
 
