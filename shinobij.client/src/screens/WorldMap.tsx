@@ -121,7 +121,7 @@ import { storyReckoningActionFailure } from "../lib/story-reckoning-feedback";
 
 // Anbu Vault Infiltration (anbuInfiltration.v1) — lazy so the raid (which pulls
 // in the whole BattleTowerFight screen) never weighs down the WorldMap chunk.
-const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid })));
+const AnbuVaultRaid = lazy(() => import("../features/anbuInfiltration/AnbuVaultRaid").then(m => ({ default: m.AnbuVaultRaid }))); const WorldBossMapCalloutOverlay = lazy(() => import("../components/WorldBossMapCalloutOverlay").then(m => ({ default: m.WorldBossMapCalloutOverlay })));
 import { SectorMap } from "../components/SectorMap";
 import { SceneCritters } from "../components/SceneCritters";
 import { DayNightSky } from "../components/DayNightSky";
@@ -174,7 +174,7 @@ import { isSectorLivePeersEnabled } from "../components/sector-peers-flag";
 import type { SectorPeer } from "../components/SectorPeers";
 import { isWeeklyBossRoamEnabled, weeklyBossRoamState, weeklyBossRoamCooldownId, WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS, type RoamingBoss } from "../lib/weekly-boss-roam";
 import { stageWeeklyBossFight } from "../lib/weekly-boss-launch";
-import { useWorldBossMap, WorldBossMapOverlay, WorldBossSectorFlag } from "../components/WorldBossMapOverlay";
+import { useWorldBossMap, WorldBossSectorFlag } from "../components/WorldBossMapOverlay";
 import { playerNameTile } from "../lib/sector-tile";
 import { fetchPlayerCombatSave, pvpSessionEnvironment, stringifyPvpSessionPayload } from "../lib/pvp-session";
 import { createPvpSessionWithRecovery, pvpStableBattleIdFromRequestBody } from "../lib/pvp-session-create";
@@ -5069,7 +5069,7 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
+            <Suspense fallback={null}><WorldBossMapCalloutOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} /></Suspense>
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
