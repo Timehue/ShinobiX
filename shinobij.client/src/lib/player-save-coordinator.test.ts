@@ -19,7 +19,7 @@ function deferred<T>() {
     const promise = new Promise<T>(done => { resolve = done; });
     return { promise, resolve };
 }
-function fixture() {
+function fixture(applyServerSnapshot: (snapshot: PlayerSavePayload) => boolean = () => true) {
     let fields!: ReturnType<typeof usePlayerSaveState>;
     function Probe() { fields = usePlayerSaveState(); return null; }
     renderToString(createElement(Probe));
@@ -32,7 +32,7 @@ function fixture() {
     const owner = createPlayerSaveCoordinator({
         characterRef, currentAccountNameRef, saveSessionEpochRef, pvpCreateScopeAbortRef,
         setCharacter: update => { characterRef.current = typeof update === "function" ? update(characterRef.current) : update; },
-        setSaveConflictDraft: () => {}, setSaveBlocked: () => {}, applyServerSnapshot: () => true,
+        setSaveConflictDraft: () => {}, setSaveBlocked: () => {}, applyServerSnapshot,
         storage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => { storage.set(key, value); }, removeItem: key => { storage.delete(key); } } as Storage,
     });
     owner.saveAuthority.scopeToAccount(initial.name);
@@ -102,6 +102,34 @@ test("versioned commits reject stale or foreign characters and synchronously pub
     assert.equal(f.owner.latestSaveVersionRef.current, 6);
     assert.equal(f.owner.latestSaveRef.current?.character.level, 2);
     assert.equal(f.characterRef.current?.level, 2);
+});
+
+// Reproduced live on 2026-10-09 (e2e-live/resource-gathering.spec.ts): a tool
+// purchase stored at v6, then the boot achievement sync stored v7 and its reply
+// landed first. The sync adopts the local character plus the stored wallet, so
+// v7 here had no tool, the v6 purchase reply was refused, and the next autosave
+// (base v7) stored an inventory without the tool the player had paid for.
+test("a refused stale reply reads the stored save back once, so an autosave cannot erase what it settled", async () => {
+    const applied: PlayerSavePayload[] = [], urls: string[] = [];
+    const f = fixture(snapshot => { applied.push(snapshot); f.characterRef.current = snapshot.character; return true; });
+    const paid = { ...f.initial, ryo: f.initial.ryo - 150, inventory: [...f.initial.inventory, "tool-basic-pickaxe"] };
+    globalThis.fetch = async (url) => {
+        urls.push(String(url));
+        return new Response(JSON.stringify({ ...f.owner.latestSaveRef.current!.payload, character: paid, _saveVersion: 7 }), { status: 200 });
+    };
+    assert.equal(f.owner.commitVersionedCharacter({ ...f.initial, ryo: paid.ryo }, 7), true, "the overtaking wallet patch");
+    assert.equal(f.owner.commitVersionedCharacter(paid, 6), false, "the purchase reply is still refused as stale");
+    for (let i = 0; i < 5 && applied.length === 0; i++) await tick();
+    assert.deepEqual(urls, ["/api/save/rookie"]);
+    assert.deepEqual(applied.map(snapshot => snapshot.character.inventory), [paid.inventory]);
+    assert.equal(f.owner.latestSaveVersionRef.current, 7);
+    assert.ok(f.owner.latestSaveRef.current?.payload.character.inventory.includes("tool-basic-pickaxe"), "the next autosave carries the tool");
+    // A reply the read-back already covers costs nothing more; neither does an unversioned or foreign one.
+    assert.equal(f.owner.commitVersionedCharacter(paid, 6), false);
+    assert.equal(f.owner.commitVersionedCharacter(paid, undefined), false);
+    assert.equal(f.owner.commitVersionedCharacter({ ...paid, name: "Other" }, 3), false);
+    for (let i = 0; i < 5; i++) await tick();
+    assert.equal(urls.length, 1);
 });
 
 test("an unrelated authoritative mutation preserves an unsaved cinematic handoff and saves it at the new version", async (t) => {
