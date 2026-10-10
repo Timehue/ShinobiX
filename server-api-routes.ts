@@ -101,6 +101,7 @@ import anbuInfiltrationHandler from './api/village/anbu-infiltration.js';
 import villageWarMapHandler from './api/village/war-map.js';
 import villageTaxHandler from './api/village/tax.js';
 import villageIntelHandler from './api/village/intel.js';
+import villageStateHandler from './api/village/state.js';
 import villageClaimWarCrateHandler from './api/village/claim-war-crate.js';
 import villageWarMissionHandler from './api/village/war-mission.js';
 import warClaimRewardHandler from './api/war/claim-reward.js';
@@ -517,24 +518,25 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // Village War Map — Kage sets a home sector's sector-war win-condition (Combat/
     // Card; max-7 diversity rule). Server-gated by the Sector Map campaign switch.
     route('/village/war-win-condition', villageWarWinConditionHandler);
-    // Village War Map — Kage (3 sectors) / elders (1 each) set a home sector's
-    // terrain (the defender jutsu-school buff). Gated by the Sector Map switch.
+    // Village War Map — Kage (3 sectors) / elders (1 each) set the terrain of a
+    // sector their village holds (the defender jutsu-school buff). Gated by the
+    // Sector Map switch.
     route('/village/war-terrain', villageWarTerrainHandler);
     // Village War Map — sector-war battle wiring (Phase 4c): the Kage declares a
-    // contest (250 WR), a single-use token binds the resulting PvP battle, and
-    // resolve applies the authoritative winner to Control HP — flipping the sector's
-    // ownerVillage on capture. Server-gated by the Sector Map campaign switch.
+    // 72-hour scored contest (250 WR), a single-use token binds the resulting PvP
+    // battle, and resolve adds the authoritative winner's kill points to its tally.
+    // Settlement, not resolve, flips the sector. Gated by the Sector Map switch.
     route('/village/sector-war', villageSectorWarHandler);
     if (process.env.NODE_ENV === 'test' && process.env.SHINOBIX_QA_MEMORY_KV === '1') {
         route('/_qa/sector-war', sectorWarQaHandler);
     }
     // Village War Map — sector-war "Card" win-condition (Phase 4c-2): an interactive
-    // 6-turn Card Clash between an attacker- and defender-village member, settling
-    // the same contest Control HP (forked clan-war engine). Gated by the Sector Map switch.
+    // 6-turn Card Clash between an attacker- and defender-village member, scoring
+    // the same contest's tallies (forked clan-war engine). Gated by the Sector Map switch.
     route('/village/sector-card', villageSectorCardHandler);
     // Village War Map — sector-war "Pet" win-condition (Phase 7): a deterministic 1v1
-    // pet duel resolved server-side by the generated pet engine (api/pet-sim), settling
-    // the same contest Control HP. The client replays the same (pets, seed). Gated.
+    // pet duel resolved server-side by the generated pet engine (api/pet-sim), scoring
+    // the same contest's tallies. The client replays the same (pets, seed). Gated.
     route('/village/sector-pet',  villageSectorPetHandler);
     // Anbu Vault Infiltration — L100 sector-attrition raid (start/act/state/report/
     // turn-in action switch): fight a daily-sealed Anbu snapshot (Solo PvE engine)
@@ -553,6 +555,10 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // and CDN-cached, and a per-viewer block forced `private, no-store` on every
     // logged-in poll. GET only, auth required, proc-cached per village.
     route('/village/intel', villageIntelHandler);
+    // A village's members-only record (treasury + Village Stores, upgrades,
+    // orders, activity log, agenda): the part the public /api/game-state frame
+    // no longer carries. GET only, auth required, private/no-store.
+    route('/village/state', villageStateHandler);
     // War crate — server-authoritative claim of a village-war-win Legendary War
     // Crate, validated against the authoritative world:war record (P0.2c). POST,
     // idempotent (claimedWarCrateIds). Client gates on warCrateServerAuth.v1.

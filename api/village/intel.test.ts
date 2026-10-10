@@ -161,62 +161,68 @@ describe('GET /api/village/intel', { concurrency: false }, () => {
 });
 
 /*
- * Perf contract: the viewer's village is resolved BEFORE the proc-cache memo, so
+ * Who the viewer is. Their village is resolved BEFORE the proc-cache memo, so
  * whatever it costs is paid on EVERY request rather than once per frame. It used
  * to be a full `save:<name>` read — the fattest row in the store (base64 avatar,
- * inventory, jutsu) — for one short string. It now comes from the in-memory
- * presence row, with the save read kept only as the offline fallback.
+ * inventory, jutsu) — for one short string, then the client-supplied presence
+ * row. It is now the save's `character.village` alone, read as a projection:
+ * intel is for a village's members (owner ruling 2026-10-08), so a village
+ * claimed in the heartbeat must not open another village's block.
  */
-describe('GET /api/village/intel — village resolution cost', { concurrency: false }, () => {
-    it('an ONLINE viewer costs zero save reads, even across a cold proc-cache', async () => {
-        const { onlineStore } = await import('../_realtime/online-store.js');
+describe('GET /api/village/intel — who the viewer is', { concurrency: false }, () => {
+    it('reads only the save\'s village, never the whole save, even across a cold proc-cache', async () => {
         await seedPlayer('moonrunner', VIEWER);
         await seedIntel(VIEWER, { 12: 900 });
-        onlineStore.upsert({ name: 'moonrunner', sector: 12, character: { name: 'moonrunner', village: VIEWER, level: 20 } });
 
-        const original = kv.get.bind(kv);
-        let saveReads = 0;
-        (kv as unknown as { get: typeof kv.get }).get = ((key: string, ...rest: unknown[]) => {
-            if (String(key).startsWith('save:')) saveReads++;
-            return (original as (...a: unknown[]) => unknown)(key, ...rest);
+        const store = kv as unknown as Record<string, unknown>;
+        const originalGet = kv.get.bind(kv);
+        const originalMget = kv.mget.bind(kv);
+        let fullSaveReads = 0;
+        const projected: string[][] = [];
+        store.get = ((key: string, ...rest: unknown[]) => {
+            if (String(key).startsWith('save:')) fullSaveReads++;
+            return (originalGet as (...a: unknown[]) => unknown)(key, ...rest);
         }) as typeof kv.get;
+        store.mget = ((...keys: string[]) => {
+            fullSaveReads += keys.filter((key) => String(key).startsWith('save:')).length;
+            return (originalMget as (...a: unknown[]) => unknown)(...keys);
+        }) as typeof kv.mget;
+        store.mgetProjected = async (keys: string[], projection: Record<string, readonly string[]>) => {
+            projected.push(keys);
+            const { projectKvValue } = await import('../_storage-projection.js');
+            return (await originalMget(...keys)).map((value) => projectKvValue(value, projection));
+        };
         try {
             const first = await get('moonrunner');
-            const second = await get('moonrunner'); // warm memo — must also be free
+            const second = await get('moonrunner'); // warm memo — the resolve still runs
             assert.equal(first.statusCode, 200);
             assert.equal((first.body?.villageIntel as { village: string }).village, VIEWER);
             assert.equal((second.body?.villageIntel as { village: string }).village, VIEWER);
         } finally {
-            (kv as unknown as { get: typeof kv.get }).get = original;
-            onlineStore.remove('moonrunner');
+            store.get = originalGet;
+            store.mget = originalMget;
+            delete store.mgetProjected;
         }
-        assert.equal(saveReads, 0, 'the hot per-request path must not read a save blob');
+        assert.equal(fullSaveReads, 0, 'the hot per-request path must not read a save blob');
+        assert.deepEqual(projected, [['save:moonrunner'], ['save:moonrunner']]);
     });
 
-    it('an OFFLINE viewer still resolves, via the save fallback', async () => {
-        await seedPlayer('moonrunner', VIEWER);
-        await seedIntel(VIEWER, { 12: 900 });
-        const out = await get('moonrunner');
-        assert.equal(out.statusCode, 200);
-        assert.equal((out.body?.villageIntel as { village: string }).village, VIEWER);
-    });
-
-    it('presence cannot be used to read ANOTHER village\'s scoutedBy block', async () => {
-        // Presence character is client-supplied, so a viewer could claim any
-        // village. The block they get back is still only that village's PUBLIC
-        // map layer — it grants nothing and writes nothing. Locked in so a future
-        // change can't quietly start paying out from this resolve.
+    it('a village claimed in the presence row does not open that village\'s block', async () => {
+        // Presence `character` is client-supplied. Trusted, a viewer who claimed
+        // the rival's village got the rival's block: every sector the rival had
+        // scouted, with its garrison, pool usage and structures.
         const { onlineStore } = await import('../_realtime/online-store.js');
         await seedPlayer('moonrunner', VIEWER);
         await kv.set('world:territory:33', { sector: 33, ownerVillage: RIVAL });
         await seedIntel(VIEWER, { 33: 300 });
+        await seedIntel(RIVAL, { 12: 900 });
         onlineStore.upsert({ name: 'moonrunner', sector: 12, character: { name: 'moonrunner', village: RIVAL } });
         try {
             const out = await get('moonrunner');
-            const view = out.body?.villageIntel as { village: string; revealed: unknown[]; scoutedBy: Record<string, unknown[]> };
-            assert.equal(view.village, RIVAL);
-            assert.deepEqual(view.revealed, []);                    // Moonshadow's intel is NOT handed over
-            assert.deepEqual(view.scoutedBy['33'], [{ village: VIEWER, tier: 'mapped', points: 300 }]);
+            const view = out.body?.villageIntel as { village: string; revealed: Array<{ sector: number }>; scoutedBy: Record<string, unknown[]> };
+            assert.equal(view.village, VIEWER, 'the save decides the viewer\'s village');
+            assert.deepEqual(view.revealed.map((r) => r.sector), [33], 'the viewer\'s own scouting, not the rival\'s');
+            assert.deepEqual(view.scoutedBy, {});
         } finally {
             onlineStore.remove('moonrunner');
         }

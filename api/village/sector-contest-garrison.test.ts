@@ -120,7 +120,13 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.equal(session.status, 'done');
         assert.equal(session.garrison, true);
         assert.ok(session.winner === 'p1' || session.winner === 'p2');
-        assert.equal(session.p2?.name, ANBU, 'the garrison seals the appointed ANBU, not the absent defender');
+        // The garrison seals the appointed ANBU, not the absent defender — and
+        // fights under the defence's MASKED name, like the Combat garrison:
+        // the ANBU's real name never reaches the attacker.
+        assert.equal(session.p2?.name, 'Frostfang Anbu #1');
+        assert.doesNotMatch(JSON.stringify(out.body), new RegExp(ANBU), 'the ANBU slug is never sent to the attacker');
+        const stored = await kv.get<{ garrisonDefenderSlug?: string }>(`sector-pet-garrison:${contest.id}`);
+        assert.equal(stored?.garrisonDefenderSlug, ANBU, 'the server still records whose team it sealed');
 
         // The whole point: the war is no longer stuck at 0-0.
         const after = await loadSectorWar(contest.id);
@@ -250,6 +256,32 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         assert.equal((answered.body?.session as { status: string }).status, 'done');
     });
 
+    it('walks past an ANBU whose pets are all busy to one who can field a team', async () => {
+        // 'anbuaway' sorts first and has never defended, so the rotation lands
+        // on them first. Their only pet is on an expedition, so they field no
+        // team — which used to refuse the assault outright, every time.
+        await seedPlayer('anbuaway', DEFENDER, [{ ...pet('away1', 'Driftfang'), expedition: { endsAt: Date.now() + 3_600_000 } }]);
+        await kv.set(villageStateKey(DEFENDER), { anbuAppointees: ['anbuaway', ANBU] });
+        const contest = await seedContest('pet', IDLE_MS + 60_000);
+        const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.garrisonDefendedByKage, false);
+        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'Frostfang Anbu #2');
+        const stored = await kv.get<{ garrisonDefenderSlug?: string }>(`sector-pet-garrison:${contest.id}`);
+        assert.equal(stored?.garrisonDefenderSlug, ANBU, 'the next ANBU in rotation held the garrison');
+    });
+
+    it('falls back to the seated Kage when every ANBU is busy', async () => {
+        await seedPlayer('anbuaway', DEFENDER, [{ ...pet('away1', 'Driftfang'), expedition: { endsAt: Date.now() + 3_600_000 } }]);
+        await kv.set(villageStateKey(DEFENDER), { anbuAppointees: ['anbuaway'] });
+        await kv.set(`village:kage:${DEFENDER.toLowerCase().replace(/\s+/g, '-')}`, { seatedKage: HOLDOUT });
+        const contest = await seedContest('pet', IDLE_MS + 60_000);
+        const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.equal(out.body?.garrisonDefendedByKage, true);
+        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'The Frostfang Kage');
+    });
+
     it('falls back to the seated Kage when no ANBU are appointed', async () => {
         await kv.del(villageStateKey(DEFENDER));
         await kv.set(`village:kage:${DEFENDER.toLowerCase().replace(/\s+/g, '-')}`, { seatedKage: HOLDOUT });
@@ -257,7 +289,9 @@ describe('Pet sector garrison closes the absent-defence hold', { concurrency: fa
         const out = await call(petHandler, { action: 'garrison-duel', playerName: RAIDER, sectorWarId: contest.id, petId: 'atk1' });
         assert.equal(out.statusCode, 200, JSON.stringify(out.body));
         assert.equal(out.body?.garrisonDefendedByKage, true);
-        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, HOLDOUT);
+        assert.equal((out.body?.session as { p2?: { name: string } }).p2?.name, 'The Frostfang Kage');
+        const stored = await kv.get<{ garrisonDefenderSlug?: string }>(`sector-pet-garrison:${contest.id}`);
+        assert.equal(stored?.garrisonDefenderSlug, HOLDOUT, 'the seated Kage\'s team was sealed');
     });
 });
 

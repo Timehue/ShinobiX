@@ -402,7 +402,8 @@ describe('war event: one unreadable contest row does not take the war down', { c
 
     it('settlement still settles a due war beside it', async () => {
         const now = Date.now();
-        const w = await contest({ startedAt: now - 73 * 3600_000, endsAt: now - 60_000, attackerPoints: 2, defenderPoints: 5 });
+        // Past the whistle AND the 10-minute settlement grace.
+        const w = await contest({ startedAt: now - 73 * 3600_000, endsAt: now - 11 * 60_000, attackerPoints: 2, defenderPoints: 5 });
         await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER, hp: 20_000, updatedAt: now });
         await breakAnotherRow();
         const { result } = await warEvents(() => settlement.settleDueSectorWars(now));
@@ -418,7 +419,7 @@ describe('war event: settlement flips or holds exactly once', { concurrency: fal
         await kv.set(`world:territory:${SECTOR}`, { sector: SECTOR, ownerVillage: DEFENDER, hp: 20_000, updatedAt: now });
         return contest({
             startedAt: now - 73 * 3600_000,
-            endsAt: now - 60_000,
+            endsAt: now - 11 * 60_000, // past the whistle and the settlement grace
             attackerPoints: points.attacker,
             defenderPoints: points.defender,
         });
@@ -510,6 +511,23 @@ describe('war event: cancelling a war and correcting a sector leave an audit tra
         const receipt = await continuation.settlePvpSectorWarContinuation(finished(bound, 'p1', Date.now()));
         assert.equal(receipt.outcome, 'superseded');
         assert.equal((await row(w.id)).attackerPoints, 4);
+    });
+
+    // A settled war burns both sides' intel on its sector. Calling a war off
+    // used to keep it, so a losing siege could be conceded instead of settled
+    // and declared again at the intel discount once the cooldown ran out.
+    it('calling a war off ends the scouting on that sector for both sides', async () => {
+        const { villageIntelKey, readVillageIntel } = await import('../_village-intel.js');
+        const now = Date.now();
+        const live = { lastAt: now, expiresAt: now + 7 * 24 * 60 * 60_000 };
+        await kv.set(villageIntelKey(ATTACKER), { village: ATTACKER, sectors: { [SECTOR]: { points: 500, ...live }, 30: { points: 120, ...live } } });
+        await kv.set(villageIntelKey(DEFENDER), { village: DEFENDER, sectors: { [SECTOR]: { points: 250, ...live } } });
+        await contest({ attackerPoints: 1, defenderPoints: 6 });
+
+        const out = await asAdmin(sectorWar, { action: 'abandon', playerName: 'ops', sector: SECTOR });
+        assert.equal(out.statusCode, 200, JSON.stringify(out.body));
+        assert.deepEqual(Object.keys((await readVillageIntel(ATTACKER, now)).sectors), ['30'], 'only that sector\'s intel burns');
+        assert.deepEqual((await readVillageIntel(DEFENDER, now)).sectors, {});
     });
 
     it('an admin territory correction is audited with the owner before and after', async () => {

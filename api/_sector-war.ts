@@ -25,7 +25,7 @@
  */
 
 import { isDeepStrictEqual } from 'node:util';
-import { WIN_CONDITIONS, type WinCondition } from './_war-state.js';
+import { TERRAINS, WIN_CONDITIONS, type Terrain, type WinCondition } from './_war-state.js';
 import { GARRISON_POINTS_CAP_FED, unfedStructureMultiplier, utcDay } from './_village-stores.js';
 import { SECTOR_WAR_WR, discountedWrCost } from './_war-economy.js';
 import { homeVillageForSector, isWarVillage, isWarSector, isProtectedWarSector } from './_war-map-sectors.js';
@@ -47,6 +47,11 @@ export interface SectorWarSession {
     defenderVillage: string;
     /** the defender's chosen contest type for this sector */
     winCondition: WinCondition;
+    /** The defender's terrain for this sector (its +10% home-ground school
+     *  buff), sealed at declaration like the win-condition, so every battle of
+     *  this war fights on it and a mid-war change cannot move it. A war declared
+     *  before it was sealed has none and reads the defender's current setting. */
+    terrain?: Terrain;
     /** Kill-point tallies. Count UP; compared at settlement. */
     attackerPoints: number;
     defenderPoints: number;
@@ -161,7 +166,8 @@ export const SECTOR_WAR_LEDGER_PENDING_CAP = 32;
  * PVP_TERMINAL_REPLAY_TTL (~48h) from registration, and the terminal recovery
  * snapshot and the resolution receipt 48h from the end of the fight. A
  * battle can only score while its contest is unsettled, and settlement runs
- * on every war-map poll plus the daily pass. Seven days past `endsAt` covers
+ * on the 5-minute sector-war tick once the 10-minute grace has passed (the
+ * daily pass is the backstop). Seven days past `endsAt` covers
  * all of that several times over, and replays of an already-applied PvP
  * battle can still prove their receipt after a defended war's row expires
  * (that row lives only 24h past settlement).
@@ -320,24 +326,37 @@ export const GARRISON_POINTS_CAP = 150;
 export function garrisonFeedFor(session: Pick<SectorWarSession, 'garrisonFeed'>, village: string): GarrisonFeedEntry | undefined {
     return session.garrisonFeed?.[village];
 }
+/** What a covered garrison feed is worth, to either side: the ATTACKER's feed
+ *  raises what its garrison assaults can bank by this much, the DEFENDER's
+ *  lowers it by the same. Feeding used to help only the attacker (owner ruling
+ *  2026-10-08: it must be worth as much to the defence, or the war is not
+ *  balanced). */
+export const GARRISON_FEED_SWING = GARRISON_POINTS_CAP_FED - GARRISON_POINTS_CAP;
 /** The garrison cap for a run by `village` (the attacker making the garrison
- *  assault): 200 while THAT village's garrison-feed entry is on AND the day's
- *  rations were covered (api/_village-stores.ts), else 150. Pure.
+ *  assault): 150, +50 while THAT village's feed entry is on AND the day's
+ *  rations were covered (api/_village-stores.ts), −50 while the DEFENDER's is.
+ *  Attacker fed 200, defender fed 100, both 150. Pure.
  *
  *  `today` is the UTC day the caller is resolving for, and the `covered` verdict
  *  only counts while `storesDate` still matches it. Without that check a stale
  *  `covered: true` kept granting the raised cap for free forever — the daily
  *  pass need only throw once, or the Village Stores kill switch be flipped, and
  *  the last day's verdict would freeze in the player's favour. A day with no
- *  pass now reads as UNCOVERED. */
+ *  pass now reads as UNCOVERED, for both sides. */
 export function garrisonPointsCapFor(
-    session: Pick<SectorWarSession, 'garrisonFeed' | 'storesDate'>,
+    session: Pick<SectorWarSession, 'garrisonFeed' | 'storesDate' | 'defenderVillage'>,
     village: string,
     today: string,
 ): number {
     if (!today || session.storesDate !== today) return GARRISON_POINTS_CAP;
-    const e = garrisonFeedFor(session, village);
-    return e?.on === true && e.covered === true ? GARRISON_POINTS_CAP_FED : GARRISON_POINTS_CAP;
+    const fed = (side: string) => {
+        const e = garrisonFeedFor(session, side);
+        return e?.on === true && e.covered === true;
+    };
+    let cap = GARRISON_POINTS_CAP;
+    if (fed(village)) cap += GARRISON_FEED_SWING;
+    if (session.defenderVillage !== village && fed(session.defenderVillage)) cap -= GARRISON_FEED_SWING;
+    return Math.max(0, cap);
 }
 /** Legacy-tolerant reader: the per-village map, with the retired single
  *  `garrisonFed/garrisonFedBy/garrisonCovered` trio folded in as a fallback so
@@ -398,6 +417,9 @@ function nonNeg(n: unknown): number {
 function asWinCondition(v: unknown): WinCondition {
     return (WIN_CONDITIONS as readonly string[]).includes(v as string) ? (v as WinCondition) : 'combat';
 }
+function asTerrain(v: unknown): Terrain | null {
+    return (TERRAINS as readonly string[]).includes(v as string) ? (v as Terrain) : null;
+}
 function slug(v: string): string {
     return String(v).toLowerCase().replace(/[^a-z0-9]/g, '');
 }
@@ -421,14 +443,18 @@ export function newSectorWarSession(args: {
     attackerVillage: string;
     defenderVillage: string;
     winCondition: WinCondition;
+    /** The defender's terrain for the sector, sealed for the whole war. */
+    terrain?: Terrain;
     now: number;
 }): SectorWarSession {
+    const terrain = asTerrain(args.terrain);
     return {
         id: sectorWarId(args.sector, args.attackerVillage, args.defenderVillage),
         sector: clampInt(args.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: args.attackerVillage,
         defenderVillage: args.defenderVillage,
         winCondition: asWinCondition(args.winCondition),
+        ...(terrain ? { terrain } : {}),
         attackerPoints: 0,
         defenderPoints: 0,
         startedAt: args.now,
@@ -476,12 +502,14 @@ export function normalizeSectorWarSession(raw: Partial<SectorWarSession> & {
     }
     const garrisonFeed = normalizeGarrisonFeed(raw);
     const legacyReason = raw.expiredReason as unknown;
+    const terrain = asTerrain(raw.terrain);
     return {
         id: String(raw.id ?? sectorWarId(Number(raw.sector) || 0, raw.attackerVillage, raw.defenderVillage)),
         sector: clampInt(raw.sector, 1, MAX_WILD_SECTOR),
         attackerVillage: String(raw.attackerVillage),
         defenderVillage: String(raw.defenderVillage),
         winCondition: asWinCondition(raw.winCondition),
+        ...(terrain ? { terrain } : {}),
         attackerPoints: legacy ? legacyDamage : nonNeg(raw.attackerPoints),
         defenderPoints: nonNeg(raw.defenderPoints),
         startedAt,
@@ -546,12 +574,20 @@ export function findSectorWarBattleReceipt(session: SectorWarSession, battleId: 
         ?? null;
 }
 
+/** Whether a receipt makes its winner a capture contributor: an attacker-side
+ *  win that put points on the board. A 0-point win (a garrison beaten after
+ *  its cap, a merc repelled for a fraction that rounds to nothing) scores
+ *  nothing, so it earns no Legacy capture credit either. */
+function receiptContributes(r: Pick<SectorWarBattleReceipt, 'attackerWon' | 'by' | 'points'>): boolean {
+    return r.attackerWon && !!r.by && nonNeg(r.points) > 0;
+}
+
 /** Distinct attacker-side winners among `receipts`, newest casing kept.
  *  Receipts are walked newest-first, matching the in-row mirror's order. */
 function contributorsOf(receipts: readonly SectorWarBattleReceipt[]): string[] {
     const seen = new Map<string, string>();
     for (const r of receipts) {
-        if (!r.attackerWon || !r.by) continue;
+        if (!receiptContributes(r)) continue;
         const k = r.by.toLowerCase();
         if (!seen.has(k)) seen.set(k, r.by);
     }
@@ -626,7 +662,16 @@ export function garrisonPointsInWar(session: Pick<SectorWarSession, 'appliedBatt
  * Fractions and caps (AI only — player scoring is uncapped, see the Score caps
  * note above):
  *   · garrisonBattle → GARRISON_POINTS_FRACTION, then the war-wide GARRISON cap.
- *   · mercBattle + defender win → MERC_REPEL_POINTS_FRACTION.
+ *   · mercBattle → MERC_REPEL_POINTS_FRACTION on one outcome, chosen by
+ *     `mercSide`:
+ *       - 'attacker' (the default): a DEFENDER win scores at repel weight. That
+ *         is the attacker-hired band of earlier releases being repelled, and
+ *         also how a garrison HOLD is scored (callers pass
+ *         `mercBattle: !attackerWon` — an AI holding ground is worth less to
+ *         the defence than a real defender winning).
+ *       - 'defender': a defending village's hired band. An ATTACKER win (the
+ *         band repelled) scores at repel weight; a band win scores the defence
+ *         in full.
  *
  * A terminal or past-end session scores nothing. A live-player battle refreshes
  * `lastLiveBattleAt` (re-locks the garrison); AI battles refresh `updatedAt` only.
@@ -643,6 +688,8 @@ export function applySectorWarBattle(
         by?: string;
         garrisonBattle?: boolean;
         mercBattle?: boolean;
+        /** Which side the merc/AI fought FOR (default 'attacker'). */
+        mercSide?: 'attacker' | 'defender';
     },
 ): SectorBattleOutcome {
     if (session.flipped || session.expiredAt || opts.now >= session.endsAt) {
@@ -652,7 +699,10 @@ export function applySectorWarBattle(
     const next: SectorWarSession = {
         ...session,
         updatedAt: opts.now,
-        ...(aiBattle ? {} : { lastLiveBattleAt: opts.now }),
+        // Never backwards: `now` is the battle's own end, and a battle whose
+        // terminal step was retried can reach the contest hours late. Taking
+        // its clock as-is re-opened a garrison the defenders were holding.
+        ...(aiBattle ? {} : { lastLiveBattleAt: Math.max(opts.now, Math.floor(Number(session.lastLiveBattleAt) || 0)) }),
     };
 
     // Village Stores: an unfed defender's Watchtower bonus is halved for the day.
@@ -668,8 +718,11 @@ export function applySectorWarBattle(
         points = Math.floor(points * GARRISON_POINTS_FRACTION);
         points = Math.min(points, Math.max(0, garrisonPointsCapFor(session, session.attackerVillage, today) - garrisonPointsInWar(session)));
     }
-    if (opts.mercBattle && !attackerWon) {
-        points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
+    if (opts.mercBattle) {
+        // The side that beat the AI scores at repel weight; an AI that won
+        // scores its own side in full.
+        const aiSideWon = (opts.mercSide === 'defender') === !attackerWon;
+        if (!aiSideWon) points = Math.floor(points * MERC_REPEL_POINTS_FRACTION);
     }
     if (points <= 0) return { session: next, awarded: 0, side: 'none' };
 
@@ -733,7 +786,7 @@ export function recordSectorWarBattleOutcome(
     const ledger = sectorWarLedgerOf(outcome.session);
     const nextMirror = mirror.length < SECTOR_WAR_BATTLE_RECEIPT_CAP ? [receipt, ...mirror] : mirror;
     // Newest casing wins, as the full-ledger walk did.
-    const contributors = receipt.attackerWon && receipt.by
+    const contributors = receiptContributes(receipt)
         ? [receipt.by, ...ledger.contributors.filter((name) => name.toLowerCase() !== receipt.by.toLowerCase())]
         : ledger.contributors;
     const battleLedger: SectorWarBattleLedger = {
@@ -888,13 +941,23 @@ export function sectorWarBattleReceiptTtlSeconds(session: Pick<SectorWarSession,
  *  rows plus per-player attribution the war-map's 15s poll would otherwise
  *  ship to every viewer. Keep responses on this projection; never return a raw
  *  session. Pure. */
-export function projectSectorWarForClient(session: SectorWarSession, viewerVillage?: string): SectorWarClientView {
-    const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, ...view } = session;
-    if (!viewerVillage) return view;
-    // Compatibility mirror of the VIEWER's own per-village entry only — the
-    // other side's feed is never surfaced through these flat fields.
-    const mine = garrisonFeedFor(session, viewerVillage);
+export function projectSectorWarForClient(
+    session: SectorWarSession,
+    viewerVillage?: string,
+    opts: { admin?: boolean } = {},
+): SectorWarClientView {
+    const { appliedBattles: _receipts, battleLedger: _ledger, declarationFunding: _funding, garrisonFeed, ...rest } = session;
+    if (opts.admin) return garrisonFeed ? { ...rest, garrisonFeed } : rest;
+    // A village's garrison feed is its own business: whether it pays rations,
+    // and which member ordered it (owner ruling 2026-10-08, village internals
+    // are for members only). The viewer sees its own entry, nobody else's, and
+    // a caller that names no viewer gets none.
+    const mine = viewerVillage ? garrisonFeedFor(session, viewerVillage) : undefined;
+    const view: SectorWarClientView = mine && viewerVillage && garrisonFeed?.[viewerVillage]
+        ? { ...rest, garrisonFeed: { [viewerVillage]: garrisonFeed[viewerVillage] } }
+        : rest;
     if (!mine?.on) return view;
+    // Compatibility mirror of the VIEWER's own per-village entry.
     return { ...view, garrisonFed: true, garrisonFedBy: viewerVillage, garrisonCovered: mine.covered };
 }
 export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'battleLedger' | 'declarationFunding'> & {
@@ -905,6 +968,18 @@ export type SectorWarClientView = Omit<SectorWarSession, 'appliedBattles' | 'bat
 };
 
 // ── Settlement ─────────────────────────────────────────────────────────────────
+
+/**
+ * How long settlement waits after the whistle. A battle that ENDED inside the
+ * 72 hours scores by its own clock, but its result can reach the contest a
+ * little late: a terminal step that failed once and is retried by the claim, a
+ * Card/Pet table or garrison fight reported after the fact. Without a grace,
+ * whether such a battle counted depended on whether the 5-minute settlement
+ * tick got there first, and a one-point capture could become a hold. Nothing
+ * NEW can score in the grace: a battle that ends after the whistle is refused
+ * by its own clock, as before.
+ */
+export const SECTOR_WAR_SETTLEMENT_GRACE_MS = 10 * 60 * 1000;
 
 /**
  * Settle a war whose 72 hours are up. Attacker STRICTLY ahead → the sector flips;
