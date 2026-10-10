@@ -25,7 +25,8 @@ import { commitAuthoritativeMissionClaim } from "../lib/versioned-mission-claim"
 import {
     type CreatorEvent
 } from "../App";
-import { activeVillageWarsFor, applyVillageWarMissionDamage, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { activeVillageWarsFor, loadVillageState, VILLAGE_WAR_DAILY_MISSIONS, VILLAGE_WAR_MISSION_DAMAGE, VILLAGE_WAR_RAIDS_PER_MISSION } from "../lib/world-state";
+import { applyVillageWarMissionDamage } from "../lib/village-war-mission-damage";
 import { requestAiFight } from "../lib/ai-fight-request";
 import { missionClaimActionScope } from "../lib/action-deadline-store";
 import { setSectorReopen } from "../lib/sector-return";
@@ -260,6 +261,8 @@ export function Logbook({
     // every counter it awards is frozen by the save sanitizer, so the old inline
     // claim burned the day's stamp and paid nothing. Commit the reward FIRST,
     // then apply the war damage, so a refused claim leaves the war untouched.
+    // The damage is announced only once the server has accepted it: the note
+    // says "HP -30" only on success and carries the server's refusal otherwise.
     async function claimWarMission(index: number) {
         if (warMissionPending) return;
         setWarMissionPending(true);
@@ -275,7 +278,7 @@ export function Logbook({
                             : "The mission could not be claimed right now. Try again in a moment.");
             }
             if (!onVersionedCharacter(settled.character, settled.saveVersion)) return;
-            const war = applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
+            const war = await applyVillageWarMissionDamage(settled.character, settled.warMissionToken);
             alert(war.note);
         } finally {
             setWarMissionPending(false);

@@ -7,8 +7,7 @@ import { attackBlock, worldInteractionBlock } from '../_realtime/presence-gating
 import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
-import { withKvLock } from '../_lock.js';
-import { carriedRegenCursor, settleIdleRecovery, writeVersionedPlayerSave } from '../save/_mutate-player-save.js';
+import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -93,27 +92,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
         }
-        // Field Recovery is a shield, not a licence. Raiding someone is the
-        // aggressive act that ends it — the standard rule in every MMO that has a
-        // PvP protection flag, and without it a player could lose on purpose and
-        // then spend up to 120 s attacking while un-attackable themselves.
-        // Best-effort and non-blocking: the raid is already authorised, and
-        // failing to clear a shield must never refuse a legitimate attack.
-        if (!identity.admin) {
-            void withKvLock(`save:${identity.name}`, async () => {
-                const rec = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
-                const char = (rec?.character ?? null) as Record<string, unknown> | null;
-                if (!rec || !char) return;
-                if (Math.floor(Number(char.pvpShieldUntil ?? 0)) <= Date.now()) return;
-                // The attacker keeps the idle recovery earned since their last
-                // save: it settles into this write instead of being fenced away.
-                const recovery = await settleIdleRecovery(kv, identity.name, rec);
-                const next = { ...recovery.character, pvpShieldUntil: 0 };
-                await writeVersionedPlayerSave(`save:${identity.name}`, rec, next, {}, {
-                    regenAt: carriedRegenCursor(recovery.character, next, recovery.regen),
-                });
-            }).catch(() => undefined);
-        }
+        // Field Recovery is a shield, not a licence: raiding someone ends the
+        // raider's own (api/_field-recovery-shield.ts).
+        if (!identity.admin) endOwnFieldRecoveryShield(identity.name);
         onlineStore.setPendingAttacker(targetName, attacker ?? null);
         // Instant delivery: nudge the target to run an immediate heartbeat (which
         // is the authoritative path that reads + clears pendingAttacker). No-op if

@@ -159,8 +159,8 @@ async function audit(kv: KvLike, contestId: string, opts: { expectPendingEmpty?:
     assert.equal(ledger.garrisonPoints, sum(receipts.filter((r) => r.garrison && r.attackerWon)));
     assert.equal(war.garrisonPointsInWar(session), ledger.garrisonPoints);
     assert.equal(ledger.lastGarrisonAt, Math.max(0, ...receipts.filter((r) => r.garrison).map((r) => r.at)));
-    const contributors = new Set(receipts.filter((r) => r.attackerWon && r.by).map((r) => r.by.toLowerCase()));
-    assert.deepEqual(new Set(ledger.contributors.map((name) => name.toLowerCase())), contributors, 'capture credit = attacker-side winners');
+    const contributors = new Set(receipts.filter((r) => r.attackerWon && r.by && r.points > 0).map((r) => r.by.toLowerCase()));
+    assert.deepEqual(new Set(ledger.contributors.map((name) => name.toLowerCase())), contributors, 'capture credit = attacker-side winners who scored');
     assert.ok(mirror.length <= war.SECTOR_WAR_BATTLE_RECEIPT_CAP, 'the in-row mirror never grows past the cap');
     assert.equal(mirror.length, Math.min(receipts.length, war.SECTOR_WAR_BATTLE_RECEIPT_CAP));
     if (opts.expectPendingEmpty) assert.equal(pending.length, 0, 'every receipt has its external copy');
@@ -503,7 +503,24 @@ describe('sector-war ledger: terminal wars and end-time eligibility', { concurre
         assert.equal(r.status === 'applied' && r.receipt.points, 0);
         const { session } = await audit(kv, contest.id, { expectPendingEmpty: true });
         assert.equal(session.attackerPoints, 0);
-        assert.deepEqual(session.battleLedger?.contributors, ['bo'], 'capture-credit attribution is unchanged from the full-ledger era');
+        // A win that put no points on the board is no capture credit (it used
+        // to be, unchanged from the full-ledger era).
+        assert.deepEqual(session.battleLedger?.contributors, [], 'a zero-point win earns no capture credit');
+    });
+
+    it('capture credit goes only to attackers who put points on the board', () => {
+        const contest = fresh();
+        const scored = war.recordSectorWarBattleOutcome(
+            war.applySectorWarBattle(contest, true, { now: contest.startedAt + 1000, roleSwing: 5, by: 'scorer' }),
+            { battleId: 'b1', attackerWon: true, by: 'scorer', at: contest.startedAt + 1000 },
+        );
+        const capped = war.recordSectorWarBattleOutcome(
+            { session: scored.session, awarded: 0, side: 'none' },
+            { battleId: 'b2', attackerWon: true, by: 'farmer', garrison: true, at: contest.startedAt + 2000 },
+        );
+        assert.deepEqual(capped.session.battleLedger?.contributors, ['scorer'], 'a garrison beaten past its cap credits no capture');
+        // The rebuild from receipts (a row written before the ledger) agrees.
+        assert.deepEqual(war.sectorWarLedgerFromReceipts([capped.receipt, scored.receipt], 2).contributors, ['scorer']);
     });
 
     it('external receipts outlive the contest end by the retention window', () => {

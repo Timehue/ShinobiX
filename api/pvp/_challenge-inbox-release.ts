@@ -20,15 +20,23 @@ function namesBattle(entry: unknown, battleId: string): boolean {
  * into a finished duel.
  */
 export async function releaseBattleChallengeNotice(owner: string, battleId: string): Promise<void> {
+    await releaseChallengeNoticesWhere(owner, (entry) => namesBattle(entry, battleId));
+}
+
+/** Drop every notice in `owner`'s challenge inbox that `matches`. The battle
+ *  notices above use it, and so do the open-world Pet and Card war battles,
+ *  whose notices name their battle by engage id instead
+ *  (api/_sector-contest-engage.ts). */
+export async function releaseChallengeNoticesWhere(owner: string, matches: (entry: unknown) => boolean): Promise<void> {
     const key = `challenges:${safeName(owner)}`;
     // Unlocked peek: the overwhelmingly common case is an empty inbox, and a
     // terminal replay runs on every terminal read.
     const peek = await kv.get<unknown[]>(key);
-    if (!Array.isArray(peek) || !peek.some((entry) => namesBattle(entry, battleId))) return;
+    if (!Array.isArray(peek) || !peek.some(matches)) return;
     await withKvLock(key, async () => {
         const existing = await kv.get<unknown[]>(key);
         if (!Array.isArray(existing)) return;
-        const kept = existing.filter((entry) => !namesBattle(entry, battleId));
+        const kept = existing.filter((entry) => !matches(entry));
         if (kept.length === existing.length) return;
         if (kept.length) await kv.set(key, kept, { ex: CHALLENGE_TTL });
         else await kv.del(key);
