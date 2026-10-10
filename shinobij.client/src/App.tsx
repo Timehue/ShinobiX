@@ -4659,7 +4659,7 @@ export default function App() {
             try {
                 const { dungeonEventForRun } = await loadDungeonPresentation();
                 const result = await mutateDungeonRunServer(character.name, "start", '', event.id);
-                if (!commitVersionedCharacter(result.character, result._saveVersion)) return;
+                commitVersionedCharacter(result.character, result._saveVersion); // The key is spent even if refused as stale: enter the run.
                 setActiveDungeonRunToken(result.token);
                 event = dungeonEventForRun(result.character.activeDungeonRun, creatorEvents, event);
             } catch (error) {
@@ -4961,9 +4961,8 @@ export default function App() {
     async function finishHollowGateCardAmbush() {
         if (!character || !hollowGateCardAmbush) throw new Error("The rift card binding is missing. Return to the shrine and resume it.");
         const settled = await settleHollowGateCardAmbush(character.name, hollowGateCardAmbush.token, hollowGateCardAmbush.matchId);
-        if (!settled.ok || !settled.character || !commitVersionedCharacter(settled.character, settled._saveVersion)) {
-            throw new Error(settled.error || "The rift card result is still sealing. Retry Continue.");
-        }
+        if (!settled.ok || !settled.character) throw new Error(settled.error || "The rift card result is still sealing. Retry Continue.");
+        commitVersionedCharacter(settled.character, settled._saveVersion); // Settled even if refused as stale, so leave the ambush.
         setHollowGateRun(previous => previous ? { ...previous, threat: 0 } : previous);
         pushHollowGateLog(settled.won
             ? `The Chronicle Keeper falls. The card ambush seal breaks. +${settled.reward?.ryo ?? 0} ryo, +${settled.reward?.auraDust ?? 0} Aura Dust.`

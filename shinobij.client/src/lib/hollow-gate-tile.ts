@@ -120,9 +120,15 @@ export function resolveHollowGateTile(
             };
         });
     }
-    function adoptServerEvent(result: Awaited<ReturnType<typeof resolveHollowGateServerEvent>>) {
-        if (result.character && !onVersionedCharacter(result.character, result._saveVersion)) return false;
-        if (result.runState) {
+    // The event is resolved even when a newer save was adopted first and this
+    // commit is refused as stale (the coordinator then reads the stored save
+    // back), so the tile is always marked resolved: returning left it live to
+    // fire again. A refused reply's run counters can be older than ones a later
+    // tile event already set (each reply carries the whole stored run state),
+    // so only an accepted reply sets them.
+    function adoptServerEvent(result: Awaited<ReturnType<typeof resolveHollowGateServerEvent>>): void {
+        const current = !result.character || onVersionedCharacter(result.character, result._saveVersion);
+        if (current && result.runState) {
             markResolved({
                 setKeys: result.runState.keys,
                 setTorch: result.runState.torch,
@@ -132,7 +138,6 @@ export function resolveHollowGateTile(
         } else {
             markResolved();
         }
-        return true;
     }
     switch (tile.kind) {
         case "empty": {
@@ -172,7 +177,7 @@ export function resolveHollowGateTile(
                 action: "trap",
             }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The trap seal did not resolve.");
-                if (!adoptServerEvent(result)) return;
+                adoptServerEvent(result);
                 const damage = Math.max(0, Math.floor(result.damage ?? 0));
                 if (result.revived) {
                     pushHollowGateLog(`${flavor} The trap's killing blow lands, and then Second Wind restores half your HP.`);
@@ -195,7 +200,7 @@ export function resolveHollowGateTile(
             if (!hollowGateRun.runToken) return;
             return resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "chest" }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The chest seal did not resolve.");
-                if (!adoptServerEvent(result)) return;
+                adoptServerEvent(result);
                 const lines = hollowGateRewardLines(result.reward);
                 const gainedKey = (result.runState?.keys ?? hollowGateRun.keys) > hollowGateRun.keys;
                 pushHollowGateLog(`Chest opened. ${lines.join(", ")}${gainedKey ? ", +1 Shrine Key" : ""}, +2 Torch.`);
@@ -211,7 +216,7 @@ export function resolveHollowGateTile(
             if (!hollowGateRun.runToken) return;
             return resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action: "shard-vein" }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The shard vein did not resolve.");
-                if (!adoptServerEvent(result)) return;
+                adoptServerEvent(result);
                 const gain = Math.max(0, Math.floor(result.reward?.currencies?.hollowShards ?? 0));
                 pushHollowGateLog(`${flavor} You pry ${gain} Hollow Shards loose.`);
             });
@@ -243,7 +248,7 @@ export function resolveHollowGateTile(
                 action: "shrine",
             }).then((result) => {
                 if (!result.ok) return pushHollowGateLog(result.error || "The shrine seal did not answer.");
-                if (!adoptServerEvent(result)) return;
+                adoptServerEvent(result);
                 pushHollowGateLog(`${floorProfile.shrineTitle}: ${floorProfile.shrineRite} The Torch of Reiki flares to full.`);
                 setHollowGateHiddenChamber({ searched: false, relicTaken: false, nodeId });
             });
@@ -367,7 +372,7 @@ export function resolveHollowGateTile(
                 if (!hollowGateRun.runToken) return;
                 const result = await resolveHollowGateServerEvent({ playerName: character.name, token: hollowGateRun.runToken, nodeId: `floor:${hollowGateRun.floor}:tile:${idx}`, action });
                 if (!result.ok) return pushHollowGateLog(result.error || "The Shrine Keeper's seal did not answer.");
-                if (!adoptServerEvent(result)) return;
+                adoptServerEvent(result);
                 pushHollowGateLog(success);
                 setHollowGateEvent(null);
             };
@@ -452,7 +457,7 @@ export function resolveHollowGateTile(
                         pushHollowGateLog("The sealed door did not answer. Your Shrine Key was not spent; try again.");
                         return;
                     }
-                    if (!adoptServerEvent(eventResult)) return;
+                    adoptServerEvent(eventResult);
                     if (result.outcome === "chest") {
                         const lines = hollowGateRewardLines(eventResult.reward);
                         pushHollowGateLog(`Ancient Chest opened. ${lines.join(", ")}.`);
@@ -481,7 +486,9 @@ export function resolveHollowGateTile(
                             if (!requireServerSettlement("hollowGatePetBefriend")) return;
                             void befriendHollowGatePetServer(character.name, petToken).then((befriended) => {
                                 if (!befriended.character) return alert(befriended.error || "The pet could not be befriended.");
-                                if (!onVersionedCharacter(befriended.character, befriended.saveVersion)) return;
+                                // Befriended even if refused as stale (the coordinator
+                                // then reads the stored save back); close the encounter.
+                                onVersionedCharacter(befriended.character, befriended.saveVersion);
                                 pushHollowGateLog(`${encounter.name} joined you!${befriended.trait ? ` Trait: ${befriended.trait}.` : ""}${befriended.destination === "sanctuary" ? " Your carried roster was full, so the companion is resting in the Sanctuary." : ""}`); setHollowGateEvent(null);
                             });
                         } }, { label: "Leave it", onSelect: () => setHollowGateEvent(null) }],
