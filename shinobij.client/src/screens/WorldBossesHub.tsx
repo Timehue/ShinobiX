@@ -1,8 +1,12 @@
 import { useCallback, useState } from 'react';
 import type { Character, PlayerRecord, VersionedCharacterCommit, BattleHistoryEntry } from '../types/character';
+import type { GameItem, SavedBloodline } from '../types/combat';
 import type { CreatorAi } from '../types/creator-ai';
 import type { Screen } from '../types/core';
 import type { TowerHostLoadout } from '../lib/towers-api';
+import { getBloodlineMultiplier } from '../lib/combat-math';
+import { getAllItems } from '../lib/items';
+import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from '../lib/equipment-stats';
 import { WeeklyBossArena } from './WeeklyBossArena';
 import { WorldBossEvent } from './WorldBossEvent';
 import { WorldBossTabs, type WorldBossTab } from '../components/WorldBossTabs';
@@ -11,7 +15,8 @@ export function WorldBossesHub({
     character,
     currentSector,
     initialTab,
-    hostLoadout,
+    creatorItems,
+    savedBloodlines,
     onVersionedCharacter,
     creatorAis,
     setScreen,
@@ -24,7 +29,8 @@ export function WorldBossesHub({
     character: Character;
     currentSector: number;
     initialTab?: WorldBossTab;
-    hostLoadout?: TowerHostLoadout;
+    creatorItems: GameItem[];
+    savedBloodlines: SavedBloodline[];
     onVersionedCharacter: VersionedCharacterCommit;
     creatorAis: CreatorAi[];
     setScreen: (screen: Screen) => void;
@@ -61,6 +67,19 @@ export function WorldBossesHub({
             screenGuardKey="worldBosses"
         />;
     }
+
+    const allItems = getAllItems(creatorItems);
+    const hostLoadout: TowerHostLoadout = {
+        pvpItems: getPvpItemLoadout(character, allItems),
+        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+        armorFactor: getCharacterArmorFactor(character, allItems),
+        armorRawDR: getCharacterArmorRawDR(character, allItems),
+        itemDamagePct: getEquippedItemBonus(character, allItems, 'damagePercent'),
+        itemAbsorbPct: getEquippedItemBonus(character, allItems, 'absorbPercent'),
+        itemReflectPct: getEquippedItemBonus(character, allItems, 'reflectPercent'),
+        itemLifeStealPct: getEquippedItemBonus(character, allItems, 'lifeStealPercent'),
+        itemShield: getEquippedItemBonus(character, allItems, 'shield'),
+    };
 
     return <WorldBossEvent
         character={character}
