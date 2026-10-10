@@ -62,9 +62,9 @@ const _noCachePrefixes = [
     // Recovery journals and discovery pointers must agree with uncached debit
     // and credit receipts after a retry or a deployment handoff.
     'economy-tx:', 'economy-settlement:', 'economy-settlement-pending:',
-    // The active Weekly Boss attempt and its prepared/settled record are
-    // cross-worker authority just like the boss's shared generation state.
-    'weekly-boss-active:', 'weekly-boss-run:',
+    // Weekly and roaming World Boss state, queues, match receipts and rewards
+    // are cross-worker authority; stale worker-local reads would defeat locks.
+    'weekly-boss-active:', 'weekly-boss-run:', 'world-boss-event:',
     // Credential rotation/revocation and Google subject ownership must become
     // visible on every worker immediately. These namespaces are distinct from
     // `auth:`; a cached recovery hash can accept a replaced spare key.

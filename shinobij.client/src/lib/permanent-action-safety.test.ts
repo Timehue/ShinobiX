@@ -23,7 +23,11 @@ describe("permanent action interaction safety", () => {
         assert.ok(guard >= 0 && request > guard, "the synchronous guard must run before the purchase request");
         assert.match(purchase, /purchaseBusyRef\.current = true;/);
         assert.match(purchase, /finally\s*\{[\s\S]*purchaseBusyRef\.current = false;/);
-        assert.ok((exchange.match(/<Modal/g) ?? []).length >= 2, "confirmation and reveal must use the canonical modal");
+        assert.match(exchange, /<Modal\s+open/);
+        assert.match(exchange, /<CacheRewardReveal/);
+        const reveal = source("../components/CacheRewardReveal.tsx");
+        assert.match(reveal, /import \{ Modal \} from "\.\/ui\/Modal"/);
+        assert.match(reveal, /<Modal\s+open/);
         assert.doesNotMatch(exchange, /createPortal|modal-overlay/);
     });
 

@@ -63,7 +63,9 @@
     box-shadow: inset 0 1px 0 #e5d4ab12, 0 3px 8px #0004;
 }
 .pta-console .pta-move-card[aria-pressed='true'] { border-color: #e1c596; background: radial-gradient(ellipse at 4% 50%, color-mix(in srgb, var(--element) 23%, #17201c), #19211ff2); box-shadow: inset 3px 0 #e1c596, inset 0 1px 0 #f2d9af33, 0 3px 12px #0005; }
-@media (hover: hover) { .pta-console .pta-move-card:hover:not(:disabled) { border-color: #d2b987; background: color-mix(in srgb, var(--element) 12%, #17221e); } }
+@media (hover: hover) {
+    .pta-console .pta-move-card:hover:not(:disabled) { border-color: #d2b987; background: color-mix(in srgb, var(--element) 12%, #17221e); }
+}
 .pta-console .pta-move-card:disabled { opacity: .64; }
 .pta-move-glyph { position: relative; width: 50px; height: 50px; background: radial-gradient(circle, #cdb78017, #0002 60%); border: 1px solid #dac68a26; border-radius: 50%; overflow: hidden; }
 .pta-move-glyph::before { content: ''; position: absolute; inset: -1px; background: var(--move-art) center / contain no-repeat; }

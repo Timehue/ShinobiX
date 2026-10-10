@@ -101,6 +101,7 @@ import {
     type SealedWarRoleEvidence,
 } from '../_war-role.js';
 import { pvpSessionHp } from './_low-level-hp.js';
+import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
 // combatResourcesV2: seal each jutsu's concrete one-bar cost (chakra XOR stamina)
 // from the fighter's level + specialty, so move.ts's existing per-bar deduction
@@ -2167,6 +2168,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (me !== p1Norm && me !== p2Norm) {
                     return res.status(403).json({ error: 'Can only create sessions you are a fighter in.' });
                 }
+                for (const participant of [p1Norm, p2Norm]) {
+                    if (!participant) continue;
+                    const worldBossBlock = await worldBossPvpProtectionBlock(participant);
+                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
+                }
                 // Reject self-duels. With p1 and p2 resolving to the SAME
                 // account, a player controls both sides — letting them farm a
                 // guaranteed win on the ranked / vanguard / base-reward paths
@@ -2216,16 +2222,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 });
                             }
                         }
-                        const pointer = pendingPointerForSessionRole(existing, creatorRole!, 'active');
-                        if (pointer) {
-                            await publishPvpPendingSessionPointer(kv, pointer);
-                            await activatePvpPendingSessionPointer(
-                                kv,
-                                pointer.playerName,
-                                pointer.battleId,
-                                pointer.createdAt,
-                                pointer.createRequestFingerprint,
-                            );
+                        const admission = await withWorldBossPvpLock([p1Norm ?? '', p2Norm ?? ''], async () => {
+                            const pointer = pendingPointerForSessionRole(existing, creatorRole!, 'active');
+                            if (pointer) {
+                                await publishPvpPendingSessionPointer(kv, pointer);
+                                await activatePvpPendingSessionPointer(
+                                    kv,
+                                    pointer.playerName,
+                                    pointer.battleId,
+                                    pointer.createdAt,
+                                    pointer.createRequestFingerprint,
+                                );
+                            }
+                            return true;
+                        });
+                        if (!admission.ok) {
+                            return res.status(admission.block.status).json({ error: admission.block.error });
                         }
                         return res.status(200).json({
                             battleId,
@@ -2248,7 +2260,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 // fighter who is NOT the creator) is gated, only when they're a
                 // real ONLINE player; offline targets stay optimistic/queued.
                 const opponentNorm = me === p1Norm ? p2Norm : p1Norm;
+                const creatorWorldBossBlock = await worldBossPvpProtectionBlock(me);
+                if (creatorWorldBossBlock) return res.status(creatorWorldBossBlock.status).json({ error: creatorWorldBossBlock.error });
                 if (opponentNorm) {
+                    const worldBossBlock = await worldBossPvpProtectionBlock(opponentNorm);
+                    if (worldBossBlock) return res.status(worldBossBlock.status).json({ error: worldBossBlock.error });
                     const opponentPresence = onlineStore.get(opponentNorm);
                     if (requireWorldCoLocation === true) {
                         const locationBlock = worldInteractionBlock(onlineStore.get(me), opponentPresence);
@@ -3038,7 +3054,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             let creatorReservation = creatorPointer;
             if (creatorPointer) {
                 try {
-                    const reservation = await publishPvpPendingSessionPointer(kv, creatorPointer);
+                    const admission = await withWorldBossPvpLock([p1Norm ?? '', p2Norm ?? ''], () =>
+                        publishPvpPendingSessionPointer(kv, creatorPointer));
+                    if (!admission.ok) {
+                        if (challengeReservation) await releaseChallengePvpReservation(challengeReservation.id, battleId).catch(() => undefined);
+                        if (clanWarReservation) await releaseClanWarPvpReservation(clanWarReservation);
+                        return res.status(admission.block.status).json({ error: admission.block.error });
+                    }
+                    const reservation = admission.value;
                     creatorPointerCreated = reservation.created;
                     creatorReservation = reservation.pointer;
                 } catch (error) {

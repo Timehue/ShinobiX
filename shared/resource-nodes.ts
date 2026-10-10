@@ -1,12 +1,15 @@
-import { SECTOR_PLACES } from './sector-geo';
+import { isPlayableWildSector, SECTOR_PLACES } from './sector-geo';
 import { SECTOR_FLOOR_LAYOUTS } from './sector-floor-layouts';
 import { WORLD_LAYOUT_VERSION } from './continuous-world-layout';
 import type { ResourceActivity, ResourceFamily, ResourceGrade } from './resource-gathering';
+import { nearestInMask, pathInMask, tileNeighbors } from './sector-walk-mask';
+import { WORLD_BOSS_CRYSTAL_MAX_NODES } from './world-boss-event';
 
 export type ResourceNode = {
     id: string; name: string; activity: ResourceActivity; sector: number; approach: number; target: number;
     difficulty: 1 | 4 | 7; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily;
     layoutVersion: string;
+    worldBossCrystal?: true;
 };
 // Explicit water / rock targets and reachable approaches on reviewed floor masks.
 // A target is decorative terrain; the approach is where the character stands.
@@ -33,7 +36,79 @@ export const RESOURCE_NODES: readonly ResourceNode[] = placements.map(([sector, 
             : place.biome === 'volcano' ? 'gather-ember-ore' : place.biome === 'central' ? 'gather-stormglass-shard' : undefined,
         layoutVersion: WORLD_LAYOUT_VERSION };
 });
-export function resourceNode(id: unknown): ResourceNode | undefined { return RESOURCE_NODES.find(node => node.id === id); }
+
+/** Multiple event-only, mid-level mining sites per playable sector, positioned
+ * against distinct reachable rock tiles in the reviewed floor mask. The
+ * ordinary sector buttons remain the movement hit targets; these are only
+ * world-floor interactions. Keeping at least two veins in every sector lets
+ * the shared event meter reach all ten tiers instead of stalling at 20%. */
+const worldBossCrystalSitesBySector = SECTOR_PLACES
+    .filter(place => isPlayableWildSector(place.id))
+    .map(place => {
+        const floor = SECTOR_FLOOR_LAYOUTS[place.artKey];
+        if (!floor) return [] as ResourceNode[];
+        const mask = floor.mask;
+        const start = nearestInMask(mask, 78);
+        const ordinaryTargets = new Set(RESOURCE_NODES.filter(node => node.sector === place.id).map(node => node.target));
+        const wantedTile = (place.id * 37 + 19) % 144;
+        const candidateByTarget = new Map<number, { target: number; approach: number }>();
+        const candidates = Array.from({ length: 144 }, (_, target) => target)
+            .filter(target => mask[Math.floor(target / 12)]?.[target % 12] === '#' && !ordinaryTargets.has(target))
+            .flatMap(target => tileNeighbors(target)
+                .filter(approach => '.='.includes(mask[Math.floor(approach / 12)]?.[approach % 12] ?? '#')
+                    && pathInMask(mask, start, approach) !== null)
+                .map(approach => ({ target, approach })))
+            .sort((a, b) => Math.abs(a.target - wantedTile) - Math.abs(b.target - wantedTile)
+                || a.target - b.target || a.approach - b.approach);
+        for (const candidate of candidates) {
+            if (!candidateByTarget.has(candidate.target)) candidateByTarget.set(candidate.target, candidate);
+        }
+        const available = [...candidateByTarget.values()];
+        const selected: typeof available = [];
+        while (selected.length < 3) {
+            const remaining = available.filter(candidate => selected.every(site =>
+                candidate.target !== site.target
+                && candidate.approach !== site.approach
+                && candidate.target !== site.approach
+                && candidate.approach !== site.target));
+            if (remaining.length === 0) break;
+            const nearestDistance = (candidate: typeof available[number]) => Math.min(...selected.map(site =>
+                Math.abs(candidate.target % 12 - site.target % 12)
+                + Math.abs(Math.floor(candidate.target / 12) - Math.floor(site.target / 12))), Infinity);
+            remaining.sort((a, b) => nearestDistance(b) - nearestDistance(a)
+                || Math.abs(a.target - wantedTile) - Math.abs(b.target - wantedTile)
+                || a.target - b.target || a.approach - b.approach);
+            selected.push(remaining[0]!);
+        }
+        return selected.map((site, index) => ({
+            // Preserve the original first-site ID so an in-progress event keeps
+            // its already-mined veins claimed across a deployment.
+            id: index === 0 ? `world-boss-crystal-${place.id}` : `world-boss-crystal-${place.id}-${index + 1}`,
+            name: 'Hollow Shard Vein',
+            activity: 'mining' as const,
+            sector: place.id,
+            approach: site.approach,
+            target: site.target,
+            difficulty: 4 as const,
+            ceiling: 2 as const,
+            family: 'gather-stormglass-shard' as const,
+            worldBossCrystal: true as const,
+            layoutVersion: WORLD_LAYOUT_VERSION,
+        }));
+    });
+
+const coreWorldBossCrystalNodes = worldBossCrystalSitesBySector.flatMap(sites => sites.slice(0, 2));
+const extraWorldBossCrystalNodes = worldBossCrystalSitesBySector
+    .filter((_, index) => index % 2 === 0)
+    .flatMap(sites => sites.slice(2, 3));
+export const WORLD_BOSS_CRYSTAL_NODES: readonly ResourceNode[] = [
+    ...coreWorldBossCrystalNodes,
+    ...extraWorldBossCrystalNodes,
+].slice(0, WORLD_BOSS_CRYSTAL_MAX_NODES);
+
+export function resourceNode(id: unknown): ResourceNode | undefined {
+    return RESOURCE_NODES.find(node => node.id === id) ?? WORLD_BOSS_CRYSTAL_NODES.find(node => node.id === id);
+}
 export function resourceNodePosition(node: ResourceNode) { return { left: ((node.target % 12) + .5) / 12 * 100, top: (Math.floor(node.target / 12) + .5) / 12 * 100 }; }
 export function validResourceNodeTerrain(node: ResourceNode): boolean {
     const place = SECTOR_PLACES.find(p => p.id === node.sector), floor = place && SECTOR_FLOOR_LAYOUTS[place.artKey];

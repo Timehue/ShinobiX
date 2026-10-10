@@ -77,6 +77,7 @@ import { setSharedWeeklyBossAiId, sharedWeeklyBossAiIdCache } from "../lib/world
 import { AdminCircuit } from '../features/dojo-circuit/AdminCircuit';
 import { AdminTournaments } from '../features/tournaments/AdminTournaments';
 import { AdminBoostEventPanel } from '../components/AdminBoostEventPanel';
+import { AdminWorldBossControlPanel } from '../components/AdminWorldBossControlPanel';
 import type { EditableVnPage, VnCinematicDirection, VnSoundCue } from "../types/vn";
 import { useAdminContentPublisher } from "../lib/content-publish";
 import { isReleaseSafeClientEvent } from "../lib/release-safe-content";
@@ -2747,6 +2748,7 @@ export function AdminPanel({
                         <h3>World Events</h3>
                         <p>These controls govern global events rather than village-specific territory systems.</p>
                     </div>
+                    <AdminWorldBossControlPanel adminPw={adminPw} />
                     <AdminBoostEventPanel credential={adminPw} />
                     <AdminTournaments credential={adminPw} />
                     <AdminCircuit credential={adminPw} character={character} />

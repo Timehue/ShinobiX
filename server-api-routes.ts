@@ -108,6 +108,7 @@ import warClaimRewardHandler from './api/war/claim-reward.js';
 import bankClaimInterestHandler from './api/bank/claim-interest.js';
 import bankTransferHandler from './api/bank/transfer.js';
 import inventoryOpenWarCrateHandler from './api/inventory/open-war-crate.js';
+import inventoryOpenHollowBeastCacheHandler from './api/inventory/open-hollow-beast-cache.js';
 import profileSettleHandler from './api/profile/settle.js';
 import shopSettleHandler from './api/shop/settle.js';
 import inventorySellHandler from './api/inventory/sell.js';
@@ -322,12 +323,16 @@ import injuredVillagersHandler from './api/player/injured-villagers.js';
 import hospitalWardHandler from './api/player/hospital-ward.js';
 // Weekly boss
 import weeklyBossHandler from './api/weekly-boss.js';
+import worldBossEventHandler from './api/world-boss-event.js';
+import worldBossEventQueueHandler from './api/world-boss-event/queue.js';
+import worldBossEventSettleHandler from './api/world-boss-event/settle.js';
 import rankedSeasonHandler from './api/ranked-season.js';
 // Admin moderation
 import moderationHandler from './api/admin/moderation.js';
 // Admin: durable battle-receipt lookup (support / reward-dispute debugging)
 import adminBattleReceiptsHandler from './api/admin/battle-receipts.js';
 import adminBoostEventHandler from './api/admin/boost-event.js';
+import adminWorldBossEventHandler from './api/admin/world-boss-event.js';
 import adminCombatUsageHandler from './api/admin/combat-usage.js';
 // Admin: asset-registry report + per-domain audit-log reader (diagnostics)
 import adminAssetReportHandler from './api/admin/asset-report.js';
@@ -584,6 +589,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // clients only adopt the exact authoritative character returned by these APIs.
     route('/profile/settle', profileSettleHandler);
     route('/inventory/open-war-crate', inventoryOpenWarCrateHandler);
+    route('/inventory/open-hollow-beast-cache', inventoryOpenHollowBeastCacheHandler);
     route('/shop/settle', shopSettleHandler);
     route('/inventory/sell', inventorySellHandler);
 
@@ -817,6 +823,10 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
 
     // ─── Weekly boss (Hall of Legends) ─────────────────────────────────────────────
     route('/weekly-boss', weeklyBossHandler);
+    // ─── Separate roaming world boss with a cross-village timed team queue ─────────
+    route('/world-boss-event', worldBossEventHandler);
+    route('/world-boss-event/queue', worldBossEventQueueHandler);
+    route('/world-boss-event/settle', worldBossEventSettleHandler);
     route('/ranked-season', rankedSeasonHandler);
 
     // ─── Admin: moderation (bans / silences / IP linkage) ──────────────────────────
@@ -825,6 +835,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     // ─── Admin: durable battle-receipt lookup (support / reward-dispute triage) ─────
     route('/admin/battle-receipts', adminBattleReceiptsHandler);
     route('/admin/boost-event', adminBoostEventHandler);
+    route('/admin/world-boss-event', adminWorldBossEventHandler);
     route('/admin/combat-usage', adminCombatUsageHandler);
 
     // ─── Admin: asset-registry report + per-domain audit-log reader ─────────────────

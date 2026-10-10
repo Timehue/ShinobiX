@@ -6,3 +6,4 @@ export const DUNGEON_KEY_ID = "dungeon-key";
 export const LEGENDARY_WAR_CRATE_ID = "legendary-war-crate";
 export const WARFORGED_RELIC_ID = "warforged-relic";
 export const DUNGEON_LEGENDARY_RELIC_ID = "dungeon-legendary-relic";
+export { HOLLOW_BEAST_CACHE_ID } from "../../shared/world-boss-cache.js";

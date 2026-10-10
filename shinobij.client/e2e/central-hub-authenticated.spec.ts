@@ -183,7 +183,7 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
         { tile: "Shinobi Outpost", heading: /Shinobi Outpost/ },
         { tile: "Hall of Legends", heading: "Hall of Legends" },
         { tile: "Pet Colosseum", heading: "Pet Colosseum" },
-        { tile: "Weekly Boss", heading: "Weekly Boss" },
+        { tile: "World Bosses", heading: "Weekly Boss" },
     ] as const;
 
     for (const destination of navigations) {
@@ -200,6 +200,18 @@ test("authenticated player can open every Central Hub system", async ({ page }, 
             await page.getByRole("button", { name: "Return to Central" }).click();
             await expect(page.getByRole("heading", { name: /Central\s*The Thousand Gates/i })).toBeVisible();
             continue;
+        }
+        if (destination.tile === "World Bosses") {
+            const tabs = page.getByRole("navigation", { name: "World Boss tabs" });
+            const weeklyTab = tabs.getByRole("button", { name: /Weekly Boss/ });
+            const roamingBossTab = tabs.getByRole("button", { name: /Roaming Boss/ });
+            await expect(weeklyTab).toHaveAttribute("aria-pressed", "true");
+            await roamingBossTab.click();
+            await expect(page.getByRole("heading", { name: "No active muster" })).toBeVisible();
+            await expect(roamingBossTab).toHaveAttribute("aria-pressed", "true");
+            await weeklyTab.click();
+            await expect(page.getByRole("heading", { name: "Weekly Boss" }).first()).toBeVisible();
+            await capture(page, testInfo, "world-boss-tabs-desktop");
         }
         await returnToCentral(page);
     }

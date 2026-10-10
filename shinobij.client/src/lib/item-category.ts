@@ -28,6 +28,7 @@ import {
     HOLLOW_GATE_KEY_ID,
     WARFORGED_RELIC_ID,
     LEGENDARY_WAR_CRATE_ID,
+    HOLLOW_BEAST_CACHE_ID,
     ELEMENTAL_SHARD_ID,
     ELEMENTAL_CORE_ID,
 } from "../constants/game";
@@ -43,6 +44,7 @@ const EVENT_ITEM_IDS: ReadonlySet<string> = new Set([
     DUNGEON_KEY_ID,              // spend to enter a Hidden Dungeon run
     HOLLOW_GATE_KEY_ID,          // spend to enter the Hollow Gate Shrine
     LEGENDARY_WAR_CRATE_ID,      // open for loot
+    HOLLOW_BEAST_CACHE_ID,       // open for world-boss rewards
     // Anbu Vault Infiltration war caches — spend at the Clan Hall (2:1 clan
     // points) / Town Hall (1:1 village merit). KEEP IN SYNC with
     // api/_anbu-infiltration.ts CACHE_ITEM_IDS.

@@ -46,6 +46,7 @@ describe("server settlement policy", () => {
             "shopCardPack",
             "inventorySale",
             "warCrateOpen",
+            "hollowBeastCacheOpen",
             "clientWarCrateGrant",
             "fieldHuntMissions",
             "hollowGatePetBefriend",

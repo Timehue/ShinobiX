@@ -183,6 +183,7 @@ export const ITEM_CATALOG: Record<string, CatalogItem> = {
     "gather-stormglass-shard-superior": {"id":"gather-stormglass-shard-superior","name":"Superior Stormglass Shard","slot":"item","rarity":"common","cost":0,"stackable":true,"bonuses":{}},
     "glacier-king-cleaver": {"id":"glacier-king-cleaver","name":"Glacier King Cleaver","slot":"hand","rarity":"mythic","cost":100,"levelReq":55,"weaponRange":4,"weaponCooldown":5,"weaponEp":25,"weaponEffect":"Shield","weaponEffectValue":400,"bonuses":{"taijutsuOffense":163}},
     "golden-apple": {"id":"golden-apple","name":"Golden Apple","slot":"item","rarity":"legendary","cost":20,"stackable":true,"bonuses":{}},
+    "hollow-beast-cache": {"id":"hollow-beast-cache","name":"Hollow Beast Cache","slot":"item","rarity":"legendary","cost":0,"stackable":true,"bonuses":{}},
     "hollow-gate-key": {"id":"hollow-gate-key","name":"Hollow Gate Key","slot":"item","rarity":"rare","cost":0,"stackable":true,"bonuses":{}},
     "hunt-ancient-beast-core": {"id":"hunt-ancient-beast-core","name":"Ancient Beast Core","slot":"item","rarity":"epic","cost":0,"bonuses":{}},
     "hunt-ash-scale": {"id":"hunt-ash-scale","name":"Ash Scale","slot":"item","rarity":"rare","cost":0,"bonuses":{}},

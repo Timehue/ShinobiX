@@ -60,7 +60,8 @@ const consts = NEED.map((n) => {
     if (!m) throw new Error(`gen-pet-sim: ${n} not found in constants/game.ts`);
     return m[0];
 }).join("\n");
-write("_game-consts.ts", "constants/game.ts (subset)", consts + "\n");
+write("_game-consts.ts", "constants/game.ts (subset)", consts +
+    '\nexport { HOLLOW_BEAST_CACHE_ID } from "../../shared/world-boss-cache.js";\n');
 
 // 3. data/pet-config.ts → pet-config.ts (redirect its 2 imports).
 let petConfig = read("data/pet-config.ts")
@@ -74,7 +75,7 @@ let petConfig = read("data/pet-config.ts")
     // leaving the generated mirror referencing an undefined name. An import
     // specifier list cannot contain `}`, so this stays inside one statement.
     .replace(/import \{[^}]*\} from "\.\.\/constants\/game";/,
-        'import {\n    TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,\n    WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,\n} from "./_game-consts.js";');
+        'import {\n    TERRITORY_CONTROL_SCROLL_ID, DUNGEON_KEY_ID, LEGENDARY_WAR_CRATE_ID,\n    HOLLOW_BEAST_CACHE_ID, WARFORGED_RELIC_ID, DUNGEON_LEGENDARY_RELIC_ID,\n} from "./_game-consts.js";');
 write("pet-config.ts", "data/pet-config.ts", petConfig);
 
 // 4. pet-arena-walkmask.ts → copy verbatim (it imports nothing).

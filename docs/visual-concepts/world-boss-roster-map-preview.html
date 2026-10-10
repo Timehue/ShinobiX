@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Roaming World Bosses — World Map Preview</title>
+  <style>
+    :root { color-scheme: dark; --ink:#071426; --panel:#0d1d33; --line:#294361; --teal:#20cbb1; --gold:#f1bd58; --muted:#a9bfd6; }
+    * { box-sizing: border-box; }
+    html, body { width:100%; min-width:1600px; height:100%; min-height:900px; margin:0; background:#071426; color:#f1f6fc; font-family:Inter,Segoe UI,Arial,sans-serif; }
+    body { display:flex; justify-content:center; align-items:flex-start; }
+    .page { position:relative; width:1600px; height:900px; padding:36px 54px 25px; overflow:hidden; background:radial-gradient(ellipse at 52% 40%,#142a46 0,#09172a 55%,#06101f 100%); }
+    .topline { height:30px; display:flex; justify-content:space-between; align-items:center; letter-spacing:.16em; font-size:13px; font-weight:800; color:var(--teal); }
+    .concept { color:#d9b866; border:1px solid #8b6b32; border-radius:99px; padding:7px 13px; font-size:11px; letter-spacing:.12em; }
+    h1 { margin:16px 0 6px; font-size:43px; line-height:1.06; letter-spacing:-.03em; }
+    .subtitle { margin:0; color:var(--muted); font-size:16px; }
+    .map-shell { position:relative; height:608px; margin-top:24px; overflow:hidden; border:1px solid #365370; border-radius:20px; background:linear-gradient(135deg,#0c5594 0%,#0b3970 48%,#092851 100%); box-shadow:0 20px 55px rgba(0,0,0,.38), inset 0 0 80px rgba(3,17,39,.5); }
+    .stars { position:absolute; inset:0; opacity:.45; background-image:radial-gradient(circle at 8% 20%,#eaf6ff 0 1px,transparent 2px),radial-gradient(circle at 78% 11%,#d7efff 0 1px,transparent 2px),radial-gradient(circle at 92% 64%,#fff 0 1px,transparent 2px),radial-gradient(circle at 51% 29%,#8fd4f6 0 1px,transparent 2px),radial-gradient(circle at 19% 78%,#fff 0 1px,transparent 2px); }
+    .land { position:absolute; overflow:hidden; filter:drop-shadow(0 18px 23px rgba(0,0,0,.5)); clip-path:polygon(13% 12%,32% 5%,47% 10%,64% 2%,80% 15%,90% 33%,85% 48%,96% 62%,83% 80%,66% 84%,55% 97%,39% 87%,25% 93%,13% 78%,7% 57%,1% 39%); }
+    .land.main { inset:37px 68px 39px 52px; background:#385c45; }
+    .terrain { position:absolute; width:52%; height:62%; object-fit:cover; opacity:.43; mix-blend-mode:screen; filter:saturate(.75) contrast(1.12); }
+    .terrain.forest { left:1%; top:3%; width:45%; height:95%; clip-path:polygon(0 0,100% 0,84% 46%,100% 100%,0 100%); }
+    .terrain.snow { right:0; top:0; width:44%; height:56%; clip-path:polygon(18% 0,100% 0,100% 100%,0 78%); opacity:.42; }
+    .terrain.cinder { right:0; bottom:0; width:53%; height:56%; clip-path:polygon(24% 0,100% 10%,100% 100%,0 100%); opacity:.32; }
+    .land-shade { position:absolute; inset:0; background:linear-gradient(117deg,rgba(20,73,53,.42),rgba(16,45,63,.12) 50%,rgba(71,38,36,.25)),radial-gradient(ellipse at 50% 45%,transparent 35%,rgba(4,17,33,.37) 100%); }
+    .grid { position:absolute; inset:0; opacity:.16; background:linear-gradient(90deg,transparent 49.8%,rgba(220,240,255,.55) 50%,transparent 50.2%),linear-gradient(0deg,transparent 49.8%,rgba(220,240,255,.45) 50%,transparent 50.2%); background-size:160px 120px; }
+    .route { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .region { position:absolute; z-index:2; color:#e8f4ea; text-shadow:0 2px 8px #071426; font-size:11px; font-weight:800; letter-spacing:.18em; opacity:.82; }
+    .region.north { top:11%; right:18%; }
+    .region.west { top:46%; left:10%; }
+    .region.gate { bottom:15%; left:39%; }
+    .region.cinder { bottom:14%; right:12%; }
+    .compass { position:absolute; z-index:3; top:25px; left:26px; color:#d6e6f7; font-size:12px; font-weight:800; text-align:center; opacity:.8; }
+    .compass b { display:block; color:#f5d183; font-size:19px; margin-bottom:1px; }
+    .map-label { position:absolute; z-index:10; display:flex; align-items:center; gap:8px; padding:8px 11px; border:1px solid rgba(199,222,244,.31); border-radius:9px; background:rgba(5,18,35,.87); box-shadow:0 5px 16px rgba(0,0,0,.28); white-space:nowrap; }
+    .map-label strong { display:block; font-size:13px; letter-spacing:.04em; }
+    .map-label small { display:block; margin-top:2px; color:#b4c7da; font-size:10px; letter-spacing:.09em; }
+    .legend-dot { width:8px; height:8px; border-radius:50%; background:#50e0c7; box-shadow:0 0 11px currentColor; }
+    .label-wolf { top:25%; left:11%; }
+    .label-bull { top:20%; left:47%; }
+    .label-mino { top:48%; right:7%; }
+    .sector { position:absolute; z-index:6; width:27px; height:27px; border:2px solid #ffe08a; border-radius:50%; background:radial-gradient(circle at 35% 30%,#fff6cb,#e9aa39 55%,#96511d); box-shadow:0 0 0 5px rgba(245,190,84,.14),0 3px 9px rgba(0,0,0,.5); }
+    .boss { position:absolute; z-index:5; width:84px; height:112px; transform:translate(-50%,-100%); pointer-events:none; }
+    .boss img { display:block; width:400%; height:100%; max-width:none; object-fit:fill; }
+    .boss .window { width:100%; height:100%; overflow:hidden; filter:drop-shadow(0 0 8px var(--glow)) drop-shadow(0 4px 5px rgba(0,0,0,.8)); }
+    .boss.wolf { --glow:rgba(69,232,207,.86); }
+    .boss.bull { --glow:rgba(181,117,255,.78); }
+    .boss.mino { --glow:rgba(255,114,125,.85); filter:drop-shadow(0 0 7px rgba(255,255,255,.8)); }
+    .boss.mino .window { filter:drop-shadow(0 0 8px rgba(255,255,255,.95)) drop-shadow(0 0 16px rgba(255,92,104,.75)) drop-shadow(0 4px 5px rgba(0,0,0,.8)); }
+    .boss-wolf { left:29%; top:64%; }
+    .boss-bull { left:55%; top:74%; }
+    .boss-mino { left:78%; top:58%; }
+    .player { position:absolute; z-index:7; width:12px; height:17px; border-radius:6px 6px 4px 4px; border:1px solid rgba(255,255,255,.76); background:linear-gradient(#d8f5f0,#43a7a0); box-shadow:0 2px 6px rgba(0,0,0,.55); }
+    .player::before { content:""; position:absolute; width:7px; height:7px; border-radius:50%; background:#f0d8a5; left:2px; top:-6px; }
+    .p1{left:23%;top:62%}.p2{left:34%;top:66%}.p3{left:49%;top:73%}.p4{left:59%;top:78%}.p5{left:74%;top:57%}.p6{left:83%;top:61%}
+    .map-badge { position:absolute; z-index:4; right:25px; bottom:22px; padding:8px 12px; border:1px solid rgba(225,239,252,.3); border-radius:8px; background:rgba(3,16,32,.74); color:#dce9f5; font-size:10px; letter-spacing:.1em; }
+    .legend { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:17px; }
+    .legend article { min-height:69px; display:flex; align-items:center; gap:12px; padding:11px 15px; border:1px solid #233c58; border-radius:12px; background:linear-gradient(110deg,rgba(18,38,63,.95),rgba(12,27,46,.9)); }
+    .legend-icon { width:10px; height:38px; border-radius:8px; background:var(--accent); box-shadow:0 0 16px color-mix(in srgb,var(--accent),transparent 45%); }
+    .legend h2 { margin:0; font-size:14px; letter-spacing:.06em; }
+    .legend p { margin:4px 0 0; color:#aabdd0; font-size:11px; }
+    .legend .wolf-card { --accent:#44d9c2; }.legend .bull-card { --accent:#ba89f5; }.legend .mino-card { --accent:#ff929d; }
+    .foot { position:absolute; left:55px; right:55px; bottom:13px; display:flex; justify-content:space-between; color:#91a9c2; border-top:1px solid #263e58; padding-top:8px; font-size:10px; letter-spacing:.11em; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topline"><span>WORLD BOSS ROSTER</span><span class="concept">IN-GAME MAP CONCEPT</span></div>
+    <h1>Three threats. One living world.</h1>
+    <p class="subtitle">A scale preview using the actual map sprites and sector anchors.</p>
+    <section class="map-shell" aria-label="World map preview showing three roaming boss sprites">
+      <div class="stars"></div>
+      <div class="land main">
+        <img class="terrain forest" src="../../shinobij.client/public/sector-map/world-terrain/forest.webp" alt="">
+        <img class="terrain snow" src="../../shinobij.client/public/sector-map/world-terrain/snow.webp" alt="">
+        <img class="terrain cinder" src="../../shinobij.client/public/sector-map/world-terrain/cinder.webp" alt="">
+        <div class="land-shade"></div><div class="grid"></div>
+      </div>
+      <svg class="route" viewBox="0 0 1490 608" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M 171 387 C 268 350, 312 428, 432 402 S 583 330, 731 414 S 913 451, 1018 351 S 1193 322, 1328 367" fill="none" stroke="rgba(245,204,112,.83)" stroke-width="3" stroke-dasharray="3 11" stroke-linecap="round"/>
+        <path d="M 209 213 C 396 123, 557 161, 684 224 S 975 272, 1118 209" fill="none" stroke="rgba(224,240,255,.29)" stroke-width="1.5" stroke-dasharray="7 9"/>
+        <path d="M 287 144 L 1216 477 M 361 484 L 1180 135" fill="none" stroke="rgba(225,239,250,.12)" stroke-width="1"/>
+      </svg>
+      <div class="compass"><b>✦</b>N</div>
+      <div class="region north">FROSTBOUND RIDGE</div><div class="region west">WILDWOOD</div><div class="region gate">HOLLOW GATE PASS</div><div class="region cinder">CINDER REACH</div>
+      <div class="map-label label-wolf"><span class="legend-dot"></span><div><strong>CHICXULUB</strong><small>HOLLOW BEAST</small></div></div>
+      <div class="map-label label-bull"><span class="legend-dot" style="background:#bd8cff;color:#bd8cff"></span><div><strong>MUROGANE</strong><small>HOLLOW GATE BULL</small></div></div>
+      <div class="map-label label-mino"><span class="legend-dot" style="background:#fff0e9;color:#ff7784"></span><div><strong>DONKAKU</strong><small>HOLLOW MAZE MINOTAUR</small></div></div>
+      <div class="boss boss-wolf"><div class="window"><img src="../../shinobij.client/public/world-boss/hollow-beast-walk-v1.webp" alt=""></div></div>
+      <div class="boss bull boss-bull"><div class="window"><img src="../../shinobij.client/public/world-boss/hollow-gate-bull-walk-v1.webp" alt=""></div></div>
+      <div class="boss mino boss-mino"><div class="window"><img src="../../shinobij.client/public/world-boss/donkaku-walk-v1.webp" alt=""></div></div>
+      <span class="sector" style="left:calc(29% - 13px);top:calc(64% - 13px)"></span><span class="sector" style="left:calc(55% - 13px);top:calc(74% - 13px)"></span><span class="sector" style="left:calc(78% - 13px);top:calc(58% - 13px)"></span>
+      <i class="player p1"></i><i class="player p2"></i><i class="player p3"></i><i class="player p4"></i><i class="player p5"></i><i class="player p6"></i>
+      <div class="map-badge">ROSTER PREVIEW · ONE EVENT BOSS ACTIVE AT A TIME</div>
+    </section>
+    <section class="legend" aria-label="Boss sprite legend">
+      <article class="wolf-card"><span class="legend-icon"></span><div><h2>CHICXULUB</h2><p>Hollow Beast · turquoise energy</p></div></article>
+      <article class="bull-card"><span class="legend-icon"></span><div><h2>MUROGANE</h2><p>Hollow Gate bull · violet seal light</p></div></article>
+      <article class="mino-card"><span class="legend-icon"></span><div><h2>DONKAKU</h2><p>Hollow Maze minotaur · white-red energy</p></div></article>
+    </section>
+    <footer class="foot"><span>ROAMING WORLD BOSSES · MAP SPRITE SCALE PREVIEW</span><span>WORLD BOSS CONCEPT · 01</span></footer>
+  </main>
+</body>
+</html>

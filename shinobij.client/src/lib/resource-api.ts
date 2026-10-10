@@ -1,7 +1,10 @@
 import type { Character } from '../types/character';
 import type { ResourceReceipt, ResourcePublicAttempt } from '../../../shared/resource-gathering';
 import { pendingEconomyIntent, readPendingEconomyIntent, economyIntentSettled } from './economy-request-intent';
-export type ResourceResponse = { ok: boolean; error?: string; character?: Character; _saveVersion?: number; receipt?: ResourceReceipt; attempt?: ResourcePublicAttempt; nodeId?: string };
+export type ResourceResponse = {
+    ok: boolean; error?: string; character?: Character; _saveVersion?: number; receipt?: ResourceReceipt; attempt?: ResourcePublicAttempt; nodeId?: string;
+    worldBossHollowShard?: { harvested: boolean; heldHollowShards: number; totalMined: number; pointsPerShard: number; filledTiers: number; maxTiers: number; damageDealtReductionPct: number; damageReceivedBonusPct: number; crystalNodeCount: number };
+};
 export async function resourceRequest(body: Record<string, unknown>): Promise<ResourceResponse> {
     const intent = body.action === 'start' || body.action === 'refine' ? pendingEconomyIntent('resource-gathering', [body.action, body.playerName, body.nodeId, body.mode, body.itemId, body.quantity]) : null;
     try {

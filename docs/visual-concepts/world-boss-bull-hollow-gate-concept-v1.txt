@@ -1,0 +1,12 @@
+Asset: Hollow Gate bull world-boss concept sprite.
+Status: review concept; not wired into the live event.
+Generated: 2026-10-09 with the built-in image-generation tool.
+Output: world-boss-bull-hollow-gate-concept-v1.png (transparent PNG).
+
+References and roles:
+- A prior bull draft supplied the low, broad ox silhouette and horn shape.
+- shinobij.client/public/hollow-gate/hollow-hound-idle.webp supplied the Hollow Gate violet-black palette and seal-light treatment only.
+- shinobij.client/src/assets/village-upgrades/upgrade-hollowGate.webp supplied the chained shrine-gate motif only.
+
+Prompt:
+Use case: stylized-concept. Asset type: transparent world-map boss sprite for a dark-fantasy shinobi RPG, tied unmistakably to its Hollow Gate realm. Image 1 is the bull's structural reference: preserve its distinctly bovine face, low broad ox body, massive shoulders, short heavy legs, wide outward-crescent horns, and powerful grounded stance. It must remain a bull, never a wolf. Image 2 is a Hollow Gate reference for its deep violet-black void energy and luminous purple seal patterns only; do not copy its hound anatomy. Image 3 is a Hollow Gate shrine gate reference for its dark gate architecture, iron chains, and glowing ward tags only. Transform the bull's generic armor into Hollow Gate relic armor: black-violet basalt plates carved with abstract luminous lilac ward marks, a broken miniature shrine-gate lintel and two short side-post fragments strapped over the shoulder hump, heavy gate chains crossing the chest and hanging from the horn bases, and several torn blank ward papers caught in the chains. Make the gate fragments and seal-light clearly visible at small world-map size. Purple-violet light leaks from contained cracks in its armor and eyes; use only a few dim ember pinpoints. Remove the copper/rust palette, circular back ring, and all teal/cyan. Ancient escaped Gate guardian, ominous and heavy, not comedic. Full body, three-quarter view, lowered head as if advancing, all four hooves and both horns inside the square, bottom-center foot anchor, centered with margin for future animation. Broad horizontal silhouette, around three to four player sprites in apparent scale on the world map but compatible with its existing sector path. Transparent background. No scenery, floor, shadow, text, readable writing, symbols resembling letters, logo, UI, border, watermark, crop, poster layout, or extra subjects.
