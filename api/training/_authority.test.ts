@@ -122,6 +122,11 @@ test('client requires the server character and has no local reward fallback', ()
     assert.doesNotMatch(client, /applyTrainingReward/);
     assert.doesNotMatch(client, /fall through to local/);
     assert.match(client, /!data\?\.token \|\| !data\?\.character/);
-    assert.match(client, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return alert\(AMBIGUOUS_ACTION_MESSAGE\);\s*setActiveTraining\(data\.activeTraining \?\? null\)/,
+    // A reply refused as stale (a newer save was adopted first) is still a
+    // granted collection, not an "unconfirmed" one. Its lease is then installed
+    // by the stored-save read-back, not by the setter's immediate save.
+    assert.match(client, /if \(onVersionedCharacter\(data\.character, data\._saveVersion\)\) setActiveTraining\(data\.activeTraining \?\? null\)/,
         'collect accepts the committed save/version before applying the server-cleared lease');
+    assert.doesNotMatch(client, /onVersionedCharacter\([^()]*\)\) return (?:alert|rejectJutsuAction)\(AMBIGUOUS_ACTION_MESSAGE\)/,
+        'a settled training reply refused as stale must not be reported as unconfirmed');
 });

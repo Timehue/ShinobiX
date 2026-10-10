@@ -112,8 +112,12 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
             const res = await fetch('/api/training/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, stat: selectedStat, tierId: timer.id }) });
             const data = await res.json().catch(() => ({})) as { token?: string; character?: Character; activeTraining?: ActiveTraining; academyStatPoints?: number; _saveVersion?: number; error?: string };
             if (!res.ok || !data?.token || !data?.character || !data?.activeTraining) return alert(trainingResponseError(res.status, data?.error, 'Training could not be started.'));
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveTraining(data.activeTraining as ActiveTraining);
+            // Started even if a newer save was adopted first and this commit is
+            // refused as stale, so this is no "unconfirmed" action. The coordinator
+            // then reads the stored save back, which installs this session; the
+            // setter would force an immediate save of the older local copy ahead
+            // of that read, so only an accepted commit sets the session here.
+            if (onVersionedCharacter(data.character, data._saveVersion)) setActiveTraining(data.activeTraining as ActiveTraining);
             setTimerPickerOpen(false);
             const academyStatPoints = Math.max(0, Math.floor(Number(data.academyStatPoints) || 0));
             setTrainingNotice(academyStatPoints > 0
@@ -142,8 +146,8 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token, cancel: true }) });
             const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) return alert(trainingResponseError(res.status, data?.error, 'Training could not be cancelled.'));
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveTraining(data.activeTraining ?? null);
+            // Banked even if refused as stale (see startTraining).
+            if (onVersionedCharacter(data.character, data._saveVersion)) setActiveTraining(data.activeTraining ?? null);
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const overflow = Math.max(0, Math.floor(Number(data.overflow) || 0));
             const pooled = overflow > 0 ? ` +${overflow} to your unspent pool.` : "";
@@ -167,8 +171,8 @@ export function Training({ character, savedBloodlines = [], onVersionedCharacter
             const res = await fetch('/api/training/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, token: activeTraining.token, legacy: !activeTraining.token }) });
             const data = await res.json().catch(() => ({})) as { granted?: boolean; character?: Character; activeTraining?: ActiveTraining | null; _saveVersion?: number; applied?: number; overflow?: number; cap?: number; error?: string };
             if (!res.ok || !data?.granted || !data?.character) return alert(trainingResponseError(res.status, data?.error, 'Training could not be collected.'));
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveTraining(data.activeTraining ?? null);
+            // Collected even if refused as stale (see startTraining).
+            if (onVersionedCharacter(data.character, data._saveVersion)) setActiveTraining(data.activeTraining ?? null);
             const applied = Math.max(0, Math.floor(Number(data.applied) || 0));
             const cap = Math.max(0, Math.floor(Number(data.cap) || 0));
             // Points past the rank cap are NOT lost — applyTrainingGrant rolls
@@ -700,8 +704,11 @@ export function JutsuTrainingHall({
                 ...(sealLesson ? { payWith: "honorSeals" } : {}),
             });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            // Paid and started even if a newer save was adopted first and this
+            // commit is refused as stale. As with stat training, the stored-save
+            // read-back installs the session, and the setter's immediate save
+            // must not run ahead of it, so only an accepted commit sets it.
+            if (onVersionedCharacter(result.character, result._saveVersion)) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({
                 tone: "success",
                 message: mastery.level === 0
@@ -729,9 +736,10 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'complete', { serverToken: activeJutsuTraining.serverToken ?? '' });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
+            // Done even if refused as stale (see startPaidJutsuTraining).
+            const current = onVersionedCharacter(result.character, result._saveVersion);
             setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            if (current) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
         } finally {
             endJutsuAction();
         }
@@ -747,8 +755,8 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'cancel', { serverToken: activeJutsuTraining.serverToken ?? '' });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            // Done even if refused as stale (see startPaidJutsuTraining).
+            if (onVersionedCharacter(result.character, result._saveVersion)) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `Training cancelled. ${refund} returned.` });
         } finally {
             endJutsuAction();
@@ -769,8 +777,8 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'finish', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            // Done even if refused as stale (see startPaidJutsuTraining).
+            if (onVersionedCharacter(result.character, result._saveVersion)) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `${activeJutsuTraining.label} reached level ${activeJutsuTraining.toLevel}.` });
         } finally {
             endJutsuAction();
@@ -806,8 +814,8 @@ export function JutsuTrainingHall({
                 ...(sealLesson ? { payWith: "honorSeals" } : {}),
             });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            // Done even if refused as stale (see startPaidJutsuTraining).
+            if (onVersionedCharacter(result.character, result._saveVersion)) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `${selectedJutsu.name} is queued and already paid for.` });
         } finally {
             endJutsuAction();
@@ -825,8 +833,8 @@ export function JutsuTrainingHall({
         try {
             const result = await mutateJutsuRyoTraining(character.name, 'cancel-queue', { serverToken: activeJutsuTraining.serverToken });
             if (!result.character) return rejectJutsuAction(result.error);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return rejectJutsuAction(AMBIGUOUS_ACTION_MESSAGE);
-            setActiveJutsuTraining(result.activeJutsuTraining ?? null);
+            // Done even if refused as stale (see startPaidJutsuTraining).
+            if (onVersionedCharacter(result.character, result._saveVersion)) setActiveJutsuTraining(result.activeJutsuTraining ?? null);
             setJutsuNotice({ tone: "success", message: `Queued lesson removed. ${lessonPrice(queued)} returned.` });
         } finally {
             endJutsuAction();
