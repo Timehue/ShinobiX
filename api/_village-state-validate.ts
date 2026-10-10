@@ -63,6 +63,12 @@ const TREASURY_KEYS = ['ryo', 'honorSeals', 'fateShards', 'boneCharms', 'auraSto
 
 const MAX_CONTRIBUTION_INCREASE_PER_CALL = 5_000;
 const MAX_NOTICE_POSTS = 60;     // matches client cap
+const MAX_NOTICES = 8;           // the activity log; matches the client's slice
+// Moderation reads no more of an incoming line than this. Its result is cut to
+// TEXT_LIMITS.villageActivityLine anyway, and it runs under the village lock:
+// sanitizeUserText took about 0.2 s per megabyte (measured 2026-10-09), so a
+// 5 MB request could hold every other write to the village for a second.
+const MAX_NOTICE_SCAN = 4 * TEXT_LIMITS.villageActivityLine;
 
 function num(v: unknown, fallback = 0): number {
     const n = Number(v);
@@ -71,6 +77,44 @@ function num(v: unknown, fallback = 0): number {
 
 function lower(v: unknown): string {
     return String(v ?? '').trim().toLowerCase();
+}
+
+function isText(v: unknown): v is string {
+    return typeof v === 'string';
+}
+
+/** An incoming activity line, and the form the moderation pass would store. */
+type IncomingNotice = { raw: unknown; clean: string };
+
+/**
+ * Length of the longest run of the stored activity log (newest first) that
+ * `lines` repeats from its first entry, or 0 if it repeats none.
+ *
+ * A client sends its last copy of the log, which can be a few writes stale, so
+ * the run may start part-way down the stored log. It may run past the stored
+ * log's end only when that log is full (older lines were cut there since the
+ * client read it), and stop short of the end only when the client cut its own
+ * list at the cap. A line also matches its moderated form: the client that
+ * wrote it keeps its own unmoderated copy until its next read.
+ */
+function storedNoticeRun(lines: readonly IncomingNotice[], stored: readonly string[], clientCut: boolean): number {
+    const storedFull = stored.length >= MAX_NOTICES;
+    let best = 0;
+    for (let start = 0; start < stored.length; start++) {
+        const left = stored.length - start;
+        if (lines.length > left && !storedFull) continue;
+        if (lines.length < left && !clientCut) continue;
+        const run = Math.min(lines.length, left);
+        let matched = 0;
+        while (matched < run) {
+            const line = lines[matched];
+            const storedLine = stored[start + matched];
+            if (line.raw !== storedLine && (!line.clean || line.clean !== storedLine)) break;
+            matched++;
+        }
+        if (matched === run) best = Math.max(best, run);
+    }
+    return best;
 }
 
 /**
@@ -344,6 +388,57 @@ export async function validateVillageStateWrite(
                 cleaned.push(post);
             }
             next.noticePosts = cleaned;
+        }
+    }
+
+    // ── notices (the Town Hall activity log) ────────────────────────
+    // Plain lines, newest first ("X donated 1,000 ryo to the village
+    // treasury."). Town Hall prepends ONE line per action and sends the whole
+    // list back, cut at 8 (TownHall addNotice). So a member's write may add that
+    // one line at the top and nothing more: every stored line keeps its text and
+    // its place, and the oldest drops off past 8. Allowing several new lines
+    // would let a client with a stale copy push the stored lines out and bring
+    // old ones back. The new line is moderated like an order, and a silenced
+    // member cannot add one. A write that leaves `notices` out keeps the stored
+    // log; an admin's list replaces it (strings only, still capped, because the
+    // Town Hall renders each entry as text).
+    {
+        const keepStored = () => {
+            if (prev.notices !== undefined) next.notices = prev.notices;
+            else delete next.notices;
+        };
+        const inNotices: unknown = incoming.notices;
+        if (inNotices === undefined) {
+            keepStored();
+        } else if (!Array.isArray(inNotices)) {
+            keepStored();
+            suppressed.push('notices rejected (expected a list of lines)');
+        } else if (ctx.isAdmin) {
+            next.notices = inNotices.filter(isText).slice(0, MAX_NOTICES);
+        } else {
+            keepStored();
+            const stored = Array.isArray(prev.notices) ? prev.notices.filter(isText) : [];
+            const lines: IncomingNotice[] = inNotices.slice(0, MAX_NOTICES).map((raw) => ({
+                raw,
+                clean: sanitizeUserText(isText(raw) ? raw.slice(0, MAX_NOTICE_SCAN) : raw, TEXT_LIMITS.villageActivityLine),
+            }));
+            const clientCut = inNotices.length >= MAX_NOTICES;
+            // Is the head a line this client just added, or the first line of its
+            // copy of the log? A copy of the log, however stale, repeats a stored
+            // run from its head; an added line pushes that run one entry down.
+            // With no run at all (an empty log, or a copy older than every
+            // stored line) the head is the only line that can be new.
+            const echoRun = storedNoticeRun(lines, stored, clientCut);
+            const tailRun = storedNoticeRun(lines.slice(1), stored, clientCut);
+            if (lines.length > 0 && (echoRun === 0 || tailRun > echoRun)) {
+                if (tailRun === 0 && lines.length > 1) {
+                    suppressed.push(`notices: ${lines.length - 1} line(s) matching nothing stored dropped (one new line per write)`);
+                }
+                const line = lines[0].clean;
+                if (!line) suppressed.push('notices line rejected (empty after moderation)');
+                else if (await getActiveSilence(ctx.callerName)) suppressed.push('notices line rejected (caller silenced)');
+                else next.notices = [line, ...stored].slice(0, MAX_NOTICES);
+            }
         }
     }
 

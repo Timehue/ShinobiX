@@ -258,6 +258,7 @@ import sectorWandererQuestHandler     from './api/sector/wanderer-quest.js';
 import sectorRiftQuestHandler         from './api/sector/rift-quest.js';
 import sectorWandererAmbushHandler    from './api/sector/wanderer-ambush.js';
 import sectorWandererServiceHandler   from './api/sector/wanderer-service.js';
+import sectorRoadFleeHandler          from './api/sector/road-flee.js';
 import sectorQuestbookHandler         from './api/sector/questbook.js';
 import sectorStoryReckoningHandler    from './api/sector/story-reckoning.js';
 import sectorMercRoamHandler          from './api/sector/merc-roam.js';
@@ -728,6 +729,7 @@ export function registerApiRoutes(route: (path: string, handler: AnyHandler) => 
     route('/sector/rift-quest',         sectorRiftQuestHandler);
     route('/sector/wanderer-ambush',    sectorWandererAmbushHandler);
     route('/sector/wanderer-service',   sectorWandererServiceHandler);
+    route('/sector/road-flee',          sectorRoadFleeHandler);
     route('/sector/questbook',          sectorQuestbookHandler);
     route('/sector/story-reckoning',    sectorStoryReckoningHandler);
     route('/sector/merc-roam',          sectorMercRoamHandler);
