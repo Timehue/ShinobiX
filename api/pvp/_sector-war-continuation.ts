@@ -2,6 +2,7 @@ import { kv } from '../_storage.js';
 import { safeName } from '../_utils.js';
 import {
     normalizeVillageWarRecord,
+    sectorConfigFor,
     villageWarKey,
 } from '../_war-state.js';
 import { defenderPointsMultiplier, sectorWarDamageMultiplier } from '../_war-structures.js';
@@ -59,13 +60,27 @@ function receiptMatchesSession(
 }
 
 /**
+ * The sector a world battle was fought in, as the server verified it when the
+ * session was created: both fighters' live presence, sealed as
+ * `worldTerritoryEvidence.sector`. `rewardSector` is stamped only when the
+ * creator opts into base rewards, so binding on it alone let a tampered client
+ * opt a real fight in a contested sector out of the war, taking every defender
+ * win in it along. Sessions sealed before the evidence existed fall back to it.
+ */
+export function pvpWorldBattleSector(session: Pick<PvpSession, 'worldTerritoryEvidence' | 'rewardSector'>): number {
+    const verified = Math.floor(Number(session.worldTerritoryEvidence?.sector));
+    if (Number.isSafeInteger(verified) && verified > 0) return verified;
+    return Math.floor(Number(session.rewardSector));
+}
+
+/**
  * The two contest ids a world battle could have scored in. A contest row is
  * keyed `<sector>:<attacker>-vs-<defender>`, and a sector-war battle is always
  * fought between exactly its contest's two villages — in one order or the
  * other. Empty when the battle carries no usable sector/village evidence.
  */
 function candidateContestIds(session: PvpSession, p1Village: string, p2Village: string): string[] {
-    const sector = Math.floor(Number(session.rewardSector));
+    const sector = pvpWorldBattleSector(session);
     if (!Number.isSafeInteger(sector) || sector <= 0 || !p1Village || !p2Village || p1Village === p2Village) return [];
     const ids = [sectorWarId(sector, p1Village, p2Village), sectorWarId(sector, p2Village, p1Village)];
     return ids[0] === ids[1] ? [] : ids;
@@ -138,7 +153,7 @@ export async function ensurePvpSectorWarRegistration(
     // endpoint, so DISABLE_VILLAGE_WAR used to leave it binding new battles to
     // Combat contests (and scoring them) while every war route answered 404.
     if (!villageWarMapEnabled()) return { registered: false, noContest: true };
-    const sector = Math.floor(Number(session.rewardSector));
+    const sector = pvpWorldBattleSector(session);
     if (!Number.isSafeInteger(sector) || sector <= 0) return { registered: false, noContest: true };
     const contest = await activeContestOnSector(sector, session.createdAt);
     if (!contest || contest.winCondition !== 'combat') return { registered: false, noContest: true };
@@ -168,11 +183,15 @@ export async function ensurePvpSectorWarRegistration(
         const biome = existing.biome || session.biome;
         return { registered: true, sectorWarId: contest.id, ...(biome ? { biome } : {}) };
     }
-    const defenderState = normalizeVillageWarRecord(
-        contest.defenderVillage,
-        (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined,
-    );
-    const biome = defenderState.sectors[String(sector)]?.terrain || session.biome || 'central';
+    // The terrain sealed into the contest at declaration; a war declared before
+    // that reads the holder's current setting.
+    const biome = contest.terrain ?? sectorConfigFor(
+        normalizeVillageWarRecord(
+            contest.defenderVillage,
+            (await kv.get<Record<string, unknown>>(villageWarKey(contest.defenderVillage))) ?? undefined,
+        ),
+        sector,
+    ).terrain;
     const registeredBy = safeName(session.worldAttacker?.name ?? '');
     if (!registeredBy) throw new Error('sector-war-world-attacker-invalid');
     await mintSectorWarToken(newSectorWarBattleToken({
@@ -268,7 +287,7 @@ export async function settlePvpSectorWarContinuation(
             || !candidates.includes(located.contestId)
             || (contest && (!participantVillages.has(contest.attackerVillage)
                 || !participantVillages.has(contest.defenderVillage)
-                || contest.sector !== session.rewardSector))
+                || contest.sector !== pvpWorldBattleSector(session)))
             || located.receipt.attackerWon !== attackerWon
             || located.receipt.at !== clock.endedAt
             || safeName(located.receipt.by) !== winnerName) {
@@ -336,7 +355,7 @@ export async function settlePvpSectorWarContinuation(
         || p2Name !== token.p2Name
         || p1Village !== token.p1Village
         || p2Village !== token.p2Village
-        || session.rewardSector !== token.sector) {
+        || pvpWorldBattleSector(session) !== token.sector) {
         throw new Error('sector-war-token-authority-conflict');
     }
 

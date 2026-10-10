@@ -56,3 +56,28 @@ test('warCrateClaimDecision is idempotent — an already-claimed crate is not re
     assert.equal(d.reason, 'already-claimed');
     assert.equal(d.granted, false);
 });
+
+// Owner ruling 2026-10-08: a VILLAGE war's winner crate is for members of the
+// winning village who fought — war damage for that side, or its MVP.
+test('warCrateClaimDecision gives a village crate only to members who fought for the winner', () => {
+    const fighters = {
+        contributions: {
+            kirauchiha: { damage: 40, side: 'Stormveil' },
+            turncoat: { damage: 90, side: 'Frostfang' },
+            idler: { damage: 0, side: 'Stormveil' },
+        },
+        mvpName: 'Rin',
+    };
+    const war = wonWar(VILLAGE_CRATE, { fighters });
+    const decide = (slug: string, name: string) => warCrateClaimDecision(war, VILLAGE_CRATE, 'Stormveil', [], NOW, { slug, name });
+    assert.equal(decide('kirauchiha', 'Kira Uchiha').reason, 'granted', 'damage is found under the safeName slug');
+    assert.equal(decide('rin', 'Rin').reason, 'granted', 'the MVP fought by definition');
+    assert.equal(decide('bystander', 'Bystander').reason, 'did-not-fight', 'a member who never fought gets nothing');
+    assert.equal(decide('idler', 'Idler').reason, 'did-not-fight', 'zero damage is not fighting');
+    assert.equal(decide('turncoat', 'Turncoat').reason, 'did-not-fight', 'damage dealt for the other side does not count');
+    assert.equal(warCrateClaimDecision(war, VILLAGE_CRATE, 'Stormveil', [], NOW).reason, 'did-not-fight', 'no claimant, no crate');
+    assert.equal(warCrateClaimDecision(war, VILLAGE_CRATE, 'Stormveil', [VILLAGE_CRATE], NOW, { slug: 'bystander', name: 'B' }).reason,
+        'already-claimed', 'a crate claimed under the old rule stays claimed');
+    // Clan crates keep their own rule (no `fighters`).
+    assert.equal(warCrateClaimDecision(wonWar(CLAN_CRATE), CLAN_CRATE, 'Stormveil', [], NOW, { slug: 'bystander', name: 'B' }).reason, 'granted');
+});

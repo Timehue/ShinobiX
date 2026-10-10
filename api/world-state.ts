@@ -8,7 +8,7 @@ import { storedValueEquals } from './_stored-value.js';
 import { cors, safeName, clanBareSlug, clanRecordKey, setSafeRecordValue } from './_utils.js';
 import { authedPlayerOrAdmin } from './_auth.js';
 import { enforceRateLimitKv } from './_ratelimit.js';
-import { withKvLock } from './_lock.js';
+import { withKvLock, LockContendedError } from './_lock.js';
 import { cachedFor } from './_proc-cache.js';
 import { collectTerritorySupply, resolveClaimedWarSupply } from './_territory-supply.js';
 import { territoryGuardsAfterSelfUpdate } from './_territory-guard.js';
@@ -20,12 +20,14 @@ import {
 import { readAllSectorPoolUsage, SECTOR_POOL_CAPS, type SectorPoolRow } from './world/_sector-pool.js';
 import { computeSpoils, bumpStanding, type WarStanding } from './_war-spoils.js';
 import { villageWarMapEnabled, villageStoresEnabled } from './_release-flags.js';
-// When the default-on Village War Map campaign is enabled,
-// war declaration is funded from the village WR pool instead of the Kage's Honor
-// Seals, and war settlement applies the comeback-morale/spoils rules. When OFF,
-// every path below is byte-for-byte the legacy behavior.
+// When the default-on Village War Map campaign is enabled, war declaration is
+// funded from the village WR pool; with DISABLE_VILLAGE_WAR set it falls back
+// to the Kage's Honor Seals. That cost is this file's only switch-dependent
+// branch. The sector-war exclusion holds either way, because the switch pauses
+// sector wars rather than ending them.
 import { DECLARE_WAR_WR, discountedWrCost } from './_war-economy.js';
-import { villageWarKey } from './_war-state.js';
+import { normalizeVillageWarRecord, villageWarKey } from './_war-state.js';
+import { villageWarHpMax, VILLAGE_WAR_HP_CEILING } from './_war-structures.js';
 import {
     abortWarDeclarationFunding,
     newWarDeclarationFundingOwnerId,
@@ -49,7 +51,7 @@ import {
     villageWarReservationFromRow,
     type VillageWarReservationPlan,
 } from './_war-village-reservation.js';
-import { homeSectorsForVillage, WAR_VILLAGES } from './_war-map-sectors.js';
+import { CENTRAL_SECTORS, homeSectorsForVillage, isWarVillage, NON_WAR_SPECIAL_SECTORS, WAR_VILLAGES } from './_war-map-sectors.js';
 import { territoryVillageOwnershipError } from './_territory-ownership.js';
 import { settlementMoralePatch } from './_war-morale.js';
 import { heldSectorsForVillage } from './_war-held-sectors.js';
@@ -103,20 +105,13 @@ function territoryAuditSummary(territory: SectorTerritory | null): Record<string
 
 const TERRITORY_CONTROL_MAX = 75000;
 const TERRITORY_HP_MAX = 20000;
-// Minimum clan roster size to CAPTURE (take new ownership of) a sector.
-// Server-authoritative mirror of the client rule (shinobij.client/src/
-// constants/game.ts TERRITORY_CAPTURE_MIN_MEMBERS) — keep the two in sync.
-const TERRITORY_CAPTURE_MIN_MEMBERS = 10;
+// Base village war HP. A village's real maximum for a war is sealed into the war
+// row (`hpMax`) from its Ramparts level (api/_war-structures.ts villageWarHpMax);
+// rows without it are base-HP rows.
 const VILLAGE_WAR_HP_MAX = 5000;
 const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 const TERRITORY_KEY_PREFIX = 'world:territory:';
 const VILLAGE_WAR_KEY_PREFIX = 'world:war:';
-// Anti-cheat: cap how much HP a single raid request can drain so a malicious
-// client can't drop a sector from full → 0 in one POST. Matches the 500/raid
-// hit the legitimate Village War client UI deals.
-const TERRITORY_HP_MAX_DELTA_PER_REQUEST = 1000;
-// Same idea for raising HP via rebuild — bound the per-request gain.
-const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
 // Anti-cheat: hard ceiling on a single sector's stored War Supply. War Supply
 // accrues at 100/day and is the one territory field a claiming clan/village
 // writer can set freely (HP + ownership are clamped separately). Without a cap
@@ -126,18 +121,13 @@ const TERRITORY_HP_MAX_REPAIR_PER_REQUEST = 1000;
 // uninterrupted accrual on one sector — far above any realistic uncollected
 // balance, so legitimate play is never clamped.
 const TERRITORY_WAR_SUPPLY_MAX = 36_500;
-// Village War damage per write — typical legit raid is 5–50 (role × 1).
-// 100 leaves plenty of headroom for elite raiders + the +750 capture
-// bonus, which is applied as a SECOND write rather than one fat one.
-const VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST = 100;
-const VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST = 100;
 // Auto-finalize wars that have been running this long with no end.
 // Two weeks is the sane upper bound for "Kages forgot about it" cleanup.
 const VILLAGE_WAR_MAX_DURATION_MS = 14 * 24 * 60 * 60 * 1000;
-// Cost to declare a war. Charged to the declaring Kage. Priced in
-// Honor Seals (a Vanguard-profession currency, harder to amass than
-// ryo) so the cost actually bites — a Kage shouldn't be casually
-// declaring wars after a couple of grinding sessions.
+// Cost to declare a war while the Village War Map campaign is switched OFF
+// (DISABLE_VILLAGE_WAR=1): 500 of the declaring Kage's own Honor Seals. With the
+// campaign on (the default) the village's War Resources pay instead —
+// DECLARE_WAR_WR × the comeback discount, debited from shared:village-war.
 const VILLAGE_WAR_DECLARATION_COST_HONOR_SEALS = 500;
 // Rematch cooldown — same village-pair can't war again within 7 days
 // of the previous war ending. Prevents grudge-spamming the same enemy.
@@ -182,55 +172,125 @@ function normalizeVillageKey(village: string): string {
     return village.toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
-/** A player's SAVED village (never a request body). '' when unknown. */
-async function villageOfPlayer(playerName: string | undefined | null): Promise<string> {
-    const name = safeName(String(playerName ?? ''));
-    if (!name) return '';
-    try {
-        const save = await kv.get<{ character?: { village?: string } }>(`save:${name}`);
-        return String(save?.character?.village ?? '').trim();
-    } catch {
-        return '';
-    }
-}
-
-/** Total village-war HP a write is claiming to deal: every village-HP drop plus
- *  the war-ground drain. Rises are ignored (they're capped separately). */
-function warDamageClaimed(existing: VillageWar, incoming: VillageWar): number {
-    let total = 0;
-    for (const village of existing.villages) {
-        const prev = Number(existing.hp?.[village] ?? VILLAGE_WAR_HP_MAX);
-        const next = Number(incoming.hp?.[village] ?? prev);
-        if (Number.isFinite(prev) && Number.isFinite(next) && prev > next) total += prev - next;
-    }
-    const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
-    const nextGround = Number(incoming.warGroundHp ?? prevGround);
-    if (Number.isFinite(prevGround) && Number.isFinite(nextGround) && prevGround > nextGround) {
-        total += prevGround - nextGround;
-    }
-    return total;
+/** A village's current war HP on a row (its sealed maximum when unset). */
+function villageWarHpOf(war: Pick<VillageWar, 'hp' | 'hpMax'>, village: string): number {
+    const fallback = Number(war.hpMax?.[village]) || VILLAGE_WAR_HP_MAX;
+    const value = Math.floor(Number(war.hp?.[village] ?? fallback));
+    return Number.isFinite(value) ? Math.max(0, value) : 0;
 }
 
 /**
- * The earned precondition for the war-ground capture bonus — the one damage source
- * with no PvP battle behind it by design.
+ * The one way a village war ends, whatever ended it (the killing blow, a war
+ * mission, decay, the 14-day limit, a surrender, an agreed peace).
  *
- * Either the sector is currently ground to 0 HP, or it has already flipped to the
- * capturing village. Both cost the same work: the territory endpoint only lets
- * ownership change once a sector reaches 0 HP, and a 20,000-HP sector takes 20
- * capped raid writes to break. Accepting either state makes this independent of
- * whether the client posts its ownership-reset write before or after the war write.
+ * Every ending stamps the MVP of each side, and a war with a winner also stamps
+ * the winner's crate id and the losers' consolation id. Only some endings used
+ * to: a war that ran out on decay or hit the 14-day limit had no MVP and no
+ * consolation id, so the MVP crate and the consolation the War Hall promises
+ * were silently never claimable for the commonest way a quiet war ends. Pure.
  */
-async function warGroundCaptureEarned(war: VillageWar, village: string): Promise<boolean> {
-    const sector = Math.floor(Number(war.warGroundSector) || 0);
-    if (!sector) return false;
-    try {
-        const territory = await kv.get<SectorTerritory>(`${TERRITORY_KEY_PREFIX}${sector}`);
-        if (Number(territory?.hp ?? TERRITORY_HP_MAX) <= 0) return true;
-        return !!village && String(territory?.ownerVillage ?? '').trim() === village;
-    } catch {
-        return false;
+function stampVillageWarEnding(war: VillageWar, args: { endedAt: number; winnerVillage?: string }): VillageWar {
+    const next: VillageWar = {
+        ...war,
+        endedAt: args.endedAt,
+        updatedAt: Math.max(Math.floor(Number(war.updatedAt) || 0), args.endedAt),
+    };
+    if (args.winnerVillage) next.winnerVillage = args.winnerVillage;
+    else delete next.winnerVillage;
+    const contributions = war.contributions ?? {};
+    const mvpByVillage: Record<string, string> = {};
+    for (const village of war.villages) {
+        const side = Object.values(contributions)
+            .filter((entry) => entry && entry.side === village && Number(entry.damage) > 0)
+            .sort((a, b) => Number(b.damage) - Number(a.damage));
+        if (side[0]?.name) setSafeRecordValue(mvpByVillage, village, side[0].name);
     }
+    next.mvpByVillage = mvpByVillage;
+    if (next.winnerVillage) {
+        const token = villageWarGenerationToken(war);
+        next.warCrateId = war.warCrateId ?? `war-crate-${token}`;
+        next.loserCrateId = `loser-crate-${token}`;
+    } else {
+        delete next.loserCrateId;
+    }
+    return next;
+}
+
+/**
+ * End a live war whose HP already shows a result.
+ *
+ * A war used to stay open at 0 HP whenever its last damage came from a path
+ * that did not end it (the old client write lane never auto-ended), and that
+ * inverted results: a later PvP win could only end the war while the target
+ * still had HP, so the side that hit 0 first could still "win" when the other
+ * side reached 0 next. Any reader that finds one side at 0 now ends the war for
+ * the other side; both at 0 is a draw. Pure; returns null when nothing changes.
+ */
+function endZeroHpVillageWar(war: VillageWar, now: number): VillageWar | null {
+    if (!warIsMutableGameplayActive(war) || war.endedAt || warIsPending(war)) return null;
+    const [first, second] = war.villages;
+    const firstDown = villageWarHpOf(war, first) <= 0;
+    const secondDown = villageWarHpOf(war, second) <= 0;
+    if (!firstDown && !secondDown) return null;
+    const boundedEnd = Math.min(Math.max(now, warEffectiveStartMs(war)), warEffectiveStartMs(war) + VILLAGE_WAR_MAX_DURATION_MS);
+    return stampVillageWarEnding(war, {
+        endedAt: boundedEnd,
+        winnerVillage: firstDown && secondDown ? undefined : (firstDown ? second : first),
+    });
+}
+
+/**
+ * A war row as the public, CDN-cached GET shows it. Each mercenary hire receipt
+ * records the hirer's personal Honor Seal balance after the hire
+ * (`balanceAfter`), which is a private save field (api/player/roster.ts treats
+ * honor seals as sensitive) and was being served to every viewer. Only that is
+ * dropped; every field a client or a settlement reads is kept as stored.
+ */
+function publicVillageWar(war: VillageWar): VillageWar {
+    const receipts = war.mercenaryHireReceipts;
+    if (!receipts || typeof receipts !== 'object') return war;
+    const scrubbed: Record<string, unknown> = {};
+    for (const [hireId, receipt] of Object.entries(receipts)) {
+        if (receipt && typeof receipt === 'object' && !Array.isArray(receipt)) {
+            const { balanceAfter: _balance, ...rest } = receipt as Record<string, unknown>;
+            setSafeRecordValue(scrubbed, hireId, rest);
+        } else {
+            setSafeRecordValue(scrubbed, hireId, receipt);
+        }
+    }
+    return { ...war, mercenaryHireReceipts: scrubbed };
+}
+
+/**
+ * Bring a live war up to `now` the same way on every path: the 14-day limit
+ * (no winner), then any owed daily decay, then a zero-HP ending. Every reader
+ * that holds the war lock runs this before acting, so whichever request comes
+ * first after a deadline settles it and nothing acts on a stale row. Pure.
+ */
+function bringVillageWarCurrent(war: VillageWar, now: number): { war: VillageWar; changed: boolean } {
+    if (!warIsMutableGameplayActive(war) || war.endedAt) return { war, changed: false };
+    const liveStart = warEffectiveStartMs(war);
+    if (now - liveStart > VILLAGE_WAR_MAX_DURATION_MS) {
+        // Timed out: no winner, so no spoils and no crates — but the MVPs are
+        // still stamped like every other ending.
+        return { war: stampVillageWarEnding(war, { endedAt: liveStart + VILLAGE_WAR_MAX_DURATION_MS }), changed: true };
+    }
+    const decayed = applyWarDecay(war, now);
+    const zero = endZeroHpVillageWar(decayed.war, now);
+    return zero ? { war: zero, changed: true } : decayed;
+}
+
+// The war ground is neutral ground both villages can reach: one of the central
+// keep's sectors, chosen from the pair so every war between the same two
+// villages fights over the same place. The declaring Kage used to send it (the
+// War Hall sent the first sector with no clan owner, which was often a village
+// gate), so a war could be fought over one side's own doorstep.
+const WAR_GROUND_SECTORS: readonly number[] = CENTRAL_SECTORS.filter(
+    (sector) => !NON_WAR_SPECIAL_SECTORS.includes(sector),
+);
+function villageWarGroundSector(warId: string): number {
+    const digest = createHash('sha256').update(String(warId)).digest();
+    return WAR_GROUND_SECTORS[digest[0] % WAR_GROUND_SECTORS.length];
 }
 
 async function isSeatedKageOf(playerName: string, village: string): Promise<boolean> {
@@ -245,18 +305,6 @@ async function isSeatedKageOf(playerName: string, village: string): Promise<bool
         const state = await kv.get<{ seatedKage?: string }>(kageKey(village));
         const seated = safeName(String(state?.seatedKage ?? ''));
         return !!seated && seated === safeName(playerName);
-    } catch {
-        return false;
-    }
-}
-
-async function hasActiveWarBetween(actorVillage: string, defenderVillage: string): Promise<boolean> {
-    if (!actorVillage || !defenderVillage) return false;
-    try {
-        const id = villageWarId(actorVillage, defenderVillage);
-        const war = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${id}`);
-        if (!warIsGameplayActive(war) || war.endedAt) return false;
-        return war.villages.includes(actorVillage) && war.villages.includes(defenderVillage);
     } catch {
         return false;
     }
@@ -332,15 +380,24 @@ type VillageWar = {
     // fought for. The MVP-per-side is computed from this on war end.
     contributions?: Record<string, { damage: number; raids: number; pvpKills: number; side: string; name: string }>;
     // Village → display name of the MVP for that side. Stamped server-
-    // side at the moment the war flips to ended. The MVP crate is keyed
-    // off `mvp-crate-${warId}-${village}` and granted client-side to
-    // whichever player matches the name on next claim sweep.
+    // side whenever the war ends (stampVillageWarEnding). The MVP crate is
+    // claimed through /api/war/claim-reward (api/war/_reward.ts), which
+    // matches this name against the claimant.
     mvpByVillage?: Record<string, string>;
     // Loss-consolation crate ID. Stamped at war end ONLY if a winner
-    // exists (i.e., draws give no consolation). Any losing-village
-    // player who contributed ≥ VILLAGE_WAR_LOSER_MIN_CONTRIB damage
-    // can claim it once. Client-side dedup via claimedWarCrateIds.
+    // exists (i.e., draws give no consolation). A losing-village player
+    // with at least 50 war damage can claim it once through
+    // /api/war/claim-reward (claimedWarCrateIds dedupes it).
     loserCrateId?: string;
+    // Server-owned. Each village's maximum war HP for this war, sealed at
+    // declaration from its Ramparts level and raised (never lowered) when it
+    // buys Ramparts mid-war. Rows without it are base-HP (5,000) rows.
+    hpMax?: Record<string, number>;
+    // Server-owned. Village → when its seated Kage offered peace. A peace with
+    // no winner needs both villages' offers; one offer alone changes nothing.
+    peaceProposals?: Record<string, number>;
+    // Server-owned. The village whose Kage surrendered (it lost the war).
+    surrenderedBy?: string;
     // Pre-war window. While `pendingUntil > now`, HP can't drop, the
     // war can't be ended, and the decay grace + 14-day max timers
     // count from `pendingUntil` instead of `startedAt`. The Kage
@@ -365,15 +422,6 @@ type VillageWar = {
 function clampNumber(value: number, min: number, max: number) {
     if (!Number.isFinite(value)) return min;
     return Math.min(max, Math.max(min, value));
-}
-
-// Roster size of a clan from its authoritative record (save:clan-<slug>).
-// A thrown read propagates to the handler's catch → 500 (so a KV blip doesn't
-// masquerade as "not enough members"). A missing record → 0 (a sector cannot
-// belong to a clan that does not exist).
-async function clanMemberCount(clanName: string): Promise<number> {
-    const rec = await kv.get<Record<string, unknown>>(clanRecordKey(clanName));
-    return Array.isArray(rec?.members) ? (rec!.members as unknown[]).length : 0;
 }
 
 function defaultSectorTerritory(sector: number): SectorTerritory {
@@ -512,8 +560,8 @@ function normalizeVillageWar(data: Partial<VillageWar> & { villages?: [string, s
         id: data.id ?? villageWarId(first, second),
         villages: [first, second],
         hp: {
-            [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
-            [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
+            [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_CEILING),
+            [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_CEILING),
         },
         warGroundSector: clampNumber(Math.floor(Number(data.warGroundSector ?? 40)), 1, MAX_WILD_SECTOR),
         warGroundHp: clampNumber(Math.floor(Number(data.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX)), 0, VILLAGE_WAR_GROUND_HP_MAX),
@@ -805,6 +853,14 @@ export async function captureSectorForVillage(
     const key = `${TERRITORY_KEY_PREFIX}${s}`;
     return await withKvLock(key, async () => {
         const prev = await kv.get<SectorTerritory>(key);
+        // Already this village's: a settlement pass that flipped the sector but
+        // failed before stamping its war is being retried. Sectors change hands
+        // only through settlement, so this can only be that war's own earlier
+        // pass. Running the capture again reset the sector's HP to full and
+        // dropped any clan claim made on it since.
+        if (prev && String(prev.ownerVillage ?? '').trim() === ownerVillage) {
+            return normalizeSectorTerritory(prev as Partial<SectorTerritory>);
+        }
         // Strict: an unreadable contest row could be this sector's pending
         // declaration, so it blocks the capture until it is repaired.
         const pendingDeclaration = (await listFundingSectorWars(kv, { strict: true }))
@@ -914,43 +970,41 @@ function applyWarDecay(war: VillageWar, now: number = Date.now()): { war: Villag
     const daysOwed = utcDayIndex(now) - utcDayIndex(referenceMs);
     if (daysOwed <= 0) return { war, changed: false };
 
-    const totalDamage = daysOwed * VILLAGE_WAR_DECAY_PER_DAY;
+    // Apply the owed days ONE AT A TIME and stop at the first day a side runs
+    // out. Lumping them together (daysOwed × decay in one step) turned results
+    // into draws: at 300 vs 900 with two days owed, both sides fell below 0 in
+    // the single step, while day by day the 900 side was still standing when
+    // the 300 side fell. A war with no reader for a couple of days is ordinary
+    // at this population.
     const newHp: Record<string, number> = {};
-    for (const v of war.villages) {
-        const before = Number(war.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
-        setSafeRecordValue(newHp, v, Math.max(0, before - totalDamage));
-    }
-
-    const a = newHp[war.villages[0]];
-    const b = newHp[war.villages[1]];
-    let endedAt = war.endedAt;
-    let winnerVillage = war.winnerVillage;
-    let capturedBy = war.capturedBy;
-    let capturedAt = war.capturedAt;
-    if (a <= 0 && b <= 0) {
-        // Mutual exhaustion → draw. No winner, no crate. Stamp endedAt.
-        endedAt = now;
-        winnerVillage = undefined;
-    } else if (a <= 0 || b <= 0) {
-        endedAt = now;
-        winnerVillage = a <= 0 ? war.villages[1] : war.villages[0];
-        if (!capturedBy) {
-            capturedBy = winnerVillage;
-            capturedAt = now;
+    for (const v of war.villages) setSafeRecordValue(newHp, v, villageWarHpOf(war, v));
+    let fallenDay = -1;
+    for (let day = 0; day < daysOwed; day++) {
+        for (const v of war.villages) {
+            setSafeRecordValue(newHp, v, Math.max(0, newHp[v] - VILLAGE_WAR_DECAY_PER_DAY));
+        }
+        if (newHp[war.villages[0]] <= 0 || newHp[war.villages[1]] <= 0) {
+            fallenDay = day;
+            break;
         }
     }
 
+    const decayed: VillageWar = {
+        ...war,
+        hp: newHp,
+        lastDecayDate: todayKey,
+        updatedAt: now,
+    };
+    if (fallenDay < 0) return { war: decayed, changed: true };
+    const a = newHp[war.villages[0]];
+    const b = newHp[war.villages[1]];
+    // Mutual exhaustion → draw (no winner, no crate); otherwise the side still
+    // standing wins. Either way the ending is stamped like every other ending.
     return {
-        war: {
-            ...war,
-            hp: newHp,
-            endedAt,
-            winnerVillage,
-            capturedBy,
-            capturedAt,
-            lastDecayDate: todayKey,
-            updatedAt: now,
-        },
+        war: stampVillageWarEnding(decayed, {
+            endedAt: now,
+            winnerVillage: a <= 0 && b <= 0 ? undefined : (a <= 0 ? war.villages[1] : war.villages[0]),
+        }),
         changed: true,
     };
 }
@@ -978,16 +1032,24 @@ export async function applyMercVillageWarDamage(
     return withKvLock(warKey, async () => {
         let war = await kv.get<VillageWar>(warKey);
         if (!warIsMutableGameplayActive(war) || war.endedAt) return null;
-        // Settle stale daily decay first so we chip the live HP (mirrors the raid path).
-        const decayed = applyWarDecay(war, now);
-        if (decayed.changed) {
-            const publication = await commitWarBattleSettlement(kv, warKey, war, decayed.war);
+        // Bring the war current first, like every other war writer: its 14-day
+        // limit, any owed decay, a zero-HP ending. Decay alone let a merc chip a
+        // war that had already timed out but that nobody had polled since.
+        const current = bringVillageWarCurrent(war, now);
+        if (current.changed) {
+            const publication = await commitWarBattleSettlement(kv, warKey, war, current.war);
             if (publication.status === 'conflict') return null;
             war = publication.row;
+            if (war.endedAt) await ensureWarRematchCooldown(war);
         }
-        if (war.endedAt || warIsPending(war)) return null; // ended by decay, or pre-war window (HP frozen)
+        if (war.endedAt || warIsPending(war)) return null; // over, or pre-war window (HP frozen)
         if (!war.villages.includes(enemyVillage)) return null;
-        const before = Number(war.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX);
+        const before = villageWarHpOf(war, enemyVillage);
+        const enemyHpMax = Number(war.hpMax?.[enemyVillage]) || VILLAGE_WAR_HP_MAX;
+        // The floor only stops a merc from dealing the final blow. It must never
+        // RAISE a village that is already at or below it (that healed a village
+        // sitting at 0 back to 1).
+        if (before <= VILLAGE_WAR_MERC_HP_FLOOR) return { enemyHp: before, enemyHpMax };
         const after = Math.max(VILLAGE_WAR_MERC_HP_FLOOR, before - Math.max(0, Math.floor(damage)));
         if (after !== before) {
             const publication = await commitWarBattleSettlement(kv, warKey, war, {
@@ -997,8 +1059,50 @@ export async function applyMercVillageWarDamage(
             });
             if (publication.status === 'conflict') return null;
         }
-        return { enemyHp: after, enemyHpMax: VILLAGE_WAR_HP_MAX };
+        return { enemyHp: after, enemyHpMax };
     }, { failClosed: true });
+}
+
+/**
+ * Ramparts bought DURING a war raise that village's war HP at once: its sealed
+ * maximum moves up to the new villageWarHpMax and its current HP rises by the
+ * same amount. Never lowers anything (a village going dormant mid-war keeps the
+ * walls it already had for this war). Returns how many live wars changed.
+ * Called by api/village/war-structure.ts after a Ramparts purchase.
+ */
+export async function raiseVillageWarRampartsHp(village: string, now: number = Date.now()): Promise<number> {
+    const wars = await getByPrefix<VillageWar>(VILLAGE_WAR_KEY_PREFIX);
+    let changed = 0;
+    for (const listed of wars) {
+        if (!warIsMutableGameplayActive(listed) || listed.endedAt || !listed.villages.includes(village)) continue;
+        const key = `${VILLAGE_WAR_KEY_PREFIX}${listed.id}`;
+        const raised = await withKvLock(key, async () => {
+            const fresh = await kv.get<VillageWar>(key);
+            if (!warIsMutableGameplayActive(fresh) || fresh.endedAt || !fresh.villages.includes(village)) return false;
+            // A war already decided on HP is over even before a reader stamps
+            // it; walls bought now must not lift a fallen village back up.
+            if (endZeroHpVillageWar(fresh, now)) return false;
+            const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(villageWarKey(village))) ?? undefined);
+            const target = villageWarHpMax(record);
+            const currentMax = Number(fresh.hpMax?.[village]) || VILLAGE_WAR_HP_MAX;
+            if (target <= currentMax) return false;
+            const hpMax = { ...(fresh.hpMax ?? {}) };
+            setSafeRecordValue(hpMax, fresh.villages[0], Number(hpMax[fresh.villages[0]]) || VILLAGE_WAR_HP_MAX);
+            setSafeRecordValue(hpMax, fresh.villages[1], Number(hpMax[fresh.villages[1]]) || VILLAGE_WAR_HP_MAX);
+            setSafeRecordValue(hpMax, village, target);
+            const hp = { ...fresh.hp };
+            setSafeRecordValue(hp, village, Math.min(target, villageWarHpOf(fresh, village) + (target - currentMax)));
+            const publication = await commitWarBattleSettlement(kv, key, fresh, {
+                ...fresh,
+                hpMax,
+                hp,
+                updatedAt: Math.max(Math.floor(Number(fresh.updatedAt) || 0), now),
+            });
+            return publication.status === 'committed';
+        }, { failClosed: true });
+        if (raised) changed += 1;
+    }
+    return changed;
 }
 
 // ── Village-war losing penalty ──────────────────────────────────────────────
@@ -1020,52 +1124,141 @@ function warStandingKey(village: string): string {
 }
 function vnum(v: unknown): number { const x = Number(v); return Number.isFinite(x) ? x : 0; }
 
-async function bumpVillageStanding(village: string, result: 'win' | 'loss', now: number): Promise<void> {
-    const key = warStandingKey(village);
-    await withKvLock(key, async () => {
-        const rec = await kv.get<WarStanding>(key);
-        // Stamp the display name onto the record — the key is only a slug, so the
-        // standings board can't recover it otherwise.
-        await kv.set(key, { ...bumpStanding(rec, result, now), village });
-    }).catch(() => undefined);
+// Per-war receipts written into each village-state row in the SAME write that
+// moves its treasury (see settleVillageWarSpoils). Server-owned: pinned against
+// client blob writes in api/_village-state-validate.ts.
+const WAR_SPOILS_RECEIPTS_FIELD = 'warSpoilsReceipts';
+const WAR_SPOILS_RECEIPTS_KEPT = 32;
+type WarSpoils = ReturnType<typeof computeSpoils>;
+type WarSpoilsReceipt = { side: 'winner' | 'loser'; spoils: WarSpoils; at: number };
+
+function warSpoilsReceiptsOf(state: Record<string, unknown>): Record<string, WarSpoilsReceipt> {
+    const raw = state[WAR_SPOILS_RECEIPTS_FIELD];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out: Record<string, WarSpoilsReceipt> = {};
+    for (const [token, value] of Object.entries(raw as Record<string, unknown>)) {
+        const receipt = value as Partial<WarSpoilsReceipt> | null;
+        if (!receipt || (receipt.side !== 'winner' && receipt.side !== 'loser') || !receipt.spoils) continue;
+        setSafeRecordValue(out, token, {
+            side: receipt.side,
+            spoils: {
+                ryo: vnum(receipt.spoils.ryo),
+                honorSeals: vnum(receipt.spoils.honorSeals),
+                fateShards: vnum(receipt.spoils.fateShards),
+            },
+            at: vnum(receipt.at),
+        });
+    }
+    return out;
 }
 
-async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
-    if (!warIsMutableGameplayActive(war) || !war.endedAt || !war.winnerVillage) return;
+function withWarSpoilsReceipt(
+    receipts: Record<string, WarSpoilsReceipt>,
+    token: string,
+    receipt: WarSpoilsReceipt,
+): Record<string, WarSpoilsReceipt> {
+    const next: Record<string, WarSpoilsReceipt> = {};
+    const kept = Object.entries({ ...receipts, [token]: receipt })
+        .sort(([, a], [, b]) => b.at - a.at)
+        .slice(0, WAR_SPOILS_RECEIPTS_KEPT);
+    for (const [key, value] of kept) setSafeRecordValue(next, key, value);
+    return next;
+}
+
+/** Bump a village's W/L record once per war (`warToken` dedupes retries).
+ *  Caller holds no lock on this key; the bump takes its own. */
+async function bumpVillageStanding(village: string, result: 'win' | 'loss', now: number, warToken: string): Promise<void> {
+    const key = warStandingKey(village);
+    await withKvLock(key, async () => {
+        const rec = await kv.get<WarStanding & { settledWars?: unknown }>(key);
+        const settledWars = Array.isArray(rec?.settledWars) ? rec!.settledWars.map(String) : [];
+        if (settledWars.includes(warToken)) return;
+        // Stamp the display name onto the record — the key is only a slug, so the
+        // standings board can't recover it otherwise.
+        await kv.set(key, {
+            ...bumpStanding(rec, result, now),
+            village,
+            settledWars: [warToken, ...settledWars].slice(0, WAR_SPOILS_RECEIPTS_KEPT),
+        });
+    }, { failClosed: true });
+}
+
+/**
+ * Apply a won war's spoils, morale and standings — exactly once, and finish
+ * them if an earlier attempt stopped partway. Returns true once the war is
+ * settled (now or earlier), false when it has nothing to settle. Throws on a
+ * storage failure; nothing is ever marked done until every part has landed.
+ *
+ * The old version placed its "settled" NX marker FIRST and then wrote the
+ * loser's and the winner's treasuries as two plain writes. Any failure between
+ * them was permanent: the marker blocked every retry, so a failed winner write
+ * burned the loser's spoils, and a failed loser read meant no spoils, no
+ * comeback rally and no W/L record ever. Its second lock also ran without
+ * failClosed, so under contention the settlement wrote unlocked and a
+ * concurrent village-state writer restoring its stale read could mint or burn
+ * the transfer. Now each village's write carries its own receipt (with the
+ * exact spoils amount) in the same value as its treasury change, so a retry
+ * applies only what is missing, and the marker is written last.
+ */
+async function settleVillageWarSpoils(war: VillageWar, now: number): Promise<boolean> {
+    if (!warIsGameplayActive(war) || !war.endedAt || !war.winnerVillage) return false;
     const winner = war.winnerVillage;
     const loser = war.villages.find(v => v !== winner);
-    if (!loser) return;
+    if (!loser) return false;
     const winnerKey = villageStateKey(winner);
     const loserKey = villageStateKey(loser);
     // Lock both village-state rows in a stable (sorted) order so a concurrent
     // donate/agenda credit can't be clobbered and two settles can't deadlock.
     const [k1, k2] = [winnerKey, loserKey].sort();
-    const generationToken = villageWarGenerationToken(war);
-    try {
-        const didSettle = await withKvLock<boolean>(k1, async () => withKvLock<boolean>(k2, async () => {
-            const placed = await kv.set(`war:settled:${generationToken}`, { ts: now, winner, loser }, { nx: true, ex: 90 * 24 * 60 * 60 } as never);
-            if (!placed) return false; // already settled by a concurrent/earlier call
-            const loserState = (await kv.get<Record<string, unknown>>(loserKey)) ?? {};
-            const winnerState = (await kv.get<Record<string, unknown>>(winnerKey)) ?? {};
+    const token = villageWarGenerationToken(war);
+    const markerKey = `war:settled:${token}`;
+    await withKvLock<void>(k1, async () => withKvLock<void>(k2, async () => {
+        // The marker is written only after every part below has landed. (A
+        // marker from the old code, which wrote it first, stays final too: it
+        // cannot tell what landed after it.)
+        if (await kv.get<Record<string, unknown>>(markerKey)) return;
+        const loserState = (await kv.get<Record<string, unknown>>(loserKey)) ?? {};
+        const winnerState = (await kv.get<Record<string, unknown>>(winnerKey)) ?? {};
+        const loserReceipts = warSpoilsReceiptsOf(loserState);
+        const winnerReceipts = warSpoilsReceiptsOf(winnerState);
+        let spoils = loserReceipts[token]?.spoils;
+        if (!spoils) {
             const lt = (loserState.treasury ?? {}) as Record<string, unknown>;
+            spoils = computeSpoils({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
+            await kv.set(loserKey, {
+                ...loserState,
+                ...settlementMoralePatch('loser', now),
+                treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards },
+                [WAR_SPOILS_RECEIPTS_FIELD]: withWarSpoilsReceipt(loserReceipts, token, { side: 'loser', spoils, at: now }),
+            });
+        }
+        if (!winnerReceipts[token]) {
             const wt = (winnerState.treasury ?? {}) as Record<string, unknown>;
-            const spoils = computeSpoils({ ryo: vnum(lt.ryo), honorSeals: vnum(lt.honorSeals), fateShards: vnum(lt.fateShards) });
-            await kv.set(loserKey, { ...loserState, ...settlementMoralePatch('loser', now), treasury: { ...lt, ryo: vnum(lt.ryo) - spoils.ryo, honorSeals: vnum(lt.honorSeals) - spoils.honorSeals, fateShards: vnum(lt.fateShards) - spoils.fateShards } });
             // Winners already receive spoils, crates, standing, and map control;
             // do not add a progression-speed buff on top of those advantages.
-            await kv.set(winnerKey, { ...winnerState, ...settlementMoralePatch('winner', now), treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards } });
-            await kv.set(`audit:village-war-settle:${generationToken}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
-            return true;
-        }), { failClosed: true });
-        if (didSettle) {
-            await bumpVillageStanding(winner, 'win', now);
-            await bumpVillageStanding(loser, 'loss', now);
+            await kv.set(winnerKey, {
+                ...winnerState,
+                ...settlementMoralePatch('winner', now),
+                treasury: { ...wt, ryo: vnum(wt.ryo) + spoils.ryo, honorSeals: vnum(wt.honorSeals) + spoils.honorSeals, fateShards: vnum(wt.fateShards) + spoils.fateShards },
+                [WAR_SPOILS_RECEIPTS_FIELD]: withWarSpoilsReceipt(winnerReceipts, token, { side: 'winner', spoils, at: now }),
+            });
         }
-        // Reaching here means the war IS settled (we placed the marker now, or it
-        // already existed). Stamp the war record so the polled GET skips it from
-        // now on. Pure optimization — the NX marker above is the real once-only
-        // guard, so this is safe even if it races/fails (worst case: one more
-        // harmless no-op attempt next poll). Also flags pre-existing settled wars.
+        await bumpVillageStanding(winner, 'win', now, token);
+        await bumpVillageStanding(loser, 'loss', now, token);
+        await kv.set(markerKey, { status: 'done', ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 });
+        await kv.set(`audit:village-war-settle:${token}`, { ts: now, winner, loser, spoils }, { ex: 90 * 24 * 60 * 60 }).catch(() => undefined);
+    }, { failClosed: true }), { failClosed: true });
+    return true;
+}
+
+async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
+    if (!warIsMutableGameplayActive(war) || !war.endedAt || !war.winnerVillage) return;
+    try {
+        if (!(await settleVillageWarSpoils(war, now))) return;
+        // The war IS settled now. Stamp the war record so the polled GET skips it
+        // from now on. Pure optimization — the receipts and marker above are the
+        // real once-only guard, so this is safe even if it races or fails (worst
+        // case: one more harmless no-op attempt next poll).
         await withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
             const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
             if (!warIsMutableGameplayActive(fresh) || fresh.settled) return;
@@ -1076,7 +1269,11 @@ async function settleVillageWar(war: VillageWar, now: number): Promise<void> {
                 { ...fresh, settled: true },
             );
         }).catch(() => undefined);
-    } catch { /* best-effort; the NX marker prevents a double-apply on any retry */ }
+    } catch (err) {
+        // A contended or failed pass changes nothing that a retry can't finish;
+        // the next poll tries again.
+        console.warn('[world-state] village-war settlement deferred', (err as Error)?.message ?? err);
+    }
 }
 
 // Throws on KV failure so the GET handler can distinguish "genuinely empty"
@@ -1174,6 +1371,96 @@ async function commitPvpWarContinuationReceipt(receipt: PvpWarContinuationReceip
     const current = await kv.get<unknown>(key);
     if (exactPvpWarContinuationReceipt(current, receipt)) return;
     throw new Error('pvp-war-continuation-receipt-conflict');
+}
+
+/**
+ * Spend a war-mission token against the live war (the player half of the war
+ * lane; see the `kind: 'war'` handler).
+ *
+ * /api/village/war-mission verified the raid count and minted a single-use
+ * token sealing the damage. The damage applied is the TOKEN's, against the
+ * stored HP — the client's cached row is never read, so a stale cache can no
+ * longer turn a valid mission into a refused "heal". A mission that takes the
+ * enemy to 0 ends the war for the actor's village, the same as a killing blow.
+ * Idempotent: the token id is stamped on the row in the same compare-and-set
+ * that applies its damage. Caller holds the war lock.
+ */
+async function applyVillageWarMissionToken(args: {
+    warKey: string;
+    existing: VillageWar;
+    expected: VillageWar | null;
+    actorName: string;
+    actorDisplayName: string;
+    actorVillage: string;
+    tokenId: string;
+    now: number;
+}): Promise<{ status: number; body: Record<string, unknown> }> {
+    const { existing, tokenId, now } = args;
+    if (!tokenId) {
+        return { status: 403, body: { error: 'Village-war damage comes from real battles and war missions, so that update was not applied.' } };
+    }
+    if (existing.warMissionTokenReceipts?.[tokenId]) {
+        return { status: 200, body: { war: existing, replayed: true } };
+    }
+    if (warIsPending(existing)) {
+        const minsLeft = Math.max(1, Math.ceil(((existing.pendingUntil ?? 0) - now) / 60_000));
+        return { status: 409, body: { error: `War is still pending — fighting begins in ${minsLeft} min.` } };
+    }
+    const tokenKey = warMissionTokenKey(tokenId);
+    const token = normalizeWarMissionToken(await kv.get<Partial<WarMissionToken>>(tokenKey));
+    if (!token || !warMissionTokenAuthorizes(token, {
+        actorName: args.actorName,
+        actorVillage: args.actorVillage,
+        claimedDamage: token.damage,
+        now,
+    })) {
+        return { status: 403, body: { error: 'That war-mission reward is not valid for you, or it has expired.' } };
+    }
+    const enemy = existing.villages.find((village) => village !== args.actorVillage);
+    if (!enemy) return { status: 403, body: { error: 'Only members of the warring villages can update this war.' } };
+
+    const receipts = { ...(existing.warMissionTokenReceipts ?? {}) };
+    if (Object.keys(receipts).length >= 2_048) {
+        return { status: 503, body: { error: 'Village-war mission receipt ledger is full.' } };
+    }
+    setSafeRecordValue(receipts, tokenId, now);
+
+    const before = villageWarHpOf(existing, enemy);
+    const dealt = Math.min(before, token.damage);
+    const contributions = { ...(existing.contributions ?? {}) };
+    const key = args.actorName;
+    const prior = contributions[key];
+    // A war can outlive a village transfer: never move a player's earlier damage
+    // to the other side (the PvP settlement follows the same rule).
+    if (dealt > 0 && (!prior || prior.side === args.actorVillage)) {
+        const base = prior ?? { damage: 0, raids: 0, pvpKills: 0, side: args.actorVillage, name: args.actorDisplayName };
+        setSafeRecordValue(contributions, key, {
+            damage: Math.max(0, Math.floor(Number(base.damage) || 0)) + dealt,
+            raids: Math.max(0, Math.floor(Number(base.raids) || 0)) + 1,
+            pvpKills: Math.max(0, Math.floor(Number(base.pvpKills) || 0)),
+            side: args.actorVillage,
+            name: args.actorDisplayName || base.name,
+        });
+    }
+    let next: VillageWar = {
+        ...existing,
+        hp: { ...existing.hp },
+        contributions,
+        warMissionTokenReceipts: receipts,
+        updatedAt: Math.max(Math.floor(Number(existing.updatedAt) || 0), now),
+    };
+    setSafeRecordValue(next.hp, enemy, before - dealt);
+    if (before - dealt <= 0) next = stampVillageWarEnding(next, { endedAt: now, winnerVillage: args.actorVillage });
+
+    const publication = await commitWarBattleSettlement(kv, args.warKey, args.expected, next);
+    if (publication.status === 'conflict') {
+        return { status: 503, body: { error: 'Village-war state changed; retry.' } };
+    }
+    if (publication.row.endedAt) await ensureWarRematchCooldown(publication.row);
+    // The receipt on the row already makes the token single-use; deleting it is
+    // only cleanup.
+    await kv.del(tokenKey).catch(() => undefined);
+    return { status: 200, body: { war: publication.row, dealt } };
 }
 
 export async function settlePvpVillageWarContinuation(
@@ -1331,13 +1618,16 @@ export async function settlePvpVillageWarContinuation(
         status: 503,
         body: { error: 'The sealed raid-territory proof is still finalizing.' },
     };
-    // A target-owner change after session creation produces an exact durable
-    // zero receipt. That is a canonical superseded raid, not a retryable gap:
-    // ordinary cross-village PvP may still settle, but ground/capture effects
-    // must be gated by the amount that actually landed.
-    const appliedSealedWorldRaid = sealedWorldRaid
-        && Number(raidTerritoryProof?.amount) > 0
-        && raidTerritoryProof?.amount === territoryEvidence?.raidDamage;
+    // A war-ground raid is judged on the WAR's terms: a sealed World raid the
+    // attacker won, fought in the war-ground sector between the two warring
+    // villages, whose raid proof has settled. It used to also require that the
+    // sector's TERRITORY row took damage (`amount > 0`), but territory raids only
+    // damage clan-owned sectors (api/pvp/session.ts seals raidDamage 0 for an
+    // unowned or village-owned one), so on the usual war ground no real fight
+    // ever counted as a war-ground raid — the bonus damage, the daily war-ground
+    // bounty and the capture were reachable only through the old no-fight client
+    // writes. The territory amount still only governs the territory itself.
+    const warGroundRaidVerified = sealedWorldRaid && raidProofVerified;
     let pvpDamage = sectorControlSwing(actorRole, loserRole);
     // The home-defense multiplier is sector-history authority, not current map
     // state. Only a verified World session carries a territory owner snapshot
@@ -1376,7 +1666,7 @@ export async function settlePvpVillageWarContinuation(
                 // unverified proof could under- or over-pay the ground reward, so
                 // this stays retryable until the caller supplies it.
                 if (raidProofUnverified) return raidProofPending;
-                const warGroundRewardEligible = appliedSealedWorldRaid
+                const warGroundRewardEligible = warGroundRaidVerified
                     && pvpWarGroundRewardEligible({
                         actorVillage,
                         loserVillage,
@@ -1463,8 +1753,10 @@ export async function settlePvpVillageWarContinuation(
             // applied, rather than before the no-op paths could resolve.
             if (raidProofUnverified) return raidProofPending;
             const attemptNow = Date.now();
-            const decay = raw.endedAt ? { war: raw, changed: false } : applyWarDecay(raw, attemptNow);
-            const current = decay.war;
+            // The 14-day limit, owed decay and a zero-HP ending first, so this
+            // battle lands on the war as it stands now (and a war already won
+            // on HP cannot be won again by the other side).
+            const current = bringVillageWarCurrent(raw, attemptNow).war;
             const commitAt = Math.max(
                 attemptNow,
                 Math.floor(Number(current.updatedAt) || 0),
@@ -1473,7 +1765,7 @@ export async function settlePvpVillageWarContinuation(
             if (!Number.isSafeInteger(commitAt) || commitAt <= 0) {
                 return { status: 503, body: { error: 'Village-war settlement clock is malformed.' } };
             }
-            const isWarGroundRaid = appliedSealedWorldRaid && rewardSector === current.warGroundSector;
+            const isWarGroundRaid = warGroundRaidVerified && rewardSector === current.warGroundSector;
             const warGroundRewardEligible = isWarGroundRaid
                 && pvpWarGroundRewardEligible({
                     actorVillage,
@@ -1483,7 +1775,12 @@ export async function settlePvpVillageWarContinuation(
                     battleEndedAt: settledAt,
                     war: raw,
                 });
-            const captureAuthorized = isWarGroundRaid && raidTerritoryProof?.destroyed === true;
+            // The war row's own ground HP decides a capture (the projection flips
+            // it when a raid takes the ground to 0). This used to also require
+            // `raidTerritoryProof.destroyed`, which the raid settlement never sets
+            // (api/missions/_raid-territory.ts), so a real fight could grind the
+            // ground to 0 and then never capture it.
+            const captureAuthorized = isWarGroundRaid;
             const projected = projectPvpVillageWarSettlement(current, {
                 actorName: actor,
                 actorDisplayName: String(session.winner === 'p1' ? session.p1?.name : session.p2?.name),
@@ -1600,10 +1897,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
         territories = projectedTerritories;
+        const currentWars: VillageWar[] = [];
         for (const w of warsRaw) {
             if (!warIsGameplayActive(w)) continue;
-            const { war, changed } = applyWarDecay(w, now);
-            wars.push(war);
+            // The 14-day limit, owed decay and a zero-HP ending all land here
+            // too, so a quiet war still finishes on time with nobody acting.
+            const { war, changed } = bringVillageWarCurrent(w, now);
+            currentWars.push(war);
+            wars.push(publicVillageWar(war));
             if (changed) {
                 writes.push(
                     withKvLock(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`, async () => {
@@ -1611,21 +1912,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         // concurrent raid write that just landed.
                         const fresh = await kv.get<VillageWar>(`${VILLAGE_WAR_KEY_PREFIX}${war.id}`);
                         if (!fresh) return;
-                        const { war: redecayed, changed: stillChanged } = applyWarDecay(fresh, now);
-                        if (stillChanged) await commitWarBattleSettlement(
+                        const { war: current, changed: stillChanged } = bringVillageWarCurrent(fresh, now);
+                        if (!stillChanged) return;
+                        const publication = await commitWarBattleSettlement(
                             kv,
                             `${VILLAGE_WAR_KEY_PREFIX}${war.id}`,
                             fresh,
-                            redecayed,
+                            current,
                         );
-                    }).catch(() => undefined),
+                        if (publication.status === 'committed' && publication.row.endedAt) {
+                            await ensureWarRematchCooldown(publication.row);
+                        }
+                    }, { failClosed: true }).catch(() => undefined),
                 );
             }
         }
         // Lazily apply the losing penalty (treasury spoils + W/L standing) to any
-        // war that has ended with a winner — once each, via the NX marker inside
-        // settleVillageWar — even wars that ended on the decay timer while offline.
-        for (const w of wars) {
+        // war that has ended with a winner — exactly once each (see
+        // settleVillageWar) — even wars that ended on the decay timer while
+        // offline. Runs on the full rows: the settlement is keyed on the war's
+        // generation, which the public projection must not be trusted to keep.
+        for (const w of currentWars) {
             if (w.endedAt && w.winnerVillage && !w.settled) void settleVillageWar(w, now);
         }
         // Don't block the GET response on the persist — let writes run in
@@ -1788,14 +2095,40 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             claimingClan = prevClan;
                             claimingVillage = prevVillage;
                         }
+                        // Village ownership and territory HP are server authority on
+                        // EVERY row, not only clan rows (owner rulings 2026-10-08):
+                        // a war sector changes hands only when a 72-hour sector war
+                        // settles (captureSectorForVillage), an all-out village war
+                        // never moves the map, and HP changes only through verified
+                        // raid settlement or Territory Control Scroll repairs. This
+                        // route used to accept both from the client. A war village's
+                        // members could grind an enemy home sector to 0 with the War
+                        // Hall's no-fight Raid button (1,000 HP a request) and then
+                        // write their own village in as its owner, bypassing the
+                        // sector war entirely; and any player could stamp their
+                        // village onto an unowned wilderness or central sector, which
+                        // the war economy then counted as held.
+                        if (claimingVillage !== prevVillage) {
+                            return res.status(403).json({ error: 'A sector changes hands only when a sector war settles.' });
+                        }
+                        const storedHp = Number(prev?.hp ?? TERRITORY_HP_MAX);
+                        if (Object.prototype.hasOwnProperty.call(rawTerritory, 'hp')
+                            && incomingTerritory.hp !== storedHp) {
+                            return res.status(403).json({ error: 'Territory HP can only change through verified raids or Territory Control Scroll repairs.' });
+                        }
+                        // normalizeSectorTerritory defaults an omitted hp to full;
+                        // a PATCH that leaves it out keeps the stored value.
+                        incomingTerritory.hp = storedHp;
+                        // rebuiltAt is lifecycle state (api/_territory-lifecycle.ts):
+                        // it holds off clan recaptures for the rebuild cooldown, so
+                        // an owner restamping it could lock clans out indefinitely.
+                        incomingTerritory.rebuiltAt = prev?.rebuiltAt;
                         // Clan control progress and clan ownership are purchased
                         // with treasury scrolls. They are owned exclusively by
                         // /api/clan/territory/assign-scrolls, which validates clan
                         // leadership and debits the canonical treasury under the
                         // same locks. Keeping those fields writable here let any
                         // clan member capture a sector without spending a scroll.
-                        // Village ownership remains on this route because the
-                        // village-war capture path legitimately flips it at 0 HP.
                         const previousControlScore = Number(prev?.controlScore ?? 0);
                         if (incomingTerritory.controlScore !== previousControlScore) {
                             return res.status(403).json({ error: 'Clan control can only be changed by assigning Territory Control Scrolls.' });
@@ -1813,141 +2146,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         if (ownershipError) {
                             return res.status(403).json({ error: ownershipError });
                         }
+                        // With ownership and HP pinned above, the only writers left
+                        // are the sector's own owners updating its non-authority
+                        // fields (guards, weather, terrain, art). There is no raider
+                        // case any more: raids are fights, settled server-side.
                         const matchesClan = !!claimingClan && actorClan === claimingClan;
                         const matchesVillage = !!claimingVillage && actorVillage === claimingVillage;
-                        const actorOwnsPrev =
-                            (prevClan && actorClan === prevClan) ||
-                            (prevVillage && actorVillage === prevVillage);
-
-                        // Raider case: actor's village is currently AT WAR with the owner village.
-                        let raiderDuringWar = false;
-                        if (!matchesClan && !matchesVillage && !actorOwnsPrev && prevVillage && actorVillage && actorVillage !== prevVillage) {
-                            raiderDuringWar = await hasActiveWarBetween(actorVillage, prevVillage);
-                        }
-
-                        const actorInvolved = matchesClan || matchesVillage || actorOwnsPrev || raiderDuringWar;
-                        if (!actorInvolved) {
-                            return res.status(403).json({ error: 'You are not a participant in this sector (no active war with the owner village).' });
-                        }
-
-                        // Clan sector CAPTURE gate: ANY write that flips ownerClan to a
-                        // NEW clan is a capture, and it must be performed BY a member of
-                        // that clan whose roster meets TERRITORY_CAPTURE_MIN_MEMBERS.
-                        // Keying on `claimingClan !== prevClan` (NOT on matchesClan)
-                        // closes the spoof where a writer clears the participation gate
-                        // via matchesVillage (their own village) but sets an arbitrary or
-                        // sub-strength ownerClan — which the ownership-flip branch below
-                        // would otherwise persist verbatim once the sector hit 0 HP.
-                        // Reinforcement / terrain edits (claimingClan === prevClan) and
-                        // village-only writes (empty claimingClan) are exempt, so a clan
-                        // that shrank below the cap can still hold and defend its sector.
-                        if (claimingClan && claimingClan !== prevClan) {
-                            if (!matchesClan) {
-                                return res.status(403).json({ error: 'You can only capture a sector for a clan you belong to.' });
-                            }
-                            const memberCount = await clanMemberCount(claimingClan);
-                            if (memberCount < TERRITORY_CAPTURE_MIN_MEMBERS) {
-                                return res.status(403).json({ error: `Your clan needs at least ${TERRITORY_CAPTURE_MIN_MEMBERS} members to capture a sector (it has ${memberCount}).` });
-                            }
-                        }
-
-                        // Per-request HP delta cap — applies to all non-admin writers.
-                        const prevHp = Number(prev?.hp ?? TERRITORY_HP_MAX);
-                        const newHp = incomingTerritory.hp;
-                        if (newHp < prevHp - TERRITORY_HP_MAX_DELTA_PER_REQUEST) {
-                            return res.status(400).json({ error: `HP can only drop by ${TERRITORY_HP_MAX_DELTA_PER_REQUEST} per request.` });
-                        }
-                        // A CAPTURE resets the sector to full HP in the same write
-                        // that flips the owner — "freshly secured", mirroring what
-                        // captureSectorForVillage does on the sector-war path. That
-                        // is a legitimate jump from 0 to max, so it is exempt from
-                        // the incremental repair cap (which otherwise 400'd the
-                        // capture write and left the sector pinned at 0 HP, letting
-                        // the war-ground capture bonus be re-claimed indefinitely).
-                        // Everything else still rebuilds a step at a time.
-                        const isCaptureReset =
-                            (matchesClan || matchesVillage) &&
-                            prevHp <= 0 &&
-                            newHp <= TERRITORY_HP_MAX &&
-                            ((!!claimingClan && claimingClan !== String(prev?.ownerClan ?? '').trim()) ||
-                             (!!claimingVillage && claimingVillage !== String(prev?.ownerVillage ?? '').trim()));
-                        if (!isCaptureReset && newHp > prevHp + TERRITORY_HP_MAX_REPAIR_PER_REQUEST) {
-                            return res.status(400).json({ error: `HP can only rise by ${TERRITORY_HP_MAX_REPAIR_PER_REQUEST} per request.` });
-                        }
-                        // Raiders may not increase HP (only defenders / owners may rebuild).
-                        if (raiderDuringWar && newHp > prevHp) {
-                            return res.status(400).json({ error: 'Raiders may not rebuild the enemy sector.' });
-                        }
-                        // Raider scope: restrict raider writes to the HP
-                        // field only. Without this clamp a raider could
-                        // POST a full sector blob overwriting ownerVillage,
-                        // controlScore, guards, terrainBuffStat, weather,
-                        // backgroundImage, rebuiltAt etc. — flipping the
-                        // sector to a different owner or changing the
-                        // terrain buff stat for their own next raid.
-                        // We also block ownerVillage/ownerClan changes on
-                        // ANY non-claimingClan/Village write so an
-                        // attacker can't sneak an ownership flip through
-                        // the raider or rebuild path.
-                        if (raiderDuringWar && prev) {
-                            // Preserve every field from prev except hp + updatedAt
-                            // (the only legitimate raider mutation). Sector id is
-                            // already preserved by the incoming key.
-                            const raiderClampedHp = incomingTerritory.hp;
-                            Object.assign(incomingTerritory, prev, {
-                                hp: raiderClampedHp,
-                                updatedAt: Date.now(),
-                            });
-                        } else if (!matchesClan && !matchesVillage && prev) {
-                            // Owner-rebuild path (case 2 — actorOwnsPrev): same
-                            // clamp pattern. Don't allow this writer to flip
-                            // ownership; only HP + a small set of recovery
-                            // fields can change.
-                            const ownerClampedHp = incomingTerritory.hp;
-                            const ownerClampedRebuilt = Number(incomingTerritory.rebuiltAt ?? prev.rebuiltAt ?? 0);
-                            Object.assign(incomingTerritory, prev, {
-                                hp: ownerClampedHp,
-                                rebuiltAt: ownerClampedRebuilt,
-                                updatedAt: Date.now(),
-                            });
-                        }
-                        // Claiming clan/village path (matchesClan || matchesVillage):
-                        // The original code passed the full incomingTerritory
-                        // through. We additionally guard against the
-                        // "drop-HP-and-claim-in-one-write" gambit: a fresh
-                        // claimant cannot flip ownerVillage/ownerClan unless
-                        // either there was no prior owner OR the prior HP
-                        // was already 0 (i.e., a defender flipped the sector
-                        // to contested state on an EARLIER write).
-                        else if ((matchesClan || matchesVillage) && prev) {
-                            const prevOwnerVillage = String(prev.ownerVillage ?? '').trim();
-                            const prevOwnerClan = String(prev.ownerClan ?? '').trim();
-                            const ownershipFlipping =
-                                claimingVillage !== prevOwnerVillage ||
-                                claimingClan !== prevOwnerClan;
-                            const prevHpZero = Number(prev.hp ?? 0) <= 0;
-                            if (ownershipFlipping && !prevHpZero && (prevOwnerVillage || prevOwnerClan)) {
-                                return res.status(400).json({ error: 'Owner can only change after the sector reaches 0 HP.' });
-                            }
+                        if (!matchesClan && !matchesVillage) {
+                            return res.status(403).json({ error: 'Only the sector\'s owners can update it.' });
                         }
 
                         // ── Server-authoritative War Supply (anti-mint, audit H4) ──
                         // collectTerritorySupply banks a sector's stored warSupply
                         // straight into the clan treasury, so warSupply must never
-                        // come from the client. The raider / owner-rebuild branches
-                        // above already carried prev via Object.assign; this owns
-                        // warSupply + lastSupplyAt for the claiming path (and the
-                        // prev === null first-write case): same owner → carry prev
-                        // (accrual is recomputed lazily from lastSupplyAt at collect
-                        // time, so nothing is lost); fresh claim / ownership flip →
-                        // reset to 0 and re-anchor to now. The absolute cap in
-                        // normalizeSectorTerritory remains a backstop for the
-                        // admin-exempt path.
-                        if (matchesClan || matchesVillage) {
-                            const owned = resolveClaimedWarSupply(prev, incomingTerritory, Date.now());
-                            incomingTerritory.warSupply = owned.warSupply;
-                            incomingTerritory.lastSupplyAt = owned.lastSupplyAt;
-                        }
+                        // come from the client. Ownership cannot change on this route,
+                        // so this always carries the stored supply forward (accrual is
+                        // recomputed lazily from lastSupplyAt at collect time). The
+                        // absolute cap in normalizeSectorTerritory remains a backstop
+                        // for the admin-exempt path.
+                        const owned = resolveClaimedWarSupply(prev, incomingTerritory, Date.now());
+                        incomingTerritory.warSupply = owned.warSupply;
+                        incomingTerritory.lastSupplyAt = owned.lastSupplyAt;
                     } catch {
                         return res.status(500).json({ error: 'Unable to verify territory participation.' });
                     }
@@ -2047,6 +2266,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return res.status(200).json({ territory: committedTerritory });
             }
 
+            if (body?.kind === 'war-command') {
+                // Peace and surrender (owner ruling 2026-10-08): a no-winner
+                // peace needs BOTH seated Kages to offer it; either Kage may
+                // instead surrender, which ends the war as a loss for their
+                // village. Either Kage used to be able to end the war with no
+                // winner on their own — including the losing Kage one hit before
+                // their village fell, erasing the loss and its spoils.
+                if (identity.admin) {
+                    return res.status(403).json({ error: 'Peace and surrender are decisions for the seated Kages.' });
+                }
+                const command = String((body as Record<string, unknown>).command ?? '');
+                if (command !== 'propose-peace' && command !== 'withdraw-peace' && command !== 'surrender') {
+                    return res.status(400).json({ error: 'Unknown war command.' });
+                }
+                const rawVillages = (body as Record<string, unknown>).villages;
+                const villages = Array.isArray(rawVillages) ? rawVillages.map((v) => String(v ?? '').trim()) : [];
+                if (villages.length !== 2 || !villages[0] || !villages[1] || villages[0] === villages[1]) {
+                    return res.status(400).json({ error: 'Name the two warring villages.' });
+                }
+                const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
+                const actorVillage = String((actorSave?.character as Record<string, unknown> | undefined)?.village ?? '').trim();
+                if (!actorVillage || !villages.includes(actorVillage)) {
+                    return res.status(403).json({ error: 'Only members of the warring villages can do that.' });
+                }
+                if (!(await isSeatedKageOf(identity.name, actorVillage))) {
+                    return res.status(403).json({ error: 'Only your village\'s seated Kage can offer peace or surrender.' });
+                }
+                const warKey = `${VILLAGE_WAR_KEY_PREFIX}${villageWarId(villages[0], villages[1])}`;
+                const result = await withKvLock(warKey, async () => {
+                    const stored = await kv.get<VillageWar>(warKey);
+                    if (!stored || !warIsGameplayActive(stored)) {
+                        return { status: 404, body: { error: 'There is no active war between these villages.' } as Record<string, unknown> };
+                    }
+                    if (warHasMercenaryFundingField(stored)) {
+                        return { status: 503, body: { error: 'A mercenary strike is settling; retry.' } };
+                    }
+                    const now = Date.now();
+                    let war = stored;
+                    const brought = bringVillageWarCurrent(stored, now);
+                    if (brought.changed) {
+                        const caught = await commitWarBattleSettlement(kv, warKey, stored, brought.war);
+                        if (caught.status === 'conflict') return { status: 503, body: { error: 'Village-war state changed; retry.' } };
+                        war = caught.row;
+                        if (war.endedAt) await ensureWarRematchCooldown(war);
+                    }
+                    if (war.endedAt) {
+                        return { status: 409, body: { error: 'This war has already ended.', war: publicVillageWar(war) } };
+                    }
+                    const enemy = war.villages.find((village) => village !== actorVillage)!;
+                    const updatedAt = Math.max(Math.floor(Number(war.updatedAt) || 0), now);
+                    let next: VillageWar;
+                    if (command === 'surrender') {
+                        next = stampVillageWarEnding({ ...war, surrenderedBy: actorVillage }, { endedAt: now, winnerVillage: enemy });
+                    } else {
+                        const proposals: Record<string, number> = { ...(war.peaceProposals ?? {}) };
+                        if (command === 'withdraw-peace') delete proposals[actorVillage];
+                        else setSafeRecordValue(proposals, actorVillage, now);
+                        next = { ...war, peaceProposals: proposals, updatedAt };
+                        if (command === 'propose-peace' && proposals[enemy]) {
+                            // Both Kages offered peace: the war ends with no winner.
+                            next = stampVillageWarEnding(next, { endedAt: now });
+                        }
+                    }
+                    const publication = await commitWarBattleSettlement(kv, warKey, war, next);
+                    if (publication.status === 'conflict') return { status: 503, body: { error: 'Village-war state changed; retry.' } };
+                    if (publication.row.endedAt) await ensureWarRematchCooldown(publication.row);
+                    await kv.set(`audit:village-war-command:${normalizeVillageKey(actorVillage)}:${now}`, {
+                        ts: now, command, actor: identity.name, village: actorVillage, warId: war.id,
+                    }, { ex: 30 * 24 * 60 * 60 }).catch(() => undefined);
+                    return { status: 200, body: { war: publicVillageWar(publication.row) } };
+                }, { failClosed: true });
+                return res.status(result.status).json(result.body);
+            }
+
             if (body?.kind === 'war') {
                 const mutationNow = Date.now();
                 const war = normalizeVillageWar({ ...body.war, updatedAt: mutationNow });
@@ -2129,41 +2422,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         war.declarationGeneration = existing.declarationGeneration;
                         war.declarationFunding = existing.declarationFunding;
                         war.mercenaryHireReceipts = { ...(existing.mercenaryHireReceipts ?? {}) };
+                        war.hpMax = existing.hpMax;
+                        war.peaceProposals = existing.peaceProposals;
+                        war.surrenderedBy = existing.surrenderedBy;
                     }
 
-                    // Lazy-finalize stale wars (>14d active, no end). Counts
-                    // from `pendingUntil` if set, so the pre-war window
-                    // doesn't eat into the 14-day clock. Auto-end with no
-                    // winner, no crate.
+                    // Bring the stored war up to now before judging this write:
+                    // the 14-day limit (counted from `pendingUntil`, so the
+                    // pre-war window doesn't eat into it), owed daily decay, and
+                    // a zero-HP ending. If that ended the war, the freeze check
+                    // below rejects the in-flight write as "war has ended".
                     if (existing && !isCreating && !existing.endedAt) {
-                        const liveStart = warEffectiveStartMs(existing);
-                        if ((Date.now() - liveStart) > VILLAGE_WAR_MAX_DURATION_MS) {
-                            const expired: VillageWar = {
-                                ...existing,
-                                endedAt: liveStart + VILLAGE_WAR_MAX_DURATION_MS,
-                                updatedAt: Date.now(),
-                                // No winnerVillage — abandoned wars award nothing.
-                            };
-                            const publication = await commitWarBattleSettlement(kv, warKey, existing, expired);
+                        const timedOut = Date.now() - warEffectiveStartMs(existing) > VILLAGE_WAR_MAX_DURATION_MS;
+                        const brought = bringVillageWarCurrent(existing, Date.now());
+                        if (brought.changed) {
+                            const publication = await commitWarBattleSettlement(kv, warKey, existing, brought.war);
                             if (publication.status === 'conflict') {
                                 return { status: 503 as const, body: { error: 'Village-war state changed; retry.' } };
                             }
-                            await ensureWarRematchCooldown(publication.row);
-                            return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: publication.row } };
-                        }
-                    }
-
-                    // Apply daily decay to `existing` so the validation
-                    // (HP delta caps, freeze-on-end, win condition) runs
-                    // against the post-decay state. If decay just ended
-                    // the war, the freeze check below catches the in-
-                    // flight write and rejects it as "war has ended".
-                    if (existing && !isCreating) {
-                        const decayResult = applyWarDecay(existing);
-                        if (decayResult.changed) {
-                            const publication = await commitWarBattleSettlement(kv, warKey, existing, decayResult.war);
-                            if (publication.status === 'conflict') {
-                                return { status: 503 as const, body: { error: 'Village-war state changed; retry.' } };
+                            if (publication.row.endedAt) await ensureWarRematchCooldown(publication.row);
+                            if (timedOut) {
+                                return { status: 409 as const, body: { error: 'War has timed out (14 days). Auto-finalized with no winner.', war: publication.row } };
                             }
                             existing = publication.row;
                             expectedWarRow = publication.row;
@@ -2183,7 +2462,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // attribute contributions.
                     let actorChar: Record<string, unknown> | null = null;
                     let actorVillage = '';
-                    let verifiedMissionTokenId = '';
                     if (!identity.admin) {
                         try {
                             const actorSave = await kv.get<Record<string, unknown>>(`save:${identity.name}`);
@@ -2195,6 +2473,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                         } catch {
                             return { status: 500 as const, body: { error: 'Unable to verify war participation.' } };
                         }
+                    }
+
+                    // A player can no longer write an existing war row at all.
+                    // Battles settle server-side by battle id (above), peace and
+                    // surrender go through `kind: 'war-command'`, and the one
+                    // thing left on this lane is spending a war-mission token,
+                    // whose sealed damage the SERVER applies. This lane used to
+                    // accept client-proposed HP, captures, winners and endings,
+                    // and every one of those had a hole: a capture could be
+                    // ping-ponged with an account in the enemy village to drain
+                    // HP with no fight, bundling a capture with an end let any
+                    // member call peace, a mission that took the enemy to 0 was
+                    // refused (and nothing ever ended the war at 0 HP), and a
+                    // stale cached HP turned a valid mission into a "heal" 400.
+                    if (!identity.admin && !isCreating && existing) {
+                        return await applyVillageWarMissionToken({
+                            warKey,
+                            existing,
+                            expected: expectedWarRow,
+                            actorName: identity.name,
+                            actorDisplayName: String(actorChar?.name ?? identity.name),
+                            actorVillage,
+                            tokenId: String((body as Record<string, unknown>)?.warMissionToken ?? '').trim(),
+                            now: Date.now(),
+                        });
                     }
 
                     const isEnding = !isCreating && !existing?.endedAt && !!war.endedAt;
@@ -2216,6 +2519,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     if (!identity.admin) {
                         try {
                             if (isCreating) {
+                                // 0. Both sides must be real war villages. The
+                                // pair came straight from the request body, so a
+                                // Kage could declare on a village that does not
+                                // exist — which can never fight back, decays to a
+                                // "win" and paid out crates for every member.
+                                if (!war.villages.every((village) => isWarVillage(village))) {
+                                    return { status: 400 as const, body: { error: 'Village wars are fought between the four great villages.' } };
+                                }
                                 // 1. Only Kage of a warring village may declare war.
                                 const kage = await isSeatedKageOf(identity.name, actorVillage);
                                 if (!kage) {
@@ -2261,12 +2572,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     mutationNow,
                                 );
                                 const declarationId = generation.declarationId;
+                                // The predecessor's spoils must land BEFORE this
+                                // row replaces it: settlement is keyed on the old
+                                // generation and only ever found through the row,
+                                // so a war nobody polled between its end and the
+                                // rematch would otherwise never pay out.
+                                if (existing?.endedAt && existing.winnerVillage && !existing.settled) {
+                                    try {
+                                        await settleVillageWarSpoils(existing, mutationNow);
+                                    } catch {
+                                        return { status: 503 as const, body: { error: 'The last war between these villages is still settling; retry.' } };
+                                    }
+                                }
+                                // Each village's war HP is sealed now from its
+                                // Ramparts level (+1.5% per level, dormancy-aware).
+                                const hpMax: Record<string, number> = {};
+                                const [firstRecord, secondRecord] = await Promise.all(
+                                    war.villages.map((village) => kv.get<Record<string, unknown>>(villageWarKey(village))),
+                                );
+                                setSafeRecordValue(hpMax, war.villages[0], villageWarHpMax(normalizeVillageWarRecord(war.villages[0], firstRecord ?? undefined)));
+                                setSafeRecordValue(hpMax, war.villages[1], villageWarHpMax(normalizeVillageWarRecord(war.villages[1], secondRecord ?? undefined)));
                                 war.startedAt = mutationNow;
                                 war.updatedAt = mutationNow;
-                                war.hp = {
-                                    [war.villages[0]]: VILLAGE_WAR_HP_MAX,
-                                    [war.villages[1]]: VILLAGE_WAR_HP_MAX,
-                                };
+                                war.hpMax = hpMax;
+                                war.hp = { ...hpMax };
+                                war.warGroundSector = villageWarGroundSector(war.id);
+                                delete war.peaceProposals;
+                                delete war.surrenderedBy;
                                 war.warGroundHp = VILLAGE_WAR_GROUND_HP_MAX;
                                 war.pendingUntil = mutationNow + VILLAGE_WAR_PENDING_WINDOW_MS;
                                 war.declaredBy = safeName(identity.name);
@@ -2330,6 +2662,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     // already passed Kage authorization; the helper
                                     // cannot alter its identity/source.
                                     const blockingReservation = villageWarReservationFromRow(claims.row);
+                                    // A SECTOR declaration's row is a sector
+                                    // contest, not a village-war pair row: this
+                                    // helper cannot fund it (it read `villages`
+                                    // off a row that has none, and the request
+                                    // died as a 500). Its own endpoint resumes it
+                                    // when that Kage declares again.
+                                    if (blockingReservation?.declarationId.startsWith('sector:')) {
+                                        return { status: 409 as const, body: { error: `${claims.village} is opening a sector war right now. Try again in a minute.` } };
+                                    }
                                     const blockingWar = blockingReservation
                                         ? await kv.get<VillageWar>(blockingReservation.warKey)
                                         : null;
@@ -2373,13 +2714,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                 // Village wars and sector wars are mutually
                                 // exclusive. The claims above close the opposite
                                 // direction while these authoritative scans run.
-                                if (villageWarMapEnabled()) {
-                                    for (const v of war.villages) {
-                                        const sieges = await activeSectorWarsForVillage(v, Date.now(), { strict: true });
-                                        if (sieges.length) {
-                                            await releaseVillageWarReservations(kv, reservationPlan, 'claim-conflict', mutationNow);
-                                            return { status: 409 as const, body: { error: `${v} has ${sieges.length} active sector war${sieges.length === 1 ? '' : 's'}. Sector wars and a village war cannot run at the same time — finish or call them off first.` } };
-                                        }
+                                // This holds whether or not the sector-war
+                                // campaign is switched on: with DISABLE_VILLAGE_WAR
+                                // set, sector wars are paused, not gone, and a
+                                // village war declared over them would overlap
+                                // them the moment the switch is lifted.
+                                for (const v of war.villages) {
+                                    const sieges = await activeSectorWarsForVillage(v, Date.now(), { strict: true });
+                                    if (sieges.length) {
+                                        await releaseVillageWarReservations(kv, reservationPlan, 'claim-conflict', mutationNow);
+                                        return { status: 409 as const, body: { error: `${v} has ${sieges.length} active sector war${sieges.length === 1 ? '' : 's'}. Sector wars and a village war cannot run at the same time — finish or call them off first.` } };
                                     }
                                 }
 
@@ -2471,193 +2815,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                                     return { status: 409 as const, body: { error: 'A different village-war declaration already owns this pair.' } };
                                 }
                                 return { status: 503 as const, body: { error: 'Village-war declaration funding is settling; retry.' } };
-                            } else if (isClaimingWin) {
-                                // Naming a winner REQUIRES the enemy village's
-                                // HP to actually be 0 in the persisted record.
-                                // The war ground is a contestable tug-of-war
-                                // objective that pays bonus damage but does
-                                // NOT end the war on its own — without this
-                                // check a Kage of the LOSING village could
-                                // declare themselves winner.
-                                const winnerVillage = war.winnerVillage;
-                                const enemyVillage = war.villages.find(v => v !== winnerVillage);
-                                const persistedEnemyHp = enemyVillage ? Number(existing?.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
-                                const hpWin = persistedEnemyHp <= 0
-                                    && winnerVillage === actorVillage;
-                                if (!hpWin) {
-                                    return { status: 403 as const, body: { error: 'Cannot declare a winner — the enemy village HP is not depleted.' } };
-                                }
-                            } else if (isClaimingCapture) {
-                                // Capturing the war ground is now a flippable
-                                // event — anyone in a warring village can
-                                // claim the capture flag as long as it isn't
-                                // already theirs (the client checks current
-                                // capturedBy). No HP-depletion gate.
-                                if (existing?.capturedBy === actorVillage) {
-                                    return { status: 409 as const, body: { error: 'Your village already holds the war ground.' } };
-                                }
-                                if (war.capturedBy !== actorVillage
-                                    || !existing
-                                    || !(await warGroundCaptureEarned(existing, actorVillage))) {
-                                    return { status: 403 as const, body: { error: 'The war ground has not been broken for your village.' } };
-                                }
-                            } else if (isEnding) {
-                                // Ending WITHOUT a winner = "call peace".
-                                // Allowed only by Kage (either side). Anyone
-                                // else who wants to end the war needs to also
-                                // satisfy the win-condition gate above.
-                                const kage = await isSeatedKageOf(identity.name, actorVillage);
-                                if (!kage) {
-                                    return { status: 403 as const, body: { error: 'Only the Kage may call peace; otherwise win the war legitimately.' } };
-                                }
                             }
-
-                            // Pre-war pending gate. While `pendingUntil`
-                            // hasn't passed, no HP write, no end / win /
-                            // capture call. The Kage who declared the war
-                            // cannot cancel it during this window either —
-                            // declaration committed the cost and the war
-                            // must run its course. Non-mutating updates
-                            // (e.g. lazy decay/contribution merges from
-                            // earlier in this handler) are allowed; only
-                            // an actively-attempted state change errors.
-                            if (existing && warIsPending(existing)) {
-                                const wantsDamage = existing.villages.some(v => {
-                                    const prev = Number(existing.hp?.[v] ?? VILLAGE_WAR_HP_MAX);
-                                    const next = Number(war.hp?.[v] ?? prev);
-                                    return next !== prev;
-                                }) || Number(war.warGroundHp ?? existing.warGroundHp) !== Number(existing.warGroundHp);
-                                if (wantsDamage || isEnding || isClaimingWin || isClaimingCapture) {
-                                    const minsLeft = Math.max(1, Math.ceil(((existing.pendingUntil ?? 0) - Date.now()) / 60_000));
-                                    return { status: 409 as const, body: { error: `War is still pending — fighting begins in ${minsLeft} min.` } };
-                                }
-                            }
-
-                            // Per-write HP delta cap. Cap each direction
-                            // independently so a write touching both sides
-                            // can't bypass via offset.
-                            if (existing) {
-                                for (const village of existing.villages) {
-                                    const prev = Number(existing.hp?.[village] ?? VILLAGE_WAR_HP_MAX);
-                                    const next = Number(war.hp?.[village] ?? prev);
-                                    const hpDropLimit = VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST;
-                                    if (prev - next > hpDropLimit) {
-                                        return { status: 400 as const, body: { error: `Village HP can drop by at most ${hpDropLimit} per request.` } };
-                                    }
-                                    if (next > prev) {
-                                        return { status: 400 as const, body: { error: 'Village HP cannot be healed by a client war update.' } };
-                                    }
-                                }
-                                const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
-                                const nextGround = Number(war.warGroundHp ?? prevGround);
-                                if (prevGround - nextGround > VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST) {
-                                    return { status: 400 as const, body: { error: `War ground HP can drop by at most ${VILLAGE_WAR_GROUND_HP_MAX_DELTA_PER_REQUEST} per request.` } };
-                                }
-                                if (nextGround > prevGround && !isClaimingCapture) {
-                                    return { status: 400 as const, body: { error: 'War-ground HP can rise only in an authorized capture transition.' } };
-                                }
-
-                                // ── BATTLE RECEIPT (anti-cheat) ──────────────
-                                // Damage must be BACKED by a real, finished,
-                                // server-owned PvP session that this player won
-                                // against the enemy village. Without this the
-                                // whole ledger was client-asserted: 50 POSTs with
-                                // no fighting drained a village to 0 and unlocked
-                                // the treasury spoils + war crate.
-                                //
-                                // THREE authorized sources, one per path the client
-                                // actually uses — anything else is refused:
-                                //   (a) a won PvP battle (`battleId`), consumed
-                                //       against a per-battle damage budget;
-                                //   (b) the war-ground capture bonus, which has no
-                                //       battle behind it by design — it is earned by
-                                //       grinding the war-ground SECTOR to 0 HP through
-                                //       the territory endpoint, and the flag must
-                                //       actually be flipping to this village;
-                                //   (c) a settled daily war mission, via the single-use
-                                //       token /api/village/war-mission mints once it has
-                                //       verified the raid count against stored state.
-                                const claimedDamage = warDamageClaimed(existing, war);
-                                if (claimedDamage > 0) {
-                                    const capturingGround =
-                                        String(war.capturedBy ?? '').trim() === actorVillage &&
-                                        String(existing.capturedBy ?? '').trim() !== actorVillage;
-                                    const groundAuthorized = capturingGround
-                                        && await warGroundCaptureEarned(existing, actorVillage);
-
-                                    // (c) a settled daily war mission — /api/village/war-mission
-                                    // verified the raid count against stored state and minted a
-                                    // token sealing the damage. Spent atomically here.
-                                    let missionAuthorized = false;
-                                    const missionTokenId = String((body as Record<string, unknown>)?.warMissionToken ?? '').trim();
-                                    if (!groundAuthorized && missionTokenId) {
-                                        if (existing.warMissionTokenReceipts?.[missionTokenId]) {
-                                            return { status: 200 as const, body: { war: existing, replayed: true } };
-                                        }
-                                        const tokenKey = warMissionTokenKey(missionTokenId);
-                                        const token = normalizeWarMissionToken(await kv.get<Partial<WarMissionToken>>(tokenKey));
-                                        if (warMissionTokenAuthorizes(token, {
-                                            actorName: identity.name,
-                                            actorVillage,
-                                            claimedDamage,
-                                            now: Date.now(),
-                                        })) {
-                                            missionAuthorized = true;
-                                            verifiedMissionTokenId = missionTokenId;
-                                        }
-                                    }
-
-                                    if (!groundAuthorized && !missionAuthorized) {
-                                        return { status: 403 as const, body: { error: warBattleDeclineMessage('missing-battle-id') } };
-                                    }
-                                }
-                            }
-                        } catch (receiptErr) {
-                            console.error('[world-state] war damage verification failed', receiptErr);
+                        } catch (declareErr) {
+                            console.error('[world-state] village-war declaration failed', declareErr);
                             return { status: 500 as const, body: { error: 'Unable to verify war participation.' } };
                         }
                     }
 
-                    // ── Contribution tracking ─────────────────────────────
-                    // Contributions are server-managed. Clients cannot write
-                    // them directly — we always overwrite with the merged
-                    // server-derived map. The damage delta is the actor's
-                    // contribution for THIS write. Skip for admin writes
-                    // (no real attribution).
-                    if (existing && !identity.admin && actorVillage) {
-                        const enemyVillage = war.villages.find(v => v !== actorVillage);
-                        const prevEnemyHp = enemyVillage ? Number(existing.hp?.[enemyVillage] ?? VILLAGE_WAR_HP_MAX) : VILLAGE_WAR_HP_MAX;
-                        const newEnemyHp = enemyVillage ? Number(war.hp?.[enemyVillage] ?? prevEnemyHp) : prevEnemyHp;
-                        const enemyDmg = Math.max(0, prevEnemyHp - newEnemyHp);
-                        const prevGround = Number(existing.warGroundHp ?? VILLAGE_WAR_GROUND_HP_MAX);
-                        const newGround = Number(war.warGroundHp ?? prevGround);
-                        const groundDmg = Math.max(0, prevGround - newGround);
-                        const totalDmg = enemyDmg + groundDmg;
-                        const contribs = { ...(existing.contributions ?? {}) };
-                        if (totalDmg > 0) {
-                            const key = identity.name;
-                            const prev = contribs[key] ?? { damage: 0, raids: 0, pvpKills: 0, side: actorVillage, name: String(actorChar?.name ?? identity.name) };
-                            contribs[key] = {
-                                damage: prev.damage + totalDmg,
-                                raids: prev.raids + 1,
-                                pvpKills: prev.pvpKills,
-                                side: actorVillage,
-                                name: String(actorChar?.name ?? prev.name),
-                            };
-                        }
-                        war.contributions = contribs;
-                    } else if (existing) {
-                        // Preserve server-owned contributions for admin writes too.
-                        war.contributions = existing.contributions ?? {};
-                    }
-
-                    // Terminal/capture chronology is server-owned. The request
-                    // only asks for a transition; its timestamp (including a
-                    // future, fractional, negative, or string value) is never
-                    // published. Pending transitions were rejected above, and
-                    // the accepted peace/end time is bounded to this war's
-                    // immutable 14-day lifetime.
+                    // ── Admin support write ───────────────────────────────
+                    // Only an admin reaches this point with a write to apply:
+                    // a player's declaration returned above, and a player's
+                    // update to an existing war went to the war-mission lane.
+                    // Server-owned ledgers are carried from the locked row, and
+                    // an admin-ended war is stamped like every other ending.
+                    if (existing) war.contributions = existing.contributions ?? {};
                     if (isClaimingCapture) war.capturedAt = mutationNow;
+                    let finalWar: VillageWar = war;
                     if (isEnding && existing) {
                         const effectiveStart = warEffectiveStartMs(existing);
                         const boundedEnd = effectiveStart + VILLAGE_WAR_MAX_DURATION_MS;
@@ -2666,56 +2839,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                             || !Number.isSafeInteger(boundedEnd)) {
                             return { status: 503 as const, body: { error: 'Village-war chronology is malformed.' } };
                         }
-                        war.endedAt = Math.min(Math.max(mutationNow, effectiveStart), boundedEnd);
-                        war.updatedAt = Math.max(Number(existing.updatedAt) || 0, war.endedAt);
+                        finalWar = stampVillageWarEnding(war, {
+                            endedAt: Math.min(Math.max(mutationNow, effectiveStart), boundedEnd),
+                            winnerVillage: war.winnerVillage,
+                        });
                     }
+                    finalWar.pvpBattleReceipts = { ...(existing?.pvpBattleReceipts ?? {}) };
+                    finalWar.lastPvpBattleEndedAt = existing?.lastPvpBattleEndedAt;
+                    finalWar.warMissionTokenReceipts = { ...(existing?.warMissionTokenReceipts ?? {}) };
 
-                    // Never accept this authority from the client. Preserve the
-                    // locked row and stamp this battle only in the same object that
-                    // commits its damage, eliminating marker-before/body gaps.
-                    war.pvpBattleReceipts = { ...(existing?.pvpBattleReceipts ?? {}) };
-                    war.lastPvpBattleEndedAt = existing?.lastPvpBattleEndedAt;
-                    const missionReceipts = { ...(existing?.warMissionTokenReceipts ?? {}) };
-                    if (verifiedMissionTokenId) {
-                        if (!missionReceipts[verifiedMissionTokenId]
-                            && Object.keys(missionReceipts).length >= 2_048) {
-                            return { status: 503 as const, body: { error: 'Village-war mission receipt ledger is full.' } };
-                        }
-                        missionReceipts[verifiedMissionTokenId] = Date.now();
-                    }
-                    war.warMissionTokenReceipts = missionReceipts;
-
-                    // ── On-end stamping ──────────────────────────────────
-                    // When this write flips the war from active → ended,
-                    // compute MVP-per-side from contributions, stamp the
-                    // loser-consolation crate ID (only if there's a real
-                    // winner — draws give no consolation), and set the
-                    // 7-day rematch cooldown. Idempotent on subsequent
-                    // writes because the frozen-once-ended check above
-                    // rejects them.
-                    if (isEnding) {
-                        const contribs = war.contributions ?? {};
-                        const mvpByVillage: Record<string, string> = {};
-                        for (const village of war.villages) {
-                            const sideEntries = Object.values(contribs).filter(c => c.side === village);
-                            if (sideEntries.length === 0) continue;
-                            sideEntries.sort((a, b) => b.damage - a.damage);
-                            mvpByVillage[village] = sideEntries[0].name;
-                        }
-                        war.mvpByVillage = mvpByVillage;
-                        if (war.winnerVillage) {
-                            war.loserCrateId = `loser-crate-${villageWarGenerationToken(war)}`;
-                        }
-                    }
-
-                    const publication = await commitWarBattleSettlement(kv, warKey, expectedWarRow, war);
+                    const publication = await commitWarBattleSettlement(kv, warKey, expectedWarRow, finalWar);
                     if (publication.status === 'conflict') {
                         return { status: 503 as const, body: { error: 'Village-war state changed; retry settlement.' } };
                     }
                     if (isEnding) await ensureWarRematchCooldown(publication.row);
-                    if (verifiedMissionTokenId) {
-                        await kv.del(warMissionTokenKey(verifiedMissionTokenId)).catch(() => undefined);
-                    }
                     return { status: 200 as const, body: { war: publication.row } };
                 }, { failClosed: true });
                 return res.status(result.status).json(result.body);
@@ -2723,6 +2860,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             return res.status(400).json({ error: 'Invalid world state update.' });
         } catch (err) {
+            // Lock contention on a fail-closed path is an ordinary, retryable
+            // outcome (two writers on one war or sector), not a server fault.
+            if (err instanceof LockContendedError) {
+                return res.status(503).json({ error: 'That war is busy right now — try again in a moment.' });
+            }
             console.error('[world-state]', err);
             return res.status(500).json({ error: 'Internal server error.' });
         }

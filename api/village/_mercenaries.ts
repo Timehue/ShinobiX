@@ -3,6 +3,12 @@
  * feature (api/village/hire-mercenary.ts). Unit-testable without KV / auth /
  * locks (same pattern as api/sector/_wanderer-quest.ts).
  *
+ * RETIRED 2026-10-08 (owner ruling): village-war mercenaries are hired as AI
+ * bands from the War Map now (api/village/war-merc.ts, priced in War Resources
+ * by api/_war-economy.ts WR_MERC_TIERS). No new Honor-Seal hire starts. This
+ * table stays because it names the hires already made: a retried request is
+ * answered from its receipt, and a hire left mid-saga is finished.
+ *
  * A village-war participant can hire mercenary bands to fight on their side. Each
  * tier costs Honor Seals (a Vanguard-PvP currency, deliberately hard to amass) and
  * lands a fixed chunk of war damage on the enemy village, attributed to the hiring
