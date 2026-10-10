@@ -3,6 +3,7 @@ import { test } from './helpers/reconnecting-request';
 import { uniquePlayerName } from './helpers/player-names';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { WORLD_GEO_VERSION } from '../../shared/sector-geo';
+import { quietRoadCooldowns } from './helpers/quiet-road';
 
 const ADMIN = 'live-express-e2e-admin';
 
@@ -27,6 +28,7 @@ async function seedWildExplorer(request: APIRequestContext) {
         ryo: 1000, inventory: [], itemStacks: [{ itemId: 'beast-seal-reinforced', count: 1 }],
         equipment: {}, pets: [], tileCards: [], jutsuMastery: [], equippedJutsuIds: [],
         pendingCombatMissionClaims: [], seenHints: ['worldMap'], dailyTilesExplored: 0, totalTilesExplored: 0,
+        wandererCooldowns: quietRoadCooldowns([44]),
     };
     const seeded = await request.post(`/api/save/${name}?signal=1`, {
         headers: { 'x-admin-password': ADMIN },

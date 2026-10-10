@@ -25,6 +25,7 @@ import { startSnapshotCron, stopSnapshotCron } from './api/cron/_scheduler.js';
 import { closeStoragePool } from './api/_storage.js';
 import { flushBetaMetrics } from './api/_beta-metrics.js';
 import { drainBackgroundWork, stopBackgroundWork } from './api/_background-work.js';
+import { startTerritoryInitialization, stopStartupInitialization } from './api/_startup-initialization.js';
 import { drainRuntime } from './api/_graceful-shutdown.js';
 import { runtimeTimeouts } from './api/_runtime-timeouts.js';
 import compression from 'compression';
@@ -43,7 +44,7 @@ import { safeLogValue } from './api/_safe-log.js';
 // only — those types are erased at compile time, so there is zero runtime
 // dependency on @vercel/node in the Railway bundle.
 
-import { registerApiRoutes, type AnyHandler, seedHomeSectorOwnership, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
+import { registerApiRoutes, type AnyHandler, villageWarMapEnabled, googleRedirectUriProblem } from './server-api-routes.js';
 
 // Shared auth helper — constant-time compare for the restart endpoint.
 import { safeEqual, maybeRefreshPlayerToken, PLAYER_TOKEN_REFRESH_HEADER } from './api/_auth.js';
@@ -127,6 +128,7 @@ function gracefulShutdown(code: number, reason: string): void {
     void drainRuntime({
         stopAdmission() {
             stopBackgroundWork();
+            stopStartupInitialization();
             stopGameLoop();
             stopSnapshotCron();
             stopPresenceSnapshots();
@@ -1095,9 +1097,7 @@ server.listen(PORT, () => {
     // forget — a storage blip here must not affect startup, and the admin
     // `seed` action remains as the manual re-run path.
     if (villageWarMapEnabled()) {
-        void seedHomeSectorOwnership()
-            .then(({ seeded, sectors }) => { if (seeded > 0) console.log(`[war-map] self-seeded ${seeded} unowned home sector(s): ${sectors.join(', ')}`); })
-            .catch((err) => console.error('[war-map] territory self-seed failed (admin seed action still available):', (err as Error).message));
+        void startTerritoryInitialization();
     }
 });
 
