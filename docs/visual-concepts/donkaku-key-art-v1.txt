@@ -1,0 +1,8 @@
+Asset: Donkaku, the Hollow Maze Warden — widescreen event and encounter key art.
+Production file: shinobij.client/public/world-boss/donkaku-key-art-v1.webp
+Source: donkaku-key-art-v1.png
+Composition: dark impossible maze at dusk; Donkaku occupies the right half and the left third stays calm for interface copy.
+Energy motif: pale white channels flow through his armor, limbs, and maze-carved maul, with small red sparks and a spectral-white rim light.
+
+Generation direction:
+Preserve Donkaku's upright minotaur identity, ivory maze-pattern armor, ochre wraps, curled stone horns, and maul. Place him in a vast fractured maze on a remote highland. Let white maze channels run from his horn roots and shoulders through his chest, arms, leg armor, and maul, with restrained crimson cores. Keep the left third dark for UI copy. No village, lettering, or logos.

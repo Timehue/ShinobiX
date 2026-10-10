@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { GameIcon, type GameIconName } from "./icons/GameIcon";
+import { CacheRewardReveal } from "./CacheRewardReveal";
 import { ClanImageMark } from "./Marks";
 import { clanExchangeItemArt } from "./ClanExchangeItemArt";
 import { CloseButton } from "./ui/CloseButton";
@@ -25,6 +26,15 @@ type ExchangeReward =
     | { kind: "treasury"; currency: "warSupply"; amount: number }
     | { kind: "cache"; cache: "weapon" | "armor" }
     | { kind: "locked"; reason: string };
+
+const CACHE_REVEAL_ACCENT: Record<string, string> = {
+    common: "#aeb9c8",
+    uncommon: "#63d6a2",
+    rare: "#78b9ff",
+    epic: "#c28bff",
+    legendary: "#f5c56e",
+    mythic: "#ff838d",
+};
 
 // Which hall tier unlocks the shelf — mirrors ClanExchangeHall in
 // api/clan/_exchange.ts. KEEP IN SYNC with the server item defs below;
@@ -214,6 +224,8 @@ export function ClanExchange({
     const [reveal, setReveal] = useState<ClanExchangePurchaseResponse["reveal"] | null>(null);
     // Set when the cache paid an upgrade gear piece (one in five) instead of an Epic or Legendary one.
     const revealUpgrade = reveal ? gearStepSummaryById(reveal.itemId) : null;
+    const revealedGameItem = reveal ? allItems.find((item) => item.id === reveal.itemId) : undefined;
+    const revealAccent = reveal ? CACHE_REVEAL_ACCENT[reveal.rarity.toLowerCase()] ?? "#f5c56e" : "#f5c56e";
     const purchaseBusyRef = useRef(false);
     const recoveryCommit = useRef({onVersionedCharacter, setClanData});
     useEffect(() => { recoveryCommit.current = {onVersionedCharacter, setClanData}; }, [onVersionedCharacter, setClanData]);
@@ -385,26 +397,25 @@ export function ClanExchange({
                 )}
             </Modal>
 
-            <Modal
+            <CacheRewardReveal
                 open={reveal !== null}
+                title="Clan Reward Cache"
+                rewards={reveal ? [{
+                    id: reveal.itemId,
+                    name: reveal.name,
+                    quantity: 1,
+                    detail: revealUpgrade ? `${revealUpgrade}. Added to your bag.` : `${reveal.rarity} ${reveal.slot}. Added to your inventory.`,
+                    ...(revealedGameItem?.image ? { iconSrc: revealedGameItem.image } : {}),
+                }] : []}
                 onClose={closeReveal}
-                ariaLabel={reveal ? `${reveal.name} added to inventory` : "Clan exchange reward"}
-                size="md"
-                bare
-                className="clan-exchange-modal clan-exchange-reveal"
-            >
-                {reveal && (
-                    <>
-                        <CloseButton className="modal-close" onClick={closeReveal} />
-                        {/* An upgrade piece says so, and by how much, instead of borrowing its base's rarity. */}
-                        <span className={`clan-exchange-rarity ${reveal.rarity.toLowerCase()}`}>{revealUpgrade ? "Upgrade" : reveal.rarity}</span>
-                        <h3>{reveal.name}</h3>
-                        <p>{revealUpgrade ? `${revealUpgrade}. Added to your bag.` : `${reveal.slot} cache item added to inventory.`}</p>
-                        <div className="clan-exchange-reveal-mark">{reveal.slot === "hand" || reveal.slot === "weapon" ? <GameIcon name="sword" size={58} /> : <GameIcon name="shield" size={58} />}</div>
-                        <button onClick={closeReveal}>Claimed</button>
-                    </>
-                )}
-            </Modal>
+                rewardKey={reveal ? `${reveal.itemId}:${reveal.rarity}:${reveal.name}` : undefined}
+                intro="A sealed clan cache has been credited to your bag…"
+                deliveryCopy="This item has already been added to your inventory."
+                revealLabel="Unseal cache"
+                collectLabel="Claimed"
+                accent={revealAccent}
+                glow={`${revealAccent}88`}
+            />
         </div>
     );
 }

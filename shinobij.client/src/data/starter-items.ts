@@ -14,7 +14,7 @@ import { buildGearSteps } from '../../../shared/gear-steps';
 
 import { VILLAGE_TRANSFER_SCROLL_ID, VILLAGE_TRANSFER_SCROLL_NAME, VILLAGE_TRANSFER_SCROLL_IMAGE, VILLAGE_TRANSFER_COST, VILLAGE_TRANSFER_LEVEL } from "../../../shared/village-transfer";
 import type { GameItem } from "../types/combat";
-import { AURA_SPHERE_ITEM_ID } from "../constants/game";
+import { AURA_SPHERE_ITEM_ID, HOLLOW_BEAST_CACHE_ID } from "../constants/game";
 import { petCollars, petPvpGear, petPveGear, petConsumables } from "./pet-config";
 import {
     PROFESSION_CHANGE_APPROVAL_COST,
@@ -307,6 +307,7 @@ const baseStarterItems: GameItem[] = [
     { id: "war-resource-cache", name: "War Resource Cache", slot: "item", rarity: "rare", cost: 0, image: "/items/war-resource-cache.webp", description: "War resources bled from an enemy village's war chest. Turn in at your Town Hall for 1 village merit each.", bonuses: {} },
     // -- Weapon forging materials ----------------------------------------------
     { id: "weekly-boss-core", name: "Weekly Boss Core", slot: "item", rarity: "legendary", cost: 0, description: "A time-gated core from the weekly boss. Used to forge epic and legendary weapons.", bonuses: {} },
+    { id: HOLLOW_BEAST_CACHE_ID, name: "Hollow Beast Cache", slot: "item", rarity: "legendary", cost: 0, description: "A sealed reward cache earned by the top 15 contributors when The Hollow Beast is defeated. Open it from your backpack.", bonuses: {} },
     { id: "dungeon-key", name: "Dungeon Key", slot: "item", rarity: "rare", cost: 0, image: "/items/starter-dungeon-key-v2.webp", description: "A key that opens one Hidden Dungeon run. Drops from weekly bosses and war crates.", bonuses: {} },
     { id: "dungeon-legendary-relic", name: "Dungeon Legendary Relic", slot: "item", rarity: "legendary", cost: 0, description: "A relic recovered from a Hidden Dungeon. Used to forge legendary weapons.", bonuses: {} },
     { id: "dungeon-legendary-fragment", name: "Dungeon Legendary Fragment", slot: "item", rarity: "epic", cost: 0, description: "A chakra-burnt fragment shed by the Hollow Hound Alpha. Combine fragments to forge a Dungeon Legendary Relic.", bonuses: {} },

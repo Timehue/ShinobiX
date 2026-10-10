@@ -55,7 +55,7 @@ export function isLobbyFightScreen(screen: Screen): boolean {
 // should only surface as a reminder when a fight is in progress but the player is
 // on a different screen (e.g. an arena / pet-arena lobby with a live battle-lock).
 const BATTLE_VIEW_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    ...BATTLE_ONLY_SCREENS, "arena", "battleArena", "battleTowers",
+    ...BATTLE_ONLY_SCREENS, "arena", "battleArena", "battleTowers", "worldBossEvent",
 ]);
 
 export function isBattleViewScreen(screen: Screen): boolean {

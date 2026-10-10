@@ -1,0 +1,109 @@
+.admin-world-boss-control-panel {
+    --awb-ink: #f4efff;
+    --awb-muted: #b4abc9;
+    --awb-violet: #c4a5ff;
+    margin: 14px 0 20px;
+    padding: 16px;
+    color: var(--awb-ink);
+    border: 1px solid rgba(183, 146, 255, .38);
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(30, 22, 50, .94), rgba(11, 15, 30, .97));
+    box-shadow: 0 12px 30px rgba(0, 0, 0, .22), inset 0 1px rgba(255, 255, 255, .045);
+}
+.admin-world-boss-control-panel__heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.admin-world-boss-control-panel__eyebrow,
+.admin-world-boss-choice__copy > span {
+    color: var(--awb-violet);
+    font-size: .65rem;
+    font-weight: 850;
+    letter-spacing: .14em;
+}
+.admin-world-boss-control-panel__heading h3 {
+    margin: 3px 0 4px;
+    color: var(--awb-ink);
+}
+.admin-world-boss-control-panel__heading p {
+    margin: 0;
+    color: var(--awb-muted);
+    font-size: .78rem;
+}
+.admin-world-boss-live-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(180, 171, 201, .22);
+    border-radius: 10px;
+    background: rgba(0, 0, 0, .2);
+}
+.admin-world-boss-live-status.is-active { border-color: rgba(196, 165, 255, .55); }
+.admin-world-boss-live-status__dot {
+    flex: 0 0 9px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #8b8297;
+}
+.admin-world-boss-live-status.is-active .admin-world-boss-live-status__dot {
+    background: #c4a5ff;
+    box-shadow: 0 0 12px rgba(196, 165, 255, .75);
+}
+.admin-world-boss-live-status > div { display: grid; gap: 3px; flex: 1; min-width: 0; }
+.admin-world-boss-live-status strong { font-size: .8rem; }
+.admin-world-boss-live-status span:not(.admin-world-boss-live-status__dot) { color: var(--awb-muted); font-size: .7rem; }
+.admin-world-boss-settings {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    margin: 12px 0;
+}
+.admin-world-boss-setting {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    color: var(--awb-ink);
+    font-size: .76rem;
+    font-weight: 750;
+}
+.admin-world-boss-setting input,
+.admin-world-boss-setting select { min-width: 0; width: 100%; }
+.admin-world-boss-setting small { color: var(--awb-muted); font-weight: 500; }
+.admin-world-boss-choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.admin-world-boss-choice {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 9px;
+    border: 1px solid rgba(180, 171, 201, .2);
+    border-radius: 11px;
+    background: rgba(6, 10, 22, .72);
+}
+.admin-world-boss-choice.is-current { border-color: rgba(196, 165, 255, .6); }
+.admin-world-boss-choice > img {
+    width: 68px;
+    height: 68px;
+    object-fit: contain;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, .26);
+}
+.admin-world-boss-choice__copy { display: grid; min-width: 0; gap: 3px; }
+.admin-world-boss-choice__copy strong { overflow-wrap: anywhere; font-size: .82rem; }
+.admin-world-boss-choice__copy small { color: var(--awb-muted); font-size: .68rem; }
+.admin-world-boss-choice > button { white-space: nowrap; }
+.admin-world-boss-message { margin: 10px 0 0; color: #b7f7c9; font-size: .76rem; }
+.admin-world-boss-message.is-error { color: #ff9b9b; }
+@media (max-width: 720px) {
+    .admin-world-boss-choice-grid { grid-template-columns: 1fr; }
+    .admin-world-boss-settings { grid-template-columns: 1fr; }
+    .admin-world-boss-live-status { flex-wrap: wrap; }
+    .admin-world-boss-live-status > button { margin-left: 19px; }
+}

@@ -11,6 +11,7 @@ import type { OnlinePlayer } from '../_realtime/types.js';
 
 export type ResourceSeal = ResourcePublicAttempt & {
     successDraw: number; qualityDraw: number; traceDraw: number; toolBroke: boolean; authorityEpoch: number;
+    worldBossEventId?: string;
     rules: { version: 1; difficulty: number; ceiling: ResourceGrade; family: ResourceFamily; trace?: ResourceFamily };
 };
 export const resourceDraw = () => randomInt(0, 1_000_000_000) / 1_000_000_000;
@@ -94,7 +95,8 @@ export function resolveResourceAttempt(character: Record<string, unknown>, id: s
     const grade = outcome === 'success' ? resourceQuality(active.skillLevel, rules.ceiling, active.qualityDraw) : undefined;
     const itemId = grade == null ? undefined : resourceItemId(rules.family, grade);
     const xp = outcome === 'success' ? 10 : outcome === 'failed' ? 3 : 0;
-    const receipt: ResourceReceipt = { id, activity: active.activity, outcome, itemId, grade, xp, performance, toolBroke: active.toolBroke, settledAt: now };
+    const receipt: ResourceReceipt = { id, activity: active.activity, outcome, itemId, grade, xp, performance, toolBroke: active.toolBroke,
+        ...(node.worldBossCrystal && active.worldBossEventId ? { worldBossEventId: active.worldBossEventId } : {}), settledAt: now };
     let next = itemId ? addOwned(character, itemId, 1, true) : character;
     if (grade != null && rules.trace && active.traceDraw < .02) {
         const trace = resourceItemId(rules.trace, grade);

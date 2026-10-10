@@ -1,6 +1,7 @@
 import { BUILTIN_CLASH } from '../clan/war/_card-catalog.js';
 import { CACHE_ITEM_IDS } from '../_anbu-infiltration.js';
 import { countEquippedItems } from '../_equipment-ownership.js';
+import { HOLLOW_BEAST_CACHE_ID } from '../../shared/world-boss-cache.js';
 
 const SERVER_OWNED_ITEM_IDS = new Set([
     'weekly-boss-core',
@@ -10,6 +11,7 @@ const SERVER_OWNED_ITEM_IDS = new Set([
     'veil-of-the-hollow',
     'warforged-relic',
     'legendary-war-crate',
+    HOLLOW_BEAST_CACHE_ID,
     'hunt-legendary-material',
     'hunt-ancient-beast-core',
     'hunt-titan-bone',

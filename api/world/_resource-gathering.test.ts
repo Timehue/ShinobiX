@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { RESOURCE_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
+import { RESOURCE_NODES, WORLD_BOSS_CRYSTAL_NODES, validResourceNodeTerrain, resourceNode } from '../../shared/resource-nodes.js';
+import { WORLD_BOSS_CRYSTAL_MAX_NODES, WORLD_BOSS_HOLLOW_SHARDS_PER_TIER, WORLD_BOSS_MAX_WEAKENING_TIERS } from '../../shared/world-boss-event.js';
 import { resourceActionsToday, readResourceGathering } from '../../shared/resource-gathering.js';
 import { admitResourceAttempt, resolveResourceAttempt, mintResourceSeal, resourceAdmissionError, equipGatheringTool } from './_resource-gathering.js';
 import type { OnlinePlayer } from '../_realtime/types.js';
@@ -20,6 +21,20 @@ test('all 24 nodes have valid water/rock targets and walkable adjacent approache
         const distance = Math.abs(n.target % 12 - n.approach % 12) + Math.abs(Math.floor(n.target / 12) - Math.floor(n.approach / 12));
         assert.equal(distance, 1, n.id);
     }
+});
+test('world-boss Hollow Shard veins can fill every weakening tier', () => {
+    assert.equal(WORLD_BOSS_CRYSTAL_NODES.length, WORLD_BOSS_CRYSTAL_MAX_NODES);
+    assert.equal(new Set(WORLD_BOSS_CRYSTAL_NODES.map(n => n.id)).size, WORLD_BOSS_CRYSTAL_NODES.length);
+    const sitesPerSector = new Map<number, number>();
+    for (const n of WORLD_BOSS_CRYSTAL_NODES) {
+        assert.ok(n.worldBossCrystal, n.id);
+        assert.ok(validResourceNodeTerrain(n), n.id);
+        const distance = Math.abs(n.target % 12 - n.approach % 12) + Math.abs(Math.floor(n.target / 12) - Math.floor(n.approach / 12));
+        assert.equal(distance, 1, n.id);
+        sitesPerSector.set(n.sector, (sitesPerSector.get(n.sector) ?? 0) + 1);
+    }
+    assert.ok([...sitesPerSector.values()].every(count => count >= 2));
+    assert.equal(Math.floor(WORLD_BOSS_CRYSTAL_NODES.length / WORLD_BOSS_HOLLOW_SHARDS_PER_TIER), WORLD_BOSS_MAX_WEAKENING_TIERS);
 });
 test('failed and cancelled attempts spend the shared allowance and all three charges', () => {
     let c: Record<string, unknown> = { ...base(), serverExploreDate: '2026-10-07', serverExploresToday: 97 };

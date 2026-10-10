@@ -1,0 +1,10 @@
+Asset: Hollow Gate guardian four-frame world-map walk sprite.
+Production file: shinobij.client/public/world-boss/hollow-gate-bull-walk-v1.webp
+Preview: hollow-gate-bull-walk-preview-final.png
+Layout: transparent 2048 x 683 RGBA WebP, four 512 x 683 frames in one row.
+Use: map marker sprite at 84 x 112 CSS pixels; the existing sector marker remains the route and movement anchor.
+Frame handling: frame 1 is normalized from the approved bull map sprite; generated frames 2–4 share its maximum subject scale and bottom hoof baseline.
+Reference: hollow-gate-bull-map-sprite-v1.webp.
+
+Generation prompt:
+Finish this transparent four-cell horizontal sprite strip for the exact same original Hollow Gate bull guardian. Keep the first cell as the approved anchor and preserve the same subject size in every cell: the bull fills about 98% of each cell's width and 98% of its height, touching the same bottom-center hoof line in all four frames. Add only the other three frames of a heavy in-place walk cycle: alternate front hooves and shoulder weight subtly across frames 2, 3, and 4; preserve the same facing, horns, fused stone gate, chains, runes, silhouette, violet glow, and scale. Frame 4 returns toward frame 1. Crisp transparent edges, no color matte or stray pixels beyond the intentional close violet aura. No background, scenery, ground, shadow, text, dividers, or extra subjects.

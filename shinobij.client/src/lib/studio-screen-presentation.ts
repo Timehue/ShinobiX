@@ -122,6 +122,8 @@ export const STUDIO_SCREEN_PRESENTATION: Record<Screen, StudioScreenPresentation
   endlessTower: combat,
   battleTowers: combat,
   echoesOfWar: combat,
+  worldBossEvent: frontier,
+  worldBosses: frontier,
   weeklyBoss: frontier,
   villageWar: frontier,
   villageWarMap: frontier,

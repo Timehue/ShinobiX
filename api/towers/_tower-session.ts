@@ -18,6 +18,7 @@ import type { TowerFeature, TowerBoardObject, TowerFieldRule } from './_floor-ca
 import type { TowerFloor } from './_floor-catalog.js';
 import type { TowerModifier } from './_modifiers.js';
 import type { ClanBossContribution } from '../../shared/clan-boss-operation.js';
+import type { WorldBossContribution } from '../../shared/world-boss-event.js';
 import { timeStartingShield } from '../combat-core/shields.js';
 
 export type TowerActorId = string;
@@ -318,6 +319,16 @@ export type TowerSession = {
     /** Server-derived per-actor operation credit. Present only on Clan Boss
      * sessions; ordinary Tower/Spire sessions remain byte-compatible. */
     clanBossContributions?: Record<string, ClanBossContribution>;
+
+    /** Separate roaming-event binding and per-player verified action credit. */
+    worldBossEvent?: {
+        eventId: string;
+        matchId: string;
+        matchHpAtStart: number;
+        bossDamageDealtMultiplier?: number;
+        bossDamageReceivedMultiplier?: number;
+    };
+    worldBossContributions?: Record<string, WorldBossContribution>;
 };
 
 /**

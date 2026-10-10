@@ -327,6 +327,27 @@ describe('Battle Towers engine (P1.A2)', () => {
         assert.equal(JSON.stringify(run()), JSON.stringify(a), 'strike run is byte-identical across replays');
     });
 
+    it('world-boss shard tiers weaken the telegraphed strike as well as normal attacks', () => {
+        const mkBoss = () => makeActor('boss', 'enemy', 27, {
+            hp: 100000, maxHp: 100000,
+            character: { specialty: 'Taijutsu', level: 100, stats: {}, bossStrike: { kind: 'nova', pct: 12, radius: 1, everyRounds: 2, firstRound: 2 } },
+        });
+        const mkSq = () => makeActor('sq-1', 'squad', 28, { hp: 1000, maxHp: 1000, character: STRONG });
+        const strikeLog = (bossDamageDealtMultiplier?: number) => {
+            const session = makeSession([mkBoss(), mkSq()], { bossId: 'boss', objectiveKind: 'defeat-boss' });
+            if (bossDamageDealtMultiplier != null) {
+                session.worldBossEvent = {
+                    eventId: 'world-boss-test', matchId: 'strike-test', matchHpAtStart: 100000,
+                    bossDamageDealtMultiplier, bossDamageReceivedMultiplier: 1,
+                };
+            }
+            return runTowerFloor(session, makeFloor('defeat-boss', { roundBudget: 4 }), makeRng(7)).log
+                .find(line => line.includes('caught in') && line.includes('nova'));
+        };
+        assert.ok(strikeLog()?.includes('for 120'), 'unweakened strike deals its full 12% telegraph');
+        assert.ok(strikeLog(0.5)?.includes('for 60'), 'a full shard meter halves its telegraphed damage');
+    });
+
     it('phase pillars erupt at the gate, non-adjacent to everything, never on units', () => {
         const mkActors = () => [
             makeActor('sq-1', 'squad', 0, { character: STRONG }),

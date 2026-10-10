@@ -1,0 +1,49 @@
+.world-boss-tabs {
+    display: flex;
+    gap: 8px;
+    width: min(1180px, calc(100% - 48px));
+    margin: 12px auto 16px;
+    padding: 5px;
+    border: 1px solid rgba(166, 190, 215, .16);
+    border-radius: 12px;
+    background: rgba(7, 17, 31, .92);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.world-boss-tabs button {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 43px;
+    padding: 8px 12px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #9fb2c9;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: color .16s ease, background .16s ease, border-color .16s ease;
+}
+.world-boss-tabs button span {
+    color: #7188a2;
+    font-size: 9px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .1em;
+}
+.world-boss-tabs button:hover { color: #edf3fb; background: rgba(255, 255, 255, .045); }
+.world-boss-tabs button.is-active {
+    border-color: rgba(255, 188, 98, .24);
+    color: #fff0d4;
+    background: linear-gradient(110deg, rgba(139, 71, 39, .34), rgba(24, 44, 60, .72));
+}
+.world-boss-tabs button.is-active span { color: #ffbc62; }
+@media (max-width: 560px) {
+    .world-boss-tabs { width: min(100% - 24px, 560px); margin: 9px auto 12px; }
+    .world-boss-tabs button { flex-direction: column; gap: 3px; min-height: 50px; font-size: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .world-boss-tabs button { transition: none; }
+}

@@ -778,13 +778,13 @@ export function CentralHub({
                     action: () => setShowDungeonPanel(true),
                 },
                 {
-                    name: "Weekly Boss",
+                    name: "World Bosses",
                     kicker: "Rally",
                     badge: weeklyBossBadge,
                     art: weeklyBossArtwork,
                     artPosition: "center 24%",
-                    text: `${weeklyBoss.bossName} anchors this week's server-wide 72-hour hunt and contribution ladder.`,
-                    action: () => setScreen("weeklyBoss"),
+                    text: "Choose the weekly hunt or the roaming Hollow Beast, then follow each contribution board.",
+                    action: () => setScreen("worldBosses"),
                     featured: weeklyBoss.status === "active",
                 },
                 {

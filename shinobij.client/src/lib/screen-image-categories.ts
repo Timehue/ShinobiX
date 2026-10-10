@@ -36,7 +36,8 @@ export function imageCategoriesForScreen(screen: Screen): readonly ScreenImageCa
         case "userView": return ["avatar", "pet"];
         case "userHub": case "townHall": case "tavern": return ["avatar"];
         case "pvpBattle": return ["avatar", "jutsu", "item"];
-        case "weeklyBoss": return ["ai", "jutsu", "item"];
+        case "weeklyBoss":
+        case "worldBosses": return ["ai", "jutsu", "item"];
         case "battleTowers": case "clan": return ["avatar", "jutsu", "item"];
         default: return NONE;
     }

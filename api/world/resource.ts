@@ -5,7 +5,7 @@ import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
-import { resourceNode } from '../../shared/resource-nodes.js';
+import { resourceNode, WORLD_BOSS_CRYSTAL_NODES } from '../../shared/resource-nodes.js';
 import { readResourceGathering, type ResourceReceipt } from '../../shared/resource-gathering.js';
 import { reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { kv } from '../_storage.js';
@@ -17,6 +17,8 @@ import { resourcePositionError, resourceAdmissionError, mintResourceSeal, admitR
     resolveResourceAttempt, equipGatheringTool, type ResourceSeal } from './_resource-gathering.js';
 import { safeLogValue } from '../_safe-log.js';
 import { battleLockedFor } from '../_elapsed-state.js';
+import { applyWorldBossCrystalHarvest, worldBossCrystalCanBeMined } from '../world-boss-event/_crystals.js';
+import { readActiveWorldBossEvent } from '../world-boss-event/_event.js';
 const resourceTxId = (name: string, id: string) => `resource-gathering:${createHash('sha256').update(`${name}:${id}`).digest('hex')}`;
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -36,6 +38,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const node = resourceNode(body.nodeId);
     if (action === 'start' && (!node || !['active', 'relaxed'].includes(String(body.mode)))) return res.status(400).json({ error: 'Choose a valid node and gathering mode.' });
     const now = Date.now();
+    if (action === 'start' && node?.worldBossCrystal && !(await worldBossCrystalCanBeMined(node.id, now))) {
+        return res.status(409).json({ error: 'This crystal seam has already been claimed or the world event has closed.' });
+    }
     let journal: EconomyTxRecord | undefined;
     let refunded = false;
     try {
@@ -99,10 +104,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             const player = onlineStore.get(identity.name);
             const error = resourcePositionError(player, node) || resourceAdmissionError(current, node, now);
             if (error || !player) return { ok: false, status: 409, error: error ?? 'Connect to the world first.' };
+            let worldBossEventId: string | undefined;
+            if (node.worldBossCrystal) {
+                if (!(await worldBossCrystalCanBeMined(node.id, now))) return { ok: false, status: 409, error: 'This crystal seam has already been claimed or the world event has closed.' };
+                worldBossEventId = (await readActiveWorldBossEvent())?.eventId;
+                if (!worldBossEventId) return { ok: false, status: 409, error: 'The world event has closed.' };
+            }
             journal = await reserveEconomyTx({ id: txId, kind: 'resource-gathering', debitKey: sectorPoolKey(node.sector, now),
                 creditKey: `save:${identity.name}`, resource: 'explores', amount: 1,
                 meta: { fingerprint, nodeId: node.id, playerName: identity.name, poolEnabled,
-                    seal: mintResourceSeal(current, node, id, body.mode as 'active' | 'relaxed', player, now) } });
+                    seal: { ...mintResourceSeal(current, node, id, body.mode as 'active' | 'relaxed', player, now),
+                        ...(worldBossEventId ? { worldBossEventId } : {}) } } });
             if (journal.meta?.fingerprint !== fingerprint) return { ok: false, status: 409, error: 'This attempt ID was already used for another action.' };
             if (journal.state === 'complete' || journal.state === 'refunded') return { ok: false, status: 409, error: 'This attempt has already closed. Choose the node again to start another.' };
             const seal = journal.meta?.seal as ResourceSeal, reservedAt = seal.startedAt;
@@ -136,7 +148,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 afterCommit: async () => { if (usesPool) await finishResourcePool(node.sector, reservedAt, txId, true); await completeEconomyTx(txId); } };
         });
         if (!result.ok) return res.status(result.status).json({ error: result.error });
-        return res.status(200).json({ ok: true, ...result.value, character: result.character, _saveVersion: result._saveVersion });
+        const value = result.value as Record<string, unknown>;
+        const receipt = value.receipt as { outcome?: string; worldBossEventId?: string } | undefined;
+        const minedCharacter = result.character as Record<string, unknown> | undefined;
+        const worldBossHollowShard = action === 'resolve' && receipt?.outcome === 'success' && receipt.worldBossEventId && node?.worldBossCrystal
+            ? await applyWorldBossCrystalHarvest(receipt.worldBossEventId, node.id, {
+                slug: identity.name,
+                name: String(minedCharacter?.name ?? identity.name),
+                village: String(minedCharacter?.village ?? ''),
+                clan: String(minedCharacter?.clan ?? ''),
+            }, now)
+            : null;
+        return res.status(200).json({ ok: true, ...value,
+            ...(worldBossHollowShard ? { worldBossHollowShard: { ...worldBossHollowShard, crystalNodeCount: WORLD_BOSS_CRYSTAL_NODES.length } } : {}),
+            character: result.character, _saveVersion: result._saveVersion });
     } catch (error) {
         if (journal && !refunded) await failEconomyTx(journal.id, error).catch(() => {});
         console.error('[world/resource]', safeLogValue(error));

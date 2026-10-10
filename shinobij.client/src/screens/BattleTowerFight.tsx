@@ -410,9 +410,8 @@ function buildTowerPhaseBanner(session: TowerSession, boss: TowerActor | undefin
             ? `Eliminate ${addsRemaining || "the"} reinforcement${addsRemaining === 1 ? "" : "s"} to break the boss barrier.`
             : "Reinforcements entered the arena — thin them out before they overwhelm the squad.");
     }
-    if (boss.shield > 0 || boss.character.aegis) {
-        instructions.push(`Aegis raised${boss.shield > 0 ? ` (${Math.round(boss.shield)} shield)` : ""} — break it before committing burst damage.`);
-    }
+    if (boss.shield > 0) instructions.push(`Aegis active (${Math.round(boss.shield)} shield) — break it before committing burst damage.`);
+    else if (boss.character.aegis) instructions.push("Aegis forms at each health phase — break each shield before committing burst damage.");
     if (mechanic === "enrage") instructions.push("Damage increased — protect the weakest ally and finish this phase quickly.");
     if (mechanic === "regen") instructions.push("Regeneration persists — focus attacks to outpace its end-of-round healing.");
     if (mechanic === "bulwark") instructions.push(livingGuards > 0
@@ -470,12 +469,12 @@ export function BattleTowerFight({
     onLeaveActive?: () => void;
     onContinue?: () => void;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
-    // Optional settle override — the Clan Boss reuses this whole fight screen but
-    // banks damage into its weekly pool (api/clan-boss/assault-settle) instead of
-    // paying tower rewards. When set, the tower rewards panel is skipped.
+    // Optional settle override — the Clan Boss and roaming world boss reuse this
+    // fight screen but bank event-specific contribution instead of Tower rewards.
+    // When set, the Tower rewards panel is skipped.
     settleFn?: (runId: string, playerName: string) => Promise<unknown>;
-    // Some modes settle on ANY resolution: Clan Boss banks partial damage, and
-    // story towers finalize server-recorded consumable/throwable spends on wipes.
+    // Some modes settle on ANY resolution: boss events bank partial contribution,
+    // and story towers finalize server-recorded consumable/throwable spends on wipes.
     settleOnAnyDone?: boolean;
     // Optional action-sender override — the Anbu Vault Infiltration reuses this
     // whole fight screen but submits moves to its own route
@@ -490,7 +489,7 @@ export function BattleTowerFight({
     // chapter backdrop art, a chapter label, and boss "barks" spoken at fight
     // start and as the boss's HP falls. See lib/story-fight-theme.ts.
     storyTheme?: StoryFightTheme;
-    variant?: "tower" | "team-pvp" | "hunt" | "caravan-ambush";
+    variant?: "tower" | "team-pvp" | "hunt" | "caravan-ambush" | "world-boss";
     pvpContextLabel?: string;
     /** A team-pvp match that sealed a consumable kit (ranked 2v2, Clan War 2v2)
      *  shows its thrown ammunition and items; the open Team Arena keeps them hidden. */
@@ -500,6 +499,7 @@ export function BattleTowerFight({
 }) {
     const isTeamPvp = variant === "team-pvp";
     const isHunt = variant === "hunt";
+    const isWorldBoss = variant === "world-boss";
     const isCaravanAmbush = variant === "caravan-ambush";
     const [session, setSession] = useState<TowerSession>(initialSession);
     const displayLog = session.log;
@@ -1192,7 +1192,7 @@ export function BattleTowerFight({
         onRecordBattle(makeBattleEntry({
             id: `tower-${runId}`,
             ts: Date.now(),
-            mode: isCaravanAmbush ? "Caravan ambush" : isHunt ? "World Encounter" : "Tower",
+            mode: isCaravanAmbush ? "Caravan ambush" : isWorldBoss ? "World Boss Raid" : isHunt ? "World Encounter" : "Tower",
             opponent: boss?.name ?? enemyNames[0] ?? "Tower enemies",
             outcome,
             rounds: session.round ?? 1,
@@ -1532,7 +1532,7 @@ export function BattleTowerFight({
     }
 
     function avatarFor(a: TowerActor): string | null {
-        if (isHunt && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
+        if ((isHunt || isWorldBoss) && a.side === 'enemy' && enemyAvatarOverride) return enemyAvatarOverride;
         // Player's own actor → the live avatar prop; allies → their sealed avatar if present;
         // PvP rivals are live players, so prefer their server-sealed avatar before
         // interpreting an enemy-side actor as a Tower NPC sprite.
@@ -1541,7 +1541,7 @@ export function BattleTowerFight({
             if (ownAvatar) return ownAvatar;
         }
         const sealed = a.character?.avatarImage;
-        if (isHunt && a.side === "enemy" && enemyAvatarOverride) return enemyAvatarOverride;
+        if ((isHunt || isWorldBoss) && a.side === "enemy" && enemyAvatarOverride) return enemyAvatarOverride;
         if (isTeamPvp && typeof sealed === "string" && sealed) return sealed;
         if (a.side === "enemy") {
             return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).src;
@@ -1551,9 +1551,9 @@ export function BattleTowerFight({
         return resolveTowerCombatantArt(visual, sharedImages).src;
     }
     function isUnknownCombatant(a: TowerActor): boolean {
-        if (isHunt && enemyAvatarOverride) return false;
+        if ((isHunt || isWorldBoss) && enemyAvatarOverride) return false;
         if (a.side !== "enemy") return false;
-        if (isHunt && enemyAvatarOverride) return false;
+        if ((isHunt || isWorldBoss) && enemyAvatarOverride) return false;
         if (isTeamPvp && typeof a.character?.avatarImage === "string" && a.character.avatarImage) return false;
         return resolveTowerCombatantArt(String(a.character?.visual ?? ""), sharedImages).kind === "unknown";
     }
@@ -1605,7 +1605,7 @@ export function BattleTowerFight({
     const encounterArt = !isTeamPvp && sealedStoryFloor?.artKey
         ? resolveTowerStoryArt(sealedStoryFloor.artKey)
         : null;
-    const storyEncounterTitle = isCaravanAmbush ? (sealedStoryFloor?.name ?? 'Caravan Ambush') : isHunt ? (sealedStoryFloor?.name ?? 'Hunt encounter') : sealedStoryFloor?.name
+    const storyEncounterTitle = isWorldBoss ? `${phaseBoss?.name ?? sealedStoryFloor?.name ?? 'World Boss'} · World Boss Raid` : isCaravanAmbush ? (sealedStoryFloor?.name ?? 'Caravan Ambush') : isHunt ? (sealedStoryFloor?.name ?? 'Hunt encounter') : sealedStoryFloor?.name
         ? `Floor ${session.floor} · ${sealedStoryFloor.name}`
         : `Floor ${session.floor} · ${objective.replace(/-/g, " ")}`;
     // The squad rail also lists protect-target npcs (allies) so the player can watch
@@ -1852,8 +1852,8 @@ export function BattleTowerFight({
             <div className="tower-fight-grid">
 
                 {/* Squad rail (+ protect-target allies) */}
-                <aside className="tower-roster-rail tower-squad-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp ? "Your Team" : "Squad"}>
-                    <RailHeader icon="shield" label={isTeamPvp ? "Your Team" : "Squad"} accent="var(--tower-rail-ally)" />
+                <aside className="tower-roster-rail tower-squad-rail" style={{ minWidth: 0 }} aria-label={isTeamPvp || isWorldBoss ? "Your Team" : "Squad"}>
+                    <RailHeader icon="shield" label={isTeamPvp || isWorldBoss ? "Your Team" : "Squad"} accent="var(--tower-rail-ally)" />
                     <div className="tower-roster-list">
                         {allies.map(a => <ActorCard key={a.id} actor={a} round={session.round} highlight={a.id === activeId} avatar={avatarFor(a)} fallbackArt={fallbackArtFor(a)} ally={a.side === "npc"} selected={a.id === actorInspection?.id} inspectionInline={inlineInspection} onInspect={() => inspectActor(a, `tower-roster-actor-${a.id}`)} />)}
                     </div>
@@ -1908,11 +1908,13 @@ export function BattleTowerFight({
                             <button
                                 type="button"
                                 className="tower-fight-leave"
-                                disabled={(isTeamPvp || isHunt) && busy}
-                                aria-label={isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isCaravanAmbush ? "Leave battle view" : "Leave view"}
+                                disabled={(isTeamPvp || isHunt || isWorldBoss) && busy}
+                                aria-label={isHunt ? "Retreat" : isTeamPvp ? "Forfeit" : isCaravanAmbush || isWorldBoss ? "Leave battle view" : "Leave view"}
                                 style={{ padding: "4px 10px", fontSize: "0.8rem", borderColor: isTeamPvp ? "var(--red-400)" : "var(--slate-600)", color: isTeamPvp ? "#fecaca" : "var(--slate-300)" }}
                                 onClick={async () => {
-                                    if (isCaravanAmbush) {
+                                    if (isWorldBoss) {
+                                        if (await gameConfirm('Leave the team fight view? The raid remains active, and you can resume it from the muster.')) (onLeaveActive ?? onExit)();
+                                    } else if (isCaravanAmbush) {
                                         if (await gameConfirm('Leave the fight view? The ambush stays active, and you can resume it from the caravan.')) (onLeaveActive ?? onExit)();
                                     } else if (isHunt) {
                                         if (await gameConfirm('Retreat from this encounter? You lose 10% of maximum HP and keep the hunt contract for later.')) void send({ type: 'forfeit' });
@@ -2403,7 +2405,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>{isCaravanAmbush ? 'Caravan loadout' : isHunt ? 'Hunt loadout' : 'Sealed Tower loadout'}</small></div>
+                                            <div><strong id={`tower-combat-detail-label-jutsu-${inspectedLoadoutJutsu.id}`}>{inspectedLoadoutJutsu.name ?? "Jutsu"}</strong><small>{isWorldBoss ? 'Raid loadout' : isCaravanAmbush ? 'Caravan loadout' : isHunt ? 'Hunt loadout' : 'Sealed Tower loadout'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2428,7 +2430,7 @@ export function BattleTowerFight({
                                         onClose={() => setInspectedLoadout(null)}
                                     >
                                         <div className="combat-jutsu-detail-header">
-                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>{isCaravanAmbush ? 'Caravan equipment' : isHunt ? 'Hunt equipment' : 'Sealed Tower equipment'}</small></div>
+                                            <div><strong id={`tower-combat-detail-label-item-${inspectedLoadoutWeapon.item.id}`}>{inspectedLoadoutWeapon.item.name ?? "Weapon"}</strong><small>{isWorldBoss ? 'Raid equipment' : isCaravanAmbush ? 'Caravan equipment' : isHunt ? 'Hunt equipment' : 'Sealed Tower equipment'}</small></div>
                                             <button type="button" data-combat-detail-close aria-label="Close combat details" onClick={() => setInspectedLoadout(null)}>×</button>
                                         </div>
                                         <div className="combat-jutsu-detail-grid">
@@ -2538,18 +2540,19 @@ export function BattleTowerFight({
                 <div className="tower-completion-overlay">
                     <div ref={resultDialogRef} className={`tower-completion-card ${session.winner === "squad" ? "win" : "loss"}`} role="dialog" aria-modal="true" aria-labelledby="tower-story-result-title" tabIndex={-1}>
                         <TowerResultHeader titleId="tower-story-result-title"
-                            title={isCaravanAmbush ? (session.winner === 'squad' ? 'The road is open' : 'The escort has ended') : isHunt ? (session.winner === 'squad' ? 'Hunt encounter cleared' : 'Hunt encounter ended') : isTeamPvp
+                            title={isWorldBoss ? (session.winner === 'squad' ? 'Team raid complete' : 'The team was driven back') : isCaravanAmbush ? (session.winner === 'squad' ? 'The road is open' : 'The escort has ended') : isHunt ? (session.winner === 'squad' ? 'Hunt encounter cleared' : 'Hunt encounter ended') : isTeamPvp
                                 ? session.winner === "squad" ? "Team victory" : session.winner === "draw" ? "Match draw" : "Team defeated"
                                 : session.winner === "squad" ? `Floor ${session.floor} cleared` : `Floor ${session.floor} failed`}
-                            chapter={isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Shinobi Outpost' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
+                            chapter={isWorldBoss ? 'The Four-Village Muster' : isCaravanAmbush ? 'Sunscar Dispatch' : isHunt ? 'Shinobi Outpost' : isTeamPvp ? pvpContextLabel : sealedStoryFloor?.chapterTitle || "Battle Towers"}
                             encounter={isCaravanAmbush ? combatFloor?.name : !isTeamPvp ? sealedStoryFloor?.name : "Competitive exhibition"}
-                            art={storyTheme?.backdropImage} />
+                            art={isWorldBoss && enemyAvatarOverride ? enemyAvatarOverride : storyTheme?.backdropImage} />
                         <div className="tower-completion-body">
-                        <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp ? "Team" : "Squad"} />
+                        <TowerBattleDebrief session={session} score={mySettlementResult?.score} teamLabel={isTeamPvp || isWorldBoss ? "Team" : "Squad"} />
                         {isTeamPvp && <p className="hint">Competitive exhibition complete · no rating, currency, items, or progression rewards.</p>}
+                        {isWorldBoss && <p className="hint">{settlement.phase === 'settled' ? 'Your team contribution is banked to the shared event. Return to the muster for your event reward receipt.' : settlement.phase === 'error' ? 'World boss settlement paused. Retry to confirm your contribution.' : 'Saving your team contribution to the world event…'}</p>}
                         {isCaravanAmbush && <p className="hint">{settlement.phase === 'settled' ? 'The dispatch record is saved. Your convoy is ready to move.' : 'Saving the convoy report…'}</p>}
                         {isHunt && <p className="hint">{settlement.phase === 'settled' ? 'Hunt progress saved. Return to the map to continue or turn in your contract.' : 'Saving hunt progress…'}</p>}
-                        {!isTeamPvp && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
+                        {!isTeamPvp && !isWorldBoss && !isHunt && !isCaravanAmbush && session.winner === "squad" && (
                             settlement.response?.results[meSlug]
                                 ? <p className="tower-completion-reward">{towerRewardReceiptText(settlement.response.results[meSlug]!, false)}</p>
                                 : <p className="hint">{settlement.phase === "error" ? "Reward settlement paused." : "Settling rewards…"}</p>
@@ -2559,15 +2562,15 @@ export function BattleTowerFight({
                             <p key={milestone} className="tower-result-milestone-receipt">{buildTowerMilestoneReceipt(milestone)}</p>
                         ))}
                         {storyFieldReport && <p className="tower-result-milestone-receipt">{storyFieldReport}</p>}
-                        {!isTeamPvp && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
-                        {!isTeamPvp && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
+                        {!isTeamPvp && !isWorldBoss && settlement.phase === "settled" && <TowerPersonalBestReceipt comparison={settlement.response?.personalBest} />}
+                        {!isTeamPvp && !isWorldBoss && settlement.response?.character && TOWER_HONORS.filter(honor => settlement.response!.character!.battleTowerRecords?.honors[honor.id] && !initialHonorsRef.current[honor.id]).map(honor => <p key={honor.id} className="tower-result-milestone-receipt">Achievement earned: {honor.name}</p>)}
                         <SettlementStatusNotice state={settlement} required={shouldSettle} onRetry={() => void performSettlement()} onLeave={leaveUnsettled} primaryRef={!resultCanExit ? resultPrimaryRef : undefined} />
                         <div className="tower-completion-actions">
                         {onContinue && <button type="button" className="tower-plan-next" disabled={!resultCanExit} onClick={() => { if (resultCanExit) onContinue(); }}>Plan next floor</button>}
                         <button ref={resultCanExit ? resultPrimaryRef : undefined} className="tower-completion-return" onClick={exitResult}
                             aria-disabled={!resultCanExit} disabled={!resultCanExit}
                             title={!resultCanExit ? "Confirm settlement before leaving so this result remains recoverable." : undefined}>
-                            {isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"}
+                            {isWorldBoss ? 'Return to the muster' : isCaravanAmbush ? 'Return to the caravan' : isHunt ? 'Return to the map' : isTeamPvp ? `Return to ${pvpContextLabel}` : "Return to the Tower"}
                         </button>
                         </div>
                         </div>
