@@ -1083,6 +1083,10 @@ test("user directory routes into a production-safe public profile", async ({ pag
     await rival.locator(".user-hub-name").click();
     await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "userView");
     await expect(page.locator(".center-game")).toBeVisible();
+    // Audit the loaded profile, not its "not yet loaded" placeholder. Measured
+    // before the fetch landed, the screen had no tabs at all, so the audit
+    // passed most runs and reported the phone tabs only when the data won.
+    await expect(page.getByText("Viewing another shinobi's profile.", { exact: true })).toBeVisible();
     // Same gap one screen later: <UserView> owns .profile-mobile-tabs, also an
     // allowlisted horizontal scroller everywhere else in this file.
     await expectViewportSafe(page, { horizontalScrollers: [".profile-mobile-tabs"] });

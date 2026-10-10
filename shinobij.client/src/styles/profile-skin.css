@@ -556,11 +556,15 @@
 }
 
 /* A public profile has only Overview and Achievements; give both tabs half of
-   the handset rail instead of inheriting the five-column character dossier. */
-.screen-userView .profile-page-card .profile-mobile-tabs {
+   the handset rail instead of inheriting the five-column character dossier.
+   veiled-steel.css's max-width 560px block sets three columns and a 44px
+   --touch-target-min with more specific !important selectors, so these rules
+   lost on every phone: two 44px tabs in a three-column rail, under the 48px
+   touch minimum. .app-shell and .center-game make these the more specific. */
+.app-shell.screen-userView .center-game .profile-page-card .profile-mobile-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
 }
-.screen-userView .profile-page-card .profile-mobile-tabs > .pmtab {
+.app-shell.screen-userView .center-game .profile-page-card .profile-mobile-tabs > .pmtab {
     min-inline-size: 0 !important;
     min-block-size: 48px !important;
     min-height: 48px !important;
