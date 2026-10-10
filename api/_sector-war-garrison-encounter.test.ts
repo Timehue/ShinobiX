@@ -86,6 +86,27 @@ test('buildGarrisonEncounter seals a one-human Solo PvE session and exact contes
     assert.equal('towerId' in session, false);
 });
 
+test('the attacker walks in with the HP their save holds, never a free full pool', () => {
+    // Settlement writes the fight's end HP back onto the save, so a full-pool
+    // seed made "start an assault, then abandon it" a free heal.
+    const at = (hp: unknown) => buildGarrisonEncounter({
+        runId: 'garrison-hp', now: NOW,
+        attacker: fighter('attacker', 'Attacker', 9_000, { hp }),
+        // The sealed ANBU's own save HP is irrelevant: it is content and always
+        // stands at full strength.
+        anbu: fighter('anbu-one', 'The Frostfang Anbu', 12_000, { hp: 10 }),
+        terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
+        attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+    });
+    const wounded = at(2_500);
+    assert.equal(wounded.player.hp, 2_500);
+    assert.equal(wounded.player.maxHp, 9_000);
+    assert.equal(wounded.enemy.hp, 12_000);
+    assert.equal(at(99_999).player.hp, 9_000, 'clamped to the pool');
+    assert.equal(at(-50).player.hp, 0, 'never below zero');
+    assert.equal(at(undefined).player.hp, 9_000, 'a save with no HP field is a full pool');
+});
+
 test('attacker and ANBU start on the same row with tight duel spacing', () => {
     const session = build();
     const width = GARRISON_MAP.width;

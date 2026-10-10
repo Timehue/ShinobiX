@@ -34,7 +34,7 @@ import {
     STRUCTURE_MATERIALS_BY_LEVEL as serverStructureMaterials,
     WAR_RATIONS_PER_DAY as serverWarRations,
 } from '../api/_village-stores';
-import { GARRISON_POINTS_CAP as serverGarrisonCap } from '../api/_sector-war';
+import { GARRISON_POINTS_CAP as serverGarrisonCap, garrisonPointsCapFor as serverGarrisonCapFor } from '../api/_sector-war';
 import {
     INTEL_DECLARE_MULTIPLIER as serverDeclareMultiplier,
     INTEL_TIER_THRESHOLDS as serverIntelThresholds,
@@ -64,6 +64,7 @@ import {
 } from '../shinobij.client/src/lib/village-stores';
 import {
     GARRISON_POINTS_CAP as clientGarrisonCap,
+    GARRISON_POINTS_CAP_DEFENDED as clientGarrisonCapDefended,
     GARRISON_POINTS_CAP_FED as clientGarrisonCapFed,
     WAR_RATIONS_PER_DAY as warMapUiWarRations,
 } from '../shinobij.client/src/lib/village-war-map-ui';
@@ -113,6 +114,18 @@ test('the structure materials gate and depot conversion rate are copied verbatim
 test('the garrison point caps the war map explains match the sector-war engine', () => {
     assert.equal(clientGarrisonCap, serverGarrisonCap);
     assert.equal(clientGarrisonCapFed, serverGarrisonCapFed);
+    // The defender's covered feed (owner ruling 2026-10-08): checked against what
+    // the engine actually yields, not against a second constant.
+    const day = '2026-10-08';
+    const covered = { on: true, covered: true, updatedAt: 1, by: 'x' };
+    const war = (fed: string[]) => ({
+        storesDate: day,
+        defenderVillage: 'Frostfang Village',
+        garrisonFeed: Object.fromEntries(fed.map((v) => [v, covered])),
+    });
+    assert.equal(clientGarrisonCapDefended, serverGarrisonCapFor(war(['Frostfang Village']), 'Moonshadow Village', day));
+    assert.equal(clientGarrisonCapFed, serverGarrisonCapFor(war(['Moonshadow Village']), 'Moonshadow Village', day));
+    assert.equal(clientGarrisonCap, serverGarrisonCapFor(war(['Moonshadow Village', 'Frostfang Village']), 'Moonshadow Village', day));
 });
 
 test('the intel tier thresholds match, and both sides bucket points identically', () => {

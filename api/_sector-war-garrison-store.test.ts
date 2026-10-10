@@ -159,7 +159,11 @@ describe('settleGarrisonFight', { concurrency: false }, () => {
         const committed = (await stored()).character;
         assert.equal(committed.ryo, 777, "the other writer's commit survives");
         assert.equal(potions(committed), 2, 'the item is burned once, from the fresh save');
-        assert.equal((committed.serverSettlementReceipts as unknown[]).length, 1);
+        // One receipt for this settle, plus the generic /api/pve/fight-outcome
+        // fence it stamps so that path can never write the same body twice.
+        const receipts = committed.serverSettlementReceipts as Array<{ requestId: string }>;
+        assert.equal(receipts.length, 2);
+        assert.equal(receipts.filter((r) => r.requestId === 'sector-war-garrison-garrison-r1').length, 1);
     });
 
     it('fails closed on a missing save', async () => {
@@ -179,6 +183,48 @@ describe('settleGarrisonFight', { concurrency: false }, () => {
         if (out.ok) throw new Error('unexpected');
         assert.equal(out.error, 'receipt-conflict');
         assert.equal(potions((await stored()).character), 2, 'the refused settle wrote nothing');
+    });
+});
+
+describe('settleGarrisonFight shares ONE body with the generic fight-outcome path', { concurrency: false }, () => {
+    // /api/pve/fight-outcome and the lapse reconciler write a Solo-PvE fight's
+    // HP/hospital too, under their own receipt. Each path SETS HP to the
+    // fight's end value, so the second of two writes heals a player who has
+    // been hurt since. Whichever lands first writes the body; the other must not.
+    async function hurtTo(hp: number) {
+        const save = await stored();
+        await kv.set(SAVE_KEY, { ...save, character: { ...save.character, hp } });
+    }
+    // The generic path also leaves a legacy per-run KV marker that it honours
+    // as a replay; one left by another case would make these pass for the
+    // wrong reason.
+    beforeEach(async () => { await kv.del('pve-outcome:garrison-r1'); });
+
+    it('after the generic path wrote the body, the garrison settle burns the items and leaves HP alone', async () => {
+        const { settlePveFightOutcome } = await import('./pve/_fight-outcome-settlement.js');
+        await seedSave({ hp: 9000 });
+        const session = terminalSession('win'); // ends at 4 321
+        const generic = await settlePveFightOutcome(session, 'attacker');
+        assert.equal(generic.ok, true, JSON.stringify(generic));
+        assert.equal((await stored()).character.hp, 4321);
+
+        await hurtTo(1000);
+        const out = await store.settleGarrisonFight(makeRun(), session, { now });
+        if (!out.ok || out.alreadySettled) throw new Error(`unexpected ${JSON.stringify(out)}`);
+        assert.equal(out.character.hp, 1000, 'a late settle must not heal back up to the fight\'s end HP');
+        assert.equal(potions(out.character), 2, 'the item cost only this path owns still lands, once');
+    });
+
+    it('after the garrison settle, the generic path is a replay', async () => {
+        const { settlePveFightOutcome } = await import('./pve/_fight-outcome-settlement.js');
+        await seedSave({ hp: 9000 });
+        const session = terminalSession('win');
+        const out = await store.settleGarrisonFight(makeRun(), session, { now });
+        assert.equal(out.ok, true);
+        await hurtTo(1000);
+        const generic = await settlePveFightOutcome(session, 'attacker');
+        assert.equal(generic.ok && generic.replayed, true, JSON.stringify(generic));
+        assert.equal((await stored()).character.hp, 1000);
     });
 });
 
