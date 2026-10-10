@@ -784,7 +784,7 @@ export function CentralHub({
                     art: weeklyBossArtwork,
                     artPosition: "center 24%",
                     text: "Choose the weekly hunt or the roaming Hollow Beast, then follow each contribution board.",
-                    action: () => setScreen("worldBosses"),
+                    action: () => setScreen("weeklyBoss"),
                     featured: weeklyBoss.status === "active",
                 },
                 {

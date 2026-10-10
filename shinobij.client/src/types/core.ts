@@ -76,8 +76,6 @@ export type Screen =
     | "battleTowers"
     | "echoesOfWar"
     | "weeklyBoss"
-    | "worldBosses"
-    | "worldBossEvent"
     | "villageWar"
     | "villageWarMap"
     | "tilecardsDuel"

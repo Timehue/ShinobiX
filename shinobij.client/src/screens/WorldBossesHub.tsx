@@ -14,8 +14,6 @@ import { WorldBossTabs, type WorldBossTab } from '../components/WorldBossTabs';
 export function WorldBossesHub({
     character,
     currentSector,
-    screen,
-    navigate,
     creatorItems,
     savedBloodlines,
     onVersionedCharacter,
@@ -28,8 +26,6 @@ export function WorldBossesHub({
 }: {
     character: Character;
     currentSector: number;
-    screen: Screen;
-    navigate: (screen: Screen) => void;
     creatorItems: GameItem[];
     savedBloodlines: SavedBloodline[];
     onVersionedCharacter: VersionedCharacterCommit;
@@ -43,8 +39,6 @@ export function WorldBossesHub({
 }) {
     const tabStorageKey = 'worldBosses.activeTab.' + character.name.toLowerCase();
     const [activeTab, setActiveTab] = useState<WorldBossTab>(() => {
-        if (screen === 'weeklyBoss') return 'weekly';
-        if (screen === 'worldBossEvent') return 'hollow-beast';
         try {
             return sessionStorage.getItem(tabStorageKey) === 'hollow-beast' ? 'hollow-beast' : 'weekly';
         } catch {
@@ -55,8 +49,6 @@ export function WorldBossesHub({
         setActiveTab(tab);
         try { sessionStorage.setItem(tabStorageKey, tab); } catch { /* keep the tab switch available */ }
     }, [tabStorageKey]);
-    const bossBack = screen === 'worldBossEvent' ? () => navigate('worldMap') : onBack;
-    const bossBackLabel = screen === 'worldBossEvent' ? 'World map' : 'Central';
     const tabBar = <WorldBossTabs active={activeTab} onSelect={selectTab} />;
 
     if (activeTab === 'weekly') {
@@ -68,7 +60,7 @@ export function WorldBossesHub({
             playerRoster={playerRoster}
             sharedImages={sharedImages}
             worldBossTabs={tabBar}
-            screenGuardKey="worldBosses"
+            screenGuardKey="weeklyBoss"
         />;
     }
 
@@ -92,8 +84,8 @@ export function WorldBossesHub({
         sharedImages={sharedImages}
         onVersionedCharacter={onVersionedCharacter}
         onRecordBattle={onRecordBattle}
-        onBack={bossBack}
-        backLabel={bossBackLabel}
+        onBack={onBack}
+        backLabel="Central"
         worldBossTabs={tabBar}
     />;
 }

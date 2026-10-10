@@ -56,7 +56,7 @@ export const RESTORABLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     // from a sessionStorage stash that survives a reload and is handled when
     // missing). Before these were listed, a refresh on any of them fell through
     // to the village — i.e. teleported the player home out of the world.
-    "weeklyBoss", "worldBosses", "villageWar", "endlessTower", "petArena", "petColiseum", "firstPact",
+    "weeklyBoss", "villageWar", "endlessTower", "petArena", "petColiseum", "firstPact",
     "cardClashFreePlay", "clanWarPet", "tilecardsDuel",
     "sectorCard", "sectorPet", "sectorGarrison", "storyBoss",
     // Clan War 2v2 reads the same sessionStorage handoff as clanWarPet and
@@ -151,7 +151,7 @@ export function isHospitalNavigationBlocked(hospitalized: boolean, screen: Scree
 // isUnresolvedBattle() below decides whether a mixed lobby/fight screen is
 // actively locked.
 export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
-    "pvpBattle", "petArena", "petShowdown", "petColiseum", "arena", "storyBoss", "weeklyBoss", "worldBosses", "villageWar",
+    "pvpBattle", "petArena", "petShowdown", "petColiseum", "arena", "storyBoss", "weeklyBoss", "villageWar",
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
     "clanWar2v2", "firstPact",
@@ -226,7 +226,7 @@ export function hasActiveTowerFight(): boolean {
 export const SCREEN_FIGHT_STATE_EVENT = "shinobix:screen-fight-state";
 /** Screens that host a fight in their own state: the Weekly Boss tracker and the
  * Card Hall, whose live AI showdown forfeits when left. */
-export const SCREEN_FIGHT_HOSTS: ReadonlySet<Screen> = new Set<Screen>(["weeklyBoss", "worldBosses", "shinobiTiles", "arenaDistrict"]);
+export const SCREEN_FIGHT_HOSTS: ReadonlySet<Screen> = new Set<Screen>(["weeklyBoss", "shinobiTiles", "arenaDistrict"]);
 const screensWithLiveFight = new Set<Screen>();
 
 export function setScreenFightActive(screen: Screen, active: boolean): void {
@@ -331,8 +331,6 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
                                    // Walking out through the menus used to leave the run
                                    // to lapse — the attempt spent, the damage unbanked.
             return hasLiveScreenFight("weeklyBoss");
-        case "worldBosses":
-            return hasLiveScreenFight("worldBosses") || hasActiveTowerFight();
         case "shinobiTiles":       // Card Hall is free; a live AI showdown on it is not.
                                    // Its own exits forfeit it (a loss), like the PvP
                                    // card duel screens above.

@@ -1,5 +1,4 @@
-/* Both boss routes render through this lazy hub, so their arena styling loads on entry. */
-.app-shell[data-screen="worldBosses"] .weekly-boss-screen,
+/* The shared arena styling loads with the lazy two-tab hub. */
 .app-shell[data-screen="weeklyBoss"] .weekly-boss-screen {
     width: min(1180px, calc(100% - 24px));
     max-width: 1180px;
@@ -10,11 +9,9 @@
     background: linear-gradient(155deg, rgba(7, 13, 27, .96), rgba(8, 12, 23, .88));
     box-shadow: 0 28px 72px rgba(0, 0, 0, .42), inset 0 1px rgba(255, 255, 255, .04);
 }
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-screen,
-.app-shell[data-screen="worldBosses"] .weekly-boss-screen { display: grid; gap: 18px; }
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-screen { display: grid; gap: 18px; }
 
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state,
-.app-shell[data-screen="worldBosses"] .weekly-boss-empty-state {
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state {
     display: grid;
     grid-template-columns: 76px minmax(0, 1fr);
     align-items: center;
@@ -26,8 +23,7 @@
     background: radial-gradient(circle at 12% 50%, rgba(248, 113, 113, .12), transparent 32%), linear-gradient(135deg, rgba(17, 24, 39, .96), rgba(8, 13, 24, .92));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, .035);
 }
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state > span,
-.app-shell[data-screen="worldBosses"] .weekly-boss-empty-state > span {
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state > span {
     display: grid;
     place-items: center;
     width: 68px;
@@ -38,21 +34,18 @@
     background: rgba(127, 29, 29, .18);
     font-size: 34px;
 }
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state h2,
-.app-shell[data-screen="worldBosses"] .weekly-boss-empty-state h2 {
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state h2 {
     margin: 3px 0 8px;
     color: #fff7ed;
     font: 700 clamp(22px, 3vw, 31px)/1.08 Georgia, serif;
 }
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state p,
-.app-shell[data-screen="worldBosses"] .weekly-boss-empty-state p {
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state p {
     max-width: 620px;
     margin: 0;
     color: var(--slate-300);
     line-height: 1.55;
 }
-.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state .weekly-boss-kicker,
-.app-shell[data-screen="worldBosses"] .weekly-boss-empty-state .weekly-boss-kicker {
+.app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state .weekly-boss-kicker {
     color: #fb7185;
     font-size: 10px;
     font-weight: 800;
@@ -103,22 +96,14 @@
 }
 .world-boss-tabs button.is-active span { color: #ffbc62; }
 @media (max-width: 560px) {
-    .app-shell[data-screen="worldBosses"] .weekly-boss-screen {
-        width: calc(100% - 8px);
-        margin: 8px auto 78px;
-        padding: 8px;
-        border-radius: 16px;
-    }
     .app-shell[data-screen="weeklyBoss"] .weekly-boss-screen { width: calc(100% - 8px); margin: 8px auto 78px; padding: 8px; border-radius: 16px; }
-    .app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state,
-    .app-shell[data-screen="worldBosses"] .weekly-boss-empty-state {
+    .app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state {
         grid-template-columns: 1fr;
         gap: 12px;
         min-height: 0;
         padding: 18px;
     }
-    .app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state > span,
-    .app-shell[data-screen="worldBosses"] .weekly-boss-empty-state > span {
+    .app-shell[data-screen="weeklyBoss"] .weekly-boss-empty-state > span {
         width: 52px;
         height: 52px;
         border-radius: 14px;
