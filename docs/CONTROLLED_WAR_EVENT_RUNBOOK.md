@@ -27,13 +27,13 @@ It proves the code. Only this event proves the operation.
 | Declaring | The seated Kage of an attacking war village (or an admin) declares on an enemy-held war sector. It costs 250 War Resources, 175 with mapped intel or 125 with infiltrated intel, less the comeback discount. It is charged once, even on retry. | `api/village/sector-war.ts` (`declare`) |
 | Limits | A village may attack at most 2 sectors at once, never while it is in an all-out village war. Village gates cannot be taken. A failed siege leaves a 24-hour cooldown on that sector. | `api/_sector-war.ts` |
 | Length | 72 hours from the declaration. | `SECTOR_WAR_DURATION_MS` |
-| How it is fought | The **defender** picks each sector's win condition (Combat, Card or Pet) and terrain beforehand. | `war-win-condition`, `war-terrain` |
+| How it is fought | The village that **holds** a sector picks its win condition (Combat, Card or Pet) and terrain beforehand, captured sectors included; a village that lost a sector can no longer set it. Both are locked into the contest when it is declared, so a change mid-war does nothing. | `war-win-condition`, `war-terrain`, `sectorConfigFor` |
 | Combat | A world PvP battle between the two villages, with both fighters present in that sector. It is bound to the contest on its first move and scored at its end by the server. No browser needs to stay open. | `api/pvp/_sector-war-continuation.ts` |
-| Card, Pet | A Chronicle duel (`sector-card`) or a pet duel (`sector-pet`). The attacker opens the pet duel and a defender answers it. | `api/village/sector-card.ts`, `sector-pet.ts` |
-| Garrison | After 2 hours with no live battle, the attacker may fight the sector's garrison. It scores at half weight, capped at 150 points (200 while the garrison is fed). A Combat garrison assault must be finished within **1 hour** of starting it: after that its result is refused (404), its points are lost, and the attacker's items and HP from it are never settled. A Card garrison duel lives 2 hours and has no turn clock of its own, so an attacker who leaves one mid-duel keeps other attackers off that garrison until it expires. | `GARRISON_UNLOCK_IDLE_MS`, `GARRISON_POINTS_CAP`, `GARRISON_RUN_TTL`, `sector-card.ts` |
-| Mercenaries | Mercenaries can be deployed at defending-village players. A repelled mercenary scores the defender a quarter weight. | `api/village/war-merc.ts`, `api/_merc-auto.ts` |
+| Card, Pet | A Chronicle duel (`sector-card`) or a pet duel (`sector-pet`), fought two ways. At the war's **table**, the attacker opens a duel and a defender answers it, wherever each stands. **In the open** (since 2026-10-08), a member of either village who attacks an enemy standing in the contested sector fights that player in the war's own game, with a Combat attack's gates. A pet battle is decided at once by both sealed teams. A card duel names both seats; the target's client takes its seat when it hears, and the duel goes void, scoring nothing, if they have not sat down within a minute or the challenger leaves first. Every battle scores for the winner's village. The winner has no cooldown (owner ruling 2026-10-09). The loser cannot be challenged to another open battle in that war for 2 minutes, the same protection as a Combat defeat, unless they start one themselves. Neither duelist of a card duel waiting on its seat can be drawn into another, and a challenger who calls a card duel off cannot challenge that player again for 2 minutes. | `api/village/sector-card.ts`, `sector-pet.ts`, `api/_sector-contest-engage.ts` |
+| Garrison | After 2 hours with no live battle, the attacker may fight the sector's garrison. It scores at half weight, and across the war the attacker can bank at most 150 points from it. A covered feed moves that cap by 50 either way: the attacker's raises it to 200, the defender's lowers it to 100, and both together cancel out. A Combat garrison assault is settled by the request that ends the fight, or by the attacker's next garrison request if that one was lost, and it scores by the fight's own end time. An assault left idle for 45 minutes counts as a walk-out. A Card garrison duel lives 2 hours and has no turn clock of its own, so an attacker who leaves one mid-duel keeps other attackers off that garrison until it expires. | `GARRISON_UNLOCK_IDLE_MS`, `garrisonPointsCapFor`, `api/_sector-war-garrison-settle.ts`, `sector-card.ts` |
+| Mercenaries | Since 2026-10-08 a band is hired from the War Map for **one** war, with village War Resources, and acts only while that war is live. In a sector war only the **defending** village hires: its Kage or any Elder, 3 bands per contest. The attacker cannot hire. The band patrols the contested sector and fights attacking-village players there, and the defending leaders may also send one at any attacker, wherever they are. A band win scores the defence in full; an attacker who beats a band scores a quarter. Merc battles never re-lock the garrison. A band stops when its contest ends. In an all-out village war the Kage seat hires 3 bands and each Elder seat 1. The Town Hall Honor-Seal hire is retired. | `api/village/war-merc.ts`, `api/_merc-auto.ts`, `api/sector/merc-roam.ts` |
 | Result | At 72 hours the attacker takes the sector only if strictly ahead. A tie or a defender lead is a hold. | `settleSectorWar` |
-| When it settles | After the deadline, on the next sector-war declaration anywhere, an explicit `status` call ("Settle now" below), or the scheduler's **5-minute** sector-war tick, whichever comes first (the 03:00 UTC daily pass settles any it missed before paying income). The war map's own poll (`GET /api/village/war-map`) does **not** settle. Two settlements racing still settle once. | `api/_sector-war-settle.ts` |
+| When it settles | **10 minutes** after the deadline (a grace, so a battle that ended in time but reports late still counts), on the next sector-war declaration anywhere, an explicit `status` call ("Settle now" below), or the scheduler's **5-minute** sector-war tick, whichever comes first (the 03:00 UTC daily pass settles any it missed before paying income). Until its verdict lands, no new war can be declared on that sector. The war map's own poll (`GET /api/village/war-map`) does **not** settle. Two settlements racing still settle once. | `SECTOR_WAR_SETTLEMENT_GRACE_MS`, `api/_sector-war-settle.ts` |
 | What a capture changes | The territory owner (`world:territory:<sector>`) becomes the attacker. The defeated clan loses the sector, and a clan must earn 75 scrolls and claim it again. War Resources accrue and taxes follow the new owner from the next daily pass. Both villages' intel on the sector is burned. The World Herald announces the result once. | `captureSectorForVillage`, `api/_war-daily.ts`, `api/_war-tax.ts` |
 | Rewards | The fighters get their normal world PvP rewards (claim-rewards). When Legacy is on, war kills and captures also credit Legacy counters and the Era, each through its own receipt. | `api/pvp/_sector-war-continuation.ts` |
 | Not covered | The **all-out village war** (declared through `/api/world-state`) is a separate system that this runbook does not exercise. `DISABLE_VILLAGE_WAR` does **not** switch it off: with the switch set it is still declarable and simply costs Honor Seals instead of War Resources. Agree with both Kages that neither village declares one during the event (it would also refuse the sector wars). | `api/world-state.ts` |
@@ -46,6 +46,7 @@ It proves the code. Only this event proves the operation.
 | Battle binding | `shared:sector-war-token:<battleId>` (lives about 48 hours) |
 | Per-battle result | `shared:sector-war-resolution:<battleId>` (48 hours) |
 | Scored-battle evidence | `shared:sector-war-battle:<contestId>:<instance>:<battleId>` |
+| Open-world Pet/Card battle | `sector-pet-open:<engageId>` (30 minutes), `sector-card-open:<engageId>` (2 hours); scored as battle `pet-open:` / `card-open:<contestId>:<engageId>` |
 | Territory | `world:territory:<sector>` |
 | Village war state (War Resources, sectors, structures) | `shared:village-war:<village>` |
 | Audit | `audit:sector`, read with `GET /api/admin/audit-log?domain=sector` |
@@ -105,7 +106,7 @@ advance.
 
    | Blocker | Meaning | Do |
    | --- | --- | --- |
-   | `contest-row-unreadable` | A contest row cannot be parsed. Play skips it, but declarations and captures fail closed. | Stop. The owner authorizes a manual data fix. |
+   | `contest-row-unreadable` | A contest row cannot be parsed. Play skips it, including other fights' reward claims, but a fight bound to that contest waits for the repair, and declarations and captures fail closed. | Stop. The owner authorizes a manual data fix. |
    | `wedged-battle` | A battle is bound to a sector it was not fought in. Its fighters cannot finish or claim until the token expires, about 48 hours. | Wait for expiry, or the owner authorizes a manual fix. |
    | `territory-owner-mismatch` | A contested sector is owned by someone other than the defender. | Stop. Find out why before any war runs there. |
    | `two-contests-on-sector`, `village-war-overlap` | An invariant is broken. | Stop. |
@@ -141,7 +142,7 @@ and a screenshot where the case says so.
 | 4 | Draw | Two fighters end in a draw, if one can be arranged. | No `battle-scored` line, and no points for either side. |
 | 5 | Reconnect | Mid-battle, one fighter closes the browser, reopens the game and finishes. Then both fighters open the result again. | One `battle-scored` line. Every later look is a replay (`battle-replayed` or no line). No points are added. |
 | 6 | Walk-away | Mid-battle, one fighter closes the browser and stays away; the other keeps the battle open. The server passes the absent fighter's turns, and the fighter who stayed claims the forfeit win when it is offered. | One `battle-scored` line, written by the server's terminal step; the absent fighter's side settles without their browser. (If **both** walk away, the 10-minute lapse sweep records a draw: nothing scores, and both are free to fight again.) |
-| 7 | Card or Pet | The same villages fight on the second sector's win condition. If the event runs long enough without a defender, the attacker also fights the garrison, and finishes it within the hour (see Garrison above). | `battle-scored` lines for that contest, with `garrison: true` for the garrison. |
+| 7 | Card or Pet | The same villages fight on the second sector's win condition. If the event runs long enough without a defender, the attacker also fights the garrison (see Garrison above). | `battle-scored` lines for that contest, with `garrison: true` for the garrison. |
 | 8 | Double-tap | A fighter double-taps a Card or Pet action, or a garrison duel. | One score. The second answer is a replay, or "busy — try again" (503). |
 | 9 | Cancel drill (optional) | Declare a third, throwaway contest and have the operator abandon it (below). | A `contest-abandoned` line with `actor: admin`. One `sector-war.abandon` audit entry. |
 | 10 | Kill-switch drill (optional, last) | Set `DISABLE_VILLAGE_WAR=1`, redeploy, finish one bound battle, then unset the switch and redeploy. | War routes answer 404. A `pvp-resolution` line with `reason: war-disabled`. No points. The preflight with `--expect-war=off` passes, then with `--expect-war=on` passes again. |
@@ -151,23 +152,26 @@ points it reports must match the map.
 
 ## Settlement (T+72 hours)
 
-The war settles on its own at the 03:00 UTC daily pass. Staff it anyway:
+The war settles on its own within about 15 minutes of the deadline: a
+10-minute grace, then the next 5-minute tick. The 03:00 UTC daily pass is the
+backstop. Staff it anyway:
 
-1. **Settle now.** Just after the deadline, settle every due war with one
-   request from the operator's machine. Any staff account's own session works,
-   or the admin header with any `playerName`:
+1. **Settle now.** Once the 10-minute grace has passed, settle every due war
+   with one request from the operator's machine. Any staff account's own
+   session works, or the admin header with any `playerName`:
 
    ```powershell
    Invoke-RestMethod -Method Post -Uri https://shinobijourney.com/api/village/sector-war -ContentType 'application/json' -Headers @{ 'x-admin-password' = $env:ADMIN_PASSWORD } -Body '{"action":"status","playerName":"ops"}'
    ```
 
-   Opening the war map does **not** settle it. Neither does waiting, until a
-   declaration somewhere or the 03:00 UTC pass.
+   Opening the war map does **not** settle it. Inside the grace, Settle now
+   leaves the war unsettled on purpose.
 2. Expected evidence: one `settled` line (`outcome: captured` or `defended`),
    one Herald post, and the territory owner matching the outcome. A failed pass
    logs `settlement-deferred`: `contended` is ordinary, and anything else goes to
-   the lead. A war whose verdict landed but whose Herald or intel tail failed
-   logs `reason: after-verdict` and is **not** retried. It is settled.
+   the lead. The Herald post and the intel burn that follow a verdict are
+   best-effort and log nothing when they fail, so check both by hand. A war
+   with a `settled` line is settled either way.
 3. After the next 03:00 UTC pass, check that the new owner's War Resources
    accrual and the tax tier moved once, not twice (`GET /api/admin/economy`).
 
@@ -196,9 +200,9 @@ contest rows, and never run SQL against production during the event.
 
 | Situation | Supported action | What it does, and what it does not |
 | --- | --- | --- |
-| War scoring must stop now | Set `DISABLE_VILLAGE_WAR=1` and redeploy. | Every sector-war route answers 404, and mercenaries, the daily war pass, taxes and seeding stop. World PvP no longer binds or scores (fixed 2026-09-25). Settlement pauses too: the `status` action and the daily pass are both off. Recorded scores stay, and due wars settle after the switch is removed. The **abandon** below also answers 404 while the switch is set, so cancel a contest before switching the war off. The all-out village war is not stopped by this switch. |
+| War scoring must stop now | Set `DISABLE_VILLAGE_WAR=1` and redeploy. | Every sector-war route answers 404, and mercenaries, the daily war pass, taxes and seeding stop. World PvP no longer binds or scores (fixed 2026-09-25). Settlement pauses too: the `status` action and the daily pass are both off. Recorded scores stay, and due wars settle after the switch is removed. The **abandon** below also answers 404 while the switch is set, so cancel a contest before switching the war off. The all-out village war is not stopped by this switch. The clan-war rations burn pauses with it, because it runs inside the daily war pass. |
 | An economy exploit | Set `FREEZE_ECONOMY_REWARDS=1` and redeploy. | Rejects **every** player POST, war routes included, so it also blocks the admin abandon below. Abandon first, then freeze. `/api/admin/*` stays reachable. |
-| A live contest went wrong (bad scores, a dispute) | Cancel it: `POST /api/village/sector-war` with `{"action":"abandon","playerName":"ops","sector":<n>}` and the `x-admin-password` header. | The defender holds and the attacker gets the 24-hour cooldown. The War Resources are **not** refunded. It is logged and audited (`sector-war.abandon`). No tool reverses a single battle. |
+| A live contest went wrong (bad scores, a dispute) | Cancel it: `POST /api/village/sector-war` with `{"action":"abandon","playerName":"ops","sector":<n>}` and the `x-admin-password` header. | The defender holds and the attacker gets the 24-hour cooldown. Both villages' intel on the sector is burned, as at settlement. The War Resources are **not** refunded. It is logged and audited (`sector-war.abandon`). No tool reverses a single battle. |
 | A settled capture was wrong | Restore the owner recorded in `war-preflight-before.json`: `POST /api/world-state` with `{"kind":"territory","territory":{...}}` as admin. | It is audited (`territory.admin-write`, with the owner before and after). It is refused while a contest still binds the sector. It does not restore the clan that lost the sector, which must claim it again. |
 | A player cannot start PvP ("already in a battle") | Have them reload the game. The client reconnects to the server's battle, which they can finish or let time out. The 10-minute lapse sweep ends a battle nobody returns to. | This covers ordinary disconnects. If the same battle id keeps failing in the logs, run the preflight. A `wedged-battle` clears only when its token expires (about 48 hours), and no admin endpoint clears it sooner. Tell the player, and escalate to the lead for a manual fix. |
 | An application bug | Roll back the Railway deployment. | Only if the previous build reads the same data. Otherwise switch the war off and fix forward. |

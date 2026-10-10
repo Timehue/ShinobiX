@@ -21,6 +21,8 @@ import { describe, it } from 'node:test';
 const screen = readFileSync(new URL('./VillageWarMap.tsx', import.meta.url), 'utf8');
 const skin = readFileSync(new URL('../styles/village-war-map-skin.css', import.meta.url), 'utf8');
 const client = readFileSync(new URL('../lib/village-war-map.ts', import.meta.url), 'utf8');
+// The mercenary panel moved into its own component (owner redesign 2026-10-08).
+const mercPanel = readFileSync(new URL('../components/VillageWarMercPanel.tsx', import.meta.url), 'utf8');
 
 describe('Village War Map feedback contract', () => {
     it('3a — success is a transient toast, not a notice that sits in the card forever', () => {
@@ -62,7 +64,17 @@ describe('Village War Map feedback contract', () => {
         assert.match(screen, /disabled=\{!!busy \|\| !declareAfford\.affordable\}/);
         // The "~" is explained in VISIBLE text, not a tooltip.
         assert.match(screen, /className="hint vwm-declare-note">\{declareEstimateNote\(/);
-        assert.match(screen, /const hireCost = wrAffordability\(t\.costWr, myView\?\.warResources \?\? 0, \{ verb: "Hire" \}\)/);
+        // A merc hire is priced at what the server will CHARGE (the quoted,
+        // discounted `cost`), against the live pool — the base `costWr` used to
+        // disable a hire the village could afford.
+        assert.match(mercPanel, /const afford = wrAffordability\(mercTierCost\(t\), pool, \{ verb: "Hire" \}\)/);
+        assert.match(mercPanel, /const pool = data\.warResources \?\? 0;/);
+        assert.doesNotMatch(mercPanel, /wrAffordability\(t\.costWr/);
+    });
+
+    it('the mercenary panel lives in its own component', () => {
+        assert.match(screen, /<VillageWarMercPanel character=\{character\} onChanged=\{refresh\} \/>/);
+        assert.doesNotMatch(screen, /hireMerc|deployMerc|listMercs|mercData/, 'no merc state is left behind on the screen');
     });
 
     it('3d — feeding a garrison is a secondary toggle, not the Declare War treatment', () => {
@@ -75,15 +87,37 @@ describe('Village War Map feedback contract', () => {
 
     it('3e / 3f — the read-only feed lines say who is feeding what, and what it buys', () => {
         assert.match(screen, /garrisonFeedStatusLine\(\{ feeding: myFeed\.on, sector: sec\.sector \}\)/);
-        assert.match(screen, /garrisonFedCapLine\(myVillage, myFeed\.covered\)/);
+        // The line and the toggle's tooltip both speak for THIS village's side.
+        assert.match(screen, /garrisonFedCapLine\(myVillage, myFeed\.covered, feedSide\)/);
+        assert.match(screen, /title=\{garrisonFeedButtonTitle\(feedSide, GARRISON_RATIONS_PER_DAY\)\}/);
         assert.doesNotMatch(screen, /Garrison feed: \{/, 'the "on"/"off" status line is gone');
         assert.doesNotMatch(screen, /cap 200/, 'the design-doc shorthand is gone');
     });
 
+    it('E19 — declaring and conceding each ask first; one tap does neither', () => {
+        assert.match(screen, /gameConfirm\(sectorWarDeclareConfirmText\([\s\S]{0,200}\)\)\) return;\s*void act\(`dec-\$\{sec\.sector\}`/);
+        assert.match(screen, /gameConfirm\(sectorWarConcedeConfirmText\([\s\S]{0,200}danger: true \}\)\)\) return;\s*void act\(`aband-\$\{sec\.sector\}`/);
+    });
+
+    it('E15 — only the newest refresh writes the screen, and the Fed chip is day-scoped', () => {
+        assert.match(screen, /const seq = \+\+refreshSeq\.current;/);
+        assert.match(screen, /if \(seq !== refreshSeq\.current\) return;\s*setData\(wm\);/);
+        assert.doesNotMatch(screen, /fed === false/, 'the chips read contestUnfedToday, not the raw verdict');
+        const overlay = readFileSync(new URL('../components/SectorOwnershipOverlay.tsx', import.meta.url), 'utf8');
+        assert.equal((overlay.match(/visiblePoll\(/g) ?? []).length, 2, 'banners and siege pulses are both re-read while the map is open');
+        assert.doesNotMatch(overlay, /useMemo\(/, 'the owners are no longer frozen at mount');
+        const worldMap = readFileSync(new URL('./WorldMap.tsx', import.meta.url), 'utf8');
+        assert.match(worldMap, /\[selectedSector, character\.name, character\.village, villageWarViewOpen, presentHere\]/, 'arriving in the sector re-polls its roster');
+    });
+
     it('3g — the button that was pressed relabels; the rest merely disable', () => {
-        for (const [id, label] of [['feed-\\$\\{sec\\.sector\\}', 'Feeding…'], ['dec-\\$\\{sec\\.sector\\}', 'Declaring…'], ['hire-\\$\\{t\\.id\\}', 'Hiring…'], ['aband-\\$\\{sec\\.sector\\}', 'Conceding…'], ['deploy-\\$\\{t\\.id\\}', 'Deploying…']]) {
+        for (const [id, label] of [['feed-\\$\\{sec\\.sector\\}', 'Feeding…'], ['dec-\\$\\{sec\\.sector\\}', 'Declaring…'], ['aband-\\$\\{sec\\.sector\\}', 'Conceding…']]) {
             assert.match(screen, new RegExp(`busyLabel\\(busy, \`${id}\`, "${label}"`), `expected a "${label}" in-flight label`);
         }
+        // The merc panel keeps the same rule for its own buttons.
+        assert.match(mercPanel, /const id = `hire-\$\{c\.key\}-\$\{t\.id\}`;/);
+        assert.match(mercPanel, /busyLabel\(busy, id, "Hiring…"/);
+        assert.match(mercPanel, /busyLabel\(busy, `deploy-\$\{band\.id\}`, "Deploying…"/);
         assert.match(screen, /busy === `up-\$\{s\.key\}`/);
         assert.match(screen, /Raising \$\{s\.name\}…/);
     });

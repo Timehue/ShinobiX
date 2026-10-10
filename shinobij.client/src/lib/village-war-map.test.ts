@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { WAR_MAP_MEMO_MS, clearWarMapCache, contestGarrisonFeed, contestVillageUnfed, declareSectorWar, fetchWarMap, storesUtcDay, type SectorWarContest } from './village-war-map';
+import { WAR_MAP_MEMO_MS, clearWarMapCache, contestGarrisonFeed, contestUnfedToday, contestVillageUnfed, declareSectorWar, engageOpenSectorBattle, fetchWarMap, storesUtcDay, type SectorWarContest } from './village-war-map';
 
 // MUST mirror api/_sector-war.ts sectorWarVillageUnfed: the stores verdict is
 // scoped to the UTC day it was stamped for. Without that, the "marches hungry"
@@ -28,6 +28,17 @@ function contest(over: Partial<SectorWarContest> = {}): SectorWarContest {
         ...over,
     };
 }
+
+// The Fed/Unfed chip read the raw `fed: false`, so yesterday's verdict stayed on
+// screen through a day the daily pass never ran.
+describe('contestUnfedToday — the Fed/Unfed chip expires with its day too', () => {
+    it('reads Unfed only while the verdict names today', () => {
+        assert.equal(contestUnfedToday(contest({ storesDate: TODAY, fed: false }), TODAY), true);
+        assert.equal(contestUnfedToday(contest({ storesDate: YESTERDAY, fed: false }), TODAY), false, 'a stale verdict reads as fed');
+        assert.equal(contestUnfedToday(contest({ fed: false }), TODAY), false, 'a war the pass never evaluated reads as fed');
+        assert.equal(contestUnfedToday(contest({ storesDate: TODAY, fed: true }), TODAY), false);
+    });
+});
 
 describe('contestVillageUnfed — the hungry plate expires with its day', () => {
     it('applies while the verdict names today', () => {
@@ -162,5 +173,47 @@ describe('fetchWarMap — the aggregator is not re-scanned per tab flick', () =>
             await fetchWarMap();
             assert.equal(calls(), 2);
         } finally { restore(); }
+    });
+});
+
+describe('engageOpenSectorBattle — an attack in a Pet or Card war is that war\'s game', () => {
+    const realFetch = globalThis.fetch;
+    const ENGAGE_ID = '0123456789abcdef01234567';
+
+    it('asks the war\'s own endpoint to fight the named player, and returns the battle to open', async () => {
+        const seen: Array<{ url: string; body: Record<string, unknown> }> = [];
+        globalThis.fetch = (async (url: unknown, init?: { body?: string }) => {
+            seen.push({ url: String(url), body: JSON.parse(String(init?.body ?? '{}')) });
+            return { ok: true, json: async () => ({ engageId: ENGAGE_ID, session: {} }) } as unknown as Response;
+        }) as typeof globalThis.fetch;
+        try {
+            assert.deepEqual(await engageOpenSectorBattle('pet', 'Raider', '10:storm-vs-leaf', 'Warden'),
+                { kind: 'pet', sectorWarId: '10:storm-vs-leaf', engageId: ENGAGE_ID });
+            assert.deepEqual(await engageOpenSectorBattle('card', 'Raider', '10:storm-vs-leaf', 'Warden'),
+                { kind: 'card', sectorWarId: '10:storm-vs-leaf', engageId: ENGAGE_ID });
+            assert.deepEqual(seen.map((call) => call.url), ['/api/village/sector-pet', '/api/village/sector-card']);
+            for (const call of seen) {
+                // No pet or deck rides along: the server seals both sides from their saves.
+                assert.deepEqual(call.body, { action: 'engage', playerName: 'Raider', sectorWarId: '10:storm-vs-leaf', target: 'Warden' });
+            }
+        } finally { globalThis.fetch = realFetch; clearWarMapCache(); }
+    });
+
+    it('throws the server\'s own sentence on a refusal, for the player\'s row to show', async () => {
+        globalThis.fetch = (async () => ({
+            ok: false, status: 409,
+            json: async () => ({ error: 'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.' }),
+        }) as unknown as Response) as typeof globalThis.fetch;
+        try {
+            await assert.rejects(engageOpenSectorBattle('pet', 'Raider', '10:storm-vs-leaf', 'Warden'),
+                { name: 'WarMapRequestError', message: 'That shinobi just lost a battle and is recovering. You can challenge them in 2 min.' });
+        } finally { globalThis.fetch = realFetch; clearWarMapCache(); }
+    });
+
+    it('never opens a battle the server did not name', async () => {
+        globalThis.fetch = (async () => ({ ok: true, json: async () => ({ ok: true }) }) as unknown as Response) as typeof globalThis.fetch;
+        try {
+            await assert.rejects(engageOpenSectorBattle('card', 'Raider', '10:storm-vs-leaf', 'Warden'), { name: 'WarMapRequestError' });
+        } finally { globalThis.fetch = realFetch; clearWarMapCache(); }
     });
 });

@@ -6,7 +6,7 @@ const storesRow = (page: Page, label = 'Materials') => page.locator('.town-store
 const tabs = (page: Page) => page.getByRole('navigation', { name: 'Town Hall sections' });
 type Scenario = {
     materials?: number; provisions?: number; sharedMaterials: number; sharedFields: boolean;
-    gameReads: number; mapReads: number; mapError: boolean;
+    stateReads: number; mapReads: number; mapError: boolean;
     onMap?: (route: Route, body: unknown) => Promise<void>;
 };
 
@@ -14,11 +14,16 @@ async function installStores(page: Page) {
     const save = uiAuditSave();
     save.character = { ...save.character, itemStacks: [{ itemId: 'hunt-ash-scale', count: 3 }] };
     const runtime = await installUiAuditRuntime(page, save);
-    const state: Scenario = { materials: 20, provisions: 4, sharedMaterials: 0, sharedFields: true, gameReads: 0, mapReads: 0, mapError: false };
+    const state: Scenario = { materials: 20, provisions: 4, sharedMaterials: 0, sharedFields: true, stateReads: 0, mapReads: 0, mapError: false };
+    // The public frame carries no treasury (owner ruling 2026-10-08); the Town
+    // Hall polls the village's members-only record for it instead.
     await page.route('**/api/game-state', route => {
         if (route.request().method() !== 'GET') return route.fulfill({ json: { ok: true } });
-        state.gameReads++;
-        return route.fulfill({ json: { villageStates: { stormveilvillage: { treasury: state.sharedFields ? { materialPoints: state.sharedMaterials, provisions: 0 } : {} } }, arenaActiveFights: [] } });
+        return route.fulfill({ json: { villageStates: { stormveilvillage: {} }, arenaActiveFights: [] } });
+    });
+    await page.route(url => url.pathname === '/api/village/state', route => {
+        state.stateReads++;
+        return route.fulfill({ json: { ok: true, village, state: { treasury: state.sharedFields ? { materialPoints: state.sharedMaterials, provisions: 0 } : {} } } });
     });
     await page.route('**/api/village/war-map', route => {
         state.mapReads++;
@@ -35,13 +40,13 @@ test('confirmed stores survive stale shared-state polling and keep refreshing', 
     const { runtime, state } = await installStores(page);
     await expectUiAuditBoot(page, runtime, 'townHall');
     await tabs(page).getByRole('button', { name: 'Treasury', exact: true }).click();
-    // Drive the shared-state fetch clock beyond its jitter. Town Hall's
+    // Drive the village-record poll clock beyond its jitter. Town Hall's
     // war-map refresh stays event-driven; its confirmed 20 must
-    // survive a shared response deliberately held at 0.
+    // survive a polled record deliberately held at 0.
     await page.clock.runFor(12_000);
-    await expect.poll(() => state.gameReads).toBeGreaterThanOrEqual(2);
+    await expect.poll(() => state.stateReads).toBeGreaterThanOrEqual(2);
     await page.clock.runFor(12_000);
-    const after24Seconds = { gameReads: state.gameReads, mapReads: state.mapReads };
+    const after24Seconds = { stateReads: state.stateReads, mapReads: state.mapReads };
     await expect(storesRow(page)).toHaveText('Materials: 20 materials');
     await expect(storesRow(page, 'Provisions')).toHaveText('Provisions: 4 rations');
     state.materials = 5;
