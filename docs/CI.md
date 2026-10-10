@@ -87,9 +87,9 @@ setup, ruleset, or alert inventory is configured correctly. Those are external
 GitHub settings and must be inspected by an authorized operator.
 
 The check is green when the analysis succeeds, whether or not GitHub accepts the
-upload. On 2026-10-10 the repo became private on a free plan, and code scanning
-was switched off: every upload got a 403, the check went red, and Railway
-cancelled every rollout. Since then the analysis runs with `upload: never`, and
+upload. On 2026-10-10 the repo was private on a free plan for about an hour, and
+code scanning was switched off: every upload got a 403, the check went red, and
+Railway cancelled every rollout. Since then the analysis runs with `upload: never`, and
 a separate `continue-on-error` step tries the upload. That step resumes on its
 own when code scanning is available again. Each run also keeps its SARIF as a
 `codeql-sarif-*` artifact for 7 days, best effort, so a full storage quota

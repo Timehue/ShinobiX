@@ -1,11 +1,14 @@
 # CodeQL — ADVANCED setup (replaces GitHub default setup).
 #
-# CUTOVER IS DONE. Default setup reads `not-configured` (verified 2026-08-28), so
-# this workflow's uploads are ingested and it is the only thing scanning the repo.
-# If code scanning ever goes quiet, check that first — re-enabling default setup
-# makes GitHub reject every advanced-setup upload ("analyses from advanced
-# configurations cannot be processed when the default setup is enabled"), which
-# shows up as a red check here rather than as a missing-coverage warning:
+# CUTOVER IS DONE. Default setup reads `not-configured` (verified 2026-08-28 and
+# 2026-10-10), so this workflow's uploads are ingested and it is the only thing
+# scanning the repo. If code scanning ever goes quiet, check that first.
+# Re-enabling default setup makes GitHub reject every advanced-setup upload
+# ("analyses from advanced configurations cannot be processed when the default
+# setup is enabled"). Since 2026-10-10 a rejected upload no longer reddens the
+# check, because a red check cancels the Railway rollout (see the analyze step).
+# It shows up as a red "Upload results to code scanning (best effort)" step
+# inside a green check:
 #
 #   gh api repos/:owner/:repo/code-scanning/default-setup --jq .state
 #
@@ -48,9 +51,9 @@ concurrency:
   # 2026-08-02 and 2026-09-01 (deleted 2026-09-01).
   #
   # Keying the group on the SHA gives each pushed commit its own group, so main
-  # scans never queue behind one another and each runs to completion. That was
-  # free while the repo was public. Since it went private (2026-10-10), every
-  # run counts against the account's Actions minutes.
+  # scans never queue behind one another and each runs to completion. The repo is
+  # public, so the extra concurrent runs cost no Actions minutes. If it is ever
+  # made private, every run counts against the account's Actions minutes.
   group: codeql-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
   # PRs still collapse onto the branch head: superseding a PR scan uploads that
   # same errored record, but on a PR ref that is an acceptable trade for not
@@ -93,11 +96,12 @@ jobs:
 
       # The analysis gates this check; the upload does not.
       #
-      # On 2026-10-10 the repo became private on a free plan, and code scanning
-      # went with it: every upload now gets a 403 ("Code scanning is not enabled
-      # for this repository"). The built-in upload is the analyze step's last act,
-      # so the whole check went red. Railway cancels a rollout when any check on
-      # the commit fails, so production froze at 9bdd39a7 (#320) while main moved on.
+      # On 2026-10-10 the repo was private on a free plan for about an hour, and
+      # code scanning went with it: every upload got a 403 ("Code scanning is not
+      # enabled for this repository"). The built-in upload is the analyze step's
+      # last act, so the whole check went red. Railway cancels a rollout when any
+      # check on the commit fails, so production froze at 9bdd39a7 (#320) while
+      # main moved on. Any upload refusal would do the same, not only that one.
       #
       # So the analysis runs with `upload: never` and still fails the check if
       # CodeQL itself fails. The upload is a separate best-effort step. It resumes
