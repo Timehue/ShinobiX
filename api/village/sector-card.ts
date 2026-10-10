@@ -27,6 +27,7 @@ import {
     OPEN_CARD_JOIN_WINDOW_MS,
     protectOpenBattleLoser,
     releaseOpenBattleFighters,
+    releaseOpenBattleNotice,
 } from '../_sector-contest-engage.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 import {
@@ -519,6 +520,9 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
                 await releaseOpenBattleFighters(sectorWarId, [session.p1Name, session.p2Name ?? '']);
                 await noteCalledOffOpenDuel(sectorWarId, me, session.open.target, now);
             }
+            // A void duel can no longer start, so its notice must not route the
+            // target into it after a reload.
+            await releaseOpenBattleNotice(session.open.target, engageId);
         } else if (action === 'join' && named && safeName(session.open.target) === safeName(me)) {
             const resolution = await resolveDeck(me, ids(body.deck ?? body.defaultDeck), admin);
             if (!resolution) return { status: 400, body: { error: 'No legal 40-card Chronicle deck is available.' } };
@@ -529,8 +533,10 @@ async function runOpenDuel(me: string, admin: boolean, sectorWarId: string, enga
             session.updatedAt = now;
             await saveSession(session);
             // The match is live: its presence now proves both duelists are in a
-            // battle (api/card-clash/_presence.ts), so the holds are done.
+            // battle (api/card-clash/_presence.ts), so the holds are done, and so
+            // is the notice that brought the target here.
             await releaseOpenBattleFighters(sectorWarId, [session.p1Name, session.p2Name ?? '']);
+            await releaseOpenBattleNotice(me, engageId);
             return { status: 200, body: { ...versionEcho(resolution), session: projectMatchForViewer(session.state, seat) } };
         }
     }

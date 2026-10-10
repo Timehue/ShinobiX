@@ -282,6 +282,22 @@ describe('an open-world attack in a Pet war is a pet battle with that player', {
         assert.equal(await kv.get(`sector-open-battle:hold:${contest.id}:${HOLDOUT}`), null);
     });
 
+    it('the target\'s notice leaves their inbox once they have the battle open', async () => {
+        // The heartbeat re-delivers the inbox every beat for the notice's 180s
+        // lease. A reloaded client has lost its local dismissal, so a notice
+        // left behind would walk the target back into the battle.
+        const contest = await seedContest('pet');
+        const out = await call(petHandler, { action: 'engage', playerName: RAIDER, sectorWarId: contest.id, target: HOLDOUT });
+        const engageId = String(out.body?.engageId ?? '');
+        const named = (entries: Array<Record<string, any>>) => entries.some((entry) => entry.sectorContest?.engageId === engageId);
+        assert.equal(named(await inboxOf(HOLDOUT)), true);
+        await call(petHandler, { action: 'state', playerName: RAIDER, sectorWarId: contest.id, engageId });
+        assert.equal(named(await inboxOf(HOLDOUT)), true, 'the challenger looking does not take it back');
+        const seen = await call(petHandler, { action: 'state', playerName: HOLDOUT, sectorWarId: contest.id, engageId });
+        assert.equal(seen.statusCode, 200);
+        assert.equal(named(await inboxOf(HOLDOUT)), false);
+    });
+
     it('protects a loser exactly as long as a Combat defeat does', () => {
         assert.equal(OPEN_BATTLE_LOSER_SHIELD_MS, PVP_RAID_SHIELD_MS);
     });
@@ -400,6 +416,20 @@ describe('an open-world attack in a Card war is a card duel with that player', {
         assert.ok(await engage(contest.id, SECOND, HOLDOUT), 'another challenger may take the freed target');
         onlineStore.clearPendingAttacker(GUARD);
         assert.ok(await engage(contest.id, RAIDER, GUARD), 'the challenger is free to fight someone else');
+    });
+
+    it('the notice leaves the target\'s inbox when they sit down, or when the duel is called off', async () => {
+        const contest = await seedContest('card');
+        const named = (entries: Array<Record<string, any>>, engageId: string) => entries.some((entry) => entry.sectorContest?.engageId === engageId);
+        const seated = await engage(contest.id);
+        assert.equal(named(await inboxOf(HOLDOUT), seated), true);
+        assert.equal((await call(cardHandler, { action: 'join', playerName: HOLDOUT, sectorWarId: contest.id, engageId: seated })).statusCode, 200);
+        assert.equal(named(await inboxOf(HOLDOUT), seated), false, 'seated: a reload must not route them in again');
+
+        const calledOff = await engage(contest.id, SECOND, GUARD);
+        assert.equal(named(await inboxOf(GUARD), calledOff), true);
+        await call(cardHandler, { action: 'cancel', playerName: SECOND, sectorWarId: contest.id, engageId: calledOff });
+        assert.equal(named(await inboxOf(GUARD), calledOff), false, 'a void duel is no place to send them');
     });
 
     it('a live duel holds nobody, and once decided only its loser is protected', async () => {

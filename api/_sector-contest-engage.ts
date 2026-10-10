@@ -32,6 +32,7 @@ import { kickPlayer } from './_realtime/notify.js';
 import { isSectorWarActive, type SectorWarSession } from './_sector-war.js';
 import { loadSectorWar } from './_sector-war-store.js';
 import { enqueueChallenge, projectChallengerCharacter } from './player/challenge.js';
+import { releaseChallengeNoticesWhere } from './pvp/_challenge-inbox-release.js';
 
 /*
  * Cooldowns (owner ruling 2026-10-09): the WINNER of an open battle has none,
@@ -302,5 +303,23 @@ export async function noticeOpenSectorBattle(args: {
         kickPlayer(args.to, 'attack');
     } catch (err) {
         console.warn('[sector-war] open battle notice deferred', args.engageId, (err as Error)?.message ?? err);
+    }
+}
+
+/**
+ * Take an open battle's notice back out of its target's inbox, once they have
+ * the battle open or it can no longer start. The heartbeat re-delivers the
+ * inbox on every beat for the notice's whole 180s lease, and a client that
+ * reloads has lost its local dismissal, so a notice left behind walks the
+ * target back into a battle they already saw, or one that is over: the trap
+ * api/pvp/_challenge-inbox-release.ts closes for Combat attacks. Best-effort:
+ * the lease expires on its own.
+ */
+export async function releaseOpenBattleNotice(target: string, engageId: string): Promise<void> {
+    try {
+        await releaseChallengeNoticesWhere(target, (entry) => !!entry && typeof entry === 'object'
+            && (entry as { sectorContest?: { engageId?: unknown } }).sectorContest?.engageId === engageId);
+    } catch (err) {
+        console.warn('[sector-war] open battle notice not released', engageId, (err as Error)?.message ?? err);
     }
 }
