@@ -1178,7 +1178,8 @@ test("refined integration festival navigation, crate, and market retry", async (
         await expect(page.locator(selector)).toBeFocused();
     }
     await page.getByRole('button', { name: 'Buy a sealed crate', exact: true }).click();
-    const crate = page.getByRole('dialog', { name: 'The Broker’s crate' });
+    // The Broker's crate shares the inventory cache reveal; its dialog is named after the reward tier.
+    const crate = page.getByRole('dialog', { name: 'A Tidy Haul reward reveal', exact: true });
     await expect(crate).toBeVisible();
     await expect(page.getByRole('button', { name: 'Open the crate', exact: true })).toBeFocused();
     await expect(page.locator('#root')).toHaveAttribute('inert', '');
@@ -1186,7 +1187,7 @@ test("refined integration festival navigation, crate, and market retry", async (
     await expect(page.getByRole('heading', { name: 'A Tidy Haul', exact: true })).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByRole('button', { name: 'Return to the festival', exact: true })).toBeFocused();
-    const scan = await new AxeBuilder({ page }).include('.bm-crate-dialog').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+    const scan = await new AxeBuilder({ page }).include('.cache-reveal-dialog').withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(scan.violations).toEqual([]);
     await crate.locator('img').evaluateAll(images => Promise.all((images as HTMLImageElement[]).map(image => image.decode())));
     await page.screenshot({ path: testInfo.outputPath('broker-reward-viewport.png'), animations: 'disabled' });

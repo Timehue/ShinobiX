@@ -1,6 +1,7 @@
 import { expect, test, type Route } from '@playwright/test';
 import { createRequire } from 'node:module';
 import type { RankedPetMatchToken } from '../../api/pet/_ranked-authority';
+import { tacticsPreset } from '../../shared/pet-tactics-roster';
 import { expectUiAuditBoot, installUiAuditRuntime, uiAuditSave } from './helpers/ui-audit-runtime';
 
 const matchToken = '11111111-1111-4111-8111-111111111111';
@@ -161,91 +162,48 @@ for (const mode of ['active', 'completed', 'without-webgl2'] as const) {
             await expect(panel.getByRole('alert')).toContainText('retry leaving');
             await panel.getByRole('button', { name: 'Return to queue', exact: true }).click();
         }
-        await expect(panel.getByRole('button', { name: 'Find ranked match', exact: true })).toBeEnabled();
+        // Back at matchmaking the queue control belongs to the Pet Arena, which
+        // sits beside the retained-result box rather than inside it.
+        await expect(page.getByRole('button', { name: 'Find ranked match', exact: true })).toBeEnabled();
         // The App's character must adopt the server response/current save;
-        // replay-only local state would leave the old roster name here.
-        await expect(page.getByText('Authoritative ranked companion', { exact: true }).first()).toBeVisible();
+        // replay-only local state would leave the pre-match 1000 Elo in the
+        // ladder header. (The Pet Arena roster lists species, not the save's
+        // pets, so the rating is the visible signal.)
+        await expect(page.locator('.pl-rank-num').first()).toHaveText('1012');
         await expect(page.getByRole('complementary', { name: 'Device and server saves diverged' })).toHaveCount(0);
         expect(acknowledged).toBe(true);
         expect(errors).toEqual([]);
     });
 }
 
-test('Pet Colosseum lineup queues, resolves, updates Elo, and allows another match', async ({ page }, testInfo) => {
-    test.setTimeout(90_000);
+test('Pet Arena queues the selected squad for a ranked match', async ({ page }) => {
+    // The Colosseum is player-controlled now: the queue sends the squad's builds,
+    // and the battle itself is played through the tactics endpoints. This covers
+    // the queue hand-off; resolution and Elo are covered server-side by
+    // api/pet/ranked-player-control.integration.test.ts.
+    test.setTimeout(60_000);
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(error.message));
-    const myTeam = [1, 2, 3, 4].map(index => ({
-        id: `audit-${index}`, name: `Ranked Pet ${index}`, templateId: `standard-${index}`,
-        rarity: 'standard', level: 40, hp: 900, attack: 120, defense: 70, speed: 80,
-        element: 'Fire', role: 'assassin', jutsus: [],
-    }));
-    const rivalTeam = [1, 2, 3, 4].map(index => ({ ...myTeam[index - 1], id: `rival-${index}`, name: `Rival Pet ${index}` }));
-    const save = uiAuditSave();
-    save.character = { ...save.character, pets: myTeam, activePetId: myTeam[0].id, petRankedRating: 1000 };
-    const runtime = await installUiAuditRuntime(page, save);
-    const token: RankedPetMatchToken = {
-        authority: 'pet-ranked-queue-v1', pairId: matchToken, a: viewer, b: 'rival',
-        aRating: 1000, bRating: 1000, aPet: myTeam[0], bPet: rivalTeam[0], aTeam: myTeam, bTeam: rivalTeam,
-        seed: 12345, createdAt: 1,
-    };
-    const resolved = resolveRankedPetDuel(token);
-    const script = rankedPetReplayForViewer(token, resolved.script, viewer);
-    script.events = script.events.filter(event => event.t === 'end');
-    let queueState: 'idle' | 'paired' | 'active' = 'idle';
-    let joinedIds: string[] = [];
-    let started = false;
-    let settled = false;
-    let acknowledged = false;
-    const newRating = resolved.winnerName === viewer ? 1012 : 988;
+    const runtime = await installUiAuditRuntime(page);
+    const joins: Array<{ action: string; builds?: Array<{ speciesId: string }> }> = [];
     await page.route('**/api/pvp/pet-ranked-queue', route => {
-        const body = route.request().postDataJSON();
-        if (body.action === 'join') { joinedIds = body.petIds; queueState = 'paired'; }
-        if (body.action === 'acknowledge') { acknowledged = true; queueState = 'idle'; }
-        return json(route, queueState === 'idle' ? { state: 'idle' }
-            : queueState === 'paired' ? { state: 'paired', opponent: 'rival', opponentElo: 1000, initiator: true, expiresAt: Date.now() + 30_000 }
-                : { state: 'active', matchToken, opponent: 'rival', initiator: true });
-    });
-    await page.route('**/api/pet/ranked-start', route => {
-        started = true; queueState = 'active';
-        return json(route, { ok: true, matchToken });
-    });
-    await page.route('**/api/pet/ranked-watch', route => json(route, { ok: true, winnerName: resolved.winnerName, script }));
-    await page.route('**/api/pet/battle-result', route => {
-        settled = true;
-        const updatedCharacter = { ...save.character, petRankedRating: newRating,
-            petRankedWins: resolved.winnerName === viewer ? 1 : 0,
-            petRankedLosses: resolved.winnerName === viewer ? 0 : 1 };
-        runtime.commitServerCharacter(updatedCharacter, runtime.currentVersion() + 1);
-        return json(route, { ok: true, character: updatedCharacter, _saveVersion: runtime.currentVersion() });
+        const body = route.request().postDataJSON() as { action: string; builds?: Array<{ speciesId: string }> };
+        if (body.action === 'join') { joins.push(body); return json(route, { state: 'queued' }); }
+        return json(route, { state: 'idle' });
     });
     await page.route('**/api/player/leaderboards?limit=100', route => json(route, {
-        boards: [{ id: 'petRanked', rows: [{ rank: 1, name: viewer, value: settled ? newRating : 1000, label: `${settled ? newRating : 1000} Elo` }] }],
+        boards: [{ id: 'petRanked', rows: [{ rank: 1, name: viewer, value: 1000, label: '1000 Elo' }] }],
     }));
 
     await expectUiAuditBoot(page, runtime, 'petLadder');
-    const panel = page.getByTestId('pet-ladder-queue');
-    await expect(panel.getByRole('button', { name: 'Find ranked match' })).toBeEnabled();
-    await panel.getByRole('button', { name: 'Choose lineup order' }).click();
-    for (const index of [3, 1, 4, 2]) await panel.getByRole('button', { name: `Ranked Pet ${index}` }).click();
-    await expect(panel).toContainText('Field 1: Ranked Pet 3');
-    await expect(panel).toContainText('Reserve 2: Ranked Pet 2');
-    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-lineup.png') });
-    await panel.getByRole('button', { name: 'Find ranked match' }).click();
-    await expect.poll(() => joinedIds).toEqual(['audit-3', 'audit-1', 'audit-4', 'audit-2']);
-    await expect.poll(() => started).toBe(true);
-    const verdict = script.finalState.outcome === 'win' ? 'Victory' : 'Defeat';
-    await expect(page.getByRole('dialog', { name: verdict, exact: true })).toBeVisible({ timeout: 45_000 });
-    await expect(page.getByRole('button', { name: 'Watch Again' })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-result.png') });
-    expect(settled).toBe(true);
-    await page.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
-    await expect(panel.getByRole('button', { name: 'Find ranked match' })).toBeEnabled();
-    await expect.poll(() => acknowledged).toBe(true);
-    const boardRating = page.getByText(`${newRating} Elo`, { exact: true }).first();
-    await expect(boardRating).toBeVisible();
-    await boardRating.scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath('pet-colosseum-ranked-board.png') });
+    const findMatch = page.getByRole('button', { name: 'Find ranked match', exact: true });
+    await expect(findMatch).toBeEnabled({ timeout: showdownLoadTimeout });
+    await expect(page.getByRole('heading', { name: 'Build your squad 4/4 selected' })).toBeVisible();
+    await findMatch.click();
+    await expect.poll(() => joins.length).toBe(1);
+    // The default squad is the four starter builds, sent as full builds (not pet ids).
+    expect(joins[0].builds?.map(build => build.speciesId))
+        .toEqual(['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id).speciesId));
     expect(errors).toEqual([]);
 });
 

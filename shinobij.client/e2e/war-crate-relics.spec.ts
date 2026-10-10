@@ -32,9 +32,20 @@ for (const duplicate of [false, true]) {
         const details = page.getByRole('dialog', { name: 'Legendary War Crate item details', exact: true });
         await expect(details).toContainText('0.10%');
         await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
-        const notice = page.getByRole('alertdialog', { name: 'Notice', exact: true });
-        await expect(notice).toContainText(duplicate ? '+15 Fate Shards (duplicate relic)' : "+1 Duelist's Red Cord");
-        await expect(notice).toContainText('+1 Warforged Relic, +500 ryo');
+        // The crate opens a reward reveal: it auto-reveals, then lists one row per reward.
+        const reveal = page.getByRole('dialog', { name: 'Legendary War Crate reward reveal', exact: true });
+        const rewards = reveal.getByRole('status', { name: 'Items received' });
+        const row = (name: string) => rewards.locator('.cache-reveal-reward').filter({ hasText: name });
+        await expect(row('Ryo')).toContainText('+500');
+        await expect(row('Bone Charm')).toContainText('+1');
+        await expect(row('Warforged Relic')).toContainText('×1');
+        if (duplicate) {
+            await expect(row('Fate Shards')).toContainText('+15');
+            await expect(row("Duelist's Red Cord")).toHaveCount(0);
+        } else {
+            await expect(row("Duelist's Red Cord")).toContainText('×1');
+            await expect(row('Fate Shards')).toHaveCount(0);
+        }
         await expect(details).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Inspect Legendary War Crate', exact: true })).toHaveCount(0);
         await testInfo.attach('war-crate-reward', { body: await page.screenshot(), contentType: 'image/png' });

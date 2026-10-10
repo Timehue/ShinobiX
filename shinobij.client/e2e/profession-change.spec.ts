@@ -140,14 +140,16 @@ test('an opened war crate reports its loot even when a newer save was adopted fi
     const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
     const opened = { ...original, ryo: 500, honorSeals: 2, inventory: ['warforged-relic'] };
     // The game replaces window.alert with its own notice layer; record its messages.
+    // A successful open reports through the reward reveal, so alerts only mean errors.
     await page.evaluate(() => {
         const notices: string[] = [];
         Object.assign(window, { notices });
         window.alert = (message?: unknown) => { notices.push(String(message)); };
     });
     const alerts = () => page.evaluate(() => (window as unknown as { notices: string[] }).notices);
+    // The full reply shape the endpoint returns: the reveal formats every quantity.
     const reply = await holdReply(page, '**/api/inventory/open-war-crate',
-        () => ({ ok: true, character: opened, rewards: { honorSeals: 2, boneCharms: 0 }, _saveVersion: 2 }));
+        () => ({ ok: true, character: opened, rewards: { relic: true, ryo: 500, boneCharms: 0, honorSeals: 2, dungeonKey: false }, _saveVersion: 2 }));
     await page.getByRole('button', { name: /Legendary War Crate/ }).first().click();
     const details = page.getByRole('dialog', { name: 'Legendary War Crate item details' });
     await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
@@ -155,7 +157,12 @@ test('an opened war crate reports its loot even when a newer save was adopted fi
     expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...opened, unlockedAchievements: [] })).toBe(true);
     reply.release();
     await expect(details).toHaveCount(0);
-    await expect.poll(alerts).toEqual([expect.stringMatching(/^War crate opened\./)]);
+    // The loot is still reported, in the reveal, though a newer save was adopted first.
+    const rewards = page.getByRole('dialog', { name: 'Legendary War Crate reward reveal', exact: true })
+        .getByRole('status', { name: 'Items received' });
+    await expect(rewards.locator('.cache-reveal-reward').filter({ hasText: 'Honor Seals' })).toContainText('+2');
+    await expect(rewards.locator('.cache-reveal-reward').filter({ hasText: 'Ryo' })).toContainText('+500');
+    expect(await alerts()).toEqual([]);
     expect(reply.requests()).toBe(1);
 });
 
