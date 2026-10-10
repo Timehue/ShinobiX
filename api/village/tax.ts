@@ -12,15 +12,19 @@ import { assessVillageTax, villageTaxEnabled } from '../_war-tax-apply.js';
  * server-owned `character.lastTaxDate` stamp, so extra calls cost one read and
  * change nothing.
  *
- * Ryo is client-owned in the save ledger, so the debit HAS to come back in a
- * response the client adopts — the same contract /api/player/daily-login uses.
+ * Ryo is server-owned, but the balance the client shows is its own, so the debit
+ * comes back in a response the client adopts — the same contract
+ * /api/player/daily-login uses.
  * The response carries the post-debit balances plus what was taken and why, so
- * the UI can tell the player their village lost ground and it cost them.
+ * the UI can tell the player that holding territory beyond the village's eight
+ * home sectors is what set the rate (it is an occupation tax).
  *
  * Server-gated: the whole system rides the default-on Sector Map campaign, and
- * DISABLE_VILLAGE_TAX=1 is the tax-specific kill switch. When off this returns
- * `{ enabled: false }` rather than 404, so the client can distinguish "off" from
- * "broken".
+ * DISABLE_VILLAGE_TAX=1 is the tax-specific kill switch. When off this still
+ * answers 200 with `enabled: false` (never 404, so the client can tell "off" from
+ * "broken"), charges nothing, and STAMPS the day as untaxed — the same rule as an
+ * empty Kage seat. It used to return before stamping, so turning the tax back on
+ * billed up to three days of arrears for days it had been off.
  */
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -40,13 +44,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         if (!identity.admin && !(await enforceRateLimitKv(req, res, 'village-tax', 20, 60_000, identity.name))) return;
 
-        if (!villageTaxEnabled()) return res.status(200).json({ ok: true, enabled: false, applied: false });
-
+        // Switched off, the assessment charges nothing but still stamps the day.
+        const enabled = villageTaxEnabled();
         // The result carries the save version the debit produced, so the client can
         // reconcile a write it did not make — the same contract the other currency
         // endpoints use.
         const result = await assessVillageTax(playerName);
-        return res.status(200).json({ ok: true, enabled: true, ...result });
+        return res.status(200).json({ ok: true, enabled, ...result });
     } catch (error) {
         console.error('[village/tax]', safeLogValue(error));
         return res.status(500).json({ error: 'Internal server error.' });

@@ -4,7 +4,7 @@ import type { Character } from '../types/character';
 import { activeElderFocus, cacheVillageElders, isSeatedVillageElder } from './village-elder-focus';
 import { getTrainingXpBonus, getJutsuTrainingSpeedBonus, getShopDiscountPercent } from './village-upgrades';
 import { effectiveCharacterXpGain } from './progression';
-import { normalizeVillageState, hydrateSharedGameState, saveVillageState, loadVillageState } from './world-state';
+import { adoptVillageMemberState, normalizeVillageState, hydrateSharedGameState, saveVillageState, loadVillageState, villageMemberEditCount } from './world-state';
 
 test('legacy focus grants zero bonuses until its player seat is filled, and stops when cleared', () => {
     const village = 'Elder focus test village';
@@ -77,7 +77,9 @@ test('the server-owned treasury and upgrade levels never ride ordinary village w
     // Town Hall builds these writes from a POLLED village state. Replaying the
     // treasury would assert figures from before another villager's donation.
     const village = 'Treasury client test';
-    const state = normalizeVillageState(village, { upgrades: { training: 2 }, treasury: { ryo: 15, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, materialPoints: 15, items: [] } });
+    // The village's members-only record has been read (lib/village-member-state.ts).
+    adoptVillageMemberState(village, { upgrades: { training: 2 }, treasury: { ryo: 15, honorSeals: 0, fateShards: 0, boneCharms: 0, auraStones: 0, mythicSeals: 0, materialPoints: 15, items: [] } }, villageMemberEditCount());
+    const state = loadVillageState(village);
     const oldFetch = globalThis.fetch;
     const sent: Array<{ state: Record<string, unknown> }> = [];
     globalThis.fetch = (async (_url, init) => { sent.push(JSON.parse(String(init?.body))); return new Response('{}'); }) as typeof fetch;

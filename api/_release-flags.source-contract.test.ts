@@ -99,9 +99,20 @@ describe('canonical public release-flag source contract', () => {
         const worldState = source('api/world-state.ts');
         assert.equal(
             worldState.match(/\bvillageWarMapEnabled\(\)/g)?.length,
-            2,
-            'world-state should branch only at sector-war exclusion and WR-vs-seal declaration cost',
+            1,
+            'world-state should branch only at the WR-vs-seal declaration cost',
         );
         assert.doesNotMatch(worldState, /if\s*\(\s*!villageWarMapEnabled\(\)\s*\)\s*(?:return|\{)/);
+    });
+
+    it('keeps village wars and sector wars exclusive with the campaign switch on or off', () => {
+        // DISABLE_VILLAGE_WAR pauses sector wars; it does not end them. A village
+        // war declared over a paused one would overlap it once the switch lifts.
+        const worldState = source('api/world-state.ts');
+        const scan = worldState.indexOf('activeSectorWarsForVillage(v,');
+        assert.ok(scan > 0, 'a village war declaration scans both villages for live sector wars');
+        const guard = worldState.slice(worldState.lastIndexOf('Village wars and sector wars are mutually', scan), scan);
+        assert.ok(guard.length > 0, 'the exclusion comment still introduces the scan');
+        assert.doesNotMatch(guard, /villageWarMapEnabled\(\)/, 'the scan must not depend on the campaign switch');
     });
 });

@@ -85,7 +85,7 @@ async function warMap(request: APIRequestContext, headers: Record<string, string
     return await response.json() as Json;
 }
 
-async function openLiveSector(page: Page) {
+async function openLiveSector(page: Page, game: 'Pet Battle' | 'Card Battle' = 'Pet Battle') {
     await page.goto('/#/worldMap', { waitUntil: 'domcontentloaded' });
     const worldMapShell = page.locator('.app-shell[data-screen="worldMap"]');
     const enterWorldMap = page.getByRole('button', { name: 'Enter World Map', exact: true });
@@ -99,7 +99,17 @@ async function openLiveSector(page: Page) {
     if (await returnToSector.isVisible()) await returnToSector.click();
     else if (await travelToSector.isVisible()) await travelToSector.click();
     await expect(sectorMap).toBeVisible({ timeout: 60_000 });
-    await expect(page.getByRole('button', { name: 'Contested · Pet Battle', exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: `Contested · ${game}`, exact: true })).toBeVisible({ timeout: 60_000 });
+}
+
+/** Back on the sector board after a battle screen, from either world-map view. */
+async function backToSector(page: Page) {
+    await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible({ timeout: 60_000 });
+    const returnToSector = page.getByRole('button', { name: new RegExp(`Return to Sector ${SECTOR}`) });
+    const sectorMap = page.locator('.sector-image-map');
+    await expect(sectorMap.or(returnToSector)).toBeVisible({ timeout: 60_000 });
+    if (await returnToSector.isVisible()) await returnToSector.click();
+    await expect(sectorMap).toBeVisible({ timeout: 60_000 });
 }
 
 async function logoutAndRelogin(page: Page, name: string) {
@@ -214,4 +224,170 @@ test('a real sector pet war is discoverable, replayed, persistent, and isolated 
     await page.reload({ waitUntil: 'domcontentloaded' });
     await openLiveSector(page);
     await expect(page.getByRole('button', { name: 'Contested · Pet Battle', exact: true })).toBeVisible();
+});
+
+// Owner ruling 2026-10-08: in a Pet war, attacking an enemy who stands in the
+// contested sector is a pet battle against THAT player, opened for both of them
+// as a Combat attack opens its fight, and it scores for the winner's village.
+test('attacking an enemy in a Pet war\'s sector is a pet battle, opened on both players\' screens', async ({ browser, baseURL, context, page, request }, info) => {
+    test.skip(info.project.name.includes('mobile'), 'The two-client battle runs once on the desktop player shell.');
+    test.setTimeout(210_000);
+    page.setDefaultTimeout(20_000);
+
+    const attacker = await seedAccount(request, info, 'openatk', ATTACKER_VILLAGE, pet('open-attacker-pet', 'rare-26', 'Tempest Ocelot', 'Lightning', 82));
+    const defender = await seedAccount(request, info, 'opendef', DEFENDER_VILLAGE, pet('open-defender-pet', 'rare-1', 'Cinder Otter', 'Fire', 70));
+    const setup = await request.post('/api/_qa/sector-war', {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+        data: {
+            action: 'seed', sector: SECTOR, attackerVillage: ATTACKER_VILLAGE,
+            defenderVillage: DEFENDER_VILLAGE, attackerName: attacker.name,
+            defenderName: defender.name, winCondition: 'pet',
+        },
+    });
+    expect(setup.status(), await setup.text()).toBe(200);
+    const contest = (await setup.json() as Json).contest as Json;
+    attacker.canonical = await (await request.get(`/api/save/${attacker.name}`, { headers: attacker.headers })).json() as Json;
+    defender.canonical = await (await request.get(`/api/save/${defender.name}`, { headers: defender.headers })).json() as Json;
+
+    const defenderContext = await browser.newContext({
+        baseURL, viewport: { width: 1366, height: 768 }, reducedMotion: 'reduce', serviceWorkers: 'block',
+    });
+    try {
+        await installSession(context, attacker);
+        await installSession(defenderContext, defender);
+        const defenderPage = await defenderContext.newPage();
+        defenderPage.setDefaultTimeout(20_000);
+        await openLiveSector(page);
+        await openLiveSector(defenderPage);
+        // The defender is already on the Pet screen, at the war's table: the
+        // battle they are drawn into must replace it, not wait behind it.
+        await defenderPage.getByRole('button', { name: 'Contested · Pet Battle', exact: true }).click();
+        await expect(defenderPage.getByRole('heading', { name: 'Pet Duel — Sector War' })).toBeVisible();
+
+        // The enemy standing in the sector is offered the war's own game.
+        const battle = page.getByRole('button', { name: `Pet Battle ${defender.name}`, exact: true });
+        await expect(battle).toBeEnabled({ timeout: 60_000 });
+        await battle.click();
+
+        const verdict = /Your pet won the sector duel|Your pet was defeated/;
+        await expect(page.locator('.app-shell[data-screen="sectorPet"]')).toBeVisible();
+        await expect(page.getByText(verdict)).toBeVisible({ timeout: 30_000 });
+        // The target's client hears of it and opens the same battle on its own.
+        await expect(defenderPage.locator('.app-shell[data-screen="sectorPet"]')).toBeVisible({ timeout: 30_000 });
+        await expect(defenderPage.getByText(verdict)).toBeVisible({ timeout: 30_000 });
+        const attackerWon = await page.getByText('Your pet won the sector duel!').isVisible();
+        expect(await defenderPage.getByText('Your pet won the sector duel!').isVisible(), 'one battle, one winner').toBe(!attackerWon);
+        await page.screenshot({ path: info.outputPath('open-pet-battle-attacker.png'), animations: 'disabled' });
+        await defenderPage.screenshot({ path: info.outputPath('open-pet-battle-target.png'), animations: 'disabled' });
+
+        const scored = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
+        expect(attackerWon ? scored.attackerPoints : scored.defenderPoints, 'it scored for the winner\'s village').toBeGreaterThan(0);
+        expect(attackerWon ? scored.defenderPoints : scored.attackerPoints).toBe(0);
+
+        const result = page.getByRole('dialog', { name: /Victory|Defeat/ });
+        await expect(result).toBeVisible({ timeout: 60_000 });
+        await result.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+        await backToSector(page);
+
+        // The loser cannot be set on again at once, and whoever tries is told why
+        // on that player's row rather than by a pop-up. The winner waits for
+        // nothing (owner ruling 2026-10-09), so the try comes from the winner.
+        const [winnerPage, loserName] = attackerWon ? [page, defender.name] : [defenderPage, attacker.name];
+        if (!attackerWon) {
+            const targetResult = defenderPage.getByRole('dialog', { name: /Victory|Defeat/ });
+            await expect(targetResult).toBeVisible({ timeout: 60_000 });
+            await targetResult.getByRole('button', { name: 'Leave the Showdown', exact: true }).click();
+            await backToSector(defenderPage);
+        }
+        const again = winnerPage.getByRole('button', { name: `Pet Battle ${loserName}`, exact: true });
+        await expect(again).toBeEnabled({ timeout: 60_000 });
+        await again.click();
+        await expect(winnerPage.getByText(/just lost a battle and is recovering/)).toBeVisible();
+        await expect(winnerPage.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+        const unchanged = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
+        expect(unchanged).toMatchObject({ attackerPoints: scored.attackerPoints, defenderPoints: scored.defenderPoints });
+    } finally {
+        await defenderContext.close();
+    }
+});
+
+// The same ruling for a Card war: the attack is a card duel with that player.
+// Both seats are named; the target's client takes its seat on its own, and a
+// duelist who walks away mid-match forfeits it to the other village.
+test('attacking an enemy in a Card war\'s sector is a card duel the target is seated in', async ({ browser, baseURL, context, page, request }, info) => {
+    test.skip(info.project.name.includes('mobile'), 'The two-client duel runs once on the desktop player shell.');
+    test.setTimeout(210_000);
+    page.setDefaultTimeout(20_000);
+
+    const attacker = await seedAccount(request, info, 'cardatk', ATTACKER_VILLAGE, pet('card-attacker-pet', 'rare-26', 'Tempest Ocelot', 'Lightning', 82));
+    const defender = await seedAccount(request, info, 'carddef', DEFENDER_VILLAGE, pet('card-defender-pet', 'rare-1', 'Cinder Otter', 'Fire', 70));
+    const setup = await request.post('/api/_qa/sector-war', {
+        headers: { 'x-admin-password': 'live-express-e2e-admin' },
+        data: {
+            action: 'seed', sector: SECTOR, attackerVillage: ATTACKER_VILLAGE,
+            defenderVillage: DEFENDER_VILLAGE, attackerName: attacker.name,
+            defenderName: defender.name, winCondition: 'card',
+        },
+    });
+    expect(setup.status(), await setup.text()).toBe(200);
+    const contest = (await setup.json() as Json).contest as Json;
+    attacker.canonical = await (await request.get(`/api/save/${attacker.name}`, { headers: attacker.headers })).json() as Json;
+    defender.canonical = await (await request.get(`/api/save/${defender.name}`, { headers: defender.headers })).json() as Json;
+
+    const defenderContext = await browser.newContext({
+        baseURL, viewport: { width: 1366, height: 768 }, reducedMotion: 'reduce', serviceWorkers: 'block',
+    });
+    try {
+        await installSession(context, attacker);
+        await installSession(defenderContext, defender);
+        const defenderPage = await defenderContext.newPage();
+        defenderPage.setDefaultTimeout(20_000);
+        await openLiveSector(page, 'Card Battle');
+        await openLiveSector(defenderPage, 'Card Battle');
+        // The defender is already on the Card screen, waiting at the war's table:
+        // the duel they are challenged to must replace it, not wait behind it.
+        await defenderPage.getByRole('button', { name: 'Contested · Card Battle', exact: true }).click();
+        await expect(defenderPage.getByText('No attacker has opened this sector\'s table yet.', { exact: false })).toBeVisible({ timeout: 30_000 });
+
+        // The target's own client takes its seat; nobody presses anything there.
+        const seated = defenderPage.waitForResponse((response) => response.url().includes('/api/village/sector-card')
+            && response.request().postDataJSON()?.action === 'join' && !!response.request().postDataJSON()?.engageId
+            && response.status() === 200, { timeout: 60_000 });
+        const duel = page.getByRole('button', { name: `Card Battle ${defender.name}`, exact: true });
+        await expect(duel).toBeEnabled({ timeout: 60_000 });
+        await duel.click();
+        await expect(page.locator('.app-shell[data-screen="sectorCard"]')).toBeVisible();
+        await expect(defenderPage.locator('.app-shell[data-screen="sectorCard"]')).toBeVisible({ timeout: 30_000 });
+        const join = await (await seated).json() as Json;
+        expect(join.session?.viewerSide, 'the target holds the defending seat').toBe('p2');
+        expect(String(join.session?.p1?.name).toLowerCase(), 'the challenger holds the attacking seat').toBe(attacker.name.toLowerCase());
+
+        // Both duelists are at the same live match, each facing the other. A live
+        // board fills the screen (the table's header hides), so the board's own
+        // exit is the way out.
+        for (const [duelist, opponent] of [[page, defender.name], [defenderPage, attacker.name]] as const) {
+            await expect(duelist.locator('main.chronicle-shell--duel-active')).toBeVisible({ timeout: 30_000 });
+            await expect(duelist.getByText(new RegExp(`^${opponent}$`, 'i')).first()).toBeVisible();
+        }
+        await page.screenshot({ path: info.outputPath('open-card-duel-attacker.png'), animations: 'disabled' });
+        await defenderPage.screenshot({ path: info.outputPath('open-card-duel-target.png'), animations: 'disabled' });
+
+        // The challenger walks away mid-match: that forfeits it to the other village.
+        await page.getByRole('button', { name: 'Back to World Map', exact: true }).click();
+        const leave = page.getByRole('alertdialog').filter({ hasText: 'Leaving a live match forfeits it.' });
+        await expect(leave).toBeVisible();
+        const forfeited = page.waitForResponse((response) => response.url().includes('/api/village/sector-card')
+            && response.request().postDataJSON()?.action === 'forfeit');
+        await leave.getByRole('button', { name: 'Confirm', exact: true }).click();
+        const forfeit = await (await forfeited).json() as Json;
+        expect(forfeit.warResult?.scored, 'the forfeit scored for the war').toBe(true);
+        await expect(page.locator('.app-shell[data-screen="worldMap"]')).toBeVisible();
+        await expect(defenderPage.getByText('The server scored this win for your side of the war.')).toBeVisible({ timeout: 30_000 });
+
+        const scored = (await warMap(request, attacker.headers)).contests.find((entry: Json) => entry.id === contest.id) as Json;
+        expect(scored.defenderPoints, 'the defending village won the duel').toBeGreaterThan(0);
+        expect(scored.attackerPoints).toBe(0);
+    } finally {
+        await defenderContext.close();
+    }
 });

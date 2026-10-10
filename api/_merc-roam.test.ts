@@ -56,6 +56,21 @@ test('synthRoamingMercs emits one NPC per remaining merc, with stable per-band i
     assert.equal(mercs[3].context, 'village');
 });
 
+test('synthRoamingMercs keeps ids unique when a village fields two bands of one tier', () => {
+    const bands: HostileBand[] = [
+        { village: 'D Village', tierId: 'merc-ronin', level: 75, count: 2, context: 'sector' },
+        { village: 'D Village', tierId: 'merc-ronin', level: 75, count: 2, context: 'sector' },
+        { village: 'D Village', tierId: 'merc-oni', level: 95, count: 1, context: 'sector' },
+    ];
+    const ids = synthRoamingMercs(bands).map((m) => m.id);
+    assert.deepEqual(ids, [
+        'merc-dvillage-merc-ronin-0', 'merc-dvillage-merc-ronin-1', 'merc-dvillage-merc-ronin-2', 'merc-dvillage-merc-ronin-3',
+        'merc-dvillage-merc-oni-0',
+    ]);
+    // Each still parses back to its band (village + tier) for the engage route.
+    assert.deepEqual(parseMercNpcId(ids[3]), { villageSlug: 'dvillage', tierId: 'merc-ronin' });
+});
+
 test('synthRoamingMercs caps how many render in one sector', () => {
     const bands: HostileBand[] = [{ village: 'A Village', tierId: 'warlord', level: 100, count: 50, context: 'sector' }];
     assert.equal(synthRoamingMercs(bands).length, ROAMING_MERC_RENDER_CAP);

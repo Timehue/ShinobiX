@@ -7,8 +7,9 @@
  * settlement receipt on the ATTACKER'S OWN save (item usage + surviving
  * HP/hospital — this is a real multi-turn fight now, not a free instant
  * dice-roll, so it costs the same as any other sealed AI fight). The CONTEST
- * scoring itself is NOT settled here — that stays api/village/sector-war.ts's
- * job, under the contest's own lock, reusing the exact same
+ * scoring itself is NOT settled here — that is api/_sector-war-garrison-settle.ts,
+ * the one settle every caller (garrison-resolve, garrison-start, the Solo-PvE
+ * terminal hook) shares, under the contest's own lock, reusing the exact same
  * applySectorWarBattle/GARRISON_POINTS_CAP machinery a live-defender fight
  * uses (api/_sector-war.ts).
  *
@@ -20,12 +21,13 @@
  * for a different contest.
  */
 import { kv as realKv, type KvLike } from './_storage.js';
-import { appendSettlementReceipt, inspectSettlementReceipt } from './_settlement-receipts.js';
+import { appendSettlementReceipt, inspectSettlementReceipt, type ServerSettlementReceipt } from './_settlement-receipts.js';
 import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { applySoloPveUsageCosts } from './solo-pve/_settlement.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
 import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
+import { pveOutcomeReceiptIdentity } from './pve/_fight-outcome-settlement.js';
 
 export {
     loadAnbuAppointees,
@@ -52,7 +54,23 @@ export const garrisonRunKey = (runId: string) => `sector-war-garrison:${runId}`;
 export const garrisonActiveRunKey = (attackerName: string, sector: number) =>
     `sector-war-garrison-active:${attackerName}:${Math.floor(Number(sector) || 0)}`;
 
-export const GARRISON_RUN_TTL = 60 * 60;              // outlives the 45-minute combat TTL
+/**
+ * How long an UNSETTLED run, and the attacker's active-run pointer to it, are
+ * kept. Both must outlive the Solo-PvE fight they bind, or the fight ends with
+ * nothing left to settle it against.
+ *
+ * This was one hour, on the belief that it "outlives the 45-minute combat TTL".
+ * It did not: that TTL is an IDLE limit which every action slides forward
+ * (api/solo-pve/_action-service.ts), so an assault played at a normal pace ran
+ * past the hour and its garrison-resolve answered 404 — the points were lost,
+ * a LOSS escaped its hospital and item costs, and the next garrison-start
+ * orphaned the fight. What actually bounds a fight is the engine's 25-round
+ * limit with each action at most one idle window apart (a few days at the very
+ * worst), plus the day a lapsed row is retained, plus the week a FINISHED row
+ * is kept for its settlement. Two weeks covers all of it; a resume re-arms it
+ * besides, and a settled run drops to GARRISON_TERMINAL_RUN_TTL.
+ */
+export const GARRISON_RUN_TTL = 14 * 24 * 60 * 60;
 export const GARRISON_TERMINAL_RUN_TTL = 7 * 24 * 60 * 60;
 
 /** The authoritative live run binding plus sealed assault context (which
@@ -124,6 +142,15 @@ export type SettleGarrisonFightOutcome =
  * same write rather than discarded by its version bump. The receipt rides in
  * that write too, so re-running after a lost compare-and-set applies the cost
  * exactly once.
+ *
+ * The BODY (surviving HP / hospital) has a second settler: the generic
+ * /api/pve/fight-outcome and the lapse reconciler (api/_battle-lapse.ts) write
+ * it for any Solo-PvE session, under their own `pve-outcome` receipt. Both
+ * write the same value — but a late second write SETS HP back to the fight's
+ * end value, which heals a player who has since taken damage elsewhere. So the
+ * two share one exactly-once fence: a body that path already wrote is not
+ * written again here (only the item costs, which only this path owns), and
+ * this path stamps that path's receipt too, so its later call is a replay.
  */
 export async function settleGarrisonFight(
     run: GarrisonRun,
@@ -133,6 +160,8 @@ export async function settleGarrisonFight(
     const { now } = resolve(deps);
     const receiptId = `sector-war-garrison-${run.runId}`.slice(0, 80);
     const fingerprint = `${run.attackerName}:${run.sector}:${run.contestId}:${run.anbuSlug}`;
+    const outcome = resolveAiFightOutcome(session);
+    const body = pveOutcomeReceiptIdentity(session, run.attackerName, outcome);
     const result = await retryOnSaveVersionConflict(() => mutatePlayerSave<{ alreadySettled: boolean }>(run.attackerName, ({ character }) => {
         const inspected = inspectSettlementReceipt(character, receiptId, fingerprint);
         if (inspected.status === 'conflict' || inspected.status === 'invalid') {
@@ -142,15 +171,25 @@ export async function settleGarrisonFight(
             return { ok: true, write: false, character, value: { alreadySettled: true } };
         }
         const settledAt = now();
-        const settledCharacter = applyAiFightOutcomeToCharacter(
-            applySoloPveUsageCosts(character, session),
-            resolveAiFightOutcome(session),
-            session.player,
+        // Anything but `fresh` means the generic path has already written a
+        // body for this run (a conflicting copy included): never write a second.
+        const bodySettled = inspectSettlementReceipt(character, body.requestId, body.fingerprint).status !== 'fresh';
+        const withUsage = applySoloPveUsageCosts(character, session);
+        const settledCharacter = bodySettled
+            ? withUsage
+            : applyAiFightOutcomeToCharacter(withUsage, outcome, session.player, settledAt);
+        const bodyReceipt: ServerSettlementReceipt = {
+            requestId: body.requestId,
+            fingerprint: body.fingerprint,
+            value: { kind: 'pve-outcome', runId: session.sessionId, outcome, applied: true, replayed: false },
             settledAt,
-        );
+        };
+        const receipts = bodySettled
+            ? inspected.receipts
+            : [bodyReceipt, ...inspected.receipts.filter((entry) => entry.requestId !== body.requestId)];
         return {
             ok: true,
-            character: appendSettlementReceipt(settledCharacter, inspected.receipts, {
+            character: appendSettlementReceipt(settledCharacter, receipts, {
                 requestId: receiptId,
                 fingerprint,
                 value: { kind: 'sector-war-garrison', outcome: session.outcome ?? 'unknown' },

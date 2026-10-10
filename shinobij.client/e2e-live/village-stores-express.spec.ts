@@ -408,19 +408,23 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
             data: { playerName: name, village: VILLAGE, currency: 'honorSeals', amount: DEPOT_L6_SEAL_COST + 16 },
         });
         expect(seals.status(), 'the treasury must be funded for the upgrades').toBe(200);
-        // The shared /api/game-state frame as it stands now: funded, but before
+        // The village's members-only record as it stands now: funded, but before
         // the bulk donation and the drain. A page can still be handed exactly
-        // this after the drain — by a poll already in flight when the drain
-        // lands, or by a CDN copy — and on main CI run 34562696377, before the
-        // treasury endpoints dropped the server's frame cache, it was. Captured
-        // once it shows the seals.
+        // this after the drain, by a read already in flight when the drain
+        // lands. On main CI run 34562696377 it was, back when the treasury rode
+        // the public /api/game-state frame and its caches. Captured once it
+        // shows the seals.
         let staleTreasury: Record<string, unknown> = {};
         await expect.poll(async () => {
-            const frame = await (await request.get('/api/game-state')).json() as { villageStates?: Record<string, { treasury?: Record<string, unknown> }> };
-            staleTreasury = frame.villageStates?.[VILLAGE_STATE_KEY]?.treasury ?? {};
+            const record = await (await request.get(`/api/village/state?village=${encodeURIComponent(VILLAGE)}`, { headers: playerHeaders(name, token) })).json() as { state?: { treasury?: Record<string, unknown> } };
+            staleTreasury = record.state?.treasury ?? {};
             return Number(staleTreasury.honorSeals) || 0;
-        }, { message: 'the funded treasury must reach /api/game-state' }).toBeGreaterThan(0);
-        expect(Number(staleTreasury.materialPoints), 'the captured frame must predate the bulk donation').toBe(expectedMaterials);
+        }, { message: 'the funded treasury must reach the village\'s members' }).toBeGreaterThan(0);
+        expect(Number(staleTreasury.materialPoints), 'the captured record must predate the bulk donation').toBe(expectedMaterials);
+        // ...and never the public frame: it needs no login and the CDN caches it.
+        const publicFrame = await (await request.get('/api/game-state')).json() as { villageStates?: Record<string, Record<string, unknown>> };
+        expect(publicFrame.villageStates?.[VILLAGE_STATE_KEY], 'the village is on the public frame').toBeTruthy();
+        expect(publicFrame.villageStates?.[VILLAGE_STATE_KEY]?.treasury, 'a village treasury is for its members only').toBeUndefined();
         const bulk = await request.post('/api/village/treasury/donate', {
             headers: { 'x-admin-password': ADMIN_PASSWORD },
             data: { playerName: name, village: VILLAGE, itemId: 'hunt-ash-scale', count: BULK_ASH_SCALES },
@@ -446,22 +450,18 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         expect(drained.storesLedger.length, 'the drain must write exactly one ledger row').toBe(1);
         expect(drained.storesLedger[0]).toMatchObject({ kind: 'structure', amount: SUPPLY_DEPOT_L6_MATERIALS, by: name, ref: 'supplyDepot:6' });
 
-        // Main CI run 34562696377 reloaded into that stale frame: the Materials
-        // row held the pre-drain figure for the whole expect while the Supply
-        // log below it, read from the war-map, showed the drain. Serve the page
-        // that frame on every poll, so the row can only be right if it shows
-        // the war-map read over the poll.
+        // Main CI run 34562696377 reloaded into that stale treasury: the
+        // Materials row held the pre-drain figure for the whole expect while
+        // the Supply log below it, read from the war-map, showed the drain.
+        // Serve the page that record on every poll, so the row can only be
+        // right if it shows the war-map read over the poll.
         const staleSeals = Number(staleTreasury.honorSeals);
-        const gameStateFrame = (url: URL) => url.pathname === '/api/game-state' && !url.searchParams.has('images');
-        await page.route(gameStateFrame, async (route) => {
-            // Never a 304: the browser would fall back to a frame this route never saw.
-            const headers = { ...route.request().headers() };
-            delete headers['if-none-match'];
-            const response = await route.fetch({ headers, maxRetries: API_CONNECTION_RETRIES });
+        const memberRecord = (url: URL) => url.pathname === '/api/village/state';
+        await page.route(memberRecord, async (route) => {
+            const response = await route.fetch({ maxRetries: API_CONNECTION_RETRIES });
             if (!response.ok()) return route.fulfill({ response });
-            const body = await response.json() as { villageStates?: Record<string, Record<string, unknown>> };
-            const entry = body.villageStates?.[VILLAGE_STATE_KEY];
-            if (entry) entry.treasury = staleTreasury;
+            const body = await response.json() as { state?: Record<string, unknown> | null };
+            if (body.state) body.state.treasury = staleTreasury;
             await route.fulfill({ response, json: body });
         });
 
@@ -473,15 +473,15 @@ test('a village cook turns hunt spoils into Provisions and Materials the server 
         await expect(drainRow).toContainText('Structure build −400 materials');
         await expect(drainRow).toContainText('Supply Depot L6');
         // The seal line renders the polled treasury as-is, so it showing the
-        // stale count proves the Town Hall has adopted the stale frame: that
+        // stale count proves the Town Hall has adopted the stale record: that
         // count is above the empty default, and the upgrades have since spent
-        // seals. The Town Hall re-reads its village cache on a 10s poll, hence
+        // seals. The Town Hall reads its village record on a 10s poll, hence
         // the budget.
         await expect(reopened.getByText(/^Honor Seals:\s*[\d,]+$/))
             .toHaveText(`Honor Seals: ${staleSeals.toLocaleString('en-US')}`, { timeout: 25_000 });
         await expect(reopened.getByText(/^Materials:\s*[\d,]+ materials$/))
             .toHaveText(`Materials: ${drained.materialPoints.toLocaleString('en-US')} materials`);
-        await page.unroute(gameStateFrame);
+        await page.unroute(memberRecord);
 
         expect(dialogs, 'no step in the loop may refuse').toEqual([]);
         expect(serverFailures, 'no endpoint in the loop may 5xx').toEqual([]);

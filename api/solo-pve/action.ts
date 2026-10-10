@@ -6,6 +6,7 @@ import { executeSoloPveAction } from './_action-service.js';
 import type { SoloPveAction } from './_session.js';
 import { reconcileTerminalSoloPveOutcome } from '../pve/_fight-outcome-settlement.js';
 import { parseHuntCombatAction } from '../../shared/hunt-combat.js';
+import { settleTerminalGarrisonFight } from './_garrison-terminal-hook.js';
 
 function parseAction(body: Record<string, unknown>): SoloPveAction | null {
     const type = String(body.type ?? '');
@@ -52,6 +53,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (terminal) {
             const outcome = await reconcileTerminalSoloPveOutcome(terminal, playerName);
             if (outcome && !outcome.ok) return res.status(outcome.status).json({ error: outcome.error });
+            // A Sector War garrison assault settles the moment it ends — never
+            // only when (or if) the attacker's client gets round to reporting it.
+            await settleTerminalGarrisonFight(terminal);
         }
         return res.status(result.status).json(result.body);
     } catch (error) {

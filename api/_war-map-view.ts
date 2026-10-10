@@ -3,8 +3,8 @@
  * (Phase 6, pure). Given a village's war record + its treasury seal balance + how
  * many sectors it currently holds, produce the display shape the UI needs: WR/seal
  * pools, structure levels + daily upkeep + dormancy, the Supply-Depot WR rate, the
- * effective tax tier, and each home sector's win-condition / terrain / Control-HP
- * cap. IO-free — the endpoint (api/village/war-map.ts) does the reads and the
+ * effective tax tier, and the win-condition / terrain of each sector it holds.
+ * IO-free — the endpoint (api/village/war-map.ts) does the reads and the
  * territory/contest scans, then calls this per village.
  */
 
@@ -14,6 +14,7 @@ import {
 } from './_war-economy.js';
 import {
     STRUCTURE_KEYS,
+    sectorConfigFor,
     totalUpkeepWr,
     type StructureKey,
     type VillageWarRecord,
@@ -39,7 +40,6 @@ export interface SectorConfigView {
     alias: string | undefined;
     winCondition: WinCondition;
     terrain: Terrain;
-    /** Watchtower-boosted Control-HP cap (the "secure" value when uncontested). */
 }
 
 export interface VillageWarMapView {
@@ -59,6 +59,9 @@ export interface VillageWarMapView {
     taxRatePct: number;
     /** Whether a player currently holds the Kage seat. No Kage → no tax. */
     kageSeated: boolean;
+    /** The sectors this village HOLDS (home ones still in its hands, then those
+     *  it captured), with the settings it chose for them: the current holder
+     *  sets a sector's rules (owner ruling 2026-10-08). */
     sectors: SectorConfigView[];
     // ── Village Stores (api/_village-stores.ts) ──
     /** Rations in the treasury (treasury.provisions). */
@@ -88,6 +91,9 @@ export function villageWarMapView(args: {
     /** Village Stores balances off the treasury (default 0). */
     provisions?: number;
     materialPoints?: number;
+    /** The sectors the village holds (api/_war-held-sectors.ts
+     *  loadHeldSectorLists). Omitted = its home sectors, the old view. */
+    heldSectors?: readonly number[];
 }): VillageWarMapView {
     const { village, record } = args;
     const treasurySeals = Math.max(0, Math.floor(Number(args.treasurySeals) || 0));
@@ -95,13 +101,13 @@ export function villageWarMapView(args: {
     const biome = isWarVillage(village) ? VILLAGE_BIOME[village as WarVillage] : 'central';
     const home = homeSectorsForVillage(village);
 
-    const sectors: SectorConfigView[] = home.map((s) => {
-        const cfg = record.sectors[String(s)];
+    const sectors: SectorConfigView[] = (args.heldSectors ?? home).map((s) => {
+        const cfg = sectorConfigFor(record, s);
         return {
             sector: s,
             alias: sectorAlias(s),
-            winCondition: cfg?.winCondition ?? 'combat',
-            terrain: cfg?.terrain ?? (biome as Terrain),
+            winCondition: cfg.winCondition,
+            terrain: cfg.terrain,
         };
     });
 
@@ -131,6 +137,32 @@ export function villageWarMapView(args: {
         materialPoints: Math.max(0, Math.floor(Number(args.materialPoints) || 0)),
         depotConversionCap: depotConversionCap(effectiveLevel(record, 'supplyDepot')),
         storesLedger: parseStoresLedger(record.storesLedger).slice(-STORES_LEDGER_VIEW_ROWS),
+    };
+}
+
+/**
+ * What every player may see about ANOTHER village on the War Map: who it is,
+ * where it stands, whether it has a Kage, and the rules of the sectors it holds
+ * (an attacker must know what kind of battle a sector is). Its war chest,
+ * treasury seals, structures, upkeep, dormancy, tax, stores and ledger are its
+ * members' business (owner ruling 2026-10-08); other villages learn them only
+ * through intel (api/village/intel.ts).
+ */
+export type VillageWarMapPublicView = Pick<VillageWarMapView, 'village' | 'biome' | 'homeSectors' | 'sectorsHeld' | 'kageSeated' | 'sectors'> & {
+    /** Set on every view of a village that is not the viewer's own. */
+    restricted: true;
+};
+
+/** The view a non-member gets of a village. Pure. */
+export function publicVillageWarMapView(view: VillageWarMapView): VillageWarMapPublicView {
+    return {
+        village: view.village,
+        biome: view.biome,
+        homeSectors: [...view.homeSectors],
+        sectorsHeld: view.sectorsHeld,
+        kageSeated: view.kageSeated,
+        sectors: view.sectors.map((sector) => ({ ...sector })),
+        restricted: true,
     };
 }
 

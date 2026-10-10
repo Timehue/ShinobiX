@@ -2,7 +2,7 @@ import { gainXp } from "../lib/character-level-projection";
 import { resourceActionsToday } from '../../../shared/resource-gathering';
 import { interiorTileFromKey } from '../lib/world-interior-tile';
 import { getPvpJutsuLoadout } from "../lib/jutsu-loadout";
-import { sectorOrderFor } from "../lib/sector-order";
+import { useSectorOrder } from "../lib/use-sector-order";
 import { normalizeNarrativeCharacter as normalizeCharacter } from "../lib/normalize-narrative-character";
 import { StrongholdDialog } from '../features/anbuInfiltration/StrongholdDialog';
 import { isDeathsGateStronghold, strongholdTitle } from '../../../shared/sector-stronghold';
@@ -209,17 +209,17 @@ import {
 } from "../App";
 
 import { villageOuterTerritoryMapUrl } from "../lib/village-outer-territory-map";
-import { activeVillageWarsFor, loadVillageState, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
+import { activeVillageWarsFor, loadSectorTerritory, territoryBreachMinsLeft, territoryIsBreached, territoryRewardsSuspended, villageWarHpMax, weatherForSector, VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX } from "../lib/world-state";
 import { SECTOR_DEPLETED_MESSAGE, sectorExploreRefusal, sectorPoolViewFor } from "../lib/sector-pool";
 import { richerSectorsNear, sectorRichnessLabel, sectorRichnessOf, type SectorRichness } from "../lib/sector-richness";
 import { bumpSectorContractRevision, claimSectorContract, localSectorContract, useSectorContract } from "../lib/sector-contract";
 import { useSectorIntelPlate } from "../lib/village-intel";
-import { confirmSectorBattleRegistration, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
+import { confirmSectorBattleRegistration, engageOpenSectorBattle, isVillageWarMapEnabled, villageAccent } from "../lib/village-war-map";
 import { useAcademyWorldMapFocus, useWorldMapZoom } from "../lib/use-world-map-zoom";
 import { SectorOwnershipOverlay } from "../components/SectorOwnershipOverlay";
 import { isMercAiId } from "../lib/merc-ai";
-import { fetchSectorRoster, engageMerc, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
-import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, type SectorWarContestView } from "../lib/sector-war-engagement";
+import { fetchSectorRoster, engageMerc, mercEngageMessage, synthMercWanderer, type RoamingMercView } from "../lib/merc-roam-client";
+import { sectorEngagementFor, sectorContestEntryFor, sectorContestGarrisonReady, viewerSectorContest, beginSectorContest, beginOpenSectorBattle, type SectorWarContestView } from "../lib/sector-war-engagement";
 import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pvp-bounty";
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
@@ -417,6 +417,7 @@ function WorldMapContent({
     const [storyReckoningAbandonBusy, setStoryReckoningAbandonBusy] = useState(false);
     const fieldObjective = storyFieldObjective(character);
     const sectorIntelPlate = useSectorIntelPlate(selectedSector, character.village); // pure projection; the refresh is its effect, never a render
+    const sectorOrder = useSectorOrder(character.village, selectedSector); // orders are members-only: read from the village's own record
     // Only the ~6 posted sectors ever reach the network (the board itself is a
     // pure local computation over the same shared module the server uses).
     const sectorContract = useSectorContract(selectedSector, character.name);
@@ -861,6 +862,7 @@ function WorldMapContent({
     // here keys off live wars + leases); the fight is server-resolved. villageWarMap.v1 only.
     const MERC_CLIENT_HIDE_MS = 15 * 60 * 1000;
     const [mercRoster, setMercRoster] = useState<{ sector: number; mercs: RoamingMercView[]; contest: SectorWarContestView | null }>({ sector: -1, mercs: [], contest: null });
+    const presentHere = selectedSector != null && sameSector(currentSector, selectedSector); // arrival re-polls: the roster answers only a player who is there
     useEffect(() => {
         const village = (character.village ?? "").trim();
         const sec = selectedSector;
@@ -870,7 +872,7 @@ function WorldMapContent({
         load();
         const stop = visiblePoll(load, 20000);
         return () => { alive = false; stop(); };
-    }, [selectedSector, character.name, character.village, villageWarViewOpen]);
+    }, [selectedSector, character.name, character.village, villageWarViewOpen, presentHere]);
     // Only trust the contest when it was polled FOR the sector on screen (the
     // roster lags a sector change by one poll), and narrow it to a war this
     // player is actually IN — a bystander village keeps plain world PvP.
@@ -2094,11 +2096,7 @@ function WorldMapContent({
         coolWanderer(w.id, MERC_CLIENT_HIDE_MS);
         setWandererDialog({ w, busy: true, msg: "⚔ A mercenary closes in…" });
         try {
-            const r = await engageMerc(character.name, village, sec, w.id);
-            const msg = r.error ? r.error
-                : r.winner === "player" ? "You cut the mercenary down."
-                : r.winner === "merc" ? (r.context === "village" ? "The mercenary overwhelmed you. Your village pays for it." : "The mercenary overwhelmed you. Your hold on the sector slips.")
-                : "You traded blows; the mercenary broke off.";
+            const msg = mercEngageMessage(await engageMerc(character.name, village, sec, w.id));
             setWandererDialog({ w, msg });
             if (village) void fetchSectorRoster(character.name, village, sec).then(r => setMercRoster({ sector: sec, mercs: r.mercs, contest: r.contest })).catch(() => { /* best-effort refresh */ });
         } catch {
@@ -3834,14 +3832,14 @@ function WorldMapContent({
     function handleSelectedSectorPlayerAttack(player: PlayerRecord) {
         const environment = selectedSectorCombatEnvironment();
         if (!environment) return;
-        // §17.2: the sector's win-condition decides WHICH game an attack opens.
-        // Card/Pet route to that sector's contest table; everything else falls
-        // through to the shinobi fight this button has always launched.
-        const contestScreen = beginSectorContest(sectorEngagementFor({
+        // §17.2: the sector's win-condition decides WHICH game an attack opens. In a
+        // Card/Pet war it is that game against this player (owner ruling 2026-10-08);
+        // everything else falls through to the shinobi fight it has always launched.
+        const engagement = sectorEngagementFor({
             contest: sectorWarContest, sector: environment.sector,
             myVillage: character.village, targetVillage: player.village, now: Date.now(),
-        }), "worldMap");
-        if (contestScreen) return void setScreen(contestScreen);
+        });
+        if (engagement.kind === "contest") return engageOpenSectorBattle(engagement.winCondition, character.name, engagement.contestId, player.name).then((battle) => setScreen(beginOpenSectorBattle(battle, "worldMap"))); // a refusal shows on the player's row
         focusSectorCombat(environment.sector, environment.biome, environment.weather);
         // sectorAttackPlayer owns routing and only navigates after its sealed PvP
         // session request succeeds.
@@ -4338,7 +4336,7 @@ function WorldMapContent({
                     warGroundHp: villageWar.warGroundHp,
                     warGroundHpMax: VILLAGE_WAR_GROUND_HP_MAX,
                     enemyVillageHp: villageWarEnemy ? villageWar.hp[villageWarEnemy] : 0,
-                    enemyVillageHpMax: VILLAGE_WAR_HP_MAX,
+                    enemyVillageHpMax: villageWarEnemy ? villageWarHpMax(villageWar, villageWarEnemy) : VILLAGE_WAR_HP_MAX,
                     ended: Boolean(villageWar.endedAt),
                 },
             } : {}),
@@ -4486,7 +4484,7 @@ function WorldMapContent({
                         weather={sectorWeather}
                         territory={commandTerritory}
                         gathering={isWildSector(selectedSector) ? sectorPoolViewFor(selectedSector, territory.ownerVillage, character.village) : null} intel={sectorIntelPlate}
-                        order={sectorOrderFor(loadVillageState(character.village).noticePosts, selectedSector)}
+                        order={sectorOrder}
                         villageWarAdmissionOpen={villageWarAdmissionOpen}
                         traces={sectorTraces}
                         sectorContest={sectorWarContest} onOpenSectorContest={() => handleOpenSectorContest(false)}
