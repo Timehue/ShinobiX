@@ -1,10 +1,11 @@
 /* eslint-disable react-hooks/set-state-in-effect -- clear stale server-backed map state when access closes. */
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import { fetchWorldBossEvent, type WorldBossEventClientState } from "../lib/world-boss-event-api";
 import type { BattleHistoryEntry, Character, VersionedCharacterCommit } from "../types/character";
-import type { TowerHostLoadout } from "../lib/towers-api";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { visiblePoll } from "../lib/poll";
 import { worldBossDefinition } from "../../../shared/world-boss-event";
+import type { GameItem, SavedBloodline } from "../types/combat";
 import "../styles/world-boss-map.css";
 
 const WorldBossQueueDialog = lazy(() =>
@@ -62,7 +63,8 @@ export function WorldBossMapOverlay({
     open,
     onClose,
     character,
-    hostLoadout,
+    creatorItems,
+    savedBloodlines,
     sharedImages,
     onVersionedCharacter,
     onRecordBattle,
@@ -76,13 +78,15 @@ export function WorldBossMapOverlay({
     open: boolean;
     onClose: () => void;
     character: Character;
-    hostLoadout?: TowerHostLoadout;
+    creatorItems: GameItem[];
+    savedBloodlines: SavedBloodline[];
     sharedImages?: Record<string, string>;
     onVersionedCharacter: VersionedCharacterCommit;
     onRecordBattle?: (entry: BattleHistoryEntry) => void;
     showCallout: boolean;
 }) {
     const boss = worldBossDefinition(event?.bossId);
+    const hostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     return <>
         {showCallout && event && sector != null && <button
             type="button"

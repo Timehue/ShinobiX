@@ -188,7 +188,6 @@ import { cwListWars } from "../lib/clan-war-api";
 import { fetchClanData } from "../lib/clan-api";
 import { scoutIntelTier } from "../lib/clan-upgrades";
 import { getCharacterArmorFactor, getCharacterArmorRawDR, getEquippedItemBonus, getPvpItemLoadout } from "../lib/equipment-stats";
-import { buildHostLoadout } from "../lib/host-loadout";
 import { hiddenDungeonVnEvent } from "../data/vn-events";
 import { starterItems } from "../data/starter-items";
 import worldMapBg from "../assets/Maps/world_map-v2.webp";
@@ -1000,7 +999,6 @@ function WorldMapContent({
     }
 
     const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
-    const bossHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, wmCreatorItems), [character, savedBloodlines, wmCreatorItems]);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -5071,7 +5069,7 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} hostLoadout={bossHostLoadout} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
+            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} creatorItems={wmCreatorItems} savedBloodlines={savedBloodlines} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
