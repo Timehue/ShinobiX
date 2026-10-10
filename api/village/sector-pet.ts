@@ -25,6 +25,7 @@ import {
     newOpenBattleId,
     noticeOpenSectorBattle,
     protectOpenBattleLoser,
+    releaseOpenBattleNotice,
 } from '../_sector-contest-engage.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
 
@@ -347,6 +348,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (!petViewerAllowed(session, viewer)) {
                 return res.status(403).json({ error: 'Only the two sides of this sector war can see its pet duels.' });
             }
+            // The target has the open battle in front of them: its notice has
+            // done its job, and left in the inbox it would route them back here
+            // after a reload.
+            if (session.open && viewer.side && !sameName(session.open.initiator, me)) await releaseOpenBattleNotice(me, session.open.engageId);
             if (action === 'state') return res.status(200).json({ session: projectPetSession(session, viewer) });
             if (session.status !== 'done' || !session.p2 || session.seed === undefined) {
                 return res.status(409).json({ error: 'This pet duel has not been decided yet.' });
