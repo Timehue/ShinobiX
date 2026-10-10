@@ -26,7 +26,13 @@ import { mutatePlayerSave } from './save/_mutate-player-save.js';
 import { retryOnSaveVersionConflict } from './save/_projected-write.js';
 import { applySoloPveUsageCosts } from './solo-pve/_settlement.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
-import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
+import {
+    applyAiFightOutcomeToCharacter,
+    resolveAiFightOutcome,
+    sessionHpIsDecreaseOnly,
+    sessionIsSpar,
+    sessionUsesContinuousVitals,
+} from './missions/_ai-fight-outcome.js';
 import { pveOutcomeReceiptIdentity } from './pve/_fight-outcome-settlement.js';
 
 export {
@@ -125,9 +131,10 @@ export type SettleGarrisonFightOutcome =
 
 /**
  * Persist the fight's physical consequence onto the ATTACKER's own save:
- * proven item usage plus surviving HP / a hospital stay on a knockout, exactly
- * like every other sealed AI fight (api/missions/_ai-fight-outcome.ts). This
- * runs regardless of win/loss/draw — a garrison assault is a real multi-turn
+ * proven item usage plus surviving HP / a hospital stay on a knockout, through
+ * the helper every sealed AI fight uses (api/missions/_ai-fight-outcome.ts),
+ * with the HP decrease-only (sessionHpIsDecreaseOnly). This runs regardless
+ * of win/loss/draw — a garrison assault is a real multi-turn
  * fight now, so losing (or even winning) still burns potions/chakra items and
  * can send the attacker to the hospital. Without this, garrison-start /
  * garrison-resolve would be a free, consequence-free item-farm against a real
@@ -146,9 +153,11 @@ export type SettleGarrisonFightOutcome =
  * The BODY (surviving HP / hospital) has a second settler: the generic
  * /api/pve/fight-outcome and the lapse reconciler (api/_battle-lapse.ts) write
  * it for any Solo-PvE session, under their own `pve-outcome` receipt. Both
- * write the same value — but a late second write SETS HP back to the fight's
- * end value, which heals a player who has since taken damage elsewhere. So the
- * two share one exactly-once fence: a body that path already wrote is not
+ * apply the same rule, but a late second write would apply it again: it would
+ * re-run a knockout's hospital stay, and charge the fight's cost a second time
+ * once the save had recovered since. (Before the HP was decrease-only, it also
+ * set HP back up over damage taken elsewhere.) So the two share one
+ * exactly-once fence: a body that path already wrote is not
  * written again here (only the item costs, which only this path owns), and
  * this path stamps that path's receipt too, so its later call is a replay.
  */
@@ -175,9 +184,17 @@ export async function settleGarrisonFight(
         // body for this run (a conflicting copy included): never write a second.
         const bodySettled = inspectSettlementReceipt(character, body.requestId, body.fingerprint).status !== 'fresh';
         const withUsage = applySoloPveUsageCosts(character, session);
+        // The generic path's rules for this body (applyPveOutcomeWithReceipt), so
+        // it does not matter which of the two writes it. HP is decrease-only: the
+        // assault stays open while the attacker can lose HP elsewhere
+        // (sessionHpIsDecreaseOnly). An assault seals no vitals, so there is no late
+        // charge to pass; sealing some would need the shared once-only receipt.
         const settledCharacter = bodySettled
             ? withUsage
-            : applyAiFightOutcomeToCharacter(withUsage, outcome, session.player, settledAt);
+            : applyAiFightOutcomeToCharacter(
+                withUsage, outcome, session.player, settledAt,
+                sessionUsesContinuousVitals(session), sessionIsSpar(session), sessionHpIsDecreaseOnly(session),
+            );
         const bodyReceipt: ServerSettlementReceipt = {
             requestId: body.requestId,
             fingerprint: body.fingerprint,
