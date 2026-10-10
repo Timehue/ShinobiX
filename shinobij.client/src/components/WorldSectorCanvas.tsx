@@ -29,6 +29,7 @@ export type WorldSectorCanvasPlayer = {
 export type WorldSectorCanvasProps = {
     gatheringCharacter?: import('../types/character').Character;
     onGatheringCommit?: import('../types/character').VersionedCharacterCommit;
+    worldBossCrystals?: { active?: boolean; eventId?: string; minedNodeIds?: readonly string[] };
     sector: number;
     obstacles?: boolean;
     biome: Biome;

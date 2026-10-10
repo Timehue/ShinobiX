@@ -1,4 +1,4 @@
-import { LEGENDARY_WAR_CRATE_ID } from "../constants/game";
+import { HOLLOW_BEAST_CACHE_ID, LEGENDARY_WAR_CRATE_ID } from "../constants/game";
 import { VILLAGE_TRANSFER_SCROLL_ID } from "../../../shared/village-transfer";
 import { PROFESSION_CHANGE_APPROVAL_ID, PROFESSION_CHANGE_APPROVAL_NAME } from "../../../shared/profession-change";
 import type { GameItem } from "../types/combat";
@@ -38,7 +38,7 @@ export function presentItem(item: GameItem, petFoodXp?: number): ItemPresentatio
         || /crafting material|used (?:in|to) (?:the )?(?:crafter|forge)|forg(?:e|ing) .*weapon|craft points|combine fragments/.test(searchable));
     const keyItem = slot === "item" && /\bkey\b|\bscroll\b|evolution|awakening stone|ascension stone/.test(searchable);
 
-    if (item.id === LEGENDARY_WAR_CRATE_ID) {
+    if (item.id === LEGENDARY_WAR_CRATE_ID || item.id === HOLLOW_BEAST_CACHE_ID) {
         return { category: "Reward Crate", use: "Open from backpack", showPlayerSlot: false, effectLabel: "Contents" };
     }
     if (petFoodXp) {

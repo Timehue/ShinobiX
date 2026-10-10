@@ -901,12 +901,18 @@ function applyBossStrikeAndRing(session: TowerSession): void {
     const plates: TowerVfxEvent[] = [];
     resolveTowerSignature(session);
     const strike = session.bossStrike;
+    const eventBossDamageScale = session.worldBossEvent
+        ? Number(session.worldBossEvent.bossDamageDealtMultiplier ?? 1)
+        : 1;
+    const strikeDamageScale = Number.isFinite(eventBossDamageScale)
+        ? Math.max(0, Math.min(1, eventBossDamageScale))
+        : 1;
     if (strike && strike.round === session.round) {
         const zone = new Set(strike.tiles);
         const isSlam = strike.kind === 'slam';
         for (const a of session.actors) {
             if (a.hp <= 0 || a.side !== 'squad' || !zone.has(a.pos)) continue;
-            const dmg = Math.max(1, Math.floor((a.maxHp * strike.pct) / 100));
+            const dmg = Math.max(1, Math.floor((a.maxHp * strike.pct / 100) * strikeDamageScale));
             a.hp = Math.max(0, a.hp - dmg);
             session.log.push(`${a.name} is caught in ${strike.label} for ${dmg} (${a.hp}/${a.maxHp}).`);
             // Seismic slam: hurl the caught shinobi away from the blast centre (can toss them into a
@@ -1115,6 +1121,8 @@ function placeTowerBarrier(session: TowerSession, caster: TowerActor, target: To
  *  self-cast buff/heal) through the PvP resolver, with the tower env multiplier folded in. */
 function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, jutsu: JutsuLike, wMult: number): void {
     const selfCast = actor.id === target.id;
+    const eventIncomingMult = worldBossIncomingDamageMultiplier(session, actor, target);
+    wMult *= eventIncomingMult;
     // Defense in depth for every Tower-only cast path. applyAction rejects an explicit
     // locked-boss intent before spending anything; splash/companions also filter it.
     if (!selfCast && actor.side === 'squad' && rejectObjectiveLockedBoss(session, actor, target)) return;
@@ -1131,7 +1139,7 @@ function runJutsu(session: TowerSession, actor: TowerActor, target: TowerActor, 
             .some(status => status.source === 'item-smoke-bomb'));
         const defended = activeCombatStatuses(target.statuses, session.round)
             .some(status => status.source === 'item-defense-pill');
-        const dealt = smoked ? 0 : Math.floor(Math.min(flat, cap) * (defended ? 0.85 : 1));
+        const dealt = smoked ? 0 : Math.floor(Math.min(flat, cap) * (defended ? 0.85 : 1) * eventIncomingMult);
         target.hp = Math.max(0, target.hp - dealt);
         session.log.push(`${actor.name} strikes ${target.name} for ${dealt}.`);
         return;
@@ -1285,6 +1293,12 @@ type TowerAoeHitOutput = Readonly<{
  * Tower policy is explicitly atomic: defender reactions may defeat the caster,
  * but every target in the committed cast still resolves in canonical order.
  */
+function worldBossIncomingDamageMultiplier(session: TowerSession, actor: TowerActor, target: TowerActor): number {
+    if (!session.worldBossEvent || actor.side !== 'squad' || target.side !== 'enemy'
+        || target.id !== session.phaseState.bossId) return 1;
+    return Math.max(1, Math.min(1.5, Number(session.worldBossEvent.bossDamageReceivedMultiplier ?? 1)));
+}
+
 function runAoeJutsu(
     session: TowerSession,
     actor: TowerActor,
@@ -1340,7 +1354,8 @@ function runAoeJutsu(
     const primaryCap = pveHitCapFor(session, actor, primary, false);
     // Reference receipt preserves the exact existing primary-hit log ordering.
     const primaryReference = resolveAoeFighters(
-        session, actorToFighter(actor), actorToFighter(primary), jutsu, wMult, primaryCap,
+        session, actorToFighter(actor), actorToFighter(primary), jutsu,
+        wMult * worldBossIncomingDamageMultiplier(session, actor, primary), primaryCap,
     );
     const initialHp = actor.hp;
     const protectedCasterHp = objectiveBossDamageLocked(session, actor) ? actor.hp : undefined;
@@ -1375,7 +1390,8 @@ function runAoeJutsu(
                 state.fighters[target.actorId]!,
                 split.perHit,
                 // Protection belongs to each victim, not the selected AOE center.
-                wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim),
+                wMult / formationDefendMult(session, primary) * formationDefendMult(session, victim)
+                    * worldBossIncomingDamageMultiplier(session, actor, victim),
                 cap,
             );
             return {

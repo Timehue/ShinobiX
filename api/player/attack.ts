@@ -8,6 +8,7 @@ import { kickPlayer } from '../_realtime/notify.js';
 import { kv } from '../_storage.js';
 import { isIncapacitated } from '../_elapsed-state.js';
 import { endOwnFieldRecoveryShield } from '../_field-recovery-shield.js';
+import { worldBossPvpProtectionBlock, withWorldBossPvpLock } from '../world-boss-event/_pvp-protection.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
     cors(res, req);
@@ -34,6 +35,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const { targetName, attacker } = parsed.body as { targetName?: string; attacker?: { name?: string } | null };
         if (!targetName) return res.status(400).json({ error: 'Missing targetName.' });
 
+        const targetWorldBossBlock = await worldBossPvpProtectionBlock(safeName(String(targetName)));
+        if (targetWorldBossBlock) return res.status(targetWorldBossBlock.status).json({ error: targetWorldBossBlock.error });
+        if (!identity.admin) {
+            const attackerWorldBossBlock = await worldBossPvpProtectionBlock(identity.name);
+            if (attackerWorldBossBlock) return res.status(attackerWorldBossBlock.status).json({ error: attackerWorldBossBlock.error });
+        }
+
         // Attacker's reported name (if any) must match the authed identity —
         // a player can't initiate an attack masquerading as someone else.
         if (!identity.admin && attacker && attacker.name) {
@@ -57,7 +65,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         const block = attackBlock(targetPresence);
         if (block) return res.status(block.status).json({ error: block.error });
-
         // Post-defeat protection, read from the target's AUTHORITATIVE save.
         //
         // It is deliberately not read from presence: the presence character is
@@ -92,10 +99,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
             }
         }
-        // Field Recovery is a shield, not a licence: raiding someone ends the
-        // raider's own (api/_field-recovery-shield.ts).
+        // PvP admission is serialized against world-boss queue joins for both participants.
         if (!identity.admin) endOwnFieldRecoveryShield(identity.name);
-        onlineStore.setPendingAttacker(targetName, attacker ?? null);
+        const protectedPlayers = identity.admin ? [safeName(String(targetName))] : [identity.name, safeName(String(targetName))];
+        const admission = await withWorldBossPvpLock(protectedPlayers, () =>
+            onlineStore.setPendingAttacker(targetName, attacker ?? null));
+        if (!admission.ok) return res.status(admission.block.status).json({ error: admission.block.error });
+        if (!identity.admin && !admission.value) return res.status(404).json({ error: 'Target is no longer online.' });
         // Instant delivery: nudge the target to run an immediate heartbeat (which
         // is the authoritative path that reads + clears pendingAttacker). No-op if
         // the target has no socket / realtime is off — the poll still delivers it.

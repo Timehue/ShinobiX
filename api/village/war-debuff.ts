@@ -33,5 +33,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).json({
         warLossDebuffUntil: live(state?.warLossDebuffUntil),
         warWinBuffUntil: live(state?.warWinBuffUntil),
+        worldBossAshfallUntil: live(state?.worldBossAshfallUntil),
     });
 }

@@ -86,3 +86,37 @@ test('a flood of drops folds into two cards and one summary', async ({ page }) =
     await expect(toasts.nth(2)).toContainText('They are in your bag.');
     expect(errors).toEqual([]);
 });
+
+test('opening a Hollow Beast Cache reveals the rewards credited by the server', async ({ page }) => {
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const save = uiAuditSave();
+    const character = { ...save.character, inventory: [], itemStacks: [{ itemId: 'hollow-beast-cache', count: 1 }],
+        equipment: {}, tileCards: [], ryo: 1000, boneCharms: 0 };
+    save.character = character;
+    const runtime = await installUiAuditRuntime(page, save);
+    await page.route('**/api/inventory/open-hollow-beast-cache', async route => {
+        const next = { ...character, inventory: ['hunt-titan-bone'], ryo: 2500, boneCharms: 1,
+            itemStacks: [{ itemId: 'dungeon-key', count: 1 }] };
+        const version = runtime.currentVersion() + 1;
+        runtime.commitServerCharacter(next, version);
+        await route.fulfill({ json: { ok: true, character: next, _saveVersion: version,
+            rewards: { ryo: 1500, boneCharms: 1, materialId: 'hunt-titan-bone', dungeonKey: true } } });
+    });
+    await expectUiAuditBoot(page, runtime, 'inventory');
+
+    await page.getByRole('button', { name: 'Inspect Hollow Beast Cache', exact: true }).click();
+    await page.getByRole('dialog', { name: 'Hollow Beast Cache item details', exact: true })
+        .getByRole('button', { name: 'Open Cache', exact: true }).click();
+
+    const reveal = page.locator('.cache-reveal-dialog');
+    await expect(reveal).toBeVisible();
+    await expect(reveal.locator('.cache-reveal-chest--open')).toBeVisible();
+    const received = reveal.getByRole('status', { name: 'Items received', exact: true });
+    await expect(received).toContainText('Ryo');
+    await expect(received).toContainText('+1,500');
+    await expect(received).toContainText('Bone Charm');
+    await expect(received).toContainText('Titan Bone');
+    await expect(received).toContainText('Dungeon Key');
+    expect(errors).toEqual([]);
+});
