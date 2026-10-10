@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 const fixture = '/e2e/fixtures/profession-change.html';
 
@@ -89,6 +89,93 @@ test('an uncertain purchase reuses its request ID after reload', async ({ page }
     await expect(page.getByRole('dialog', { name: 'Choose your new profession' })).toBeVisible();
     expect(ids).toHaveLength(2);
     expect(ids[1]).toBe(ids[0]);
+});
+
+// The server serializes writes, so a request settled after this purchase (an
+// achievement sync, a settle pushed over the socket) can still have its newer
+// save adopted before this reply lands. The reply then reads as stale and its
+// commit is refused, but the purchase was paid. The popup used to stay open with
+// a live Buy button until the next page load.
+test('a paid purchase closes its popup even when a newer save was adopted first', async ({ page }) => {
+    await page.goto(`${fixture}?level=85`);
+    const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
+    const paid = { ...original, fateShards: original.fateShards - 50, inventory: ['tool-golden-pickaxe'] };
+    let purchases = 0;
+    let releaseReply!: () => void;
+    const replyHeld = new Promise<void>(resolve => { releaseReply = resolve; });
+    await page.route('**/api/shop/purchase', async route => {
+        purchases++;
+        await replyHeld;
+        await route.fulfill({ json: { ok: true, character: paid, _saveVersion: 2 } });
+    });
+    await page.getByRole('button', { name: /Golden Pickaxe/ }).click();
+    const popup = page.getByRole('dialog', { name: 'Golden Pickaxe item details' });
+    await popup.getByRole('button', { name: 'Buy for 50 Fate Shards', exact: true }).click();
+    await expect.poll(() => purchases).toBe(1);
+    expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...paid, unlockedAchievements: [] })).toBe(true);
+    releaseReply();
+    await expect(popup).toHaveCount(0);
+    expect(purchases).toBe(1);
+    expect(JSON.parse((await page.getByTestId('profession-state').textContent())!)).toMatchObject({ fateShards: 450, unlockedAchievements: [] });
+});
+
+// The same race in the backpack: the server has opened the crate or settled the
+// sale, but a newer save was adopted while the reply was in flight, so its commit
+// is refused as stale. The details used to stay open on an opened crate, and a
+// settled sale reported "Action unconfirmed".
+async function holdReply(page: Page, url: string, body: () => Record<string, unknown>) {
+    let requests = 0;
+    let release!: () => void;
+    const held = new Promise<void>(resolve => { release = resolve; });
+    await page.route(url, async route => {
+        requests++;
+        await held;
+        await route.fulfill({ json: body() });
+    });
+    return { requests: () => requests, release };
+}
+
+test('an opened war crate reports its loot even when a newer save was adopted first', async ({ page }) => {
+    await page.goto(`${fixture}?inventory&items=legendary-war-crate`);
+    const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
+    const opened = { ...original, ryo: 500, honorSeals: 2, inventory: ['warforged-relic'] };
+    // The game replaces window.alert with its own notice layer; record its messages.
+    await page.evaluate(() => {
+        const notices: string[] = [];
+        Object.assign(window, { notices });
+        window.alert = (message?: unknown) => { notices.push(String(message)); };
+    });
+    const alerts = () => page.evaluate(() => (window as unknown as { notices: string[] }).notices);
+    const reply = await holdReply(page, '**/api/inventory/open-war-crate',
+        () => ({ ok: true, character: opened, rewards: { honorSeals: 2, boneCharms: 0 }, _saveVersion: 2 }));
+    await page.getByRole('button', { name: /Legendary War Crate/ }).first().click();
+    const details = page.getByRole('dialog', { name: 'Legendary War Crate item details' });
+    await details.getByRole('button', { name: 'Open Crate', exact: true }).click();
+    await expect.poll(reply.requests).toBe(1);
+    expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...opened, unlockedAchievements: [] })).toBe(true);
+    reply.release();
+    await expect(details).toHaveCount(0);
+    await expect.poll(alerts).toEqual([expect.stringMatching(/^War crate opened\./)]);
+    expect(reply.requests()).toBe(1);
+});
+
+test('a settled sale reports its receipt even when a newer save was adopted first', async ({ page }) => {
+    await page.goto(`${fixture}?inventory&items=rustfang-kunai`);
+    const original = JSON.parse((await page.getByTestId('profession-state').textContent())!);
+    const sold = { ...original, ryo: 112, inventory: [] };
+    const reply = await holdReply(page, '**/api/inventory/sell', () => ({
+        ok: true, character: sold, _saveVersion: 2,
+        settlement: { kind: 'inventory-sale', itemId: 'rustfang-kunai', quantity: 1, ryo: 112 },
+    }));
+    await page.getByRole('button', { name: /Rustfang Kunai/ }).first().click();
+    const details = page.getByRole('dialog', { name: 'Rustfang Kunai item details' });
+    await details.getByRole('button', { name: 'Sell for 112 ryo', exact: true }).click();
+    await expect.poll(reply.requests).toBe(1);
+    expect(await page.evaluate(next => window.adoptNewerSave!(next, 3), { ...sold, unlockedAchievements: [] })).toBe(true);
+    reply.release();
+    await expect(details).toHaveCount(0);
+    await expect(page.getByText('Action unconfirmed. Refresh before retrying.')).toHaveCount(0);
+    expect(reply.requests()).toBe(1);
 });
 
 test('backpack scroll shows its artwork and leads to the marketplace change action', async ({ page }, info) => {

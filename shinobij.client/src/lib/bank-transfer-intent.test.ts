@@ -51,5 +51,7 @@ test('Bank sends the retained ID and allows the server to replay after its first
     assert.match(move, /readPendingBankTransferIntent\(character\.name, direction, value\)/);
     assert.match(move, /!pending && direction === "deposit" && value > character\.ryo/);
     assert.match(move, /requestId: intent\.requestId/);
-    assert.match(move, /if \(!onVersionedCharacter\([\s\S]*?\)\) return alert\(AMBIGUOUS_ACTION_MESSAGE\);\s*intent\.complete\(\)/);
+    // A confirmed transfer releases its intent whatever the commit returns; a
+    // stale refusal is not an unconfirmed outcome (api/bank/_transfer.test.ts).
+    assert.match(move, /onVersionedCharacter\(data\.character, data\._saveVersion\);\s*intent\.complete\(\)/);
 });

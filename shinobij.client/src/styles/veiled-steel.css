@@ -1094,12 +1094,12 @@ html body.ui-scroll-locked {
     overflow: hidden !important;
   }
 
-  /* 42px here shipped tabs two pixels under the project's own touch minimum on
-     every profile card. The OWNER's profile never showed it — mobile-noncombat-aaa
-     re-raises .screen-profile to 46px — so only ANOTHER shinobi's profile
-     (screen-userView) carried the undersized target, which is what the responsive
-     audit reds on. It looked intermittent because data-vp is stamped
-     asynchronously; the product was wrong on every run. */
+  /* 42px here shipped tabs under the project's own touch minimum on every
+     profile card. The owner's profile is raised by mobile-noncombat-aaa, and
+     another shinobi's (screen-userView) by profile-skin.css, whose rules must
+     stay more specific than this block. The audit looked intermittent because
+     it could measure UserView before the profile loaded, when it had no tabs;
+     the product was wrong on every run. */
   .app-shell:not(.screen-start) .profile-page-card .profile-mobile-tabs .pmtab {
     width: auto !important;
     min-width: 0 !important;

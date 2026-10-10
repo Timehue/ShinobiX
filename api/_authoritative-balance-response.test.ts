@@ -61,7 +61,9 @@ describe('authoritative balance response migration', () => {
             expeditionClient.indexOf('async function collectExpedition'),
             expeditionClient.indexOf('async function collectTraining'),
         );
-        assert.match(collectExpedition, /if \(data\.character && !onVersionedCharacter\(data\.character, data\._saveVersion\)\) return/);
+        // Adopted whatever the commit returns: a collection refused as stale (a
+        // newer save was adopted first) is still collected and shows its receipt.
+        assert.match(collectExpedition, /if \(data\.character\) onVersionedCharacter\(data\.character, data\._saveVersion\);/);
         assert.match(collectExpedition, /if \(!data\.character\) throw new Error/);
         assert.doesNotMatch(collectExpedition, /updateCharacter\([^)]*ryo|ryo:\s*[^\n]*\+/,
             'Pet Yard must adopt the committed character balance, not synthesize expedition ryo');
