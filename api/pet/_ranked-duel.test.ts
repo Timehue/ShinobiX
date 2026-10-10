@@ -127,7 +127,7 @@ describe('nothing re-fights a ranked match with a second engine', () => {
 
     it('battle-result rates through resolveRankedPetDuel and imports no legacy sim', () => {
         const src = read(join('api', 'pet', 'battle-result.ts'));
-        assert.ok(src.includes("from './_ranked-duel.js'"), 'the rating must come from the shared resolver');
+        assert.ok(src.includes("from '../_pet-tactics/ranked.js'"), 'new ratings must come from the committed room, with legacy resolution isolated in that authority adapter');
         assert.equal(/from '\.\.\/_pet-sim\/pet-duel-sim\.js'/.test(src), false,
             'battle-result must not import the legacy duel sim — that WAS the divergence');
         assert.equal(/runPetDuel\(/.test(src), false, 'and must not call it');

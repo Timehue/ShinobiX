@@ -1,0 +1,217 @@
+/* pta: private PetTacticsArena UI namespace. */
+/* Pet Arena material and illustration layer; command geometry lives in pet-tactics.css. */
+.pta-console {
+    --arena-art: url('../assets/pet-arena/command-ink-v2.webp');
+    --tactics-ink: var(--sj-text-primary, #f0ede5);
+    --tactics-muted: var(--sj-text-secondary, #b7c0c8);
+    --tactics-gold: var(--sj-gold-bright, #e6c477);
+    --tactics-line: var(--sj-border-strong, #dde6ec40);
+    font-family: var(--font-body, Inter, sans-serif);
+    padding: 14px 24px max(10px, env(safe-area-inset-bottom));
+    background: linear-gradient(90deg, #0d121859, #0d121899 34%, #0d121866), var(--arena-art) center / cover, var(--sj-background, #0d1218);
+    border-top: 1px solid #8ba2b64d;
+    box-shadow: inset 0 1px 0 #e6edf00d, 0 -14px 40px #0008;
+    max-height: 48dvh;
+}
+.pta-orders { max-width: 1240px; max-height: calc(48dvh - 28px); }
+.pta-orders-heading { padding: 0 0 10px; margin-bottom: 12px; border-color: #ac93623d; }
+.pta-orders-heading .pta-kicker { font-size: 10px; letter-spacing: .19em; font-weight: 600; }
+.pta-orders-heading strong { font-family: var(--font-display, Georgia, serif); font-size: 25px; font-weight: 400; margin-top: 5px; letter-spacing: .015em; }
+.pta-opponent-state { font-size: 11px; font-weight: 400; color: #c4c4ba; }
+.pta-clock { border-left-color: #ad90604d; padding-left: 20px; }
+.pta-clock b { font-weight: 500; font-size: 34px; letter-spacing: -.05em; }
+.pta-clock small { font-weight: 500; letter-spacing: .06em; }
+.pta-command-layout { grid-template-columns: 224px minmax(0, 1fr) 280px; gap: 18px; padding-right: 2px; }
+.pta-console .pta-actor {
+    min-height: 112px; padding: 10px 10px 10px 90px; overflow: hidden;
+    background: linear-gradient(110deg, #2937448a, #121820ed);
+    border: 1px solid #a98b514d; border-radius: 3px;
+    box-shadow: inset 0 1px 0 #f5dcb91a, 0 4px 12px #0003;
+}
+.pta-console .pta-actor[aria-pressed='true'] {
+    background: linear-gradient(110deg, color-mix(in srgb, var(--element) 16%, #1c251f), #121914eb);
+    border-color: #dbc28f; box-shadow: inset 3px 0 #d6bd8b, inset 0 1px 0 #f4d19d38, 0 4px 18px #0005;
+}
+.pta-actor::before { content: ''; position: absolute; width: 82px; height: 82px; left: 1px; bottom: -18px; border: 1px solid #c8aa664d; border-radius: 50%; background: radial-gradient(circle, #bd954920, transparent 70%); }
+.pta-actor img { position: absolute; left: -4px; bottom: -4px; width: 96px; height: 106px; object-fit: contain; filter: drop-shadow(0 5px 4px #0008); }
+.pta-actor strong { font-size: 14px; font-weight: 600; line-height: 1.3; padding-right: 12px; }
+.pta-actor small { font-size: 11px; font-weight: 400; color: #c1c5bb; line-height: 1.35; }
+.pta-actor > b { position: absolute; right: 8px; top: 8px; color: #ead7ae; font-size: 12px; font-weight: 500; }
+.pta-vital { display: block; margin-top: 6px; }
+.pta-vital small { display: flex; justify-content: space-between; gap: 4px; font-size: 9px; font-variant-numeric: tabular-nums; margin: 0 0 3px; }
+.pta-vital b { font-weight: 500; }
+.pta-vital progress { display: block; width: 100%; height: 5px; border: 0; border-radius: 2px; overflow: hidden; appearance: none; background: #050b10; }
+.pta-vital progress::-webkit-progress-bar { background: #050b10; }
+.pta-vital progress::-webkit-progress-value { background: #83b99b; }
+.pta-vital progress::-moz-progress-bar { background: #83b99b; }
+.pta-vital:last-child progress::-webkit-progress-value { background: #7aafc4; }
+.pta-vital:last-child progress::-moz-progress-bar { background: #7aafc4; }
+.pta-pet-resources { margin-bottom: 9px; }
+.pta-pet-resources > span { font-size: 13px; font-weight: 500; }
+.pta-pet-resources > div { gap: 15px; }
+.pta-pet-resources small { font-size: 10px; color: #a7b0a9; }
+.pta-pet-resources b { font-weight: 600; color: #e4e7d9; }
+.pta-action-tabs { padding: 0; border: 0; background: #070d10b3; border-radius: 2px; border-bottom: 1px solid #a78d594d; gap: 0; margin-bottom: 9px; }
+.pta-console .pta-action-tabs button { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; font-weight: 500; border-radius: 0; padding: 7px; color: #bfc6c0; }
+.pta-action-tabs svg { width: 16px; height: 16px; }
+.pta-console .pta-action-tabs button[aria-pressed='true'] { background: linear-gradient(#b995531a, #b9955333); box-shadow: inset 0 -2px #d2b77f; color: #f3dfb8; }
+.pta-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.pta-console .pta-move-card {
+    min-height: 64px; padding: 6px 10px 6px 6px; gap: 9px; border-radius: 3px;
+    background: radial-gradient(ellipse at 4% 50%, color-mix(in srgb, var(--element) 13%, transparent), transparent 60%), linear-gradient(110deg, #17221ee6, #0d1519f5);
+    border-color: color-mix(in srgb, var(--element) 24%, #686352);
+    box-shadow: inset 0 1px 0 #e5d4ab12, 0 3px 8px #0004;
+}
+.pta-console .pta-move-card[aria-pressed='true'] { border-color: #e1c596; background: radial-gradient(ellipse at 4% 50%, color-mix(in srgb, var(--element) 23%, #17201c), #19211ff2); box-shadow: inset 3px 0 #e1c596, inset 0 1px 0 #f2d9af33, 0 3px 12px #0005; }
+.pta-console .pta-move-card:hover:not(:disabled) { border-color: #d2b987; background: color-mix(in srgb, var(--element) 12%, #17221e); }
+.pta-console .pta-move-card:disabled { opacity: .64; }
+.pta-move-glyph { position: relative; width: 50px; height: 50px; background: radial-gradient(circle, #cdb78017, #0002 60%); border: 1px solid #dac68a26; border-radius: 50%; overflow: hidden; }
+.pta-move-glyph::before { content: ''; position: absolute; inset: -1px; background: var(--move-art) center / contain no-repeat; }
+.pta-move-glyph svg { width: 25px; height: 25px; filter: drop-shadow(0 2px 3px #0009); }
+.pta-move-card:not(.element-None):not(.is-signature) .pta-move-glyph svg { visibility: hidden; }
+.pta-move-card.is-signature .pta-move-glyph::before { opacity: .22; }
+.pta-move-card.is-signature .pta-move-glyph svg { position: relative; width: 28px; height: 28px; }
+.pta-move-copy strong { font-size: 14px; font-weight: 600; line-height: 1.2; letter-spacing: -.01em; }
+.pta-move-copy small { font-size: 10px; font-weight: 400; text-transform: none; margin-top: 4px; color: #c2c8be; line-height: 1.3; }
+.pta-move-cost { padding-left: 4px; color: #e5d1a6; }
+.pta-move-cost b { font-size: 19px; font-weight: 500; letter-spacing: -.04em; }
+.pta-move-cost small { font-size: 9px; font-weight: 500; color: #b6bbaa; }
+.pta-selected-mark { right: 4px; top: 2px; font-size: 10px; color: #f1d9aa; }
+.pta-console .pta-move-card.is-signature { border-style: solid; border-color: #b7975e80; }
+.pta-console .pta-utility-card { min-height: 160px; background: radial-gradient(ellipse at top, #d4b4771f, transparent 75%), #111b1de8; border-color: #a5905f60; border-radius: 3px; }
+.pta-utility-card svg { width: 42px; height: 42px; color: #dbc595; }
+.pta-utility-card strong { font-family: var(--font-display, Georgia, serif); font-size: 23px; font-weight: 400; }
+.pta-utility-card small { font-size: 12px; line-height: 1.4; font-weight: 400; }
+.pta-console .pta-reserve-card { border-radius: 3px; border-color: #a08b5659; background: linear-gradient(110deg, #26312b9c, #111b1dd9); min-height: 93px; }
+.pta-reserve-card img { width: 70px; height: 76px; }
+.pta-reserve-card strong { font-size: 15px; font-weight: 600; }
+.pta-reserve-card small { font-size: 11px; font-weight: 400; }
+.pta-action-detail { background: linear-gradient(140deg, #202c38ad, #0d1218d9); border: 1px solid #93a6b34d; border-radius: 3px; padding: 13px; box-shadow: inset 0 1px 0 #e5d4ab12; }
+.pta-detail-art { display: block; width: 140px; height: 112px; object-fit: contain; margin: 0 auto 8px; filter: drop-shadow(0 6px 8px #0008); }
+.pta-action-detail > strong { font-family: var(--font-display, Georgia, serif); font-weight: 400; font-size: 21px; line-height: 1.2; margin-top: 6px; }
+.pta-action-detail .pta-kicker { font-size: 9px; font-weight: 500; }
+.pta-order-effect { font-size: 12px; color: #c5c8bc !important; line-height: 1.5 !important; margin: 8px 0 13px; }
+.pta-targets > span { font-size: 11px; color: #c6c7b9; }
+.pta-console .pta-targets button { min-height: 72px; gap: 6px; padding: 7px; background: #142020d9; border-color: #8b835b73; border-radius: 3px; }
+.pta-targets img { width: 38px; height: 46px; }
+.pta-targets strong { font-size: 11px; font-weight: 600; }
+.pta-targets small { font-size: 10px; font-weight: 400; color: #c5cabc; }
+.pta-console .pta-targets button[aria-pressed='true'] { border-color: #dbc28c; background: linear-gradient(130deg, #bf975f33, #1c2820); box-shadow: inset 0 0 0 1px #ead4a72e; }
+.pta-range { border-top: 1px solid #b09a643b; padding-top: 9px; color: #c5c8bc; font-size: 11px; }
+.pta-range > b { font-size: 16px; color: #efd49f; font-weight: 500; }
+.pta-range > small { font-size: 10px; }
+.pta-review { border-color: #ac93623d; padding: 10px 0 5px; margin-top: 10px; }
+.pta-order-progress > b { display: grid; place-items: center; grid-template-columns: auto auto; width: 47px; height: 42px; font-weight: 500; border: 1px solid #a38d576b; border-radius: 3px; background: #090e1280; font-size: 24px; }
+.pta-order-progress > b > span { font-size: 13px; font-weight: 400; color: #b6bea9; }
+.pta-order-progress > span { font-size: 12px; font-weight: 500; }
+.pta-order-progress small { font-size: 10px; color: #bdc2b6; font-weight: 400; }
+.pta-console .pta-review .pta-primary { min-height: 48px; min-width: 236px; border-radius: 3px; border: 1px solid #f7dc9f; background: linear-gradient(100deg, #b3956173, #fff0ba88), linear-gradient(#f3dc9f, #ba955a); color: #242014; font-weight: 600; font-size: 13px; box-shadow: inset 0 0 0 2px #7b613343, 0 4px 12px #0005; }
+.pta-console .pta-review .pta-primary:disabled { opacity: .62; }
+.pta-console .pta-reference > button { color: #d8d2ba; font-size: 10px; font-weight: 500; }
+.pta-reference > button > span { color: #aeb6ac; }
+
+/* Status plates use the same material; only a narrow side accent distinguishes teams. */
+.pta-hud .showdown-hud { font-family: var(--font-body, Inter, sans-serif); }
+.pta-hud .showdown-topbar { padding: 14px 18px 0; }
+.pta-hud .showdown-team-panel { flex-wrap: nowrap; max-width: 70vw; gap: 8px; }
+.pta-hud .showdown-team-panel .showdown-plate { transform: none; width: 258px; min-width: 0; padding: 8px 10px; gap: 8px; border: 1px solid #baa5756b; border-radius: 3px; background: linear-gradient(115deg, #1c2823f2, #090f16eb); box-shadow: inset 0 1px 0 #ead4a624, 0 6px 18px #0005; }
+.pta-hud .showdown-team-panel.enemy .showdown-plate { border-left: 3px solid #c88675; }
+.pta-hud .showdown-team-panel.player .showdown-plate { border-left: 3px solid #b6cc9e; }
+.pta-hud .showdown-plate::before, .pta-hud .showdown-plate::after { display: none; }
+.pta-hud .showdown-plate > * { transform: none; }
+.pta-hud .showdown-plate-portrait { width: 50px; height: 58px; border: 0; border-radius: 0; background: radial-gradient(ellipse, #b8995330, transparent 70%); overflow: visible; }
+.pta-hud .showdown-plate-portrait img { object-fit: contain; filter: drop-shadow(0 3px 3px #0008); }
+.pta-hud .showdown-plate-name { font-size: 12px; font-weight: 600; letter-spacing: 0; }
+.pta-hud .showdown-plate-lv { font-size: 9px; font-weight: 500; color: #cbb988; }
+.pta-hud .showdown-plate-title { margin-bottom: 4px; gap: 5px; }
+.pta-hud .showdown-plate-track { height: 6px; transform: none; border: 0; background: #050b0e; box-shadow: inset 0 0 0 1px #9ea59326; border-radius: 2px; }
+.pta-hud .showdown-plate-bar.hp .fill { background: linear-gradient(90deg, #598773, #a4d3a0); }
+.pta-hud .showdown-plate.hp-mid .showdown-plate-bar.hp .fill { background: #d3b568; }
+.pta-hud .showdown-plate.hp-low .showdown-plate-bar.hp .fill { background: #dc8271; }
+.pta-hud .showdown-plate-bar.en .fill { background: linear-gradient(90deg, #628da1, #a0c5d5); }
+.pta-hud .showdown-plate-meter { height: 3px; margin-top: 3px; border-radius: 0; background: #8e754328; }
+.pta-hud .showdown-plate-meter > span { background: #d6b674; }
+.pta-hud .sd-num { font-family: var(--font-body, Inter, sans-serif); font-size: 10px; font-weight: 500; font-style: normal; }
+.pta-hud .sd-num i { font-style: normal; font-size: 8px; }
+.pta-hud .showdown-plate-tags { margin-top: 2px; gap: 4px; }
+.pta-hud .showdown-charge-tag { background: transparent; font-size: 8px; color: #e2c88f; border: 0; padding: 0; }
+.pta-hud .showdown-kit-chip { display: none; }
+.pta-hud .showdown-playerbar { padding: 0 18px 8px; }
+.pta-hud .showdown-round { font-family: var(--font-body, Inter, sans-serif); font-size: 12px; font-weight: 500; color: #e0ca9b; }
+.pta-hud .showdown-topbar-right { gap: 6px; }
+.pta-hud .showdown-topbar-right .showdown-chip { background: #101b19e6; border-color: #a48e595c; color: #cdbc97; box-shadow: none; }
+
+@media(min-width: 1180px) {
+    .pta-action-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .pta-action-grid:has(.pta-utility-card) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .pta-console .pta-move-card { min-height: 76px; }
+    .pta-move-glyph { width: 43px; height: 43px; }
+}
+@media(min-width: 801px) {
+    .pta-action-detail .pta-order-effect { margin: 6px 0 8px; }
+    .pta-console .pta-targets button { min-height: 64px; }
+    .pta-action-detail .pta-range { margin-top: 8px; padding-top: 6px; }
+}
+@media(max-width: 1050px) {
+    .pta-command-layout { grid-template-columns: 180px minmax(0, 1fr) 240px; gap: 13px; }
+    .pta-console .pta-actor { padding-left: 73px; }
+    .pta-actor img { width: 80px; }
+    .pta-move-copy strong { font-size: 12px; }
+    .pta-move-glyph { width: 40px; height: 40px; }
+}
+@media(max-width: 800px) {
+    .pta-command-layout { grid-template-columns: 1fr; gap: 10px; }
+    .pta-console .pta-actor { min-height: 110px; padding: 8px 8px 8px 58px; }
+    .pta-actor img { width: 64px; height: 70px; left: -4px; bottom: -3px; }
+    .pta-actor::before { width: 58px; height: 58px; bottom: -13px; }
+    .pta-actor strong { font-size: 12px; }
+    .pta-actor small { font-size: 10px; }
+    .pta-action-detail > strong { font-size: 20px; }
+    .pta-console .pta-utility-card { min-height: 124px; }
+    .pta-targets img { width: 43px; height: 46px; }
+    .pta-targets strong { font-size: 12px; }
+}
+@media(max-width: 650px) {
+    .pta-console { padding: 10px 12px max(8px, env(safe-area-inset-bottom)); max-height: 56dvh; background-position: 43% center; }
+    .pta-orders { max-height: calc(56dvh - 20px - env(safe-area-inset-bottom)); }
+    .pta-orders-heading { padding-bottom: 8px; margin-bottom: 9px; gap: 8px; }
+    .pta-orders-heading strong { font-size: 22px; margin-top: 4px; }
+    .pta-orders-heading .pta-kicker { font-size: 8px; letter-spacing: .14em; }
+    .pta-opponent-state { font-size: 9px; }
+    .pta-clock { padding-left: 8px; }
+    .pta-clock b { font-size: 30px; }
+    .pta-actor-rail { background: var(--sj-background, #0d1218); }
+    .pta-pet-resources > div { gap: 10px; }
+    .pta-console .pta-action-tabs button { min-height: 44px; font-size: 10px; gap: 4px; }
+    .pta-action-tabs svg { width: 13px; height: 13px; }
+    .pta-console .pta-move-card { min-height: 60px; padding: 6px; gap: 6px; }
+    .pta-move-glyph { width: 37px; height: 37px; }
+    .pta-move-copy strong { font-size: 12px; }
+    .pta-move-copy small { font-size: 9px; line-height: 1.25; }
+    .pta-move-cost { padding-left: 0; }
+    .pta-move-cost b { font-size: 18px; }
+    .pta-move-cost small { font-size: 8px; }
+    .pta-action-detail { padding: 10px; }
+    .pta-order-effect { font-size: 11px; }
+    .pta-review { background: var(--sj-background, #0d1218); padding: 9px 0 5px; }
+    .pta-console .pta-review .pta-primary { min-width: 156px; font-size: 11px; min-height: 46px; padding: 8px 11px; }
+    .pta-order-progress { gap: 8px; }
+    .pta-order-progress > b { width: 39px; height: 38px; font-size: 21px; }
+    .pta-order-progress > span { font-size: 10px; }
+    .pta-order-progress small { font-size: 9px; }
+    .pta-console .pta-reference > button { font-size: 9px; }
+    .pta-hud .showdown-topbar { padding: 8px 10px 0; }
+    .pta-hud .showdown-team-panel { width: 100%; max-width: 100%; gap: 6px; }
+    .pta-hud .showdown-team-panel .showdown-plate { width: calc((100vw - 28px) / 2); padding: 6px; gap: 4px; }
+    .pta-hud .showdown-plate-portrait { width: 36px; height: 46px; }
+    .pta-hud .showdown-plate-name { font-size: 10px; }
+    .pta-hud .showdown-plate-lv { font-size: 8px; }
+    .pta-hud .showdown-plate-title { gap: 3px; margin-bottom: 3px; }
+    .pta-hud .showdown-plate-elem svg { width: 10px; height: 10px; }
+    .pta-hud .showdown-plate-key { display: none; }
+    .pta-hud .showdown-playerbar { padding: 0 10px 6px; }
+    .pta-hud .showdown-reserve-pips { display: none; }
+    .pta-hud .showdown-plate-tags { gap: 3px; }
+    .pta-hud .showdown-topbar-right { min-height: 30px; }
+    .pta-hud .showdown-vs { display: none; }
+}

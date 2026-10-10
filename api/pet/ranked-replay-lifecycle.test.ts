@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { before, test } from 'node:test';
 import { randomUUID } from 'node:crypto';
+import { tacticsPreset } from '../../shared/pet-tactics-roster.js';
 import type { ShowdownReplayScript } from '../../shared/pet-showdown-contract.js';
 import { PET_RANKED_ACTIVE_REGISTRY_KEY, petRankedCompletedKey, petRankedResultKey } from './_ranked-authority.js';
 import { REGISTRY_KEY } from '../player/_public-index.js';
@@ -49,20 +50,22 @@ async function pair(prefix: string) {
         } });
     }
     const ids = (name: string) => Array.from({ length: 4 }, (_, index) => `${name}-pet-${index}`);
-    assert.equal((await call(queue, a, { name: a, action: 'join', petIds: ids(a) })).body.state, 'queued');
-    assert.equal((await call(queue, b, { name: b, action: 'join', petIds: ids(b) })).body.state, 'paired');
+    // Retained reciprocal proofs exercise legacy replay; public joins now admit player-command rooms.
+    const pairId = randomUUID(), createdAt = Date.now();
+    await kv.set(`pvp:pet-ranked-queue:match:${a}`, { opponent: b, opponentElo: 1000, opponentLevel: 40, initiator: false, format: '2v2', teamIds: ids(a), pairId, createdAt });
+    await kv.set(`pvp:pet-ranked-queue:match:${b}`, { opponent: a, opponentElo: 1000, opponentLevel: 40, initiator: true, format: '2v2', teamIds: ids(b), pairId, createdAt });
     const begun = await call(start, b, { opponentName: a });
     assert.equal(begun.status, 200);
     return { a, b, matchToken: String(begun.body.matchToken) };
 }
 
-test('queue rejects duplicate and unowned lineup pets before entering matchmaking', async () => {
+test('queue rejects duplicate and unknown competitive species before entering matchmaking', async () => {
     const name = 'rankedinvalidlineup';
     const pets = Array.from({ length: 4 }, (_, index) => ({ id: `${name}-${index}`, name: `Pet ${index}` }));
     await kv.set(`save:${name}`, { _saveVersion: 1, character: { name, level: 40, pets, activePetId: pets[0].id } });
-    const valid = pets.map((pet) => pet.id);
-    assert.equal((await call(queue, name, { name, action: 'join', petIds: [valid[0], valid[0], valid[2], valid[3]] })).status, 409);
-    assert.equal((await call(queue, name, { name, action: 'join', petIds: [valid[0], valid[1], valid[2], 'not-owned'] })).status, 409);
+    const valid = ['starter-fire', 'starter-water', 'starter-lightning', 'starter-earth'].map(id => tacticsPreset(id));
+    assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[0], valid[2], valid[3]] })).status, 400);
+    assert.equal((await call(queue, name, { name, action: 'join', builds: [valid[0], valid[1], valid[2], { ...valid[3], speciesId: 'unknown-species' }] })).status, 400);
     assert.equal((await call(queue, name, { name, action: 'poll' })).body.state, 'idle');
 });
 

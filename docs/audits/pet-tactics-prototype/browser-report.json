@@ -1,0 +1,11 @@
+{
+  "desktop": true,
+  "mobile": true,
+  "twoPlayerCommandRounds": 21,
+  "reconnect": true,
+  "terminal": "draw",
+  "errors": [],
+  "badResponses": [],
+  "reason": "knockout",
+  "rounds": 21
+}
