@@ -599,7 +599,11 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const notice = wasOpen
                 ? `${character.name} renewed the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine stays open until ${new Date(until).toLocaleDateString()}.`
                 : `${character.name} broke the Hollow Gate seal for ${cost.toLocaleString()} Honor Seals. The shrine has revealed itself on the World Map until ${new Date(until).toLocaleDateString()}.`;
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            // The seals are spent and the gate is open even when a newer save was
+            // adopted first and this commit is refused as stale (the coordinator
+            // then reads the stored save back). Returning here left "Open Gate"
+            // live, and a second press paid again as an extension.
+            onVersionedCharacter(data.character, data._saveVersion);
             updateVillageState(addNotice(notice, { ...state, hollowGateUnlockedUntil: until, contributionPoints: state.contributionPoints + 25 }));
         } catch {
             alert("The Hollow Gate response was lost. Refresh your save before retrying so you can confirm whether the seal changed.");
@@ -618,8 +622,10 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency: "ryo", amount });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-            updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
+            // A stale (refused) commit is still a settled donation, so log it.
+            // Only its treasury may be older than the figures shown; keep those.
+            const current = onVersionedCharacter(result.character, result._saveVersion);
+            updateVillageState(addNotice(`${character.name} donated ${amount.toLocaleString()} ryo to the village treasury.`, { ...state, treasury: current ? cleanVillageTreasury(result.treasury as Partial<VillageTreasury>) : state.treasury, contributionPoints: state.contributionPoints + Math.max(1, Math.floor(amount / 1000)) }));
         } finally {
             donateBusyRef.current = false;
         }
@@ -632,8 +638,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         try {
             const result = await postVillageTreasuryDonation(character.name, character.village, { currency, amount: 1 });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-            updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+            // Settled even if refused as stale; keep the shown treasury then (see donateVillageRyo).
+            const current = onVersionedCharacter(result.character, result._saveVersion);
+            updateVillageState(addNotice(`${character.name} donated 1 ${currency} to the village treasury.`, { ...state, treasury: current ? cleanVillageTreasury(result.treasury as Partial<VillageTreasury>) : state.treasury, contributionPoints: state.contributionPoints + 5 }));
         } finally {
             donateBusyRef.current = false;
         }
@@ -655,13 +662,14 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const before = readStores(storesView);
             const result = await postVillageTreasuryDonation(character.name, character.village, { itemId: villageDonateItemId });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+            // Settled even if refused as stale; keep the shown totals then (see donateVillageRyo).
+            const current = onVersionedCharacter(result.character, result._saveVersion);
             // Village Stores routing: ration-pack → provisions, hunt-*/relics →
             // material points. The server says what it credited; the rows update
             // from the returned stores and the toast names the credit.
             const credit = storesCreditNote(result.stores, before);
             const itemName = itemDisplayName(villageDonateItemId, allVillageItems);
-            if (result.stores) {
+            if (current && result.stores) {
                 // Retire the pre-donation memo and in-flight read, too: a tab
                 // re-entry has a new write generation and must not reuse them.
                 clearWarMapCache();
@@ -670,7 +678,7 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
                 storesWriteRef.current += 1;
                 setStoresSnapshot((prev) => ({ provisions: result.stores?.provisions ?? prev?.provisions ?? 0, materialPoints: result.stores?.materialPoints ?? prev?.materialPoints ?? 0 }));
             }
-            updateVillageState(addNotice(`${character.name} donated ${itemName} to the village ${result.stores ? "stores" : "treasury"}${credit ? ` (${credit})` : ""}.`, { ...state, treasury: cleanVillageTreasury(result.treasury as Partial<VillageTreasury>), contributionPoints: state.contributionPoints + 5 }));
+            updateVillageState(addNotice(`${character.name} donated ${itemName} to the village ${result.stores ? "stores" : "treasury"}${credit ? ` (${credit})` : ""}.`, { ...state, treasury: current ? cleanVillageTreasury(result.treasury as Partial<VillageTreasury>) : state.treasury, contributionPoints: state.contributionPoints + 5 }));
             // ONE confirmation for a routine success, and a toast rather than a
             // modal: the alert used to fire on top of the notice-board line,
             // which is the village's shared activity log and not the donor's
@@ -710,7 +718,12 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             if (!r.ok) {
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
-            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase() && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
+            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase()) {
+                // Sent to yourself: adopt the paid save. A stale (refused) commit
+                // is still a completed transfer, so the step below finishes anyway.
+                if (!data.character) return;
+                onVersionedCharacter(data.character, data._saveVersion);
+            }
             // Say what actually LANDED. The gift leg burns a share of everything
             // except Honor Seals (api/_treasury-gift-tax.ts), so reporting the
             // requested amount would quietly overstate what the recipient got.
@@ -745,7 +758,11 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             if (!r.ok) {
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
-            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase() && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
+            if (villageSendPlayer.trim().toLowerCase() === character.name.trim().toLowerCase()) {
+                // Completed even if refused as stale (see sendVillageCurrency).
+                if (!data.character) return;
+                onVersionedCharacter(data.character, data._saveVersion);
+            }
             updateVillageState(addNotice(`${character.name} gifted ${itemDisplayName(villageSendItemId, allVillageItems)} to ${villageSendPlayer}.`, { ...state, treasury: { ...state.treasury, items: removeTreasuryItem(state.treasury.items, villageSendItemId) } }));
         } catch (err) {
             return alert(`Transfer failed: ${(err as Error).message}`);
@@ -842,7 +859,9 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
         // Reflect the server-side ryo stake debit locally; the autosave re-asserts
         // the debited balance and the two converge (same pattern as the agenda /
         // map-control reward endpoints).
-        if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+        // The stake is taken and the challenge declared even if this commit is
+        // refused as stale, so show it rather than leave Declare live.
+        if (data.character) onVersionedCharacter(data.character, data._saveVersion);
         setServerKage(prev => prev ? { ...prev, challenge: data.challenge ?? prev.challenge } : prev);
         alert(`Challenge declared against ${seatedKage}. Their response clock runs while you are both online. Once they accept, accept their official duel invitation to fight for the seat.`);
     }
@@ -897,7 +916,8 @@ export function TownHall({ character, updateCharacter, onVersionedCharacter, onS
             const response = await fetch('/api/village/elder-focus', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, focus: elderFocusKey }) });
             const data = await response.json().catch(() => null) as { character?: Character; error?: string; _saveVersion?: number; unchanged?: boolean } | null;
             if (!response.ok || !data?.character) return alert(data?.error || 'Could not select that focus.');
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            // Selected even if this commit is refused as stale; finish the step.
+            onVersionedCharacter(data.character, data._saveVersion);
             if (data.unchanged) return;
             updateVillageState(addNotice(`${character.name} selected the ${focus}.`, { ...state, contributionPoints: state.contributionPoints + 10 }));
             gameToast(`${focus} selected — ${ELDER_FOCUS_OPTIONS.find(option => option.key === elderFocusKey)?.bonus ?? "focus active"}.`, { kind: "success" });
