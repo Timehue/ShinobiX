@@ -80,6 +80,11 @@ test("battle-only vs lobby-fight screen classification", () => {
     assert.equal(isBattleOnlyScreen("pvpBattle"), true);
     assert.equal(isBattleOnlyScreen("storyBoss"), true);
     assert.equal(isBattleOnlyScreen("sectorCard"), true);
+    // All three Sector War tables hide the side rails like any other fight.
+    assert.equal(isBattleOnlyScreen("sectorPet"), true);
+    assert.equal(isBattleOnlyScreen("sectorGarrison"), true);
+    assert.equal(shouldHideBattleChrome({ screen: "sectorPet", arenaBattleActive: false, petBattleActive: false }), true);
+    assert.equal(shouldHideBattleChrome({ screen: "sectorGarrison", arenaBattleActive: false, petBattleActive: false }), true);
     assert.equal(isBattleOnlyScreen("cardClashFreePlay"), true);
     assert.equal(isBattleOnlyScreen("arena"), false); // arena has a lobby
     assert.equal(isLobbyFightScreen("arena"), true);

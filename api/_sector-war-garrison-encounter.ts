@@ -11,8 +11,8 @@
  * snapshot is content, not a live second participant, so — same reasoning as
  * Anbu Infiltration — the fight belongs on the Solo PvE runtime, never Tower
  * (docs/architecture/combat-runtime-boundaries.md). The contest OUTCOME still
- * has to feed the exact same sector-war Control-HP/score points a real human
- * PvP duel would (api/village/sector-war.ts doAttack/doResolve), which is why
+ * has to feed the exact same sector-war score a real human PvP duel would
+ * (api/pvp/_sector-war-continuation.ts), at garrison weight, which is why
  * the mode is labeled 'pvp' in shared/runtime-mode-registry.ts even though its
  * combat is simulated here: there is no structural rule against reusing the
  * Solo PvE engine under a sector-war-orchestrated, pvp-scored mode — the only
@@ -34,6 +34,10 @@ import type { SealedSectorWeather } from './_sector-weather-seal.js';
 export const GARRISON_MAP = { width: 12, height: 10 } as const;
 export const GARRISON_ROUND_BUDGET = 25;
 export const GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
+/** How long an assault may sit with no action before it lapses. This is the
+ *  Solo-PvE GAMEPLAY expiry, and every action slides it forward again
+ *  (api/solo-pve/_action-service.ts), so it bounds idleness, not fight length. */
+export const GARRISON_ACTIVE_TTL_SECONDS = 45 * 60;
 
 export interface GarrisonFighter {
     slug: string;
@@ -51,6 +55,14 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
     const maxHp = Math.max(1, num(input.character.maxHp, 1_000));
     const maxChakra = Math.max(0, num(input.character.maxChakra, 50));
     const maxStamina = Math.max(0, num(input.character.maxStamina, 50));
+    // The attacker walks in with the HP their save holds. Settlement writes the
+    // HP the fight ends on back onto that save (settleGarrisonFight, and
+    // /api/pve/fight-outcome for a walk-out), so a full-pool seed turned
+    // "start an assault, then abandon it" into a free heal for a wounded
+    // attacker. Clamped to [0, maxHp] exactly like the generic seeding in
+    // api/solo-pve/_ai-encounter.ts. The sealed ANBU is content with no save
+    // to write back to, so it always stands at full strength.
+    const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
         ...input.character,
         name: input.name,
@@ -58,7 +70,7 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
     };
     return {
         name: input.name,
-        hp: maxHp,
+        hp,
         maxHp,
         chakra: maxChakra,
         maxChakra,
@@ -116,7 +128,7 @@ export function buildGarrisonEncounter(params: BuildGarrisonParams): SoloPveSess
         now: params.now,
         environment: { biome, blockedTiles: [], ...params.weather },
         itemCharges: params.attacker.itemCharges,
-        activeTtlSeconds: 45 * 60,
+        activeTtlSeconds: GARRISON_ACTIVE_TTL_SECONDS,
     });
 }
 

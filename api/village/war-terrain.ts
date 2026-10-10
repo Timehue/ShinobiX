@@ -6,13 +6,15 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { isWarVillage, homeVillageForSector } from '../_war-map-sectors.js';
+import { isWarVillage } from '../_war-map-sectors.js';
+import { heldSectorListForVillage } from '../_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
     villageWarKey,
     villageWarSlug,
     canSetTerrain,
     reconcileTerrainLeadership,
+    sectorConfigFor,
     TERRAINS,
     type TerrainRole,
     type Terrain,
@@ -22,9 +24,12 @@ import { villageWarMapEnabled } from '../_release-flags.js';
 /*
  * /api/village/war-terrain — POST only
  *
- * Set a home sector's terrain (the +10% jutsu-school defender buff, §17.3). The
- * seated Kage may set 3 sectors, each current Elder 1 (quota in canSetTerrain).
- * Admin acts as Kage. Server-gated by the default-on Sector Map campaign switch.
+ * Set the terrain (the +10% jutsu-school defender buff, §17.3) of a sector the
+ * village HOLDS right now, home or captured: the current holder sets a sector's
+ * rules, and a lost sector frees its pick (owner ruling 2026-10-08). The seated
+ * Kage may set 3 sectors, each current Elder 1 (quota in canSetTerrain, counted
+ * over the sectors held). Admin acts as Kage. Server-gated by the default-on
+ * Sector Map campaign switch.
  * Body: { playerName, village, sector, terrain }.
  */
 
@@ -48,7 +53,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!playerName || !village) return res.status(400).json({ error: 'Missing playerName or village.' });
         if (!isWarVillage(village)) return res.status(400).json({ error: 'Not a war village.' });
         if (!(TERRAINS as readonly string[]).includes(terrain)) return res.status(400).json({ error: 'Unknown terrain.' });
-        if (homeVillageForSector(sector) !== village) return res.status(400).json({ error: 'That sector is not one of your home sectors.' });
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -71,14 +75,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if (role === 'none') {
                 return res.status(403).json({ error: 'Only the seated Kage or a current Elder can set sector terrain.' });
             }
+            // The sector must be one this village holds right now.
+            const held = await heldSectorListForVillage(village);
+            if (!held.includes(sector)) {
+                return res.status(400).json({ error: 'Your village does not hold that sector. Its holder sets its terrain.' });
+            }
 
             const warKey = villageWarKey(village);
             const result = await withKvLock(warKey, async () => {
                 const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
-                reconcileTerrainLeadership(record, seatedKage, elders);
-                const gate = canSetTerrain(record, sector, playerName, role);
+                reconcileTerrainLeadership(record, seatedKage, elders, held);
+                const gate = canSetTerrain(record, sector, playerName, role, held);
                 if (!gate.ok) return { ok: false as const, error: gate.error };
-                record.sectors[String(sector)].terrain = terrain;
+                record.sectors[String(sector)] = { ...sectorConfigFor(record, sector), terrain };
                 record.terrainSetBy[String(sector)] = playerName;
                 await kv.set(warKey, record);
                 return { ok: true as const, sector, terrain, role };
@@ -86,7 +95,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (!result.ok) {
                 const msg = result.error === 'quota-reached'
-                    ? (role === 'kage' ? 'You have already set terrain on 3 sectors.' : 'Elders may set terrain on 1 sector.')
+                    ? (role === 'kage' ? 'You have already set terrain on 3 of the sectors you hold.' : 'Elders may set terrain on 1 of the sectors you hold.')
                     : result.error === 'set-by-another'
                         ? 'Another leader already set this sector\'s terrain.'
                         : 'Cannot set terrain on that sector.';

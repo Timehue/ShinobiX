@@ -84,7 +84,7 @@ type IntelFrame = {
  *     a regression at intel's slower cadence, not a saving.
  * The residual duplicate is small and bounded: one scan per PROC_FRAME_MS across
  * ALL viewers (≤0.2 scans/s) over ~40 rows, versus the ~21 full-save reads/s the
- * presence-first village resolve removed. Collapsing the two properly means
+ * projected village resolve removed. Collapsing the two properly means
  * extracting a shared territory reader that world-state.ts also calls, which is
  * an edit to a file this task does not own.
  */
@@ -146,10 +146,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     try {
         // Admins have no village of their own, so there is no viewer to build for.
-        // Presence-first (api/_viewer-village.ts): this resolve sits OUTSIDE the
-        // proc-cache memo below, so it is the ONE cost every request pays. Reading
-        // it from the in-memory presence row instead of `save:<name>` is what keeps
-        // that per-request cost at zero KV reads for an online player.
+        // This resolve sits OUTSIDE the proc-cache memo below, so it is the ONE
+        // cost every request pays. It reads only `character.village` from the
+        // SAVE (api/_viewer-village.ts): a village's intel is for its members,
+        // and the client-supplied presence row would let anyone claim one.
         const village = identity.admin ? '' : await viewerVillageOf(identity.name);
         if (!village) return res.status(200).json({ ok: true, enabled: true, villageIntel: null });
         const villageIntel = await buildVillageIntelResponse(village, Date.now());
