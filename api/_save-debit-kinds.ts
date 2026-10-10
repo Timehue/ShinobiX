@@ -74,8 +74,10 @@ export const VILLAGE_DONATION_SAGA: SaveDebitDefinition<Record<string, unknown>,
     load: async (key) => (await kv.get<Record<string, unknown>>(key)) ?? {},
     save: async (key, next) => {
         await kv.set(key, next);
-        // Every villager's next /api/game-state poll reads the new treasury
-        // rather than a frame built before this donation.
+        // The treasury is members-only now (api/_village-state-view.ts):
+        // villagers read it from the uncached /api/village/state, and the
+        // public frame no longer carries it. Dropping the frame costs one
+        // rebuild, as for the other village writers.
         invalidateProcCache('game-state:frame');
     },
     applyCredit: (state, plan) => ({

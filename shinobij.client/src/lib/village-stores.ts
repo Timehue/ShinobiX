@@ -271,14 +271,16 @@ export function storesCreditNote(stores: { provisions?: number; materialPoints?:
 //    the village row directly, so it is current when it lands. The Town Hall
 //    takes one per Treasury/Command tab entry, and a routed donation's response
 //    replaces it with the server's post-donation figures.
-//  • The polled village state (lib/world-state, hydrated from /api/game-state
-//    every ~10s) is live but can be seconds old: the poll runs on a cadence, the
-//    frame sits behind a CDN window, and a poll already in flight when a write
-//    lands still answers with the frame from before it.
-// The rows used to prefer the poll. After a drain, a frame built just before it
+//  • The polled village state (lib/world-state; the treasury comes from the
+//    village's members-only record, /api/village/state, which the Town Hall
+//    reads every ~10s) is live but can be seconds old: the poll runs on a
+//    cadence, and a read already in flight when a write lands still answers
+//    with the figures from before it.
+// The rows used to prefer the poll. After a drain, a poll taken just before it
 // could shadow a newer war-map read for two poll cycles, while the Supply log,
-// which comes from the war-map, already showed the drain. The snapshot now wins,
-// and the poll's job is to notice that the stores MOVED and ask for a new read.
+// which comes from the war-map, already showed the drain. (The treasury then
+// rode the public /api/game-state frame and its CDN window.) The snapshot now
+// wins, and the poll's job is to notice that the stores MOVED and ask for a new read.
 
 export type StoresCounts = { provisions: number; materialPoints: number };
 export type PolledStores = { provisions?: number; materialPoints?: number };

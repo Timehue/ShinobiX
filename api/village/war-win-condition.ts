@@ -5,11 +5,13 @@ import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { withKvLock } from '../_lock.js';
-import { isWarVillage, homeVillageForSector } from '../_war-map-sectors.js';
+import { isWarVillage } from '../_war-map-sectors.js';
+import { heldSectorListForVillage } from '../_war-held-sectors.js';
 import {
     normalizeVillageWarRecord,
     villageWarKey,
     canAssignWinCondition,
+    sectorConfigFor,
     WIN_CONDITIONS,
     type WinCondition,
 } from '../_war-state.js';
@@ -18,10 +20,11 @@ import { villageWarMapEnabled } from '../_release-flags.js';
 /*
  * /api/village/war-win-condition — POST only
  *
- * The seated Kage (or admin) sets a single home sector's sector-war win-condition
- * (Combat / Card). Enforces the max-7-per-type diversity rule (§17.2) via
- * canAssignWinCondition. Pet is rejected until its server-authoritative sim is
- * wired (Phase 7) — a client-claimed pet result must never flip territory.
+ * The seated Kage (or admin) sets the sector-war win-condition (Combat / Card /
+ * Pet) of a sector the village HOLDS right now, home or captured: the current
+ * holder sets a sector's rules (owner ruling 2026-10-08), and a village that lost
+ * a sector no longer can. Enforces the max-7-per-type diversity rule (§17.2) over
+ * the sectors it holds, via canAssignWinCondition.
  *
  * Server-gated: 404 when the default-on Sector Map campaign is disabled.
  * Body: { playerName, village, sector, winCondition }.
@@ -51,10 +54,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // (Pet sector wars are now server-resolved via api/village/sector-pet →
         // api/_pet-sim, byte-identical parity-tested — so Pet is a first-class,
         // cheat-proof win-condition and freely assignable, same as Combat/Card.)
-        // The sector must be a home sector of this village.
-        if (homeVillageForSector(sector) !== village) {
-            return res.status(400).json({ error: 'That sector is not one of your home sectors.' });
-        }
 
         const identity = await authedPlayerOrAdmin(req, playerName);
         if (!identity) return res.status(401).json({ error: 'Authentication required.' });
@@ -71,19 +70,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             }
         }
 
+        // The sector must be one this village holds right now.
+        const held = await heldSectorListForVillage(village);
+        if (!held.includes(sector)) {
+            return res.status(400).json({ error: 'Your village does not hold that sector. Its holder sets its rules.' });
+        }
+
         const warKey = villageWarKey(village);
         const result = await withKvLock(warKey, async () => {
             const record = normalizeVillageWarRecord(village, (await kv.get<Record<string, unknown>>(warKey)) ?? undefined);
-            if (!canAssignWinCondition(record, sector, winCondition)) {
+            if (!canAssignWinCondition(record, sector, winCondition, held)) {
                 return { ok: false as const, error: 'max-7' };
             }
-            record.sectors[String(sector)].winCondition = winCondition;
+            record.sectors[String(sector)] = { ...sectorConfigFor(record, sector), winCondition };
             await kv.set(warKey, record);
             return { ok: true as const, sector, winCondition };
         }, { failClosed: true });
 
         if (!result.ok) {
-            return res.status(409).json({ error: `No more than 7 of 8 sectors may share a win-condition.` });
+            return res.status(409).json({ error: 'No more than 7 of the sectors you hold may share a win-condition.' });
         }
         return res.status(200).json(result);
     } catch (err) {

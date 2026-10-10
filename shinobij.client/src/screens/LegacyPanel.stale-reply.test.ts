@@ -24,7 +24,7 @@ const cases: Array<[file: string, names: string[]]> = [
     ["./LegacyPanel.tsx", ["handleTrial"]],
     ["../components/SageOfferModal.tsx", ["handleAccept"]],
     ["../components/WorldEraChapter.tsx", ["submit"]],
-    ["./SectorWarGarrisonAssault.tsx", ["settleGarrison"]],
+    ["./SectorWarGarrisonAssault.tsx", ["adoptResult"]],
     ["./WeeklyBossArena.tsx", ["launchAuthoritativeFight", "recoverAuthoritativeFight", "settleAuthoritativeFight"]],
 ];
 
@@ -46,5 +46,7 @@ test("a settled Legacy, era, garrison or Weekly Boss reply finishes when refused
     ] as const) assert.ok(!read(file).includes(line), `${file} must not report a settled reply as refused`);
     // The paid fight opens, and the settled assault shows its report.
     assert.match(handler(read("./WeeklyBossArena.tsx"), "launchAuthoritativeFight"), /if \(data\.character\) onVersionedCharacter\(data\.character, data\._saveVersion\);\s*setFight\(/);
-    assert.match(handler(read("./SectorWarGarrisonAssault.tsx"), "settleGarrison"), /if \(r\.ok && r\.character\) onVersionedCharacter\(r\.character, r\._saveVersion\);\s*setReport\(r\);\s*setPhase\("result"\);/);
+    const garrison = read("./SectorWarGarrisonAssault.tsx");
+    assert.match(handler(garrison, "settleGarrison"), /adoptResult\(runId, /);
+    assert.match(handler(garrison, "adoptResult"), /if \(r\.ok && r\.character\) onVersionedCharacter\(r\.character, r\._saveVersion\);[\s\S]*?setReport\(r\);\s*setPhase\("result"\);/);
 });

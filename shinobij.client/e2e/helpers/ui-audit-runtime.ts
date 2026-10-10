@@ -240,6 +240,11 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
         }
         if (path === "/api/world-state") return json(route, { territories: [], wars: [], standings: [] });
         if (path === "/api/game-state") return json(route, { villageStates: {}, arenaActiveFights: [] });
+        // The village's members-only record (api/village/state.ts), as the server
+        // answers for a village with nothing stored yet: every field null.
+        if (path === "/api/village/state") return json(route, { ok: true, village: String(save.character?.village ?? ""), state: {
+            treasury: null, upgrades: null, contributionPoints: null, notices: null, noticePosts: null, dailyAgenda: null,
+        } });
         if (path === "/api/weekly-boss") return json(route, { boss: null, fightEnabled: true });
         if (path === "/api/ranked-season") return json(route, { current: null, lastSeason: null });
         if (path === "/api/towers/floors") return json(route, { floors: [] });
