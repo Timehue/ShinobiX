@@ -67,7 +67,9 @@ export function ChroniclePackGallery({ character, cardsById, onVersionedCharacte
         window.alert(result.error || "Could not open the card pack.");
         return;
       }
-      if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+      // The pack is paid even if a newer save was adopted first and this commit
+      // is refused as stale (the coordinator then reads the stored save back).
+      onVersionedCharacter(result.character, result._saveVersion);
       setReveal({ nonce: makeId(), type: pack.type, cards: result.cards, ownedBefore });
     } finally {
       busyRef.current = false;

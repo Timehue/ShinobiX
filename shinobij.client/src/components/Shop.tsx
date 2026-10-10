@@ -223,7 +223,12 @@ function ShopBase({
             });
             const result = await response.json().catch(() => null) as { error?: string; character?: Character; _saveVersion?: number } | null;
             if (!response.ok || !result?.character) return alert(result?.error || AMBIGUOUS_ACTION_MESSAGE);
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+            // The server has settled this purchase. A request it settled later (an
+            // achievement sync, a settle pushed over the socket) can have its newer
+            // save adopted before this reply lands, so the commit may be refused as
+            // stale; the coordinator then reads the stored save back. The purchase
+            // is still paid, so finish the step: an open popup offers to buy again.
+            onVersionedCharacter(result.character, result._saveVersion);
 
             // Keep the popup open for capped consumables so the player can watch the
             // owned/cap count update and keep buying; close it for one-off gear.

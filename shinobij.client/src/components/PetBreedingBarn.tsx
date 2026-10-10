@@ -204,7 +204,9 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         try {
             const result = await startPetBreeding({ playerName: character.name, parent1Id: parent1.id, parent2Id: parent2.id, requestId: requestId.current });
             latestSaveVersionRef.current = Math.max(latestSaveVersionRef.current, result._saveVersion);
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Started even if a newer save was adopted first and this commit is
+            // refused as stale (the coordinator then reads the stored save back).
+            commitServerCharacter(result.character, result._saveVersion);
             setSessionOverride(result.session); setConfirmOpen(false); requestId.current = null; playPetSfx("finisher");
         } catch (error) { setMessage((error as Error).message); }
         finally { setBusy(false); }
@@ -218,7 +220,8 @@ export function PetBreedingBarn({ character, updateCharacter, onVersionedCharact
         try {
             const result = await hatchPetBreeding({ playerName: character.name, sessionId: session.sessionId });
             latestSaveVersionRef.current = Math.max(latestSaveVersionRef.current, result._saveVersion);
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Hatched even if refused as stale (see confirmStart): reveal the pet.
+            commitServerCharacter(result.character, result._saveVersion);
             setSessionOverride(null); setHatchedDestination(result.destination); setHatchedPet(result.pet); playPetSfx("victory");
             if (result.pet.paletteVariantId || (result.pet.trait && ultraPetTraits.includes(result.pet.trait))) {
                 if (rareStingTimer.current !== null) window.clearTimeout(rareStingTimer.current);

@@ -14,9 +14,9 @@ import {
     applyAiFightOutcomeToCharacter,
     isPveFightMember,
     resolveAiFightOutcome,
+    sessionHpIsDecreaseOnly,
     sessionIsSpar,
     sessionSeededVitals,
-    sessionSeedsFullHp,
     sessionUsesContinuousVitals,
     settlementOwnsHpOnWin,
     vitalLostSinceSeal,
@@ -176,9 +176,13 @@ export function applyPveOutcomeWithReceipt(params: {
             // no physical consequence on any path, including the lapse
             // reconciler's abandon of one the player walked away from.
             sessionIsSpar(params.session),
-            // A Tower run seats its squad at full HP, so its remainder may only
-            // lower the save's HP. The Tower lapse settles every member here.
-            sessionSeedsFullHp(params.session),
+            // A Tower run seats its squad at full HP, and an ANBU Vault raid or a
+            // garrison assault settles against a save that kept changing with no
+            // seed to charge: their remainder may only lower the save's HP. The
+            // Tower lapse settles every member here, and the vault and garrison
+            // settlements apply the same rule, so it does not matter which path
+            // writes their body first.
+            sessionHpIsDecreaseOnly(params.session),
             // A fight seeded from the save charges what the save has lost since,
             // so this write cannot undo damage taken while it was outstanding:
             // the lapse reconciler and a client report can both land late.
@@ -303,7 +307,7 @@ export function applyPveOutcomeBodyOnce(params: {
         params.now,
         params.continuousVitals === true,
         params.spar === true,
-        sessionSeedsFullHp(params.session),
+        sessionHpIsDecreaseOnly(params.session),
         sessionSeededVitals(params.session),
     );
     if (params.markedSettled === true || pveOutcomeBodyWritten(params.character, params.session, params.playerName)) {

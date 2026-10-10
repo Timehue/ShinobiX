@@ -34,9 +34,9 @@ export function GatheringFind({ find, character, sharedImages, onCharacter, onCl
         try {
             const result = await claimGatherFind(character.name, find, { common, takeTrace });
             if (!result.character) { setError(result.error || 'Your find remains saved. Try again.'); return; }
-            if (!onCharacter(result.character, result.saveVersion)) {
-                setError('Your save is refreshing. Retry to confirm this collection.'); return;
-            }
+            // Collected even if a newer save was adopted first and this commit is
+            // refused as stale (the coordinator then reads the stored save back).
+            onCharacter(result.character, result.saveVersion);
             setCollected((result.rewards ?? []).map((r) => `${r.count} × ${GATHER_NAMES[r.itemId]}`).join(' + '));
             setStage('collected');
         } finally { inFlight.current = false; setBusy(false); }

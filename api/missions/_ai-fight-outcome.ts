@@ -315,6 +315,38 @@ export function sessionUsesContinuousVitals(session: unknown): boolean {
     return encounter?.metadata?.continuousVitals === true;
 }
 
+/** ANBU Vault infiltration (api/_anbu-infiltration-encounter.ts). */
+const ANBU_INFILTRATION_ENCOUNTER_KIND = 'anbu-infiltration';
+/** A sector-war garrison assault (GARRISON_ENCOUNTER_KIND in api/_sector-war-garrison-encounter.ts). */
+const SECTOR_WAR_GARRISON_ENCOUNTER_KIND = 'sector-war-garrison';
+
+/**
+ * May this fight's surviving HP only LOWER the save's HP, never raise it?
+ *
+ * True for a run that seats a FULL HP pool (`sessionSeedsFullHp`), and for an
+ * ANBU Vault infiltration and a sector-war garrison assault. Those two seat the
+ * player at the HP their save holds, but on a FULL chakra and stamina pool.
+ * They seal no `seededVitals`, so a late settle has nothing to charge against,
+ * and nothing battle-locks the save while they stay open. So the HP such a
+ * fight ends on is not safe to write back as it stands:
+ *   - a player who lost HP in another fight while this one was open, and then
+ *     finished it, walked out of it or let it lapse, had the fight's end HP
+ *     written back over that loss — a free heal;
+ *   - the chakra the fight hands out pays for Basic Heal, so it can also end
+ *     above the HP the player brought.
+ * Their end HP may cost the save HP but never restore it, as chakra and
+ * stamina out of any fresh-start fight. A knockout still admits.
+ *
+ * Read from the SEALED session; a caller cannot opt out. Settlement passes
+ * this, never `sessionSeedsFullHp` alone, which would leave these two out.
+ */
+export function sessionHpIsDecreaseOnly(session: AiFightSession | null | undefined): boolean {
+    if (sessionSeedsFullHp(session)) return true;
+    if (!isSoloPveSession(session)) return false;
+    return session.encounter.kind === ANBU_INFILTRATION_ENCOUNTER_KIND
+        || session.encounter.kind === SECTOR_WAR_GARRISON_ENCOUNTER_KIND;
+}
+
 export function applyAiFightOutcomeToCharacter(
     character: Record<string, unknown>,
     outcome: AiFightOutcome,
@@ -325,9 +357,10 @@ export function applyAiFightOutcomeToCharacter(
     continuousVitals = false,
     /** True for a spar (`sessionIsSpar`): no physical consequence is written. */
     spar = false,
-    /** True when the run seated the player at a FULL HP pool
-     *  (`sessionSeedsFullHp`): the surviving HP may lower the save's, never raise it. */
-    fullHpSeed = false,
+    /** True when the surviving HP may lower the save's HP but never raise it
+     *  (`sessionHpIsDecreaseOnly`: a full-pool run, an ANBU Vault raid or a
+     *  garrison assault). */
+    hpDecreaseOnly = false,
     /** What the save held when the fight was seeded from it (`sessionSeededVitals`).
      *  Whatever the save has lost since is charged on top of what the fight left. */
     seeded?: SeededVitals,
@@ -373,7 +406,9 @@ export function applyAiFightOutcomeToCharacter(
     // (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-encounter.ts).
     // They used to seed a full pool, which made "start the fight, then walk out"
     // a free heal, and a new builder that seeds a full pool reopens it. They seal
-    // no `seeded` vitals, so the late-settlement charge below does not cover them.
+    // no `seeded` vitals, so the late-settlement charge below does not cover them,
+    // and their full chakra pool pays for healing: their HP is decrease-only
+    // instead (`hpDecreaseOnly`, sessionHpIsDecreaseOnly).
     // A Tower run does NOT seed current HP. It seats the squad at full HP (`sessionSeedsFullHp`),
     // so carrying its remainder back turned "enter wounded, walk out of a run"
     // into a free heal: the Tower lapse settles every member this way
@@ -422,7 +457,7 @@ export function applyAiFightOutcomeToCharacter(
     // was sealed (vitalLostSinceSeal; nothing for a session with no seed), so a
     // late settlement cannot write HP back up over damage taken elsewhere.
     const surviving = Math.max(1, Math.min(maxHp, num(playerActor.hp) - vitalLostSinceSeal(character, 'hp', seeded)));
-    if (!fullHpSeed) return { ...character, ...spent, hp: surviving };
+    if (!hpDecreaseOnly) return { ...character, ...spent, hp: surviving };
     // A save with no readable HP is treated as full, which leaves the cost intact.
     const storedHp = character.hp;
     const held = typeof storedHp === 'number' && Number.isFinite(storedHp)
