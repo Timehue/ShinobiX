@@ -268,7 +268,11 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
             const res = await fetch('/api/pet/progress', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, petId: selectedPet.id, action, ...extra }) });
             const data = await res.json().catch(() => ({}));
             if (!res.ok || !data?.character) throw new Error(String(data?.error ?? 'Pet update failed.'));
-            if (!onVersionedCharacter(data.character as Character, data._saveVersion)) throw new Error("A newer companion update is already active.");
+            // Applied even if a newer save was adopted first and this commit is
+            // refused as stale (the coordinator then reads the stored save back).
+            // Throwing here reported a paid action as failed: a renamed pet showed
+            // an error, and renaming again charged another 10 Fate Shards.
+            onVersionedCharacter(data.character as Character, data._saveVersion);
             return data as { character: Character; pet?: Pet; settledTraining?: string | null; missionsCompleted?: Array<{ id: string; name: string; xpReward: number }>; _saveVersion?: number };
         } finally {
             progressBusyRef.current = false;
@@ -502,7 +506,8 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
                 return alert("Couldn't start the expedition. Please try again.");
             }
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+            // Started even if refused as stale (see runPetProgress).
+            onVersionedCharacter(data.character, data._saveVersion);
             if (expeditionLaunchRef.current === launch) expeditionLaunchRef.current = null;
             // The authoritative character above already contains the sealed lease;
             // there is deliberately no local expedition fallback to save here.
@@ -570,7 +575,10 @@ export function PetYard({ character, updateCharacter, onVersionedCharacter, onSe
                 setExpeditionError(`Daily expedition claim cap reached (${Number(data.dailyClaims ?? data.dailyCap ?? 12)}/${Number(data.dailyCap ?? 12)}). This journey remains ready.${resetCopy}`);
                 return;
             }
-            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+            // A settled collection refused as stale is still collected: show its
+            // receipt. Returning left Collect live, and a retry then reported the
+            // spent token as "No reward was applied" after the reward was paid.
+            if (data.character) onVersionedCharacter(data.character, data._saveVersion);
             if (data.reason === 'invalid-or-spent-expedition-token' || data.reason === 'missing-expedition-token') {
                 setExpeditionResult(null);
                 setExpeditionError("");
