@@ -12,6 +12,7 @@ import {
     type RankedPetMatchToken,
 } from './_ranked-authority.js';
 import { rankedPetReplayForViewer, resolveRankedPetDuel } from './_ranked-duel.js';
+import { tacticsRoomKey, tacticsView, sessionSeat, type TacticsSession } from '../_pet-tactics/session.js';
 
 /*
  * /api/pet/ranked-watch — POST { matchToken }
@@ -77,6 +78,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(403).json({ error: 'That ranked match does not name you.' });
         }
 
+        if (token.control && token.roomId) {
+            const session = await kv.get<TacticsSession>(tacticsRoomKey(token.roomId));
+            if (!session || session.ranked?.pairId !== token.pairId) return res.status(409).json({ error: 'Ranked room authority is missing.' });
+            if (identity.admin) return res.status(403).json({ error: 'Live ranked commands require a participant.' });
+            return res.status(200).json({ ok: true, control: token.control, arena: tacticsView(session, sessionSeat(session, identity.name), Date.now()) });
+        }
         const { winnerName, script } = resolveRankedPetDuel(token);
         // A pre-reconciliation result may have been rated by the retired duel
         // engine. Never present a newly derived win as that recorded result.

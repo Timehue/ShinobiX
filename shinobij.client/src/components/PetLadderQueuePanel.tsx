@@ -1,18 +1,14 @@
 import { Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import type { Character } from "../types/character";
-import type { Pet } from "../types/pet";
 import { activeCarriedPets } from "../lib/entitlements";
-import { activeClientBreedingParentIds } from "../lib/pet-breeding";
-import { isPetAvailableForWarfront, petDisplayName } from "../lib/pet";
 import { lazyWithRetry } from "../lib/lazyWithRetry";
-import { rankedLevelEligible, RANKED_LEVEL_WARNING } from "../../../shared/ranked-eligibility";
+import { rankedLevelEligible } from "../../../shared/ranked-eligibility";
 import { fetchRankedPetDuel, type RankedPetWatch } from "../lib/pet-ranked-watch-api";
 import { useMatchFoundSfx } from "../lib/match-alert-sfx";
 import {
     petRankedQueue,
     fetchRankedPetCharacter,
     settleRankedPetMatch,
-    startRankedPetMatch,
     type PetRankedQueueState,
 } from "../lib/pet-ranked-queue-api";
 
@@ -23,24 +19,39 @@ import {
 const loadShowdownReplay = () => import("./PetShowdownReplay");
 const preloadShowdownReplay = () => { void loadShowdownReplay().catch(() => undefined); };
 const PetShowdownReplay = lazyWithRetry(() => loadShowdownReplay().then((m) => ({ default: m.PetShowdownReplay })));
+const PetArenaCommands = lazyWithRetry(() => import('./PetTacticsArena').then(m => ({ default: m.PetTacticsArena })));
 
-/*
- * Live ranked pet matchmaking.
- *
- * This panel used to be an explicit retired-state notice: the old queue launched
- * an ordinary no-reward realtime duel, so what a player watched and what their
- * Elo did were unrelated. That is fixed upstream — the server resolves the fight
- * ONCE and /api/pet/ranked-watch replays that exact resolution to both players.
- *
- * The panel therefore never simulates anything. It drives the handshake:
- *   join → queued → paired → (initiator mints the token) → active → watch.
- * The winner it reports is the server's own verdict, read back off the watch
- * response, and the server re-derives it anyway before rating.
- */
-export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedCharacter }: {
+/** New Colosseum matches accept player commands; old receipts retain their original replay. */
+export function PetLadderQueuePanel(props: {
+    character: Character; sharedImages?: Record<string, string>;
+    onVersionedCharacter: (character: Character, version: number) => boolean;
+    onBattleActiveChange?: (active: boolean) => void; onFullscreenActiveChange?: (active: boolean) => void;
+}) {
+    const [legacy, setLegacy] = useState<boolean | null>(null);
+    const [error, setError] = useState('');
+    const [retry, setRetry] = useState(0);
+    const finishLegacy = useCallback(() => setLegacy(false), []);
+    useEffect(() => {
+        let cancelled = false;
+        void petRankedQueue('poll', props.character.name).then(next => {
+            if (!cancelled) { setLegacy((next.state === 'active' || next.state === 'completed') && !next.control); setError(''); }
+        }).catch(e => { if (!cancelled) setError(String(e.message ?? e)); });
+        return () => { cancelled = true; };
+    }, [props.character.name, retry]);
+    if (legacy === null) return <div role="status">{error || 'Checking ranked Pet Arena matches…'}{error && <button type="button" onClick={() => setRetry(n => n + 1)}>Reconnect</button>}</div>;
+    if (legacy) return <LegacyPetLadderQueuePanel {...props} onLegacyComplete={finishLegacy} />;
+    return <Suspense fallback={<div role="status">Preparing Pet Arena…</div>}><PetArenaCommands playerName={props.character.name}
+        sharedImages={props.sharedImages} ranked rankedEligible={rankedLevelEligible(props.character.level)}
+        onVersionedCharacter={props.onVersionedCharacter} onActiveChange={props.onBattleActiveChange}
+        onFullscreenChange={props.onFullscreenActiveChange} onExit={() => {}} /></Suspense>;
+}
+
+/** Recovery only: historical sealed receipts never admit another match. */
+function LegacyPetLadderQueuePanel({ character, sharedImages = {}, onVersionedCharacter, onLegacyComplete }: {
     character: Character;
     sharedImages?: Record<string, string>;
     onVersionedCharacter: (character: Character, version: number) => boolean;
+    onLegacyComplete: () => void;
 }) {
     const [state, setState] = useState<PetRankedQueueState>({ state: "idle" });
     const [busy, setBusy] = useState(false);
@@ -49,20 +60,9 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
     const [checking, setChecking] = useState(true);
     const [retryAttempt, setRetryAttempt] = useState(0);
     const [closingToken, setClosingToken] = useState<string | null>(null);
-    const [lineupEdit, setLineupEdit] = useState<string[] | null>(null);
     const mountedRef = useRef(true);
-    const startedRef = useRef<string | null>(null);
     const refreshIdRef = useRef(0);
-    const playerPets = activeCarriedPets<Pet>(character);
-    const breedingPetIds = activeClientBreedingParentIds(character);
-    const readyPets = playerPets.filter((pet) => isPetAvailableForWarfront(pet, breedingPetIds));
-    const defaultLineup = [
-        ...readyPets.filter((pet) => pet.id === character.activePetId),
-        ...readyPets.filter((pet) => pet.id !== character.activePetId),
-    ].slice(0, 4).map((pet) => pet.id);
-    const readyIds = new Set(readyPets.map((pet) => pet.id));
-    const lineupIds = (lineupEdit ?? defaultLineup).filter((id) => readyIds.has(id));
-    const lineup = lineupIds.map((id) => readyPets.find((pet) => pet.id === id)).filter((pet): pet is Pet => !!pet);
+    const playerPets = activeCarriedPets(character);
     // Read the current App commit callback without restarting playback when
     // adoption itself rerenders the parent. App rejects older/foreign saves.
     const receiveCharacter = useEffectEvent(onVersionedCharacter);
@@ -77,13 +77,16 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         try {
             const next = await petRankedQueue("poll", character.name);
             if (mountedRef.current && requestId === refreshIdRef.current) {
-                if (next.state === "idle") startedRef.current = null;
+                if (next.state === "idle" || ((next.state === "active" || next.state === "completed") && next.control)) {
+                    onLegacyComplete();
+                    return;
+                }
                 setError(null); setState(next);
             }
         } catch (cause) {
             if (mountedRef.current && requestId === refreshIdRef.current) setError(String((cause as Error)?.message ?? cause));
         } finally { if (mountedRef.current && requestId === refreshIdRef.current) setChecking(false); }
-    }, [character.name]);
+    }, [character.name, onLegacyComplete]);
 
     // Recover active and completed matches after navigation or a reload.
     useEffect(() => {
@@ -91,58 +94,12 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         return () => window.clearTimeout(timer);
     }, [refresh]);
 
-    // Completed-match discovery survives settlement, regardless of poll timing.
-    // A chain, not setInterval: each poll waits for the previous reply, and a
-    // hidden tab slows to 5s. The old 800ms interval overlapped slow replies and
-    // kept running in background tabs, so a long pairing (up to 30s) or a second
-    // tab ran past the server's 60/min pet-ranked-queue limit.
-    useEffect(() => {
-        if (busy || (state.state !== "queued" && state.state !== "paired")) return;
-        const baseMs = state.state === "paired" ? 1_100 : 2_500;
-        const nextDelay = () => (document.visibilityState === "hidden" ? 5_000 : baseMs);
-        let cancelled = false;
-        let polling = false;
-        let timer = 0;
-        const tick = async () => {
-            polling = true;
-            try { await refresh(); } finally { polling = false; }
-            if (!cancelled) timer = window.setTimeout(() => { void tick(); }, nextDelay());
-        };
-        timer = window.setTimeout(() => { void tick(); }, nextDelay());
-        // Coming back to the tab polls at once instead of finishing the slow
-        // hidden-tab wait; a request already in flight is left to reschedule.
-        const onVisible = () => {
-            if (cancelled || polling || document.visibilityState !== "visible") return;
-            window.clearTimeout(timer);
-            void tick();
-        };
-        document.addEventListener("visibilitychange", onVisible);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timer);
-            document.removeEventListener("visibilitychange", onVisible);
-        };
-    }, [refresh, state.state, busy]);
-
     // Only a match can reach playback, so start fetching the renderer as soon
     // as one exists. The token handshake and the watch request then cover
     // most of its download.
-    const matchFound = state.state === "paired" || state.state === "active" || state.state === "completed";
+    const matchFound = state.state === "active" || state.state === "completed";
     useEffect(() => { if (matchFound) preloadShowdownReplay(); }, [matchFound]);
-    useMatchFoundSfx(matchFound, state.state === "queued" || busy);
-
-    // The initiator mints the sealed token once both sides are paired.
-    useEffect(() => {
-        if (state.state !== "paired" || !state.initiator) return;
-        if (startedRef.current === state.opponent) return;
-        startedRef.current = state.opponent;
-        void startRankedPetMatch(state.opponent)
-            .then(refresh)
-            .catch(startError => {
-                if (mountedRef.current) setError(String((startError as Error)?.message ?? startError));
-                startedRef.current = null;
-            });
-    }, [refresh, state]);
+    useMatchFoundSfx(matchFound, busy);
 
     // Keep failed watch/settlement requests retryable. A successful peer may
     // already have rated this match; completed receipts remain watchable.
@@ -178,35 +135,17 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
         try {
             const next = await petRankedQueue("acknowledge", character.name, token);
             if (!mountedRef.current) return;
-            startedRef.current = null;
             setState(next); setClosingToken(null);
+            if (next.state === 'idle') onLegacyComplete();
         } catch (cause) {
             if (mountedRef.current) setError(String((cause as Error)?.message ?? cause));
         } finally { if (mountedRef.current) setBusy(false); }
     };
 
-    const act = (action: "join" | "leave") => async () => {
-        if (action === "join" && !rankedLevelEligible(character.level)) {
-            setError(RANKED_LEVEL_WARNING);
-            return;
-        }
-        refreshIdRef.current += 1;
-        setBusy(true);
-        setError(null);
-        try {
-            const next = await petRankedQueue(action, character.name, undefined, action === "join" ? lineupIds : undefined);
-            if (mountedRef.current) setState(next);
-        } catch (actionError) {
-            setError(String((actionError as Error)?.message ?? actionError));
-        } finally {
-            if (mountedRef.current) setBusy(false);
-        }
-    };
-
     const queueBox = (
         <div className="summary-box" data-testid="pet-ladder-queue" style={{ padding: "0.9rem", marginBottom: "0.9rem" }}>
-            <h3 className="pl-h" style={{ marginTop: 0 }}>Pet Colosseum ranked queue</h3>
-            {!rankedLevelEligible(character.level) && <p className="hint" role="alert">{RANKED_LEVEL_WARNING}</p>}
+            <h3 className="pl-h" style={{ marginTop: 0 }}>Recorded Pet Colosseum result</h3>
+            {checking && <p className="hint" role="status">Recovering your recorded match…</p>}
             {error && <p className="hint" role="alert" style={{ color: "var(--red-400)" }}>{error}</p>}
             {error && !busy && <button type="button" onClick={() => {
                 if (closingToken) void closeReplay(closingToken);
@@ -214,56 +153,6 @@ export function PetLadderQueuePanel({ character, sharedImages = {}, onVersionedC
                 else void refresh();
             }}>{closingToken ? "Return to queue" : "Retry ranked match"}</button>}
             {error && !busy && !closingToken && state.state === "completed" && <button type="button" onClick={() => void closeReplay(state.matchToken)}>Dismiss replay</button>}
-
-            {state.state === "idle" && (
-                <>
-                    <p className="hint" style={{ marginTop: 0 }}>
-                        Queue against another tamer. Your first two pets fight together; the next two rotate in as reserves.
-                        The server resolves the fight and updates Pet Elo for both players.
-                    </p>
-                    <p className="hint">Select four pets in order. Slots 1–2 start on the field; slots 3–4 rotate in as reserves.</p>
-                    <button type="button" disabled={busy || checking} onClick={() => setLineupEdit([])}>Choose lineup order</button>
-                    <div className="pl-pet-grid" role="group" aria-label="Ranked Colosseum lineup">
-                        {readyPets.map((pet) => {
-                            const index = lineupIds.indexOf(pet.id);
-                            return <button key={pet.id} type="button" className={`pl-pet${index >= 0 ? " sel" : ""}`}
-                                aria-pressed={index >= 0} disabled={busy || checking}
-                                style={{ minHeight: 76, paddingTop: 24 }}
-                                onClick={() => setLineupEdit(index >= 0 ? lineupIds.filter((id) => id !== pet.id) : lineupIds.length < 4 ? [...lineupIds, pet.id] : lineupIds)}>
-                                {index >= 0 && <span className="pl-pet-order">{index + 1}</span>}
-                                <div className="pl-pet-body"><div className="pl-pet-name">{petDisplayName(pet)}</div><div className="pl-pet-stat">Lv {pet.level}</div></div>
-                            </button>;
-                        })}
-                    </div>
-                    <p className="hint">{lineup.length === 4
-                        ? lineup.map((pet, index) => `${index < 2 ? "Field" : "Reserve"} ${index % 2 + 1}: ${petDisplayName(pet)}`).join(" · ")
-                        : `Carry and select four available pets (${lineup.length}/4 ready).`}</p>
-                    <button type="button" disabled={busy || checking || lineup.length < 4 || !rankedLevelEligible(character.level)} onClick={() => void act("join")()}>
-                        {checking ? "Checking ranked matches…" : busy ? "Joining…" : "Find ranked match"}
-                    </button>
-                </>
-            )}
-
-            {state.state === "queued" && (
-                <div role="status">
-                    <p className="hint" style={{ marginTop: 0 }}>
-                        Searching for an opponent near your rating · position {state.queuePosition} of {state.waiting}.
-                    </p>
-                    <p className="hint">Lineup locked: {(state.teamIds ?? []).map((id, index) => {
-                        const pet = playerPets.find((candidate) => candidate.id === id);
-                        return `${index < 2 ? "Field" : "Reserve"} ${index % 2 + 1}: ${pet ? petDisplayName(pet) : id}`;
-                    }).join(" · ")}</p>
-                    <button type="button" disabled={busy} onClick={() => void act("leave")()}>
-                        {busy ? "Leaving…" : "Cancel"}
-                    </button>
-                </div>
-            )}
-
-            {state.state === "paired" && (
-                <p className="hint" role="status" style={{ marginTop: 0 }}>
-                    Matched against <strong>{state.opponent}</strong> ({state.opponentElo}) · sealing the duel…
-                </p>
-            )}
 
             {(state.state === "active" || state.state === "completed") && (
                 <p className="hint" role="status" style={{ marginTop: 0 }}>

@@ -1,0 +1,18 @@
+{
+  "mode": "command-menu-preview",
+  "desktop": true,
+  "mobile": true,
+  "twoPlayerCommandRounds": 0,
+  "reconnect": false,
+  "terminal": null,
+  "errors": [],
+  "badResponses": [],
+  "commandMenu": {
+    "keyboard": true,
+    "localDraftPrivacy": true,
+    "intelEscape": true,
+    "mobilePinnedControls": true,
+    "integratedResources": true,
+    "arenaMeetsMenu": true
+  }
+}

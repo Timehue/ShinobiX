@@ -10,7 +10,7 @@ export function PetRankedModeCards({ availablePetCount, onOpenPetLadder }: {
     onOpenPetLadder: (mode: PetRankedMode) => void;
 }) {
     const cards = [
-        { mode: "coliseum" as const, requirement: 4, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "2v2 live queue · two reserves · Pet Elo" },
+        { mode: "coliseum" as const, requirement: 0, img: coliseumLadderImg, emoji: <GiColiseum size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Pet Colosseum", sub: "Player-controlled 2v2 · equal-access roster · Pet Elo" },
         { mode: "tactical" as const, requirement: TACTICAL_ARENA_PET_REQUIREMENT, img: tacticalLadderImg, emoji: <GiCrossedSwords size={18} style={{ verticalAlign: "-0.12em" }} />, title: "Beastbound Warfront", sub: "4v4 offline ranked ladder" },
     ];
     return <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12, margin: "12px 0" }}>

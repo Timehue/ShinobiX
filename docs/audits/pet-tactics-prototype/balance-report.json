@@ -1,0 +1,94 @@
+{
+  "ruleset": "pet-tactics-v1",
+  "evidence": "Deterministic automated simulation; not human playtesting or full-roster certification.",
+  "signatureProbe": {
+    "hits": 480,
+    "fullHealthKos": 0,
+    "medianMaxHpPct": 0.40955631399317405,
+    "maxHpPct": 0.5995449374288965
+  },
+  "policyComparisons": [
+    {
+      "opponent": "highest-damage",
+      "matches": 240,
+      "pairedSeedSamples": 120,
+      "adaptiveScore": 0.7229166666666667,
+      "descriptiveWilson95Interval": [
+        0.6368725347282078,
+        0.795130927759357
+      ],
+      "medianRounds": 12,
+      "p90Rounds": 17,
+      "roundCapMatches": 0,
+      "adaptiveActionKinds": [
+        "basic",
+        "move",
+        "rest",
+        "signature",
+        "switch"
+      ]
+    },
+    {
+      "opponent": "ultimate-spam",
+      "matches": 240,
+      "pairedSeedSamples": 120,
+      "adaptiveScore": 0.71875,
+      "descriptiveWilson95Interval": [
+        0.6324863638197596,
+        0.7914422675932712
+      ],
+      "medianRounds": 12,
+      "p90Rounds": 18,
+      "roundCapMatches": 0,
+      "adaptiveActionKinds": [
+        "basic",
+        "move",
+        "rest",
+        "signature",
+        "switch"
+      ]
+    },
+    {
+      "opponent": "guard-spam",
+      "matches": 240,
+      "pairedSeedSamples": 120,
+      "adaptiveScore": 1,
+      "descriptiveWilson95Interval": [
+        0.9689797289440706,
+        1
+      ],
+      "medianRounds": 16,
+      "p90Rounds": 17,
+      "roundCapMatches": 0,
+      "adaptiveActionKinds": [
+        "basic",
+        "move",
+        "rest",
+        "signature",
+        "switch"
+      ]
+    },
+    {
+      "opponent": "sustain-loop",
+      "matches": 240,
+      "pairedSeedSamples": 120,
+      "adaptiveScore": 1,
+      "descriptiveWilson95Interval": [
+        0.9689797289440706,
+        1
+      ],
+      "medianRounds": 11,
+      "p90Rounds": 18,
+      "roundCapMatches": 0,
+      "adaptiveActionKinds": [
+        "basic",
+        "move",
+        "rest",
+        "signature",
+        "switch"
+      ]
+    }
+  ],
+  "earliestSignatureRound": 4,
+  "limitations": "Policies are deliberately bounded public-state heuristics. Paired intervals are approximate; repeated squad patterns are correlated. Human decision quality, species win rates, competitive meta and production latency require separate validation."
+}
