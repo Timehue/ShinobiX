@@ -275,13 +275,14 @@ export function Missions({
     // No stamina — stamina is not part of any mission reward.
     // Server-authoritative: the win only queued the claim (pendingCombatMissionClaims);
     // the SERVER recomputes + pays the reward (so the client can't inflate it), then
-    // we mirror the returned amounts onto the local character.
-    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): boolean {
-        const authoritativeCommit = commitAuthoritativeMissionClaim(result, onVersionedCharacter);
-        if (authoritativeCommit !== null) return authoritativeCommit;
-        if (onServerVersion?.(result._saveVersion) === false) return false;
+    // we mirror the returned amounts onto the local character. The claim is paid
+    // even when a newer save was adopted first and this commit is refused as
+    // stale (the coordinator then reads the stored save back), so every caller
+    // finishes its step whatever the commit returns.
+    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): void {
+        if (commitAuthoritativeMissionClaim(result, onVersionedCharacter) !== null) return;
+        if (onServerVersion?.(result._saveVersion) === false) return;
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        return true;
     }
 
     async function claimCombatMission(mission: CombatMission) {
@@ -303,7 +304,7 @@ export function Missions({
             }
             return alert(claimReasonMessage(result.reason));
         }
-        if (!applySuccessfulMissionClaim(result)) return;
+        applySuccessfulMissionClaim(result);
         setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}${result.reward.statPoints === 0 ? ". No stat points from this mission claim; train stats or claim field/hunt dailies to grow" : ""}` });
     }
     // Onboarding "Academy Trial" — a one-time, server-authoritative, off-the-daily-cap
@@ -315,7 +316,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === false) return alert(claimReasonMessage(result.reason));
-        if (!applySuccessfulMissionClaim(result)) return;
+        applySuccessfulMissionClaim(result);
         gameToast(`Academy Trial complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}. Now open your Logbook to see your goals.`, { kind: "success" });
     }
     const showAcademyTrial = normalizeOnboardingStep(character.onboardingStep) === "firstMission" && !character.academyTrialClaimed;
@@ -380,7 +381,7 @@ export function Missions({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
-            if (!applySuccessfulMissionClaim(result)) return;
+            applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0, [missionRaidProgressKey(mission.id)]: 0 }));
             setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina,result.reward.currency, character)}` });
