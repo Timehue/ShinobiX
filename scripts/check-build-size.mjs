@@ -842,7 +842,15 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // branch moved its own startup code off the initial graph instead, which merged
 // measures 1,421,285 B raw / 394,927 B gzip (main: 1,421,371 B / 395,010 B). Chunk,
 // CSS and asset limits stay put.
-const TOTAL_JS_CSS_FAIL_BYTES = 9_350_000;
+// 2026-10-10 PLAYER-CONTROLLED PET ARENA ON LIVE MAIN: the requested twelve-pet
+// ruleset, private simultaneous commands, equal-access builder and responsive
+// illustrated command deck add 63,114 B over main 9df80b825. Its successful
+// Production Image run 38074431719 measured 9,343,255 B; the integrated candidate
+// measures 9,406,369 B with that workflow's public production-length VITE_* args.
+// Allow 9.43 MB for this new mode and 23,631 B of build variance. This is the
+// total installed product allowance only; startup, per-chunk, CSS, gzip, asset
+// and the separately bounded lazy Sentry vendor gates remain unchanged.
+const TOTAL_JS_CSS_FAIL_BYTES = 9_430_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry
 // chunk (entry 1,031→795 KB), then data/story-boss-meta.ts freed combat-ai

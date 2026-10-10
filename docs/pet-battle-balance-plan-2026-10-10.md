@@ -1,6 +1,6 @@
 # Pet PvP balance and decision-depth plan
 
-**Status:** two-player, 12-pet Pet Arena and player-controlled ranked Pet Colosseum implemented locally; full-roster expansion and deployment remain planned. Beastfront stays AI-driven. Existing production rules are unchanged until deployment.
+**Status:** two-player, 12-pet Pet Arena and player-controlled ranked Pet Colosseum implemented and integrated with current main for the owner-requested release; full-roster expansion remains planned. Beastfront stays AI-driven. Production rollout verification is separate from pushing main.
 **Date:** October 10, 2026.
 **Scope authorized:** substantially redesign pet PvP for balance and strategy, including move pools, battle control, competitive stats/allocation, and supporting PvE/NPC encounters.
 **Evidence:** repository `18a6fbdbe`, current server-engine probes, and explicitly dated prior audits. No production telemetry or new human playtest evidence is available. All candidate numbers below are experimental targets, not accepted live tuning.

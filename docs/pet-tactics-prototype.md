@@ -14,7 +14,10 @@ after the committed battle ends. Neither path spends currency or battle items,
 and loan pets do not mutate owned-pet progression. Everyone can choose the same
 12 loan species. Retained ranked receipts keep their original sealed authority.
 Beastfront remains AI-driven on its separate Warfront resolver and offline ladder.
-The integration is local; no deployment is claimed.
+The owner requested a live-main release after the local audit. Current main
+integration and release-gate evidence are recorded in
+[the main integration notes](audits/pet-tactics-prototype/main-integration-2026-10-10.md).
+A successful push and a verified production rollout are separate events.
 
 ## Competitive rules
 

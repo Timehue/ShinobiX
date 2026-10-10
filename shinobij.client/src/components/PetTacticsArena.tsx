@@ -39,14 +39,14 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
     const [queued, setQueued] = useState(false);
     const [settlement, setSettlement] = useState<'pending' | 'recorded'>('pending');
     const settling = useRef(false);
-    const [clock, setClock] = useState(Date.now());
+    const [clock, setClock] = useState(Date.now);
     const live = useRef<TacticsView | null>(null);
     const initialRef = useRef<ShowdownStateView | null>(null);
     const rounds = useRef(new Map<number, TacticsRound>());
     const acked = useRef(new Set<string>());
     const presentedRef = useRef(0);
     const alive = useRef(true);
-    const offset = useRef(0);
+    const [offset, setOffset] = useState(0);
     const ingest = useCallback((next: TacticsView | null) => {
         if (!alive.current || !next) return;
         if (live.current?.roomId === next.roomId && live.current.revision > next.revision) return;
@@ -55,7 +55,7 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
             setInitial(null); setTerminalPresented(false);
             setSettlement('pending');
         }
-        live.current = next; offset.current = next.serverNow - Date.now();
+        live.current = next; setOffset(next.serverNow - Date.now());
         for (const turn of next.transcript) rounds.current.set(turn.round, turn);
         if (!initialRef.current && next.opponent && ['planning', 'playback', 'finished'].includes(next.phase)) {
             initialRef.current = next.battle; presentedRef.current = next.round; setInitial(next.battle); setPresented(next.round);
@@ -79,8 +79,10 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
     }, [ingest, ranked, playerName]);
     useEffect(() => {
         alive.current = true;
-        void request('recover').catch(e => { if (alive.current) setError(errorMessage(e)); }).finally(() => { if (alive.current) setRecovering(false); });
-        return () => { alive.current = false; };
+        const timer = window.setTimeout(() => {
+            void request('recover').catch(e => { if (alive.current) setError(errorMessage(e)); }).finally(() => { if (alive.current) setRecovering(false); });
+        }, 0);
+        return () => { alive.current = false; window.clearTimeout(timer); };
     }, [request, playerName]);
     useEffect(() => {
         if (!ranked || !queued || view) return;
@@ -102,8 +104,9 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         // Warm both sealed squads during preview, before the first attack.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view?.roomId, view?.opponent]);
+    const roomId = view?.roomId, finished = view?.phase === 'finished', opponent = view?.opponent;
     useEffect(() => {
-        if (!view || view.phase === 'finished') return;
+        if (!roomId || finished) return;
         let cancelled = false;
         let timer: number;
         const poll = async () => {
@@ -113,12 +116,12 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         };
         timer = window.setTimeout(poll, 1500);
         return () => { cancelled = true; window.clearTimeout(timer); };
-    }, [view?.roomId, view?.phase === 'finished', request]);
+    }, [roomId, finished, request]);
     useEffect(() => {
-        onActiveChange?.(queued || !!view?.opponent && view.phase !== 'finished');
+        onActiveChange?.(queued || !!opponent && !finished);
         onFullscreenChange?.(!!initial);
         return () => { onActiveChange?.(false); onFullscreenChange?.(false); };
-    }, [queued, view?.opponent, view?.phase === 'finished', initial, onActiveChange, onFullscreenChange]);
+    }, [queued, opponent, finished, initial, onActiveChange, onFullscreenChange]);
     const run = async (action: string, payload: Record<string, unknown> = {}) => {
         setBusy(true); setError('');
         try { await request(action, payload); }
@@ -149,7 +152,7 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         }
         return { expired: true };
     }, []);
-    const seconds = view ? Math.max(0, Math.ceil((view.deadline - clock - offset.current) / 1000)) : 0;
+    const seconds = view ? Math.max(0, Math.ceil((view.deadline - clock - offset) / 1000)) : 0;
     const recordRanked = useCallback(async () => {
         const current = live.current;
         if (!current?.ranked || current.phase !== 'finished' || settling.current) return;
@@ -161,7 +164,12 @@ export function PetTacticsArena({ playerName, sharedImages = {}, onExit, onActiv
         } catch (e) { if (alive.current) setError(errorMessage(e)); }
         finally { settling.current = false; }
     }, [playerName, onVersionedCharacter]);
-    useEffect(() => { if (view?.ranked && view.phase === 'finished' && settlement !== 'recorded') void recordRanked(); }, [view?.ranked?.matchToken, view?.phase, settlement, recordRanked]);
+    const rankedToken = view?.ranked?.matchToken;
+    useEffect(() => {
+        if (!rankedToken || !finished || settlement === 'recorded') return;
+        const timer = window.setTimeout(() => void recordRanked(), 0);
+        return () => window.clearTimeout(timer);
+    }, [rankedToken, finished, settlement, recordRanked]);
     const leaveResult = async () => {
         if (view?.ranked) {
             if (settlement !== 'recorded') { await recordRanked(); return; }

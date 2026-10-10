@@ -59,9 +59,12 @@ updates after a round and restoration of the friendly HUD during playback.
 Mobile framing clears the overhead HUD, and desktop damage details fit
 above the lock footer. Redundant style declarations and obsolete historical
 admission controls were removed; the private UI namespace is compact. The
-production client build, packaged-asset validation and unchanged size gates pass
-(9,349,516 bytes of budgeted product JS/CSS against the 9,350,000-byte ceiling).
-No deployment or new human playtest is claimed.
+earlier local client build, packaged-asset validation and unchanged size gates
+passed (9,349,516 bytes against the 9,350,000-byte ceiling). Full production
+settings and newer live-main changes were checked subsequently; see
+[the main integration notes](audits/pet-tactics-prototype/main-integration-2026-10-10.md)
+for that measured total-code allowance and release evidence. No new human
+playtest is claimed.
 
 Acceptance evidence must distinguish automated simulations and browser operation
 from human playtesting. The prototype is a foundation, not a certified full-roster
