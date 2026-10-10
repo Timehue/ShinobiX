@@ -70,7 +70,13 @@ import { augmentSaveWithForgedDefs } from './_forged-item-registry.js';
 import { hydrateCharacterFromSave } from './pvp/session.js';
 import { applySoloPveUsageCosts } from './solo-pve/_settlement.js';
 import type { SoloPveSession } from './solo-pve/_session.js';
-import { applyAiFightOutcomeToCharacter, resolveAiFightOutcome } from './missions/_ai-fight-outcome.js';
+import {
+    applyAiFightOutcomeToCharacter,
+    resolveAiFightOutcome,
+    sessionHpIsDecreaseOnly,
+    sessionIsSpar,
+    sessionUsesContinuousVitals,
+} from './missions/_ai-fight-outcome.js';
 
 // ─── injectable deps ─────────────────────────────────────────────────────────
 /** The shared side's store and lock (see the header): never a player save. */
@@ -304,7 +310,15 @@ function settleRaidBody(
         return { character: withUsage, receipts: [...receipts] };
     }
     return {
-        character: applyAiFightOutcomeToCharacter(withUsage, outcome, session.player, settledAt),
+        // The generic path's rules for this body (applyPveOutcomeWithReceipt), so
+        // it does not matter which of the two writes it. HP is decrease-only: the
+        // raid stays open while the raider can lose HP elsewhere
+        // (sessionHpIsDecreaseOnly). A raid seals no vitals, so there is no late
+        // charge to pass; sealing some would need the shared once-only receipt.
+        character: applyAiFightOutcomeToCharacter(
+            withUsage, outcome, session.player, settledAt,
+            sessionUsesContinuousVitals(session), sessionIsSpar(session), sessionHpIsDecreaseOnly(session),
+        ),
         receipts: [
             {
                 requestId: body.requestId,

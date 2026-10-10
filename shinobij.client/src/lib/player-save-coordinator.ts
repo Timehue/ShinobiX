@@ -58,6 +58,9 @@ export function createPlayerSaveCoordinator({
     const flushSaveRef = box(false);
     const saveSoonTimerRef = box<ReturnType<typeof setTimeout> | null>(null);
     const characterBaselineRef = box<{ character: Character; epoch: number } | null>(null);
+    // The newest stored save read back after a stale reply. Every write at or
+    // below it is in that save, so an older reply needs no second read.
+    const staleReplyReadBackRef = box<{ accountKey: string; epoch: number; version: number } | null>(null);
 
     function recordCharacterBaseline(nextCharacter: Character): void {
         if (saveConflictAccountKey(nextCharacter.name) !== activeSaveAccountKey()) return;
@@ -84,7 +87,8 @@ export function createPlayerSaveCoordinator({
         const accountKey = saveConflictAccountKey(nextCharacter.name);
         if (!accountKey || accountKey !== saveAuthorityAccountKeyRef.current || accountKey !== activeSaveAccountKey()) return false;
         const decision = acceptVersionedSnapshot(latestSaveVersionRef.current, incomingVersion);
-        if (!decision.accepted) return false; latestSaveVersionRef.current = decision.latestVersion;
+        if (!decision.accepted) { readBackAfterStaleReply(nextCharacter.name, accountKey, incomingVersion); return false; }
+        latestSaveVersionRef.current = decision.latestVersion;
         recordCharacterBaseline(nextCharacter);
         savePersistenceRef.current?.invalidateAuthority();
         savePayloadRevisionRef.current = nextSavePayloadRevision(savePayloadRevisionRef.current);
@@ -92,6 +96,26 @@ export function createPlayerSaveCoordinator({
         const current = latestSaveRef.current;
         if (current && saveConflictAccountKey(current.name) === accountKey) installAuthoritativeSaveRef({ ...current, revision: savePayloadRevisionRef.current, payload: { ...current.payload, character: mergedCharacter } });
         setCharacter(mergedCharacter); return true;
+    }
+
+    // A reply older than the version held here is refused, yet its write is real:
+    // the server stored it, and stores every later write on top of it. The local
+    // character need not contain it, because a version can be adopted without
+    // the stored character (an observed `_saveVersion`, a socket push, the
+    // achievement sync's wallet patch). An autosave from that copy then carries
+    // the current base version and erases what the reply settled, such as a
+    // tool the player just paid for. Read the stored save back instead, through
+    // the same recovery a 409 uses.
+    function readBackAfterStaleReply(accountName: string, accountKey: string, incomingVersion: unknown): void {
+        if (typeof incomingVersion !== "number" || !Number.isSafeInteger(incomingVersion) || incomingVersion <= 0) return;
+        const epoch = saveSessionEpochRef.current, covered = staleReplyReadBackRef.current;
+        if (covered && covered.accountKey === accountKey && covered.epoch === epoch && incomingVersion <= covered.version) return;
+        void savePersistenceRef.current?.refetchAfterConflict(accountName).then((adopted) => {
+            if (!adopted || !saveAuthority.isCurrent(accountKey, epoch)) return;
+            const version = latestSaveVersionRef.current, previous = staleReplyReadBackRef.current;
+            if (previous?.accountKey === accountKey && previous.epoch === epoch && previous.version >= version) return;
+            staleReplyReadBackRef.current = { accountKey, epoch, version };
+        });
     }
 
     // Ryo is server-owned, and every save acknowledgement carries the stored

@@ -92,8 +92,15 @@ describe('bank transfer endpoint contract', () => {
         assert.ok(start >= 0 && end > start, 'moveRyo function must remain present');
         const moveSource = bankScreenSource.slice(start, end);
         assert.match(moveSource, /fetch\("\/api\/bank\/transfer"/);
-        assert.match(moveSource, /if \(!onVersionedCharacter\(data\.character, data\._saveVersion\)\) return alert\(AMBIGUOUS_ACTION_MESSAGE\);\s*intent\.complete\(\);\s*setAmount\(0\)/,
-            'an unaccepted save must retain the intent and inputs; only an accepted save may release them');
+        // Only an unconfirmed outcome keeps the intent and inputs. A confirmed
+        // transfer releases them even when its commit is refused as stale (a
+        // newer save was adopted first): the move is done, and "unconfirmed"
+        // would be a false alarm.
+        assert.match(moveSource, /if \(!response\.ok \|\| !data\?\.character\) \{[\s\S]*?if \(response\.status === 400 \|\| response\.status === 409 \|\| response\.status === 422\) intent\.complete\(\);\s*return alert\(/,
+            'an unconfirmed transfer must retain the intent and inputs; only a definitive rejection releases them');
+        assert.match(moveSource, /onVersionedCharacter\(data\.character, data\._saveVersion\);\s*intent\.complete\(\);\s*setAmount\(0\)/,
+            'a confirmed transfer must release the intent and inputs');
+        assert.doesNotMatch(moveSource, /if \(!onVersionedCharacter\(/);
         assert.doesNotMatch(moveSource, /updateCharacter\([^)]*\.\.\.character/);
         assert.doesNotMatch(moveSource, /character\.ryo\s*[+-]\s*value/);
         assert.doesNotMatch(moveSource, /character\.bankRyo\s*[+-]\s*value/);

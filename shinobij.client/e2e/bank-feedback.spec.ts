@@ -109,7 +109,7 @@ test('Bank associates validation with fields and preserves entered amounts', asy
     expect(mutations).toBe(0);
 });
 
-test('Bank confirms accepted moves and refuses a stale character response', async ({ page }) => {
+test('Bank confirms accepted moves, including one whose reply arrives after a newer save', async ({ page }) => {
     const { save, runtime } = await bankFixture(page);
     let character = { ...save.character };
     let stale = false;
@@ -121,9 +121,13 @@ test('Bank confirms accepted moves and refuses a stale character response', asyn
         if (requests.length === 1) await firstResponse;
         const delta = body.action === 'deposit' ? body.amount : -body.amount;
         const next = { ...character, ryo: Number(character.ryo) - delta, bankRyo: Number(character.bankRyo) + delta };
-        const version = stale ? runtime.currentVersion() - 1 : runtime.currentVersion() + 1;
-        if (!stale) { character = next; runtime.commitServerCharacter(character, version); }
-        return route.fulfill({ json: { character: next, _saveVersion: version } });
+        // The server always stores the move. A stale reply carries a version
+        // older than the save the client already holds, as when a later write's
+        // version was adopted before this reply landed.
+        const heldVersion = runtime.currentVersion();
+        character = next;
+        runtime.commitServerCharacter(character, heldVersion + 1);
+        return route.fulfill({ json: { character: next, _saveVersion: stale ? heldVersion - 1 : heldVersion + 1 } });
     });
     await expectUiAuditBoot(page, runtime, 'bank');
     const amount = page.locator('#bank-transfer-amount');
@@ -161,17 +165,20 @@ test('Bank confirms accepted moves and refuses a stale character response', asyn
     await expect(page.locator('.app-shell')).toHaveAttribute('data-screen', 'bank');
     await expect(page.locator('.bank-balance-rail')).toContainText('9,800');
     await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
+    // The stale reply's commit is refused, but the move was stored: the Bank
+    // confirms it instead of "Action unconfirmed", and the stored-save read-back
+    // shows the new balances.
     stale = true;
     await amount.fill('137');
     await page.getByRole('button', { name: 'Deposit to vault', exact: true }).click();
     await expect.poll(() => requests.length).toBe(3);
-    await expect(page.getByRole('button', { name: 'Deposit to vault', exact: true })).toBeEnabled();
-    await expect(amount).toHaveValue('137');
-    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toContainText('Action unconfirmed. Refresh before retrying.');
-    await dismissNotice(page);
+    await expect(amount).toHaveValue('0');
     await expect(amount).toBeEditable();
-    await expect(page.locator('.bank-balance-rail')).toContainText('20,200');
-    await expect(page.locator('.game-toast-stack').filter({ hasText: '137' })).toHaveCount(0);
+    await expect(page.locator('.game-toast-stack')).toContainText(/137.*ryo/i);
+    await expect(page.getByRole('alertdialog', { name: 'Notice', exact: true })).toHaveCount(0);
+    await expect(page.locator('.bank-balance-rail')).toContainText('9,663');
+    await expect(page.locator('.bank-balance-rail')).toContainText('20,337');
+    expect(requests).toHaveLength(3);
 });
 
 test('Bank keeps its receipt ID through refresh and a temporary rate limit', async ({ page }) => {

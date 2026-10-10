@@ -175,11 +175,12 @@ function applyExchangeResponse(
     result: ClanExchangePurchaseResponse,
     onVersionedCharacter: VersionedCharacterCommit,
     setClanData: Dispatch<SetStateAction<EnhancedClanData | null>>,
-): boolean {
+): void {
     // The cache opens its own reveal, so the gear pop-up stays quiet for that item.
     if (result.reveal?.itemId) expectGearDropReveal(result.reveal.itemId);
-    if (!onVersionedCharacter(result.character, result._saveVersion)) return false;
-    if (!result.clan) return true;
+    // A refused (stale) commit is still a paid grant; the coordinator reads the
+    // stored save back. Only its clan totals may be older than what is shown.
+    if (!onVersionedCharacter(result.character, result._saveVersion) || !result.clan) return;
     setClanData((prev) => {
         if (!prev) return prev;
         return enhanceClanData({
@@ -191,7 +192,6 @@ function applyExchangeResponse(
                 : prev.treasury,
         });
     });
-    return true;
 }
 
 export function ClanExchange({
@@ -271,7 +271,7 @@ export function ClanExchange({
         try {
             const result = await postClanExchangePurchase(character.name, clanData.name, item.id);
             if (!result) return;
-            if (!applyExchangeResponse(result, onVersionedCharacter, setClanData)) return;
+            applyExchangeResponse(result, onVersionedCharacter, setClanData);
             if (result.reveal) setReveal(result.reveal);
             setConfirming(null);
         } finally {

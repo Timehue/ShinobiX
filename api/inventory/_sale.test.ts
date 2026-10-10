@@ -102,8 +102,13 @@ test('sale route and inventory screen use authenticated locked settlement', () =
     assert.match(route, /strict: true/);
     assert.match(helper, /'\/api\/inventory\/sell'/);
     assert.match(screen, /settleInventorySale\(character\.name/);
-    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) \{\s*setSaleError\(\{ selection: selected, message: AMBIGUOUS_ACTION_MESSAGE \}\);\s*return;\s*\}/,
-        'an unaccepted sale snapshot must retain item details and explain recovery');
+    // A settled sale whose commit is refused as stale (a newer save was adopted
+    // first) is still sold, so it reports its receipt instead of "unconfirmed".
+    // An unsettled one (result.ok !== true) keeps the item details and its error.
+    assert.match(screen, /if \(result\.ok !== true\) \{\s*setSaleError\(\{ selection: selected, message: result\.error \}\);\s*return;\s*\}/,
+        'an unsettled sale must retain item details and explain recovery');
+    assert.match(screen, /onVersionedCharacter\(result\.character, result\._saveVersion\);\s*const soldName/,
+        'a settled sale adopts its snapshot and reports its receipt even if the commit is refused');
     assert.match(screen, /gameToast\(`Sold [\s\S]*?setSelectedInventoryItem\(\(current\) => current === selected \? null : current\)/,
         'an accepted sale reports its receipt and only closes the submitted selection');
 });

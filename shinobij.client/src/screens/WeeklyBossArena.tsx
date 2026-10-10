@@ -113,7 +113,10 @@ export function WeeklyBossArena({
                 setError(data?.error ?? "The Weekly Boss fight could not be started.");
                 return;
             }
-            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+            // The attempt and stamina are spent even if a newer save was adopted
+            // first and this commit is refused as stale (the coordinator then reads
+            // the stored save back), so open the fight that was paid for.
+            if (data.character) onVersionedCharacter(data.character, data._saveVersion);
             setFight({ runId: data.runId, session: data.session });
         } catch (cause) {
             setError(String((cause as Error).message || cause));
@@ -172,7 +175,8 @@ export function WeeklyBossArena({
                 setError(data.error ?? "No interrupted Weekly Boss fight is available.");
                 return;
             }
-            if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) return;
+            // Open the recovered fight even if refused as stale (see launchAuthoritativeFight).
+            if (data.character) onVersionedCharacter(data.character, data._saveVersion);
             setFight({ runId: data.runId, session: data.session });
         } catch (cause) {
             setError(String((cause as Error).message || cause));
@@ -193,7 +197,8 @@ export function WeeklyBossArena({
         const data = await response.json().catch(() => ({})) as { boss?: WeeklyBossState; character?: Character; _saveVersion?: number; error?: string };
         if (!response.ok) throw new Error(data?.error ?? "Weekly Boss settlement failed.");
         if (data?.boss) setBossState(data.boss);
-        if (data.character && !onVersionedCharacter(data.character, data._saveVersion)) throw new Error("A newer Weekly Boss result is already active.");
+        // Logged even if refused as stale; throwing reported a paid fight as failed.
+        if (data.character) onVersionedCharacter(data.character, data._saveVersion);
         return data;
     }
 

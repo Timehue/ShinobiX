@@ -59,9 +59,10 @@ function fighter(input: GarrisonFighter, pos: number, enemy = false): PvpFighter
     // HP the fight ends on back onto that save (settleGarrisonFight, and
     // /api/pve/fight-outcome for a walk-out), so a full-pool seed turned
     // "start an assault, then abandon it" into a free heal for a wounded
-    // attacker. Clamped to [0, maxHp] exactly like the generic seeding in
-    // api/solo-pve/_ai-encounter.ts. The sealed ANBU is content with no save
-    // to write back to, so it always stands at full strength.
+    // attacker. That write is decrease-only as well (sessionHpIsDecreaseOnly
+    // in api/missions/_ai-fight-outcome.ts). Clamped to [0, maxHp] exactly like
+    // the generic seeding in api/solo-pve/_ai-encounter.ts. The sealed ANBU is
+    // content with no save to write back to, so it always stands at full strength.
     const hp = enemy ? maxHp : Math.max(0, Math.min(maxHp, num(input.character.hp, maxHp)));
     const character = {
         ...input.character,
