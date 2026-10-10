@@ -5,6 +5,7 @@
  * catalog/availability projection lives in lib/hollow-gate-shards; all spend and
  * gameplay effects are committed by the server-owned run endpoint.
  */
+import { useEffect, useRef } from "react";
 import type { Character, HollowGateShrineRun, VersionedCharacterCommit } from "../types/character";
 import { HOLLOW_SHARD_CONSUMABLES, shardConsumableAvailable } from "../lib/hollow-gate-shards";
 import { requestHollowGateServerConsumable } from "../lib/hollow-gate-server";
@@ -20,6 +21,10 @@ type Props = {
 
 export function HollowGateShardBar({ run, character, setRun, onVersionedCharacter, pushLog }: Props) {
     const shards = character.hollowShards ?? 0;
+    // The run as last rendered. A relic's reply is applied to it, not to the run
+    // this click saw, so a step taken while the request was in flight is kept.
+    const latestRunRef = useRef(run);
+    useEffect(() => { latestRunRef.current = run; });
 
     async function use(id: string) {
         if (!run.runToken) {
@@ -41,18 +46,24 @@ export function HollowGateShardBar({ run, character, setRun, onVersionedCharacte
             pushLog(result?.error ?? "The shrine could not seal that relic. Retry in a moment.");
             return;
         }
+        const latest = latestRunRef.current.runToken === run.runToken ? latestRunRef.current : run;
         const nextRun: HollowGateShrineRun = {
-            ...run,
+            ...latest,
             keys: result.runState.keys,
             torch: result.runState.torch,
             threat: result.runState.threat,
             wardSteps: result.runState.wardSteps,
-            diviner: result.runState.divinerUsed || run.diviner,
+            diviner: result.runState.divinerUsed || latest.diviner,
             secondWindArmed: result.runState.secondWindArmed,
-            entryCurrencies: result.entryCurrencies ?? run.entryCurrencies,
-            ...(result.runState.divinerUsed ? { tiles: run.tiles.map((tile) => ({ ...tile, revealed: true })) } : {}),
+            entryCurrencies: result.entryCurrencies ?? latest.entryCurrencies,
+            ...(result.runState.divinerUsed ? { tiles: latest.tiles.map((tile) => ({ ...tile, revealed: true })) } : {}),
         };
-        if (!onVersionedCharacter({ ...result.character, hollowGateRun: nextRun }, result._saveVersion)) return;
+        // The shards are spent even when a newer save was adopted first and this
+        // commit is refused as stale (the coordinator then reads the stored save
+        // back). The run lives here, not in that save, so it must still show the
+        // relic: otherwise its button stays live and a second press, with a new
+        // request id, spends the shards again.
+        onVersionedCharacter({ ...result.character, hollowGateRun: nextRun }, result._saveVersion);
         setRun(nextRun);
         const consumable = HOLLOW_SHARD_CONSUMABLES.find((entry) => entry.id === id);
         pushLog(`${consumable?.label ?? "Shrine relic"} answers the server-sealed run.`);

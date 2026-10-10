@@ -220,9 +220,11 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         try {
             const result = await postClanMissionClaim(character.name, clanData.name, missionKey);
             if (!result) return;
-            if (result.character && !onVersionedCharacter(result.character, result._saveVersion)) return;
-            setClaimedClanMissions(result.claimed);
-            setClanData((prev) => prev ? enhanceClanData({
+            // A stale (refused) commit is still a paid claim: mark it claimed and
+            // confirm it. Only its clan totals may be older than those shown.
+            const current = !result.character || onVersionedCharacter(result.character, result._saveVersion);
+            setClaimedClanMissions((prev) => current ? result.claimed : Array.from(new Set([...prev, ...result.claimed])));
+            if (current) setClanData((prev) => prev ? enhanceClanData({
                 ...prev,
                 xp: result.xp,
                 level: result.level,
@@ -345,7 +347,8 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         if (!r.ok) return alert(r.error ?? "Could not claim mentor rewards.");
         if (r.claimed === 0) { fetchMentorView(character.name).then(setMentorView); return alert("No new milestones to claim yet."); }
         if (!r.character) return alert('The mentor reward was not committed; retry after the server reconnects.');
-        if (!onVersionedCharacter(r.character, r._saveVersion)) return;
+        // Paid even if this commit is refused as stale; finish the step.
+        onVersionedCharacter(r.character, r._saveVersion);
         fetchMentorView(character.name).then(setMentorView);
         alert(`Mentor reward for ${student}'s progress: +${r.seals} Honor Seals, +${r.contrib} clan contribution.`);
     }
@@ -464,8 +467,9 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         // Adopt the version the server just wrote. Skipping it leaves the next
         // autosave echoing a stale base version, which takes the save-conflict
         // 409 and discards local progress — a self-inflicted conflict for
-        // pressing Leave.
-        if (left.character && !onVersionedCharacter(left.character as unknown as Character, left._saveVersion)) return;
+        // pressing Leave. A stale (refused) commit still means the server has
+        // removed you, so the local clan is cleared below either way.
+        if (left.character) onVersionedCharacter(left.character as unknown as Character, left._saveVersion);
         if (left.newFounder) {
             alert(`You've left ${character.clan}. ${left.newFounder} now leads the clan.`);
         }
@@ -604,8 +608,9 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: clanDonateItemId });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            // A stale (refused) commit is still a settled donation, so confirm it.
+            // Only its clan totals may be older than those shown; keep those.
+            if (onVersionedCharacter(result.character, result._saveVersion)) setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
             // A ration pack does not stay an item — it becomes Provisions. Say
             // so, and say what the clan holds now; anything else donates fine
             // and keeps its existing (silent) behaviour.
@@ -632,9 +637,9 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: RATION_ITEM_ID, count });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+            // Settled even if refused as stale; keep the shown totals then (see donateClanItem).
             const nextTreasury = cleanClanTreasury(result.treasury as Partial<ClanTreasury>);
-            setClanData(enhanceClanData({ ...clanData, treasury: nextTreasury, xp: result.xp, level: result.level }));
+            if (onVersionedCharacter(result.character, result._saveVersion)) setClanData(enhanceClanData({ ...clanData, treasury: nextTreasury, xp: result.xp, level: result.level }));
             gameToast(
                 clanRationCreditLine(clanData.name, count, result.stores ? (result.stores.provisions ?? nextTreasury.provisions ?? null) : null),
                 { kind: "success" },
@@ -654,8 +659,8 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
         try {
             const result = await postClanTreasuryDonation(character.name, clanData.name, { itemId: TERRITORY_CONTROL_SCROLL_ID, count });
             if (!result) return;
-            if (!onVersionedCharacter(result.character, result._saveVersion)) return;
-            setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
+            // Settled even if refused as stale; keep the shown totals then (see donateClanItem).
+            if (onVersionedCharacter(result.character, result._saveVersion)) setClanData(enhanceClanData({ ...clanData, treasury: cleanClanTreasury(result.treasury as Partial<ClanTreasury>), xp: result.xp, level: result.level }));
             alert(`Donated ${count} Territory Control Scroll${count === 1 ? "" : "s"} to the clan hall.`);
         } finally {
             donateBusyRef.current = false;
@@ -686,7 +691,10 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
             if (clanSendPlayer === character.name) {
-                if (!data.character || !onVersionedCharacter(data.character, data._saveVersion)) return;
+                // Sent to yourself: adopt the paid save. A stale (refused) commit
+                // is still a completed transfer, so the step below finishes anyway.
+                if (!data.character) return;
+                onVersionedCharacter(data.character, data._saveVersion);
             }
             // The treasury loses the full amount; the recipient gets the post-levy
             // credit. Report both, or the missing 10% looks like a lost transfer.
@@ -719,7 +727,11 @@ export function ClanHall({ character, updateCharacter, onVersionedCharacter, cre
             if (!r.ok) {
                 return alert(data?.error ?? `Transfer failed (HTTP ${r.status}).`);
             }
-            if (clanSendPlayer === character.name && (!data.character || !onVersionedCharacter(data.character, data._saveVersion))) return;
+            if (clanSendPlayer === character.name) {
+                // Completed even if refused as stale (see sendClanCurrency).
+                if (!data.character) return;
+                onVersionedCharacter(data.character, data._saveVersion);
+            }
             setClanData(enhanceClanData({ ...clanData, treasury: { ...clanData.treasury, items: removeTreasuryItem(clanData.treasury.items, clanSendItemId) } }));
             gameToast(`Sent ${itemDisplayName(clanSendItemId, allClanItems)} to ${clanSendPlayer}.`);
         } catch (err) {

@@ -187,12 +187,12 @@ export function HunterBoard({
         return itemIds.map((id) => starterItems.find((i) => i.id === id)?.name ?? id);
     }
 
-    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): boolean {
-        const authoritativeCommit = commitAuthoritativeMissionClaim(result, onVersionedCharacter);
-        if (authoritativeCommit !== null) return authoritativeCommit;
-        if (!onServerVersion(result._saveVersion)) return false;
+    // Paid once the server applied it, even when this commit is refused as stale
+    // (see Missions.tsx), so every caller finishes its step after this.
+    function applySuccessfulMissionClaim(result: Extract<NonNullable<Awaited<ReturnType<typeof postClaimMission>>>, { applied: true }>): void {
+        if (commitAuthoritativeMissionClaim(result, onVersionedCharacter) !== null) return;
+        if (!onServerVersion(result._saveVersion)) return;
         updateCharacter((prev) => (prev ? applyServerMissionReward(prev, result, gainXp) : prev));
-        return true;
     }
 
     async function claimHunt(mission: CreatorMission) {
@@ -244,7 +244,7 @@ export function HunterBoard({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
-            if (!applySuccessfulMissionClaim(result)) return;
+            applySuccessfulMissionClaim(result);
             setAcceptedMissionIds((prev) => prev.filter((id) => id !== mission.id));
             setMissionProgress((prev) => ({ ...prev, [mission.id]: 0 }));
             setLastClaim({ title: mission.name, reward: `${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}` });
@@ -349,7 +349,7 @@ export function HunterBoard({
         if (result === null) return alert("Could not reach the server. Try again.");
         if (result.ok === false) return alert(claimHttpFailureMessage(result));
         if (result.applied === true) {
-            if (!applySuccessfulMissionClaim(result)) return;
+            applySuccessfulMissionClaim(result);
             alert(`Apex Contract complete! ${statPointNote(result.reward.statPoints)}${rewardSummary(result.reward.ryo, result.reward.stamina, result.reward.currency, character, { items: materialNames(result.reward.items ?? []) })}.`);
             return;
         }

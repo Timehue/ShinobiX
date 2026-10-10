@@ -92,7 +92,9 @@ export function Cafeteria({
             alert(res.error ?? "The Noodle Den is too busy right now.");
             return;
         }
-        if (!onVersionedCharacter(res.character, res._saveVersion)) return;
+        // Paid even if a newer save was adopted first and this commit is refused
+        // as stale (the coordinator then reads the stored save back); confirm it.
+        onVersionedCharacter(res.character, res._saveVersion);
         gameToast(`${res.meal?.name ?? meal.name} restored your resources.`, { kind: "success" });
     }
 
@@ -113,7 +115,8 @@ export function Cafeteria({
             alert(res.error ?? "The kitchen is too busy right now.");
             return;
         }
-        if (!onVersionedCharacter(res.character, res._saveVersion)) return;
+        // Cooked even if refused as stale (see eat).
+        onVersionedCharacter(res.character, res._saveVersion);
         // Every figure falls back to something we already know — the recipe's
         // own yield, the counter the server just wrote onto the returned save,
         // and the mirrored cap. A server response that omits the daily fields

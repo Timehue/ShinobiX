@@ -143,7 +143,7 @@ test("reduced motion reaches the real builder with the confirmed rank and elemen
     expect(requests).toBe(1);
 });
 
-for (const failure of ["rejected", "mismatched rank", "stale version"] as const) {
+for (const failure of ["rejected", "mismatched rank"] as const) {
     test(`${failure} response cannot reveal a rank or open the builder`, async ({ page }) => {
         const save = uiAuditSave();
         save.character = { ...save.character, mythicSeals: 140 };
@@ -153,7 +153,7 @@ for (const failure of ["rejected", "mismatched rank", "stale version"] as const)
             body: JSON.stringify(failure === "rejected" ? { ok: false, error: "No paid ritual is available." } : {
                 ok: true, rank: failure === "mismatched rank" ? "A Rank" as BloodlineForgeRank : "S Rank",
                 character: { ...save.character, mythicSeals: 40 },
-                _saveVersion: failure === "stale version" ? runtime.currentVersion() - 1 : runtime.currentVersion() + 1,
+                _saveVersion: runtime.currentVersion() + 1,
             }),
         }));
         await expectUiAuditBoot(page, runtime, "centralHub");
@@ -166,6 +166,38 @@ for (const failure of ["rejected", "mismatched rank", "stale version"] as const)
         await expect(page.locator(".aw-forge-card.rank-s .aw-forge-material")).toContainText("140 held in inventory");
     });
 }
+
+// The server stores a player's writes in order, but their replies can land in
+// any order. A ritual whose reply carries an older version than the save already
+// held is refused as stale, yet the server stored the purchase, so its builder
+// opens. This case used to expect the opposite, from a fake reply the server
+// had never stored.
+test("a paid ritual whose reply is refused as stale still opens the builder", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const save = uiAuditSave();
+    const character = { ...save.character, mythicSeals: 140, element: "Lightning", elements: ["Lightning"] };
+    save.character = character;
+    const runtime = await installUiAuditRuntime(page, save);
+    // A real stale reply still carries a positive version, so hold one with room below it.
+    runtime.commitServerCharacter(character, 40);
+    let requests = 0;
+    await page.route("**/api/bloodlines/forge", async route => {
+        requests++;
+        const result = applyBloodlineForgePurchase(character, [], "S Rank", randomUUID(), Date.now());
+        expect(result.ok).toBe(true);
+        if (!result.ok) return route.abort();
+        const heldVersion = runtime.currentVersion();
+        runtime.commitServerCharacter(result.character, heldVersion + 1);
+        await route.fulfill({ contentType: "application/json", body: JSON.stringify({ ok: true, rank: "S Rank",
+            character: result.character, _saveVersion: heldVersion - 1 }) });
+    });
+    await expectUiAuditBoot(page, runtime, "centralHub");
+    await page.locator(".central-card").filter({ hasText: "Awakening Stone" }).click();
+    await page.locator(".aw-forge-card.rank-s button").click();
+    await expect(page.locator('.app-shell[data-screen="bloodlineMaker"]')).toBeVisible();
+    await expect(page.locator(".bloodline-rank-locked")).toContainText("S Rank");
+    expect(requests).toBe(1);
+});
 
 for (const pending of ["element", "bloodline"] as const) {
     test(`a pending ${pending} request blocks the other ritual`, async ({ page }) => {

@@ -38,7 +38,10 @@ export function MasteryPanel({ character, onVersionedCharacter, headquarters = f
         const response = await fetch('/api/profession/mastery', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ playerName: character.name, action, nodeId }) });
         const data = await response.json().catch(() => ({})) as { error?: string; character?: Character; _saveVersion?: number };
         if (!response.ok || !data?.character) throw new Error(String(data?.error ?? 'Mastery update failed.'));
-        if (!onVersionedCharacter(data.character, data._saveVersion)) throw new Error("A newer mastery record is already active.");
+        // Applied even if a newer save was adopted first and this commit is refused
+        // as stale (the coordinator then reads the stored save back). Reporting
+        // that as an error made a paid respec look failed.
+        onVersionedCharacter(data.character, data._saveVersion);
     }
 
     async function invest(nodeId: string) {

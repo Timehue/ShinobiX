@@ -368,7 +368,8 @@ export function CentralHub({
             const result = await commitNamedForgeServer(character.name, namedWeaponToken, namedWeaponName, namedWeaponFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named weapon forge failed.");
             const item: GameItem = { ...result.item, ...(namedWeaponImage ? { image: namedWeaponImage } : {}) };
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Paid and forged even if a newer save was adopted first (see completeCraft).
+            commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedWeaponImage) {
                 void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
@@ -446,7 +447,8 @@ export function CentralHub({
             const result = await commitNamedForgeServer(character.name, namedArmorToken, namedArmorName, namedArmorFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named armor forge failed.");
             const item: GameItem = { ...result.item, ...(namedArmorImage ? { image: namedArmorImage } : {}) };
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Paid and forged even if a newer save was adopted first (see completeCraft).
+            commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedArmorImage) {
                 void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
@@ -478,7 +480,10 @@ export function CentralHub({
         try {
             const previous = getCharacterElements(character);
             const result = await rollAwakeningServer(character.name, kind);
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Rolled and paid even if a newer save was adopted first and this commit
+            // is refused as stale (see completeCraft): reveal the result rather than
+            // leave a paid reroll looking like it never happened.
+            commitServerCharacter(result.character, result._saveVersion);
             setTriggeredEvents((current) => Array.from(new Set([
                 ...current,
                 ...(result.character.claimedAwakenings ?? []),
@@ -541,7 +546,8 @@ export function CentralHub({
             const result = await purchaseBloodlineForge(character.name, rank, resumeOnly);
             if (!result.ok || !result.character) throw new Error(result.error || "The Bloodline Awakening ritual rejected this purchase.");
             if (result.rank !== rank) throw new Error("The Bloodline Awakening ritual returned a mismatched grade. No builder was opened.");
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Paid even if this commit is refused as stale (see completeCraft).
+            commitServerCharacter(result.character, result._saveVersion);
             closeAwakening();
             setCentralLog(`${rank} Bloodline Awakening ${result.resumed ? "resumed" : "attuned"}. Finish shaping your legacy in Bloodline Awakening.`);
             setBloodlineCinematic({ rank, element: getCharacterElements(result.character)[0] ?? "", resumed: Boolean(result.resumed) });
@@ -1425,7 +1431,8 @@ export function CentralHub({
                                     try {
                                         const result = await forgeHollowGateKeyServer(character.name, "dungeonKeys");
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
-                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
+                                        // Forged even if refused as stale (see completeCraft).
+                                        commitServerCharacter(result.character, result._saveVersion);
                                         alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_DUNGEON_KEY_COST} Dungeon Keys.`);
                                     } finally {
                                         endCraft();
@@ -1437,7 +1444,8 @@ export function CentralHub({
                                     try {
                                         const result = await forgeHollowGateKeyServer(character.name, "fateShards");
                                         if (!result.character) return alert(result.error || "The Hollow Gate Key forge failed.");
-                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
+                                        // Forged even if refused as stale (see completeCraft).
+                                        commitServerCharacter(result.character, result._saveVersion);
                                         alert(`Hollow Gate Key forged. Consumed ${HOLLOW_GATE_KEY_FATE_SHARD_COST} Fate Shards.`);
                                     } finally {
                                         endCraft();
@@ -1475,7 +1483,8 @@ export function CentralHub({
                                     try {
                                         const result = await forgeServer(character.name, "relic", DUNGEON_LEGENDARY_RELIC_ID, 1);
                                         if (!result.character) return alert(result.error || "The relic forge failed.");
-                                        if (!commitServerCharacter(result.character, result._saveVersion)) return;
+                                        // Forged even if refused as stale (see completeCraft).
+                                        commitServerCharacter(result.character, result._saveVersion);
                                         alert(`Dungeon Legendary Relic forged. Consumed ${FRAGMENTS_PER_RELIC} Fragments.`);
                                     } finally {
                                         endCraft();
@@ -1517,7 +1526,8 @@ export function CentralHub({
                                             alert(data.error ?? 'Elemental Core could not be forged.');
                                             return;
                                         }
-                                        if (!commitServerCharacter(data.character, data._saveVersion)) return;
+                                        // Forged even if refused as stale (see completeCraft).
+                                        commitServerCharacter(data.character, data._saveVersion);
                                         alert(`Elemental Core forged. Consumed ${ELEMENTAL_SHARDS_PER_CORE} Elemental Shards.`);
                                     } catch {
                                         alert('The forge response was lost. Refresh before trying again.');

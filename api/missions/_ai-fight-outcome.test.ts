@@ -3,6 +3,8 @@ import { describe, it } from 'node:test';
 import type { TowerActor, TowerSession } from '../towers/_tower-session.js';
 import type { PvpFighter } from '../pvp/session.js';
 import { createSoloPveSession } from '../solo-pve/_session.js';
+import { buildInfiltrationEncounter } from '../_anbu-infiltration-encounter.js';
+import { buildGarrisonEncounter } from '../_sector-war-garrison-encounter.js';
 import {
     AI_FIGHT_HOSPITAL_DURATION_MS,
     aiFightPlayerActor,
@@ -11,6 +13,7 @@ import {
     aiFightPlayerItemsUsed,
     isPveFightMember,
     resolveAiFightOutcome,
+    sessionHpIsDecreaseOnly,
     sessionIsSpar,
     settlementOwnsHpOnWin,
 } from './_ai-fight-outcome.js';
@@ -276,5 +279,88 @@ describe('settlementOwnsHpOnWin — who writes the winning HP', () => {
         const real = applyAiFightOutcomeToCharacter({ maxHp: 300, hp: 300 }, 'loss', downed, 1_700_000_000_000);
         assert.equal(real.hp, 0);
         assert.equal(real.hospitalized, true);
+    });
+});
+
+describe('sessionHpIsDecreaseOnly — the fights whose surviving HP may only go down', () => {
+    const sealed = (maxHp: number) => ({
+        level: 100, specialty: 'Taijutsu', maxHp, maxChakra: 500, maxStamina: 500,
+        stats: {}, jutsu: [], pvpItems: [], equipment: {},
+    });
+    const vault = () => buildInfiltrationEncounter({
+        runId: 'infil-decrease-only', now: 1,
+        raider: { slug: 'rill', name: 'Rill', character: sealed(300) },
+        anbu: { slug: 'anbu', name: 'The Frostfang Anbu', character: sealed(400) },
+        terrain: 'forest', sector: 12, targetVillage: 'Frostfang Village',
+    });
+    const garrison = () => buildGarrisonEncounter({
+        runId: 'garrison-decrease-only', now: 1,
+        attacker: { slug: 'rill', name: 'Rill', character: sealed(300) },
+        anbu: { slug: 'anbu', name: 'Frostfang Anbu #1', character: sealed(400) },
+        terrain: 'forest', sector: 12, contestId: '12:moonshadowvillage-vs-frostfangvillage',
+        attackerVillage: 'Moonshadow Village', defenderVillage: 'Frostfang Village',
+    });
+
+    it('holds for the sessions the two real builders seal', () => {
+        // Read off the builders' own output, so renaming an encounter kind
+        // cannot quietly drop the protection.
+        assert.equal(sessionHpIsDecreaseOnly(vault()), true);
+        assert.equal(sessionHpIsDecreaseOnly(garrison()), true);
+    });
+
+    it('also holds for every run that seats a full pool, the one check settlement makes', () => {
+        // The Tower rule (sessionSeedsFullHp) is folded in, and settlement passes
+        // only this predicate. Dropping that half would reopen the Tower
+        // full-pool heal through /api/pve/fight-outcome and the Tower lapse.
+        assert.equal(sessionHpIsDecreaseOnly(session({})), true, 'a Tower run');
+        const ambush = session({ caravanAmbush: { seededVitals: { hp: 100 } } } as unknown as Partial<TowerSession>);
+        assert.equal(sessionHpIsDecreaseOnly(ambush), false, 'the caravan ambush re-seeds its fighter from the save');
+    });
+
+    it('leaves every other Solo-PvE fight on the ordinary rule', () => {
+        assert.equal(sessionHpIsDecreaseOnly(soloSession('win')), false, 'a generic AI fight');
+        for (const kind of ['mission', 'caravan', 'stronghold-patrol', 'story-boss', 'academy-spar']) {
+            const other = soloSession('win');
+            other.encounter = { ...other.encounter, kind };
+            assert.equal(sessionHpIsDecreaseOnly(other), false, `${kind} keeps writing the HP it left`);
+        }
+        assert.equal(sessionHpIsDecreaseOnly(null), false);
+    });
+});
+
+describe('applyAiFightOutcomeToCharacter — decrease-only HP', () => {
+    const now = 1_700_000_000_000;
+    const decreaseOnly = (character: Record<string, unknown>, outcome: 'win' | 'loss', hp: number) =>
+        applyAiFightOutcomeToCharacter(character, outcome, soloFighter('Rill', hp), now, false, false, true);
+
+    it('writes what the fight cost when that is below what the save holds', () => {
+        assert.equal(decreaseOnly({ hp: 250, maxHp: 300 }, 'win', 120).hp, 120);
+    });
+
+    it('never writes above what the save holds: HP lost elsewhere stays lost, and healing stays in the fight', () => {
+        assert.equal(decreaseOnly({ hp: 80, maxHp: 300 }, 'win', 200).hp, 80);
+        assert.equal(decreaseOnly({ hp: 80, maxHp: 300 }, 'loss', 200).hp, 80, 'a lost fight the player walked away from');
+    });
+
+    it('still admits a knocked-out player for the standard stay', () => {
+        const next = decreaseOnly({ hp: 80, maxHp: 300 }, 'loss', 0);
+        assert.equal(next.hp, 0);
+        assert.equal(next.hospitalized, true);
+        assert.equal(next.hospitalizedAt, now);
+        assert.equal(next.hospitalizedUntil, now + AI_FIGHT_HOSPITAL_DURATION_MS);
+    });
+
+    it('leaves a player who went down elsewhere exactly as they are', () => {
+        const down = { hp: 0, maxHp: 300, hospitalized: true, hospitalizedAt: now - 10_000, hospitalizedUntil: now + 50_000 };
+        assert.deepEqual(decreaseOnly({ ...down }, 'win', 200), down);
+    });
+
+    it('treats a save with no readable HP as full, so the cost still lands', () => {
+        assert.equal(decreaseOnly({ maxHp: 300 }, 'win', 120).hp, 120);
+        assert.equal(decreaseOnly({ hp: 'lots', maxHp: 300 }, 'win', 120).hp, 120);
+    });
+
+    it('is off by default: every other mode writes the HP the fight left', () => {
+        assert.equal(applyAiFightOutcomeToCharacter({ hp: 80, maxHp: 300 }, 'win', soloFighter('Rill', 200), now).hp, 200);
     });
 });

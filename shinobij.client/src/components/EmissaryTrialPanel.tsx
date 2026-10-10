@@ -95,10 +95,10 @@ export function EmissaryTrialPanel({ playerName, emissary, onVersionedCharacter 
                 setNote("“Your trial is sealed, but its authoritative record did not arrive. Refresh before continuing.”");
                 return;
             }
-            if (onVersionedCharacter(r.character, r._saveVersion) === false) {
-                setNote("“A newer record already carries your path. This older reply was set aside.”");
-                return;
-            }
+            // The trial is sealed even if a newer save was adopted first and this
+            // commit is refused as stale (the coordinator then reads the stored
+            // save back), so witness it rather than call the reply set aside.
+            onVersionedCharacter(r.character, r._saveVersion);
             setStatus(s => s ? { ...s, legacy: r.legacy!, trial: null } : s);
             const chronicleRecord = buildChronicleRecordReceipt(r.chronicleCards, "legacy-awakening", defView?.name);
             // The emissary's own voice — the Sage's completion passage plays in
