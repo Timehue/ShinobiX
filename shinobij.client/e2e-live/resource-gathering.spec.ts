@@ -6,6 +6,7 @@ import { quietRoadCooldowns } from './helpers/quiet-road';
 import { LATEST_PATCH_NOTE } from '../src/data/patch-notes';
 import { FRACTURE_TEMPLATES } from '../../shared/fracture-chain';
 import { readResourceGathering } from '../../shared/resource-gathering';
+import { expectVisibleTouchTarget } from '../e2e/helpers/visible-target';
 
 test.use({ contextOptions: { reducedMotion: 'no-preference' } });
 // These journeys cross the map, shops, inventory, Outpost and crafting. Budget
@@ -76,10 +77,12 @@ test('real map approaches, both minigames, Outpost tabs and fish cooking persist
     await page.getByRole('button', { name: 'Cast line · 1 action' }).click();
     const hook = page.getByRole('button', { name: 'Hook fish', exact: true });
     await expect(hook).toBeEnabled();
+    if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(hook);
     await hook.focus();
     await page.keyboard.press('Enter');
     const reel = page.getByRole('button', { name: 'Hold to reel', exact: true });
     await expect(reel).toBeEnabled();
+    if (info.project.name.includes('landscape')) await expectVisibleTouchTarget(reel);
     await expect(page.locator('.fishing-tension-fill')).toBeVisible();
     // Keep input on the reel control as the final phase changes its layout.
     // Pointer and touch targets are covered by the focused component suite.

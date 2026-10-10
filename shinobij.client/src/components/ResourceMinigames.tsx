@@ -26,16 +26,33 @@ function FractureChain({ attempt, busy, resolve }: { attempt: ResourcePublicAtte
     const formation = FRACTURE_TEMPLATES[attempt.template];
     const mineral = resourceNode(attempt.nodeId)?.trace;
     const stone = mineral === 'gather-rime-crystal' ? 'frozen' : mineral === 'gather-ember-ore' ? 'volcanic' : mineral === 'gather-stormglass-shard' ? 'crystal' : 'iron';
-    const [placements, setPlacements] = useState<number[]>([]), [detonated, setDetonated] = useState(false), [wave, setWave] = useState(0);
-    const timer = useRef<number[]>([]);
-    useEffect(() => () => timer.current.forEach(clearTimeout), []);
+    const key = `outpost-mining:${attempt.id}`;
+    const [input, setInput] = useState(() => readMiningInput(key, attempt));
+    const placements = input.placements, detonated = input.detonatedAt !== undefined;
+    const [wave, setWave] = useState(() => input.detonatedAt === undefined ? 0
+        : Math.max(0, Math.min(formation.charges, Math.floor((serverNow() - input.detonatedAt) / 650))));
+    const resolveRef = useRef(resolve);
+    useEffect(() => { resolveRef.current = resolve; }, [resolve]);
+    useEffect(() => {
+        if (input.detonatedAt === undefined) return;
+        const phaseAt = input.detonatedAt, pending: number[] = [];
+        pending.push(window.setTimeout(() => setWave(Math.max(0, Math.min(placements.length, Math.floor((serverNow() - phaseAt) / 650)))), 0));
+        for (let index = 0; index < placements.length; index++) {
+            const fireAt = phaseAt + (index + 1) * 650;
+            if (fireAt > serverNow()) pending.push(window.setTimeout(() => setWave(index + 1), fireAt - serverNow()));
+        }
+        const resolveAt = Math.max(phaseAt + 2500, attempt.startedAt + 2800);
+        pending.push(window.setTimeout(() => resolveRef.current({ placements }), Math.max(0, resolveAt - serverNow())));
+        return () => pending.forEach(clearTimeout);
+    }, [input.detonatedAt, placements, attempt.startedAt]);
     const solved = solveFractureChain(attempt.template, placements);
     const exposed = detonated ? new Set(solved?.waves.slice(0, wave).flat()) : new Set<number>();
     function detonate() {
         if (!solved || detonated || busy) return;
-        setDetonated(true);
-        placements.forEach((_, i) => timer.current.push(window.setTimeout(() => setWave(i + 1), (i + 1) * 650)));
-        timer.current.push(window.setTimeout(() => resolve({ placements }), Math.max(2500, attempt.startedAt + 2800 - serverNow())));
+        const committed = { placements, detonatedAt: serverNow() };
+        // Persist the commitment in the click itself, before a document can
+        // leave. A reload resumes its timer and frozen payload, never its edit phase.
+        persistMiningInput(key, committed); setInput(committed);
     }
     return <div className="fracture-game">
         <div className="gather-game-heading"><div><p className="resource-kicker">Mining · {formation.name}</p><h3>Fracture Chain</h3></div><span className="gather-game-method">Chakra extraction</span></div>
@@ -55,7 +72,11 @@ function FractureChain({ attempt, busy, resolve }: { attempt: ResourcePublicAtte
                 className={`fracture-charge${placements.includes(index) ? ' placed' : ''}`} aria-pressed={placements.includes(index)}
                 aria-label={`${site.label}, reaches faces ${site.path.map(face => face + 1).join(', ')}${placements.includes(index) ? `, charge ${placements.indexOf(index) + 1}` : ''}`}
                 disabled={detonated || busy || (!placements.includes(index) && placements.length === formation.charges)}
-                onClick={() => setPlacements(current => current.includes(index) ? current.filter(i => i !== index) : [...current, index])}>
+                onClick={() => setInput(current => {
+                    if (current.detonatedAt !== undefined) return current;
+                    const next = { placements: current.placements.includes(index) ? current.placements.filter(i => i !== index) : [...current.placements, index] };
+                    persistMiningInput(key, next); return next;
+                })}>
                 <svg viewBox="0 0 40 44" aria-hidden="true"><path className="seal-paper" d="M11 3 31 5 29 41 8 38Z"/><circle cx="20" cy="21" r="10"/><circle cx="20" cy="21" r="6"/><path d="M20 7V13M20 29V35M6 21H12M28 21H34M16 18L23 17 21 25 17 23 24 22"/></svg><span>{placements.includes(index) ? placements.indexOf(index) + 1 : '+'}</span>
             </button>)}
         </div>
@@ -63,8 +84,25 @@ function FractureChain({ attempt, busy, resolve }: { attempt: ResourcePublicAtte
         </div>
         <p className="fracture-readout" role="status">{detonated ? `${wave} / ${formation.charges} charges fired${wave === formation.charges ? solved?.destroyed ? ' · Core shattered' : ` · ${solved?.exposed}/${formation.faces} core faces exposed` : ''}` : `${placements.length} / ${formation.charges} charges placed · Select a placed charge to reposition it`}</p>
         <button type="button" className="resource-primary" disabled={!solved || detonated || busy} onClick={detonate}>{detonated ? 'Cracks propagating…' : 'Detonate chain'}</button>
-        {detonated && wave === formation.charges && !busy && <button type="button" onClick={() => resolve({ placements })}>Recover result</button>}
+        {detonated && wave === formation.charges && !busy && <button type="button" className="resource-recover" onClick={() => resolve({ placements })}>Recover result</button>}
     </div>;
+}
+type MiningInput = { placements: number[]; detonatedAt?: number };
+function persistMiningInput(key: string, input: MiningInput) {
+    try { sessionStorage.setItem(key, JSON.stringify(input)); } catch { /* memory only */ }
+}
+function readMiningInput(key: string, attempt: ResourcePublicAttempt): MiningInput {
+    try {
+        const saved: unknown = JSON.parse(sessionStorage.getItem(key) ?? '{}');
+        const input: Partial<MiningInput> | null = Array.isArray(saved) ? { placements: saved } : saved as Partial<MiningInput> | null;
+        const formation = FRACTURE_TEMPLATES[attempt.template], placements = input?.placements;
+        if (!Array.isArray(placements) || placements.length > formation.charges || new Set(placements).size !== placements.length
+            || placements.some(index => !Number.isInteger(index) || !formation.sites[index])) return { placements: [] };
+        const phaseAt = input?.detonatedAt;
+        if (phaseAt !== undefined && (typeof phaseAt !== 'number' || !Number.isFinite(phaseAt)
+            || phaseAt < attempt.startedAt || phaseAt > attempt.expiresAt || !solveFractureChain(attempt.template, placements))) return { placements: [] };
+        return { placements, ...(phaseAt !== undefined ? { detonatedAt: phaseAt } : {}) };
+    } catch { return { placements: [] }; }
 }
 function CastAndReel({ attempt, busy, resolve }: { attempt: ResourcePublicAttempt; busy: boolean; resolve: (input: Record<string, unknown>) => void }) {
     const key = `outpost-fishing:${attempt.id}`;

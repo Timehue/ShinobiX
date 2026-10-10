@@ -319,8 +319,9 @@ When the world clock turns to night (20:00–05:00 in-world, `shared/world-phase
 about one wild sector in five gains a hostile night ninja in the reserved roster
 slot 2 (`shared/wanderer-roster.ts` `rollNightWanderer`). The same ninja holds its
 sector all night and is gone at dawn; the daytime cast never changes because of
-it. It prowls rather than charging the player, and fights like a road bandit
-(Fight / Flee, same level band and payout) with the burst AI template. It is
+it. Since 2026-10-09 it hunts the player exactly like a road bandit: it closes
+in, stops you, and asks Fight / Flee (same level band and payout, and the same
+priced flee in `shared/road-flee.ts`), and it fights with the burst AI template. It is
 not one of the bandit gang: beating or losing to it never moves the robber
 streak (the ambush gauntlet) and never makes it your road nemesis.
 

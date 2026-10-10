@@ -6,7 +6,7 @@ import { enforceRateLimitKv } from '../_ratelimit.js';
 import { mutatePlayerSave } from '../save/_mutate-player-save.js';
 import { onlineStore } from '../_realtime/online-store.js';
 import { resourceNode } from '../../shared/resource-nodes.js';
-import { readResourceGathering } from '../../shared/resource-gathering.js';
+import { readResourceGathering, type ResourceReceipt } from '../../shared/resource-gathering.js';
 import { reserveEconomyTx, markEconomyTx, completeEconomyTx, failEconomyTx, economyTxKey, type EconomyTxRecord } from '../_economy-tx.js';
 import { kv } from '../_storage.js';
 import { refineResource } from './_resource-refine.js';
@@ -45,6 +45,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             if ((action === 'start' || action === 'resolve') && await battleLockedFor(identity.name))
                 return { ok: false, status: 409, error: 'Resolve your active battle before gathering.' };
             let current = character;
+            let recoveredReceipt: ResourceReceipt | undefined, recoveredNodeId: string | undefined;
             let state = readResourceGathering(current.resourceGathering);
             const activeJournal = state.active ? await kv.get<EconomyTxRecord>(economyTxKey(resourceTxId(identity.name, state.active.id))) : null;
             const activeSeal = activeJournal?.meta?.seal as ResourceSeal | undefined;
@@ -54,10 +55,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 if (now >= active.expiresAt || resourcePositionError(player, activeNode)
                     || !activeSeal || (player ? player.movementSeq ?? 0 : -1) !== active.movementSequence || (player ? player.resourceEpoch ?? 0 : -1) !== activeSeal.authorityEpoch) {
                     const closed = resolveResourceAttempt(current, active.id, { cancel: true }, player, now, activeSeal);
-                    if (closed.ok) { current = closed.character; state = readResourceGathering(current.resourceGathering); }
+                    if (closed.ok) {
+                        current = closed.character; state = readResourceGathering(current.resourceGathering);
+                        recoveredReceipt = closed.receipt; recoveredNodeId = active.nodeId;
+                    }
                 }
             }
-            if (action === 'status') return { ok: true, character: current, write: current !== character, value: {} };
+            if (action === 'status') {
+                // Recover a settlement whose response was lost before reload,
+                // as well as an interruption closed by this status request.
+                const receipt = recoveredReceipt ?? state.receipts.find(receipt => receipt.id === id);
+                return { ok: true, character: current, write: current !== character,
+                    value: { receipt, nodeId: recoveredNodeId ?? (receipt && node?.activity === receipt.activity ? node.id : undefined) } };
+            }
             if (action === 'refine') {
                 const refined = refineResource(current, body.itemId, body.quantity, id, now);
                 return refined.ok ? { ok: true, character: refined.character, write: !refined.replayed, value: { refined: refined.value, replayed: refined.replayed } }

@@ -2,9 +2,9 @@
  * Keep the road empty for a live journey that stands in a field sector.
  *
  * A sector's natural cast is shared world state, rolled per (sector, 6h bucket),
- * and its bandit archetype HUNTS: it paths to the player and opens a blocking
- * Fight/Flee encounter by itself (SectorWanderer -> onEngage), with no click
- * needed. Which sectors roll one changes every six hours, so a journey can pass
+ * and its hostiles HUNT (bandits by day and, since 2026-10-09, night ninjas
+ * after dark): they path to the player and open a blocking Fight/Flee encounter
+ * by themselves (SectorWanderer -> onEngage), with no click needed. Which sectors roll one changes every six hours, so a journey can pass
  * all morning and then fail every run until the bucket turns. On 2026-10-02 a
  * hunting "Saito the Cinder" rolled in sectors 13 and 40 for 12:00-18:00 UTC,
  * and its encounter modal sat over the Logout button in

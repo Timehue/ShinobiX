@@ -58,8 +58,8 @@ async function actor() {
         character: { name, level: 20, hp: 100, maxHp: 100, chakra: 100, maxChakra: 100, stamina: 100, maxStamina: 100 } });
     store.upsert({ name, ...location, character: null, restoredWorldPosition: origin });
     const initial = await service.applyWorldMovement(name, { worldPosition: origin, expectedSequence: 0 });
-    assert(initial.ok); clock += 30;
-    return name;
+    assert(initial.ok); assert.equal(initial.sequence, 0, 'stationary startup acknowledges without moving'); clock += 30;
+    return { name, sequence: initial.sequence };
 }
 
 async function request(name: string, method: string, body: unknown = {}, authenticated = true) {
@@ -72,12 +72,14 @@ async function request(name: string, method: string, body: unknown = {}, authent
 }
 
 test('HTTP movement requires authentication and returns the same admitted cursor', async () => {
-    const name = await actor();
+    const { name, sequence } = await actor();
     assert.equal((await request(name, 'GET', {}, false)).status, 401);
     const snapshot = await request(name, 'GET'); assert.equal(snapshot.status, 200);
     assert.deepEqual(snapshot.body?.worldPosition, origin);
-    const moved = await request(name, 'POST', { worldPosition: destination, expectedSequence: 1 });
+    assert.equal(snapshot.body?.sequence, sequence);
+    const moved = await request(name, 'POST', { worldPosition: destination, expectedSequence: sequence });
     assert.equal(moved.status, 200); assert.equal(moved.body?.sector, b.sector);
+    assert.equal(moved.body?.sequence, sequence + 1);
     assert.deepEqual(store.get(name)!.worldPosition, destination);
     assert.deepEqual((await travel.getTravelLease(name))?.worldPosition, destination);
     assert(await travel.settleTravelLease(name, undefined, clock));
@@ -85,30 +87,32 @@ test('HTTP movement requires authentication and returns the same admitted cursor
 });
 
 test('failed durable admission moves neither the sector nor cursor', async t => {
-    const name = await actor(), original = kv.set.bind(kv);
+    const { name, sequence } = await actor(), original = kv.set.bind(kv);
     t.mock.method(kv, 'set', async (key: string, value: unknown, options?: never) => {
         if (key === travel.travelLeaseKey(name)) throw new Error('injected durable failure');
         return original(key, value, options);
     });
-    const result = await service.applyWorldMovement(name, { worldPosition: destination, expectedSequence: 1 });
+    const result = await service.applyWorldMovement(name, { worldPosition: destination, expectedSequence: sequence });
     assert.equal(result.ok, false); assert.equal(store.get(name)!.sector, a.sector);
+    assert.equal(result.reason, 'unavailable', 'the durable write failure must be reached');
     assert.deepEqual(store.get(name)!.worldPosition, origin);
 });
 
 test('a battle acquired during admission prevents publication and clears only that lease', async t => {
-    const name = await actor(), original = kv.set.bind(kv);
+    const { name, sequence } = await actor(), original = kv.set.bind(kv);
     t.mock.method(kv, 'set', async (key: string, value: unknown, options?: never) => {
         const result = await original(key, value, options);
         if (key === travel.travelLeaseKey(name)) store.setInBattle(name, true);
         return result;
     });
-    const result = await service.applyWorldMovement(name, { worldPosition: destination, expectedSequence: 1 });
+    const result = await service.applyWorldMovement(name, { worldPosition: destination, expectedSequence: sequence });
     assert.equal(result.ok, false); assert.equal(store.get(name)!.sector, a.sector);
+    assert.equal(result.reason, 'superseded', 'the battle acquired during durable admission must be reached');
     assert.equal(await travel.getTravelLease(name), null);
 });
 
 test('HTTP and an actual authenticated socket share sequence and zone authority', { timeout: 15000 }, async t => {
-    const name = await actor(), server = createServer();
+    const { name, sequence } = await actor(), server = createServer();
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const sockets = await import('../_realtime/socket.js');
     t.after(async () => { await sockets.closeSocketServer(); if (server.listening) await new Promise<void>(resolve => server.close(() => resolve())); });
@@ -126,9 +130,9 @@ test('HTTP and an actual authenticated socket share sequence and zone authority'
         await new Promise<void>(resolve => { client.once('disconnect', () => resolve()); client.close(); });
     });
     await new Promise<void>((resolve, reject) => { client.once('connect', resolve); client.once('connect_error', reject); client.connect(); });
-    const result = await new Promise<Record<string, unknown>>(resolve => client.emit('world:move', { worldPosition: destination, expectedSequence: 1 }, resolve));
-    assert.equal(result.ok, true); assert.equal(result.sector, b.sector); assert.equal(result.sequence, 2);
-    const stale = await request(name, 'POST', { worldPosition: origin, expectedSequence: 1 });
+    const result = await new Promise<Record<string, unknown>>(resolve => client.emit('world:move', { worldPosition: destination, expectedSequence: sequence }, resolve));
+    assert.equal(result.ok, true); assert.equal(result.sector, b.sector); assert.equal(result.sequence, sequence + 1);
+    const stale = await request(name, 'POST', { worldPosition: origin, expectedSequence: sequence });
     assert.equal(stale.status, 409); assert.equal(stale.body?.reason, 'sequence');
     assert.deepEqual(stale.body?.worldPosition, destination);
 });

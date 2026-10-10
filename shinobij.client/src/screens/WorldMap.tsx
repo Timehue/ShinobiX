@@ -224,6 +224,7 @@ import { fetchBountyBoard, startBountyHunter, type BountyEntry } from "../lib/pv
 import { contractHunterLevel } from "../../../shared/contract-hunter";
 import { contractHunterWanderers } from "../lib/contract-hunter-wanderers";
 import { postWandererService, type WandererFavor } from "../lib/wanderer-service";
+import { exploreAmbushWanderer, fleeRoadAmbush, roadFleePriceLine, type RoadFleeResult } from "../lib/road-flee-api";
 import { homeVillageForSector } from "../data/war-map-sectors";
 import { isLegacyServerLive, useLegacyAvailability, useLegacyMutationAvailability, fetchSageState, fetchLegacyStatus, synthSageWanderer, LEGACY_SAGE_WANDERER_ID, type SageOfferView } from "../lib/legacy";
 import { rollEmissarySpawn, EMISSARY_BY_SLUG, type EmissarySlug, type EmissaryQuestDef } from "../lib/legacy-emissaries";
@@ -941,7 +942,7 @@ function WorldMapContent({
         return r?.active ? r.currentSector : null;
     }, [roamingBoss, roamBossTick]);
     // The Stand/Flee prompt shown when the boss reaches the player in its sector.
-    const [bossDialog, setBossDialog] = useState<{ name: string; portrait: string; attemptsUsed: number } | null>(null);
+    const [bossDialog, setBossDialog] = useState<{ name: string; portrait: string; attemptsUsed: number; fleeId?: string; busy?: boolean; error?: string } | null>(null);
 
     // Per-player back-off, keyed by weekKey in the (self-pruning) wanderer cooldown
     // map — coolWanderer no-ops relocation for this synthetic id. UX pacing only;
@@ -950,7 +951,7 @@ function WorldMapContent({
         if (roamingBoss?.weekKey) coolWanderer(weeklyBossRoamCooldownId(roamingBoss.weekKey), ms);
     }
     function handleBossEngage() {
-        if (!roamingBoss?.aiId) return;
+        if (!roamingBoss?.aiId || requiresWandererChoice(wandererDialog)) return false; // waits its turn
         setBossDialog({
             name: roamingBoss.bossName ?? "Weekly Boss",
             portrait: sharedImages["ai:" + roamingBoss.aiId] || "",
@@ -980,9 +981,18 @@ function WorldMapContent({
         stageWeeklyBossFight("worldMap");
         onLaunchWeeklyBoss?.(roamingBoss.aiId, roamingBoss.bossName, "worldMap");
     }
-    function fleeBoss() {
-        coolWeeklyBoss(WEEKLY_BOSS_ROAM_REENGAGE_COOLDOWN_MS); // free — no attempt spent; brief re-lunge back-off only
+    // Fleeing the boss spends no attempt, but it is the same priced road flee as
+    // any hostile (owner, 2026-10-09), and the boss backs off like a fled bandit.
+    async function fleeBoss() {
+        const d = bossDialog;
+        if (!d || d.busy) return;
+        const asked = { ...d, fleeId: d.fleeId ?? crypto.randomUUID(), error: undefined };
+        setBossDialog({ ...asked, busy: true });
+        const fled = await fleeRoadAmbush(character.name, asked.fleeId, { kind: "road" });
+        if (!fled.ok) { setBossDialog((current) => current && { ...asked, error: fled.error }); return; }
         setBossDialog(null);
+        coolWeeklyBoss(WANDERER_FLEE_COOLDOWN_MS);
+        adoptFleeTotals(fled);
     }
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
@@ -1337,6 +1347,15 @@ function WorldMapContent({
         }
     }
     function startWandererAttack(w: Wanderer, nemesis = false) {
+        // One Fight button for every hostile that stops you: a contract hunter, a
+        // war mercenary and an exploration's ambush each start their own fight.
+        if (w.verb === "bountyHunter") { void startBountyHunterFight(w); return; }
+        if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
+        const d = wandererDialog?.w.id === w.id ? wandererDialog : null;
+        if (d?.ambush) {
+            setWandererDialog(startExploreAmbushFight(d.ambush.sector, d.ambush.requestId) ? null : { ...d, choiceError: "The combat host is unavailable. Try Fight again in a moment." });
+            return;
+        }
         if (selectedSector == null) return;
         // launchWorldMapFight REFUSES SILENTLY when admission is closed. On a
         // dialog the player is already looking at, that read as a dead Fight
@@ -1350,8 +1369,8 @@ function WorldMapContent({
         // relocate this NPC before the start ACK: a rejected/offline start must
         // leave the exact encounter available to retry.
         // Streak ≥ 5 → the gang ambushes: 3 robbers, then the boss. (A nemesis duel
-        // is its own special encounter and skips the ambush.)
-        if (!nemesis && (character.robberStreak ?? 0) >= 5) {
+        // or a night ninja, a lone prowler, is its own encounter and skips it.)
+        if (!nemesis && w.archetype !== "nightblade" && (character.robberStreak ?? 0) >= 5) {
             launchWorldMapFight(
                 buildRobberAi(character.level, "amb0", 0),
                 selectedSector,
@@ -1615,7 +1634,7 @@ function WorldMapContent({
         if (isTraveling || character.hospitalized || Number(character.hp) <= 0
             || selectedSector !== pending.sector || !sameSector(currentSector, pending.sector)) return;
         const hunter = bountyHunterWanderers.find((candidate) => candidate.id === pending.hunterId && candidate.verb === "bountyHunter");
-        if (hunter) void startBountyHunterFight(hunter);
+        if (hunter) setWandererDialog((current) => current ?? { w: hunter });
     }, [combatActive, bountyHunterWanderers, selectedSector, currentSector, isTraveling, character.hospitalized, character.hp, pendingWorldHandoff.worldAiPendingChain, pendingWorldHandoff.worldAiPendingOutcome]);
     function launchAmbushStage(stage: number, sector: number, chainId: string) {
         // Robbers at the player's level (+0/+1/+2); the boss a few levels above —
@@ -1941,6 +1960,7 @@ function WorldMapContent({
     }
     function handleWandererEngage(w: Wanderer) {
         if (selectedSector == null || !sameSector(currentSector, selectedSector)) return;
+        if (requiresWandererChoice(wandererDialog) || bossDialog) return false; // one hostile at a time: it engages after this choice
         if (combatActive || isCombatActive()) {
             if (w.verb === "bountyHunter") pendingBountyHunterRef.current = { hunterId: w.id, sector: selectedSector };
             return;
@@ -2039,12 +2059,9 @@ function WorldMapContent({
             return;
         }
         if (petMentor.engage(w)) return;
-        // A roaming mercenary doesn't parley — it forces a server-resolved fight.
-        if (isMercAiId(w.id)) { void engageRoamingMerc(w); return; }
-        if (w.verb === "bountyHunter") {
-            void startBountyHunterFight(w);
-            return;
-        }
+        // A roaming mercenary or contract hunter stops you like a bandit: Fight
+        // (the merc's server-resolved clash, the hunter's sealed fight) or pay to Flee.
+        if (isMercAiId(w.id) || w.verb === "bountyHunter") { setWandererDialog({ w }); return; }
         // A bandit you face while you have a rival has a chance of BEING that rival,
         // back for more (bandits only: a night ninja is never your road rival).
         if (w.archetype === "bandit" && character.wandererNemesis && Math.random() < 0.45) {
@@ -2062,8 +2079,8 @@ function WorldMapContent({
         // + Fight/Flee for bandits; greetings + actions for the rest).
         setWandererDialog({ w, standingLine: react?.line });
     }
-    // A roaming merc reaching the player resolves SERVER-SIDE (no client Arena, no
-    // Fight/Flee — a merc forces the fight; the server calls it). The result reuses
+    // Choosing Fight against a roaming merc resolves SERVER-SIDE (no client Arena;
+    // the server calls the clash). Fleeing it is the priced road flee. The result reuses
     // the resolved-dialog path. The merc NPC is hidden client-side after the clash;
     // the server enforces the real 15-min per-target cooldown.
     async function engageRoamingMerc(w: Wanderer) {
@@ -2088,20 +2105,43 @@ function WorldMapContent({
             setWandererDialog({ w, msg: "You couldn't reach the contract board." });
         }
     }
-    // Closing the dialog. Fleeing/declining a BANDIT (you took no reward) puts it on
-    // a short cooldown so it backs off instead of re-confronting you every time you
-    // step back into the sector. Non-bandit dialogs (gift/quest/pet/card) just close
-    // — they cool only when you actually take their interaction. Already-resolved
-    // (`msg`) dialogs just close; the cooldown was set when the action ran.
+    // Closing the dialog. A hostile that has caught you is never waved off here:
+    // it is fought or fled (fleeWanderer, which costs HP and ryo), so Escape does
+    // nothing. Passing a bandit in peace is free and puts it on the short flee
+    // cooldown. Other dialogs cool only when you take their interaction, and
+    // resolved (`msg`) dialogs just close.
     function dismissWandererDialog() {
         const d = wandererDialog;
-        if (d?.w.verb === "bountyHunter" && !d.msg) return;
+        if (requiresWandererChoice(d) && !d?.peace) return;
         setWandererDialog(null);
         if (d && !d.msg && d.w.verb === "attack") coolWanderer(d.w.id, WANDERER_FLEE_COOLDOWN_MS);
     }
     function handleWandererBackdropClick() {
         if (requiresWandererChoice(wandererDialog)) return;
         dismissWandererDialog();
+    }
+    // Running from a hostile. The server charges the price (shared/road-flee.ts)
+    // and only then does the encounter end; a failed request keeps the choice
+    // open, and its fleeId makes a retry of a flee that did land free.
+    async function fleeWanderer(w: Wanderer) {
+        const d = wandererDialog;
+        if (!d || d.w.id !== w.id || d.busy) return;
+        const asked = { ...d, fleeId: d.fleeId ?? crypto.randomUUID(), choiceError: undefined };
+        setWandererDialog({ ...asked, busy: true });
+        const fled = await fleeRoadAmbush(character.name, asked.fleeId, asked.ambush ? { kind: "explore", ...asked.ambush } : { kind: "road" });
+        const settledAmbush = !!asked.ambush && (fled.ok || fled.reason === "already-resolved" || fled.reason === "invalid-encounter");
+        if (!fled.ok) {
+            setWandererDialog((current) => current?.w.id !== w.id ? current : settledAmbush ? { w, msg: fled.error } : { ...asked, choiceError: fled.error });
+            if (settledAmbush) completeWorldRewardOperation(character.name, asked.ambush!.requestId);
+            return;
+        }
+        setWandererDialog((current) => current?.w.id === w.id ? null : current);
+        if (settledAmbush) completeWorldRewardOperation(character.name, asked.ambush!.requestId);
+        else coolWanderer(w.id, WANDERER_FLEE_COOLDOWN_MS);
+        adoptFleeTotals(fled);
+    }
+    function adoptFleeTotals(fled: Extract<RoadFleeResult, { ok: true }>) {
+        if (onServerVersion?.(fled._saveVersion) !== false) updateCharacter(prev => prev ? ({ ...prev, hp: fled.totals.hp, ryo: fled.totals.ryo }) : prev);
     }
 
     const { traces: sectorTraces, setTraces: setSectorTraces, modal: tracesModal, setModal: setTracesModal, open: openSectorTraces } = useSectorTraces(selectedSector, character.name);
@@ -3034,7 +3074,7 @@ function WorldMapContent({
                 completeWorldRewardOperation(character.name, operation.id);
             }
             if (settled.pendingBattle) { // an ambush rolled earlier is still owed: resume that exact sealed encounter
-                if (!launchResolvedExploreBattle(settled.pendingBattle.sector, settled.pendingBattle.requestId)) notifyFailure("The combat host is unavailable. Reopen the map to resume your pending encounter.");
+                if (!presentExploreAmbush(settled.pendingBattle.sector, settled.pendingBattle.requestId)) notifyFailure("The combat host is unavailable. Reopen the map to resume your pending encounter.");
                 return null;
             }
             if (settled.error === "sector-depleted" && !reportFailure) { gameToast(SECTOR_DEPLETED_MESSAGE, { kind: "info" }); return null; }
@@ -3100,7 +3140,17 @@ function WorldMapContent({
         return "settled";
     }
 
-    function launchResolvedExploreBattle(sector: number, worldExploreRequestId: string): boolean {
+    // An exploration that rolls a battle is an ambush, so it stops the player in
+    // the same Fight/Flee encounter as any road hostile. The receipt stays owed
+    // (api/world/_pending-battle.ts) until Fight starts it or Flee settles it, so
+    // a refresh or the next exploration brings the same choice back.
+    function presentExploreAmbush(sector: number, worldExploreRequestId: string): boolean {
+        if (!isWildSector(sector)) return startExploreAmbushFight(sector, worldExploreRequestId);
+        setSelectedSector(sector);
+        setWandererDialog({ w: exploreAmbushWanderer(worldExploreRequestId, character.level), ambush: { sector, requestId: worldExploreRequestId } });
+        return true;
+    }
+    function startExploreAmbushFight(sector: number, worldExploreRequestId: string): boolean {
         setSectorReopen(isWildSector(sector) ? sector : null);
         return requestAiFight({
             // The server ignores this suggestion and derives the closest-level
@@ -3247,7 +3297,7 @@ function WorldMapContent({
         return drainPendingWorldRewardOperations(character.name, {
             continueWorldDiscovery,
             recoverPendingExternalDiscovery,
-            launchResolvedExploreBattle,
+            presentExploreAmbush,
             recordMissionExplore,
             settleDiscoveredChest,
             onDungeonFound,
@@ -3347,7 +3397,7 @@ function WorldMapContent({
             return chestState === "settled" ? "recovered" : chestState === "terminal" ? "retired" : "blocked";
         }
         if (explored.outcome?.kind === "battle") {
-            if (launchResolvedExploreBattle(explored.operation.sector, explored.operation.id)) return "recovered";
+            if (presentExploreAmbush(explored.operation.sector, explored.operation.id)) return "recovered";
             notifyFailure("The combat host is unavailable. Reopen the map to resume this sealed encounter.");
             return "blocked";
         }
@@ -4561,20 +4611,22 @@ function WorldMapContent({
                             )}
 
                             {bossDialog && createPortal(
-                                <div style={{ position: "fixed", inset: 0, zIndex: 9999, display: "grid", placeItems: "center", background: "rgba(0,0,0,.6)" }}>
-                                    <div className="card" style={{ maxWidth: 380, width: "88%", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
+                                <ModalDialogScrim label={`${bossDialog.name} — encounter`} onBackdrop={() => undefined} onEscape={() => undefined}>
+                                    <div className="card" style={{ maxWidth: 380, width: "88%", maxHeight: "88dvh", overflowY: "auto", textAlign: "center", padding: 18, border: "1px solid rgba(236,91,56,.6)" }} onClick={(e) => e.stopPropagation()}>
                                         {bossDialog.portrait
                                             ? <img src={bossDialog.portrait} alt={bossDialog.name} style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />
                                             : <img src="/portraits/hollow-warden.webp" alt="" style={{ width: 104, height: 104, objectFit: "cover", borderRadius: "50%", border: "2px solid #ec5b38", margin: "0 auto 8px", boxShadow: "0 0 18px rgba(236,91,56,.6)" }} />}
                                         <h3 style={{ margin: "0 0 4px", color: "#ffb4a0" }}><GameArtIcon kind="attack" size={17} /> {bossDialog.name}</h3>
-                                        <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee (free, no attempt spent).</p>
-                                        <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 12px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
+                                        <p style={{ fontSize: ".78rem", color: "#9aa3b2", margin: "0 0 8px" }}>The Weekly Boss bears down on you. Stand and deal all the damage you can for the server-wide leaderboard, or flee. Fleeing spends no attempt.</p>
+                                        <p style={{ fontSize: ".72rem", color: "var(--gold)", margin: "0 0 8px" }}>Attempts used: {bossDialog.attemptsUsed}/3</p>
+                                        <p style={{ fontSize: ".74rem", color: "#9aa3b2", margin: "0 0 12px" }}>{roadFleePriceLine(character)}</p>
+                                        {bossDialog.error && <p role="alert" style={{ fontSize: ".76rem", color: "var(--red-300)", margin: "-6px 0 12px" }}>{bossDialog.error}</p>}
                                         <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
-                                            <button disabled={!globalMutationsOpen} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
-                                            <button onClick={fleeBoss}>Flee</button>
+                                            <button disabled={!globalMutationsOpen || bossDialog.busy} onClick={standBossFight} style={{ background: "linear-gradient(#7f1d1d,#450a0a)", borderColor: "var(--red-400)", fontWeight: 700, opacity: globalMutationsOpen ? 1 : 0.55 }}>{globalMutationsOpen ? "Stand & Fight" : "Fight paused"}</button>
+                                            <button disabled={bossDialog.busy} onClick={() => void fleeBoss()}>Flee</button>
                                         </div>
                                     </div>
-                                </div>,
+                                </ModalDialogScrim>,
                                 document.body,
                             )}
                             {legacyAvailable && sageChoiceOpen && sageOffer && (
@@ -4646,6 +4698,7 @@ function WorldMapContent({
                                         closeWandererDialog={() => setWandererDialog(null)}
                                         dismissWandererDialog={dismissWandererDialog}
                                         startWandererAttack={startWandererAttack}
+                                        fleeWanderer={fleeWanderer}
                                         tradeWithWanderer={tradeWithWanderer}
                                         askRoadRumor={askRoadRumor}
                                         visitWandererMedic={visitWandererMedic}
