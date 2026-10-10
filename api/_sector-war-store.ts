@@ -633,7 +633,21 @@ export async function locateSectorWarAppliedBattle(
     let found: SectorWarLocatedBattle | null = null;
     for (const contestId of [...new Set(args.contestIds.filter(Boolean))]) {
         const raw = await store.get<Partial<SectorWarSession>>(sectorWarKey(contestId));
-        const session = raw ? normalizeSectorWarSession(raw) : null;
+        let session: SectorWarSession | null = null;
+        if (raw) {
+            try {
+                session = normalizeSectorWarSession(raw);
+            } catch (error) {
+                // A battle provably bound to this contest waits for the repair.
+                // For any other candidate the row is skipped and logged, as the
+                // scans do (see scanContestRows): one corrupt row used to wedge
+                // the reward claim of every decisive fight between its two
+                // villages in that sector, bound to the war or not.
+                if (scannable.has(contestId)) throw error;
+                logWarEvent('contest-row-unreadable', { key: sectorWarKey(contestId), battleId, error: warEventError(error) }, 'error');
+                continue;
+            }
+        }
         const sameInstance = !!session && args.battleCreatedAt >= session.startedAt;
         let receipt: SectorWarBattleReceipt | null = null;
         let tally: { attackerPoints: number; defenderPoints: number } | null = null;

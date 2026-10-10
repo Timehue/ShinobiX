@@ -15,22 +15,30 @@
  * Entry context (sector) is stashed to sessionStorage by VillageWarMap before
  * navigating here (mirrors SectorWarCardBattle / SectorWarPetBattle), and the
  * server independently re-derives the contest from the sector, so the client
- * can neither pick the contest nor influence the fight.
+ * can neither pick the contest nor influence the fight. The screen adds the run
+ * it opened to that stash, and marks it `done` once its result is in, so a
+ * refresh on the result shows the result again instead of starting a new
+ * assault (garrisonMountPlan).
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import type { VersionedCharacterCommit } from "../types/character";
 import {
-    startGarrisonAssault,
+    clearGarrisonStash,
+    garrisonMountPlan,
+    garrisonReportCopy,
+    readGarrisonStash,
     resolveGarrisonAssault,
+    startGarrisonAssault,
+    writeGarrisonStash,
+    GARRISON_IDLE_LAPSE_MINUTES,
     type GarrisonResolveResponse,
 } from "../lib/sector-war-garrison-api";
 import { MissionArenaFight } from "./MissionArenaFight";
 import { soloPveArenaTransport, soloPveSessionForArena } from "../lib/solo-pve-arena-adapter";
 import type { SoloPveSession } from "../lib/solo-pve-api";
 
-const GARRISON_STASH_KEY = "sectorWarGarrison.v1";
 type Phase = "starting" | "fight" | "result";
 
 export function SectorWarGarrisonAssault({
@@ -44,39 +52,60 @@ export function SectorWarGarrisonAssault({
     onVersionedCharacter: VersionedCharacterCommit;
     setScreen: (s: Screen) => void;
 }) {
-    const stashed = useMemo<{ sector: number } | null>(() => {
-        try {
-            const raw = sessionStorage.getItem(GARRISON_STASH_KEY);
-            if (!raw) return null;
-            const parsed = JSON.parse(raw) as { sector?: number };
-            return Number.isFinite(parsed.sector) ? { sector: Math.floor(Number(parsed.sector)) } : null;
-        } catch {
-            return null;
-        }
-    }, []);
+    const stashed = useMemo(() => readGarrisonStash(), []);
 
     const [phase, setPhase] = useState<Phase>("starting");
-    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession; anbuName: string } | null>(null);
+    const [fight, setFight] = useState<{ runId: string; session: SoloPveSession | null; anbuName: string } | null>(null);
     const [report, setReport] = useState<GarrisonResolveResponse | null>(null);
+    // The result on screen is an EARLIER assault's, settled on this visit.
+    const [earlier, setEarlier] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const startedRef = useRef(false);
 
     function backToWarMap() {
-        try { sessionStorage.removeItem(GARRISON_STASH_KEY); } catch { /* storage disabled */ }
+        clearGarrisonStash();
         setScreen("villageWarMap");
     }
+
+    /** Show a settled assault's result. Installs the server-settled character
+     *  (item usage + surviving HP/hospital) first — and a `false` from the
+     *  commit only means a NEWER save is already installed: keep it and still
+     *  finish (AnbuVaultRaid's contract). This used to return early there and
+     *  leave the player on "Reporting the outcome…" for good. */
+    function adoptResult(runId: string, anbuName: string, r: GarrisonResolveResponse, fromEarlier = false) {
+        if (r.ok && r.character) onVersionedCharacter(r.character, r._saveVersion);
+        if (stashed) writeGarrisonStash({ sector: stashed.sector, runId, anbuName, done: true });
+        setFight((current) => current ?? { runId, session: null, anbuName });
+        setEarlier(fromEarlier);
+        setReport(r);
+        setPhase("result");
+    }
+    const adoptResultFromMount = useEffectEvent(adoptResult);
 
     useEffect(() => {
         if (startedRef.current) return;
         startedRef.current = true;
-        if (!stashed) { setError("The assault context was lost."); return; }
+        const plan = garrisonMountPlan(stashed);
+        if (plan.kind === "lost") { setError("The assault context was lost."); return; }
         (async () => {
             try {
+                if (plan.kind === "show-result") {
+                    // A finished assault's result, re-read (the server replays its
+                    // cached settlement) — never a new assault behind the player's back.
+                    const r = await resolveGarrisonAssault(plan.runId, character.name);
+                    adoptResultFromMount(plan.runId, plan.anbuName, r);
+                    return;
+                }
                 // garrison-start is itself the refresh-resume path: the server keys
-                // an active run off (attacker, sector), so calling it again for the
-                // same contest replays the existing live session rather than
-                // minting a second one.
-                const res = await startGarrisonAssault(character.name, stashed.sector);
+                // an active run off (attacker, sector), so calling it again resumes
+                // the live session rather than minting a second one — and settles
+                // and returns one that finished unreported.
+                const res = await startGarrisonAssault(character.name, plan.sector);
+                if (res.settledPrevious) {
+                    adoptResultFromMount(res.runId, res.anbu.name, res.result, true);
+                    return;
+                }
+                writeGarrisonStash({ sector: plan.sector, runId: res.runId, anbuName: res.anbu.name });
                 setFight({ runId: res.runId, session: res.session, anbuName: res.anbu.name });
                 setPhase("fight");
             } catch (e) {
@@ -87,12 +116,7 @@ export function SectorWarGarrisonAssault({
 
     async function settleGarrison(runId: string, _playerName: string): Promise<unknown> {
         const r = await resolveGarrisonAssault(runId, character.name);
-        // Install the server-settled character (item usage + surviving HP/hospital
-        // from the fight) before showing the result — same contract as every
-        // other AI-fight settlement (AnbuVaultRaid, MissionArenaFight itself).
-        if (r.ok && r.character && !onVersionedCharacter(r.character, r._saveVersion)) return r;
-        setReport(r);
-        setPhase("result");
+        adoptResult(runId, fight?.anbuName ?? "", r);
         return r;
     }
 
@@ -106,7 +130,7 @@ export function SectorWarGarrisonAssault({
         );
     }
 
-    if (phase === "fight" && fight) {
+    if (phase === "fight" && fight?.session) {
         return (
             <MissionArenaFight
                 character={character}
@@ -115,6 +139,7 @@ export function SectorWarGarrisonAssault({
                 initialSession={soloPveSessionForArena(fight.session)}
                 transport={soloPveArenaTransport}
                 onExit={() => { if (report) setPhase("result"); else backToWarMap(); }}
+                eventLabel={`Garrison Assault · lapses after ${GARRISON_IDLE_LAPSE_MINUTES} min idle`}
                 recordMode="Sector Garrison"
                 settleFn={settleGarrison}
                 settleOnAnyDone
@@ -124,7 +149,7 @@ export function SectorWarGarrisonAssault({
                             {settleState === "failed" ? (
                                 <>
                                     <h2>Report Failed</h2>
-                                    <p>The assault finished, but the outcome couldn&apos;t be reported to the server. Retry — the sector war score will not move until it lands.</p>
+                                    <p>The assault finished, but its result couldn&apos;t be loaded. Retry — or leave: the server records a finished assault on its own, and your next assault on this sector shows it.</p>
                                     <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
                                         <button className="start-primary-btn" onClick={retry}>Retry</button>
                                         <button onClick={backToWarMap}>Leave</button>
@@ -144,17 +169,12 @@ export function SectorWarGarrisonAssault({
     }
 
     if (phase === "result") {
-        const won = report?.ok && "attackerWon" in report ? report.attackerWon : null;
+        const copy = garrisonReportCopy(report, fight?.anbuName ?? "", earlier);
         return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "1.2rem", textAlign: "center" }}>
-                <h2 style={{ margin: "0.4rem 0" }}>{won ? "Garrison Fallen" : won === false ? "The Garrison Held" : "Assault Over"}</h2>
-                <p style={{ opacity: 0.85 }}>
-                    {won
-                        ? `${fight?.anbuName ?? "The garrison"} fell — your side scores this sector war.`
-                        : won === false
-                            ? `${fight?.anbuName ?? "The defending Anbu"} repelled your assault. The garrison scores for the defence.`
-                            : "The clash ended without a decision — no points changed hands."}
-                </p>
+                <h2 style={{ margin: "0.4rem 0" }}>{copy.title}</h2>
+                <p style={{ opacity: 0.85 }}>{copy.detail}</p>
+                {copy.note && <p style={{ fontSize: 13, opacity: 0.75 }}>{copy.note}</p>}
                 {report?.ok && (
                     <p style={{ fontSize: 14 }}>
                         War score now <b>{report.attackerPoints}</b> : <b>{report.defenderPoints}</b>
@@ -166,8 +186,9 @@ export function SectorWarGarrisonAssault({
     }
 
     return (
-        <div style={{ display: "grid", placeItems: "center", minHeight: "40dvh", color: "#cbd5e1" }}>
+        <div style={{ display: "grid", placeItems: "center", minHeight: "40dvh", color: "#cbd5e1", textAlign: "center" }}>
             <p>Squaring off against the garrison…</p>
+            <p style={{ fontSize: 13, opacity: 0.75 }}>An assault left idle for {GARRISON_IDLE_LAPSE_MINUTES} minutes counts as a retreat.</p>
         </div>
     );
 }

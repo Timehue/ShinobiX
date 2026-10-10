@@ -200,3 +200,31 @@ export async function attackSectorPlayer(opts: SectorAttackOptions): Promise<voi
     }).catch(() => { /* defender notification is best-effort; session is live regardless */ });
 
 }
+
+/**
+ * The target's half of an open-world battle in a Pet or Card sector war (owner
+ * ruling 2026-10-08). The attacker's `engage` put a notice naming the battle in
+ * this player's inbox, and this opens it, the way a Combat attack's notice opens
+ * the shared PvP fight. Returns false for any other notice.
+ *
+ * The notice is dismissed for good either way. The heartbeat re-delivers the
+ * inbox on every beat until the entry expires, so a notice that was only
+ * dropped from the list would route the player back into the battle again.
+ * A traveling player is not routed: the server will not start a battle on one,
+ * so a notice that still reaches them is stale.
+ *
+ * Only this check runs at startup. The routing itself loads on demand
+ * (sector-war-engagement.ts openNoticedSectorBattle), because App imports this
+ * module statically and the startup graph has no room for it
+ * (scripts/check-build-size.mjs). A chunk that fails to load drops the
+ * notice, as a stale one is dropped.
+ */
+export function routeOpenSectorBattleNotice(
+    notice: DuelChallenge,
+    opts: { isTraveling: boolean; dismiss: (id: string) => void; setScreen: (screen: Screen) => void },
+): boolean {
+    if (!notice.sectorContest) return false;
+    opts.dismiss(notice.id);
+    if (!opts.isTraveling) void import("./sector-war-engagement").then((m) => m.openNoticedSectorBattle(notice, opts.setScreen), () => undefined);
+    return true;
+}

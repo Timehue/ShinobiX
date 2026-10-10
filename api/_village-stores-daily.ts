@@ -33,6 +33,7 @@ import { WR_POOL_CAP } from './_war-economy.js';
 import { effectiveLevel } from './_war-structures.js';
 import { homeSectorsForVillage } from './_war-map-sectors.js';
 import { normalizeVillageWarRecord, villageWarKey, villageWarSlug, activeMercLeases, type VillageWarRecord } from './_war-state.js';
+import { mercBandKey } from './_war-merc.js';
 import { sectorWarKey, normalizeGarrisonFeed, type SectorWarSession } from './_sector-war.js';
 import {
     appendStoresLedger,
@@ -192,7 +193,7 @@ async function commitStoresDay(
             ...record,
             warResources: Math.max(0, Math.min(WR_POOL_CAP, record.warResources + Math.max(0, journal.wrGained))),
             mercLeases: record.mercLeases.map((l) => (
-                skips.has(`${l.tierId}:${l.player}`) ? { ...l, skipNextAutoDeploy: true } : l
+                skips.has(mercBandKey(l)) ? { ...l, skipNextAutoDeploy: true } : l
             )),
             storesLedger: appendStoresLedger(record.storesLedger, journal.ledger),
             storesReceipts: pruneStoresReceipts({ ...(record.storesReceipts ?? {}), ...journal.receipts, [receiptId]: journal.at }),
@@ -294,7 +295,11 @@ export async function runVillageStoresStep(args: {
             now,
         });
 
-        const mercSkips = day.mercs.filter((m) => !m.fed).map((m) => `${m.tierId}:${m.player}`);
+        // Keyed per BAND (mercBandKey). A leader can hold two bands of one tier
+        // since the 2026-10-08 redesign (one per war, or several in one war),
+        // and a (tier, hirer) key made a fed band sit out with its unfed twin.
+        // `day.mercs` is in the order of `live`.
+        const mercSkips = day.mercs.flatMap((m, i) => (m.fed ? [] : [mercBandKey(live[i])]));
         const sealed: StoresDayJournal = {
             date: today,
             at: now,
