@@ -193,6 +193,22 @@ test('live Express CI keeps the Exchange and sector-war player journeys isolated
     assert.ok(command.includes('.ci-evidence/e2e-village-stores/economy-war-journeys.log'));
 });
 
+test('required live Express CI runs the two-client sector presence journey on a realtime server of its own', () => {
+    // It sat outside CI, so when the sector became the continuous world it broke
+    // on main and nothing noticed. The spec refuses to run without realtime.
+    const job = workflow.slice(workflow.indexOf('\n  e2e_village_stores:'), workflow.indexOf('\n  test_build:'));
+    const step = job.split('\n      - name: ').find(block => block.includes('connected-sector-presence.spec.ts'));
+    assert.ok(step, 'the required live Express job must execute the two-client presence journey');
+    const command = step.split('\n').find(line => line.trim().startsWith('run:'));
+    assert.ok(command?.includes('connected-sector-presence.spec.ts'), 'the spec must be in the step command, not a comment');
+    assert.match(step, /LIVE_E2E_REALTIME: '1'/, 'both clients need the real Socket.IO transport');
+    assert.ok(command.includes('--project=chromium-desktop-live'), 'the desktop project runs a desktop mover and the spec\'s own phone observer');
+    assert.ok(!command.includes('first-defeat-recovery-express.spec.ts'), 'it must not share a server with the recovery matrix');
+    assert.ok(command.includes('--output=test-results/sector-presence-ci'), 'it must not overwrite earlier journey evidence');
+    assert.ok(command.includes('.ci-evidence/e2e-village-stores/sector-presence.log'));
+    assert.doesNotMatch(command, /--grep/);
+});
+
 test('current Warfront coverage keeps low-cost interactions and real renderer audits', () => {
     // Check the fixture's behavior, without pinning retired lane-mode variable
     // names or command windows that the current Rite no longer exposes.
