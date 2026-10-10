@@ -19,6 +19,22 @@ import { ChronicleDuelBoard } from "../components/ChronicleDuelBoard";
 import { gameConfirm } from "../components/GameAlert";
 import "../styles/chronicle-duel.css";
 
+/** A table answer that is not a match yet (no `p1`): which wait it is. */
+export interface CardDuelWaiting {
+  status?: string;
+  viewerSide?: string | null;
+  /** An open-world Sector War duel names the other duelist and who started it. */
+  opponent?: string | null;
+  initiator?: string;
+}
+
+/** What a finished duel did to a war, when the host reports it (Sector War). */
+export interface CardDuelWarResult {
+  scored: boolean;
+  points?: number;
+  reason?: string;
+}
+
 export interface CardClashDuelConfig {
   stashKey: string;
   endpoint: string;
@@ -29,8 +45,20 @@ export interface CardClashDuelConfig {
   emptyNote: string;
   emptyBackLabel: string;
   awaitingNote: string;
+  /** Optional: the waiting copy for the wait the server reports. Absent → `awaitingNote`. */
+  waitingNote?: (waiting: CardDuelWaiting) => string;
+  /** Optional: a viewer with no seat joins the moment the server's `state`
+   *  answer says a seat is open for them (`seatOpen`). Sector War only: its
+   *  defender may open the table before any attacker has. */
+  joinWhenSeatOpens?: boolean;
+  /** Optional: a wait the server reports that will never become a match (an
+   *  open-world duel that was called off). The screen stops polling it. */
+  waitingEnded?: (waiting: CardDuelWaiting) => boolean;
+  /** Optional: leaving while the duel has not started calls it off, so the
+   *  other duelist is never dealt a match nobody is at. Sector War open duels. */
+  cancelOnLeave?: boolean;
   forfeitConfirm: string;
-  doneNote: (won: boolean, draw: boolean) => string;
+  doneNote: (won: boolean, draw: boolean, warResult?: CardDuelWarResult) => string;
   autoJoin?: boolean;
   eventLabel?: string;
 }
@@ -81,6 +109,13 @@ export function CardClashDuelScreen({
       document.visibilityState === "visible",
   );
   const [resolutionReady, setResolutionReady] = useState(false);
+  // Config-gated (waitingNote / joinWhenSeatOpens / a host's warResult):
+  // hosts that set none of them never see these change.
+  const [waitingInfo, setWaitingInfo] = useState<CardDuelWaiting | null>(null);
+  const [seatOpen, setSeatOpen] = useState(false);
+  const [warResult, setWarResult] = useState<CardDuelWarResult | undefined>(undefined);
+  const waitEnded = Boolean(!view && waitingInfo && config.waitingEnded?.(waitingInfo));
+  const seatJoinInFlight = useRef(false);
   const joined = useRef(false);
   const actionInFlight = useRef(false);
   const requestOrder = useRef(createChronicleRequestOrder());
@@ -140,7 +175,10 @@ export function CardClashDuelScreen({
           setWaiting(false);
         } else {
           setWaiting(true);
+          if (config.waitingNote) setWaitingInfo((body.session ?? null) as CardDuelWaiting | null);
         }
+        if (config.joinWhenSeatOpens && action === "state") setSeatOpen(body.seatOpen === true);
+        if (body.warResult) setWarResult(body.warResult as CardDuelWarResult);
         return body;
       } catch (reason) {
         if (stateController?.signal.aborted) return null;
@@ -156,7 +194,7 @@ export function CardClashDuelScreen({
           stateRequestController.current = null;
       }
     },
-    [config.endpoint, stash],
+    [config.endpoint, config.waitingNote, config.joinWhenSeatOpens, stash],
   );
 
   useEffect(
@@ -172,6 +210,20 @@ export function CardClashDuelScreen({
     void post("join", { deck }).catch(() => undefined);
   }, [deck, post, stash]);
 
+  // A viewer who arrived before the other side (a Sector War defender who
+  // opened the table before any attacker) is seated the moment the server says
+  // the seat is open. Without this they joined once on mount, were told to
+  // wait, and then polled a `state` that could never seat them.
+  useEffect(() => {
+    if (!config.joinWhenSeatOpens || !seatOpen || view || seatJoinInFlight.current) return;
+    seatJoinInFlight.current = true;
+    void post("join", { deck })
+      // A refused join closes the flag, so the next poll that still reports
+      // the seat open tries again rather than going quiet.
+      .catch(() => setSeatOpen(false))
+      .finally(() => { seatJoinInFlight.current = false; });
+  }, [config.joinWhenSeatOpens, seatOpen, view, deck, post]);
+
   useEffect(() => {
     const syncVisibility = () => {
       const visible = document.visibilityState === "visible";
@@ -185,7 +237,8 @@ export function CardClashDuelScreen({
   }, [post]);
 
   useEffect(() => {
-    if (!stash || !pageVisible || busy) return;
+    // A duel that was called off before it began has nothing left to wait for.
+    if (!stash || !pageVisible || busy || waitEnded) return;
     const delay = chronicleNextStateRefreshMs(view, waiting);
     if (delay === null) return;
     const timer = window.setTimeout(() => {
@@ -201,7 +254,7 @@ export function CardClashDuelScreen({
         .finally(() => setPollNonce((nonce) => nonce + 1));
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [busy, pageVisible, pollNonce, post, stash, view, waiting]);
+  }, [busy, pageVisible, pollNonce, post, stash, view, waiting, waitEnded]);
 
   useEffect(() => {
     if (view?.status !== "complete") return;
@@ -252,6 +305,9 @@ export function CardClashDuelScreen({
         actionInFlight.current = false;
         setBusy(false);
       }
+    } else if (config.cancelOnLeave && !view && !waitEnded) {
+      // Best-effort: an unanswered open duel goes void on its own clock.
+      await post("cancel").catch(() => undefined);
     }
     setScreen(config.backScreen);
   }
@@ -304,12 +360,14 @@ export function CardClashDuelScreen({
       ) : null}
       {waiting || !view ? (
         <section className="chronicle-panel" aria-live="polite">
-          <h2>Preparing the table</h2>
-          <p>{config.awaitingNote}</p>
-          <p>
-            The server is validating both 40-card decks and will choose the
-            first player.
-          </p>
+          <h2>{waitEnded ? "Duel called off" : "Preparing the table"}</h2>
+          <p>{config.waitingNote && waitingInfo ? config.waitingNote(waitingInfo) : config.awaitingNote}</p>
+          {waitEnded ? null : (
+            <p>
+              The server is validating both 40-card decks and will choose the
+              first player.
+            </p>
+          )}
         </section>
       ) : (
         <>
@@ -321,7 +379,7 @@ export function CardClashDuelScreen({
               <h2>
                 {draw ? "Technical Draw" : won ? "Victory" : "Defeat"}
               </h2>
-              <p>{config.doneNote(won, draw)}</p>
+              <p>{config.doneNote(won, draw, warResult)}</p>
             </section>
           ) : null}
           <ChronicleDuelBoard

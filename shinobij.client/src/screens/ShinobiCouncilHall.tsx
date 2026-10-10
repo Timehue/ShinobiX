@@ -10,7 +10,7 @@ import { ClanBattlesTab } from "./ClanBattlesTab";
 import { VillagePill } from "../components/Pills";
 import { villages } from "../data/sectors";
 import { type CwChallenge, type CwWar } from "../lib/clan-war-api";
-import { VILLAGE_WAR_GROUND_HP_MAX, VILLAGE_WAR_HP_MAX, type VillageWar } from "../lib/world-state";
+import { VILLAGE_WAR_GROUND_HP_MAX, villageWarHpMax, type VillageWar } from "../lib/world-state";
 import { type ServerKageState, type ServerKageHistoryEntry, KAGE_END_REASON_LABEL, kageActivityLines, kageEligibility } from "../lib/kage-challenge-state";
 import { visiblePoll } from "../lib/poll";
 import { CW_DAMAGE } from "../constants/clan";
@@ -235,6 +235,9 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                         const [vA, vB] = war.villages;
                         const hpA = war.hp[vA] ?? 0;
                         const hpB = war.hp[vB] ?? 0;
+                        // Ramparts raise a village's war HP past the 5,000 base.
+                        const maxA = villageWarHpMax(war, vA);
+                        const maxB = villageWarHpMax(war, vB);
                         const topA = topContributorForVillage(war, vA);
                         const topB = topContributorForVillage(war, vB);
                         return (
@@ -242,15 +245,15 @@ export function ShinobiCouncilHall({ character, setScreen, playerRoster, launchC
                                 <div className="council-vs-row">
                                     <div className={`council-side ${character.village === vA ? "council-mine" : ""}`}>
                                         <VillagePill village={vA} highlight={character.village === vA} />
-                                        <span className="council-hp-label">{hpA.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <CouncilHpBar current={hpA} max={VILLAGE_WAR_HP_MAX} color="var(--success)" />
+                                        <span className="council-hp-label">{hpA.toLocaleString()} / {maxA.toLocaleString()} HP</span>
+                                        <CouncilHpBar current={hpA} max={maxA} color="var(--success)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topA}</span>
                                     </div>
                                     <div className="council-vs">VS</div>
                                     <div className={`council-side council-side-right ${character.village === vB ? "council-mine" : ""}`}>
                                         <VillagePill village={vB} highlight={character.village === vB} />
-                                        <span className="council-hp-label">{hpB.toLocaleString()} / {VILLAGE_WAR_HP_MAX.toLocaleString()} HP</span>
-                                        <CouncilHpBar current={hpB} max={VILLAGE_WAR_HP_MAX} color="var(--danger)" />
+                                        <span className="council-hp-label">{hpB.toLocaleString()} / {maxB.toLocaleString()} HP</span>
+                                        <CouncilHpBar current={hpB} max={maxB} color="var(--danger)" />
                                         <span className="council-top"><GiTrophy style={SCH_ICON} />{topB}</span>
                                     </div>
                                 </div>

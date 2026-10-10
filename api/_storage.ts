@@ -94,6 +94,11 @@ const _noCachePrefixes = [
     // participant or move while its distributed lock is correctly held.
     // `pet:` covers battle proofs/results and future pet authority by default.
     'pet:', 'arena:lobby:', 'sector-pet:',
+    // A Pet war's open-world battles (api/_sector-contest-engage.ts): the decided
+    // battle a fighter replays, and the NX cooldown claims that keep one pair
+    // or one fighter from being fought again at once. A worker-local null would
+    // tell a fighter their battle is gone, or misreport how long a claim lasts.
+    'sector-pet-open:', 'sector-open-battle:',
     // Hollow Gate run, parent-combat, child-result, and retained Showdown
     // sidecar state participate in the same cross-worker single-authority
     // handshake. A process-local null or pre-claim binding can admit a second

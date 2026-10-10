@@ -120,8 +120,8 @@ describe('runVillageWarDailyPass (orchestration)', () => {
     it('no-ops when explicitly disabled', async () => {
         const store = memStore();
         const r = await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: false });
-        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0 });
-        assert.equal(store.m.size, 0);
+        assert.deepEqual(r, { enabled: false, processed: 0, ran: 0, sealsAccrued: 0, sectorWarsSettled: 0, failed: [], complete: true });
+        assert.equal(store.m.size, 0, 'not even the done-marker: switching the pass back on the same day still runs it');
     });
 
     it('scales the WR + seal faucet to sectors ACTUALLY held, not the home table', async () => {
@@ -227,9 +227,9 @@ describe('runVillageWarDailyPass (orchestration)', () => {
 
     it('resets per-war structures (Ramparts/Watchtower) at peace, keeps them at war', async () => {
         const base = defaultVillageWarRecord('Frostfang Village');
-        // Seed Frostfang with per-war + a permanent structure, already passed today so
-        // the accrual is idempotent — this isolates the reset behaviour.
-        const seed = (): VillageWarRecord => ({ ...base, lastWarPassDate: TODAY, structures: { ...base.structures, ramparts: 8, watchtower: 6, barracks: 5 } });
+        // Seed Frostfang with per-war + a permanent structure and a WR pool that
+        // covers any upkeep — this isolates the reset behaviour.
+        const seed = (): VillageWarRecord => ({ ...base, warResources: 1_000, structures: { ...base.structures, ramparts: 8, watchtower: 6, barracks: 5 } });
 
         const peaceStore = memStore();
         peaceStore.m.set(villageWarKey('Frostfang Village'), seed());
@@ -245,5 +245,329 @@ describe('runVillageWarDailyPass (orchestration)', () => {
         const atWar = warStore.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord;
         assert.equal(atWar.structures.ramparts, 8);   // held while at war
         assert.equal(atWar.structures.watchtower, 6);
+    });
+
+    it('a same-day re-run never wipes fortifications bought after the day was stepped', async () => {
+        // The pass now re-runs to finish unfinished days; only the run that steps
+        // the day may reset, or a retry would erase a purchase made since 03:00.
+        const base = defaultVillageWarRecord('Frostfang Village');
+        const store = memStore();
+        store.m.set(villageWarKey('Frostfang Village'), { ...base, lastWarPassDate: TODAY, structures: { ...base.structures, ramparts: 3 } });
+        await runVillageWarDailyPass({ store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true, isAtWar: async () => false });
+        assert.equal((store.m.get(villageWarKey('Frostfang Village')) as VillageWarRecord).structures.ramparts, 3);
+    });
+});
+
+const FROST = 'Frostfang Village';
+const FROST_STATE = 'game:village-state:frostfangvillage';
+const frostRecord = (store: ReturnType<typeof memStore>) => store.m.get(villageWarKey(FROST)) as VillageWarRecord | undefined;
+const treasuryOf = (store: ReturnType<typeof memStore>, village: string) =>
+    ((store.m.get(`game:village-state:${village.toLowerCase().replace(/[^a-z0-9]/g, '')}`) as { treasury?: Record<string, unknown> } | undefined)?.treasury ?? {});
+
+/** A memStore whose `set` throws for the keys `failOn` picks, while `armed()`. */
+function failingStore(failOn: (key: string) => boolean) {
+    const store = memStore();
+    const set = store.set;
+    let armed = true;
+    return Object.assign(store, {
+        disarm: () => { armed = false; },
+        set: async (k: string, v: unknown) => {
+            if (armed && failOn(k)) throw new Error(`KV blip on ${k}`);
+            return set(k, v);
+        },
+    });
+}
+
+/** The full set of non-live deps (stores ON, nothing scanned from live storage). */
+function passDeps(store: ReturnType<typeof memStore>, over: Record<string, unknown> = {}) {
+    return {
+        store, lock: passthroughLock, sweepSectorWars: noSweep, now: NOW, enabled: true,
+        isAtWar: async () => false,
+        storesEnabled: true, listSectorWars: async () => [], listClanWars: async () => [], notifyUnfed: async () => {},
+        ...over,
+    };
+}
+
+describe('runVillageWarDailyPass — only the 32 war sectors pay (bug: non-war sectors inflated the economy)', () => {
+    it('a central, special or wilderness row stamped with a village pays it nothing', async () => {
+        const store = memStore();
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27, 28, 29, 30, 31, 32, 33]) owners[s] = FROST;
+        // Clan captures (or the territory endpoint) stamped Frostfang on these.
+        for (const s of [25, 34, 40, 47, 51, 54, 60, 99]) owners[s] = FROST;
+        seedTerritory(store, owners);
+        const r = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(frostRecord(store)?.warResources, 200, '8 war sectors × 25 WR, not 16');
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8, '8 seals, not 16');
+        assert.equal(r.complete, true);
+    });
+
+    it('pays exactly the count the War Map displays — a suspended war sector is excluded from both', async () => {
+        const { loadHeldSectorCounts } = await import('./_war-held-sectors.js');
+        const store = memStore();
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27, 28, 29, 30, 31, 32, 33]) owners[s] = FROST;
+        seedTerritory(store, owners);
+        store.m.set('world:territory:27', { sector: 27, ownerVillage: FROST, ownerClan: 'Frost', rewardSuspendedAt: NOW - 1 });
+        const displayed = await loadHeldSectorCounts(store, { now: NOW });
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(displayed[FROST], 7);
+        assert.equal(frostRecord(store)?.warResources, displayed[FROST] * 25);
+        assert.equal(treasuryOf(store, FROST).honorSeals, displayed[FROST]);
+    });
+});
+
+describe('runVillageWarDailyPass — partial failures are finished by a re-run, exactly once', () => {
+    it('seals whose credit failed land on a same-day re-run, and only once', async () => {
+        const store = failingStore((k) => k === FROST_STATE);
+        const first = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(frostRecord(store)?.lastWarPassDate, TODAY, 'the war record was stamped');
+        assert.equal(treasuryOf(store, FROST).honorSeals, undefined, 'the seal credit did not land');
+
+        store.disarm();
+        const second = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        // Before the fix the stamped record gated the seals off for the day.
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8, 'the day\'s seals land on the re-run');
+        assert.equal(frostRecord(store)?.warResources, 200, 'WR is not paid twice');
+        const third = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8, 'and the seals only once');
+
+        assert.equal(first.complete, false);
+        assert.deepEqual(first.failed, [FROST]);
+        assert.equal(second.ran, 0);
+        assert.equal(second.sealsAccrued, 8);
+        assert.equal(second.complete, true);
+        assert.equal(third.sealsAccrued, 0);
+        assert.equal(treasuryOf(store, FROST).sealsAccrualDate, TODAY);
+    });
+
+    it('a seal credit that committed but reported an error is not paid twice', async () => {
+        const store = memStore();
+        const set = store.set;
+        let blip = true;
+        store.set = async (k: string, v: unknown) => {
+            const out = await set(k, v);
+            if (blip && k === FROST_STATE) { blip = false; throw new Error('committed, then timed out'); }
+            return out;
+        };
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8);
+    });
+
+    it('a stores day that failed is finished by a same-day re-run, and only once', async () => {
+        const store = failingStore((k) => k === 'war:stores-day:frostfangvillage');
+        store.m.set(FROST_STATE, { treasury: { provisions: 100 } });
+        const first = await runVillageWarDailyPass(passDeps(store));
+        assert.equal(treasuryOf(store, FROST).provisions, 100, 'the stores day did not run');
+
+        store.disarm();
+        await runVillageWarDailyPass(passDeps(store));
+        // Before the fix the stores day only ran in the run that stamped the record.
+        assert.equal(treasuryOf(store, FROST).provisions, 95, 'the day\'s 5% spoilage lands on the re-run');
+        await runVillageWarDailyPass(passDeps(store));
+        assert.equal(treasuryOf(store, FROST).provisions, 95, 'and only once');
+        assert.equal(first.complete, false);
+        assert.deepEqual(first.failed, [FROST]);
+    });
+
+    it('a village whose war-record lock is contended is finished by the next run; nobody is paid twice', async () => {
+        const store = memStore();
+        let contended = true;
+        const lock = async <T>(k: string, fn: () => Promise<T>): Promise<T> => {
+            if (contended && k === villageWarKey(FROST)) throw new Error('lock contended');
+            return fn();
+        };
+        const first = await runVillageWarDailyPass(passDeps(store, { lock }));
+        assert.equal(frostRecord(store), undefined);
+        assert.equal(first.complete, false);
+        assert.deepEqual(first.failed, [FROST]);
+
+        contended = false;
+        const second = await runVillageWarDailyPass(passDeps(store, { lock }));
+        assert.equal(second.ran, 1, 'only the village that failed is stepped');
+        assert.equal(second.complete, true);
+        for (const v of WAR_VILLAGES) {
+            assert.equal((store.m.get(villageWarKey(v)) as VillageWarRecord).warResources, 200, `${v} paid once`);
+            assert.equal(treasuryOf(store, v).honorSeals, 8, `${v} seals once`);
+        }
+    });
+
+    it('an earlier day\'s seals that never landed are credited before today\'s step', async () => {
+        const store = failingStore((k) => k === FROST_STATE);
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(treasuryOf(store, FROST).honorSeals, undefined, 'yesterday\'s seals are still owed');
+
+        store.disarm();
+        const tomorrow = NOW + 24 * 3600 * 1000;
+        const r = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false, now: tomorrow }));
+        assert.equal(treasuryOf(store, FROST).honorSeals, 16, 'yesterday\'s 8 and today\'s 8 — neither overwritten');
+        assert.equal(r.sealsAccrued, 32 + 8);
+    });
+
+    it('a seals journal whose day was never stamped is not paid (its WR was not paid either)', async () => {
+        const store = memStore();
+        const { dailySealsJournalKey } = await import('./_war-daily.js');
+        store.m.set(dailySealsJournalKey(FROST), { date: '2026-06-28', seals: 8, at: NOW - 86_400_000 });
+        store.m.set(villageWarKey(FROST), { ...defaultVillageWarRecord(FROST), lastWarPassDate: '2026-06-27' });
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8, 'only today\'s seals');
+    });
+
+    it('a failed sector-war scan defers the stores day instead of running it as if no war were active', async () => {
+        const store = memStore();
+        store.m.set(FROST_STATE, { treasury: { provisions: 100 } });
+        const first = await runVillageWarDailyPass(passDeps(store, { listSectorWars: async () => { throw new Error('scan down'); } }));
+        assert.equal(treasuryOf(store, FROST).provisions, 100, 'no stores day on unknown wars');
+        assert.equal(first.complete, false);
+        await runVillageWarDailyPass(passDeps(store));
+        assert.equal(treasuryOf(store, FROST).provisions, 95);
+    });
+
+    it('records the finished day only when every village landed', async () => {
+        const { VILLAGE_WAR_DAILY_MARKER_KEY } = await import('./_war-daily.js');
+        const store = failingStore((k) => k === FROST_STATE);
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(store.m.get(VILLAGE_WAR_DAILY_MARKER_KEY), undefined);
+        store.disarm();
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.deepEqual(store.m.get(VILLAGE_WAR_DAILY_MARKER_KEY), { date: TODAY, at: NOW });
+    });
+});
+
+describe('runVillageWarDailyPass — a failed territory scan is never paid as the baseline', () => {
+    it('pays nothing and stamps nothing, so the retried day pays the real count once', async () => {
+        const store = memStore();
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27]) owners[s] = FROST;
+        for (const s of [17, 18, 19, 20, 21, 22, 23, 24]) owners[s] = 'Moonshadow Village';
+        seedTerritory(store, owners);
+        const keys = store.keys;
+        store.keys = async () => { throw new Error('scan down'); };
+        const first = await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        // Before the fix every village was paid the 8-sector baseline and stamped.
+        assert.equal(frostRecord(store), undefined, 'nothing stamped, nothing paid');
+        assert.equal(treasuryOf(store, FROST).honorSeals, undefined);
+        assert.equal(first.complete, false);
+        assert.equal(first.ran, 0);
+
+        store.keys = keys;
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        assert.equal(frostRecord(store)?.warResources, 50, 'the real 2 sectors, not the baseline 8');
+        assert.equal(treasuryOf(store, FROST).honorSeals, 2);
+    });
+});
+
+describe('runVillageWarDailyPass — per-war structures (bugs: at-war fail-open, dormancy over reset structures)', () => {
+    it('an at-war check that FAILS keeps the per-war structures (fails closed)', async () => {
+        const base = defaultVillageWarRecord(FROST);
+        const store = memStore();
+        store.m.set(villageWarKey(FROST), { ...base, warResources: 1_000, structures: { ...base.structures, ramparts: 7, watchtower: 4 } });
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false, isAtWar: async () => { throw new Error('war scan down'); } }));
+        const rec = frostRecord(store)!;
+        assert.equal(rec.structures.ramparts, 7, 'a transient read error must not wipe a defender\'s paid fortifications');
+        assert.equal(rec.structures.watchtower, 4);
+        assert.equal(rec.lastWarPassDate, TODAY, 'the day is still paid');
+    });
+
+    it('the day a village reaches peace, its reset fortifications are not billed — no dormancy over them', async () => {
+        // Every structure at L10 costs 36 WR/day. An empty pool earns 3 × 25 = 75 WR:
+        // enough for the two PERMANENT structures (72), not for those plus the
+        // Ramparts and Watchtower being reset that same day (144).
+        const base = defaultVillageWarRecord(FROST);
+        const store = memStore();
+        store.m.set(villageWarKey(FROST), {
+            ...base,
+            warResources: 0,
+            structures: { ...base.structures, ramparts: 10, watchtower: 10, barracks: 10, warAcademy: 10, supplyDepot: 0, treasuryVault: 0 },
+        });
+        const owners: Record<number, string> = {};
+        for (const s of [26, 27, 28]) owners[s] = FROST;
+        for (const s of [17, 18, 19, 20, 21, 22, 23, 24]) owners[s] = 'Moonshadow Village';
+        seedTerritory(store, owners);
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false, isAtWar: async () => false }));
+        const rec = frostRecord(store)!;
+        // Billing the reset Ramparts + Watchtower too (144 total) mothballed it,
+        // suspending the Barracks and War Academy bonuses as well.
+        assert.equal(rec.dormant, false, 'not dormant over structures that no longer exist');
+        assert.equal(rec.warResources, 3);
+        assert.equal(rec.structures.ramparts, 0);
+        assert.equal(rec.structures.watchtower, 0);
+        assert.equal(rec.structures.barracks, 10);
+    });
+});
+
+describe('runVillageWarDailyPass — telemetry logs what was actually credited', () => {
+    it('wr.earn is the amount the capped pool took, not the gross accrual', async () => {
+        const { drainBackgroundWork } = await import('./_background-work.js');
+        const { WAR_ECO_TXN_LIST_KEY } = await import('./_war-telemetry.js');
+        const store = memStore();
+        store.m.set(villageWarKey(FROST), { ...defaultVillageWarRecord(FROST), warResources: WR_POOL_CAP - 30 });
+        await runVillageWarDailyPass(passDeps(store, { storesEnabled: false }));
+        await drainBackgroundWork();
+        const events = (store.m.get(WAR_ECO_TXN_LIST_KEY) ?? []) as Array<{ eventId: string; amount: number }>;
+        const earn = events.find((e) => e.eventId === `wr-earn:frostfangvillage:${TODAY}`);
+        assert.equal(frostRecord(store)?.warResources, WR_POOL_CAP);
+        assert.equal(earn?.amount, 30, 'only 30 WR fit under the cap, not the 200 accrued');
+    });
+});
+
+describe('runVillageWarDailyCatchUp — the scheduler\'s retry / restart tick', () => {
+    const result = (over: Record<string, unknown> = {}) => ({ enabled: true, processed: 4, ran: 4, sealsAccrued: 32, sectorWarsSettled: 0, failed: [], complete: true, ...over });
+
+    it('never runs a day before 03:00 UTC', async () => {
+        const { runVillageWarDailyCatchUp } = await import('./_war-daily.js');
+        let runs = 0;
+        const out = await runVillageWarDailyCatchUp({ now: Date.UTC(2026, 5, 29, 2, 59), store: memStore(), runPass: async () => { runs++; return result(); } });
+        assert.deepEqual(out, { status: 'not-due' });
+        assert.equal(runs, 0);
+    });
+
+    it('runs the pass after 03:00 when today is not recorded complete (a restart across 03:00)', async () => {
+        const { runVillageWarDailyCatchUp, VILLAGE_WAR_DAILY_MARKER_KEY } = await import('./_war-daily.js');
+        const store = memStore();
+        store.m.set(VILLAGE_WAR_DAILY_MARKER_KEY, { date: '2026-06-28', at: NOW - 86_400_000 });
+        const seen: number[] = [];
+        const at = Date.UTC(2026, 5, 29, 3, 7);
+        const out = await runVillageWarDailyCatchUp({ now: at, store, runPass: async (t) => { seen.push(t); return result(); } });
+        assert.equal(out.status, 'ran');
+        assert.deepEqual(seen, [at], 'the pass runs on the tick\'s own clock');
+    });
+
+    it('does nothing once today is recorded complete, and reports a held lease as busy', async () => {
+        const { runVillageWarDailyCatchUp, VILLAGE_WAR_DAILY_MARKER_KEY } = await import('./_war-daily.js');
+        const store = memStore();
+        store.m.set(VILLAGE_WAR_DAILY_MARKER_KEY, { date: TODAY, at: NOW });
+        let runs = 0;
+        assert.deepEqual(await runVillageWarDailyCatchUp({ now: NOW, store, runPass: async () => { runs++; return result(); } }), { status: 'done' });
+        assert.equal(runs, 0);
+        assert.deepEqual(await runVillageWarDailyCatchUp({ now: NOW, store: memStore(), runPass: async () => null }), { status: 'busy' });
+    });
+
+    it('an unreadable marker re-runs the pass rather than skipping the day', async () => {
+        const { runVillageWarDailyCatchUp } = await import('./_war-daily.js');
+        let runs = 0;
+        const broken = { get: async () => { throw new Error('kv down'); } };
+        await runVillageWarDailyCatchUp({ now: NOW, store: broken, runPass: async () => { runs++; return result(); } });
+        assert.equal(runs, 1);
+    });
+
+    it('end to end: an incomplete pass releases its lease, the retry finishes the day, a complete one holds it', async () => {
+        const { withScheduledJobLeaseCore } = await import('./cron/_job-lease.js');
+        const { _makeMemoryKv } = await import('./_storage.js');
+        const leaseStore = _makeMemoryKv();
+        const store = failingStore((k) => k === FROST_STATE);
+        // The scheduler's exact lease policy for this job (api/cron/_scheduler.ts).
+        const leased = () => withScheduledJobLeaseCore(leaseStore, 'village-war-daily',
+            () => runVillageWarDailyPass(passDeps(store, { storesEnabled: false })),
+            { ttlSec: 30 * 60, holdUntilExpiryOnSuccess: true, holdUntilExpiryWhen: (r) => r.complete });
+        const first = await leased();
+        store.disarm();
+        const retry = await leased();
+        assert.equal(retry.acquired, true, 'the unfinished day released the lease, so the retry runs');
+        assert.equal(treasuryOf(store, FROST).honorSeals, 8);
+        assert.deepEqual(await leased(), { acquired: false }, 'a complete day holds the lease');
+        assert.equal(first.acquired && first.value.complete, false);
+        assert.equal(retry.acquired && retry.value.complete, true);
     });
 });

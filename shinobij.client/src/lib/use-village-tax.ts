@@ -1,6 +1,19 @@
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import type { Character } from "../types/character";
-import { settleVillageTax } from "./village-tax-api";
+import { settleVillageTax, type VillageTaxResult } from "./village-tax-api";
+
+/**
+ * Which save version to adopt from one settlement reply. A day with nothing to
+ * charge (no Kage, the tax switched off, or no territory past the home eight) is
+ * still STAMPED on the save, which bumps its version, and the reply carries that
+ * version. It used to be adopted only when ryo was debited, so on an ordinary
+ * untaxed day the client kept the old version and its next autosave was refused
+ * as stale. Pure, for the test.
+ */
+export function villageTaxVersionToAdopt(result: VillageTaxResult | null): number | undefined {
+    const version = Number(result?._saveVersion);
+    return Number.isSafeInteger(version) && version > 0 ? version : undefined;
+}
 
 /*
  * Settle the daily village tax once per session (§6.4).
@@ -36,10 +49,16 @@ export function useVillageTax(
 
         void (async () => {
             const result = await settleVillageTax(name);
-            if (cancelled || !result?.applied) return;
+            if (cancelled || !result) return;
+            const { onServerVersion, notify } = callbacksRef.current;
+            if (!result.applied) {
+                // Nothing was charged, but the day may still have been stamped.
+                const version = villageTaxVersionToAdopt(result);
+                if (version !== undefined) onServerVersion?.(version);
+                return;
+            }
             // Adopt the authoritative post-debit balances.
             setCharacter((prev) => (prev ? { ...prev, ryo: result.ryo, bankRyo: result.bankRyo } : prev));
-            const { onServerVersion, notify } = callbacksRef.current;
             onServerVersion?.(result._saveVersion);
             notify?.(
                 `Occupation tax: −${result.taxed.toLocaleString()} ryo. `
