@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect, react-hooks/purity */
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useLayoutEffect, useRef } from "react";
 import "../styles/index/29-clan-exchange-storefront.css";
 
 // Mirrors TREASURY_GIFT_TAX_PCT in api/_treasury-gift-tax.ts and the ryo cap in
@@ -24,9 +24,9 @@ import { ClanBoss } from "./ClanBoss";
 import { ClanChat } from "./ClanChat";
 import { useCapabilityViewAvailability } from "../lib/live-capabilities-context";
 import { capabilityAdmissionAllowed } from "../lib/live-capability-admission";
-import type { TowerHostLoadout } from "../lib/towers-api";
 import type { BattleHistoryEntry } from "../types/character";
-import type { GameItem } from "../types/combat";
+import type { GameItem, SavedBloodline } from "../types/combat";
+import { buildHostLoadout } from "../lib/host-loadout";
 import { TERRITORY_CAPTURE_MIN_MEMBERS, TERRITORY_CAPTURE_SCROLLS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, TERRITORY_REBUILD_COOLDOWN_MS } from "../constants/game";
 import type { WeatherType, Screen } from "../types/core";
 import { clanMissionProgress } from "../lib/clan-math";
@@ -62,7 +62,8 @@ import { gameToast } from "../components/GameToast";
 import { CLAN_VIEW_REQUEST_EVENT } from "../lib/use-notifications";
 import { useActivitySectionRequests } from "../lib/use-activity-section";
 
-export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, setScreen, towerHostLoadout, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; setScreen: (s: Screen) => void; towerHostLoadout?: TowerHostLoadout; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+export function ClanHall({ character, updateCharacter, onVersionedCharacter, creatorItems, savedBloodlines, setScreen, sharedImages, onRecordBattle }: { character: Character; updateCharacter: React.Dispatch<React.SetStateAction<Character | null>>; onVersionedCharacter: VersionedCharacterCommit; creatorItems: GameItem[]; savedBloodlines: SavedBloodline[]; setScreen: (s: Screen) => void; sharedImages?: Record<string, string>; onRecordBattle?: (entry: BattleHistoryEntry) => void }) {
+    const towerHostLoadout = useMemo(() => buildHostLoadout(character, savedBloodlines, creatorItems), [character, savedBloodlines, creatorItems]);
     const lore = clanLore[character.village];
     const isInClan = !!character.clan;
     const [clanName, setClanName] = useState("");

@@ -457,7 +457,6 @@ import {
     getEquippedItemBonus,
     getPvpItemLoadout,
 } from "./lib/equipment-stats";
-import { buildHostLoadout } from "./lib/host-loadout";
 
 // GameItem / EquipmentSlots / SavedBloodline / ReviewBloodline /
 // ActiveTraining / ActiveJutsuTraining moved to ./types/combat.
@@ -6000,7 +5999,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "hunting" && character && <HunterBoard character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorAis={playableAis} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} setScreen={navigate} />}
                 {!activeTriggeredEvent && screen === "logbook" && character && <Logbook character={character} updateCharacter={setCharacter} creatorAis={playableAis} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} creatorMissions={creatorMissions} creatorEvents={creatorEvents} creatorRaids={creatorRaids} acceptedMissionIds={acceptedMissionIds} setAcceptedMissionIds={setAcceptedMissionIds} missionProgress={missionProgress} setMissionProgress={setMissionProgress} currentSector={currentSector} setScreen={navigate} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} />}
                 {!activeTriggeredEvent && screen === "townHall" && character && <TownHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onServerVersion={(version) => acceptExternalSaveVersion(version, character.name) === "accepted"} creatorItems={creatorItems} allServerPlayers={allServerPlayers} savedBloodlines={savedBloodlines} creatorJutsus={creatorJutsus} sharedImages={sharedImages} setScreen={navigate} onBack={goBack} />}
-                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} towerHostLoadout={buildHostLoadout(character, savedBloodlines, creatorItems)} />}
+                {!activeTriggeredEvent && screen === "clan" && character && <ClanHall character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onRecordBattle={recordBattle} />}
                 {!activeTriggeredEvent && screen === "bank" && character && <Bank character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} />}
                 {!activeTriggeredEvent && screen === "shop" && character && <Shop character={character} creatorItems={creatorItems} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
                 {!activeTriggeredEvent && screen === "premiumShop" && character && <PremiumShop character={character} onBack={goBack} onVersionedCharacter={commitVersionedCharacter} />}
@@ -6049,7 +6048,7 @@ export default function App() {
                 {!activeTriggeredEvent && screen === "tavern" && character && <VillageTavern character={character} onBack={() => navigate("village")} sharedImages={sharedImages} onViewProfile={(name) => { setViewingUserName(name); navigate("userView"); }} playerRoster={playerRoster} />}
                 {!activeTriggeredEvent && screen === "messages" && character && <Messages character={character} onBack={goBack} initialWith={viewingUserName} />}
                 {!activeTriggeredEvent && screen === "hallOfLegends" && character && <HallOfLegends character={character} setScreen={navigate} playerRoster={playerRoster} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} />}
-                {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} hostLoadout={buildHostLoadout(character, savedBloodlines, creatorItems)} />}
+                {!activeTriggeredEvent && screen === "worldCrisis" && character && <WorldCrisis character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onRecordBattle={recordBattle} />}
                 {!activeTriggeredEvent && screen === "echoesOfWar" && character && <EchoesOfWar character={character} creatorCards={creatorCards} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} onBack={goBack} onOpenCardPacks={() => { try { sessionStorage.setItem("cardHall.initialTab", "packs"); } catch { /* Card Hall still opens at Collection */ } setScreen("shinobiTiles"); }} sharedImages={sharedImages} />}
                 {!activeTriggeredEvent && screen === "endlessTower" && character && (
                     <EndlessTowerLobby
@@ -6109,7 +6108,7 @@ export default function App() {
                     />
                 )}
                 {!activeTriggeredEvent && screen === "battleTowers" && character && (
-                    <BattleTowers character={character} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} hostLoadout={buildHostLoadout(character, savedBloodlines, creatorItems)} onExit={goBack} onRecordBattle={recordBattle} />
+                    <BattleTowers character={character} creatorItems={creatorItems} savedBloodlines={savedBloodlines} updateCharacter={setCharacter} onVersionedCharacter={commitVersionedCharacter} sharedImages={sharedImages} onExit={goBack} onRecordBattle={recordBattle} />
                 )}
                 {!activeTriggeredEvent && screen === "weeklyBoss" && character && (
                     <WorldBossesHub character={character} currentSector={currentSector}
