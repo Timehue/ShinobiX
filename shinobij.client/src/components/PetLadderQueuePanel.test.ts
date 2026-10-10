@@ -27,12 +27,13 @@ describe('live Pet Ranked UI', () => {
         assert.match(panel, /Retry to recover its recorded result/);
     });
 
-    it('drives the server handshake rather than inventing match state', () => {
+    it('admits new matches through human commands and retains only historical result recovery', () => {
         assert.match(panel, /petRankedQueue\("poll", character\.name\)/);
-        assert.match(panel, /startRankedPetMatch/);
         assert.match(panel, /settleRankedPetMatch/);
-        // Only the initiator mints the sealed token.
-        assert.match(panel, /state\.state !== "paired" \|\| !state\.initiator/);
+        assert.match(panel, /<PetArenaCommands[\s\S]*?ranked rankedEligible=/);
+        assert.match(panel, /!next\.control/);
+        // Historical recovery cannot launch a new match through the replay UI.
+        assert.doesNotMatch(panel, /startRankedPetMatch|act\("join"\)|Choose lineup order/);
     });
 
     it('retains the distinct asynchronous Pet Ladder surface', () => {
@@ -58,5 +59,11 @@ describe('live Pet Ranked UI', () => {
         assert.match(panel, /useEffectEvent\(onVersionedCharacter\)/);
         assert.match(panel, /state\.state === "active"\s*\? await settleRankedPetMatch[\s\S]*?: await fetchRankedPetCharacter\(character\.name\)/);
         assert.match(panel, /if \(cancelled\) return;\s*receiveCharacter\(snapshot\.character, snapshot\._saveVersion\);\s*setWatch\(watched\)/);
+    });
+
+    it('lifts the human battle and fullscreen state through the ladder to App guards', () => {
+        assert.match(app, /<PetLadder\b[^>]*onBattleActiveChange=\{setPetBattleActive\}[^>]*onFullscreenActiveChange=\{setPetFullscreenActive\}/);
+        assert.match(ladder, /<PetLadderQueuePanel\b[^>]*onBattleActiveChange=\{onBattleActiveChange\}[^>]*onFullscreenActiveChange=\{onFullscreenActiveChange\}/);
+        assert.match(panel, /<PetArenaCommands\b[^>]*onActiveChange=\{props\.onBattleActiveChange\}[^>]*onFullscreenChange=\{props\.onFullscreenActiveChange\}/);
     });
 });

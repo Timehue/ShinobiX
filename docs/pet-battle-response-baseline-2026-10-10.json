@@ -1,0 +1,248 @@
+{
+  "templates": 161,
+  "seeds": 3,
+  "assumptions": "Same-species neutral mirrors at matched levels with balanced legal growth; no traits, gear, weather or setup. Fresh session per probe; signature meter/readiness manually filled; defender HP manually set to its probe band. Defender ordered Rest or Guard, preserving real initiative. Reported damage can include overkill. This is not a complete-bout, opponent-tier, cross-species or human-playtest sample.",
+  "observations": 11592,
+  "rows": [
+    {
+      "level": 1,
+      "startingHpFraction": 1,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.8656,
+      "maxReportedDamageFraction": 0.8914,
+      "knockoutRate": 0
+    },
+    {
+      "level": 1,
+      "startingHpFraction": 1,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4328,
+      "maxReportedDamageFraction": 0.4459,
+      "knockoutRate": 0
+    },
+    {
+      "level": 1,
+      "startingHpFraction": 0.75,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 483,
+      "meanReportedDamageFraction": 0.8656,
+      "maxReportedDamageFraction": 0.8914,
+      "knockoutRate": 1
+    },
+    {
+      "level": 1,
+      "startingHpFraction": 0.75,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4328,
+      "maxReportedDamageFraction": 0.4459,
+      "knockoutRate": 0
+    },
+    {
+      "level": 1,
+      "startingHpFraction": 0.5,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 483,
+      "meanReportedDamageFraction": 0.8656,
+      "maxReportedDamageFraction": 0.8914,
+      "knockoutRate": 1
+    },
+    {
+      "level": 1,
+      "startingHpFraction": 0.5,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4328,
+      "maxReportedDamageFraction": 0.4459,
+      "knockoutRate": 0
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 1,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.8516,
+      "maxReportedDamageFraction": 0.8886,
+      "knockoutRate": 0
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 1,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4258,
+      "maxReportedDamageFraction": 0.4436,
+      "knockoutRate": 0
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 0.75,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 480,
+      "meanReportedDamageFraction": 0.8516,
+      "maxReportedDamageFraction": 0.8886,
+      "knockoutRate": 0.9938
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 0.75,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4258,
+      "maxReportedDamageFraction": 0.4436,
+      "knockoutRate": 0
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 0.5,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 483,
+      "meanReportedDamageFraction": 0.8516,
+      "maxReportedDamageFraction": 0.8886,
+      "knockoutRate": 1
+    },
+    {
+      "level": 25,
+      "startingHpFraction": 0.5,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4258,
+      "maxReportedDamageFraction": 0.4436,
+      "knockoutRate": 0
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 1,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.8312,
+      "maxReportedDamageFraction": 0.8857,
+      "knockoutRate": 0
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 1,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4156,
+      "maxReportedDamageFraction": 0.4418,
+      "knockoutRate": 0
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 0.75,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 476,
+      "meanReportedDamageFraction": 0.8312,
+      "maxReportedDamageFraction": 0.8857,
+      "knockoutRate": 0.9855
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 0.75,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4156,
+      "maxReportedDamageFraction": 0.4418,
+      "knockoutRate": 0
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 0.5,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 483,
+      "meanReportedDamageFraction": 0.8312,
+      "maxReportedDamageFraction": 0.8857,
+      "knockoutRate": 1
+    },
+    {
+      "level": 50,
+      "startingHpFraction": 0.5,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.4156,
+      "maxReportedDamageFraction": 0.4418,
+      "knockoutRate": 0
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 1,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.7671,
+      "maxReportedDamageFraction": 0.8793,
+      "knockoutRate": 0
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 1,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.3836,
+      "maxReportedDamageFraction": 0.4397,
+      "knockoutRate": 0
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 0.75,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 328,
+      "meanReportedDamageFraction": 0.7671,
+      "maxReportedDamageFraction": 0.8793,
+      "knockoutRate": 0.6791
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 0.75,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.3836,
+      "maxReportedDamageFraction": 0.4397,
+      "knockoutRate": 0
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 0.5,
+      "guarded": false,
+      "hits": 483,
+      "knockouts": 479,
+      "meanReportedDamageFraction": 0.7671,
+      "maxReportedDamageFraction": 0.8793,
+      "knockoutRate": 0.9917
+    },
+    {
+      "level": 100,
+      "startingHpFraction": 0.5,
+      "guarded": true,
+      "hits": 483,
+      "knockouts": 0,
+      "meanReportedDamageFraction": 0.3836,
+      "maxReportedDamageFraction": 0.4397,
+      "knockoutRate": 0
+    }
+  ]
+}

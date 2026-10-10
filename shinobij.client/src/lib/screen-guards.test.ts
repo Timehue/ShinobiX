@@ -99,6 +99,13 @@ describe("screen navigation guards", () => {
         assert.equal(isUnresolvedBattle(signals({ screen: "village", missionBattleActive: true })), false);
     });
 
+    it("keeps the ranked pet lobby free and locks navigation only during its active match", () => {
+        assert.equal(BATTLE_SCREENS.has("petLadder"), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "petLadder" })), false);
+        assert.equal(isUnresolvedBattle(signals({ screen: "petLadder", petBattleActive: true })), true);
+        assert.equal(isUnresolvedBattle(signals({ screen: "village", petBattleActive: true })), false);
+    });
+
     it("does not treat passive boss lobby screens as active battles", () => {
         assert.equal(isUnresolvedBattle(signals({
             screen: "weeklyBoss",

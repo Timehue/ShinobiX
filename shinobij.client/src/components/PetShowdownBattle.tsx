@@ -20,13 +20,14 @@ import { ELEMENT_TINT, elementCrest, KIND_FAMILY } from './pet-showdown/presenta
  * unresolved battle) through callbacks the host screen owns.
  */
 
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 // This battle is reused by route-scoped replay hosts (Pet Arena, Ladder, war
 // records), so its presentation contract must travel with the component. If
 // only the PetShowdown screen imports this sheet, a fresh load into another
 // host mounts a transparent takeover with native-size portrait artwork.
 import "../screens/PetShowdown.css";
+import "../styles/layout/adaptive-stages.css";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { RendererRetirement } from "./RendererRetirement";
 import { Billboard, Html, Sparkles } from "@react-three/drei";
@@ -819,13 +820,14 @@ const WIDE_LOOK: readonly [number, number, number] = [0, 1.0, -0.6];
  *  now pulls back by however much its horizontal FOV actually demands. */
 const BOARD_RADIUS = SLOT_SPACING + 1.4;
 
-function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding }: {
+function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding, framedCommands = false }: {
     beatRef: React.MutableRefObject<SceneBeat>;
     fxRef: React.MutableRefObject<SceneFx>;
     posRef: React.MutableRefObject<Map<string, [number, number, number]>>;
     lineup: Lineup;
     reduced: boolean;
     wildBinding?: WildBindingCinematic | null;
+    framedCommands?: boolean;
 }) {
     const pos = useRef(new THREE.Vector3(WIDE_POS[0], WIDE_POS[1], WIDE_POS[2]));
     const look = useRef(new THREE.Vector3(0, 1.1, -0.4));
@@ -1067,10 +1069,13 @@ function CameraDirector({ beatRef, fxRef, posRef, lineup, reduced, wildBinding }
                 camera.fov = fov;
                 camera.updateProjectionMatrix();
             }
-            // Keep the optical centre above the portrait command deck. This is
-            // a lens shift, so creature poses and all world-space effects stay
-            // aligned rather than receiving independent screen offsets.
-            const offsetY = Math.round(size.height * SHOWDOWN_PORTRAIT_FRAMING.opticalShift * portrait);
+            // Arena already reserves the command deck's height. On phones,
+            // lower its optical centre slightly to clear the overhead HUD
+            // controls. All world effects share this lens shift with the pets.
+            // Other modes retain their original portrait command framing.
+            const offsetY = framedCommands
+                ? size.width <= 650 ? -Math.round(size.height * .12) : 0
+                : Math.round(size.height * SHOWDOWN_PORTRAIT_FRAMING.opticalShift * portrait);
             if (offsetY && (camera.view?.offsetY !== offsetY || camera.view?.fullWidth !== size.width || camera.view?.fullHeight !== size.height)) {
                 camera.setViewOffset(size.width, size.height, 0, offsetY, size.width, size.height);
             } else if (!offsetY && camera.view?.enabled) camera.clearViewOffset();
@@ -2153,7 +2158,7 @@ const SR_ONLY: React.CSSProperties = {
     border: 0,
 };
 
-export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false }: {
+export function PetShowdownBattle({ initialState, playerPets, sharedImages, submitTurn, onForfeit, onFinished, onExit, onRematch, resultNote, resultTitle, exitLabel = "Leave the Showdown", hideRematch = false, eventLabel, spectator = false, reducedMotion: motionPreference, wildBinding, onRenderMode, onCommandReady, inputLocked = false, externalControls, hidePlayerHud = false, onRoundPresented }: {
     eventLabel?: string;
     initialState: ShowdownStateView;
     /** The player's real roster Pets (for 3D model + art resolution). */
@@ -2175,6 +2180,11 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     onCommandReady?: (ready: boolean) => void;
     /** Block battle commands while a host-owned result or capture ritual is open. */
     inputLocked?: boolean;
+    /** A live authority host can own planning while this component plays only sealed scripts. */
+    externalControls?: ReactNode;
+    /** The host's planning cards already display the friendly resources. */
+    hidePlayerHud?: boolean;
+    onRoundPresented?: (round: number) => void;
     /** Fired once when the end event has played; settlement may carry rewards. */
     onFinished: (outcome: "win" | "loss", settlement: ShowdownTurnResponse | null) => void;
     onExit: () => void;
@@ -2284,6 +2294,17 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
      *  other way, and this is it. */
     const [announcement, setAnnouncement] = useState("");
     const takeoverRef = useRef<HTMLDivElement>(null);
+    const hasExternalControls = !!externalControls;
+    useEffect(() => {
+        const root = takeoverRef.current;
+        if (!root || !hasExternalControls) return;
+        const menu = root.querySelector('.showdown-bottombar');
+        const measure = () => root.style.setProperty('--showdown-command-height', `${Math.ceil(menu?.getBoundingClientRect().height ?? 0)}px`);
+        const observer = new ResizeObserver(measure);
+        if (menu) observer.observe(menu);
+        measure();
+        return () => { observer.disconnect(); root.style.removeProperty('--showdown-command-height'); };
+    }, [hasExternalControls]);
     // VS intro card over the opening seconds.
     const [intro, setIntro] = useState(true);
     useEffect(() => {
@@ -2293,6 +2314,9 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     useEffect(() => {
         onCommandReady?.(phase === "command" && !intro && !expired && !failedOrders && !stateView.finished && !spectator);
     }, [phase, intro, expired, failedOrders, stateView.finished, spectator, onCommandReady]);
+    useEffect(() => {
+        if (phase === "command" && !intro && !failedOrders && !expired) onRoundPresented?.(stateView.round);
+    }, [phase, intro, failedOrders, expired, stateView.round, onRoundPresented]);
 
     const settlementRef = useRef<ShowdownTurnResponse | null>(null);
     /** True from the moment a round is submitted until its response has been
@@ -3577,14 +3601,14 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
     const overlay = (
         <div
             ref={takeoverRef}
-            className="pet-combat-takeover showdown-takeover"
+            className={`pet-combat-takeover showdown-takeover ${hasExternalControls ? 'pta-hud' : ''}`}
             data-testid="pet-showdown-root"
             data-pet-visual-audit={visualAudit}
             data-wild-binding={wildBinding ? "active" : undefined}
-            inert={inputLocked}
+            inert={inputLocked && !externalControls}
             role="dialog"
             aria-modal="true"
-            aria-label={`Pet Showdown — your team against ${stateView.enemyTeamName}`}
+            aria-label={`${hasExternalControls ? 'Pet Arena' : 'Pet Showdown'} — your team against ${stateView.enemyTeamName}`}
             tabIndex={-1}
         >
             {/* The whole fight, in words. Polite and atomic: a beat replaces the
@@ -3598,6 +3622,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 sat a hair flat next to the painted arenas — a slight push
                 deepens the blacks and lets the VFX (toneMapped:false) pop
                 against them without touching any material. */}
+            <div className="showdown-scene-viewport" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: hasExternalControls ? 'var(--showdown-command-height, 0px)' : 0 }}>
             {webGlAvailable ? <Canvas
                 frameloop={battleFrameloop}
                 key={renderQuality.id}
@@ -3609,7 +3634,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
             >
                 <RendererRetirement />
                 <StageEnvironment stage={stage} beatRef={beatRef} fxRef={fxRef} quality={renderQuality} reduced={reducedMotion} />
-                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} wildBinding={wildBinding} />
+                <CameraDirector beatRef={beatRef} fxRef={fxRef} posRef={posRef} lineup={lineup} reduced={reducedMotion} wildBinding={wildBinding} framedCommands={hasExternalControls} />
                 {wildBinding && <WildBindingArenaFx
                     cinematic={wildBinding}
                     player={slots.get(wildBinding.playerId)?.basePos ?? [0, FLOOR_Y, PLAYER_Z]}
@@ -3692,6 +3717,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 </div>
             )}
 
+            </div>
             {/* FIELD WEATHER. Driven by the server's standing weather, so it is
                 on exactly while the technique's window is, and reduced-motion
                 drops it entirely (SceneAmbience animates continuously). */}
@@ -3777,8 +3803,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                                     <span>{standingWeather.roundsLeft}R</span>
                                 </span>
                                 <span className="showdown-weather-effect">
-                                    {standingWeather.element} +{Math.round((SHOWDOWN_WEATHER_BOOST - 1) * 100)}%
-                                    {weatherCounter && <> · {weatherCounter} −{Math.round((1 - SHOWDOWN_WEATHER_DAMPEN) * 100)}%</>}
+                                    {stateView.weather?.effect ?? <>{standingWeather.element} +{Math.round((SHOWDOWN_WEATHER_BOOST - 1) * 100)}%
+                                    {weatherCounter && <> · {weatherCounter} −{Math.round((1 - SHOWDOWN_WEATHER_DAMPEN) * 100)}%</>}</>}
                                 </span>
                             </div>
                         )}
@@ -3804,7 +3830,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                 {banner && panel !== "result" && <div key={banner.key} className={`showdown-banner ${banner.cls}`}>{banner.text}</div>}
 
 
-                <div className="showdown-playerbar">
+                {!hidePlayerHud && <div className="showdown-playerbar">
                     <TeamPanel
                         side="player"
                         pets={stateView.player}
@@ -3821,7 +3847,7 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                         }}
                         hoveredId={activeHover}
                     />
-                </div>
+                </div>}
 
                 <div className="showdown-bottombar">
                     {/* No pet can be given an order this round. Name the reason
@@ -3871,7 +3897,8 @@ export function PetShowdownBattle({ initialState, playerPets, sharedImages, subm
                             </div>
                         </div>
                     )}
-                    {phase === "command" && commander && !failedOrders && (
+                    {externalControls}
+                    {phase === "command" && commander && !failedOrders && !externalControls && (
                         <>
                             {/* Targeting takes over the menu column: the choice is
                                 made in the 3D scene, so the panel only says who

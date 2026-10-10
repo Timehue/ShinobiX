@@ -1671,7 +1671,7 @@ export default function App() {
         // Don't yank players out of an active battle / story / boss screen.
         // Mixed pet/tower screens stay launchable until their active owner says
         // the player is actually committed to another fight.
-        const mixedPetScreen = screen === "petArena" || screen === "petColiseum";
+        const mixedPetScreen = screen === "petArena" || screen === "petColiseum" || screen === "petLadder";
         const blocksBattleScreen = BATTLE_SCREENS.has(screen)
             && (!mixedPetScreen || petBattleActive || !!pendingPetBattleOpponent)
             && (screen !== "battleTowers" || hasActiveTowerFight());
@@ -5975,7 +5975,7 @@ export default function App() {
                 {/* The Coliseum proper: the same arena, opened as a PAID bout. */}
                 {!activeTriggeredEvent && screen === "petColiseum" && character && <PetShowdown bout="arena" character={character} updateCharacter={setCharacter} setScreen={setScreen} sharedImages={sharedImages} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} pendingWanderer={pendingPetBattleOpponent?.wanderer ? pendingPetBattleOpponent : null} onPendingWandererStarted={() => setPendingPetBattleOpponent(null)} onVersionedCharacter={commitVersionedCharacter} />}
 
-                {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} />}
+                {!activeTriggeredEvent && screen === "petLadder" && character && <PetLadder character={character} setScreen={navigate} sharedImages={sharedImages} onVersionedCharacter={commitVersionedCharacter} onBattleActiveChange={setPetBattleActive} onFullscreenActiveChange={setPetFullscreenActive} />}
                 {/* An authored VN pet battle. The opponent is no longer scaled here:
                     the server reads the same authored row out of its own copy of the
                     event and builds the beast from it, so this passes a SELECTOR

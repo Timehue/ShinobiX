@@ -7,6 +7,7 @@ export const PET_RANKED_TOKEN_TTL_SECONDS = 15 * 60;
 export const PET_RANKED_REPLAY_TTL_SECONDS = 24 * 60 * 60;
 export const PET_RANKED_ACTIVE_REGISTRY_KEY = 'pet:ranked-active';
 export const PET_RANKED_AUTHORITY = 'pet-ranked-queue-v1' as const;
+export const PET_ARENA_RANKED_CONTROL = 'pet-arena-player-v1' as const;
 
 export const petRankedQueueMatchKey = (name: string) => `${PET_RANKED_QUEUE_KEY}:match:${safeName(name)}`;
 export const petRankedStartClaimKey = (pairId: string) => `pet:ranked-start-claim:${pairId}`;
@@ -63,6 +64,9 @@ export type RankedPetMatchToken = {
     seed: number;
     createdAt: number;
     settledAt?: number;
+    /** New matches require committed player orders; retained tokens keep their old authority. */
+    control?: typeof PET_ARENA_RANKED_CONTROL;
+    roomId?: string;
 };
 
 export type RankedPetActivePointer = {
@@ -115,7 +119,10 @@ export function isRankedPetMatchToken(value: unknown): value is RankedPetMatchTo
         && !!lead && typeof lead === 'object' && (lead as { id?: unknown }).id === team[0].id;
     const teamsValid = (token.aTeam === undefined && token.bTeam === undefined)
         || (validTeam(token.aTeam, token.aPet) && validTeam(token.bTeam, token.bPet));
-    return teamsValid && token.authority === PET_RANKED_AUTHORITY
+    const controlValid = token.control === undefined && token.roomId === undefined
+        || token.control === PET_ARENA_RANKED_CONTROL && typeof token.roomId === 'string' && /^[0-9a-f]{8}$/.test(token.roomId)
+            && validTeam(token.aTeam, token.aPet) && validTeam(token.bTeam, token.bPet);
+    return controlValid && teamsValid && token.authority === PET_RANKED_AUTHORITY
         && typeof token.pairId === 'string'
         && /^[0-9a-f-]{36}$/i.test(token.pairId)
         && !!safeName(token.a ?? '')

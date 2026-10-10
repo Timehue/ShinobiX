@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
-import { randomUUID } from 'node:crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
 import { authedPlayerOrAdmin } from '../_auth.js';
@@ -20,30 +19,22 @@ import {
     isRankedPetSettlementIntent,
     isRankedPetMatchToken,
     pruneRankedPetActiveRegistry,
-    type PetRankedQueueMatch,
     type RankedPetActivePointer,
 } from '../pet/_ranked-authority.js';
-import { petRatingOf, selectRankedTeam } from '../pet/_ranked-eligibility.js';
 import { petRankedQueueEnabled, PET_RANKED_QUEUE_DISABLED_REASON } from '../pet/_ranked-settlement.js';
+import { rankedArenaQueue } from '../_pet-tactics/ranked.js';
+import { TacticsError } from '../_pet-tactics/engine.js';
 
 /*
  * /api/pvp/pet-ranked-queue — live ranked pet matchmaking.
  *
- * This is the piece the ranked pet mode was missing. Everything downstream of a
- * pairing already existed and is server-authoritative:
- *
- *   /api/pet/ranked-start  mints ONE sealed match token for the pair
- *   /api/pet/ranked-watch  re-derives the rated fight for BOTH players
- *   settlement             rates that same derivation
- *
- * The old public queue was retired because it launched an unrelated no-reward
- * realtime duel, so what a player watched had no relationship to their Elo.
- * That is fixed: resolveRankedPetDuel is the single resolution, and this queue
- * only produces the reciprocal pairing records ranked-start already requires.
- * It never resolves a fight, mints a seed, or writes a rating.
+ * New joins seal a Pet Arena room where both players issue private commands.
+ * The queue never picks orders or a winner. Terminal settlement rates the
+ * committed room through the existing durable two-save receipt path.
+ * Retained tokens and receipts continue through historical recovery below.
  *
  * Actions (POST { action, ... }):
- *   join   → { state: 'queued' | 'paired' }
+ *   join   → { state: 'queued' | 'active', control, roomId? }
  *   poll   → current state, including the active match token once minted
  *   leave  → drop out of the waiting list
  */
@@ -104,19 +95,6 @@ export function selectPetRankedOpponent(
 ): PetRankedWaitingEntry | null {
     const ordered = [...waiting].sort((a, b) => a.joinedAt - b.joinedAt);
     return ordered.find(candidate => petRankedPairable(joiner, candidate, now)) ?? null;
-}
-
-function queueMatch(opponent: PetRankedWaitingEntry, initiator: boolean, pairId: string, now: number, ownTeamIds: string[]): PetRankedQueueMatch {
-    return {
-        opponent: opponent.slug,
-        opponentElo: Math.round(opponent.rating),
-        opponentLevel: Math.round(opponent.level),
-        initiator,
-        createdAt: now,
-        pairId,
-        format: '2v2',
-        teamIds: ownTeamIds,
-    };
 }
 
 async function currentState(slug: string): Promise<Record<string, unknown>> {
@@ -195,6 +173,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         res.setHeader('Cache-Control', 'private, no-store');
 
+        // New ranked admissions are player-controlled. Only retained legacy
+        // proofs fall through to their historical recovery/receipt path.
+        if (action === 'join' && !petRankedQueueEnabled()) return res.status(503).json({ error: PET_RANKED_QUEUE_DISABLED_REASON });
+        const arena = await rankedArenaQueue(me, action, body);
+        if (action === 'join' || arena.state !== 'idle') return res.status(200).json(arena);
+
         if (action === 'poll') return res.status(200).json(await currentState(me));
 
         if (action === 'acknowledge') {
@@ -230,75 +214,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(200).json(await currentState(me));
         }
 
-        if (!petRankedQueueEnabled()) {
-            return res.status(503).json({ error: PET_RANKED_QUEUE_DISABLED_REASON, errorCode: 'ranked-pet-queue-disabled' });
-        }
-
-        const save = await kv.get<Record<string, unknown>>(`save:${me}`);
-        const character = (save?.character ?? null) as Record<string, unknown> | null;
-        if (!character) return res.status(404).json({ error: 'Your save was not found.', errorCode: 'save-not-found' });
-        // The ranked-only floor comes from the authoritative save.
-        const level = character.level;
-        if (!rankedLevelEligible(level)) {
-            return res.status(403).json({
-                error: RANKED_LEVEL_WARNING,
-                errorCode: 'ranked-level-locked',
-            });
-        }
-        // Admit only a fighter ranked-start would accept, or the pairing burns.
-        const requestedIds = Array.isArray(body.petIds) ? body.petIds : null;
-        const team = requestedIds && requestedIds.every((id: unknown) => typeof id === 'string')
-            ? selectRankedTeam(character, requestedIds as string[]) : null;
-        if (!team) {
-            return res.status(409).json({
-                error: 'Carry four distinct pets that are not breeding or on an expedition.',
-                errorCode: 'no-ranked-team',
-            });
-        }
-
-        const paired = await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
-            const now = Date.now();
-            const registry = pruneRankedPetActiveRegistry(await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY), now);
-            if (registry[me]) return { conflict: 'You already have an active ranked pet match.' } as const;
-
-            const existingPairing = await kv.get(petRankedQueueMatchKey(me));
-            if (isPetRankedQueueMatch(existingPairing)) return { alreadyPaired: true } as const;
-
-            const waiting = pruneWaiting(await kv.get(PET_RANKED_WAITING_KEY), now)
-                .filter(entry => !registry[entry.slug]);
-            const joiner: PetRankedWaitingEntry = {
-                slug: me,
-                rating: petRatingOf(save),
-                level,
-                joinedAt: waiting.find(entry => entry.slug === me)?.joinedAt ?? now,
-                format: '2v2',
-                petIds: team.map((pet) => String(pet.id)),
-            };
-            const opponent = selectPetRankedOpponent(joiner, waiting.filter(entry => entry.slug !== me), now);
-            if (!opponent) {
-                const next = [...waiting.filter(entry => entry.slug !== me), joiner];
-                await kv.set(PET_RANKED_WAITING_KEY, next, { ex: 15 * 60 });
-                return { queued: true } as const;
-            }
-
-            // The joiner initiates; ranked-start requires exactly one initiator
-            // and an identical createdAt on both reciprocal records.
-            const pairId = randomUUID();
-            await Promise.all([
-                kv.set(petRankedQueueMatchKey(me), queueMatch(opponent, true, pairId, now, joiner.petIds), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
-                kv.set(petRankedQueueMatchKey(opponent.slug), queueMatch(joiner, false, pairId, now, opponent.petIds), { ex: PET_RANKED_QUEUE_MATCH_TTL_SECONDS }),
-            ]);
-            const remaining = waiting.filter(entry => entry.slug !== me && entry.slug !== opponent.slug);
-            if (remaining.length) await kv.set(PET_RANKED_WAITING_KEY, remaining, { ex: 15 * 60 });
-            else await kv.del(PET_RANKED_WAITING_KEY);
-            return { pairedWith: opponent.slug } as const;
-        }, { failClosed: true });
-
-        if ('conflict' in paired) {
-            return res.status(409).json({ error: paired.conflict, errorCode: 'already-active' });
-        }
-        return res.status(200).json(await currentState(me));
+        return res.status(200).json({ state: 'idle' });
     } catch (error) {
+        if (error instanceof TacticsError) return res.status(error.status).json({ error: error.message,
+            ...(error.message === RANKED_LEVEL_WARNING ? { errorCode: 'ranked-level-locked' } : {}) });
         if (error instanceof LockContendedError) {
             res.setHeader('Retry-After', '1');
             return res.status(503).json({ error: 'Ranked pet matchmaking is busy. Retry this request.', errorCode: 'ranked-pet-busy' });

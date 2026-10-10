@@ -1,4 +1,5 @@
 import type { VercelRequest, VercelResponse } from '../_vercel.js';
+import { repairRankedArenaAdmission } from '../_pet-tactics/ranked.js';
 import { randomUUID, randomInt } from 'crypto';
 import { kv } from '../_storage.js';
 import { cors, safeName } from '../_utils.js';
@@ -92,6 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (opponent === me) return res.status(400).json({ error: 'You cannot start a ranked match against yourself.' });
 
         const result = await withKvLock(PET_RANKED_QUEUE_KEY, async () => {
+            await withKvLock('pet:tactics:admission', () => repairRankedArenaAdmission(kv), { failClosed: true });
             const now = Date.now();
             const registry = pruneRankedPetActiveRegistry(
                 await kv.get(PET_RANKED_ACTIVE_REGISTRY_KEY),

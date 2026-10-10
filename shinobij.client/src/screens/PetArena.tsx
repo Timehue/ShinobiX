@@ -127,6 +127,7 @@ import duelLightning from "../assets/coliseum/duel-lightning.webp";
 import duelEarth from "../assets/coliseum/duel-earth.webp";
 import "../styles/pet-home.css";
 import "../styles/pet-arena-lobby.css";
+import "../styles/pet-tactics.css";
 
 // Cinematic-duel hero banner matched to the selected pet's element. Falls back
 // to the generic blue-vs-red showdown for None / unknown elements.
@@ -228,6 +229,7 @@ const preloadPetColiseumModels = (pets: readonly Pet[]) => import("../lib/pet-mo
 // is that the legacy stack stops being needed, so pulling it in here would
 // defeat the drain.
 const PetShowdownReplay = lazyWithRetry(() => import("../components/PetShowdownReplay").then((m) => ({ default: m.PetShowdownReplay })));
+const PetTacticsArena = lazyWithRetry(() => import("../components/PetTacticsArena").then((m) => ({ default: m.PetTacticsArena })));
 const loadPetMentorGuide = () => import("../components/PetMentorGuide");
 const preloadPetMentorGuide = () => { void loadPetMentorGuide().catch(() => undefined); };
 const PetMentorGuide = lazyWithRetry(() => loadPetMentorGuide().then((module) => ({ default: module.PetMentorGuide })));
@@ -457,6 +459,9 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     // Normal visits default to the cinematic battle; a one-shot cross-screen
     // hint can land a Yard CTA directly in Tactical setup or the Gauntlet.
     const [arenaView, setArenaView] = useState<"battle" | "tactical" | "gauntlet">(arenaNavigationHint.view);
+    const [showTactics, setShowTactics] = useState(false);
+    const [tacticsActive, setTacticsActive] = useState(false);
+    const [tacticsFullscreen, setTacticsFullscreen] = useState(false);
     const [showPetMentorGuide, setShowPetMentorGuide] = useState(false);
     const petMentorGuideButtonRef = useRef<HTMLButtonElement>(null);
     useEffect(() => clearPetArenaNavigationHint(), []);
@@ -1243,17 +1248,20 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
     const fullscreenBattleActive = arenaMatch !== null
         || arenaCountdown !== null
         || battleReady
-        || watchedDuel !== null;
+        || watchedDuel !== null
+        || tacticsFullscreen;
     useEffect(() => {
         const unresolvedBattleActive = arenaMatch !== null
             || arenaCountdown !== null
-            || Boolean(battleReady && settlementPresentation && settlementPresentation.status !== "settled");
+            || Boolean(battleReady && settlementPresentation && settlementPresentation.status !== "settled")
+            || tacticsActive;
         onBattleActiveChange?.(unresolvedBattleActive);
         return () => onBattleActiveChange?.(false);
     }, [
         arenaMatch,
         arenaCountdown,
         battleReady,
+        tacticsActive,
         settlementPresentation?.status,
         onBattleActiveChange,
     ]);
@@ -1766,6 +1774,11 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
                 ? "Draft once, read every counter, and carry your squad through an escalating chain of fights."
                 : "Choose the contender, read the matchup, then call every stance and technique from ringside.";
 
+    if (showTactics) return <Suspense fallback={<div role="status">Preparing Pet Arena…</div>}>
+        <PetTacticsArena key={character.name} playerName={character.name} sharedImages={sharedImages}
+            onExit={() => setShowTactics(false)} onActiveChange={setTacticsActive} onFullscreenChange={setTacticsFullscreen} />
+    </Suspense>;
+
     return (
         <div className="card pet-arena-screen pet-arena-lobby" data-arena-view={arenaView}>
             {showPetMentorGuide ? (
@@ -1891,6 +1904,10 @@ export function PetArena({ character, updateCharacter, allServerPlayers, setScre
             </header>
 
             {showPetHomeTabs ? <PetHomeTabs active="arena" setScreen={setScreen} /> : null}
+            <section className="pet-tactics-entry">
+                <div><strong>Pet Arena · Live PvP</strong><p>Build from 12 equal-access companions. Two active, two reserves, private simultaneous orders and real counterplay.</p></div>
+                <button type="button" className="btn-primary" onClick={() => setShowTactics(true)}>Enter player-controlled battles</button>
+            </section>
 
             {/* The async "accept a pet challenge" banner is GONE with the sender that fed
                 it: PvP pet duels are live-only now (plan §10), so an invite arrives over

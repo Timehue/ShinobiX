@@ -842,13 +842,13 @@ const TOTAL_JS_CSS_WARN_BYTES = 3_000_000;
 // branch moved its own startup code off the initial graph instead, which merged
 // measures 1,421,285 B raw / 394,927 B gzip (main: 1,421,371 B / 395,010 B). Chunk,
 // CSS and asset limits stay put.
-// 2026-10-10 COOPERATIVE WORLD BOSS (PR #334): Production Image measured
-// 9,426,284 B with production-length VITE_* settings versus the 9,333,815 B
-// main baseline from the preceding release audit. Roaming-boss combat, queue,
-// event, admin, cache-reveal and crystal-support UI add 92,469 B of shipped
-// product code. Allow 9.45 MB for about 23.7 KB of measured headroom. The
-// separate startup gzip gate stays fixed; boss map styling is loaded with the
-// lazy world-map feature rather than the global stylesheet. Other gates stay put.
+// 2026-10-10 FEATURE BRANCH SIZE ACCOUNTING: live main includes the player-led
+// Pet Arena release (9,406,369 B in production run 38074431719). The roaming
+// World Boss feature added 92,469 B against the earlier 9,333,815 B baseline in
+// its production-length build. The combined candidate is remeasured by the
+// required Production Image workflow; keep the previously reviewed 9.45 MB
+// product ceiling while the independent startup, per-chunk, CSS, gzip, asset,
+// and lazy Sentry gates remain unchanged.
 const TOTAL_JS_CSS_FAIL_BYTES = 9_450_000;
 // Ratcheted 2026-07-17 (twice) after the story-graph lazy split: first
 // lib/story-trigger-loader.ts moved the interlude/epilogue prose off the entry

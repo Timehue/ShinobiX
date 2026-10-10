@@ -532,7 +532,7 @@ export interface ShowdownStateView {
     turnDeadline?: number;
     /** Standing arena weather, if any — the element it favours and how many
      *  rounds remain. Drives the HUD chip and the arena's visual climate. */
-    weather?: { element: string; roundsLeft: number };
+    weather?: { element: string; roundsLeft: number; effect?: string };
 }
 
 /** Effectiveness callout the presentation layer banners on impact. */
