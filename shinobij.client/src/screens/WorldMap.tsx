@@ -5069,7 +5069,7 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} hostLoadout={hostLoadout} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />}
+            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} hostLoadout={hostLoadout} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
