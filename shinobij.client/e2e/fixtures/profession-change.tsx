@@ -16,7 +16,8 @@ const initial = {
     name: 'ProfessionQA', village: 'Stormveil Village', level: Number(query.get('level') ?? 20), xp: 321,
     profession: query.get('profession') ?? 'vanguard', professionRank: 8, professionXp: 20000, masterySpec: {},
     storyProgress: 0, fateShards: Number(query.get('shards') ?? 500),
-    inventory: query.has('owned') ? ['profession-change-approval'] : [], itemStacks: [], equipment: {}, villageUpgrades: {}, tileCards: [],
+    inventory: [...(query.has('owned') ? ['profession-change-approval'] : []), ...(query.get('items')?.split(',').filter(Boolean) ?? [])],
+    itemStacks: [], equipment: {}, villageUpgrades: {}, tileCards: [],
 } as unknown as Character;
 
 export function ProfessionChangeFixture() {

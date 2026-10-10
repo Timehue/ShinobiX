@@ -82,8 +82,12 @@ test('route and client use authenticated locked settlement with no client random
     assert.match(client, /fetch\('\/api\/inventory\/open-war-crate'/);
     assert.match(screen, /openWarCrate\(character\.name\)/);
     assert.doesNotMatch(screen, /Math\.random\(\)/);
-    assert.match(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
-        'the authoritative crate snapshot must be accepted before closing the item action');
+    // A reply refused as stale (a newer save was adopted first) is still an
+    // opened, paid crate: the action closes and reports it either way.
+    assert.match(screen, /onVersionedCharacter\(result\.character, result\._saveVersion\);\s*setSelectedInventoryItem\(null\)/,
+        'the authoritative crate snapshot must be adopted before closing the item action');
+    assert.doesNotMatch(screen, /if \(!onVersionedCharacter\(result\.character, result\._saveVersion\)\) return;\s*setSelectedInventoryItem\(null\)/,
+        'a stale refusal must not leave the opened crate looking unopened');
 });
 
 test('level-100 crates can award any of the four equal offense relics without replacing base loot', () => {
