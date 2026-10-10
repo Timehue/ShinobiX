@@ -129,7 +129,10 @@ export function Bank({ character, updateCharacter, onVersionedCharacter, onBack 
                     ? data?.error || "Bank transfer was rejected."
                     : AMBIGUOUS_ACTION_MESSAGE);
             }
-            if (!onVersionedCharacter(data.character, data._saveVersion)) return alert(AMBIGUOUS_ACTION_MESSAGE);
+            // The server confirmed this transfer. A newer save adopted first can get
+            // its commit refused as stale (the coordinator then reads the stored
+            // save back), but the move is done, so release the intent either way.
+            onVersionedCharacter(data.character, data._saveVersion);
             intent.complete();
             setAmount(0);
             setInterestError(null);

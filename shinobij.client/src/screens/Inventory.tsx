@@ -415,7 +415,11 @@ export function Inventory({
             }
             const canonicalElement = data.element ?? element;
             if (data.character) {
-                if (!onVersionedCharacter(data.character, data._saveVersion)) return;
+                // Attuned even if a newer save was adopted first and this commit is
+                // refused as stale (the coordinator then reads the stored save
+                // back). Returning left the picker open, and a second pick spent
+                // another core.
+                onVersionedCharacter(data.character, data._saveVersion);
             } else {
                 updateCharacter((prev) => prev
                     ? {
@@ -465,7 +469,8 @@ export function Inventory({
             try {
                 const result = await openWarCrate(character.name);
                 if ("error" in result) throw new Error(result.error);
-                if (!onVersionedCharacter(result.character, result._saveVersion)) return;
+                // Opened and paid even if this commit is refused as stale; say so.
+                onVersionedCharacter(result.character, result._saveVersion);
                 setSelectedInventoryItem(null);
                 const honorGain = Math.max(0, Number(result.rewards.honorSeals) || 0);
                 const charmGain = Math.max(0, Number(result.rewards.boneCharms) || 0);
@@ -548,10 +553,9 @@ export function Inventory({
                 setSaleError({ selection: selected, message: result.error });
                 return;
             }
-            if (!onVersionedCharacter(result.character, result._saveVersion)) {
-                setSaleError({ selection: selected, message: AMBIGUOUS_ACTION_MESSAGE });
-                return;
-            }
+            // The sale is settled even if a newer save was adopted first and this
+            // commit is refused as stale, so report the receipt, not an error.
+            onVersionedCharacter(result.character, result._saveVersion);
             const soldName = getItemById(allItems, result.settlement.itemId)?.name ?? result.settlement.itemId;
             gameToast(`Sold ${result.settlement.quantity} × ${soldName} for ${result.settlement.ryo.toLocaleString()} ryo.`);
             setSelectedInventoryItem((current) => current === selected ? null : current);
