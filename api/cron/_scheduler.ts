@@ -24,6 +24,7 @@ import {
 } from './snapshot-saves.js';
 import { runRankedSeasonRollover } from './_ranked-season.js';
 import { runClanBossWeekly } from './_clan-boss-weekly.js';
+import { startClanBossInitialization } from '../_startup-initialization.js';
 import { runVillageWarDailyPass } from '../_war-daily.js';
 import { runMercAutoDeploy } from '../_merc-auto.js';
 import { runEraDailyPass } from '../_era.js';
@@ -563,8 +564,7 @@ export function startSnapshotCron(): void {
     // Kick the clan-boss weekly pass once on boot so the current week's boss is live
     // immediately (rather than dark until the next 03:00 tick). The core kill switch
     // makes it a no-op; NX guards ensure it never double-spawns.
-    void runLeasedJob(clanBossLeaseName(), LEASE_TTL.clanBoss, () => runClanBossWeekly())
-        .catch((err) => console.error('[cron-scheduler] clan-boss boot kick threw:', (err as Error).message));
+    void startClanBossInitialization();
     console.log(`[cron-scheduler] daily jobs scheduled in ${Math.round(delay / 60000)} min (03:00 UTC).`);
 }
 
