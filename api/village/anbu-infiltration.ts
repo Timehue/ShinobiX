@@ -60,6 +60,7 @@ import { readSoloPveSession, soloPveSessionKey, writeSoloPveSession } from '../s
 import { withSoloPveSettlementReceipt } from '../solo-pve/_settlement.js';
 import { findTowerBattleStartConflict, towerBattleActiveErrorBody } from '../_tower-battle-guard.js';
 import { isIncapacitated } from '../_elapsed-state.js';
+import { settleHeldFights } from '../pve/_held-fights.js';
 
 /*
  * /api/village/anbu-infiltration — POST only. The Anbu Vault Infiltration raid
@@ -145,8 +146,8 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     if (!sector) return res.status(400).json({ error: 'Missing sector.' });
 
     // The raider: save exists, level 100+, belongs to a village.
-    const rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
-    const char = rec?.character as Record<string, unknown> | undefined;
+    let rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+    let char = rec?.character as Record<string, unknown> | undefined;
     if (!char) return res.status(404).json({ error: 'Your save was not found.' });
     const level = Math.floor(Number(char.level) || 0);
     if (!identity.admin && level < LEVEL_REQUIREMENT) {
@@ -180,11 +181,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     const defRec = normalizeVillageWarRecord(targetVillage, (await kv.get<Record<string, unknown>>(villageWarKey(targetVillage))) ?? undefined);
     const terrain: string = sectorConfigFor(defRec, sector).terrain;
 
-    // Seal both sides through the canonical server hydrator. Client-computed
-    // loadout fields are deliberately ignored; equipped content and passives
-    // resolve from the authoritative save and admin catalogs.
-    const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
-
+    const hospitalized = { status: 409 as const, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
     const activeKey = infilActiveRunKey(playerName, sector);
     const started = await withKvLock(activeKey, async () => {
         const activeRunId = await kv.get<string>(activeKey);
@@ -223,13 +220,30 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
 
         // A run already on the board resumes above; a NEW one is not sealed for
         // a hospitalized raider, and no daily attempt is spent refusing it.
-        if (!identity.admin && isIncapacitated(char)) {
-            return { status: 409 as const, body: { error: 'You are in the hospital. Recover before starting a fight.', errorCode: 'hospitalized' } };
-        }
+        if (!identity.admin && isIncapacitated(char)) return hospitalized;
 
         if (!identity.admin && !await strongholdVaultReady(playerName, sector)) {
             return { status: 409 as const, body: { error: 'Reach the Anbu inside the stronghold and clear any patrol first.' } };
         }
+
+        // Every fight this player is holding is settled before the raid is
+        // sealed from the save, so it is never fought on HP an earlier fight
+        // already spent (api/pve/_held-fights.ts). It runs after the stronghold
+        // check, so a raid refused there ends no open fight.
+        const held = await settleHeldFights(playerName);
+        if (!held.ok) return { status: held.status, body: { error: held.error, errorCode: held.reason } };
+        if (held.settled > 0) {
+            rec = await augmentSaveWithForgedDefs(await kv.get<Record<string, unknown>>(`save:${playerName}`));
+            char = rec?.character as Record<string, unknown> | undefined;
+        }
+        if (!char) throw new Error('Player save vanished while held fights were settled.');
+        // A held fight settled just now can be the defeat that admits them.
+        if (held.settled > 0 && !identity.admin && isIncapacitated(char)) return hospitalized;
+
+        // Seal both sides through the canonical server hydrator. Client-computed
+        // loadout fields are deliberately ignored; equipped content and passives
+        // resolve from the authoritative save and admin catalogs.
+        const raiderCharacter = hydrateCharacterFromSave(char, {}, rec ?? null, await loadAdminCombatContent());
 
         // Defender: least-recently-defended Anbu, sealed daily from their save.
         const anbuSlug = await pickAnbuDefender(targetVillage, appointees);
