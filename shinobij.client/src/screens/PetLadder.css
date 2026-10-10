@@ -108,7 +108,9 @@
 .pl-list { display: flex; flex-direction: column; gap: 4px; }
 /* A row transitions only its hover background and the highlight on your own row. */
 .pl-row { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 10px; background: rgba(255,255,255,.025); border: 1px solid transparent; border-left: 3px solid transparent; transition: background-color .12s, border-left-color .12s; }
-.pl-row:hover { background: rgba(255,255,255,.05); }
+@media (hover: hover) {
+    .pl-row:hover { background: rgba(255,255,255,.05); }
+}
 .pl-row.is-you { background: rgba(244,196,81,.1); border-left-color: #f4c451; }
 .pl-row-main { flex: 1; min-width: 0; }
 .pl-row-name { font-weight: 700; }

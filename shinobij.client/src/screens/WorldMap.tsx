@@ -328,7 +328,7 @@ function WorldMapContent({
     onServerVersion,
     onVersionedCharacter,
     onOwnSaveRead,
-    hostLoadout, onRecordBattle,
+    onRecordBattle,
     capturePvpCreateScope,
     onLaunchWeeklyBoss,
     onExplorePresentationActiveChange,
@@ -386,7 +386,7 @@ function WorldMapContent({
     onServerVersion?: (version?: number) => boolean;
     onVersionedCharacter: VersionedCharacterCommit;
     onOwnSaveRead: OwnSaveReadCommit;
-    hostLoadout?: import("../lib/towers-api").TowerHostLoadout; onRecordBattle?: (entry: import("../types/character").BattleHistoryEntry) => void;
+    onRecordBattle?: (entry: import("../types/character").BattleHistoryEntry) => void;
     capturePvpCreateScope: (ownerName: string) => { signal: AbortSignal; isCurrent: () => boolean };
     // Launch the REAL weekly-boss fight: the roaming encounter stages it
     // (lib/weekly-boss-launch.ts) and the Weekly Boss screen starts the sealed
@@ -999,6 +999,18 @@ function WorldMapContent({
     }
 
     const { view: worldBossView, event: worldBossEvent, sector: worldBossSector, queueOpen: worldBossQueueOpen, activate: handleWorldBossMarker, closeQueue: closeWorldBossQueue } = useWorldBossMap(globalViewOpen, currentSector, isTraveling, triggerTravelPoint);
+    const bossItems = useMemo(() => getAllItems(wmCreatorItems), [wmCreatorItems]);
+    const bossHostLoadout = useMemo(() => ({
+        pvpItems: getPvpItemLoadout(character, bossItems),
+        bloodlineMult: getBloodlineMultiplier(character, savedBloodlines),
+        armorFactor: getCharacterArmorFactor(character, bossItems),
+        armorRawDR: getCharacterArmorRawDR(character, bossItems),
+        itemDamagePct: getEquippedItemBonus(character, bossItems, "damagePercent"),
+        itemAbsorbPct: getEquippedItemBonus(character, bossItems, "absorbPercent"),
+        itemReflectPct: getEquippedItemBonus(character, bossItems, "reflectPercent"),
+        itemLifeStealPct: getEquippedItemBonus(character, bossItems, "lifeStealPercent"),
+        itemShield: getEquippedItemBonus(character, bossItems, "shield"),
+    }), [character, bossItems, savedBloodlines]);
     const mercWanderers = useMemo(() => {
         if (!villageWarViewOpen || !isVillageWarMapEnabled() || mercRoster.sector !== selectedSector) return [];
         const cd = character.wandererCooldowns; const now = Date.now();
@@ -5069,7 +5081,7 @@ function WorldMapContent({
                     label={currentSector === FESTIVAL_SECTOR ? "\u2190 Sunscar Festival" : isWildSector(currentSector) ? `\u2190 Return to Sector ${currentSector}` : "\u2190 Village"}
                 />
             )}
-            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} hostLoadout={hostLoadout} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
+            <WorldBossMapOverlay showCallout={!wmZoom.active} event={worldBossEvent} sector={worldBossSector} currentSector={currentSector} isTraveling={isTraveling} activate={handleWorldBossMarker} open={worldBossQueueOpen} onClose={closeWorldBossQueue} character={character} hostLoadout={bossHostLoadout} sharedImages={sharedImages} onVersionedCharacter={onVersionedCharacter} onRecordBattle={onRecordBattle} />
             {hollowGateMenu && (
                 <HollowGateEntryMenu
                     hollowGateEventConfig={hollowGateEventConfig}
