@@ -369,7 +369,12 @@ export function applyAiFightOutcomeToCharacter(
     //
     // HP is carried from a resolved fight built by buildSoloPveAiEncounter,
     // which seeds it from the save's current HP: what the fight left is what it
-    // cost. A Tower run does NOT. It seats the squad at full HP (`sessionSeedsFullHp`),
+    // cost. So do the two Solo-PvE builders that bypass it
+    // (api/_sector-war-garrison-encounter.ts, api/_anbu-infiltration-encounter.ts).
+    // They used to seed a full pool, which made "start the fight, then walk out"
+    // a free heal, and a new builder that seeds a full pool reopens it. They seal
+    // no `seeded` vitals, so the late-settlement charge below does not cover them.
+    // A Tower run does NOT seed current HP. It seats the squad at full HP (`sessionSeedsFullHp`),
     // so carrying its remainder back turned "enter wounded, walk out of a run"
     // into a free heal: the Tower lapse settles every member this way
     // (api/towers/_lapse.ts), and /api/pve/fight-outcome reads Tower runs too.

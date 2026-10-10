@@ -282,6 +282,8 @@ test('pet, PvP, and war proofs, results, queues, and shared sessions stay author
         'clan-war-xp:war-1:storm',
         'arena:lobby:CACHE1',
         'sector-pet:cache-race',
+        'sector-pet-open:0123456789abcdef01234567',
+        'sector-open-battle:pair:12:leaf-vs-mist:alpha:beta',
         'hg-run:alpha:cache-race',
         'hg-combat-binding:cache-race',
         'hg-combat-paid:cache-race',

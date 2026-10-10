@@ -292,6 +292,70 @@ describe('village-war reservations: durable cross-pair exclusion', { concurrency
         assert.equal((await claimVillageWarReservations(reverseStore, sectorPlan)).status, 'blocked');
         assert.equal(await reverseStore.get(sectorPlan.warKey), null);
     });
+
+    // A sector declaration's village rows are released best-effort right after
+    // activation. When that release was lost (a restart, or an activation that
+    // landed past the 72-hour window, which never released at all), the rows
+    // stayed `reserved`. Once the contest row expired, the permanent debit
+    // receipt read as "a funded war with no row" and held BOTH villages in a
+    // village war for good.
+    it('frees both villages once a paid sector contest row has expired, even with its release lost', async () => {
+        const store = _makeMemoryKv();
+        await store.set(WR_KEY, { warResources: 900 });
+        const declarationId = 'sector:40:leaf-vs-mist:g1';
+        const fingerprint = warDeclarationFundingFingerprint({ declarationId, sector: 40, villages: ['Leaf', 'Mist'] });
+        const warKey = 'shared:sector-war:40:leaf-vs-mist';
+        const source: WarDeclarationFundingSource = { kind: 'war-resources', recordKey: WR_KEY, accountId: 'Leaf', amount: 250 };
+        const sectorPlan: VillageWarReservationPlan = {
+            pairId: 'leaf-vs-mist',
+            warKey,
+            villages: ['Leaf', 'Mist'],
+            generation: 1,
+            declarationId,
+            fingerprint,
+            source,
+            ownerId: 'sector-owner',
+            now: NOW,
+            leaseMs: 30_000,
+        };
+        const fundingPlan: WarDeclarationFundingPlan<Record<string, unknown>> = {
+            warKey,
+            declarationId,
+            fingerprint,
+            war: {
+                id: '40:leaf-vs-mist',
+                sector: 40,
+                attackerVillage: 'Leaf',
+                defenderVillage: 'Mist',
+                startedAt: NOW,
+                endsAt: NOW + 72 * 60 * 60 * 1_000,
+                flipped: false,
+            },
+            source,
+            ownerId: 'sector-owner',
+            now: NOW,
+            leaseMs: 30_000,
+        };
+        assert.equal((await claimVillageWarReservations(store, sectorPlan)).status, 'acquired');
+        const published = await reserveWarDeclarationFunding(store, fundingPlan);
+        assert.equal(published.status, 'acquired');
+        if (published.status !== 'acquired') return;
+        assert.equal((await reserveClaimedVillageWarReservations(store, sectorPlan)).status, 'reserved');
+        assert.equal((await settleReservedWarDeclarationFunding(store, fundingPlan, published)).status, 'active');
+        assert.equal((await store.get<Record<string, unknown>>(WR_KEY))?.warResources, 650, 'the declaration was paid for');
+
+        // No release ran. The war is fought, settled, and its row's TTL lapses.
+        await store.del(warKey);
+        const later = NOW + 8 * 24 * 60 * 60 * 1_000;
+        assert.equal(await villageWarReservationBlocks(store, 'Leaf', later), false, 'a finished sector war does not hold Leaf');
+        assert.equal(await villageWarReservationBlocks(store, 'Mist', later), false, 'nor Mist');
+        assert.equal(await releaseVillageWarReservations(store, sectorPlan, 'sector-published', later), 2,
+            'and a late release can now clean both rows up');
+        const next = declaration('leaf-vs-sand', ['Leaf', 'Sand'], 1, 'owner-next');
+        next.reservation.now = later;
+        assert.equal((await claimVillageWarReservations(store, next.reservation)).status, 'acquired',
+            'Leaf can declare a village war again');
+    });
 });
 
 describe('village-war generations: permanent pair identity', { concurrency: false }, () => {
