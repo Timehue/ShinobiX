@@ -1,0 +1,10 @@
+Asset: Donkaku, the Hollow Maze Warden — four-frame map walk sprite.
+Production file: shinobij.client/public/world-boss/donkaku-walk-v1.webp
+Preview: donkaku-walk-preview-v1.png
+Layout: transparent 2048 × 683 WebP, four 512 × 683 frames in one row.
+Frame handling: four generated walk poses normalized to a common 490 × 625 subject box and hoof baseline. The strip is shown in the existing 84 × 112 desktop map marker.
+Energy motif: pearl-white current travels through the maze-carved armor, fur seams, and maul, with restrained crimson cores and sparks. The map marker adds a soft white-red glow.
+Source concept: donkaku-map-sprite-v1.png. Generated animation source: donkaku-energy-walk-generated-v1.png.
+
+Generation direction:
+Preserve Donkaku's upright bipedal silhouette, face, curled pale stone horns, ivory maze armor, dark fur, ochre wraps, and labyrinth-carved maul. Add luminous pearl-white channels through chest runes, shoulder plates, forearms, hip and leg seams, and maul carvings, with small crimson cores and short white wisps. Keep this motif visible through every walk pose and distinct from the turquoise and violet energy motifs in the supplied style references. Use transparent backgrounds, no floor, lettering, dividers, or extra characters.

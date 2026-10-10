@@ -897,8 +897,9 @@ export function JutsuTrainingHall({
     const showAcademyJutsuHint = academyJutsuStep;
     const queued = activeJutsuTraining?.next ?? null;
     const moraleName = String(warMorale.morale);
-    const moralePercent = Math.max(0, Math.round(Math.abs(1 - warMorale.jutsuTimeMult) * 100));
-    const moraleIsPositive = warMorale.jutsuTimeMult <= 1;
+    const moraleJutsuTimeMult = moraleName === "rallying" ? 0.9 : 1;
+    const moralePercent = Math.max(0, Math.round(Math.abs(1 - moraleJutsuTimeMult) * 100));
+    const moraleIsPositive = moraleName === "rallying" || moraleName === "triumphant";
     const moraleMessage = moraleName === "rallying"
         ? `Rallying comeback: your village trains jutsu ${moralePercent}% faster until ${new Date(warMorale.until).toLocaleDateString()}.`
         : moraleName === "triumphant"
@@ -1006,9 +1007,10 @@ export function JutsuTrainingHall({
                 </div>
             )}
 
-            {(warMorale.morale !== "none" || lockedElementCount > 0) && (
+            {(warMorale.morale !== "none" || warMorale.ashfallActive || lockedElementCount > 0) && (
                 <div className="jutsu-hall-alerts">
                     {warMorale.morale !== "none" && <p className={moraleIsPositive ? "positive" : "negative"}>{moraleMessage}</p>}
+                    {warMorale.ashfallActive && <p className="negative">Ashfall affects {character.village}: training gains are 5% lower and jutsu lessons take 5% longer until {new Date(warMorale.ashfallUntil).toLocaleDateString()}.</p>}
                     {lockedElementCount > 0 && <p>{lockedElementCount} techniques remain hidden until their element is awakened.</p>}
                 </div>
             )}

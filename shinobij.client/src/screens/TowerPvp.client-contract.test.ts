@@ -36,7 +36,7 @@ test("forfeit bypasses turn-target gating and cannot present a clickable silent 
     const controlStart = fight.lastIndexOf('className="tower-fight-leave"', promptAt);
     const controlEnd = fight.indexOf('</button>', promptAt);
     const control = fight.slice(controlStart, controlEnd);
-    assert.match(control, /disabled=\{\(isTeamPvp \|\| isHunt\) && busy\}/);
+    assert.match(control, /disabled=\{\(isTeamPvp \|\| isHunt \|\| isWorldBoss\) && busy\}/);
     assert.match(control, /void send\(\{ type: "forfeit" \}\)/);
     assert.doesNotMatch(control, /!myTurn|if \(myTurn\)|if \(!myTurn\)/);
 });

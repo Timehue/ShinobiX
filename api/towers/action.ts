@@ -12,6 +12,7 @@ import { isPublicTowerRun, isSpireRun, readSession, needsTowerLapseReconciliatio
 import { reconcileLapsedBattle } from '../_battle-lapse.js';
 import { autoPassAfkHumans, stampTurnClock } from './_tower-mp.js';
 import { recordClanBossContribution, snapshotContributionState } from '../clan-boss/_contribution.js';
+import { recordWorldBossContribution, snapshotWorldBossContribution } from '../world-boss-event/_contribution.js';
 import {
     bumpTowerActionVersion,
     commitTowerActionMetadata,
@@ -115,7 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 await refreshClanBossBattleMarkers(runId, towerBattleLeaseMembers(session));
             }
 
-            const ownsTowerLease = !!session.worldCrisis80 || !!session.caravanAmbush || isPublicTowerRun(session) || isSpireRun(session);
+            const ownsTowerLease = !!session.worldCrisis80 || !!session.caravanAmbush || !!session.worldBossEvent || isPublicTowerRun(session) || isSpireRun(session);
             if (ownsTowerLease && session.rewardSettlementState === 'settled') {
                 await releaseTowerBattleLeases(runId, towerBattleLeaseMembers(session));
             } else if (ownsTowerLease) {
@@ -232,6 +233,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : { actorId: actor.id, type: 'wait', ...token };
 
             const contributionBefore = snapshotContributionState(session);
+            const worldBossContributionBefore = session.worldBossEvent ? snapshotWorldBossContribution(session) : null;
             const result = applyAction(session, floor, action, rng);
             if (!result.applied) {
                 if (afkAdvanced) {
@@ -242,6 +244,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 return { status: 200, body: { applied: false, reason: result.reason, session, currentVersion: towerActionVersion(session) } };
             }
             recordClanBossContribution(session, actor.id, contributionBefore);
+            if (worldBossContributionBefore) recordWorldBossContribution(session, actor.id, worldBossContributionBefore);
             if (action.type === 'wait' || (session.status === 'active' && !humanHasTowerAction(session, actor))) {
                 endTurn(session, floor);
                 runAiUntilHuman(session, floor, rng); // run allies + enemies until the human is up / done
