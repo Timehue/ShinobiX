@@ -67,7 +67,9 @@ export function SunscarFestival({ character, onVersionedCharacter, setCreatorIte
         try {
             const res = await pullBlackMarket(character.name);
             if (!res.ok || !res.reward || !res.character) { setBrokerLog(res.error ?? 'The Broker is unavailable.'); return; }
-            if (!onVersionedCharacter(res.character, res._saveVersion)) return;
+            // Paid even if a newer save was adopted first and this commit is refused
+            // as stale (the coordinator then reads the stored save back).
+            onVersionedCharacter(res.character, res._saveVersion);
             setBmReveal(res.reward);
             setBrokerLog(res.reward.label + '. ' + describeReward(res.reward) + '.');
         } finally { bmBusyRef.current = false; setBmBusy(false); }
