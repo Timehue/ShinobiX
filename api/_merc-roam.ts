@@ -71,9 +71,10 @@ export async function setMercTargetCooldown(targetPlayer: string, now: number): 
 
 // ── Roaming-merc NPC identity + roster synthesis ──────────────────────────────
 // A roaming merc renders client-side like a Sector Wanderer. Its id encodes the
-// band it belongs to (attacking village + tier) so the engage endpoint can
+// band it belongs to (the band's village + tier) so the engage endpoint can
 // re-derive + validate that band against live leases server-side. The trailing
-// index distinguishes the N mercs of a band (a band of count 4 shows 4 NPCs).
+// index distinguishes the mercs of that village's bands of that tier (a band of
+// count 4 shows 4 NPCs; two such bands count on from where the first stopped).
 
 export function mercVillageSlug(village: string): string {
     return safeName(village).toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -99,10 +100,12 @@ export function parseMercNpcId(id: string): { villageSlug: string; tierId: strin
 export const ROAMING_MERC_RENDER_CAP = 6;
 
 export interface HostileBand {
-    village: string;   // the ATTACKING village (hostile to the viewer)
+    village: string;   // the band's own village (hostile to the viewer)
     tierId: string;
     level: number;
     count: number;     // mercs remaining in the band
+    /** 'sector': a defender's band in its contested Combat sector;
+     *  'village': a band of an all-out village war. */
     context: 'sector' | 'village';
 }
 
@@ -115,14 +118,19 @@ export interface RoamingMercView {
 }
 
 /** Pure: flatten the bands hostile to a viewer into individual roaming merc NPCs
- *  (one per remaining merc), capped, each with a stable id. */
+ *  (one per remaining merc), capped, each with a stable id — unique even when a
+ *  village fields two bands of the same tier. */
 export function synthRoamingMercs(bands: readonly HostileBand[]): RoamingMercView[] {
     const out: RoamingMercView[] = [];
+    const nextIndex = new Map<string, number>();
     for (const b of bands) {
         const n = Math.max(0, Math.floor(b.count));
+        const band = `${mercVillageSlug(b.village)}|${b.tierId}`;
         for (let i = 0; i < n; i++) {
             if (out.length >= ROAMING_MERC_RENDER_CAP) return out;
-            out.push({ id: mercNpcId(b.village, b.tierId, i), village: b.village, tierId: b.tierId, level: b.level, context: b.context });
+            const index = nextIndex.get(band) ?? 0;
+            nextIndex.set(band, index + 1);
+            out.push({ id: mercNpcId(b.village, b.tierId, index), village: b.village, tierId: b.tierId, level: b.level, context: b.context });
         }
     }
     return out;

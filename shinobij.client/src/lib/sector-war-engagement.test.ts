@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+    OPEN_SECTOR_BATTLE_EVENT,
+    beginOpenSectorBattle,
     beginSectorContest,
     contestBackKey,
+    openSectorBattleFromNotice,
     sectorContestGarrisonReady,
     sectorContestEntryFor,
     sectorContestLabel,
     sectorEngagementFor,
     stashedContestBackScreen,
+    stashedOpenBattleId,
     viewerSectorContest,
     type SectorWarContestView,
 } from "./sector-war-engagement";
@@ -158,4 +162,60 @@ test("a closed war never offers the garrison, whatever the server last said", ()
     // The contest poll can outlive the 72h window between renders; a stale
     // garrisonReady must not survive the clock running out.
     assert.equal(sectorContestGarrisonReady(contest({ garrisonReady: true }) as never, NOW + 60_000), false);
+});
+
+const ENGAGE_ID = "0123456789abcdef01234567";
+
+test("an inbox notice routes into an open battle only when it names one this client can trust", () => {
+    const battle = { kind: "pet", sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID };
+    assert.deepEqual(openSectorBattleFromNotice({ sectorContest: battle }), battle);
+    assert.deepEqual(openSectorBattleFromNotice({ sectorContest: { ...battle, kind: "card" } }), { ...battle, kind: "card" });
+    // A Combat attack's notice carries no contest: it keeps its own route.
+    assert.equal(openSectorBattleFromNotice({}), null);
+    assert.equal(openSectorBattleFromNotice(null), null);
+    assert.equal(openSectorBattleFromNotice({ sectorContest: { ...battle, kind: "combat" } }), null);
+    // The id addresses a server key, so only the server's own shape is routed on.
+    assert.equal(openSectorBattleFromNotice({ sectorContest: { ...battle, engageId: "../sector-pet:12" } }), null);
+    assert.equal(openSectorBattleFromNotice({ sectorContest: { ...battle, engageId: ENGAGE_ID.toUpperCase() } }), null);
+    assert.equal(openSectorBattleFromNotice({ sectorContest: { ...battle, sectorWarId: " " } }), null);
+});
+
+test("an open battle stashes its id for the screen, and the table's entry clears it", () => {
+    store.clear();
+    const battle = { sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID };
+    assert.equal(beginOpenSectorBattle({ kind: "card", ...battle }, "worldMap"), "sectorCard");
+    // The Chronicle screen posts `{ action, ...stash }`, and the server needs the
+    // id to address the duel, so it rides IN the stash. The back target does not.
+    assert.deepEqual(JSON.parse(store.get("sectorWarCard.v1")!), battle);
+    assert.equal(stashedOpenBattleId("sectorWarCard.v1"), ENGAGE_ID);
+    assert.equal(stashedContestBackScreen("sectorWarCard.v1", "villageWarMap"), "worldMap");
+    assert.equal(beginOpenSectorBattle({ kind: "pet", ...battle }, "worldMap"), "sectorPet");
+    assert.equal(stashedOpenBattleId("sectorWarPet.v1"), ENGAGE_ID);
+    // A later visit to the table must never be mistaken for the open battle.
+    beginSectorContest(attack(), "worldMap");
+    assert.equal(stashedOpenBattleId("sectorWarCard.v1"), "");
+    store.set("sectorWarPet.v1", "{not json");
+    assert.equal(stashedOpenBattleId("sectorWarPet.v1"), "");
+});
+
+test("stashing an open battle tells a contest screen that is already showing to remount", () => {
+    // App does not remount a screen it is asked to show again, so a player still
+    // on the Pet or Card screen would otherwise never see the new battle.
+    const target = new EventTarget();
+    const heard: unknown[] = [];
+    target.addEventListener(OPEN_SECTOR_BATTLE_EVENT, (event) => { heard.push((event as CustomEvent<unknown>).detail); });
+    (globalThis as { window?: unknown }).window = target;
+    try {
+        store.clear();
+        beginOpenSectorBattle({ kind: "pet", sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID }, "worldMap");
+        beginOpenSectorBattle({ kind: "card", sectorWarId: "12:leaf-vs-mist", engageId: ENGAGE_ID }, "worldMap");
+        // The stash is written first, so the remounted screen reads the new battle.
+        assert.deepEqual(heard, ["sectorWarPet.v1", "sectorWarCard.v1"]);
+        assert.equal(stashedOpenBattleId("sectorWarCard.v1"), ENGAGE_ID);
+        // The table's own entry is a navigation, not a battle drawn onto a screen.
+        beginSectorContest(attack(), "worldMap");
+        assert.equal(heard.length, 2);
+    } finally {
+        delete (globalThis as { window?: unknown }).window;
+    }
 });

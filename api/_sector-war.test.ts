@@ -168,6 +168,13 @@ describe('sector-war: scoring (the tally counts UP)', () => {
         assert.equal(merc.lastLiveBattleAt, undefined);
     });
 
+    it('a battle that reaches the contest late never moves the live clock backwards', () => {
+        const recent = applySectorWarBattle(fresh(), true, { now: NOW + 3 * 60 * 60 * 1000, roleSwing: 5, by: 'a' }).session;
+        // Its terminal step was retried on a reconnect: it ended hours earlier.
+        const late = applySectorWarBattle(recent, false, { now: NOW + 60 * 1000, roleSwing: 5, by: 'd' }).session;
+        assert.equal(late.lastLiveBattleAt, NOW + 3 * 60 * 60 * 1000, 'the garrison stays locked by the recent fight');
+    });
+
     it('draw in a card/pet contest scores nothing (null outcome)', () => {
         assert.equal(applyContestBattleByWinner(fresh(), 'draw', { now: NOW + 1, roleSwing: 10 }), null);
         const p1 = applyContestBattleByWinner(fresh(), 'p1', { now: NOW + 1, roleSwing: 10, by: 'a' });
@@ -545,14 +552,19 @@ describe('sector-war: Village Stores (garrison feed cap + unfed Watchtower)', ()
         assert.equal(garrisonPointsCapFor(base(), MOON, DAY), 150);
         assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, false) } }, MOON, DAY), 150, 'toggle alone (rations not yet covered) stays 150');
         assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true) } }, MOON, DAY), 200);
-        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 150, 'the OTHER side\'s feed does not raise this village\'s cap');
+        // Owner ruling 2026-10-08: the defender's covered feed is worth as much
+        // to the defence as the attacker's is to the attack.
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 100, 'the defender\'s feed LOWERS what the attacker can bank');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, false) } }, MOON, DAY), 150, 'an uncovered defender feed does nothing');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true), [FROST]: entry(true, true) } }, MOON, DAY), 150, 'both fed cancel out');
+        assert.equal(garrisonPointsCapFor({ ...base(), storesDate: YESTERDAY, garrisonFeed: { [FROST]: entry(true, true) } }, MOON, DAY), 150, 'a stale defender verdict expires too');
         const fed = { ...base(), storesDate: DAY, garrisonFeed: { [MOON]: entry(true, true) } };
         const r = applySectorWarBattle(fed, true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
         assert.equal(r.awarded, 200, 'a garrison run is the attacker\'s run');
         const unfed = applySectorWarBattle(base(), true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
         assert.equal(unfed.awarded, 150);
         const defenderOnly = applySectorWarBattle({ ...base(), storesDate: DAY, garrisonFeed: { [FROST]: entry(true, true) } }, true, { now: BATTLE_AT, roleSwing: 1_000, garrisonBattle: true });
-        assert.equal(defenderOnly.awarded, 150);
+        assert.equal(defenderOnly.awarded, 100, 'a fed defence yields the attacker 50 fewer garrison points');
     });
     it('a STALE covered:true no longer grants the raised cap for free', () => {
         // The daily pass throwing once (or the stores kill switch) must not
@@ -604,13 +616,22 @@ describe('sector-war: Village Stores (garrison feed cap + unfed Watchtower)', ()
         const plain = projectSectorWarForClient(s) as Record<string, unknown>;
         assert.equal(plain.fed, false);
         assert.equal(plain.garrisonFed, undefined, 'no viewer -> no flat mirror');
-        assert.deepEqual(plain.garrisonFeed, s.garrisonFeed);
+        assert.equal(plain.garrisonFeed, undefined, 'no viewer -> no village\'s feed entry at all');
         const frost = projectSectorWarForClient(s, FROST) as Record<string, unknown>;
         assert.equal(frost.garrisonFed, true);
         assert.equal(frost.garrisonFedBy, FROST);
         assert.equal(frost.garrisonCovered, true);
+        assert.deepEqual(frost.garrisonFeed, s.garrisonFeed, 'a village sees its own entry');
         const moon = projectSectorWarForClient(s, MOON) as Record<string, unknown>;
         assert.equal(moon.garrisonFed, undefined, 'the other side never sees the enemy feed as its own');
+        // Owner ruling 2026-10-08: a village's internals are for its members, so
+        // the enemy's feed (and who ordered it) is not in the map either.
+        assert.equal(moon.garrisonFeed, undefined, 'the other side never sees the enemy\'s feed entry');
+        assert.deepEqual(
+            (projectSectorWarForClient(s, MOON, { admin: true }) as Record<string, unknown>).garrisonFeed,
+            s.garrisonFeed,
+            'an admin sees every entry',
+        );
         // A per-village map wins over a stale legacy trio on the same row.
         const both = normalizeSectorWarSession({ ...raw, garrisonFeed: { [FROST]: { on: false, covered: false, updatedAt: 5, by: 'k' } } } as unknown as Record<string, unknown>)!;
         assert.deepEqual(both.garrisonFeed, { [FROST]: { on: false, covered: false, updatedAt: 5, by: 'k' } });

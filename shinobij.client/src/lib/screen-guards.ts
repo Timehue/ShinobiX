@@ -155,6 +155,10 @@ export const BATTLE_SCREENS: ReadonlySet<Screen> = new Set<Screen>([
     "hollowGateShrine", "hollowGateTiles", "endlessTower", "dungeon", "eventTiles",
     "eventPetBattle", "tilecardsDuel", "sectorCard", "cardClashFreePlay", "battleTowers",
     "clanWar2v2", "firstPact",
+    // The Sector War garrison assault: a live Solo-PvE fight, battle-only like
+    // the card table above. Without it the nav bar, Back and a story trigger
+    // could all unmount an assault mid-fight.
+    "sectorGarrison",
 ]);
 
 // Battle Towers has no server BattleLockKeeper — the run lives in tower:<runId>
@@ -303,6 +307,7 @@ export function isUnresolvedBattle(s: BattleGuardSignals): boolean {
         case "storyBoss":          // battle-only screen, no lobby
         case "tilecardsDuel":      // clan-war card duel, battle-only
         case "sectorCard":         // sector-war card battle, battle-only
+        case "sectorGarrison":     // sector-war garrison assault, battle-only (its own exits leave it)
         case "cardClashFreePlay":  // free-play PvP card duel, battle-only
         case "clanWar2v2":         // clan-war 2v2, battle-only: teammates fight on
         case "hollowGateShrine":   // dungeon MAP: no retreat — exit only via the

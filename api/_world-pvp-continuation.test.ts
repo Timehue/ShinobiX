@@ -149,7 +149,11 @@ describe('server-owned PvP village-war continuation', () => {
             },
         });
         await putBattle(session);
-        await kv.set('world:war:leaf-vs-mist', war());
+        // The war ground is elsewhere, so this measures the home-defense swing
+        // alone. (A verified World raid IN the war-ground sector also wears the
+        // ground down and adds its own raid damage — see
+        // api/world-state-village-war-rules.test.ts.)
+        await kv.set('world:war:leaf-vs-mist', war({ warGroundSector: 41 }));
         // The live row deliberately disagrees. Settlement must use the session
         // snapshot and keep the historical floor(30 * 1.15) = 34 swing.
         await kv.set('world:territory:40', {

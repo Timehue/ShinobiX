@@ -12,7 +12,7 @@ import { bumpEraContributionOnce } from '../_era.js';
 import { reportMissionEvent, type CompletedMissionInfo } from '../missions/_progress.js';
 import { enforceRateLimitKv } from '../_ratelimit.js';
 import { isWarVillage, isWarSector, homeVillageForSector } from '../_war-map-sectors.js';
-import { normalizeVillageWarRecord, villageWarKey } from '../_war-state.js';
+import { normalizeVillageWarRecord, sectorConfigFor, villageWarKey } from '../_war-state.js';
 import { getSectorOwnerVillage } from '../_sector-war-store.js';
 import { anbuInfiltrationEnabled } from '../_release-flags.js';
 import {
@@ -178,7 +178,7 @@ async function doStart(req: VercelRequest, res: VercelResponse, identity: Identi
     // Defender home-terrain edge: the sector's Kage-set terrain seals in as the
     // fight biome (identical mechanic to sector-war's terrain seal).
     const defRec = normalizeVillageWarRecord(targetVillage, (await kv.get<Record<string, unknown>>(villageWarKey(targetVillage))) ?? undefined);
-    const terrain = String(defRec.sectors[String(sector)]?.terrain ?? 'central');
+    const terrain: string = sectorConfigFor(defRec, sector).terrain;
 
     // Seal both sides through the canonical server hydrator. Client-computed
     // loadout fields are deliberately ignored; equipped content and passives

@@ -59,6 +59,9 @@ export type DuelChallenge = {
     // (server NX-dedups per token). Absent → local Elo fallback.
     petRankedToken?: string;
     sectorAttack?: boolean; // true = initiated from world-map sector, auto-routes defender
+    // An open-world battle in a Pet or Card sector war (api/_sector-contest-engage.ts):
+    // routes the target into that battle instead of a shinobi fight.
+    sectorContest?: { kind: "pet" | "card"; sectorWarId: string; engageId: string };
     kageChallengeId?: string;
     kageVillage?: string;
     battleId?: string;     // if set, both players join a shared PvP session instead of separate arenas

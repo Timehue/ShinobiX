@@ -1,12 +1,12 @@
 import { isSeatedVillageElder } from '../lib/village-elder-focus';
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import "../styles/village-war-map-skin.css";
 import type { Character } from "../types/character";
 import type { Screen } from "../types/core";
 import { visiblePoll } from "../lib/poll";
 import { useSharedNow } from "../lib/use-shared-now";
-import { isProtectedHomeSector } from "../data/war-map-sectors";
+import { homeVillageForSector, isProtectedHomeSector } from "../data/war-map-sectors";
 import {
     fetchWarMap,
     declareSectorWar,
@@ -14,29 +14,25 @@ import {
     setSectorWinCondition,
     setSectorTerrain,
     upgradeWarStructure,
-    hireMerc,
-    listMercs,
-    deployMerc,
     villageAccent,
     garrisonAssaultable,
     setGarrisonFeed,
     contestGarrisonFeed,
+    contestUnfedToday,
     contestVillageUnfed,
     WAR_STRUCTURES,
     WAR_TERRAINS,
     type WarMapResponse,
     type SectorWarContest,
     type WinCondition,
-    type WrMercTierView,
-    type MercLeaseView,
 } from "../lib/village-war-map";
 import { contestBackKey } from "../lib/sector-war-engagement";
-import { mercPortrait } from "../lib/merc-ai";
 import { isVillageAnbu } from "../lib/world-state";
 import { revealedIntelForSector } from "../lib/village-intel";
 import { DEPOT_CONVERSION_POINTS_PER_WR, GARRISON_RATIONS_PER_DAY, expectedDeclareCost, intelTierLabel, structureMaterialsCost } from "../lib/village-stores";
 import {
     GARRISON_POINTS_CAP,
+    GARRISON_POINTS_CAP_DEFENDED,
     GARRISON_POINTS_CAP_FED,
     WAR_RATIONS_PER_DAY,
     NO_WAR_MAP_ERROR,
@@ -44,7 +40,11 @@ import {
     declareEstimateNote,
     depotConversionNote,
     garrisonFedCapLine,
+    garrisonFeedButtonTitle,
     garrisonFeedStatusLine,
+    sectorWarConcedeConfirmText,
+    sectorWarDeclareConfirmText,
+    type GarrisonFeedSide,
     provisionsMeaningLine,
     structureUpgradeNotice,
     warMapErrorAfterAction,
@@ -52,8 +52,9 @@ import {
     wrAffordability,
     type WarMapErrorState,
 } from "../lib/village-war-map-ui";
-import { mercTierName } from "../lib/merc-roam-client";
+import { VillageWarMercPanel } from "../components/VillageWarMercPanel";
 import { gameToast } from "../components/GameToast";
+import { gameConfirm } from "../components/GameAlert";
 import { GameIcon } from "../components/icons/GameIcon";
 import { GameArtIcon } from "../components/GameArtIcon";
 import { GiBowlOfRice, GiHazardSign } from "../components/icons/LightweightGameIcons";
@@ -61,9 +62,10 @@ import { WAR_CREST, TERRAIN_IMAGES, STRUCTURE_IMAGES, WINCON_IMAGES } from "../d
 
 // ─── Village War Map (Phase 6) ──────────────────────────────────────────────
 // The "command surface" beside the existing VillageWarScreen (§10/§11b.6): each
-// war village's WR/seal pools + structures + tax tier, every home sector's owner
-// + win-condition + terrain + the live 72h war score, and the Kage actions (declare
-// a sector war, set win-conditions/terrain, upgrade structures). The on-map banner
+// war village's WR/seal pools + structures + tax tier, the sectors it holds (home
+// and captured, each under its holder) with their win-condition + terrain + the
+// live 72h war score, and the Kage actions (declare a sector war, set the
+// win-conditions/terrain of held sectors, upgrade structures). The on-map banner
 // overlay and the battle-launch flows layer on separately. View data comes from
 // /api/village/war-map + /api/world-state (ownership); all actions are server-auth.
 
@@ -101,10 +103,6 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
     const [error, setError] = useState<WarMapErrorState>(NO_WAR_MAP_ERROR);
     const [disabled, setDisabled] = useState(false);
     const [busy, setBusy] = useState("");
-    const [mercData, setMercData] = useState<{ tiers: WrMercTierView[]; leases: MercLeaseView[] } | null>(null);
-    const [deploySector, setDeploySector] = useState<Record<string, number>>({});
-    const [deployTarget, setDeployTarget] = useState<Record<string, string>>({});
-    const [mercMsg, setMercMsg] = useState("");
     const [showInfo, setShowInfo] = useState(false);
     // ANBU appointees may toggle the garrison feed (like the war systems); the
     // server re-checks against the village's appointee list. Derived, not frozen
@@ -132,12 +130,18 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
         return () => { alive = false; stop(); };
     }, [character.name, myVillage]);
 
+    // Only the NEWEST refresh may write the screen. A poll already in flight
+    // when an action lands resolves with the pre-action map, and it used to
+    // overwrite the post-action refresh for up to a full poll interval.
+    const refreshSeq = useRef(0);
     const refresh = useCallback(async () => {
+        const seq = ++refreshSeq.current;
         try {
             const [wm, ws] = await Promise.all([
                 fetchWarMap(),
                 fetch("/api/world-state", { method: "GET" }).then((r) => r.json()).catch(() => ({})),
             ]);
+            if (seq !== refreshSeq.current) return;
             setData(wm);
             const map: Record<number, string> = {};
             const terrs = (ws as { territories?: TerritoryLite[] }).territories;
@@ -153,34 +157,25 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             setError((prev) => warMapErrorAfterRefresh(prev, ""));
             setDisabled(false);
         } catch (e) {
+            if (seq !== refreshSeq.current) return;
             const msg = String((e as Error).message || e);
             if (/not found/i.test(msg)) setDisabled(true);
             else setError((prev) => warMapErrorAfterRefresh(prev, msg));
         } finally {
-            setLoading(false);
+            if (seq === refreshSeq.current) setLoading(false);
         }
     }, []);
 
-    const loadMercs = useCallback(async () => {
-        try {
-            const m = (await listMercs(character.name, myVillage)) as { tiers?: WrMercTierView[]; leases?: MercLeaseView[] };
-            setMercData({ tiers: m.tiers ?? [], leases: m.leases ?? [] });
-        } catch { /* mercs are best-effort (feature gated off / not a war village) */ }
-    }, [character.name, myVillage]);
+    useEffect(() => visiblePoll(refresh, 15000, 0.1, { immediate: true }), [refresh]);
 
-    useEffect(() => { void loadMercs(); return visiblePoll(refresh, 15000, 0.1, { immediate: true }); }, [refresh, loadMercs]);
-
-    const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage) ?? null, [data, myVillage]);
+    // Only the viewer's own village carries its war chest and structures; a
+    // restricted view of it (the server could not tell who is asking) shows none.
+    const myView = useMemo(() => data?.villages.find((v) => v.village === myVillage && !v.restricted) ?? null, [data, myVillage]);
     const contestBySector = useMemo(() => {
         const m: Record<number, SectorWarContest> = {};
         for (const c of data?.contests ?? []) m[c.sector] = c;
         return m;
     }, [data]);
-    // Combat wars THIS village is attacking — where a merc can be deployed.
-    const myCombatContests = useMemo(
-        () => (data?.contests ?? []).filter((c) => c.attackerVillage === myVillage && c.winCondition === "combat"),
-        [data, myVillage],
-    );
     // Everything a sector card shows that does NOT depend on the clock, derived
     // ONCE per data/ownership change. The screen ticks at 1Hz for the war
     // countdowns, and the 32-card grid used to redo all of this per card per
@@ -204,24 +199,35 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
             contest,
             mine: v.village === myVillage && isKage,
             protectedCore: isProtectedHomeSector(sec.sector),
-            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || v.village === myVillage),
+            // Each card lists the sectors its village HOLDS, so a gate's right of
+            // reclaim follows the sector's home village, not the card it sits on.
+            canDeclare: isKage && owner !== myVillage && !contest && (!isProtectedHomeSector(sec.sector) || homeVillageForSector(sec.sector) === myVillage),
             pct: contest ? (totalPts > 0 ? Math.round((contest.attackerPoints / totalPts) * 100) : 50) : 0,
             intelTier,
             // Affordability against the LIVE pool, matching the merc tiers: a Kage
             // who cannot pay reads "Need … WR", not a button that only fails after
             // the round-trip.
             declareAfford: wrAffordability(declareCost, myView?.warResources ?? 0, { verb: "Declare War", estimate: true }),
+            declareCost,
             participant,
+            // A feed is worth the same to either side, in opposite directions.
+            feedSide: (contest?.attackerVillage === myVillage ? "attacker" : "defender") as GarrisonFeedSide,
             canFeed: participant && (isKage || isAnbu),
             // Only MY village's feed entry — the enemy's paid feed is never shown as ours.
             myFeed: contest ? contestGarrisonFeed(contest, myVillage) : { on: false, covered: false },
             villageUnfed: !!contest && contestVillageUnfed(contest, myVillage),
+            // The Fed/Unfed chip, day-scoped like the line above.
+            contestUnfed: !!contest && contestUnfedToday(contest),
         }] as const;
     }))), [data, owners, myVillage, isKage, isAnbu, contestBySector, myView]);
     // Same for the Active Wars list under the grid.
     const unfedContestIds = useMemo(
         () => new Set((data?.contests ?? []).filter((c) => contestVillageUnfed(c, myVillage)).map((c) => c.id)),
         [data, myVillage],
+    );
+    const unfedTodayIds = useMemo(
+        () => new Set((data?.contests ?? []).filter((c) => contestUnfedToday(c)).map((c) => c.id)),
+        [data],
     );
 
     const act = useCallback(async (label: string, fn: () => Promise<unknown>) => {
@@ -290,11 +296,11 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                         <div className="vwm-info-grid">
                             <div><b><GameArtIcon kind="attack" size={17} /> Three ways to fight</b><span>Combat (a shinobi duel), Pet (a beast duel), or Card (a Chronicle Showdown). Every fight is server-decided — no faking a win.</span></div>
                             <div><b><GameArtIcon kind="crown" size={17} /> Most points in 72h wins</b><span>Every win scores kill points for your side and the tally counts up. Highest score when the clock runs out takes the sector — <b>a tie means the defender holds</b>. Rank is the score: felling a Kage is worth far more than a villager.</span></div>
-                            <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>The Kage sets each sector's terrain; the defender gets +10% on their home ground (Combat &amp; Pet). Central is neutral.</span></div>
-                            <div><b><GameArtIcon kind="vanguard" size={17} /> Mercenaries</b><span>The Kage spends War Resources to hire a roaming AI band that hunts enemy players and scores points for the attack.</span></div>
+                            <div><b><GameArtIcon kind="biomeForest" size={17} /> Terrain edge</b><span>A sector's rules belong to the village that holds it: its Kage picks the win-condition, and its Kage (3 sectors) and Elders (1 each) pick the terrain. On that ground, the terrain's own school hits 10% harder for both sides (Combat &amp; Pet), so the holder picks one that suits its fighters. Both are locked in when a war is declared. Central is neutral.</span></div>
+                            <div><b><GameArtIcon kind="vanguard" size={17} /> Mercenaries</b><span>Hired with War Resources for one war at a time: in an all-out village war the Kage hires 3 bands and each Elder 1, and a village defending a Combat sector hires 3. A band hunts the enemy on its own; in a sector war only the defender fields one.</span></div>
                             <div><b><GameArtIcon kind="clanHall" size={17} /> Structures</b><span>Ramparts &amp; Watchtower fortify <i>this</i> war (WR, reset at peace); Barracks / War Academy / Supply Depot / Treasury Vault are permanent (Honor Seals).</span></div>
-                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison as well, raising what it can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}.</span></div>
-                            <div><b><GameArtIcon kind="crown" size={17} /> Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest. Anyone can fight in a sector that's already contested.</span></div>
+                            <div><b><GiBowlOfRice aria-hidden="true" /> Fed or Unfed</b><span>Every war eats <b>{WAR_RATIONS_PER_DAY} rations a day</b> from the Town Hall Provisions. A war marked <b>Unfed</b> is one a side could not cover — an unfed defender loses half its Watchtower bonus. Paying <b>{GARRISON_RATIONS_PER_DAY} more rations a day</b> feeds that sector's garrison fight as well. The attacker's feed raises what its garrison assaults can bank from {GARRISON_POINTS_CAP} points to {GARRISON_POINTS_CAP_FED}; the defender's lowers it to {GARRISON_POINTS_CAP_DEFENDED}. When both sides feed, they cancel out.</span></div>
+                            <div><b><GameArtIcon kind="crown" size={17} /> Kage only</b><span>Only your village's seated Kage can declare wars, set rules, and spend the war chest — Elders may also hire mercenaries. Anyone can fight in a sector that's already contested.</span></div>
                         </div>
                     </div>
                 )}
@@ -346,7 +352,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     <div className="vwm-structures">
                                         {WAR_STRUCTURES.map((s) => {
                                             const perWar = s.key === "ramparts" || s.key === "watchtower";
-                                            const level = myView.structures[s.key] ?? 0;
+                                            const level = myView.structures?.[s.key] ?? 0;
                                             // Village Stores: raising a PERMANENT structure to L6+ also
                                             // debits materials (400 / 700 / 1,100 / 1,600 / 2,400).
                                             const materialsNeed = perWar ? 0 : structureMaterialsCost(level + 1);
@@ -379,53 +385,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                         </div>
                     )}
 
-                    {mercData && (
-                        <div className="card vwm-mercs">
-                            <h3>Mercenaries</h3>
-                            {!isKage && <p className="hint" style={{ color: "#fbbf24" }}><GameArtIcon kind="crown" size={16} /> This is the merc roster your village can field — only your seated Kage can hire and deploy them.</p>}
-                            <p className="hint">Hire a 2-day AI merc band, then deploy them at an enemy defender on a Combat sector you're attacking. Fights resolve server-side — a merc win scores full points for the attack, and a defender who repels one scores a quarter.</p>
-                            <div className="vwm-merc-tiers">
-                                {mercData.tiers.map((t) => {
-                                    const band = mercData.leases.find((l) => l.tierId === t.id);
-                                    const portrait = mercPortrait(t.id);
-                                    const sectorSel = deploySector[t.id] ?? myCombatContests[0]?.sector ?? 0;
-                                    const hireCost = wrAffordability(t.costWr, myView?.warResources ?? 0, { verb: "Hire" });
-                                    return (
-                                        <div key={t.id} className="vwm-merc-tier">
-                                            {portrait && <img className="vwm-merc-portrait" src={portrait} alt={t.id} />}
-                                            <div className="vwm-merc-name">{mercTierName(t.id)} · L{t.level}</div>
-                                            <button
-                                                disabled={!isKage || !!busy || !hireCost.affordable}
-                                                title={isKage ? (hireCost.affordable ? undefined : `Your war pool holds ${(myView?.warResources ?? 0).toLocaleString()} WR.`) : "Only the seated Kage can hire mercenaries"}
-                                                onClick={() => act(`hire-${t.id}`, async () => { await hireMerc(character.name, myVillage, t.id); await loadMercs(); })}
-                                            >
-                                                {busyLabel(busy, `hire-${t.id}`, "Hiring…", hireCost.label)}
-                                            </button>
-                                            {band && <div className="vwm-merc-band">{band.count} merc{band.count === 1 ? "" : "s"} ready</div>}
-                                            {band && band.count > 0 && myCombatContests.length > 0 && (
-                                                <div className="vwm-merc-deploy">
-                                                    <select value={sectorSel} disabled={!!busy} onChange={(e) => setDeploySector((s) => ({ ...s, [t.id]: Number(e.target.value) }))}>
-                                                        {myCombatContests.map((c) => <option key={c.sector} value={c.sector}>Sector {c.sector}</option>)}
-                                                    </select>
-                                                    <input placeholder="target player" value={deployTarget[t.id] ?? ""} disabled={!!busy} onChange={(e) => setDeployTarget((s) => ({ ...s, [t.id]: e.target.value }))} />
-                                                    <button
-                                                        disabled={!!busy || !(deployTarget[t.id] ?? "").trim() || !sectorSel}
-                                                        onClick={() => act(`deploy-${t.id}`, async () => {
-                                                            const r = (await deployMerc(character.name, myVillage, t.id, sectorSel, (deployTarget[t.id] ?? "").trim())) as { winner?: string; attackerPoints?: number; defenderPoints?: number; mercsRemaining?: number };
-                                                            setMercMsg(`Sector ${sectorSel}: ${r.winner ?? "?"} won — war score ${r.attackerPoints ?? "?"} : ${r.defenderPoints ?? "?"}, ${r.mercsRemaining ?? 0} merc(s) left.`);
-                                                            await loadMercs();
-                                                        })}
-                                                    >{busyLabel(busy, `deploy-${t.id}`, "Deploying…", "Deploy")}</button>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                            {mercMsg && <p className="vwm-merc-msg">{mercMsg}</p>}
-                            {isKage && myCombatContests.length === 0 && <p className="hint">Declare a Combat sector war first, then deploy mercs at its defenders.</p>}
-                        </div>
-                    )}
+                    <VillageWarMercPanel character={character} onChanged={refresh} />
 
                     {(data.villages ?? []).map((v) => (
                         <div key={v.village} className="card vwm-village" style={{ borderLeft: `4px solid ${villageAccent(v.village)}` }}>
@@ -436,7 +396,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     // only the countdown below reads the 1Hz clock.
                                     const view = sectorViews.get(sectorViewKey(v.village, sec.sector));
                                     if (!view) return null;
-                                    const { owner, contest, mine, protectedCore, canDeclare, pct, intelTier, declareAfford, participant, canFeed, myFeed } = view;
+                                    const { owner, contest, mine, protectedCore, canDeclare, pct, intelTier, declareAfford, participant, feedSide, canFeed, myFeed } = view;
                                     const hoursLeft = contest ? Math.max(0, Math.ceil((contest.endsAt - nowTick) / 3_600_000)) : 0;
                                     return (
                                         <div key={sec.sector} className="vwm-sector" style={{ borderColor: villageAccent(owner) }}>
@@ -450,7 +410,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                 <div className="vwm-control" title={`${contest.attackerVillage} attacking — most points when the clock runs out takes the sector (tie: defender holds)`}>
                                                     <div className="vwm-bar"><span style={{ width: `${pct}%`, background: villageAccent(contest.attackerVillage) }} /></div>
                                                     <small><GameArtIcon kind="attack" size={14} /> {contest.attackerPoints} : {contest.defenderPoints} <GameArtIcon kind="roleDefender" size={14} /> · {hoursLeft}h left</small>
-                                                    <small className={`vwm-fed-chip${contest.fed === false ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {contest.fed === false ? "Unfed" : "Fed"}</small>
+                                                    <small className={`vwm-fed-chip${view.contestUnfed ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {view.contestUnfed ? "Unfed" : "Fed"}</small>
                                                     {view.villageUnfed && <small className="vwm-dormant"><GiHazardSign aria-hidden="true" /> {myVillage} marches hungry</small>}
                                                 </div>
                                             )}
@@ -461,7 +421,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                             className="vwm-feed-toggle"
                                                             aria-pressed={myFeed.on}
                                                             disabled={!!busy}
-                                                            title={`Spend ${GARRISON_RATIONS_PER_DAY} rations a day from the Town Hall stores to keep the sector garrison fed — while covered it holds ${GARRISON_POINTS_CAP_FED} points instead of ${GARRISON_POINTS_CAP}. Kage / ANBU only.`}
+                                                            title={garrisonFeedButtonTitle(feedSide, GARRISON_RATIONS_PER_DAY)}
                                                             onClick={() => act(`feed-${sec.sector}`, async () => {
                                                                 const r = await setGarrisonFeed(character.name, contest.id, !myFeed.on);
                                                                 gameToast(r.garrisonFed
@@ -475,7 +435,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     ) : (
                                                         <small className="hint"><GiBowlOfRice aria-hidden="true" /> {garrisonFeedStatusLine({ feeding: myFeed.on, sector: sec.sector })}</small>
                                                     )}
-                                                    {myFeed.on && <small className="hint">{garrisonFedCapLine(myVillage, myFeed.covered)}</small>}
+                                                    {myFeed.on && <small className="hint">{garrisonFedCapLine(myVillage, myFeed.covered, feedSide)}</small>}
                                                 </div>
                                             )}
                                             {canDeclare && (
@@ -484,13 +444,16 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                         className="vwm-declare"
                                                         disabled={!!busy || !declareAfford.affordable}
                                                         title={declareAfford.affordable ? undefined : `Your war pool holds ${(myView?.warResources ?? 0).toLocaleString()} WR.`}
-                                                        onClick={() => act(`dec-${sec.sector}`, async () => {
-                                                            const r = await declareSectorWar(character.name, myVillage, sec.sector);
-                                                            const tier = r.intelTier ?? intelTier;
-                                                            gameToast(r.alreadyOpen
-                                                                ? `Sector ${sec.sector} is already contested.`
-                                                                : `War declared on Sector ${sec.sector} for ${Math.max(0, Math.floor(Number(r.cost) || 0))} WR (${intelTierLabel(tier)} intel · base ${Math.max(0, Math.floor(Number(r.intelBaseCost) || 0))} WR).`);
-                                                        })}
+                                                        onClick={async () => {
+                                                            // It spends War Resources at once: one tap must not do it.
+                                                            if (!(await gameConfirm(sectorWarDeclareConfirmText(sec.sector, owner, `~${view.declareCost.toLocaleString()} WR`), { title: "Declare a sector war?", confirmLabel: "Declare war" }))) return;
+                                                            void act(`dec-${sec.sector}`, async () => {
+                                                                const r = await declareSectorWar(character.name, myVillage, sec.sector);
+                                                                const tier = r.intelTier ?? intelTier;
+                                                                gameToast(r.alreadyOpen ? `Sector ${sec.sector} is already contested.`
+                                                                    : `War declared on Sector ${sec.sector} for ${Math.max(0, Math.floor(Number(r.cost) || 0))} WR (${intelTierLabel(tier)} intel · base ${Math.max(0, Math.floor(Number(r.intelBaseCost) || 0))} WR).`);
+                                                            });
+                                                        }}
                                                     >
                                                         {busyLabel(busy, `dec-${sec.sector}`, "Declaring…", declareAfford.label)}
                                                     </button>
@@ -504,7 +467,10 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                                     className="vwm-declare"
                                                     disabled={!!busy}
                                                     title="Concede this war. The sector stays with the defender whatever the score, and the War Resources you spent declaring are not refunded."
-                                                    onClick={() => act(`aband-${sec.sector}`, () => abandonSectorWar(character.name, sec.sector))}
+                                                    onClick={async () => {
+                                                        if (!(await gameConfirm(sectorWarConcedeConfirmText(sec.sector, contest.defenderVillage), { title: "Concede the war?", confirmLabel: "Concede", cancelLabel: "Keep fighting", danger: true }))) return;
+                                                        void act(`aband-${sec.sector}`, () => abandonSectorWar(character.name, sec.sector));
+                                                    }}
                                                 >
                                                     {busyLabel(busy, `aband-${sec.sector}`, "Conceding…", "Concede War")}
                                                 </button>
@@ -561,7 +527,7 @@ export function VillageWarMap({ character, onBack, setScreen }: { character: Cha
                                     <span> → sector {c.sector} → </span>
                                     <span style={{ color: villageAccent(c.defenderVillage) }}>{c.defenderVillage}</span>
                                     <span className="vwm-contest-meta"> · {c.winCondition} · <GameArtIcon kind="attack" size={14} /> {c.attackerPoints} : {c.defenderPoints} <GameArtIcon kind="roleDefender" size={14} /> · {Math.max(0, Math.ceil((c.endsAt - nowTick) / 3_600_000))}h left</span>
-                                    <small className={`vwm-fed-chip${c.fed === false ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {c.fed === false ? "Unfed" : "Fed"}</small>
+                                    <small className={`vwm-fed-chip${unfedTodayIds.has(c.id) ? " is-unfed" : ""}`}><GiBowlOfRice aria-hidden="true" /> {unfedTodayIds.has(c.id) ? "Unfed" : "Fed"}</small>
                                     {unfedContestIds.has(c.id) && <small className="vwm-dormant"> <GiHazardSign aria-hidden="true" /> {myVillage} marches hungry</small>}
                                 </div>
                             ))}

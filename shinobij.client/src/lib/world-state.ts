@@ -5,7 +5,8 @@ import { cacheVillageElders, resetVillageElders } from "./village-elder-focus";
  * Shared world/game state — the polled, server-backed shared caches and their
  * full helper web, extracted verbatim from App.tsx:
  *   • sector territory (cache + load/save/damage/supply + scroll items)
- *   • village wars (cache + declare/damage/outcome/raid/daily-mission helpers)
+ *   • village wars (cache + normalize, server-applied daily-mission damage,
+ *     winner-crate eligibility)
  *   • village state (cache + load/save/normalize + kage unlock)
  *   • war rewards (claimServerWarRewards → /api/war/claim-reward)
  *   • arena spectator fights / tournament / pending clan pet battle /
@@ -18,16 +19,16 @@ import { cacheVillageElders, resetVillageElders } from "./village-elder-focus";
 import type { Biome, WeatherType } from "../types/core";
 import { hydrateSectorPools } from "./sector-pool";
 import { serverNow } from "./server-clock";
-import type { Character, PlayerRecord } from "../types/character";
+import type { Character } from "../types/character";
 import type { NoticePost } from "../types/clan";
 import { GAME_STATE_API, LEGENDARY_WAR_CRATE_ID, TERRITORY_BREACH_DURATION_MS, TERRITORY_CONTROL_MAX, TERRITORY_CONTROL_SCROLL_ID, TERRITORY_HP_MAX, WAR_CRATE_EXPIRY_MS, WORLD_STATE_API } from "../constants/game";
 import type { TreasuryItemStack } from "./items";
 import { villages } from "../data/sectors";
 import { isWildSector, MAX_WILD_SECTOR, WILD_SECTOR_IDS } from "../../../shared/sector-geo";
 import { resolveSectorWeather } from "../../../shared/sector-weather";
-import { clampNumber, currentDateKey } from "./utils";
+import { clampNumber, playerSlug } from "./utils";
 import { cleanVillageTreasury, defaultVillageTreasury, makeVillageDailyAgenda, normalizeAnbuAppointees, normalizeVillageDailyAgenda } from "./village-state";
-import { makeNoticePost, normalizeNoticePosts } from "./clan-notices";
+import { normalizeNoticePosts } from "./clan-notices";
 import { sharedClanWarCache } from "./clan-war-api";
 import { countItem, removeItem } from "./inventory";
 import { villageLeadership } from "../data/village-leadership";
@@ -35,8 +36,13 @@ import { villageUpgradeDefinitions, VILLAGE_UPGRADE_MAX_LEVEL } from "./village-
 
 export type VillageWarRecord = {
     id: string;
+    declarationGeneration?: number;
     villages: [string, string];
     hp?: Record<string, number>;
+    /** Server-owned per-village max war HP (Ramparts raise it past 5,000). */
+    hpMax?: Record<string, number>;
+    /** Server-owned: village → when its Kage offered peace (ms). Both = peace. */
+    peaceProposals?: Record<string, number>;
     warGroundSector: number;
     warGroundHp: number;
     startedAt: number;
@@ -200,7 +206,7 @@ export function hydrateSharedGameState(data: {
         rawVS.forEach((state) => {
             const village = String(state?.village ?? "").trim();
             if (!village) return;
-            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state);
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, withMemberFields(village, state));
             cacheVillageElders(village, state.elderAppointees, state.elderTerm?.nextSelectionAt);
         });
     } else if (rawVS && typeof rawVS === "object") {
@@ -209,7 +215,7 @@ export function hydrateSharedGameState(data: {
             if (!state || typeof state !== "object") continue;
             const village = key.trim();
             if (!village) continue;
-            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, state as Partial<VillageState>);
+            villageStates[sharedVillageStateKey(village)] = normalizeVillageState(village, withMemberFields(village, state as Partial<VillageState>));
             cacheVillageElders(village, (state as Partial<VillageState>).elderAppointees, (state as Partial<VillageState>).elderTerm?.nextSelectionAt);
         }
     }
@@ -308,6 +314,26 @@ function defaultVillageWarRecords(village: string): DetailedVillageWarRecord[] {
 function defaultVillageState(village: string): VillageState { const notices = ["Town Hall upgrades are open for donation funding.", "Village Guard queue is accepting defenders."]; return { treasury: defaultVillageTreasury(), upgrades: {}, contributionPoints: 0, notices, noticePosts: normalizeNoticePosts(undefined), warRecords: defaultVillageWarRecords(village), kageSystemUnlocked: false, elderAppointees: ["", "", ""], anbuAppointees: ["", "", ""], dailyAgenda: makeVillageDailyAgenda(village), hollowGateUnlockedUntil: 0 }; }
 function sharedVillageStateKey(village: string) { return village.toLowerCase().replace(/[^a-z0-9]/g, ""); }
 let sharedVillageStateCache: Record<string, VillageState> = {};
+/* A village's members-only fields (owner ruling 2026-10-08): the public game-state
+ * frame no longer carries them, so lib/village-member-state.ts reads them from
+ * GET /api/village/state and every public poll merges them back in. Until that
+ * read lands a village has no entry here, and its defaults are never written
+ * back (saveVillageState). Edits count local writes, so a read that began
+ * before one cannot put the older figures back. */
+const VILLAGE_MEMBER_FIELDS = ["treasury", "upgrades", "contributionPoints", "notices", "noticePosts", "dailyAgenda"] as const;
+const villageMemberFields: Record<string, Partial<VillageState>> = {};
+let villageMemberEdits = 0;
+function withMemberFields(village: string, state: Partial<VillageState>): Partial<VillageState> { return { ...state, ...villageMemberFields[sharedVillageStateKey(village)] }; }
+export function villageMemberEditCount(): number { return villageMemberEdits; }
+export function villageMemberStateLoaded(village: string): boolean { return sharedVillageStateKey(village) in villageMemberFields; }
+export function adoptVillageMemberState(village: string, fields: Partial<VillageState>, editsAtRead: number): boolean {
+    if (editsAtRead !== villageMemberEdits) return false;
+    const key = sharedVillageStateKey(village);
+    const before = JSON.stringify(sharedVillageStateCache[key]);
+    villageMemberFields[key] = fields;
+    sharedVillageStateCache[key] = normalizeVillageState(village, { ...loadVillageState(village), ...fields });
+    return JSON.stringify(sharedVillageStateCache[key]) !== before;
+}
 /* Village upgrades are SHARED village infrastructure bought from the treasury
  * seal pool (api/village/_upgrade.ts). Levels live on the village record; the
  * copy on the character is a server-validated mirror. Clamped 0..50 and
@@ -362,6 +388,12 @@ export function saveVillageState(village: string, state: VillageState) {
     if (nextUntil > prevUntil) localHollowGateUnlockBump[key] = { until: nextUntil, at: Date.now() };
     else if (nextUntil < prevUntil) delete localHollowGateUnlockBump[key];
     sharedVillageStateCache[key] = normalized;
+    // This edit is the newest copy of the members-only fields until the next
+    // read. Before the first one they are only defaults, so none are sent: the
+    // server keeps what is stored for anything a write leaves out.
+    const member = villageMemberFields[key];
+    villageMemberEdits++;
+    if (member) villageMemberFields[key] = Object.fromEntries(VILLAGE_MEMBER_FIELDS.map((field) => [field, normalized[field]])) as Partial<VillageState>;
     // Orders have their own atomic actions. Routine village writes must never
     // replay a stale board over someone else's newly posted or deleted order.
     // The treasury is the same: every movement has its own endpoint, and the
@@ -371,11 +403,13 @@ export function saveVillageState(village: string, state: VillageState) {
     // either way (api/_village-state-validate.ts); sending them only filled its
     // suppression log on every Town Hall action.
     const { noticePosts: _orders, anbuAppointees: _anbuSeats, anbuEarned: _earnedAnbu, anbuMembers: _anbuMembers, elderAppointees: _elders, elderTerm: _elderTerm, treasury: _treasury, upgrades: _upgrades, ...villageFields } = normalized;
+    if (!member) for (const field of VILLAGE_MEMBER_FIELDS) delete (villageFields as Partial<VillageState>)[field];
     persistSharedGameState({ kind: "villageState", village, state: villageFields });
 }
 export function adoptVillageOrders(village: string, noticePosts: NoticePost[]): void {
     const key = sharedVillageStateKey(village);
     sharedVillageStateCache[key] = { ...loadVillageState(village), noticePosts };
+    if (villageMemberFields[key]) { villageMemberFields[key] = { ...villageMemberFields[key], noticePosts }; villageMemberEdits++; }
 }
 export function adoptVillageAnbu(village: string, roster: { appointed: string[]; earned: string[]; members: string[] }): void {
     sharedVillageStateCache[sharedVillageStateKey(village)] = { ...loadVillageState(village), anbuAppointees: roster.appointed, anbuEarned: roster.earned, anbuMembers: roster.members };
@@ -390,13 +424,14 @@ export const VILLAGE_WAR_GROUND_HP_MAX = 1000;
 export const VILLAGE_WAR_DAILY_MISSIONS = 2;
 export const VILLAGE_WAR_RAIDS_PER_MISSION = 3;
 export const VILLAGE_WAR_MISSION_DAMAGE = 30;
-// Capture damage per flip. Capped at the server's per-write HP delta
-// (VILLAGE_WAR_HP_MAX_DELTA_PER_REQUEST = 100) so the single applyVillageWarDamage
-// call doesn't bounce off the anti-cheat. With the tug-of-war model
-// each war typically sees several captures, so 100/flip stacks up while
-// staying inside the cap and matching the per-write damage profile of
-// the territory-raid path (VillageWarScreen.raidSector does the same).
-const VILLAGE_WAR_GROUND_CAPTURE_DAMAGE = 100;
+
+/** A village's max war HP in this war. The server stamps `hpMax` when Ramparts
+ *  raise it past VILLAGE_WAR_HP_MAX; rows without it use the 5,000 base. Every
+ *  HP bar and percentage reads this, never the bare constant. */
+export function villageWarHpMax(war: { hpMax?: Record<string, number> } | null | undefined, village: string): number {
+    const max = Math.floor(Number(war?.hpMax?.[village]));
+    return Number.isSafeInteger(max) && max > 0 ? max : VILLAGE_WAR_HP_MAX;
+}
 
 type VillageWarContribution = {
     damage: number;
@@ -412,6 +447,10 @@ export type VillageWar = {
     declarationGeneration?: number;
     villages: [string, string];
     hp: Record<string, number>;
+    /** Server-owned per-village max war HP (see villageWarHpMax). */
+    hpMax?: Record<string, number>;
+    /** Server-owned: village → when its Kage offered peace (ms). Both = peace. */
+    peaceProposals?: Record<string, number>;
     warGroundSector: number;
     warGroundHp: number;
     startedAt: number;
@@ -421,8 +460,8 @@ export type VillageWar = {
     winnerVillage?: string;
     endedAt?: number;
     warCrateId?: string;
-    // Server-managed: keyed by lowercase player name. Drives the live
-    // raid leaderboard during war and the MVP-stamp on war end.
+    // Server-managed: keyed by the player's safeName slug. Drives the live
+    // damage leaderboard during war and the MVP-stamp on war end.
     contributions?: Record<string, VillageWarContribution>;
     // village → MVP display name. Stamped server-side at war end.
     mvpByVillage?: Record<string, string>;
@@ -440,25 +479,39 @@ function villageWarId(villageA: string, villageB: string) {
     return [villageA, villageB].sort((a, b) => a.localeCompare(b)).map(village => village.toLowerCase().replace(/[^a-z0-9]/g, "")).join("-vs-");
 }
 
-function villageWarGenerationToken(war: Pick<VillageWar, "id" | "declarationGeneration">) {
-    const generation = Math.floor(Number(war.declarationGeneration) || 0);
-    return Number.isSafeInteger(generation) && generation > 0
-        ? `${war.id}-g${generation}`
-        : war.id;
+/** The two warring villages' positive whole-number entries of a server-owned
+ *  per-village map (hpMax, peaceProposals); undefined when there are none. */
+function villageNumberMap(raw: unknown, villages: readonly string[]): Record<string, number> | undefined {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+    const out: Record<string, number> = {};
+    for (const village of villages) {
+        const value = Math.floor(Number((raw as Record<string, unknown>)[village]));
+        if (Number.isSafeInteger(value) && value > 0) out[village] = value;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
 }
 
 function normalizeVillageWar(data: Partial<VillageWar> & { villages: [string, string] }): VillageWar {
     const [first, second] = data.villages;
+    const hpMax = villageNumberMap(data.hpMax, data.villages);
+    const peaceProposals = villageNumberMap(data.peaceProposals, data.villages);
+    const pendingUntil = Math.floor(Number(data.pendingUntil));
+    // Ramparts can lift a village past VILLAGE_WAR_HP_MAX, so the clamp is that
+    // village's own max. Clamping to the bare 5,000 cut the extra HP off.
+    const hpOf = (village: string) => {
+        const max = villageWarHpMax({ hpMax }, village);
+        return clampNumber(Math.floor(Number(data.hp?.[village] ?? max)), 0, max);
+    };
     return {
         id: data.id ?? villageWarId(first, second),
         ...(Number.isSafeInteger(Number(data.declarationGeneration)) && Number(data.declarationGeneration) > 0
             ? { declarationGeneration: Math.floor(Number(data.declarationGeneration)) }
             : {}),
         villages: [first, second],
-        hp: {
-            [first]: clampNumber(Math.floor(Number(data.hp?.[first] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
-            [second]: clampNumber(Math.floor(Number(data.hp?.[second] ?? VILLAGE_WAR_HP_MAX)), 0, VILLAGE_WAR_HP_MAX),
-        },
+        hp: { [first]: hpOf(first), [second]: hpOf(second) },
+        ...(hpMax ? { hpMax } : {}),
+        ...(peaceProposals ? { peaceProposals } : {}),
+        ...(Number.isSafeInteger(pendingUntil) && pendingUntil > 0 ? { pendingUntil } : {}),
         // Bound MUST match api/world-state.ts (which already reads MAX_WILD_SECTOR).
         // This mirror kept `60` through the 61-66 expansion, so a war ground on a
         // new sector normalized to 61-66 on the server and 60 on the client — the
@@ -574,10 +627,14 @@ export function loadVillageWar(villageA: string, villageB: string): VillageWar |
     return null;
 }
 
-function saveVillageWar(war: VillageWar, battleId?: string | null, warMissionToken?: string) {
-    const normalized = normalizeVillageWar({ ...war, updatedAt: Date.now() });
+/** Adopt a war row a server command returned (mission damage, peace, surrender,
+ *  declaration) without publishing anything. The server row is the truth; the
+ *  next world poll replaces it with the same or a newer one. */
+export function applyAuthoritativeVillageWar(war: unknown): VillageWar | null {
+    const row = war as (Partial<VillageWar> & { villages?: unknown }) | null | undefined;
+    if (!row || !Array.isArray(row.villages) || row.villages.length !== 2) return null;
+    const normalized = normalizeVillageWar({ ...row, villages: [String(row.villages[0]), String(row.villages[1])] });
     sharedVillageWarCache[normalized.id] = normalized;
-    persistSharedWorldState("war", normalized, battleId, warMissionToken);
     return normalized;
 }
 
@@ -597,13 +654,12 @@ export function activeVillageWarsGlobal(): VillageWar[] {
 
 // Town Hall's "War records" panel. Derived straight from the server-hydrated
 // war cache (endedAt/winnerVillage/hp/mvpByVillage are all stamped by
-// api/world-state.ts) rather than a client-appended list — the only producer
+// api/world-state.ts) rather than a client-appended list. The only producer
 // that ever appended to VillageState.warRecords was recordWarOutcomeToVillages,
-// reached via applyVillageWarDamage, whose PvP caller (recordVillageWarPvp) and
-// raid caller (recordVillageWarRaid) are both dead code with zero callers now
-// that ordinary PvP war damage settles server-side
-// (settlePvpVillageWarContinuation) and raids go through startPvpRaid. So most
-// wars ended by regular PvP never grew the client-side list at all.
+// reached only when the client computed a war's end itself. It was removed with
+// the rest of that path (recordVillageWarRaid, applyVillageWarDamage): PvP war
+// damage settles server-side (settlePvpVillageWarContinuation), and the server
+// applies mission damage and ends the war itself.
 export function endedVillageWarRecordsFor(village: string, limit = 24): DetailedVillageWarRecord[] {
     return Object.values(sharedVillageWarCache)
         .filter((war): war is VillageWar & { endedAt: number } => Boolean(war.endedAt) && war.villages.includes(village))
@@ -629,244 +685,24 @@ export function endedVillageWarRecordsFor(village: string, limit = 24): Detailed
         });
 }
 
-function activeVillageWarBetween(villageA?: string, villageB?: string) {
-    if (!villageA || !villageB || villageA === villageB) return null;
-    const war = loadVillageWar(villageA, villageB);
-    return war && !war.endedAt ? war : null;
-}
-
-// Reserved entry point for scripted Kage-initiated village wars. Not currently
-// wired up — war declarations flow through /api/village/war/declare instead.
-// Underscored to silence lint without dropping the helper.
-function _startVillageWar(attackerVillage: string, enemyVillage: string) {
-    const existing = activeVillageWarBetween(attackerVillage, enemyVillage);
-    if (existing) return existing;
-    const war = normalizeVillageWar({
-        id: villageWarId(attackerVillage, enemyVillage),
-        villages: [attackerVillage, enemyVillage],
-        hp: { [attackerVillage]: VILLAGE_WAR_HP_MAX, [enemyVillage]: VILLAGE_WAR_HP_MAX },
-        warGroundSector: firstOpenWarGroundSector(),
-        warGroundHp: VILLAGE_WAR_GROUND_HP_MAX,
-        startedAt: Date.now(),
-    });
-    saveVillageWar(war);
-    [attackerVillage, enemyVillage].forEach(village => {
-        const state = loadVillageState(village);
-        saveVillageState(village, {
-            ...state,
-            notices: [`Village war started: ${attackerVillage} vs ${enemyVillage}. War ground: Sector ${war.warGroundSector}.`, ...state.notices].slice(0, 8),
-        });
-    });
-    return war;
-}
-void _startVillageWar;
-
-function villageWarRoleValue(character: Character) {
-    const state = loadVillageState(character.village);
-    if (leadershipNameKey(state.seatedKage) === leadershipNameKey(character.name)) return 30;
-    if (elderSeatsForTerm(state.elderAppointees, state.elderTerm?.nextSelectionAt).some(name => leadershipNameKey(name) === leadershipNameKey(character.name))) return 20;
-    if (isVillageAnbu(character)) return 15;
-    return 5;
-}
-
-function applyVillageWarDamage(war: VillageWar, damagedVillage: string, amount: number, battleId?: string | null, warMissionToken?: string) {
-    const nextHp = Math.max(0, (war.hp[damagedVillage] ?? VILLAGE_WAR_HP_MAX) - Math.max(0, Math.floor(amount)));
-    const ended = nextHp <= 0;
-    const winnerVillage = ended ? war.villages.find(village => village !== damagedVillage) : war.winnerVillage;
-    // Canonical crate ID format `war-crate-${war.id}` — matches what
-    // VillageWarScreen.claimVictory + the server reward claim check via
-    // claimedWarCrateIds. Previously this used `village-crate-${id}-${ts}`
-    // which slipped past dedup, letting winners triple-claim.
-    const next = normalizeVillageWar({
-        ...war,
-        hp: { ...war.hp, [damagedVillage]: nextHp },
-        winnerVillage,
-        endedAt: ended ? Date.now() : war.endedAt,
-        warCrateId: war.warCrateId ?? `war-crate-${villageWarGenerationToken(war)}`,
-    });
-    saveVillageWar(next, battleId, warMissionToken);
-    // On war end, append to both villages' warRecords and post end-of-war
-    // notices so the village board reflects the outcome. Each village
-    // gets its own POV ("won vs X" / "lost to X"). Idempotent — guarded
-    // by checking the previous war state's endedAt.
-    if (ended && !war.endedAt && winnerVillage) {
-        try { recordWarOutcomeToVillages(next, damagedVillage, winnerVillage); } catch { /* best-effort */ }
-    }
-    return next;
-}
-
-// Append a war-history entry + end-of-war notice to BOTH warring
-// villages so the outcome lands on each village's board. Called from
-// applyVillageWarDamage when a write actually flips the war to ended.
-function recordWarOutcomeToVillages(war: VillageWar, loserVillage: string, winnerVillage: string) {
-    const dateStr = new Date().toLocaleDateString();
-    const finalScore = `${war.hp[winnerVillage] ?? 0} – ${war.hp[loserVillage] ?? 0}`;
-    // Server-stamped MVPs (set in api/world-state.ts at the moment the
-    // war flips to ended). Fall back to "—" only if the server didn't
-    // record any contributions for that side (e.g. AFK village).
-    const winnerMvp = war.mvpByVillage?.[winnerVillage] ?? "—";
-    const loserMvp = war.mvpByVillage?.[loserVillage] ?? "—";
-    for (const village of war.villages) {
-        const isWinner = village === winnerVillage;
-        const state = loadVillageState(village);
-        const record: DetailedVillageWarRecord = {
-            opponent: village === war.villages[0] ? war.villages[1] : war.villages[0],
-            winner: winnerVillage,
-            finalScore,
-            topDefender: isWinner ? winnerMvp : loserMvp,
-            topAttacker: isWinner ? winnerMvp : loserMvp,
-            mvpClan: "—",
-            rewards: isWinner ? "Legendary War Crate (MVP: +1 extra crate, +10k ryo, +50 Honor Seals, +2 Fate Shards)" : "Loss consolation: +5k ryo, +25 Honor Seals, +1 Fate Shard (contributors only)",
-            date: dateStr,
-        };
-        const noticeTitle = isWinner ? "Village War Won" : "Village War Lost";
-        const noticeBody = isWinner
-            ? `Our forces defeated ${loserVillage}. Final score ${finalScore}. Surviving raiders may claim a Legendary War Crate.`
-            : `We have fallen to ${winnerVillage}. Final score ${finalScore}. Rebuild and rally. The next campaign begins.`;
-        saveVillageState(village, normalizeVillageState(village, {
-            ...state,
-            warRecords: [record, ...(state.warRecords ?? [])].slice(0, 24),
-            noticePosts: normalizeNoticePosts([
-                makeNoticePost("order", noticeTitle, noticeBody, "System", "System", true),
-                ...state.noticePosts,
-            ]),
-        }));
-    }
-}
-
-export function recordVillageWarRaid(character: Character, sector: number, _roster: PlayerRecord[] = [], battleId?: string | null) {
-    // Union return shape: every early return must declare the same
-    // keys (with undefined values where needed) so the success path's
-    // `warCrateId: string` access compiles against the inferred union.
-    // bountyRyo / bountyFateShards are extras the caller adds to its
-    // own ryo/fateShards assignment AFTER spreading characterPatch
-    // (because the call sites explicitly set `ryo: rewarded.ryo + ryoGain`
-    // which would otherwise clobber any bounty we tried to bake in).
-    const empty = {
-        note: "",
-        characterPatch: {} as Partial<Character>,
-        warCrate: false,
-        warCrateId: undefined as string | undefined,
-        bountyRyo: 0,
-        bountyFateShards: 0,
-    };
-    const war = activeVillageWarsFor(character.village).find(candidate => candidate.warGroundSector === sector);
-    if (!war || war.warGroundHp <= 0) return empty;
-    // Pre-war pending window — server rejects damage writes anyway, so
-    // bail early to avoid the noisy 409 in the console + UI.
-    if (war.pendingUntil && war.pendingUntil > serverNow()) {
-        const minsLeft = Math.max(1, Math.ceil((war.pendingUntil - serverNow()) / 60_000));
-        return { ...empty, note: ` Village War starts in ${minsLeft} min — raid didn't damage HP yet.` };
-    }
-    const enemyVillage = war.villages.find(village => village !== character.village);
-    if (!enemyVillage) return empty;
-    const damage = villageWarRoleValue(character);
-    let next = normalizeVillageWar({
-        ...war,
-        warGroundHp: Math.max(0, war.warGroundHp - damage),
-    });
-    next = applyVillageWarDamage(next, enemyVillage, damage, battleId);
-    let captureNote = "";
-    // B (tug of war): the war ground is a contestable, recurring objective.
-    // When warGroundHp hits 0, fire the capture event — but instead of
-    // locking `capturedBy` forever, flip ownership to whichever village
-    // landed the blow and reset warGroundHp to 500 so the other side can
-    // push it back. Each capture/recapture pays the +750 enemy HP bonus.
-    // The war only ends via enemy village HP reaching 0 (or Kage peace).
-    if (next.warGroundHp <= 0) {
-        const ownerChanged = next.capturedBy !== character.village;
-        if (ownerChanged) {
-            next = normalizeVillageWar({
-                ...next,
-                capturedBy: character.village,
-                capturedAt: Date.now(),
-                warGroundHp: 500, // reset for the next push from the other side
-            });
-            next = applyVillageWarDamage(next, enemyVillage, VILLAGE_WAR_GROUND_CAPTURE_DAMAGE, battleId);
-            captureNote = next.capturedBy === character.village && (war.capturedBy && war.capturedBy !== character.village)
-                ? ` War ground RECAPTURED by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`
-                : ` War ground captured by ${character.village}: ${enemyVillage} HP -${VILLAGE_WAR_GROUND_CAPTURE_DAMAGE}.`;
-        } else {
-            saveVillageWar(next, battleId);
-        }
-    } else {
-        saveVillageWar(next, battleId);
-    }
-    const today = currentDateKey();
-    const sameDay = character.villageWarMissionDate === today;
-    const currentProgress = sameDay ? character.villageWarRaidProgress ?? 0 : 0;
-    const currentCompleted = sameDay ? character.villageWarMissionsCompleted ?? 0 : 0;
-    const nextProgress = Math.min(VILLAGE_WAR_DAILY_MISSIONS * VILLAGE_WAR_RAIDS_PER_MISSION, currentProgress + 1);
-    // A (bounty): every successful war-ground raid pays an inline reward,
-    // capped at one per UTC day per player. Independent of war outcome —
-    // even if you lose, you got paid for showing up. Honor Seals are a
-    // Vanguard-only currency so we use 1 Fate Shard + 500 ryo instead.
-    // Returned as bountyRyo / bountyFateShards rather than baked into
-    // characterPatch because the call sites explicitly set `ryo:` and
-    // `fateShards:` after spreading the patch, which would otherwise
-    // clobber the bounty.
-    const bountyAvailable = character.warGroundBountyDate !== today;
-    const characterPatch: Partial<Character> = {
-        villageWarMissionDate: today,
-        villageWarRaidProgress: nextProgress,
-        villageWarMissionsCompleted: currentCompleted,
-    };
-    let bountyNote = "";
-    if (bountyAvailable) {
-        characterPatch.warGroundBountyDate = today;
-        bountyNote = ` 💰 War Ground bounty: +500 ryo, +1 Fate Shard (daily).`;
-    }
-    return {
-        note: ` Village War raid: ${enemyVillage} HP -${damage}, War Ground HP -${damage}.${captureNote}${bountyNote}`,
-        characterPatch,
-        warCrate: Boolean(next.endedAt && next.winnerVillage === character.village),
-        // Canonical crate ID the caller stamps into claimedWarCrateIds
-        // alongside the inline inventory grant — without this, the
-        // the post-poll reward sweep on next login would scan the cache,
-        // see warCrateId is unclaimed, and grant a SECOND crate.
-        warCrateId: next.warCrateId,
-        bountyRyo: bountyAvailable ? 500 : 0,
-        bountyFateShards: bountyAvailable ? 1 : 0,
-    };
-}
-
 /**
- * Village-war daily mission: the WAR half only.
- *
- * This used to award the player's side of the mission too, and every field it
- * touched is server-owned in the save sanitizer — so the reward was discarded
- * while the `villageWarMissionDate` stamp survived. The claim was consumed for
- * nothing, and because `villageWarMissionsCompleted` never advanced, mission 0
- * was the only mission a player could ever reach.
- *
- * The character half now belongs to /api/village/war-mission (see
- * lib/world-reward-api.ts). What stays here is the part that was already
- * server-backed: war HP, which `applyVillageWarDamage` persists through the
- * shared world-state channel. The caller commits the player half FIRST and only
- * applies this once the server has paid out.
- *
- * The winner's Legendary War Crate is no longer granted inline either — the
- * sanitizer rejects the crate id (it is server-owned) and
- * `claimServerWarCrates` already claims it through /api/village/claim-war-crate
- * on the next sweep, which is the only path that can actually deliver it.
+ * Whether `character` earned the winner's Legendary War Crate in this ended war.
+ * Owner ruling: winning is not enough. The crate goes to members of the winning
+ * village who fought: war damage on the server's contribution ledger (keyed by
+ * the safeName slug), or the side's MVP. Mirrors the server's claim gate, so
+ * neither the War Hall banner nor the claim sweep asks for a crate the server
+ * would refuse. The id is always the server-stamped `warCrateId`.
  */
-export function applyVillageWarMissionDamage(character: Character, warMissionToken?: string): { ok: boolean; note: string } {
-    // No gate here: /api/village/war-mission already validated the raid count
-    // and the claim order against STORED state, and has committed the reward by
-    // the time this runs. Re-checking would refuse every time, because the
-    // character handed in has the freshly incremented completed count.
-    const war = activeVillageWarsFor(character.village)[0];
-    const enemyVillage = war?.villages.find(village => village !== character.village);
-    if (!war || !enemyVillage) return { ok: false, note: "Your village is not in an active war." };
-    // The HP half is authorized by the single-use token /api/village/war-mission
-    // minted when it verified the raid count — the world-state write refuses
-    // unbacked war damage.
-    const updatedWar = applyVillageWarDamage(war, enemyVillage, VILLAGE_WAR_MISSION_DAMAGE, undefined, warMissionToken);
-    const wonWar = Boolean(updatedWar.endedAt && updatedWar.winnerVillage === character.village);
-    return {
-        ok: true,
-        note: `Village war mission complete. ${enemyVillage} HP -${VILLAGE_WAR_MISSION_DAMAGE}.${wonWar ? " Your village won the war — your Legendary War Crate is on its way." : ""}`,
-    };
+export function villageWarCrateEarnedBy(
+    war: Pick<VillageWar, "endedAt" | "winnerVillage" | "warCrateId" | "contributions" | "mvpByVillage">,
+    character: Pick<Character, "name" | "village">,
+): boolean {
+    const winner = String(war.winnerVillage ?? "").trim();
+    if (!war.endedAt || !war.warCrateId || !winner || winner !== String(character.village ?? "").trim()) return false;
+    const name = String(character.name ?? "").trim().toLowerCase();
+    if (name && String(war.mvpByVillage?.[winner] ?? "").trim().toLowerCase() === name) return true;
+    const entry = war.contributions?.[playerSlug(String(character.name ?? ""))];
+    return Number(entry?.damage) > 0 && (!entry?.side || entry.side === winner);
 }
 export function unlockVillageKageSystem(village: string, playerName: string): VillageState {
     // POST to server — server is the single source of truth for kage status.
@@ -953,7 +789,9 @@ export async function claimServerWarCrates(
     const eligible = new Set<string>();   // dedupe across the three sources
     for (const war of Object.values(sharedVillageWarCache)) {
         if (!war.endedAt || now - war.endedAt > WAR_CRATE_EXPIRY_MS) continue;
-        if (war.warCrateId && war.winnerVillage === character.village && !claimed.has(war.warCrateId)) eligible.add(war.warCrateId);
+        // Only fighters of the winning side (see villageWarCrateEarnedBy): asking
+        // for anyone else's crate is a refusal re-posted every recheck window.
+        if (war.warCrateId && !claimed.has(war.warCrateId) && villageWarCrateEarnedBy(war, character)) eligible.add(war.warCrateId);
     }
     const myClan = character.clan;
     if (myClan) {
@@ -1184,19 +1022,34 @@ function normalizeSectorTerritory(sector: number, data?: Partial<SectorTerritory
     };
 }
 
-// `battleId` is the war-damage RECEIPT: the server refuses village-war HP damage
-// that isn't backed by a finished PvP session this player won against the enemy
-// village (api/_war-battle-receipt.ts). Every damage path runs off a real battle,
-// so the id is always available at the call site — it just has to be forwarded.
-function persistSharedWorldState(kind: "territory" | "war", payload: SectorTerritory | VillageWar, battleId?: string | null, warMissionToken?: string) {
+// Territory rows only. Village-war writes are server commands whose answer the
+// caller waits for (postVillageWarUpdate): firing them and forgetting let the UI
+// report war damage the server had refused.
+function persistSharedWorldState(payload: SectorTerritory) {
     if (typeof fetch === "undefined") return;
     fetch(WORLD_STATE_API, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(kind === "territory" ? { kind, territory: payload } : { kind, war: payload, battleId, warMissionToken }),
+        body: JSON.stringify({ kind: "territory", territory: payload }),
     }).catch(() => {
         // The local cache already reflects the action; the next successful refresh will reconcile shared state.
     });
+}
+
+/** POST a village-war write or command to /api/world-state and return the HTTP
+ *  status with the parsed body (`{ war }` or `{ error }`). Throws only when the
+ *  request never reached the server. */
+export async function postVillageWarUpdate(body: Record<string, unknown>): Promise<{ status: number; data: Record<string, unknown> | null }> {
+    const response = await fetch(WORLD_STATE_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => null) as unknown;
+    return {
+        status: response.status,
+        data: data && typeof data === "object" && !Array.isArray(data) ? data as Record<string, unknown> : null,
+    };
 }
 
 export function persistSharedGameState(payload: Record<string, unknown>) {
@@ -1229,7 +1082,7 @@ export function applyAuthoritativeSectorTerritory(territory: SectorTerritory) {
 export function saveSectorTerritory(territory: SectorTerritory) {
     const normalized = normalizeSectorTerritory(territory.sector, { ...territory, updatedAt: Date.now() });
     sharedSectorTerritoryCache[normalized.sector] = normalized;
-    persistSharedWorldState("territory", normalized);
+    persistSharedWorldState(normalized);
     return normalized;
 }
 
