@@ -129,8 +129,15 @@ for (const { action, failure } of statCases) {
     });
 }
 
+// The server stores a player's writes in order, but their replies can land in
+// any order. A collection whose reply carries an older version than the save the
+// client already holds is refused as stale, yet the server stored it. This case
+// used to fake a "granted" reply the server had never stored and expect "Action
+// unconfirmed" with the session still active. Now the collection is confirmed,
+// and the stored-save read-back clears the session (the screen deliberately
+// does not set it itself: its setter forces an immediate save).
 for (const screen of ['training', 'jutsuTraining'] as const) {
-    test(`${screen} stale settlement is announced and preserves the active session`, async ({ page }) => {
+    test(`${screen} settlement whose reply arrives after a newer save is confirmed`, async ({ page }) => {
         const save = trainingSave();
         if (screen === 'training') {
             save.activeTraining = {
@@ -149,8 +156,10 @@ for (const screen of ['training', 'jutsuTraining'] as const) {
         let calls = 0;
         await page.route(`**/api/training/${screen === 'training' ? 'complete' : 'jutsu-ryo'}`, route => {
             calls++;
+            // Stored past the version the client holds (40), replied with an older one.
+            runtime.commitServerSave({ character: save.character, activeTraining: null, activeJutsuTraining: null }, 41);
             return route.fulfill({ json: {
-                granted: true, character: { ...save.character, ryo: 1 }, _saveVersion: 39,
+                granted: true, character: save.character, _saveVersion: 39,
                 activeTraining: null, activeJutsuTraining: null, applied: 3, overflow: 0,
             } });
         });
@@ -158,23 +167,14 @@ for (const screen of ['training', 'jutsuTraining'] as const) {
         const control = page.getByRole('button', { name: screen === 'training' ? 'Collect Training' : 'Claim jutsu level', exact: true });
         await expect(control).toBeEnabled();
         await control.click();
-        const notice = screen === 'training'
-            ? page.getByRole('alertdialog', { name: 'Notice', exact: true })
-            : page.locator('.jutsu-notice[role="alert"]');
-        await expect(notice).toContainText(AMBIGUOUS_ACTION_MESSAGE);
-        expect(calls).toBe(1);
         if (screen === 'training') {
-            await dismissStatNotice(page, notice);
-            await expect(page.locator('.training-screen .summary-box')).toContainText('15 Minutes Strength');
-            await expect(page.locator('.training-feedback')).toHaveCount(0);
+            await expect(page.locator('.training-feedback')).toContainText('15 Minutes Strength complete. +3 Strength.');
         } else {
-            await expect(notice).toContainText('Training needs attention');
-            await expect(notice).toBeInViewport({ ratio: 1 });
-            await expect(notice.getByRole('button', { name: 'Dismiss training notice' })).toBeInViewport({ ratio: 1 });
-            await expect(page.locator('.jutsu-session-card')).toContainText('Flicker');
-            await expect(page.locator('.jutsu-hall-stats')).toContainText('10,000');
-            await expect(page.locator('.jutsu-notice.success')).toHaveCount(0);
+            await expect(page.locator('.jutsu-notice.success')).toContainText('Flicker reached level 2.');
         }
-        await expect(control).toBeEnabled();
+        await expect(page.getByText(AMBIGUOUS_ACTION_MESSAGE)).toHaveCount(0);
+        // The read-back installs the server's settled (empty) session.
+        await expect(control).toHaveCount(0);
+        expect(calls).toBe(1);
     });
 }

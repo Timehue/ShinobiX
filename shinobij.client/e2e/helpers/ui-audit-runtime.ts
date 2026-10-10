@@ -307,6 +307,13 @@ export async function installUiAuditRuntime(page: Page, initialSave: UiAuditSave
             saveVersion = version;
             acknowledgedVersion = version;
         },
+        /** Like commitServerCharacter, for a server mutation that also settles
+         * save fields beside the character (an active training session, say). */
+        commitServerSave: (fields: Partial<UiAuditSave>, version: number) => {
+            save = { ...save, ...structuredClone(fields) };
+            saveVersion = version;
+            acknowledgedVersion = version;
+        },
     };
 }
 
