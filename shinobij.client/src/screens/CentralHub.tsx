@@ -368,7 +368,8 @@ export function CentralHub({
             const result = await commitNamedForgeServer(character.name, namedWeaponToken, namedWeaponName, namedWeaponFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named weapon forge failed.");
             const item: GameItem = { ...result.item, ...(namedWeaponImage ? { image: namedWeaponImage } : {}) };
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Paid and forged even if a newer save was adopted first (see completeCraft).
+            commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedWeaponImage) {
                 void publishSharedImage(`item:${item.id}`, namedWeaponImage).then((ok) => {
@@ -446,7 +447,8 @@ export function CentralHub({
             const result = await commitNamedForgeServer(character.name, namedArmorToken, namedArmorName, namedArmorFlavorText);
             if (!result.character || !result.item) return alert(result.error || "The named armor forge failed.");
             const item: GameItem = { ...result.item, ...(namedArmorImage ? { image: namedArmorImage } : {}) };
-            if (!commitServerCharacter(result.character, result._saveVersion)) return;
+            // Paid and forged even if a newer save was adopted first (see completeCraft).
+            commitServerCharacter(result.character, result._saveVersion);
             setCreatorItems((current) => [...current.filter((entry) => entry.id !== item.id), item]);
             if (namedArmorImage) {
                 void publishSharedImage(`item:${item.id}`, namedArmorImage).then((ok) => {
