@@ -40,6 +40,20 @@ html.lite-fx *::after {
     backdrop-filter: none !important;
 }
 
+/* The rule above loses to any `!important` backdrop-filter with more specificity.
+   `html.lite-fx *` is (0,1,1); the shared card rule `.center-game > .card`
+   (and `.summary-box`, `.jutsu-card`, ...) is (0,2,0), so on 17 of 31 screens
+   (shop, logbook, town hall, clan, world map, ...) the biggest panel kept its
+   3px blur on exactly the devices this file exists for. On a 1440x900 profile
+   that one blur held the clan screen to ~18 fps against ~56 without it.
+   Repeating the class raises specificity to (0,4,1) without touching the rule
+   above, which the build test pins. Keep at least four `.lite-fx` here. */
+html.lite-fx.lite-fx.lite-fx.lite-fx *,
+html.lite-fx.lite-fx.lite-fx.lite-fx *::before,
+html.lite-fx.lite-fx.lite-fx.lite-fx *::after {
+    backdrop-filter: none !important;
+}
+
 /* ── Contrast restoration ──────────────────────────────────────────────────
    Of the 83 rules that declare a backdrop-filter, 68 sit on backing that is
    already >=50% opaque, so removing the blur there is imperceptible — the tint

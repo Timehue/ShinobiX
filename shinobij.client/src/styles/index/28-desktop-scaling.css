@@ -67,7 +67,7 @@
 .scene-ambience-rays {
     position: absolute;
     inset: -12%;
-    mix-blend-mode: screen;
+    /* White ray: a normal blend equals `screen` here, minus the blend pass. */
     opacity: .5;
     background: linear-gradient(115deg, transparent 36%, rgba(255,255,255,.10) 49%, transparent 62%);
     animation: scene-ray-sweep 16s linear infinite;
