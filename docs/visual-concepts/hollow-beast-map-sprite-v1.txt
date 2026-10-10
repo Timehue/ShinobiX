@@ -1,7 +1,7 @@
 Asset: transparent full-body source frame for The Hollow Beast's world-map walk animation.
-Use: clean single-frame presentation and source for future movement or combat animations.
+Use: retained concept reference; the shipped map marker uses the four-frame walk sheet.
 Reference: hollow-beast-key-art-v1.webp, used only to preserve the established creature design.
-Source file: hollow-beast-map-sprite-v1.webp, WebP with transparency.
+Source file: docs/visual-concepts/hollow-beast-map-sprite-v1.webp, WebP with transparency. This concept reference is not shipped in the runtime bundle.
 
 Prompt:
 Use case: stylized-concept. Asset type: production-ready transparent 2D game map boss sprite, full-body source frame. Image 1 is the existing Hollow Beast key art, used only as a character design reference. Create an isolated full-body map sprite of the same Hollow Beast, simplified for clear readability at small map scale: gigantic spectral wolf-beast, pale ivory mane, jagged charcoal stone armor plates, glowing amber eyes, small ember fissures, branching teal spirit growths around shoulders and back. Preserve this design identity. Single centered character, full body visible, facing forward in a subtle three-quarter angle toward the viewer, predatory walking stance, feet on a shared bottom-center anchor, filling about 82% of a square canvas with appendages inside frame. Polished painterly game sprite consistent with the dark fantasy key art, crisp silhouette, restrained teal edge glow, amber eyes. Genuinely transparent background. No environment, terrain, horizon, ground plane, cast shadow, text, logo, UI, border, watermark, extra subjects, or cropping.
