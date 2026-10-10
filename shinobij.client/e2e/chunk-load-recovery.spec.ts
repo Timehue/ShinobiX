@@ -95,7 +95,8 @@ test("a stale deploy's missing chunk reloads once, then the new build's chunk lo
     await openWorldBossesFromCentralHub(page);
     await expect.poll(documentLoads, { timeout: 30_000 }).toBe(2);
 
-    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "worldBosses");
+    // The World Bosses hub renders under the weeklyBoss screen id (App.tsx).
+    await expect(page.locator(".app-shell")).toHaveAttribute("data-screen", "weeklyBoss");
     await expect(page.locator(".weekly-boss-screen").filter({ hasText: "Weekly Boss" })).toBeVisible({ timeout: 30_000 });
     await expect(page.getByRole("heading", NEW_VERSION_CARD)).toHaveCount(0);
     expect(documentLoads()).toBe(2);

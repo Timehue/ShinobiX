@@ -12,7 +12,7 @@ const WorldBossQueueDialog = lazy(() =>
 
 type WorldBossMapEvent = NonNullable<WorldBossEventClientState["event"]>;
 
-export function WorldBossMapOverlay({
+export function WorldBossMapCalloutOverlay({
     event,
     sector,
     currentSector,

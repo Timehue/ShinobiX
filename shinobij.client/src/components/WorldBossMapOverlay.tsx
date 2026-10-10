@@ -4,10 +4,6 @@ import { fetchWorldBossEvent, type WorldBossEventClientState } from "../lib/worl
 import { visiblePoll } from "../lib/poll";
 import { worldBossDefinition } from "../../../shared/world-boss-event";
 
-const WorldBossQueueDialog = lazy(() =>
-    import("../screens/WorldBossQueueDialog").then(({ WorldBossQueueDialog }) => ({ default: WorldBossQueueDialog })),
-);
-
 type WorldBossMapEvent = NonNullable<WorldBossEventClientState["event"]>;
 
 export function useWorldBossMap(
